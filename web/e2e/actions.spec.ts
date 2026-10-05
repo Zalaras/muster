@@ -75,11 +75,11 @@ test("End from the mainhead ends only the focused session; a live neighbour is u
     // Elements): the mainhead heading now also hosts a rename trigger whose accessible
     // name is the display title, and this test's own fixture title ("end-mainhead-a")
     // contains "end" as a substring, so a non-exact match is ambiguous.
-    await mainhead.getByRole("button", { name: "End", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: "End session?" });
+    await mainhead.getByRole("button", { name: "Stop", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Stop session?" });
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText("end-mainhead-a");
-    await dialog.getByRole("button", { name: "End session" }).click();
+    await dialog.getByRole("button", { name: "Stop session" }).click();
     await expect(dialog).toBeHidden();
 
     await expect(cardA).toHaveClass(/ended/, { timeout: 15_000 });
@@ -152,13 +152,13 @@ test("Cancel and Escape close both End and Remove dialogs without sending any re
       if (/^\/api\/sessions\/\d+(\/(end|resume))?$/.test(path)) mutations++;
     });
 
-    const endDialog = page.getByRole("dialog", { name: "End session?" });
-    await mainhead.getByRole("button", { name: "End" }).click();
+    const endDialog = page.getByRole("dialog", { name: "Stop session?" });
+    await mainhead.getByRole("button", { name: "Stop" }).click();
     await expect(endDialog).toBeVisible();
     await endDialog.getByRole("button", { name: "Cancel" }).click();
     await expect(endDialog).toBeHidden();
 
-    await mainhead.getByRole("button", { name: "End" }).click();
+    await mainhead.getByRole("button", { name: "Stop" }).click();
     await expect(endDialog).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(endDialog).toBeHidden();
@@ -675,12 +675,12 @@ test("action buttons are disabled while the daemon connection is down (E14)", as
     const banner = page.getByRole("alert");
     await expect(banner).toBeVisible({ timeout: 15_000 });
 
-    await expect(mainhead.getByRole("button", { name: "End" })).toBeDisabled();
+    await expect(mainhead.getByRole("button", { name: "Stop" })).toBeDisabled();
     await expect(mainhead.getByRole("button", { name: "Resume" })).toBeDisabled();
     await expect(mainhead.getByRole("button", { name: "Remove" })).toBeDisabled();
     // REQ-7 (plan status-inconsistencies): a live card offers no End at all, so there is
     // nothing on it to disable — the mainhead's End above is the one that goes disabled.
-    await expect(card.getByRole("button", { name: "End" })).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "Stop" })).toHaveCount(0);
 
     await daemon.restart();
     await expect(banner).toBeHidden({ timeout: 15_000 });
@@ -741,7 +741,7 @@ test("action buttons are disabled while the daemon connection is down for a dead
     // Sanity: while connected, a dead focused session has Resume/Remove enabled on the
     // mainhead and Resume enabled in the cap (End stays disabled — the session just
     // isn't alive, unrelated to connection state).
-    await expect(mainhead.getByRole("button", { name: "End" })).toBeDisabled();
+    await expect(mainhead.getByRole("button", { name: "Stop" })).toBeDisabled();
     await expect(mainhead.getByRole("button", { name: "Resume" })).toBeEnabled();
     await expect(mainhead.getByRole("button", { name: "Remove" })).toBeEnabled();
     await expect(cap.getByRole("button", { name: "Resume" })).toBeEnabled();
@@ -762,7 +762,7 @@ test("action buttons are disabled while the daemon connection is down for a dead
     // This dead session's mainhead/cap have no terminal socket at all (REQ-13/INV-5),
     // so nothing incidentally re-renders them — only `setStatus`'s own `render()` call
     // can be responsible for these flipping to disabled.
-    await expect(mainhead.getByRole("button", { name: "End" })).toBeDisabled();
+    await expect(mainhead.getByRole("button", { name: "Stop" })).toBeDisabled();
     await expect(mainhead.getByRole("button", { name: "Resume" })).toBeDisabled();
     await expect(mainhead.getByRole("button", { name: "Remove" })).toBeDisabled();
     await expect(cap.getByRole("button", { name: "Resume" })).toBeDisabled();

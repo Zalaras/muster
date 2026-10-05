@@ -43,7 +43,7 @@ test("focus returns to the mainhead End button by node identity after a daemon d
     await sessionCard(page, "focus-restore-e1").click();
 
     const mainhead = page.locator("#mainhead");
-    const endBtn = mainhead.getByRole("button", { name: "End" });
+    const endBtn = mainhead.getByRole("button", { name: "Stop" });
     await endBtn.focus();
     await expect(endBtn).toBeFocused();
     // Node identity, not merely a re-resolved locator match (docs/conventions.md
@@ -79,7 +79,7 @@ test("focus returns to a tile's End button by node identity after a daemon drop 
 
     const tile = liveTile(page, "focus-restore-e2");
     await expect(tile).toBeVisible();
-    const endBtn = tile.locator(".tfoot").getByRole("button", { name: "End" });
+    const endBtn = tile.locator(".tfoot").getByRole("button", { name: "Stop" });
     await endBtn.focus();
     await expect(endBtn).toBeFocused();
     const endHandle = await endBtn.elementHandle();

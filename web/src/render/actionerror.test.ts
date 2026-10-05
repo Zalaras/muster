@@ -1,5 +1,5 @@
 // REQ-17/W2 (plan session-lifecycle): the global `#action-error` alert (index.html, right
-// after `#banner`) that surfaces a failed End/Resume/Remove from any surface — mainhead,
+// after `#banner`) that surfaces a failed Stop/Resume/Remove from any surface — mainhead,
 // rail card or tile footer. Today `features/actions.ts`'s `doEnd`/`doResume`/`doRemove`
 // (actions.ts:107-140) only `console.error` on a failed result, so nothing renders — this
 // file is red until that changes.
@@ -19,9 +19,9 @@ describe("renderActionError (REQ-17/W2)", () => {
   it("writes the envelope's message and un-hides the alert on a failed action", () => {
     const el = fakeElement();
 
-    renderActionError(el, "End failed: tmux unreachable");
+    renderActionError(el, "Stop failed: tmux unreachable");
 
-    expect(el.textContent).toBe("End failed: tmux unreachable");
+    expect(el.textContent).toBe("Stop failed: tmux unreachable");
     expect(el.hidden).toBe(false);
   });
 

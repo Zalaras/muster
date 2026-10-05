@@ -384,7 +384,7 @@ test("masthead Resume is disabled and its computed style differs from the enable
     const mainhead = page.locator("#mainhead");
     await expect(mainhead).toContainText("disabled-e13");
 
-    const endBtn = mainhead.getByRole("button", { name: "End" });
+    const endBtn = mainhead.getByRole("button", { name: "Stop" });
     const resumeBtn = mainhead.getByRole("button", { name: "Resume" });
     await expect(endBtn).toBeEnabled();
     await expect(resumeBtn).toBeDisabled();

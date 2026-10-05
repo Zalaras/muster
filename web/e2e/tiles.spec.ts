@@ -102,10 +102,10 @@ test("Tiles: End from a tile footer keeps the tile in its slot and leaves other 
     };
     const neighbourGeometryBefore = await neighbourGeometry();
 
-    await tileA.locator(".tfoot").getByRole("button", { name: "End" }).click();
-    const dialog = page.getByRole("dialog", { name: "End session?" });
+    await tileA.locator(".tfoot").getByRole("button", { name: "Stop" }).click();
+    const dialog = page.getByRole("dialog", { name: "Stop session?" });
     await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "End session" }).click();
+    await dialog.getByRole("button", { name: "Stop session" }).click();
     await expect(dialog).toBeHidden();
 
     // Sticky grid membership (m2): the tile stays in its slot, not removed.
@@ -271,8 +271,8 @@ test("a tile footer's End button survives a render tick and still opens the End 
 
     const tile = liveTile(page, "kbd-tick-tile-end");
     await expect(tile).toBeVisible();
-    const endBtn = tile.locator(".tfoot").getByRole("button", { name: "End" });
-    const dialog = page.getByRole("dialog", { name: "End session?" });
+    const endBtn = tile.locator(".tfoot").getByRole("button", { name: "Stop" });
+    const dialog = page.getByRole("dialog", { name: "Stop session?" });
 
     await endBtn.focus();
     await expect(endBtn).toBeFocused();
@@ -405,7 +405,7 @@ test("a focused tile-footer action button survives a drag-drop reorder (REQ-10, 
     const orderBefore = await tilesGridOrder(page);
     expect(orderBefore).toHaveLength(2);
 
-    const endBtnB = tileB.locator(".tfoot").getByRole("button", { name: "End" });
+    const endBtnB = tileB.locator(".tfoot").getByRole("button", { name: "Stop" });
     await endBtnB.focus();
     await expect(endBtnB).toBeFocused();
 
@@ -424,7 +424,7 @@ test("a focused tile-footer action button survives a drag-drop reorder (REQ-10, 
     // Focus survived the reorder, and the button is still operable from the keyboard.
     await expect(endBtnB).toBeFocused();
     await page.keyboard.press("Enter");
-    const dialog = page.getByRole("dialog", { name: "End session?" });
+    const dialog = page.getByRole("dialog", { name: "Stop session?" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toBeHidden();

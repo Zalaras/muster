@@ -289,7 +289,7 @@ function buildSessionCardElement(
     // `<button>`s inside it (.acts-row) whose own keydown (Enter/Space) bubbles up
     // here. Without this guard, `event.preventDefault()` below ran for every bubbled
     // keydown regardless of origin and cancelled the button's own Enter/Space
-    // activation — verified live (focused card's End button, Enter key,
+    // activation — verified live (focused card's Stop button, Enter key,
     // `endDialogOpen` stayed false and focus dropped to BODY). Only handle the key when
     // the card itself is the target, i.e. it wasn't a nested control that already owns
     // the key.

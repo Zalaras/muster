@@ -22,8 +22,8 @@
 - `diagramdialog.ts`'s backdrop-close is `event.target === dialogEl` — a `<dialog>`'s `::backdrop` isn't a real node, so an outside click targets the dialog itself; only when its children fill the whole box (no padding left uncovered).
 
 <!-- kb:trailer -->
-<!-- kb:hash 2387febce2ffad4f -->
-- **actions** — End, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
+<!-- kb:hash 670d2e1ddd8c4527 -->
+- **actions** — Stop, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`

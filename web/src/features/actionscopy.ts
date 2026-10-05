@@ -1,4 +1,4 @@
-// End/Remove confirm dialogs' body-text composition — split
+// Stop/Remove confirm dialogs' body-text composition — split
 // out of render/confirm.ts: a DOM-free decision with one controller
 // caller, features/actions.ts, lives beside it, not in `render/`. `render/confirm.ts`
 // stays the DOM half: `initConfirmDialogs`'s `openEnd`/`openRemove` take the text these
@@ -11,7 +11,7 @@ function sessionLabel(session: Session): string {
   return `${title} — ${repoLine(session)}`;
 }
 
-/** End dialog copy: names the session, says it stays as ended and can be
+/** Stop dialog copy: names the session, says it stays as ended and can be
  * resumed. */
 export function endDialogBody(session: Session): string {
   return (

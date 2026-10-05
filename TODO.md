@@ -81,14 +81,11 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   not snap focus back to that terminal. Confirm the behaviour in a plain terminal first
   (developer to check).
 
-### Together — the End action (#75, #56)
-
-- [ ] **Rename End to Stop** ([#75](https://github.com/Zalaras/muster/issues/75)) — End is easily
-  mistaken for removing the session. The action that stops Claude should read Stop.
+### Together — the Stop action (#56)
 
 - [ ] **Add right click for rail card** ([#56](https://github.com/Zalaras/muster/issues/56)) — a custom
-  right-click menu on a rail card carrying each of its actions, End among them: the card itself
-  shows no End button (plan `status-inconsistencies` removes it), so this menu is where End
+  right-click menu on a rail card carrying each of its actions, Stop among them: the card itself
+  shows no Stop button (plan `status-inconsistencies` removes it), so this menu is where Stop
   returns to the card.
 
 ### On their own

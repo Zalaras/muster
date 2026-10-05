@@ -34,7 +34,7 @@ export interface RenameEditorController {
   /** Closes the editor with no request, if open. Safe to call when not editing. */
   cancel: () => void;
   isEditing: () => boolean;
-  /** Mirrors the mainhead's End/Resume/Remove siblings: the trigger is disabled while
+  /** Mirrors the mainhead's Stop/Resume/Remove siblings: the trigger is disabled while
    * the WS is down. Safe to call whether or not the button is currently mounted. */
   setEnabled: (enabled: boolean) => void;
   /** Detaches the button's click listener — call once, before the container itself is

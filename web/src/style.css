@@ -494,7 +494,7 @@ body {
   color: var(--fg-muted);
 }
 
-/* REQ-17/W2: End/Resume/Remove failures — same banner/danger token family as `.banner`
+/* REQ-17/W2: Stop/Resume/Remove failures — same banner/danger token family as `.banner`
  * above (kb:adr/theme-danger-tokens-not-rose), never `--rose` (§3: reserved for session
  * state). Global, not scoped to one surface, since actions dispatch from the mainhead,
  * rail cards and tile footers alike. */
@@ -1567,7 +1567,7 @@ body {
  * card" — always-on changes the rail's visual density from the reference render and
  * puts a destructive action one click from every card. Dimming via `opacity` rather
  * than `display`/`visibility` keeps the row present and actionable in the DOM at all
- * times (Testable UI Elements requires End/Resume/Remove to be locatable without
+ * times (Testable UI Elements requires Stop/Resume/Remove to be locatable without
  * simulating hover — Playwright's actionability model doesn't treat `opacity: 0` as
  * hidden, confirmed by re-running the full E2E suite unchanged against this rule).
  * `:focus-within` on `.card` covers both "the card itself has focus" and "a button
@@ -2741,7 +2741,7 @@ dialog.modal h2 {
   height: 220px;
 }
 
-/* ── confirm dialogs (REQ-14, m4-reconcile) — End/Remove, modelled on the launch
+/* ── confirm dialogs (REQ-14, m4-reconcile) — Stop/Remove, modelled on the launch
  * dialog's own `dialog.modal` chrome above; `--danger` for the destructive confirm
  * button (review m4-reconcile cycle-3 Major 2, the developer's option A): a state colour may
  * only mean that state (§3), so destructive actions get their own family rather than

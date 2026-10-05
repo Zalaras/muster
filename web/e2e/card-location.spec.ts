@@ -1169,7 +1169,7 @@ async function assertFocusHeaderFits(
     }
     // Not a pixel breakpoint: a window too narrow for one row gets a second one, so the
     // header grows rather than a control leaving the screen.
-    for (const action of ["End", "Resume", "Remove"]) {
+    for (const action of ["Stop", "Resume", "Remove"]) {
       await expect(
         page.locator("#mainhead").getByRole("button", { name: action, exact: true }),
       ).toBeInViewport({ ratio: 1 });

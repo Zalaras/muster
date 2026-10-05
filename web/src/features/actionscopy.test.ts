@@ -1,4 +1,4 @@
-// REQ-14 (plan m4-reconcile)'s End/Remove confirm dialog body-text composition — pure
+// REQ-14 (plan m4-reconcile)'s Stop/Remove confirm dialog body-text composition — pure
 // (no DOM), so it's tested directly. render/confirm.ts's `initConfirmDialogs`, which only
 // ever assigns the strings these produce to `textContent`, is untestable further without
 // jsdom (docs/conventions.md defers DOM construction to Playwright) and isn't covered here.

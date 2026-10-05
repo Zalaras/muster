@@ -256,7 +256,7 @@ test("a card's Pin button keeps focus and node identity when a density button is
       (el) => (el as HTMLElement & { __e2eTag?: string }).__e2eTag === "original-pin-btn",
     );
     expect(stillTagged).toBe(true);
-    await expect(card.getByRole("button", { name: "End" })).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "Stop" })).toHaveCount(0);
   } finally {
     await cleanup();
   }

@@ -139,7 +139,7 @@ export function buildTile(
   root.dataset["sessionId"] = String(session.id);
 
   // Built once, prepended as `.acts`'s permanent first child (kb:adr/surfaces-shell-control-in-tile-footer) —
-  // `renderTileFooterActions` below never touches it, only the End/Resume/Remove/age
+  // `renderTileFooterActions` below never touches it, only the Stop/Resume/Remove/age
   // nodes that follow it, so a locator scoped through `article.tile[data-session-id]`
   // finds each control exactly once.
   const surfaceSegment = buildSurfaceSegment((kind) => onSurfaceSelect(session.id, kind));
@@ -246,13 +246,13 @@ export function renderStrip(
   reconcileCards(el, sessions, now, template, cardOptions);
 }
 
-/** The tile footer action row: a live tile gets End; a dead tile gets the "ended
+/** The tile footer action row: a live tile gets Stop; a dead tile gets the "ended
  * <age> ago" text (the geometry readout's replacement — `.geo` itself stays untouched and
  * empty, per `renderTileGeometry`'s existing frozen contract) plus Resume + Remove. Text
  * and buttons share one `<span class="acts">` ("footer gains a
  * single `.acts` span after `.marker`" — no second element was added for the age text).
  *
- * Updates the existing button(s) in place when the row's shape (live-End vs.
+ * Updates the existing button(s) in place when the row's shape (live-Stop vs.
  * dead-age+Resume+Remove) hasn't changed, rather than unconditionally rebuilding —
  * this ran via `actsEl.replaceChildren(...)` on
  * every 1s render tick regardless of whether anything changed, destroying and rebuilding
@@ -270,7 +270,7 @@ export function renderTileFooterActions(
   // `.surfseg` (built once in `buildTile`, prepended into `.acts`,
   // kb:adr/surfaces-shell-control-in-tile-footer) is a
   // permanent fixture of this row, never part of the shape checks or rebuilds below —
-  // only the children AFTER it (End, or age+Resume+Remove) are ever touched.
+  // only the children AFTER it (Stop, or age+Resume+Remove) are ever touched.
   const surfaceSegment = actsEl.querySelector<HTMLElement>(":scope > .surfseg");
   const tail = Array.from(actsEl.children).filter((el) => el !== surfaceSegment);
 
@@ -281,7 +281,7 @@ export function renderTileFooterActions(
       return;
     }
     for (const el of tail) el.remove();
-    actsEl.append(buildActionButton("End", session.id, connected, onAction));
+    actsEl.append(buildActionButton("Stop", session.id, connected, onAction));
     return;
   }
   // Leads with "✕" rather than "ended" (mockups/tiles-dead.html's `.tfoot .snap`: "✕

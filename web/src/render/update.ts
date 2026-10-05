@@ -3,7 +3,7 @@
 // body. DOM only, mirroring render/confirm.ts's shape (elements in, handlers in, a
 // controller out) for the restart confirm dialog specifically — a precedent reuse
 // (docs/conventions.md's "precedent check for cross-cutting UI concerns"): the restart
-// confirm is structurally the same "named session action confirm" concern End/Remove
+// confirm is structurally the same "named session action confirm" concern Stop/Remove
 // already solved (showModal()/close(), a body rebuilt from data, Confirm/Cancel wired to
 // one target captured at open time). `UpdateViewModel` below is this module's render
 // contract — `features/updateview.ts`'s `buildUpdateViewModel` is its one producer: that
@@ -120,7 +120,7 @@ export interface RestartConfirmController {
 }
 
 /** The restart confirm dialog (`#update-restart-dialog`) — modelled on render/confirm.ts's
- * End/Remove dialogs: showModal()/close(), body rebuilt from data at open time, Confirm
+ * Stop/Remove dialogs: showModal()/close(), body rebuilt from data at open time, Confirm
  * fires the handler after closing. */
 export function initRestartConfirm(
   elements: RestartConfirmElements,

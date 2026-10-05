@@ -12,10 +12,10 @@ export type NoteKind = "attention" | "failure" | "trust" | "no-signal" | "none";
 
 /** kb:adr/rail-live-card-offers-no-actions's card action-row contract: a live card offers
  * no action button; an ended card offers Resume then Remove, in that order — the exact
- * button label text a test locator matches. End lives on the mainhead and tile footer. */
-export type CardAction = "End" | "Resume" | "Remove";
+ * button label text a test locator matches. Stop lives on the mainhead and tile footer. */
+export type CardAction = "Stop" | "Resume" | "Remove";
 
-/** The action a card/mainhead/tile dispatches when its End/Resume/Remove/pin control
+/** The action a card/mainhead/tile dispatches when its Stop/Resume/Remove/pin control
  * fires — `features/actions.ts`'s dispatcher owns what each one actually does (open a
  * confirm dialog, or call Resume/pin directly). One vocabulary for every surface that
  * offers these controls, so a dispatcher never has to translate between a render-side

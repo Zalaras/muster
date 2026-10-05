@@ -20,8 +20,8 @@
 - One `init<Name>(app, deps)` shape: `deps` is always a named exported `<Name>Deps` interface, never typed inline; a thunk reaching a controller constructed later is named `get<Noun>`; `init` returns a handle only when a caller uses it.
 
 <!-- kb:trailer -->
-<!-- kb:hash c5a05f649e34d3b5 -->
-- **actions** — End, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
+<!-- kb:hash 062a711685867770 -->
+- **actions** — Stop, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
 - **issue** — Issue capture and GitHub issue creation from the dashboard. → `docs/features/issue/INDEX.md`

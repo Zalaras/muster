@@ -1,8 +1,8 @@
-// The End/Remove confirm dialogs (kb:adr/actions-placement-mainhead-and-card-rows) — two
+// The Stop/Remove confirm dialogs (kb:adr/actions-placement-mainhead-and-card-rows) — two
 // `<dialog>` elements modelled on features/launch.ts's `#launch-dialog` (same
 // `showModal()`/`close()` pattern, same reliance on the browser's own native
 // Escape-cancels-a-modal-dialog behaviour, which needs no code here to satisfy). DOM +
-// wiring only: the actual End/Remove HTTP calls are features/actions.ts's dispatcher's job
+// wiring only: the actual Stop/Remove HTTP calls are features/actions.ts's dispatcher's job
 // (it owns the session store and decides what happens next), which also composes each
 // dialog's body text (`features/actionscopy.ts`'s `endDialogBody`/`removeDialogBody` —
 // a DOM-free decision with one controller caller, so it lives beside it, not here) and

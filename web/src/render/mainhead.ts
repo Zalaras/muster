@@ -1,5 +1,5 @@
 // The Focus mainhead — name, meta (repo block, `↳` block while Claude is in another
-// checkout, model, `ended <age>` when dead), and the End/Resume/Remove action row above
+// checkout, model, `ended <age>` when dead), and the Stop/Resume/Remove action row above
 // the terminal slot (kb:adr/actions-placement-mainhead-and-card-rows). DOM only; every
 // displayed string comes from card.ts's `mainheadMeta` view-model so the mainhead never
 // composes a second copy of text the card already owns. Static markup (one instance in index.html, unlike the
@@ -83,7 +83,7 @@ export function fitMainheadMeta(metaEl: HTMLElement): void {
  * sessions at all) — hidden in that case. `connected`
  * gates every button while the WS is down (States: "action buttons are disabled while
  * the WS is down"), on top of each button's own enablement rule:
- * - End: enabled iff `alive`.
+ * - Stop: enabled iff `alive`.
  * - Resume: enabled iff `!alive && claudeSessionId`.
  * - Remove: never disabled by session state (only by `connected`).
  *

@@ -557,9 +557,9 @@ test("a live rail card offers no End button, and the mainhead's End opens the co
     await expect(terminalRegion(page, "focus-inv3-end-a")).toBeVisible();
 
     const mainhead = page.locator("#mainhead");
-    await mainhead.getByRole("button", { name: "End", exact: true }).click();
+    await mainhead.getByRole("button", { name: "Stop", exact: true }).click();
 
-    const dialog = page.getByRole("dialog", { name: "End session?" });
+    const dialog = page.getByRole("dialog", { name: "Stop session?" });
     await expect(dialog).toBeVisible();
     await expect(page.locator("#mainhead .name")).toHaveText("focus-inv3-end-a");
     expect(await activeElementInsideAnyTerminal(page)).toBe(false);
@@ -569,10 +569,10 @@ test("a live rail card offers no End button, and the mainhead's End opens the co
 
     // Plan status-inconsistencies REQ-7/INV-D: neither live card offers End.
     await expect(
-      railCard(page, "focus-inv3-end-b").getByRole("button", { name: "End" }),
+      railCard(page, "focus-inv3-end-b").getByRole("button", { name: "Stop" }),
     ).toHaveCount(0);
     await expect(
-      railCard(page, "focus-inv3-end-a").getByRole("button", { name: "End" }),
+      railCard(page, "focus-inv3-end-a").getByRole("button", { name: "Stop" }),
     ).toHaveCount(0);
   } finally {
     await Promise.all([dirA.cleanup(), dirB.cleanup()]);

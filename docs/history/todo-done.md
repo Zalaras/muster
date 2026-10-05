@@ -1691,6 +1691,11 @@ the mobile/responsive pass rem-ifies the pixel layer.
   with an ellipsis and show their path on hover, folder counts and changed dots stay in view, and
   outline headings and the files header's directory path wrap inside the panel.
 
+- [x] **Rename End to Stop** ([#75](https://github.com/Zalaras/muster/issues/75)) — End is easily
+  mistaken for removing the session. The action that stops Claude should read Stop.
+  ✅ done 2026-10-05 (direct fix on `main`, no pipeline): the mainhead and tile-footer button and
+  the confirm dialog read Stop; the endpoint and the `ended` state keep their names.
+
 ## Post v1
 <!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 

@@ -1,11 +1,11 @@
 // One action button (card/strip/tile-footer), shared across every surface that renders
-// an End/Resume/Remove row (kb:adr/actions-placement-mainhead-and-card-rows) — split out
+// a Stop/Resume/Remove row (kb:adr/actions-placement-mainhead-and-card-rows) — split out
 // of render/sessions.ts since it's shared by `render/sessions.ts` and `render/tiles.ts`,
 // so it belongs to neither.
 import type { CardAction, SessionAction } from "../sessions/card";
 
 const ACTION_BY_LABEL: Record<CardAction, SessionAction> = {
-  End: "end",
+  Stop: "end",
   Resume: "resume",
   Remove: "remove",
 };
@@ -27,7 +27,7 @@ export function buildActionButton(
   btn.type = "button";
   // Mockup fidelity (opt-c-both.html/tiles-dead.html): every Remove button carries the
   // same `.danger` (hover-danger) treatment from the design system's --danger token
-  // family (kb:adr/theme-danger-tokens-not-rose); End/Resume stay plain.
+  // family (kb:adr/theme-danger-tokens-not-rose); Stop/Resume stay plain.
   btn.className = label === "Remove" ? "btn sm danger" : "btn sm";
   btn.textContent = label;
   btn.dataset["action"] = action;

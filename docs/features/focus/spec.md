@@ -24,7 +24,7 @@ the repo readout (folder over branch, capped at 30ch and 44ch, kb:adr/rail-repo-
 a `↳` block while Claude works in another checkout, the model — a resumed session with no recorded
 model reads `unknown`, as any null model does (kb:adr/launch-resume-null-model-reads-unknown) —
 and ended age when dead, the
-`claude | shell` surface switch (kb:spec/surfaces) and the End, Resume and Remove action row
+`claude | shell` surface switch (kb:spec/surfaces) and the Stop, Resume and Remove action row
 (kb:adr/actions-placement-mainhead-and-card-rows). The session name and the repo readout carry hover text (the name's is its full title; the
 readout's is the launch path and branch, plus where Claude is when it has moved). A title too
 long for the row ends in an ellipsis, so the action row always stays in view. The model never

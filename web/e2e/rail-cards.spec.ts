@@ -182,8 +182,8 @@ test("the mainhead's End button activates via keyboard Enter and Space, not just
     await card.click();
     const mainhead = page.locator("#mainhead");
     await expect(mainhead).toContainText("kbd-mainhead-end");
-    const endBtn = mainhead.getByRole("button", { name: "End", exact: true });
-    const dialog = page.getByRole("dialog", { name: "End session?" });
+    const endBtn = mainhead.getByRole("button", { name: "Stop", exact: true });
+    const dialog = page.getByRole("dialog", { name: "Stop session?" });
 
     await endBtn.focus();
     await expect(endBtn).toBeFocused();
@@ -196,14 +196,14 @@ test("the mainhead's End button activates via keyboard Enter and Space, not just
     await expect(endBtn).toBeFocused();
     await page.keyboard.press("Space");
     await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "End session" }).click();
+    await dialog.getByRole("button", { name: "Stop session" }).click();
     await expect(dialog).toBeHidden();
     await expect(card).toHaveClass(/ended/, { timeout: 15_000 });
 
     const state = await getState(page, sharedDaemon());
     expect(findSession(state, session.id).alive).toBe(false);
     // INV-D: the card never offered the button the keys were pressed on.
-    await expect(card.getByRole("button", { name: "End" })).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "Stop" })).toHaveCount(0);
   } finally {
     await cleanup();
   }
@@ -233,8 +233,8 @@ test("the mainhead's End button keeps focus and node identity across a render ti
     await card.click();
     const mainhead = page.locator("#mainhead");
     await expect(mainhead).toContainText("kbd-tick-mainhead-end");
-    const endBtn = mainhead.getByRole("button", { name: "End", exact: true });
-    const dialog = page.getByRole("dialog", { name: "End session?" });
+    const endBtn = mainhead.getByRole("button", { name: "Stop", exact: true });
+    const dialog = page.getByRole("dialog", { name: "Stop session?" });
 
     await endBtn.focus();
     await expect(endBtn).toBeFocused();
@@ -256,7 +256,7 @@ test("the mainhead's End button keeps focus and node identity across a render ti
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toBeHidden();
-    await expect(card.getByRole("button", { name: "End" })).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "Stop" })).toHaveCount(0);
   } finally {
     await cleanup();
   }
@@ -441,7 +441,7 @@ test("a focused card control survives a rail re-sort triggered by a real priorit
         (el) => (el as HTMLElement & { __e2eTag?: string }).__e2eTag === "original-pin-btn",
       ),
     ).toBe(true);
-    await expect(cardB.getByRole("button", { name: "End" })).toHaveCount(0);
+    await expect(cardB.getByRole("button", { name: "Stop" })).toHaveCount(0);
   } finally {
     await Promise.all([dirA.cleanup(), dirB.cleanup()]);
   }
@@ -624,16 +624,16 @@ test("a live rail card has no End button, on hover and while current (E7, REQ-7,
     await expect(card).toBeVisible();
     const anyAction = card.getByRole("button", { name: /^(End|Resume|Remove)$/ });
 
-    await expect(card.getByRole("button", { name: "End" })).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "Stop" })).toHaveCount(0);
     await expect(anyAction).toHaveCount(0);
 
     await card.hover();
-    await expect(card.getByRole("button", { name: "End" })).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "Stop" })).toHaveCount(0);
     await expect(anyAction).toHaveCount(0);
 
     await card.click();
     await expect(currentRailCard(page).filter({ hasText: "no-end-e7" })).toHaveCount(1);
-    await expect(card.getByRole("button", { name: "End" })).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "Stop" })).toHaveCount(0);
     await expect(anyAction).toHaveCount(0);
     await expect(card.locator(".acts-row")).toBeHidden();
     await expect(card.locator(".acts-row button")).toHaveCount(0);
@@ -643,7 +643,7 @@ test("a live rail card has no End button, on hover and while current (E7, REQ-7,
       data: rawUserPromptSubmit("claude-no-end-e7"),
     });
     await expect(stateBadge(card)).toHaveText(/working/i);
-    await expect(card.getByRole("button", { name: "End" })).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "Stop" })).toHaveCount(0);
   } finally {
     await cleanup();
   }
@@ -679,16 +679,16 @@ test("a live strip card in Tiles has no End button (E8, REQ-7, INV-D)", async ({
     const strip = stripCard(page, strippedTitle);
     await expect(strip).toBeVisible();
 
-    await expect(strip.getByRole("button", { name: "End" })).toHaveCount(0);
+    await expect(strip.getByRole("button", { name: "Stop" })).toHaveCount(0);
     await strip.hover();
-    await expect(strip.getByRole("button", { name: "End" })).toHaveCount(0);
+    await expect(strip.getByRole("button", { name: "Stop" })).toHaveCount(0);
     await expect(strip.getByRole("button", { name: /^(End|Resume|Remove)$/ })).toHaveCount(0);
     await expect(strip.locator(".acts-row button")).toHaveCount(0);
     // The tile footer's End is unchanged: a live tile still offers it.
     await expect(
       liveTile(page, titles[0] ?? "")
         .locator(".tfoot")
-        .getByRole("button", { name: "End" }),
+        .getByRole("button", { name: "Stop" }),
     ).toBeVisible();
   } finally {
     await Promise.all(dirs.map((d) => d.cleanup()));
@@ -720,22 +720,22 @@ test("ending from the mainhead ends only that session, and its card then offers 
     });
     const cardA = sessionCard(page, "end-e9-a");
     const cardB = sessionCard(page, "end-e9-b");
-    await expect(cardA.getByRole("button", { name: "End" })).toHaveCount(0);
+    await expect(cardA.getByRole("button", { name: "Stop" })).toHaveCount(0);
 
     await cardA.click();
     const mainhead = page.locator("#mainhead");
     await expect(mainhead).toContainText("end-e9-a");
-    await mainhead.getByRole("button", { name: "End", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: "End session?" });
+    await mainhead.getByRole("button", { name: "Stop", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Stop session?" });
     await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "End session" }).click();
+    await dialog.getByRole("button", { name: "Stop session" }).click();
     await expect(dialog).toBeHidden();
     await expect(cardA).toHaveClass(/ended/, { timeout: 15_000 });
 
     await expect(cardA.locator(".acts-row button")).toHaveText(["Resume", "Remove"]);
     await expect(cardA.getByRole("button", { name: "Resume" })).toBeEnabled();
     await expect(cardA.getByRole("button", { name: "Remove" })).toBeEnabled();
-    await expect(cardA.getByRole("button", { name: "End" })).toHaveCount(0);
+    await expect(cardA.getByRole("button", { name: "Stop" })).toHaveCount(0);
 
     const state = await getState(page, sharedDaemon());
     expect(findSession(state, sessionA.id).alive).toBe(false);

@@ -1,4 +1,4 @@
-// End/Resume/Remove/Pin dispatcher, their confirm dialogs, and the dead-pane snapshot
+// Stop/Resume/Remove/Pin dispatcher, their confirm dialogs, and the dead-pane snapshot
 // cache (kb:adr/process-one-name-per-feature: "actions"). Every mainhead,
 // rail card, tile footer and dead-surface cap routes through `dispatch`. This module
 // carries no dead-surface API of its own — `features/focus.ts` and `features/tiles.ts`
@@ -44,7 +44,7 @@ export function initActions(app: App): ActionsHandle {
   const previousAlive = new Map<number, boolean>();
   const actionErrorEl = requireElement<HTMLElement>("#action-error");
 
-  /** The one path that touches `#action-error` — a failed End/Resume/Remove
+  /** The one path that touches `#action-error` — a failed Stop/Resume/Remove
    * writes its message, the next successful one of the three clears it. */
   function showActionError(message: string | null): void {
     renderActionError(actionErrorEl, message);
@@ -171,7 +171,7 @@ export function initActions(app: App): ActionsHandle {
   );
 
   // Any non-connected status (disconnected, daemon down) closes an open confirm dialog,
-  // so a stale End/Remove confirmation can't be actioned against a dropped connection.
+  // so a stale Stop/Remove confirmation can't be actioned against a dropped connection.
   app.on("status", () => confirmDialogs.closeAll());
 
   return {
