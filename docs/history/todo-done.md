@@ -1696,6 +1696,12 @@ the mobile/responsive pass rem-ifies the pixel layer.
   ✅ done 2026-10-05 (direct fix on `main`, no pipeline): the mainhead and tile-footer button and
   the confirm dialog read Stop; the endpoint and the `ended` state keep their names.
 
+- [x] **Dragging a file does not enable focus** ([#36](https://github.com/Zalaras/muster/issues/36)) — dropping a file on a Claude session does
+  not snap focus back to that terminal.
+  ✅ closed 2026-10-05, not a bug (no change): Terminal.app behaves the same — after a drop from
+  Finder, Finder stays the active app until the terminal is clicked. The drop already moves DOM
+  focus into the session's terminal, so one click on the browser window is all it takes.
+
 ## Post v1
 <!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 

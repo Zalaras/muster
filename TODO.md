@@ -71,15 +71,11 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   refusal moves focus to the custom-model field. A refusal should move focus only while the
   refused model is still the selection. From `plans/maintainability-regressions/`.
 
-### Together — focus lands where the developer clicks (#69, #36)
+### Focus lands where the developer clicks (#69)
 
 - [ ] **Focus click bug** ([#69](https://github.com/Zalaras/muster/issues/69)) — after typing in a
   session's terminal, clicking a rail card takes two clicks; sometimes also when only switching
   between rail cards. One click should always select a card, whatever holds focus.
-
-- [ ] **Dragging a file does not enable focus** ([#36](https://github.com/Zalaras/muster/issues/36)) — dropping a file on a Claude session does
-  not snap focus back to that terminal. Confirm the behaviour in a plain terminal first
-  (developer to check).
 
 ### Together — the Stop action (#56)
 
