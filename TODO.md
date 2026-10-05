@@ -273,18 +273,6 @@ tick a sub-item as it lands, the parent when all have.
   nav / outline panel on the right, and minimise the rail the way the docs nav already
   collapses. Each panel keeps its width across reloads.
 
-### Filed 2026-10-06 by the developer from the plans' proposed-backlog.md files
-
-- [ ] **`unknown_session` carries two message strings** — `POST /api/groups` answers an unknown
-  session id with `unknown session` while the older endpoints say `unknown session id`; one
-  string would do. From `plans/groups/`.
-- [ ] **Two terminal tests flake under the race detector** —
-  `TestHandleTerminal_SecondSocketSupersedesTheFirst` and
-  `TestHandleShellTerminal_ScrollErrorIsLoggedNotFatal` each failed once in a full
-  `make test-race`, pass alone and on re-run. From `plans/groups/`.
-- [ ] **`#rail-count` reads an empty string with zero sessions** — with no sessions the rail
-  count renders `""` rather than `0`. From `plans/groups/`.
-
 ## v1 Release
 
 The release itself: the Homebrew tap, then cutting v1.0.0 — last, once § Issues and § Pre-v1

@@ -2156,3 +2156,15 @@ since reported from real use.
 - [x] **Remove All Sessions** ([#27](https://github.com/Zalaras/muster/issues/27)) — a bulk "remove everything" action to start from a
   clean slate, plus the option to select several sessions and remove those.
   ✅ done 2026-10-05 (plan `groups`): Select mode in the rail head with a checkbox per card and header and a bar offering Move to, Ungroup, Stop…, Remove…, All and Done; Select → All → Remove… empties the rail through one daemon batch that reports done, skipped and failed (kb:adr/actions-bulk-stop-remove-are-daemon-batches).
+
+### Filed 2026-10-06 by the developer from the plans' proposed-backlog.md files ✅ done 2026-10-06 (fixed on `main` straight after `/land groups`: 7d2886ec, e911b8ab, 0bece4f2)
+
+- [x] **`unknown_session` carries two message strings** — `POST /api/groups` answers an unknown
+  session id with `unknown session` while the older endpoints say `unknown session id`; one
+  string would do. From `plans/groups/`.
+- [x] **Two terminal tests flake under the race detector** —
+  `TestHandleTerminal_SecondSocketSupersedesTheFirst` and
+  `TestHandleShellTerminal_ScrollErrorIsLoggedNotFatal` each failed once in a full
+  `make test-race`, pass alone and on re-run. From `plans/groups/`.
+- [x] **`#rail-count` reads an empty string with zero sessions** — with no sessions the rail
+  count renders `""` rather than `0`. From `plans/groups/`.
