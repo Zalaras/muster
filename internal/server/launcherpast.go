@@ -28,6 +28,15 @@ func validateResumeRequest(req createSessionRequest) *launchError {
 	return nil
 }
 
+// checkResumeRequest is launchResume's prefix before any read or write: validateResumeRequest,
+// then the group the session joins.
+func (l *sessionLauncher) checkResumeRequest(req createSessionRequest) (launchGroup, *launchError) {
+	if lerr := validateResumeRequest(req); lerr != nil {
+		return launchGroup{}, lerr
+	}
+	return l.resolveLaunchGroup(req)
+}
+
 // findPastSession looks id up among sessions — launchResume's "look the id up again"
 // step (the plan's end-to-end diagram): the same claudecode.PastSessions read GET
 // /api/past-sessions used, re-run rather than cached, so a transcript deleted between the
@@ -48,7 +57,8 @@ func findPastSession(sessions []claudecode.PastSession, id string) (claudecode.P
 // existence (the transcript lookup, 404) before already_open (409)
 // (kb:adr/launch-resume-one-alive-row-per-claude-session).
 func (l *sessionLauncher) launchResume(ctx context.Context, req createSessionRequest) (*session.Session, *launchError) {
-	if lerr := validateResumeRequest(req); lerr != nil {
+	grp, lerr := l.checkResumeRequest(req)
+	if lerr != nil {
 		return nil, lerr
 	}
 	dir := req.Directory
@@ -114,7 +124,7 @@ func (l *sessionLauncher) launchResume(ctx context.Context, req createSessionReq
 		model = *found.Model
 	}
 
-	return l.createAndSpawn(ctx, dir, argv, session.CreateParams{
+	return l.createAndSpawn(ctx, dir, argv, grp, session.CreateParams{
 		RepoID:                repo.ID,
 		Directory:             dir,
 		Branch:                branch,

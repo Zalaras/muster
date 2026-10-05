@@ -5,11 +5,38 @@
 // each hand `surfaces.select` their own `deadSurfaceRefsFor` lookup directly, since each
 // is the only one that knows what a dead surface looks like in its own view.
 import type { App } from "../app";
-import { endSession, fetchPane, pinSession, removeSession, resumeSession } from "../api/sessions";
+import {
+  endSession,
+  endSessions,
+  fetchPane,
+  pinSession,
+  removeSession,
+  removeSessions,
+  resumeSession,
+} from "../api/sessions";
 import { requireElement } from "../dom";
 import { renderActionError } from "../render/actionerror";
 import { initConfirmDialogs, type ConfirmDialogs } from "../render/confirm";
-import { endDialogBody, removeDialogBody } from "./actionscopy";
+import type { ApiResult } from "../api/http";
+import type { BatchResult } from "../protocol/batch";
+import {
+  END_CONFIRM_LABEL,
+  END_DIALOG_TITLE,
+  endDialogBody,
+  REMOVE_CONFIRM_LABEL,
+  REMOVE_DIALOG_TITLE,
+  removeDialogBody,
+} from "./actionscopy";
+import { batchPlan } from "./batchplan";
+import {
+  batchReport,
+  removeManyBody,
+  removeManyConfirm,
+  removeManyTitle,
+  stopManyBody,
+  stopManyConfirm,
+  stopManyTitle,
+} from "./groupscopy";
 import type { PaneState, SessionAction } from "../sessions/card";
 import type { Session } from "../protocol/session";
 
@@ -26,8 +53,20 @@ export async function loadPane(id: number): Promise<PaneState> {
   return { status: "missing" };
 }
 
+/** Where a batch came from: a rail selection, or one group's Stop all… (whose dialog adds that
+ * the group stays). */
+export type BatchOrigin = "selection" | "group";
+
 export interface ActionsHandle {
   dispatch(action: SessionAction, id: number): void;
+  /** The batch Stop / Remove (kb:adr/actions-bulk-stop-remove-are-daemon-batches): confirms with
+   * the count, then one daemon call covers every id; a partial result is reported in the
+   * action-error line, and the resulting upserts and removals reach the rail by their own
+   * broadcasts. */
+  dispatchMany(action: "end" | "remove", ids: readonly number[], origin: BatchOrigin): void;
+  /** The one writer of `#action-error`: another controller's failed daemon call (a group move, a
+   * rename) shows its message here, and its next success clears it. `null` clears. */
+  showError(message: string | null): void;
   /** Session-focusing shortcuts no-op while a modal `<dialog>` other than
    * the launch dialog is open. */
   isBlockingDialogOpen(): boolean;
@@ -105,6 +144,16 @@ export function initActions(app: App): ActionsHandle {
     void pinSession(id, pinned);
   }
 
+  // Whether the confirm dialog now open was opened for a batch. Written by `dispatch` and
+  // `dispatchMany` as they open it, read by the confirm handlers.
+  let confirmingBatch = false;
+
+  /** The batch's one outcome path: a failed request shows its error; an answered one shows the
+   * partial-result phrase, or clears the line when it did everything. */
+  function settleBatch(result: ApiResult<BatchResult>): void {
+    showActionError(result.ok ? batchReport(result.value) : result.error.message);
+  }
+
   function doEnd(id: number): void {
     void endSession(id).then((result) => {
       if (!result.ok) {
@@ -142,10 +191,21 @@ export function initActions(app: App): ActionsHandle {
   function dispatch(action: SessionAction, id: number): void {
     const session = app.store.values().find((s) => s.id === id);
     if (!session) return;
+    confirmingBatch = false;
     if (action === "end") {
-      confirmDialogs.openEnd(session, endDialogBody(session));
+      confirmDialogs.openEnd({
+        ids: [id],
+        title: END_DIALOG_TITLE,
+        body: endDialogBody(session),
+        confirmLabel: END_CONFIRM_LABEL,
+      });
     } else if (action === "remove") {
-      confirmDialogs.openRemove(session, removeDialogBody(session));
+      confirmDialogs.openRemove({
+        ids: [id],
+        title: REMOVE_DIALOG_TITLE,
+        body: removeDialogBody(session),
+        confirmLabel: REMOVE_CONFIRM_LABEL,
+      });
     } else if (action === "pin") {
       doPin(session.id, !session.pinned);
     } else {
@@ -153,20 +213,53 @@ export function initActions(app: App): ActionsHandle {
     }
   }
 
+  function dispatchMany(
+    action: "end" | "remove",
+    ids: readonly number[],
+    origin: BatchOrigin,
+  ): void {
+    const plan = batchPlan(action, ids, app.store.values());
+    if (plan === null) return;
+    confirmingBatch = true;
+    if (action === "end") {
+      confirmDialogs.openEnd({
+        ids: plan.ids,
+        title: stopManyTitle(plan.ids.length),
+        body: stopManyBody(origin === "group"),
+        confirmLabel: stopManyConfirm(plan.ids.length),
+      });
+      return;
+    }
+    confirmDialogs.openRemove({
+      ids: plan.ids,
+      title: removeManyTitle(plan.ids.length),
+      body: removeManyBody(plan.live),
+      confirmLabel: removeManyConfirm(plan.ids.length),
+    });
+  }
+
   const confirmDialogs: ConfirmDialogs = initConfirmDialogs(
     {
       endDialog: requireElement<HTMLDialogElement>("#end-dialog"),
+      endTitle: requireElement<HTMLElement>("#end-dialog-title"),
       endBody: requireElement<HTMLElement>("#end-dialog-body"),
       endConfirmBtn: requireElement<HTMLButtonElement>("#end-confirm-button"),
       endCancelBtn: requireElement<HTMLButtonElement>("#end-cancel-button"),
       removeDialog: requireElement<HTMLDialogElement>("#remove-dialog"),
+      removeTitle: requireElement<HTMLElement>("#remove-dialog-title"),
       removeBody: requireElement<HTMLElement>("#remove-dialog-body"),
       removeConfirmBtn: requireElement<HTMLButtonElement>("#remove-confirm-button"),
       removeCancelBtn: requireElement<HTMLButtonElement>("#remove-cancel-button"),
     },
     {
-      onConfirmEnd: doEnd,
-      onConfirmRemove: doRemove,
+      onConfirmEnd: (ids) => {
+        if (confirmingBatch) void endSessions(ids).then(settleBatch);
+        else if (ids[0] !== undefined) doEnd(ids[0]);
+      },
+      onConfirmRemove: (ids) => {
+        if (confirmingBatch) void removeSessions(ids).then(settleBatch);
+        else if (ids[0] !== undefined) doRemove(ids[0]);
+      },
     },
   );
 
@@ -176,6 +269,8 @@ export function initActions(app: App): ActionsHandle {
 
   return {
     dispatch,
+    dispatchMany,
+    showError: showActionError,
     isBlockingDialogOpen() {
       return Array.from(document.querySelectorAll<HTMLDialogElement>("dialog[open]")).some(
         (dialog) => dialog.id !== "launch-dialog",

@@ -1,10 +1,12 @@
 // Generalised drag-to-reorder wiring, shared by the Tiles grid
 // (kb:adr/tiles-drag-reorder-header-handle-insert-shift) and the rail
-// (kb:adr/rail-whole-card-drag-drop-decides-pin). DOM-only: maps pointer/DnD events to
-// session ids and calls back into the caller (features/tiles.ts for the Tiles grid,
-// features/rail.ts for the rail), which owns the reorder math (sessions/live.ts's
-// `moveTile` for the Tiles grid, sessions/railorder.ts's `moveCard` for the rail
-// respectively) — this module has no Session or store knowledge at all.
+// (kb:adr/rail-whole-card-drag-drop-decides-pin), where it is installed twice on the one
+// container: for cards (features/rail.ts) and for section headers (features/groups.ts,
+// kb:adr/rail-section-headers-drag-in-both-sort-modes). DOM-only: maps pointer/DnD events to
+// numeric ids and calls back into the caller (features/tiles.ts for the Tiles grid,
+// features/rail.ts and features/groups.ts for the rail), which owns the reorder math
+// (sessions/live.ts's `moveTile`, sessions/railorder.ts's `moveCard`, sessions/sections.ts's
+// `moveSection`) — this module has no Session or store knowledge at all.
 //
 // Delegated listeners on `container` (not per-item) so a freshly built item (a
 // promotion, a backfill, a newly-built rail card) is draggable/droppable with no extra
@@ -17,6 +19,10 @@
 // never starts a drag regardless of this module's wiring, because the browser itself
 // never fires `dragstart` for it — attention-mode rail cards rely on exactly this, not
 // on any check here.
+//
+// Two installs on one container tell their drags apart by their own `draggingId`: a drag one of
+// them did not start never sets it, so that install claims nothing of it. Both carry `DRAG_MIME`
+// (an internal reorder drag is an internal reorder drag to the drop guard and the terminal).
 //
 // `draggingId` is module-level per call (one container, one drag at a time) and doubles
 // as the "is a drag from this container in progress" flag: `dragover` only calls
@@ -49,9 +55,23 @@ export interface DragReorderOptions {
   /** Restricts `mousedown`/`dragstart` to a descendant match (e.g. ".thead") — omit to
    * let the whole item be the handle. */
   handleSelector?: string;
+  /** The `data-` key (camelCase, as `dataset` reads it) holding an item's numeric id. Defaults
+   * to `sessionId`; the rail's section headers use `sectionId`. */
+  idAttribute?: string;
   /** Called on a valid item-on-item drop with the dragged id, the drop target's id, and
    * the pre-blur focus snapshot (or null if nothing was focused). */
   onMove: (draggedId: number, targetId: number, focusedBeforeDrag: FocusedControl | null) => void;
+  /** Drop targets that are not items — a section's header or body, for a card dragged onto it.
+   * An item under the pointer wins; otherwise a drop inside a zone calls `onDropZone` with the
+   * zone's key, read from the `data-` key `zoneKeyAttribute` names (camelCase, as `dataset`
+   * reads it). All three are given or none. */
+  dropZoneSelector?: string;
+  zoneKeyAttribute?: string;
+  onDropZone?: (
+    draggedId: number,
+    zoneKey: string,
+    focusedBeforeDrag: FocusedControl | null,
+  ) => void;
 }
 
 function itemOf(target: EventTarget | null, itemSelector: string): HTMLElement | null {
@@ -59,9 +79,9 @@ function itemOf(target: EventTarget | null, itemSelector: string): HTMLElement |
   return target.closest(itemSelector);
 }
 
-function sessionIdOf(item: HTMLElement | null): number | null {
+function idOf(item: HTMLElement | null, idAttribute: string): number | null {
   if (!item) return null;
-  const raw = item.dataset["sessionId"];
+  const raw = item.dataset[idAttribute];
   if (raw === undefined) return null;
   const id = Number(raw);
   return Number.isFinite(id) ? id : null;
@@ -77,12 +97,18 @@ function isFromHandle(
 }
 
 /** Installs delegated drag-to-reorder listeners on `container`, generalising the
- * original tile-only drag wiring to also serve the rail. Safe to call exactly once per
+ * original tile-only drag wiring to also serve the rail. Safe to call once per kind of drag per
  * container element's lifetime — the container itself is never replaced, only its
  * children are reconciled. Callers: `features/tiles.ts` (the Tiles grid, handle
- * `.thead`) and `features/rail.ts` (the rail, whole card as handle). */
+ * `.thead`), `features/rail.ts` (the rail's cards, whole card as handle) and
+ * `features/groups.ts` (the rail's section headers). */
 export function installDragReorder(container: HTMLElement, options: DragReorderOptions): void {
-  const { itemSelector, handleSelector, onMove } = options;
+  const { itemSelector, handleSelector, onMove, dropZoneSelector, zoneKeyAttribute, onDropZone } =
+    options;
+  const idAttribute = options.idAttribute ?? "sessionId";
+  const sessionIdOf = (item: HTMLElement | null): number | null => idOf(item, idAttribute);
+  const zoneOf = (target: EventTarget | null): HTMLElement | null =>
+    dropZoneSelector ? itemOf(target, dropZoneSelector) : null;
   let draggingId: number | null = null;
   let dragItem: HTMLElement | null = null;
   let dropTarget: HTMLElement | null = null;
@@ -137,12 +163,14 @@ export function installDragReorder(container: HTMLElement, options: DragReorderO
 
   container.addEventListener("dragenter", (event) => {
     if (draggingId === null) return;
+    // An item under the pointer takes the highlight; failing that, the zone around it.
     const item = itemOf(event.target, itemSelector);
-    if (!item || sessionIdOf(item) === draggingId) return;
-    if (item !== dropTarget) {
+    if (item && sessionIdOf(item) === draggingId) return;
+    const target = item ?? zoneOf(event.target);
+    if (target && target !== dropTarget) {
       clearDropTarget();
-      dropTarget = item;
-      item.classList.add("drop-target");
+      dropTarget = target;
+      target.classList.add("drop-target");
     }
   });
 
@@ -164,9 +192,17 @@ export function installDragReorder(container: HTMLElement, options: DragReorderO
     event.preventDefault();
     const targetItem = itemOf(event.target, itemSelector);
     const targetId = sessionIdOf(targetItem);
+    const zoneKey =
+      targetItem || zoneKeyAttribute === undefined
+        ? undefined
+        : zoneOf(event.target)?.dataset[zoneKeyAttribute];
     const sourceId = draggingId;
     const preDragFocus = focusedBeforeDrag;
     clearDragState();
+    if (zoneKey !== undefined) {
+      onDropZone?.(sourceId, zoneKey, preDragFocus);
+      return;
+    }
     if (targetId === null || sourceId === targetId) return;
     onMove(sourceId, targetId, preDragFocus);
   });

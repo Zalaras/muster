@@ -141,7 +141,7 @@ type Server struct {
 
 // New builds a Server and wires its routes. Nothing here starts a goroutine; call Start
 // once the caller is ready to begin processing. Its length is one construction-plus-register
-// line per feature (15 features) plus the four Config overrides below whose default is
+// line per feature (16 features) plus the four Config overrides below whose default is
 // another root-built object (spawner, attach, httpClient, shellScroll) — every one of those
 // four is resolved here, in this one place, and nowhere else
 // (kb:adr/process-size-linters-warn-never-fail: the funlen warning this trips has that
@@ -204,6 +204,9 @@ func New(cfg Config) *Server {
 		InterruptChecker: cfg.InterruptChecker,
 		OnUpsert:         func(sess *session.Session) { s.hub.broadcast(sessionUpsertWire(sess)) },
 		OnRemoved:        func(id int64) { s.hub.broadcast(sessionRemovedWire(id)) },
+		OnGroups: func(groups []session.Group, ungrouped session.UngroupedLayout) {
+			s.hub.broadcast(groupsWire(groups, ungrouped))
+		},
 		// repoRefresh is assigned below, before Start can run any ingest worker that
 		// calls this.
 		OnClaudeDirChange: func() { s.repoRefresh.nudge() },
@@ -220,6 +223,7 @@ func New(cfg Config) *Server {
 	// Remove's write-log drop.
 	s.reader = register(s, newReaderFeature(s.manager, s.hub, cfg.Logger))
 	s.sessions = register(s, newSessionsFeature(s.manager, launcher, shells, terminals, s.reader, cfg.Logger))
+	register(s, newGroupsFeature(s.manager, s.sessions.teardownRemoved, cfg.Logger))
 	s.terminal = register(s, newTerminalFeature(terminals, s.manager, attach, cfg.Logger))
 	register(s, newShellFeature(shells, terminals, s.manager, attach, shellScroll, cfg.Logger))
 	s.locate = register(s, newLocateFeature(s.manager, cfg.Locator, cfg.Logger))

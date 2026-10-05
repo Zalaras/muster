@@ -2,36 +2,34 @@
 id: domain-model
 type: diagram
 status: active
-date: 2026-09-22
+date: 2026-10-05
 kind: domain
-summary: The logical model in plain terms — a Session, its Repo, Terminals, Tabs, Events, Context Usage and plan, beside Account Usage and User Settings.
+summary: The logical model in plain terms — a Session, its Group, its Repo, Terminals, Tabs, Events, Context Usage and plan, beside Account Usage and User Settings.
 features: []
 tags: []
 files: []
 tests: []
-refs: [kb:ref/data-model, kb:spec/lifecycle, kb:spec/launch, kb:spec/surfaces, kb:spec/reader, kb:spec/ingest, kb:spec/usage, kb:spec/settings, kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/surfaces-one-live-client-per-attach-target, kb:adr/launch-hybrid-mru-directory-memory]
+refs: [kb:ref/data-model, kb:spec/rail, kb:spec/lifecycle, kb:spec/launch, kb:spec/surfaces, kb:spec/reader, kb:spec/ingest, kb:spec/usage, kb:spec/settings, kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/surfaces-one-live-client-per-attach-target, kb:adr/launch-hybrid-mru-directory-memory]
 ---
-What Muster tracks and how the pieces relate, in the dashboard's words; each box names its identity and its vocabularies.
+What Muster tracks and how the pieces relate, in the dashboard's words.
 
-A **Session** is one Claude Code run that Muster launched, identified by the Terminal it
-runs in; its Claude session id is an attribute that `/clear` replaces. It is launched into a
-**Repo**, a directory remembered by path with its last launch choices; branch and
-worktree flag are re-read from the launch directory while alive; Claude's own location is display-only, and Muster never creates a worktree. Every session runs inside a **Terminal** kept
-alive by tmux, and may have a second, shell one that outlives its end; only the Claude
-terminal carries liveness and a snapshot when dead. Claude Code reports back as **Events**,
-numbered per Claude session id; hook events drive state, the status-line event refreshes
-readings and never touches state, and an event whose envelope names no session is kept
-unrouted.
+A **Session** is one Claude Code run Muster launched, identified by the Terminal it runs in;
+its Claude session id is an attribute that `/clear` replaces. It is launched into a **Repo**, a
+directory remembered by path with its last launch choices; branch and worktree flag are re-read
+while alive; Claude's own location is display-only, and Muster never creates a worktree. Every session runs in a **Terminal** kept alive by tmux, and may have a
+second, shell one that outlives its end; only the Claude terminal carries liveness and a
+snapshot when dead. Claude Code reports back as **Events**, numbered per Claude
+session id; hook events drive state, the status-line event refreshes readings and never touches
+state, and an event whose envelope names no session stays unrouted.
 **Context Usage** is the session's reading of its context window. **Account Usage** is the
-account's rate-limit readings, fed by status events from any session and Muster's poll.
-**Claude's Session Plan** is the document Claude writes in plan mode, at most one per
-session. The dashboard looks at a session through three **Tabs**; the Claude and
-Shell tabs each attach to their own Terminal, and each Terminal is live in one client at a
-time. **User Settings** are one set per install.
+account's rate-limit readings, fed by any session's status events and Muster's poll.
+**Claude's Session Plan** is the document Claude writes in plan mode, at most one. The dashboard looks at a session through three **Tabs**; the Claude and Shell tabs each
+attach to their own Terminal, live in one client at a time. **User Settings** are one set per install. A **Group** is a named, ordered, collapsible rail
+section the developer made; a Session belongs to at most one (kb:spec/rail).
 
-Rules the boxes cannot say: state comes only from events and launch actions, never
-terminal text; a dead session keeps its last state; pinned sessions precede unpinned ones.
-Tab stays because it is the word the user sees.
+Rules the boxes cannot say: state comes only from events and launch actions, never terminal
+text; a dead session keeps its last state; pinned sessions precede unpinned ones *within a
+section*. Tab stays because it is the user's word.
 
 ```mermaid
 %%{init: {"layout": "elk"}}%%
@@ -48,7 +46,13 @@ classDiagram
         branch, is_worktree
         pane snapshot when dead
         pinned, position
+        group, or none
         unread, last_prompt
+    }
+    class Group {
+        identity: id
+        name
+        position, collapsed
     }
     class Repo {
         identity: path
@@ -101,6 +105,7 @@ classDiagram
         update_check
     }
     Repo "1" --> "*" Session : is launched into by
+    Group "0..1" --> "*" Session : holds
     Session "1" *-- "1..2" Terminal : runs in
     Session "1" *-- "*" Event : receives, in sequence
     Session "1" *-- "1" ContextUsage : reports
@@ -111,5 +116,5 @@ classDiagram
     Event "*" ..> "1" AccountUsage : status events feed
 ```
 
-Not shown: the rail and tiles, which only draw the session list; the access tokens, on the
-containers diagram; the transcript, which only locates the plan.
+Not shown: the rail and tiles, which only draw the list; the access tokens (containers diagram);
+the transcript, which only locates the plan.

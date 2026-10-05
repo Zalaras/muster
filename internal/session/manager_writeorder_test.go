@@ -146,10 +146,12 @@ func TestCreateSession_ConcurrentLaunchesForDifferentDirectoriesGetDistinctRailP
 
 // TestCreateSession_AfterRailReorderStillExceedsEveryExistingRailPos proves nextRailPos
 // (a monotonic counter, seeded once and only ever incremented) can't collide with a rail
-// SetOrder/SetPinned have since rewritten: rebuild() (railorder.go) renumbers the whole
-// rail as a contiguous 0..n-1 index every time, which can only ever move existing
-// RailPos values *down* toward 0 — never past nextRailPos, which already accounted for
-// every session that exists. A new session must still land strictly after all of them.
+// SetOrder/SetPinned have since rewritten: on a rail whose railPos values are unique (the
+// only state this test builds) rebuild() (railorder.go) hands each section back the values
+// it already held, so a reorder never raises a value and no existing RailPos moves past
+// nextRailPos, which already accounted for every session that exists. (The corrupt-row
+// repair, a duplicate railPos renumbered 0..n-1, can raise a value; it is not exercised
+// here.) A new session must still land strictly after all of them.
 func TestCreateSession_AfterRailReorderStillExceedsEveryExistingRailPos(t *testing.T) {
 	st := openTestStore(t)
 	mgr := newTestManager(t, st, nil, nil)
@@ -159,7 +161,7 @@ func TestCreateSession_AfterRailReorderStillExceedsEveryExistingRailPos(t *testi
 	b := createLaunchedSession(t, mgr, st, dir)
 	c := createLaunchedSession(t, mgr, st, dir)
 
-	require.NoError(t, mgr.SetOrder(ctx, []int64{c.ID, a.ID, b.ID}, 0))
+	require.NoError(t, mgr.SetOrder(ctx, []int64{c.ID, a.ID, b.ID}, 0, nil))
 	require.NoError(t, mgr.SetPinned(ctx, a.ID, true)) // renumbers the whole rail again
 
 	var maxExisting int64 = -1
@@ -356,7 +358,7 @@ func TestPersistFailure_RailBatchRollsBackEveryQueuedWrite(t *testing.T) {
 		call func(ctx context.Context, mgr *Manager, a, b, c *Session) error
 	}{
 		{"SetOrder", func(ctx context.Context, mgr *Manager, a, b, c *Session) error {
-			return mgr.SetOrder(ctx, []int64{c.ID, b.ID, a.ID}, 0)
+			return mgr.SetOrder(ctx, []int64{c.ID, b.ID, a.ID}, 0, nil)
 		}},
 		{"SetPinned", func(ctx context.Context, mgr *Manager, _, _, c *Session) error {
 			// Pinning c (previously the last unpinned entry) also renumbers a and b

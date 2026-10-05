@@ -7,10 +7,10 @@ summary: Rail cards, attention versus manual order, pin, drag reorder, session c
 features: [rail]
 tags: [ux]
 go: [internal/server/sessions*.go, internal/session/railorder*.go]
-web: [web/src/features/rail.ts, web/src/render/sessions*.ts, web/src/render/repolines*.ts, web/src/render/actionbutton*.ts, web/src/render/dragreorder*.ts, web/src/render/keyedreorder*.ts, web/src/sessions/card*.ts, web/src/sessions/railorder*.ts, web/src/sessions/reorder*.ts, web/src/sessions/format*.ts, web/src/sessions/paths*.ts, web/src/sessions/sort*.ts, web/src/dragmime*.ts]
+web: [web/src/features/rail.ts, web/src/render/sessions*.ts, web/src/sessions/testfixtures*.ts, web/src/render/repolines*.ts, web/src/render/actionbutton*.ts, web/src/render/dragreorder*.ts, web/src/render/keyedreorder*.ts, web/src/sessions/card*.ts, web/src/sessions/railorder*.ts, web/src/sessions/reorder*.ts, web/src/sessions/format*.ts, web/src/sessions/paths*.ts, web/src/sessions/sort*.ts, web/src/dragmime*.ts]
 e2e: [web/e2e/rail-order.spec.ts, web/e2e/rail-cards.spec.ts, web/e2e/rail-unread.spec.ts, web/e2e/rail-layout.spec.ts, web/e2e/rail-activity.spec.ts, web/e2e/helpers/railorder.ts, web/e2e/helpers/railcards.ts]
 protocol: [sessions.pin, sessions.order]
-refs: [kb:adr/rail-user-owned-manual-order-default, kb:adr/rail-attention-order-your-turn-before-active, kb:adr/rail-order-daemon-owned-per-session-fields, kb:adr/rail-whole-card-drag-drop-decides-pin, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/focus-rail-click-focuses-terminal, kb:adr/usage-context-gauge-shows-tokens-and-compactions, kb:adr/drop-reorder-drag-mime-custom-type, kb:adr/rail-card-title-leads-and-density-ramp-corrected, kb:adr/rail-activity-line-turn-aware-default-with-pref, kb:adr/rail-unread-inferred-from-live-terminal-client, kb:adr/rail-unread-marker-neutral-dot, kb:adr/rail-card-title-foreground-token, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/rail-live-card-offers-no-actions, docs/design/ux-flows.md, docs/design/design-system.md]
+refs: [kb:adr/rail-user-owned-manual-order-default, kb:adr/rail-attention-order-your-turn-before-active, kb:adr/rail-order-daemon-owned-per-session-fields, kb:adr/rail-whole-card-drag-drop-decides-pin, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/focus-rail-click-focuses-terminal, kb:adr/usage-context-gauge-shows-tokens-and-compactions, kb:adr/drop-reorder-drag-mime-custom-type, kb:adr/rail-card-title-leads-and-density-ramp-corrected, kb:adr/rail-activity-line-turn-aware-default-with-pref, kb:adr/rail-unread-inferred-from-live-terminal-client, kb:adr/rail-unread-marker-neutral-dot, kb:adr/rail-card-title-foreground-token, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/rail-live-card-offers-no-actions, docs/design/ux-flows.md, docs/design/design-system.md, kb:adr/rail-pin-invariant-scoped-per-section]
 ---
 The rail is the session list in the Focus view; the Tiles strip is the same list laid on
 its side (kb:spec/tiles). Every session has a card.
@@ -23,9 +23,8 @@ line truncated at its own end (one line in compact), with a worktree marker when
 linked worktree and the directory's name alone when it is not a git checkout
 (kb:adr/rail-repo-line-wraps-at-slash), the context gauge with absolute
 tokens and the compaction counter (kb:adr/usage-context-gauge-shows-tokens-and-compactions),
-and an activity line whose text `prefs.railActivity` chooses: turn-aware by default (the
-user's prompt while a turn is open, Claude's reply once it closes), or the prompt, the
-reply, or both (kb:adr/rail-activity-line-turn-aware-default-with-pref, kb:spec/settings).
+and an activity line whose text `prefs.railActivity` chooses
+(kb:adr/rail-activity-line-turn-aware-default-with-pref, kb:spec/settings).
 While Claude works in another checkout, a `↳` block of the same shape sits under the repo block
 (kb:adr/lifecycle-card-shows-launch-directory-marks-claude-elsewhere).
 The title, the repo line and the activity line each carry their full text as a hover title. A
@@ -55,14 +54,15 @@ keyboard activation and the number chords only select
 (kb:adr/focus-rail-click-focuses-terminal). The card whose session the Focus pane shows
 carries a neutral current marker and `aria-current`; the marker means "shown in Focus", so
 the Tiles strip renders none (kb:adr/rail-current-marker-means-shown-in-focus). The rail
-head shows the sort select, the session count and the density control.
+head shows the sort select, the session count and the density control, then a second row of
+Select, a ⋯ menu and, while a group exists, the filter (kb:spec/groups).
 
 ## Order
 
 Two sort modes, chosen by a rail-head toggle persisted as `prefs.railSort`
-(kb:spec/settings). Manual, the default, is the user-owned order: a pinned block first,
+(kb:spec/settings). Manual, the default, is the user-owned order: within a section a pinned block first,
 then positional order, and no state change ever moves a card
-(kb:adr/rail-user-owned-manual-order-default). Attention sorts the unpinned group by
+(kb:adr/rail-user-owned-manual-order-default). Attention sorts a section's unpinned group by
 `needs_input` longest-blocked first, `failed` most recent first, unread `idle` longest-idle
 first, `started`, `planning`, `working`, then read `idle` longest-idle first
 (kb:adr/rail-attention-order-your-turn-before-active). Dead sessions sort last in either
@@ -76,10 +76,14 @@ state, and a pin control lifts a card into the pinned block
 `kb:anchor/sessions.order` in one atomic call; the pin control uses `kb:anchor/sessions.pin`.
 Reorder drags carry a Muster-specific MIME type so the terminal drop target and the document
 guard can tell them from dragged files (kb:adr/drop-reorder-drag-mime-custom-type). The
-invariant that every pinned session's position precedes every unpinned one's is held by
-the daemon.
+invariant that every pinned session's position precedes every unpinned one's holds within
+a section and is held by the daemon (kb:adr/rail-pin-invariant-scoped-per-section).
+
+## Groups
+
+A session belongs to at most one group. The rail draws the groups as sections in both sort modes,
+and the pin invariant holds within each; sections, select mode and the filter are kb:spec/groups.
 
 ## Does not
 
-The rail does not render a second live client, does not show cost, and does not maintain
-its own title mapping (kb:spec/rename).
+The rail does not render a second live client and does not show cost.

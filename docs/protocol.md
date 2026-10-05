@@ -78,6 +78,14 @@ sits on the line before each `##`/`###` heading, and code and docs cite a sectio
 | `POST /api/usage/refresh` | Force an immediate per-model usage fetch |
 | `PUT /api/sessions/{id}/pin` | Pin or unpin a session, renumbering `railPos` (`kb:anchor/sessions.pin`) |
 | `PUT /api/sessions/order` | Reorder the rail and set the pinned block in one atomic call (`kb:anchor/sessions.order`) |
+| `PUT /api/sessions/group` | Move sessions into a group, or out to Ungrouped (`kb:anchor/sessions.group`) |
+| `POST /api/sessions/end` | Stop several sessions in one batch (`kb:anchor/sessions.end-many`) |
+| `POST /api/sessions/remove` | Remove several sessions in one batch (`kb:anchor/sessions.remove-many`) |
+| `POST /api/groups` | Create a rail group, optionally moving sessions into it (`kb:anchor/groups.create`) |
+| `PUT /api/groups/{id}` | Rename or collapse a group; `0` is the Ungrouped section (`kb:anchor/groups.update`) |
+| `PUT /api/groups/order` | Set the section order, Ungrouped included (`kb:anchor/groups.order`) |
+| `PUT /api/groups/collapsed` | Collapse or expand every section at once (`kb:anchor/groups.collapsed`) |
+| `DELETE /api/groups/{id}` | Delete a group, choosing what happens to its sessions (`kb:anchor/groups.delete`) |
 | `GET /api/sessions/{id}/pane` | Last captured pane screen (`kb:anchor/sessions.pane`) — display source only |
 | `POST /api/sessions/{id}/resume` | `claude --resume` a dead session in a fresh pane (`kb:anchor/sessions.resume`) |
 | `POST /api/sessions/{id}/end` | Kill a live session's tmux session (`kb:anchor/sessions.end`) |
@@ -174,6 +182,25 @@ anyway — a race, or a second daemon on the socket — the spawn is retried at 
 three attempts; `launch_failed` is returned only once those are spent, and its message names the
 tmux session. Ids are therefore sparse after a failed launch or a Remove; they were always opaque
 to the UI.
+
+**Group** (kb:spec/groups, `kb:anchor/ws.groups`): either request form may carry one of
+
+```jsonc
+{ "groupId": 3,              // optional, integer | null — the group the new session joins; absent or null = No group
+  "newGroup": "Hotfix" }     // optional, 1–40 after trimming — create this group and put the session in it; exclusive with groupId
+```
+
+Checked after every `invalid_request` rule above and the model pre-check, before any side effect:
+both keys present → `400 invalid_request`
+(`{"error": {"code": "invalid_request", "message": "groupId and newGroup cannot be combined"}}`);
+`newGroup` outside its bounds → `400 invalid_request` with `kb:anchor/groups.create`'s `name`
+message; `groupId` neither an integer nor null → `400 invalid_request`
+(`groupId must be an integer or null`); unknown `groupId` → `404 unknown_group`. With `newGroup` the group row is inserted
+immediately before the session row and deleted again by the launch rollback when the spawn or
+record step fails — the response is both or neither
+(kb:adr/launch-new-group-created-with-the-row-or-not-at-all), and the `groups` broadcast precedes
+the session's upsert. The new session's `groupId` is on the `201` Session object, and its
+`railPos` puts it at the end of its section.
 
 <!-- kb:anchor models.check -->
 ### `GET /api/models`
@@ -437,10 +464,10 @@ in-flight fetch. → `202`, no body; the result arrives as a `usage` message. Er
 
 **Auth**: UI cookie (401 `unauthorized`). **Request:** `{ "pinned": true }` (`pinned`
 required, boolean). → `204`, no body. `pinned:true` moves the session to the **bottom of
-the pinned block** (pinned in order of pinning); `pinned:false` moves it to the **top of
-the unpinned block** (immediately after the last pinned session). The daemon renumbers
+its section's pinned block** (pinned in order of pinning); `pinned:false` moves it to the **top of
+its section's unpinned block** (immediately after the section's last pinned session). The daemon renumbers
 whatever `railPos` values are needed to keep `kb:anchor/ws.session`'s invariant (every pinned session's
-`railPos` below every unpinned one's; `railPos` unique). Already in the requested state →
+`railPos` below every unpinned one's within the same section; `railPos` unique). Already in the requested state →
 `204` and no broadcast. Otherwise every session whose `pinned` or `railPos` changed is
 broadcast as a `sessionUpsert` — and only those. Errors: `400 invalid_request` (body not
 JSON / `pinned` missing or not boolean), `404 unknown_session`.
@@ -452,20 +479,177 @@ JSON / `pinned` missing or not boolean), `404 unknown_session`.
 
 ```jsonc
 { "ids": [4, 9, 2, 7],   // session ids, no duplicates, each must exist; may be empty
-  "pinnedCount": 1 }      // integer in [0, len(ids)]: the first pinnedCount ids become pinned
+  "pinnedCount": 1,       // integer in [0, len(ids)]: the first pinnedCount ids become pinned
+  "groupId": 3 }          // optional, integer | null: when present every listed id also joins that section
+                          //   (null = Ungrouped) before the order is applied; absent = membership untouched
 ```
 
 → `204`, no body. The first `pinnedCount` ids become `pinned:true`, the rest
-`pinned:false`; `railPos` = index in `ids` (this is how a drag across the pin boundary
-pins/unpins in one atomic call). Sessions that exist but are not listed keep their
+`pinned:false`; within a section the listed ids take, in listed order, the `railPos` values
+that section already holds, so nothing is renumbered 0..n-1 and a gap survives
+(kb:adr/rail-pin-invariant-scoped-per-section; this is how a drag across the pin boundary
+pins/unpins in one atomic call). With `groupId` the listed ids are expected to be one
+section's cards plus the dragged one; the daemon does not check that — it applies membership,
+then the pinned prefix, then the per-section rebuild. Sessions that exist but are not listed keep their
 `pinned` flag and follow the listed ones in their existing relative `railPos` order — an
-unlisted *pinned* session is still kept inside the pinned block (end of it), renumbering
-the unpinned listed ones, so the `kb:anchor/ws.session` invariant always holds. Every session whose `pinned`
+unlisted *pinned* session is still kept inside its section's pinned block (end of it), re-slotting
+the unpinned listed ones, so the `kb:anchor/ws.session` invariant always holds. Every session whose `groupId`, `pinned`
 or `railPos` changed is broadcast as a `sessionUpsert`; none if nothing changed. Errors:
 `400 invalid_request` — body not JSON, `ids` missing / not an integer array / duplicate or
-unknown id, `pinnedCount` missing or outside `[0, len(ids)]`. Nothing changes on a 400.
+unknown id, `pinnedCount` missing or outside `[0, len(ids)]`, `groupId` neither an integer nor null
+(`groupId must be an integer or null`); `404 unknown_group` — `groupId` names no group. Nothing changes on an error.
 Route note: Go's mux prefers the literal `order` segment over `{id}`, so this coexists with
 `/api/sessions/{id}/…`.
+
+<!-- kb:anchor sessions.group -->
+### `PUT /api/sessions/group`
+
+**Auth**: UI cookie (401 `unauthorized`). **Request:**
+
+```jsonc
+{ "ids": [4, 9],       // session ids, no duplicates, each must exist, may be empty
+  "groupId": 3 }       // integer | null, required key — null moves them to Ungrouped
+```
+
+→ `204`, no body. Each listed session whose `groupId` differs takes the new value and
+`railPos = max(railPos)+1` in listed order (the end of the target section, pin flag kept); the
+per-section invariant (`kb:anchor/ws.session`) is then re-enforced; every session whose `groupId`,
+`pinned` or `railPos` changed is broadcast as a `sessionUpsert` — none when nothing changed.
+Sessions outside `ids` never change `groupId` or `pinned`; the target section's other members may
+be renumbered within it and are broadcast when they are, and sessions in other sections are untouched.
+Route note: the literal `group` segment beats `{id}`. Errors: `400 invalid_request` — body not JSON,
+`ids` missing or not an integer array, a duplicate or unknown id:
+`{"error": {"code": "invalid_request", "message": "ids must be known session ids without duplicates"}}`;
+`groupId` key missing or neither an integer nor null:
+`{"error": {"code": "invalid_request", "message": "groupId is required and must be an integer or null"}}`;
+`404 unknown_group` — `{"error": {"code": "unknown_group", "message": "unknown group"}}`. Nothing
+changes on an error.
+
+<!-- kb:anchor sessions.end-many -->
+### `POST /api/sessions/end`
+
+**Auth**: UI cookie (401 `unauthorized`). The batch form of `kb:anchor/sessions.end`.
+**Request:** `{ "ids": [4, 9] }` — a non-empty integer array, no duplicates.
+**Response 200:**
+
+```jsonc
+{ "done": [4], "skipped": [9], "failed": [] }   // session ids by outcome; always 200 whatever the mix
+```
+
+Each id is processed in listed order under its own per-session lock
+(kb:adr/actions-serialized-per-session) exactly as the single endpoint does: final pane snapshot,
+kill, `alive:false` upsert. `skipped`: unknown at its turn, or not alive. `failed`: a genuine kill
+failure (the single endpoint's `500 end_failed`). Sessions outside `ids` are never touched; the
+dashboard reports a non-empty `skipped`/`failed` in its action-error line. Route note: literal `end`
+beats `{id}`. Errors: `400 invalid_request` — body not JSON, `ids` missing, empty, not an integer
+array, or a duplicate:
+`{"error": {"code": "invalid_request", "message": "ids must be a non-empty list of session ids without duplicates"}}`.
+
+<!-- kb:anchor sessions.remove-many -->
+### `POST /api/sessions/remove`
+
+**Auth**: UI cookie (401 `unauthorized`). The batch form of `kb:anchor/sessions.remove`.
+**Request:** `{ "ids": [4, 9] }` — a non-empty integer array, no duplicates.
+**Response 200:** the same `{ "done", "skipped", "failed" }` shape as `kb:anchor/sessions.end-many`.
+
+Each id is removed in listed order under its own lock exactly as `DELETE /api/sessions/{id}` does:
+End first when alive, the idempotent kill otherwise, the row deleted, the shell killed, one
+`sessionRemoved` (`kb:anchor/ws.session-removed`) broadcast. `skipped`: unknown at its turn.
+`failed`: a genuine kill failure — the row is kept. Sessions outside `ids` are never touched.
+Route note: literal `remove` beats `{id}`. Errors: `400 invalid_request`, as `kb:anchor/sessions.end-many`.
+
+<!-- kb:anchor groups.create -->
+### `POST /api/groups`
+
+**Auth**: UI cookie (401 `unauthorized`). Groups are rail sections the developer makes
+(kb:spec/groups); the Group object and the `groups` broadcast are `kb:anchor/ws.groups`.
+**Request:**
+
+```jsonc
+{ "name": "PR reviews",      // required; 1–40 characters after trimming; a label, not an identity — duplicates allowed
+  "sessionIds": [4, 9] }     // optional; session ids to move into the new group, no duplicates, each must exist
+```
+
+**Response 201:** the Group object. The new group's `pos` is Ungrouped's current `pos` and
+Ungrouped moves one place down, so a new group always appears immediately above Ungrouped;
+every section is renumbered 0..n. Each listed session takes `groupId` = the new id and
+`railPos = max+1` in listed order (the end of the new section, pin flag kept), then the
+per-section invariant is re-enforced. Broadcast: one `groups`, **then** one `sessionUpsert` per
+changed session. Errors: `400 invalid_request` — body not JSON, `name` missing or outside 1–40
+after trimming (`{"error": {"code": "invalid_request", "message": "name must be 1-40 characters after trimming"}}`),
+`sessionIds` not an integer array or with a duplicate; `404 unknown_session` — a listed id does not
+exist, nothing is created: `{"error": {"code": "unknown_session", "message": "unknown session"}}`.
+
+<!-- kb:anchor groups.update -->
+### `PUT /api/groups/{id}`
+
+**Auth**: UI cookie (401 `unauthorized`). `{id}` is a group id, or `0` for the Ungrouped section
+(kb:adr/rail-ungrouped-is-section-zero-on-the-wire). **Request** (at least one field):
+
+```jsonc
+{ "name": "PR reviews",   // optional; 1–40 after trimming; refused for id 0
+  "collapsed": true }      // optional boolean
+```
+
+→ `204`, no body. Already in the requested state → `204` and no broadcast; otherwise one `groups`
+(`kb:anchor/ws.groups`). Errors: `400 invalid_request` — body not JSON, no known field, `name`
+outside its bounds, `collapsed` not a boolean, or `name` given for id 0
+(`{"error": {"code": "invalid_request", "message": "the Ungrouped section cannot be renamed"}}`);
+`404 unknown_group` — `{"error": {"code": "unknown_group", "message": "unknown group"}}`.
+
+<!-- kb:anchor groups.order -->
+### `PUT /api/groups/order`
+
+**Auth**: UI cookie (401 `unauthorized`). **Request:**
+
+```jsonc
+{ "order": [3, 0, 1] }   // every group id exactly once plus 0 (Ungrouped) exactly once
+```
+
+→ `204`, no body. `pos` = index in `order`. Unchanged → no broadcast; else one `groups`. Route
+note: the literal `order` segment wins over `{id}`. Errors: `400 invalid_request` — not an integer
+array, a missing, duplicate or unknown id, or 0 absent:
+`{"error": {"code": "invalid_request", "message": "order must list every group id and 0 exactly once"}}`.
+Nothing changes on a 400.
+
+<!-- kb:anchor groups.collapsed -->
+### `PUT /api/groups/collapsed`
+
+**Auth**: UI cookie (401 `unauthorized`). **Request:** `{ "collapsed": true }` (required boolean).
+→ `204`, no body. Sets every group's and Ungrouped's `collapsed` in one write (Collapse all /
+Expand all); one `groups` broadcast, none when nothing changed. Errors: `400 invalid_request` —
+`{"error": {"code": "invalid_request", "message": "collapsed is required and must be a boolean"}}`.
+
+<!-- kb:anchor groups.delete -->
+### `DELETE /api/groups/{id}`
+
+**Auth**: UI cookie (401 `unauthorized`). `{id}` ≥ 1 — the Ungrouped section cannot be deleted.
+**Request** (body optional; absent = `ungroup`):
+
+```jsonc
+{ "sessions": "ungroup",   // "ungroup" | "move" | "remove" — what happens to the members
+  "to": 5 }                // required iff sessions is "move": the target group id, ≠ {id}
+```
+
+**Response 200:**
+
+```jsonc
+{ "deleted": true,                                              // false only when a "remove" left a failed member behind
+  "sessions": { "done": [4, 9], "skipped": [], "failed": [] } }  // member ids by outcome, as kb:anchor/sessions.remove-many
+```
+
+`ungroup`: every member's `groupId` becomes null with `railPos` untouched (relative order kept;
+the per-section invariant is re-enforced for pinned members), then the group row is deleted.
+`move`: members take `groupId: to` at the end of that section (as `kb:anchor/sessions.group`), then
+the row is deleted. `remove`: each member is removed as `kb:anchor/sessions.remove-many` does; a
+member gone before its turn is `skipped`; a genuine kill failure is `failed` and that session stays
+in the group; the row is deleted iff no member remains (`deleted`). Broadcast order: member
+upserts / `sessionRemoved`s first, **then** `groups` (only when `deleted`). Errors:
+`400 invalid_request` — `{id}` is 0
+(`{"error": {"code": "invalid_request", "message": "the Ungrouped section cannot be deleted"}}`),
+`sessions` outside its enum, `to` missing with `move`, or `to` = `{id}`; `404 unknown_group` — `{id}`
+or `to` names no group, the message says which:
+`{"error": {"code": "unknown_group", "message": "unknown target group"}}`.
 
 <!-- kb:anchor issue.captures -->
 ### `POST /api/issue/captures`
@@ -968,6 +1152,8 @@ across a `musterd` upgrade.
   "prefs": { "view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual", "theme": "follow", "updateCheck": true, "railDensity": "comfortable", "railActivity": "turn" },
   "claudeTheme": { "family": "dark" },   // "light" | "dark" | "unknown" — always present
   "shellsBusy": [ 7, 12 ],               // session ids whose shell is busy (kb:anchor/ws.shell-activity); [] when none, always present
+  "groups": [ /* Group objects, kb:anchor/ws.groups — [] when none; always present; the client sorts by pos */ ],
+  "ungrouped": { "pos": 0, "collapsed": false },   // the Ungrouped section's place and collapsed state (kb:anchor/ws.groups); always present
   "update": { /* kb:anchor/ws.update — always present*/ } }
 ```
 
@@ -1044,15 +1230,24 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
   "firstLaunchHere": true,          // boolean, on every Session object — true iff the launch created this directory's repo row
   "createdAt": "2026-08-20T09:11:02Z",
   "pinned": false,                  // user pinned it into the rail's top block
-  "railPos": 12                     // integer ≥ 0, manual rail position, unique across
+  "railPos": 12,                    // integer ≥ 0, manual rail position, unique across
                                     //   all sessions (gaps allowed). INV: every pinned session's
-                                    //   railPos < every unpinned one's. New sessions get
-                                    //   max(railPos)+1, pinned:false; existing rows backfilled
-                                    //   railPos = id (opened order). Display-only — never read or
-                                    //   written by the state machine or the status path. The
-                                    //   client sorts by it (prefs.railSort); the daemon never
-                                    //   orders for display (kb:anchor/ws.snapshot unchanged). Changes arrive as
+                                    //   railPos < every unpinned one's WITHIN THE SAME SECTION
+                                    //   (same groupId); the daemon re-enforces it on every pin,
+                                    //   order, group and launch write. New sessions get
+                                    //   max(railPos)+1, pinned:false — the end of their section;
+                                    //   existing rows backfilled railPos = id (opened order).
+                                    //   Display-only — never read or written by the state machine
+                                    //   or the status path. The client sorts by it per section
+                                    //   (prefs.railSort); the daemon never orders for display
+                                    //   (kb:anchor/ws.snapshot unchanged). Changes arrive as
                                     //   ordinary sessionUpserts, one per changed session.
+  "groupId": null,                  // integer | null, required key — the rail group this session belongs to
+                                    //   (kb:anchor/ws.groups); null = the Ungrouped section. Display-only: never read by
+                                    //   the state machine or the status path; untouched by /clear, resume, reconcile,
+                                    //   rename and pin. Changed only by kb:anchor/sessions.group, kb:anchor/sessions.order
+                                    //   with groupId, kb:anchor/groups.create and kb:anchor/groups.delete, and a launch
+                                    //   naming a group (kb:anchor/sessions.create).
   "plan": { "path": "/Users/bob/.claude/plans/say-hi-golden-finch.md",  // absolute, as the transcript resolved it
             "exists": true }        // false = the path is known but no file is there (plan mode entered,
                                     //   nothing written yet; or the file was since deleted).
@@ -1267,6 +1462,38 @@ daemon (once after listen, then every `-update-check-interval`, default 24 h) ag
 with `updateCheck` false the daemon starts no check of its own, and `kb:anchor/update.check`
 still performs one on request. Where the release
 lives and how it is verified is `internal/selfupdate`'s business — not specified here.
+
+<!-- kb:anchor ws.groups -->
+### `groups`
+
+The rail's groups (kb:spec/groups, kb:adr/rail-groups-daemon-rows-whole-list-broadcast). **The Group
+object:**
+
+```jsonc
+{ "id": 3,                 // integer ≥ 1, daemon-assigned (SQLite rowid), opaque; may be reused after a delete
+  "name": "PR reviews",    // string, 1–40 characters after trimming; a label, not an identity — duplicates allowed
+  "pos": 0,                // integer ≥ 0 — the section's place among every section, Ungrouped included; unique; the client sorts by it
+  "collapsed": false }     // boolean — shared across windows, persisted
+```
+
+**The message:**
+
+```jsonc
+{ "type": "groups",
+  "groups": [ /* Group objects — order unspecified; the client sorts by pos */ ],
+  "ungrouped": { "pos": 2, "collapsed": false } }   // the Ungrouped section's place and collapsed state; always present
+```
+
+Broadcast whole on every change to any group or to the Ungrouped layout (create, rename,
+collapse, reorder, collapse-all, delete) — the `kb:anchor/ws.prefs` full-object pattern,
+loss-tolerant by construction; `snapshot.groups` / `snapshot.ungrouped` (`kb:anchor/ws.snapshot`)
+carry the same two values. Membership never travels here: a session's `groupId`
+(`kb:anchor/ws.session`) arrives on its own `sessionUpsert`. Within one request the daemon sends
+`groups` **before** the upserts that join a new group and **after** the upserts that leave a
+deleted one, so a client applying messages in order never sees a `groupId` naming an unknown
+group; a client must still render such a session in Ungrouped until the next `groups` message,
+never as an error. Group-level endpoints address the Ungrouped section as id `0`
+(kb:adr/rail-ungrouped-is-section-zero-on-the-wire); a session with no group has `groupId: null`.
 
 <!-- kb:anchor terminal.ws -->
 ## WebSocket `/ws/terminal/{id}` — the PTY bridge

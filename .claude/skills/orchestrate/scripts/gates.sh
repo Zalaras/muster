@@ -266,6 +266,7 @@ if [[ -n "$WAVE" ]]; then
   esac
   run_one features ".claude/skills/orchestrate/scripts/features-scope.sh $PLAN"   # a fix wave that moved code into another feature widens the pack
   run_one comments "python3 .claude/skills/orchestrate/scripts/comment-checks.py --gates"   # plan IDs / review labels in added production lines; the SubagentStop hook's backstop
+  run_one kb-check "make check-kb"   # a new file owned by no feature shows here, not at the full run (groups retro: four hand glob edits)
   # A wave runs every authored check except the suites a later wave owns — this is what makes
   # `make web-lint` (and any other static check the plan authored) part of every wave gate.
   # Wave 1 also leaves the full lint and web-build to wave 2 (sanctioned test-file breakage above).

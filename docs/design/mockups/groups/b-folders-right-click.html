@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en" data-theme="instrument">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Groups B — Folders + right-click</title>
+<link rel="stylesheet" href="shared.css">
+<script>
+window.V = {
+  ungroupedLabel: null, summary: "text", select: "modifier", menus: "context",
+  pinScope: "global", attention: "bubble", filter: "dropdown", create: "dialog",
+  createButton: "none", stacked: false, mainheadGroup: false,
+};
+</script>
+<script src="shared.js" defer></script>
+</head>
+<body>
+<div class="mock">
+  <div>
+    <h1>B · Folders + right-click <span>ALTERNATIVE</span></h1>
+    <p class="lede">Groups are folders that always sit <b>above</b> the loose cards; the loose cards have no header
+      — they are just "the rail", as today. No select mode: <kbd>⌘</kbd>-click and <kbd>⇧</kbd>-click select
+      like Finder, and <b>right-click</b> on a card (or a selection) is the only menu — Pin, Move to ▸, Remove
+      from group, Stop, Remove — which is the custom context menu #56 asks for anyway. Right-click a folder for
+      its actions; right-click empty rail space for New group. Summary is text (<i>2 working · 1 needs input</i>).
+      Pinned cards form one global block at the top, carrying a group chip. Attention sort <b>bubbles</b> the
+      most urgent folder to the top. Filter is a dropdown that can also isolate a single group.</p>
+  </div>
+  <p class="try"><b>Try:</b> right-click <i>Review PR #209</i> → Move to ▸ · <kbd>⌘</kbd>-click three cards,
+    then right-click one → New group… · right-click a folder header → Stop all… · right-click the blank area
+    under the cards → New group… · pin a grouped card and see it lift into the top block ·
+    <b>sort: attention</b> (Validation bubbles above PR reviews) · <b>show: PR reviews</b>.</p>
+  <div class="switch">theme <button class="on" data-theme-pick="instrument">instrument</button><button data-theme-pick="light">light</button></div>
+</div>
+<div class="app">
+  <div class="masthead">
+    <div class="brand">muster</div>
+    <div class="seg"><button class="seg-btn" aria-pressed="true">Focus</button><button class="seg-btn">Tiles</button></div>
+    <div class="right"><span class="gauge">5h <i><b style="width:38%"></b></i> 38%</span><span class="gauge">7d <i><b style="width:61%"></b></i> 61%</span><span>opus 4.1</span><button class="btn key">New session</button></div>
+  </div>
+  <div class="body">
+    <aside class="rail" id="rail">
+      <div class="railhead" id="railhead"></div>
+      <div class="cards" id="cards"></div>
+      <div class="selbar floating" id="selbar" hidden></div>
+    </aside>
+    <main class="main">
+      <div class="mainhead">
+        <span class="name" id="mh-name"></span>
+        <span class="meta" id="mh-meta"></span>
+        <button class="ingroup" id="mh-group" hidden></button>
+        <div class="acts"><button class="btn" id="mh-stop">Stop</button><button class="btn" id="mh-remove">Remove</button></div>
+      </div>
+      <div class="term"><span class="dim">❯</span> write the three rail-group mockups, then the interview
+
+<span class="dim">⏺</span> Building shared.css, shared.js and three pages under docs/design/mockups/groups/…
+<span class="dim">⏺</span> Write(docs/design/mockups/groups/shared.css)
+<span class="dim">  ⎿</span>  Wrote 212 lines
+
+<span class="dim">(live terminal — the rail on the left is the mockup)</span></div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

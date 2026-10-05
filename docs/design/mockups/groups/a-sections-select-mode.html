@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en" data-theme="instrument">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Groups A — Sections + Select mode</title>
+<link rel="stylesheet" href="shared.css">
+<script>
+// Refinement round (2026-10-05): four axes are switchable from the mock bar; the URL carries them.
+const q = new URLSearchParams(location.search);
+const pick = (k, d) => q.get(k) ?? d;
+window.V = {
+  ungroupedLabel: "Ungrouped", summary: pick("summary", "dots"), select: "mode", menus: "kebab",
+  pinScope: "section", attention: "within", filter: "segmented", create: "inline",
+  createButton: pick("create", "menu"), sortLabel: pick("sort", "none"), summaryHover: pick("hover", "popover"),
+  stacked: false, mainheadGroup: ({ none: false, meta: "meta", chip: "chip" })[pick("mainhead", "chip")],
+  initialGroups: Number(pick("groups", "2")), loneUngrouped: pick("lone", "hidden"),
+};
+window.REFINE = [
+  ["sort", "sort label", ["none", "outside", "inside"]],
+  ["create", "new group", ["menu", "icon", "split", "text", "none"]],
+  ["groups", "groups", ["2", "1", "0"]],
+  ["lone", "lone Ungrouped", ["hidden", "shown"]],
+  ["mainhead", "group in Focus head", ["chip", "meta", "none"]],
+  ["summary", "summary", ["dots", "glyphs", "chips", "ticks", "nums", "bar", "text"]],
+  ["hover", "hover", ["popover", "title"]],
+];
+document.addEventListener("DOMContentLoaded", () => {
+  const host = document.querySelector(".axes");
+  for (const [k, label, opts] of REFINE) {
+    const sel = document.createElement("select");
+    for (const o of opts) { const op = document.createElement("option"); op.value = o; op.textContent = o; if (o === pick(k, opts[0])) op.selected = true; sel.append(op); }
+    sel.addEventListener("change", () => { q.set(k, sel.value); location.search = q.toString(); });
+    const l = document.createElement("label"); l.append(label, sel); host.append(l);
+  }
+});
+</script>
+<script src="shared.js" defer></script>
+</head>
+<body>
+<div class="mock">
+  <div>
+    <h1>A · Sections + Select mode <span>CHOSEN · LOCKED 2026-10-05</span></h1>
+    <p class="lede">Groups are collapsible sections of the rail; ungrouped sessions are one more section
+      (<b>Ungrouped</b>), so "everything else" has the same header, summary, collapse and Stop-all as a real
+      group. A <b>Select</b> toggle in the rail head turns on checkboxes and a bottom action bar for bulk moves,
+      stops and removes (this is #27's bulk remove too). Each header's <b>⋯</b> carries Rename, Collapse,
+      Select all, Stop all, Ungroup, Delete. Drag still does everything a single card needs: onto a header,
+      between cards, or a whole section by its header. Summary = count + a dot-and-number per state.
+      Attention sort keeps the section order and sorts the cards inside each one.
+      <b>Locked:</b> no sort label; New group in the rail's ⋯ menu (with Select, Collapse all, Expand all); dot summary with
+      the hover popover; no Ungrouped header until a group exists; the group control in the Focus header, dropped first on
+      a narrow pane (title keeps a 22ch floor, repo / branch never truncate). Dropdowns below still swap each for comparison.</p>
+    <div class="axes" style="margin-top:8px"></div>
+  </div>
+  <p class="try"><b>Try:</b> click <b>+</b> (or ⌥⌘G) and type a name · drag <i>compost schema</i> onto PR REVIEWS
+    · click <b>Select</b>, tick a few, <b>Move to ▾</b> · header <b>⋯</b> → Delete group… · double-click a group
+    name · click a header to collapse · <b>sort: attention</b> · the <b>All · Groups · Ungrouped</b> filter ·
+    set <b>groups: 0</b> to see the rail with no groups · <b>group in Focus head</b> none / meta / chip.</p>
+  <div class="switch">theme <button class="on" data-theme-pick="instrument">instrument</button><button data-theme-pick="light">light</button></div>
+</div>
+<div class="app">
+  <div class="masthead">
+    <div class="brand">muster</div>
+    <div class="seg"><button class="seg-btn" aria-pressed="true">Focus</button><button class="seg-btn">Tiles</button></div>
+    <button class="btn newsess" title="⌥⌘N">New session</button>
+    <div class="right"><span class="gauge">5h <i><b style="width:38%"></b></i> 38%</span><span class="gauge">7d <i><b style="width:61%"></b></i> 61%</span><span>opus 4.1</span></div>
+  </div>
+  <div class="body">
+    <aside class="rail" id="rail">
+      <div class="railhead" id="railhead"></div>
+      <div class="cards" id="cards"></div>
+      <div class="selbar" id="selbar" hidden></div>
+    </aside>
+    <main class="main">
+      <div class="mainhead">
+        <span class="name" id="mh-name"></span>
+        <button class="ingroup" id="mh-group" title="Group — click to move"></button>
+        <button class="crumb" id="mh-crumb" hidden title="Group — click to move"></button>
+        <span class="meta" id="mh-meta"></span>
+        <div class="acts"><button class="btn" id="mh-stop">Stop</button><button class="btn" id="mh-remove">Remove</button></div>
+      </div>
+      <div class="term"><span class="dim">❯</span> write the three rail-group mockups, then the interview
+
+<span class="dim">⏺</span> Building shared.css, shared.js and three pages under docs/design/mockups/groups/…
+<span class="dim">⏺</span> Write(docs/design/mockups/groups/shared.css)
+<span class="dim">  ⎿</span>  Wrote 212 lines
+
+<span class="dim">(live terminal — the rail on the left is the mockup)</span></div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

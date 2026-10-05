@@ -2,7 +2,7 @@
 // the protocol/ concept modules, each owning one wire concept's type and parser;
 // `decode.ts` holds the primitives every one of them shares.
 
-import { asNumber, isRecord, parseNullable } from "./decode";
+import { asInteger, asNumber, isRecord, parseNullable } from "./decode";
 
 export const SESSION_STATES = [
   "started",
@@ -154,6 +154,12 @@ export interface Session {
   // Display-only — never logged (kb:adr/rail-activity-line-turn-aware-default-with-pref).
   // Same "ship together" reasoning as `unread` above.
   lastPrompt: string | null;
+  // kb:anchor/ws.session: the rail group this session belongs to (kb:anchor/ws.groups);
+  // `null` is the Ungrouped section. Required on every wire Session, same "daemon and client
+  // shipped it together" reasoning as pinned/railPos above. A value naming no known group is
+  // tolerated — the rail renders that card in Ungrouped until the next `groups` message
+  // (sessions/sections.ts).
+  groupId: number | null;
 }
 
 function isSessionState(value: unknown): value is SessionState {
@@ -284,6 +290,7 @@ export function parseSession(value: unknown): Session | null {
   const rawPlan = value["plan"];
   const unread = value["unread"];
   const lastPrompt = value["lastPrompt"];
+  const groupId = value["groupId"];
 
   if (typeof id !== "number") return null;
   if (title !== null && typeof title !== "string") return null;
@@ -336,6 +343,8 @@ export function parseSession(value: unknown): Session | null {
 
   if (typeof unread !== "boolean") return null;
   if (lastPrompt !== null && typeof lastPrompt !== "string") return null;
+  const parsedGroupId = parseNullable(groupId, asInteger);
+  if (parsedGroupId === undefined) return null;
 
   return {
     id,
@@ -364,5 +373,6 @@ export function parseSession(value: unknown): Session | null {
     plan,
     unread,
     lastPrompt,
+    groupId: parsedGroupId,
   };
 }

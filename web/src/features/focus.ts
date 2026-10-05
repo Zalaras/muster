@@ -27,6 +27,13 @@ import type { TerminalSurface } from "../terminal/pane";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import type { Session } from "../protocol/session";
 import { orderRail, pickNeediest } from "../sessions/sort";
+import {
+  defaultFocusId,
+  groupLabel,
+  visibleCards,
+  type RailFilter,
+  type Section,
+} from "../sessions/sections";
 
 export interface FocusDeps {
   actions: {
@@ -51,6 +58,15 @@ export interface FocusDeps {
    * value — this module attaches its own mainhead editor with it directly, the same way
    * `render/tiles.ts`'s `buildTile` attaches each tile's editor with `renameHandlers`. */
   renameHandlers: RenameEditorHandlers;
+  /** `groups` is constructed before `focus` (main.ts's init order), so this is a real value:
+   * the rail's sections and filter decide which cards ⌥⌘1–9 and the default focus see, and the
+   * header's group control opens its Move to menu. */
+  groups: {
+    sections(sessions: readonly Session[]): Section[];
+    filter(): RailFilter;
+    reveal(sessionId: number, expand: boolean): void;
+    openMoveMenu(opener: HTMLElement, session: Session): void;
+  };
 }
 
 export interface FocusHandle {
@@ -58,7 +74,8 @@ export interface FocusHandle {
    * dead-surface lookup, passed directly to `surfaces.select` for a spawn-failure notice
    * (`features/actions.ts`'s header states why this lives here, not there). */
   deadSurfaceRefsFor(id: number): DeadSurfaceRefs | null;
-  /** ⌥⌘1–9: focus (or, in Tiles, promote) session n of the rail's own order. */
+  /** ⌥⌘1–9: focus (or, in Tiles, promote) card n as displayed — a collapsed or filtered-out
+   * rail card is skipped. */
   nth(n: number): void;
   /** ⌥⌘0: jump to the single highest-attention live session. */
   neediest(): void;
@@ -97,6 +114,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     resumeBtn: requireElement<HTMLButtonElement>('#mainhead button[data-action="resume"]'),
     removeBtn: requireElement<HTMLButtonElement>('#mainhead button[data-action="remove"]'),
     renameBtn: requireElement<HTMLButtonElement>("#mainhead button.rename"),
+    groupBtn: requireElement<HTMLButtonElement>("#mainhead .ingroup"),
     surfaceSegment: mainheadSurfaceSegment,
   };
 
@@ -133,6 +151,10 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
   mainheadElements.removeBtn.addEventListener("click", () => {
     if (app.state.focusedId !== null) deps.actions.dispatch("remove", app.state.focusedId);
   });
+  mainheadElements.groupBtn.addEventListener("click", () => {
+    const session = app.store.values().find((s) => s.id === app.state.focusedId);
+    if (session) deps.groups.openMoveMenu(mainheadElements.groupBtn, session);
+  });
   // The Focus dead surface's own cap carries a Resume button too.
   deadSurfaceRefs.resumeBtn.addEventListener("click", () => {
     if (app.state.focusedId !== null) deps.actions.dispatch("resume", app.state.focusedId);
@@ -142,6 +164,8 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
    * on `FocusHandle` above. */
   function bringForward(session: Session): void {
     if (app.state.view === "focus") {
+      // A session about to be focused is never left in a filtered-out section.
+      deps.groups.reveal(session.id, false);
       app.focus(session.id);
       app.render();
     } else {
@@ -149,23 +173,35 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     }
   }
 
+  /** The cards as displayed, which is what the chords count: in Focus the rail's visible cards
+   * (a collapsed or filtered-out card is skipped), in Tiles the flat order the strip shows. */
+  function displayedOrder(sessions: readonly Session[]): Session[] {
+    if (app.state.view !== "focus") return orderRail(sessions, app.state.railSort);
+    return visibleCards(deps.groups.sections(sessions), deps.groups.filter());
+  }
+
   function nth(n: number): void {
-    const session = orderRail(app.store.values(), app.state.railSort)[n - 1];
+    const session = displayedOrder(app.store.values())[n - 1];
     if (session) bringForward(session);
   }
 
   function neediest(): void {
     const session = pickNeediest(app.store.values());
-    if (session) bringForward(session);
+    if (!session) return;
+    // ⌥⌘0 ignores groups: it lands in whatever section the session is in, unfolding it.
+    if (app.state.view === "focus") deps.groups.reveal(session.id, true);
+    bringForward(session);
   }
 
   // Render phase 6 (main.ts's numbered render-phase order): default `focusedId` to the
-  // top of the rail's own order when unset/vanished. Only fires in Focus — Tiles' own
+  // first displayed card of the rail when unset/vanished. Only fires in Focus — Tiles' own
   // membership phase (5) owns `tilesLive` instead.
   app.onRender((frame) => {
     if (app.state.view !== "focus") return;
     if (app.state.focusedId === null || !frame.sessions.some((s) => s.id === app.state.focusedId)) {
-      app.focus(orderRail(frame.sessions, app.state.railSort)[0]?.id ?? null);
+      const id = defaultFocusId(deps.groups.sections(frame.sessions), deps.groups.filter());
+      if (id !== null) deps.groups.reveal(id, false);
+      app.focus(id);
     }
   });
 
@@ -221,6 +257,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
       surfaceState,
       activity,
       mainheadRename.isEditing(),
+      session ? groupLabel(session, app.state.groups) : "",
     );
 
     if (!session) {

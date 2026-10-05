@@ -210,3 +210,165 @@ describe("installDragReorder — pre-blur focus snapshot passthrough (Fix Attemp
     expect(onMove).toHaveBeenCalledExactlyOnceWith(2, 1, null);
   });
 });
+
+describe("installDragReorder — drop zones named by zoneKeyAttribute (the rail's sections)", () => {
+  let savedElement: unknown;
+
+  beforeEach(() => {
+    savedElement = (globalThis as { Element?: unknown }).Element;
+    (globalThis as { Element: unknown }).Element = FakeElement;
+    captureFocusedControl.mockReset();
+  });
+
+  afterEach(() => {
+    (globalThis as { Element: unknown }).Element = savedElement;
+  });
+
+  /** A rail section (the zone, keyed by `data-group-id`) holding cards; `header` is a zone
+   * descendant that is not a card. */
+  function makeSection(
+    groupId: string | null,
+    cardIds: number[],
+  ): { zone: FakeElement; header: FakeElement; cards: FakeElement[] } {
+    const zone = new FakeElement(["section.rail-section"]);
+    if (groupId !== null) zone.dataset["groupId"] = groupId;
+    const header = new FakeElement([".sec-head"]);
+    header.parent = zone;
+    const cards = cardIds.map((id) => {
+      const card = new FakeElement(["article.card"]);
+      card.dataset["sessionId"] = String(id);
+      card.parent = zone;
+      return card;
+    });
+    return { zone, header, cards };
+  }
+
+  function installRail(
+    grid: FakeGrid,
+    onMove: (draggedId: number, targetId: number, focus: FocusedControl | null) => void,
+    onDropZone: (draggedId: number, zoneKey: string, focus: FocusedControl | null) => void,
+    zoneKeyAttribute: string | undefined,
+  ): void {
+    installDragReorder(grid as unknown as HTMLElement, {
+      itemSelector: "article.card",
+      onMove,
+      dropZoneSelector: "section.rail-section",
+      ...(zoneKeyAttribute === undefined ? {} : { zoneKeyAttribute }),
+      onDropZone,
+    });
+  }
+
+  const startDrag = (grid: FakeGrid, card: FakeElement): void => {
+    grid.dispatch("dragstart", { target: card, dataTransfer: fakeDataTransfer() });
+  };
+  const drop = (grid: FakeGrid, target: FakeElement): void => {
+    grid.dispatch("drop", { target, preventDefault: vi.fn() });
+  };
+
+  it("a drop on a zone's non-card area reports the key read from the named data attribute", () => {
+    const grid = new FakeGrid();
+    const onMove = vi.fn();
+    const onDropZone = vi.fn();
+    installRail(grid, onMove, onDropZone, "groupId");
+    const from = makeSection("3", [1]);
+    const to = makeSection("5", [2]);
+    captureFocusedControl.mockReturnValueOnce(SNAPSHOT);
+
+    grid.dispatch("mousedown", { target: from.cards[0] });
+    startDrag(grid, from.cards[0] as FakeElement);
+    drop(grid, to.header);
+
+    expect(onDropZone).toHaveBeenCalledExactlyOnceWith(1, "5", SNAPSHOT);
+    expect(onMove).not.toHaveBeenCalled();
+  });
+
+  it("a card under the pointer wins over the zone around it: the drop is a card move", () => {
+    const grid = new FakeGrid();
+    const onMove = vi.fn();
+    const onDropZone = vi.fn();
+    installRail(grid, onMove, onDropZone, "groupId");
+    const from = makeSection("3", [1]);
+    const to = makeSection("5", [2]);
+
+    startDrag(grid, from.cards[0] as FakeElement);
+    drop(grid, to.cards[0] as FakeElement);
+
+    expect(onMove).toHaveBeenCalledExactlyOnceWith(1, 2, null);
+    expect(onDropZone).not.toHaveBeenCalled();
+  });
+
+  it("the key is the named attribute's value, so a differently named key reads its own", () => {
+    const grid = new FakeGrid();
+    const onDropZone = vi.fn();
+    installRail(grid, vi.fn(), onDropZone, "sectionKey");
+    const from = makeSection("3", [1]);
+    const to = makeSection("5", []);
+    to.zone.dataset["sectionKey"] = "ungrouped";
+
+    startDrag(grid, from.cards[0] as FakeElement);
+    drop(grid, to.header);
+
+    expect(onDropZone).toHaveBeenCalledExactlyOnceWith(1, "ungrouped", null);
+  });
+
+  it("a zone without the named attribute is no drop target: nothing moves", () => {
+    const grid = new FakeGrid();
+    const onMove = vi.fn();
+    const onDropZone = vi.fn();
+    installRail(grid, onMove, onDropZone, "groupId");
+    const from = makeSection("3", [1]);
+    const keyless = makeSection(null, []);
+
+    startDrag(grid, from.cards[0] as FakeElement);
+    drop(grid, keyless.header);
+
+    expect(onDropZone).not.toHaveBeenCalled();
+    expect(onMove).not.toHaveBeenCalled();
+  });
+
+  it("with no zoneKeyAttribute a drop in a zone is ignored, there being no default key", () => {
+    const grid = new FakeGrid();
+    const onMove = vi.fn();
+    const onDropZone = vi.fn();
+    installRail(grid, onMove, onDropZone, undefined);
+    const from = makeSection("3", [1]);
+    const to = makeSection("5", []);
+
+    startDrag(grid, from.cards[0] as FakeElement);
+    drop(grid, to.header);
+
+    expect(onDropZone).not.toHaveBeenCalled();
+    expect(onMove).not.toHaveBeenCalled();
+  });
+
+  it("entering a zone highlights it, and the highlight moves with the pointer", () => {
+    const grid = new FakeGrid();
+    installRail(grid, vi.fn(), vi.fn(), "groupId");
+    const from = makeSection("3", [1]);
+    const to = makeSection("5", []);
+
+    startDrag(grid, from.cards[0] as FakeElement);
+    grid.dispatch("dragenter", { target: to.header });
+    expect(to.zone.classList.contains("drop-target")).toBe(true);
+
+    grid.dispatch("dragenter", { target: from.header });
+    expect(to.zone.classList.contains("drop-target")).toBe(false);
+    expect(from.zone.classList.contains("drop-target")).toBe(true);
+  });
+
+  it("a drop clears the zone highlight and the drag, so the next drop needs a new dragstart", () => {
+    const grid = new FakeGrid();
+    const onDropZone = vi.fn();
+    installRail(grid, vi.fn(), onDropZone, "groupId");
+    const from = makeSection("3", [1]);
+    const to = makeSection("5", []);
+
+    startDrag(grid, from.cards[0] as FakeElement);
+    grid.dispatch("dragenter", { target: to.header });
+    drop(grid, to.header);
+    expect(to.zone.classList.contains("drop-target")).toBe(false);
+
+    drop(grid, to.header);
+    expect(onDropZone).toHaveBeenCalledTimes(1);
+  });
+});

@@ -34,6 +34,8 @@ const validSnapshot = {
     railActivity: "turn",
   },
   claudeTheme: { family: "unknown" },
+  groups: [],
+  ungrouped: { pos: 0, collapsed: false },
   update: validUpdateInfo,
 };
 describe("parseSnapshot — update (plan auto-update kb:anchor/ws.snapshot / kb:anchor/ws.update, W6, edge case 32)", () => {

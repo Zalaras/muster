@@ -221,7 +221,8 @@ that a task is complete.
 rail's **attention** sort mode. The default mode is **manual**: sessions sit in the order they
 were opened, drag-to-reorder by card, a pin control lifts a session into a pinned block at the
 top, and no state change ever moves a card. The mode is a rail-head toggle persisted as
-`prefs.railSort`; the Tiles strip follows the same order.
+`prefs.railSort`; the Tiles strip follows the same order. *Amended 2026-10-05 (plan `groups`)*:
+sections keep their place in both modes; cards sort inside them, with a pinned block per section.
 
 | State | Source | Rail treatment |
 |---|---|---|

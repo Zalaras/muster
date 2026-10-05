@@ -373,7 +373,7 @@ func indexByID(entries []railEntry) map[int64]railEntry {
 func TestApplyOrder_NegativePinnedCountReturnsErrInvalidOrder(t *testing.T) {
 	sessions := []railEntry{{ID: 1, Pinned: false, RailPos: 0}}
 
-	_, err := applyOrder(sessions, []int64{1}, -1)
+	_, err := applyOrder(sessions, []int64{1}, -1, nil)
 
 	assert.ErrorIs(t, err, ErrInvalidOrder)
 }
@@ -381,9 +381,50 @@ func TestApplyOrder_NegativePinnedCountReturnsErrInvalidOrder(t *testing.T) {
 func TestApplyOrder_PinnedCountAboveLenIDsReturnsErrInvalidOrder(t *testing.T) {
 	sessions := []railEntry{{ID: 1, Pinned: false, RailPos: 0}}
 
-	_, err := applyOrder(sessions, []int64{1}, 2)
+	_, err := applyOrder(sessions, []int64{1}, 2, nil)
 
 	assert.ErrorIs(t, err, ErrInvalidOrder)
+}
+
+// TestHasRepeat is the one duplicate check the batch lists and rebuild's railPos check share.
+func TestHasRepeat(t *testing.T) {
+	tests := []struct {
+		name   string
+		values []int64
+		want   bool
+	}{
+		{"nil", nil, false},
+		{"one value", []int64{4}, false},
+		{"distinct values", []int64{3, 1, 2}, false},
+		{"an adjacent pair", []int64{7, 7}, true},
+		{"a separated pair", []int64{1, 2, 1}, true},
+		{"the repeat is last", []int64{5, 6, 7, 5}, true},
+		{"zero repeated", []int64{0, 1, 0}, true},
+		{"negative values", []int64{-1, -2, -1}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, hasRepeat(tt.values))
+		})
+	}
+}
+
+func TestHasDuplicateRailPos(t *testing.T) {
+	tests := []struct {
+		name    string
+		entries []railEntry
+		want    bool
+	}{
+		{"none", nil, false},
+		{"distinct railPos, ids irrelevant", []railEntry{{ID: 1, RailPos: 0}, {ID: 1, RailPos: 1}}, false},
+		{"a shared railPos", []railEntry{{ID: 1, RailPos: 2}, {ID: 2, RailPos: 2}}, true},
+		{"a shared railPos across sections", []railEntry{{ID: 1, RailPos: 0, GroupID: 3}, {ID: 2, RailPos: 0}}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, hasDuplicateRailPos(tt.entries))
+		})
+	}
 }
 
 func TestApplyOrder_DuplicateIDReturnsErrInvalidOrder(t *testing.T) {
@@ -392,7 +433,7 @@ func TestApplyOrder_DuplicateIDReturnsErrInvalidOrder(t *testing.T) {
 		{ID: 2, Pinned: false, RailPos: 1},
 	}
 
-	_, err := applyOrder(sessions, []int64{1, 2, 1}, 0)
+	_, err := applyOrder(sessions, []int64{1, 2, 1}, 0, nil)
 
 	assert.ErrorIs(t, err, ErrInvalidOrder)
 }
@@ -400,7 +441,7 @@ func TestApplyOrder_DuplicateIDReturnsErrInvalidOrder(t *testing.T) {
 func TestApplyOrder_UnknownIDReturnsErrInvalidOrder(t *testing.T) {
 	sessions := []railEntry{{ID: 1, Pinned: false, RailPos: 0}}
 
-	_, err := applyOrder(sessions, []int64{1, 999}, 0)
+	_, err := applyOrder(sessions, []int64{1, 999}, 0, nil)
 
 	assert.ErrorIs(t, err, ErrInvalidOrder)
 }
@@ -411,7 +452,7 @@ func TestApplyOrder_UnknownIDReturnsErrInvalidOrder(t *testing.T) {
 func TestApplyOrder_InvalidRequestChangesNothing(t *testing.T) {
 	sessions := []railEntry{{ID: 1, Pinned: false, RailPos: 0}}
 
-	changed, err := applyOrder(sessions, []int64{1, 999}, 0)
+	changed, err := applyOrder(sessions, []int64{1, 999}, 0, nil)
 
 	require.Error(t, err)
 	assert.Nil(t, changed)
@@ -427,7 +468,7 @@ func TestApplyOrder_EmptyIDsIsALiteralNoOpEvenWithGaps(t *testing.T) {
 		{ID: 3, Pinned: false, RailPos: 2}, // gap at railPos 1 from an earlier Remove
 	}
 
-	changed, err := applyOrder(sessions, []int64{}, 0)
+	changed, err := applyOrder(sessions, []int64{}, 0, nil)
 
 	require.NoError(t, err)
 	assert.Nil(t, changed, "an empty ids request is a literal no-op — bystander gaps must survive untouched")
@@ -436,7 +477,7 @@ func TestApplyOrder_EmptyIDsIsALiteralNoOpEvenWithGaps(t *testing.T) {
 func TestApplyOrder_EmptyIDsWithNonZeroPinnedCountIsInvalid(t *testing.T) {
 	sessions := []railEntry{{ID: 1, Pinned: false, RailPos: 0}}
 
-	_, err := applyOrder(sessions, []int64{}, 1)
+	_, err := applyOrder(sessions, []int64{}, 1, nil)
 
 	assert.ErrorIs(t, err, ErrInvalidOrder)
 }
@@ -452,7 +493,7 @@ func TestApplyOrder_AppliesListedIDsAsPositionsAndFlags(t *testing.T) {
 		{ID: 7, Pinned: false, RailPos: 3},
 	}
 
-	changed, err := applyOrder(sessions, []int64{4, 9, 2, 7}, 1)
+	changed, err := applyOrder(sessions, []int64{4, 9, 2, 7}, 1, nil)
 	require.NoError(t, err)
 
 	full := applyChanges(sessions, changed)
@@ -479,7 +520,7 @@ func TestApplyOrder_UnlistedSessionsKeepFlagAndFollowInExistingRelativeOrder(t *
 		{ID: 5, Pinned: false, RailPos: 3}, // unlisted, concurrent launch (Edge Case 1)
 	}
 
-	changed, err := applyOrder(sessions, []int64{2, 1}, 0)
+	changed, err := applyOrder(sessions, []int64{2, 1}, 0, nil)
 	require.NoError(t, err)
 
 	full := applyChanges(sessions, changed)
@@ -502,7 +543,7 @@ func TestApplyOrder_UnlistedPinnedBystanderIsPushedToEndOfPinnedBlockNotStranded
 		{ID: 2, Pinned: false, RailPos: 1}, // listed, becomes unpinned
 	}
 
-	changed, err := applyOrder(sessions, []int64{2}, 0)
+	changed, err := applyOrder(sessions, []int64{2}, 0, nil)
 	require.NoError(t, err)
 
 	full := applyChanges(sessions, changed)
@@ -608,7 +649,7 @@ func TestApplyOrder_InvariantsHoldFromEveryStartingConfiguration(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			changed, err := applyOrder(tt.before, tt.ids, tt.pinnedCount)
+			changed, err := applyOrder(tt.before, tt.ids, tt.pinnedCount, nil)
 			require.NoError(t, err)
 			assertInvariants(t, tt.before, changed)
 		})
@@ -625,7 +666,7 @@ func TestApplyOrder_OnlyChangedSessionsAreReturned(t *testing.T) {
 	}
 
 	// Re-submitting the exact same order/flags is a full no-op for every entry.
-	changed, err := applyOrder(sessions, []int64{1, 2}, 0)
+	changed, err := applyOrder(sessions, []int64{1, 2}, 0, nil)
 
 	require.NoError(t, err)
 	assert.Empty(t, changed, "resubmitting the identical order and flags must change nothing")
@@ -643,7 +684,7 @@ func TestApplyOrder_PartialChangeOnlyReturnsTheSessionsThatActuallyMoved(t *test
 
 	// Swap 1 and 2; leave 3 unlisted so it should be untouched (it stays last with the
 	// same relative position, hence the same final railPos it already had).
-	changed, err := applyOrder(sessions, []int64{2, 1}, 0)
+	changed, err := applyOrder(sessions, []int64{2, 1}, 0, nil)
 	require.NoError(t, err)
 
 	ids := make(map[int64]bool, len(changed))

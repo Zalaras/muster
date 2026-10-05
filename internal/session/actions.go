@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,7 +13,11 @@ import (
 // broadcasts the session for the first time. A persist failure rolls the tmux
 // target/pane back to what they were, so memory never claims a target the DB never
 // recorded. A fresh launch has reported no directory yet, so Claude's recorded one is cleared.
+// A session launched into a new group (CreateLaunchGroup) announces that group first, so no
+// client ever sees a groupId it has no group for.
 func (m *Manager) RecordLaunch(ctx context.Context, id int64, tmuxTarget, tmuxPane string) (*Session, error) {
+	m.announcePendingLaunchGroup(id)
+
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
 	if !ok {
@@ -86,6 +91,62 @@ func (m *Manager) endLocked(ctx context.Context, id int64) (*Session, error) {
 		return nil, ErrUnknownSession
 	}
 	return snapshot, nil
+}
+
+// BatchResult is what EndMany and RemoveMany did, by session id (kb:anchor/sessions.end-many,
+// kb:adr/actions-bulk-stop-remove-are-daemon-batches). Skipped names a session that was
+// unknown at its turn or, for End, no longer alive; Failed one whose kill genuinely failed,
+// which a Remove leaves in place.
+type BatchResult struct {
+	Done, Skipped, Failed []int64
+}
+
+// EndMany runs End over ids in listed order, each under its own per-session lock, and
+// reports the outcome per id. A session already ended or removed is skipped, never an error.
+// A repeated id is ErrInvalidOrder and nothing runs.
+func (m *Manager) EndMany(ctx context.Context, ids []int64) (BatchResult, error) {
+	return m.runBatch(ids, "ending", func(id int64) error {
+		_, err := m.endLocked(ctx, id)
+		return err
+	})
+}
+
+// RemoveMany runs Remove over ids in listed order, each under its own per-session lock, and
+// reports the outcome per id. A session removed before its turn is skipped; a failing kill
+// leaves the row (Remove's own rule) and reports the id as failed. A repeated id is
+// ErrInvalidOrder and nothing runs.
+func (m *Manager) RemoveMany(ctx context.Context, ids []int64) (BatchResult, error) {
+	return m.runBatch(ids, "removing", func(id int64) error {
+		return m.removeLocked(ctx, id)
+	})
+}
+
+// runBatch is EndMany's and RemoveMany's shared loop: op runs with id's lock held, and its
+// error decides the outcome — the two unknown/not-alive sentinels skip, anything else fails.
+// It refuses a list naming an id twice (ErrInvalidOrder) before running anything, the rule
+// the batch endpoints' handlers leave to this package as the rail-order ones do.
+func (m *Manager) runBatch(ids []int64, what string, op func(id int64) error) (BatchResult, error) {
+	var result BatchResult
+	if hasRepeat(ids) {
+		return result, ErrInvalidOrder
+	}
+	for _, id := range ids {
+		err := func() error {
+			unlock := m.LockSession(id)
+			defer unlock()
+			return op(id)
+		}()
+		switch {
+		case err == nil:
+			result.Done = append(result.Done, id)
+		case errors.Is(err, ErrUnknownSession), errors.Is(err, ErrSessionNotAlive):
+			result.Skipped = append(result.Skipped, id)
+		default:
+			m.log.Error().Err(err).Int64("session_id", id).Msgf("%s session in a batch failed", what)
+			result.Failed = append(result.Failed, id)
+		}
+	}
+	return result, nil
 }
 
 // killSessionWithTimeout kills id's tmux Claude-pane session, bounded by

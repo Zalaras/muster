@@ -10,7 +10,12 @@
 // element outside the ones it's handed — `features/launch.ts` still owns the dialog
 // itself (open/reset/navigate/submit dispatch, the New tab's own fields) and threads its
 // own state through `LaunchResumeHandlers` rather than this module reaching back in.
-import { fetchPastSessions, resumeFromList, type PastSession } from "../api/launch";
+import {
+  fetchPastSessions,
+  resumeFromList,
+  type LaunchGroup,
+  type PastSession,
+} from "../api/launch";
 import type { ApiResult } from "../api/http";
 import type { Session } from "../protocol/session";
 import { basename } from "../sessions/paths";
@@ -69,8 +74,8 @@ export interface LaunchResumeHandle {
    * `activate()`. */
   onDirectoryChanged(path: string | null): void;
   /** The Resume tab's own submit — `features/launch.ts`'s `submit()` calls this instead
-   * of its own POST when `isActive()`. */
-  submit(): Promise<ApiResult<Session>>;
+   * of its own POST when `isActive()`, with the Group row's choice (shared by both tabs). */
+  submit(group: LaunchGroup): Promise<ApiResult<Session>>;
 }
 
 type ListState =
@@ -239,7 +244,7 @@ export function initLaunchResume(
     if (active) fetchList();
   }
 
-  async function submit(): Promise<ApiResult<Session>> {
+  async function submit(group: LaunchGroup): Promise<ApiResult<Session>> {
     const dir = directory;
     const session = findSelected();
     if (!dir || !session) {
@@ -251,6 +256,7 @@ export function initLaunchResume(
     const result = await resumeFromList({
       directory: dir,
       resumeSessionId: session.claudeSessionId,
+      ...group,
     });
     // A transcript deleted between list and POST refetches, so the list drops the
     // now-gone row rather than leaving it stale and clickable.

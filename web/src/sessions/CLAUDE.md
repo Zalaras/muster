@@ -1,6 +1,6 @@
 # web/src/sessions — pure session logic, no DOM
 
-**Owns**: the in-memory session store and every derivation the views display: card view-model (including the dead-surface endbar/cap/snapshot text, `card.ts`), context gauge maths, time formatters, a path basename (`paths.ts`, shared downward with `reader/`, never the other way — kb:diagram/web-components), rail sort and manual-order drop maths, sticky Tiles membership, rename commit semantics. No DOM, no socket, no fetch; `web/src/render/` draws the results and `web/src/features/` calls in. **Features**: lifecycle, rail, rename, usage.
+**Owns**: the in-memory session store and every derivation the views display: card view-model (including the dead-surface endbar/cap/snapshot text, `card.ts`), context gauge maths, time formatters, a path basename (`paths.ts`, shared downward with `reader/`, never the other way — kb:diagram/web-components), rail sort and manual-order drop maths, the rail's sections (`sections.ts`: sections by `pos`, cards inside by `orderRail`, the visible order the chords count, the header summary and the filter-flip decisions — Tiles never reads it), sticky Tiles membership, rename commit semantics. No DOM, no socket, no fetch; `web/src/render/` draws the results and `web/src/features/` calls in. **Features**: lifecycle, rail, rename, usage.
 
 **Invariants** (violations are review-Critical):
 - Every module is Vitest-testable with no DOM; a function that needs an element belongs in `render/`.
@@ -14,15 +14,16 @@
 
 **Gotchas**:
 - Formatters clamp elapsed time to zero; a render tick can race `stateSince`.
-- `railorder.ts` assumes the pinned-then-unpinned two-block shape from `sort.ts`; a drop across the boundary decides pin state (kb:adr/rail-whole-card-drag-drop-decides-pin).
+- `railorder.ts` computes a drop against the target card's own section: the pinned-before-unpinned invariant is per section, and `railPos` stays unique across all of them; it assumes each section is the pinned-then-unpinned two-block shape from `sort.ts`; a drop across the boundary decides pin state (kb:adr/rail-whole-card-drag-drop-decides-pin).
 - `rename.ts` compares the trimmed input against the daemon's precedence-resolved `title`; `titleOverride` only decides what empty means (kb:adr/rename-muster-owned-title-override-wins).
 
 <!-- kb:trailer -->
-<!-- kb:hash f07ff454764b179d -->
+<!-- kb:hash 51922f7f6ea10e9f -->
+- **groups** — Rail groups: sections, header summary and popover, select mode, filter, group create, rename, ungroup and delete, persistence. → `docs/features/groups/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`
 - **rail** — Rail cards, attention versus manual order, pin, drag reorder, session count. → `docs/features/rail/INDEX.md`
 - **rename** — Muster-owned session title override, inline rename in the mainhead and tiles. → `docs/features/rename/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 28 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 30 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

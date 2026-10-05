@@ -1,24 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { vi } from "vitest";
 import type { Session } from "../protocol/session";
-import { reconcileCards, renderSessions, type CardListOptions } from "./sessions";
-
-function fakeElement(): HTMLElement {
-  return { textContent: "", hidden: false } as unknown as HTMLElement;
-}
-
-// The non-empty branch now clones real `<template>` DOM (`#session-card-template`) via
-// `buildCardViewModel` (docs/conventions.md: rendering/DOM is Playwright's job, not
-// Vitest's) — see web/e2e/sessions.spec.ts for card-rendering coverage and
-// ../sessions/card.test.ts for the pure view-model logic it's built from. Only the
-// honest-empty-state branch is DOM-free enough to unit test here.
-describe("renderSessions", () => {
-  it("renders the honest empty state when there are no sessions", () => {
-    const el = fakeElement();
-    renderSessions(el, [], NOW, fakeTemplate(), baseOptions());
-    expect(el.textContent).toBe("No sessions yet");
-  });
-});
+import { reconcileCards, type CardListOptions } from "./sessions";
 
 // review m4-reconcile cycle-3 Minor 4: `reconcileCards` (id-matching, reorder-in-place,
 // insert, remove, and — as of cycle-3's Fix Attempt 3 — focus capture/restore across a
@@ -380,11 +363,12 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     railPos: overrides.id,
     unread: false,
     lastPrompt: null,
+    groupId: null,
     ...overrides,
   };
 }
 
-/** Review Major 5: `reconcileCards`/`renderSessions` now take one `CardListOptions`
+/** Review Major 5: `reconcileCards` takes one `CardListOptions`
  * object instead of a positional tail — this file's own tests care about one field at a
  * time (a reorder, a pin flip, a draggable mode), so this fills in the rest with the
  * values every prior positional call in this file defaulted to (`connected: true`,

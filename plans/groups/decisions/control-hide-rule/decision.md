@@ -1,0 +1,7 @@
+# Decision: control-hide-rule
+
+**Outcome**: A — keep the 640 px rule and amend REQ-10. The control hides only below a 640 px content box, and above that the title may shorten beside it (never below its 6rem floor).
+**Reached by**: consensus (advocate-b conceded in turn 2)
+**Decisive argument**: the locked round-3 design sentence orders both things — the control is "the first thing dropped on a narrow pane — title first to a 22ch floor" (`docs/design/mockups/groups/README.md:38-39`): the title gives up width first, down to a floor, and the control is the first item removed *whole*; the mockup's live CSS implements that as a pure container query (`shared.css:270-279`). REQ-10's "hides before the title shortens" was therefore the paraphrase to amend, not the rule. Advocate-b: "My 22ch point changes how far the title shrinks, not which gives way first."
+**Dissent to honour**: a long title shortens beside the control from about 864 px down (29 characters) or 1160 px (65 characters); the title's full text stays on its hover `title` and wraps whole on the focused rail card. If that cost proves real in use, a title-aware hide is the recorded alternative (Option B), which needs a measure in the mainhead render rather than a container query.
+**Landed in**: plans/groups/plan.md (REQ-10 *Amended*, Doc Delta focus line), plans/groups/doc-delta.md, docs/design/design-system.md §5 Focus mainhead, docs/adr/focus-group-control-stays-while-title-shortens.md (proposed, consensus), the fix-wave prompt for web-impl (code Minor 2: `@container (width < 640px)`).

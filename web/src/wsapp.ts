@@ -37,6 +37,7 @@ export function coreWsHandlers(app: App, connection: WsAppConnection): WsClientH
       // so the initial theme/view/density choice — on either page — comes from the
       // snapshot itself, not just later broadcasts.
       app.emit("prefs", snapshot.prefs);
+      app.emit("groups", snapshot.groups, snapshot.ungrouped);
       app.emit("snapshot", snapshot);
       app.render();
     },
@@ -46,6 +47,10 @@ export function coreWsHandlers(app: App, connection: WsAppConnection): WsClientH
     },
     onPrefs: (prefs) => {
       app.emit("prefs", prefs);
+      app.render();
+    },
+    onGroups: (groups, ungrouped) => {
+      app.emit("groups", groups, ungrouped);
       app.render();
     },
     onClaudeTheme: (family) => app.emit("claudeTheme", family),

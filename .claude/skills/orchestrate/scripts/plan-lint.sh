@@ -10,6 +10,14 @@ P="plans/${1:?usage: plan-lint.sh <plan>}/plan.md"
 [[ -f "$P" ]] || { echo "no such plan: $P" >&2; exit 2; }
 FAILS=0
 note() { echo "FAIL  $1"; FAILS=$((FAILS+1)); }
+# `rg` is Claude Code's shell function, invisible to this script, so check 7's positive grep ran
+# empty and a pre-existing hit passed silently (groups: D17 red on main, found at the first wave
+# gate). Recreate the shim as gates.sh does, and refuse to lint without a working rg.
+if ! command -v rg >/dev/null 2>&1; then
+  _cc_bin="${CLAUDE_CODE_EXECPATH:-$HOME/.local/bin/claude}"
+  [[ -x "$_cc_bin" ]] && { rg() { ( exec -a rg "$_cc_bin" "$@" ); }; export -f rg; }
+fi
+rg --version >/dev/null 2>&1 || { echo "error: rg is not runnable here; negative-grep checks would pass vacuously — aborting" >&2; exit 2; }
 section() { awk -v s="$1" '$0 ~ "^## "s{f=1;next} /^## /{f=0} f' "$P"; }
 checks_block() { awk '/^```checks[[:space:]]*$/{f=1;next} f&&/^```/{f=0} f' "$P" | grep -vE '^[[:space:]]*(#|$)'; }
 
@@ -99,8 +107,10 @@ while IFS= read -r l; do
   fi
   positive="${cmd#!}"
   if hits="$(eval "$positive" 2>/dev/null)" && [[ -n "$hits" ]]; then
-    echo "NOTE  $id: pre-existing hits in the tree — each file must appear under Affected Files against its owner:"
-    echo "$hits" | cut -d: -f1 | sort -u | sed 's/^/        /'
+    for hf in $(echo "$hits" | cut -d: -f1 | sort -u); do
+      if section 'Affected Files' | grep -qF "$hf"; then echo "NOTE  $id: pre-existing hit in $hf (named under Affected Files)"
+      else note "$id: pre-existing hit in $hf, which Affected Files does not name — assign it to its owner or drop the check"; fi
+    done
   fi
 done < <(checks_block)
 
@@ -155,6 +165,16 @@ if [[ -n "$paths$named" ]]; then
         case " $header " in *" $o "*) ;; *) note "$f → feature '$o', not in **Features** — widen the header" ;; esac
       done
     done <<<"$paths"
+    # A path named anywhere else in the plan (Doc upkeep, Implementation Notes) is judged by the
+    # header rule only: groups named tools/kb/anchors.tsv under Doc upkeep, and `knowledge` reached
+    # the header at doc-reconcile, two hours and a blocked verdict later.
+    others="$(grep -oE '`(cmd|internal|web/src|web/e2e|tools|docs)/[^`[:space:]]+\.[a-z]+`' "$P" | tr -d '`' | sort -u | grep -vxF -f <(printf '%s\n' "$paths") || true)"
+    while IFS= read -r f; do
+      [[ -n "$f" && -e "$f" ]] || continue
+      for o in $("$kb" for "$f" 2>/dev/null | awk '/^features:/{on=1;next} /^[a-z]+:/{on=0} on && NF{print $1}'); do
+        case " $header " in *" $o "*) ;; *) note "$f (named outside Affected Files) → feature '$o', not in **Features** — widen the header" ;; esac
+      done
+    done <<<"$others"
     while IFS= read -r f; do
       [[ -z "$f" ]] || "$kb" for "$f" 2>/dev/null | grep -q '^features:' || { [[ -e "$f" ]] \
         && note "$f: owned by no feature — add its glob to docs/features/<f>/spec.md at approval" \
@@ -166,7 +186,32 @@ if [[ -n "$paths$named" ]]; then
   rm -rf "$(dirname "$kb")"
 fi
 
-# 13. Warn, never fail: Affected Files is an impact read, so a backticked call or signature there pins
+# 13. Doc Delta arithmetic: a spec body is capped at 800 words (check-kb). groups' rail delta needed
+#     ~320 words against a spec at 792 - 100 freed, found by doc-reconcile after review approved; the
+#     split into a `groups` feature was a developer decision two hours before the run could complete.
+python3 - "$P" <<'PY' || true
+import re, sys, pathlib
+plan = pathlib.Path(sys.argv[1]).read_text()
+m = re.search(r"^## Doc Delta\n(.*?)(?=^## |\Z)", plan, re.S | re.M)
+if m:
+    delta, cur, adds, cuts = m.group(1), None, {}, {}
+    for line in delta.splitlines():
+        h = re.match(r"^\*\*([a-z0-9-]+)\*\* — (becomes true|stops being true)", line)
+        if h: cur = (h.group(1), h.group(2)); continue
+        if cur and line.startswith("- "):
+            (adds if cur[1] == "becomes true" else cuts).setdefault(cur[0], 0)
+            d = adds if cur[1] == "becomes true" else cuts
+            d[cur[0]] += len(line.split())
+    for f in sorted(set(adds) | set(cuts)):
+        spec = pathlib.Path(f"docs/features/{f}/spec.md")
+        if not spec.exists(): continue
+        body = spec.read_text().split("---", 2)[-1]
+        words = len(body.split()) + adds.get(f, 0) - cuts.get(f, 0)
+        if words > 800:
+            print(f"NOTE  Doc Delta: {f} spec would reach ~{words} words (cap 800) — cut more under 'stops being true' or split a feature before approval")
+PY
+
+# 14. Warn, never fail: Affected Files is an impact read, so a backticked call or signature there pins
 #     a shape that is the implementer's (kb:adr/process-plan-fixes-boundaries-not-shape).
 section 'Affected Files' | grep -E '`[A-Za-z_][A-Za-z0-9_.]*\(' | while IFS= read -r l; do
   echo "NOTE  Affected Files names a signature — the shape is the implementer's: ${l:0:100}"

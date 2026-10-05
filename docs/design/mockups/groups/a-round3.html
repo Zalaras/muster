@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en" data-theme="instrument">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Groups A — round 3 board</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+body{display:block;overflow:auto;padding:0 0 80px}
+.board{max-width:1180px;margin:0 auto;padding:0 16px}
+h2{font-size:15px;margin:34px 0 4px}
+.q{font-size:13px;color:var(--fg-dim);font-style:italic;margin:0 0 8px}
+.rules{color:var(--fg-muted);font-size:13px;line-height:1.5;max-width:800px;margin:0 0 12px}
+.rules b{color:var(--fg)}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.cell{min-width:0}
+.cell .cap{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--fg-dim);margin:0 0 6px}
+.cell.pick .cap::after{content:"  ← recommended";color:var(--fg)}
+.cell .why{font-size:12px;color:var(--fg-muted);line-height:1.45;margin:6px 0 0;max-width:360px}
+.frame{border:1px solid var(--line);background:var(--bg);overflow:hidden}
+.frame.pick{border-color:var(--edge);box-shadow:0 0 0 1px var(--edge)}
+.frame .masthead{padding:7px 12px}
+.frame .rail{height:auto;border-right:0;border-top:0}
+.frame .railhead{position:relative}
+.frame .ghead{position:static}
+.frame .card{pointer-events:none}
+.mh{border:1px solid var(--line);background:var(--bg-raised)}
+.mh .mainhead{border-bottom:0}
+.w1440{width:1140px} .w1024{width:724px} .w900{width:600px} .w700{width:500px}
+.ld .fields.alt{grid-template-columns:90px 1fr}
+.pop{pointer-events:none}
+</style>
+<script>window.V = { ungroupedLabel: "Ungrouped", summary: "dots", select: "mode", menus: "kebab", filter: "segmented", createButton: "icon", sortLabel: "none", summaryHover: "popover", initialGroups: 2 };</script>
+<script src="shared.js" defer></script>
+<script>
+window.onRender = function () {
+  if (window.__boarded) return; window.__boarded = true;
+  const g1 = S.sessions.filter((x) => x.group === "g1"); const g2 = S.sessions.filter((x) => x.group === "g2"); const loose = S.sessions.filter((x) => !x.group);
+  const miniCard = (x, cls = "") => { const st = { working: "s-work", needs_input: "s-need", idle: "s-idle", planning: "s-plan", failed: "s-failed", started: "s-start" }[x.state]; return `<div class="card ${st}${x.alive ? "" : " ended"}${cls}"><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">${x.title}</span></div><div class="r0"><span class="badge">${x.alive ? x.state.replace("_", " ") : "ended"}</span><span class="timer">4m 12s</span></div><div class="r2">${x.repo} /</div><div class="r2b">${x.branch}</div></div></div>`; };
+  const head = (o) => { const d = document.createElement("div"); d.className = "railhead"; renderHeadInto(d, Object.assign({}, V, o)); d.querySelectorAll("[id]").forEach((e) => { if (e.id === "count") e.textContent = "10 sessions"; if (e.id === "filter" && o.showFilter !== false) e.innerHTML = '<div class="seg"><button class="seg-btn" aria-pressed="true">All</button><button class="seg-btn">Groups</button><button class="seg-btn">Ungrouped</button></div>'; e.removeAttribute("id"); }); return d.outerHTML; };
+  const gh = (nm, ms, cls = "") => { const d = document.createElement("div"); d.className = "ghead collapsed " + cls; d.innerHTML = `<button class="disc"></button><span class="gname">${nm}</span>`; d.append(summaryEl(ms)); return d.outerHTML; };
+  const mast = (variant) => `<div class="masthead"><div class="brand">muster</div><div class="seg"><button class="seg-btn" aria-pressed="true">Focus</button><button class="seg-btn">Tiles</button></div>${variant === "masthead" ? '<button class="btn newsess">New session</button>' : ""}<div class="right"><span class="gauge">5h <i><b style="width:38%"></b></i> 38%</span></div></div>`;
+
+  // Q1 — two creates
+  const q1 = document.getElementById("q1");
+  for (const [cap, variant, createBtn, why, pick] of [
+    ["masthead New session · rail +", "masthead", "icon", "Two different objects keep two different homes. New session stays where it is today (masthead, ⌥⌘N, Launch dialog); the rail's + makes a group, and its tooltip says so. The most frequent action keeps its one-click button and nothing it has today moves.", true],
+    ["one rail + ▾ (menu)", "none", "split", "A single create in the rail: + opens a two-item menu — New session… / New group. The masthead loses its button. One place to look, but the common action (session) gains a click and loses its visible label; the uncommon one (group) is promoted beside it.", false],
+    ["masthead New session · group only via ⋯", "masthead", "menu", "No create for groups in the head at all: a ⋯ rail-actions menu holds New group, Select, Collapse all / Expand all. Quietest; two clicks to make a group, and 'New group…' also sits in every header ⋯, the selection bar and the launch dialog, so it is never far.", false],
+  ]) {
+    const cell = document.createElement("div"); cell.className = "cell" + (pick ? " pick" : "");
+    cell.innerHTML = `<p class="cap">${cap}</p><div class="frame${pick ? " pick" : ""}" style="width:360px">${mast(variant)}<div class="rail" style="width:300px">${head({ createButton: createBtn })}${gh("PR reviews", g1)}${gh("Validation", g2)}${gh("Ungrouped", loose, "ungrouped")}</div></div><p class="why">${why}</p>`;
+    q1.append(cell);
+  }
+
+  // Q2 — launch dialog
+  const q2 = document.getElementById("q2");
+  const dialog = (groupRow, footPill, cap, why, pick) => `<div class="cell${pick ? " pick" : ""}"><p class="cap">${cap}</p><div class="ld${pick ? " frame pick" : ""}">
+    <h2>New session <span class="tabs"><button aria-selected="true">New</button><button>Resume</button></span><span class="k">⌥⌘N</span></h2>
+    <div class="picker"><div class="recents"><div class="sh">Recent</div><div class="on">muster</div><div>gardening</div><div>mdr</div><div>dotfiles</div></div><div class="browse"><div class="crumbs">~ / Documents / code / Projects / muster</div><div>docs/</div><div>internal/</div><div>web/</div><div>plans/</div></div></div>
+    <div class="fields">
+      <span class="lab">Title</span><input type="text" placeholder="optional — Claude Code auto-generates">
+      ${groupRow}
+      <span class="lab">Model</span><span class="track"><span class="on">sonnet</span><span>opus</span><span>haiku</span><span>fable</span><span>other…</span></span>
+      <span class="lab">Start in</span><span class="track"><span>manual</span><span>accept edits</span><span>plan</span><span class="on">auto</span><span>bypass</span></span>
+    </div>
+    <div class="foot"><span class="tgt">Launch in <b>muster</b>${footPill}</span><button class="btn">Cancel</button><button class="btn key">Launch</button></div>
+  </div><p class="why">${why}</p></div>`;
+  q2.innerHTML =
+    dialog(`<span class="lab">Group</span><span class="grow"><select class="gsel"><option>no group</option><option selected>PR reviews</option><option>Validation</option><option>— new group…</option></select><span class="hint">default: the group of the session you were viewing</span></span>`, "", "group row under Title", "A Group row between Title and Model: a select of the existing groups, 'no group', and 'new group…' which swaps in a name field. Sits with the other things that describe the session rather than how Claude runs. The default is the one open question — see the Q&A.", true) +
+    dialog(`<span class="lab">Group</span><span class="grow"><select class="gsel"><option>— new group…</option></select><input class="gnew" type="text" placeholder="Group name" value="Hotfix 2.1.38"></span>`, "", "same row, 'new group…' chosen", "The same row once 'new group…' is picked: the name field appears beside the select, and Launch creates the group and the session together.", false) +
+    dialog("", `<span class="gpill">in PR reviews ▾</span>`, "a pill in the footer", "No row: the footer's 'Launch in muster' gains 'in PR reviews ▾' beside it — the group as a destination like the directory. Compact, but easy to miss, and a footer dropdown next to the primary button is awkward.", false);
+
+  // Q3 — mainhead
+  const q3 = document.getElementById("q3");
+  const title = "Review PR #212 — effort in launch and the places it shows";
+  const mh = (w, variant) => `<div class="mh ${w}"><div class="mainhead"><span class="name">${title}</span>${variant === "chip-after" ? '<button class="ingroup">PR reviews ▾</button>' : ""}${variant === "crumb" ? '<button class="crumb">PR reviews</button>' : ""}<span class="meta">muster / pr-212</span><div class="acts"><button class="btn">Stop</button><button class="btn">Remove</button></div></div></div>`;
+  for (const [cap, variant, why, pick] of [
+    ["none — group lives in the rail only", "none", "The Focus header stays exactly as #73 leaves it. The rail already says which group you are in (the card sits under its header, and the current marker is on it), and once the card right-click menu (#56) exists, 'Move to ▸' lives there — so the header chip's only job is gone. Nothing new to squash.", true],
+    ["breadcrumb before repo / branch", "crumb", "The group as the first segment of the meta line: 'PR reviews › muster / pr-212', clickable to move. Reads naturally and costs no new row — but it is one more thing the already-fragile meta line must fit, and it is the first thing to drop when it doesn't.", false],
+    ["chip after the title (round 1)", "chip-after", "The round-1 chip. On a narrow pane it competes with the title for the same flex space; the title is what gives way. Shown so the cost is visible.", false],
+  ]) {
+    const cell = document.createElement("div"); cell.className = "cell" + (pick ? " pick" : ""); cell.style.flexBasis = "100%";
+    cell.innerHTML = `<p class="cap">${cap}</p><div style="display:flex;flex-direction:column;gap:8px">${mh("w1440", variant)}${mh("w1024", variant)}${mh("w900", variant)}</div><p class="why">${why}</p>`;
+    q3.append(cell);
+  }
+  document.querySelectorAll(".mh .name").forEach((n) => (n.title = title));
+  // Q3b — the chosen rule, live CSS: title first to a 22ch floor, group dropped under 640px, repo / branch intact
+  const q3b = document.getElementById("q3b");
+  const cell = document.createElement("div"); cell.className = "cell pick"; cell.style.flexBasis = "100%";
+  cell.innerHTML = `<p class="cap">title first (22ch floor) · group control dropped below 640px · repo / branch never cut</p>
+    <div style="display:flex;flex-direction:column;gap:8px">${["w1440", "w1024", "w900", "w700"].map((w) => mh(w, "chip-after")).join("")}</div>
+    <p class="why">The same header at 1140, 724, 600 and 500px. The title grows first and is the only thing that ellipsises; the group control stays while the pane can hold it and is the first to go (a container query on the header's own width, not the window's); repo / branch keep their full text throughout. Drag the live page's window narrower to feel it.</p>`;
+  q3b.append(cell);
+
+  // Q4 — no groups
+  const q4 = document.getElementById("q4");
+  for (const [cap, html, why, pick] of [
+    ["no groups → today's rail", head({ showFilter: false }) + loose.concat(g1).slice(0, 3).map((x) => miniCard(x)).join(""), "With no groups there is nothing to group against, so nothing changes: no Ungrouped header, no filter row — just today's rail plus the groups row's two controls (Select, +). The first group you make is what brings the Ungrouped header (and the filter) into being; deleting the last group removes them again.", true],
+    ["no groups → Ungrouped header anyway", head({}) + gh("Ungrouped", loose.concat(g1), "ungrouped") + loose.concat(g1).slice(0, 3).map((x) => miniCard(x)).join(""), "Always show the header, so the rail looks the same with 0 or 5 groups and the summary / Stop-all / Select-all are always there. Consistent, but a permanent 'UNGROUPED 10' line over a rail that has never heard of groups is noise, and the filter has nothing to do.", false],
+    ["one group → both headers", head({}) + gh("PR reviews", g1) + gh("Ungrouped", loose.concat(g2), "ungrouped") + loose.slice(0, 2).map((x) => miniCard(x)).join(""), "The moment one group exists the rail has two sections, so both get a header — otherwise it is unclear where the group ends. This is the same in either rule above.", false],
+  ]) {
+    const cell = document.createElement("div"); cell.className = "cell" + (pick ? " pick" : "");
+    cell.innerHTML = `<p class="cap">${cap}</p><div class="frame${pick ? " pick" : ""}" style="width:300px"><div class="rail" style="width:300px">${html}</div></div><p class="why">${why}</p>`;
+    q4.append(cell);
+  }
+  // the hidden live rail's filter row shouldn't leak: nothing else to do
+};
+</script>
+</head>
+<body>
+<div class="mock" style="position:sticky;top:0;z-index:5">
+  <div>
+    <h1>A · round 3 <span>FOUR QUESTIONS</span></h1>
+    <p class="lede">New session vs New group · the launch dialog's Group field · the group in the Focus header at three widths ·
+      the rail with no groups. The live page <code>a-sections-select-mode.html</code> has <b>groups: 0/1/2</b>, <b>lone Ungrouped</b>
+      and <b>group in Focus head</b> dropdowns to feel each one.</p>
+  </div>
+  <div class="switch">theme <button class="on" data-theme-pick="instrument">instrument</button><button data-theme-pick="light">light</button></div>
+</div>
+<div class="app" style="position:absolute;left:-9999px;width:1200px;height:600px"><div class="body"><aside class="rail" id="rail"><div class="railhead" id="railhead"></div><div class="cards" id="cards"></div><div class="selbar" id="selbar" hidden></div></aside><main class="main"><div class="mainhead"><span id="mh-name"></span><span id="mh-meta"></span><button id="mh-group"></button><button id="mh-stop"></button><button id="mh-remove"></button></div></main></div></div>
+<div class="board">
+  <h2>1 · Two things to create</h2>
+  <p class="q">"New Session was removed from the top … that needs to be New Group and New Session options? How best should these two be handled"</p>
+  <p class="rules">Correction first: the round-1/2 pages drew <b>New session</b> at the masthead's right end in amber, which is not where the app has it — the live masthead has a plain <b>New session</b> button right after the Focus | Tiles switch (⌥⌘N). These frames draw it where it really is.</p>
+  <div class="row" id="q1"></div>
+
+  <h2>2 · Group when launching</h2>
+  <p class="q">"When you create a new session there should be an option to add a group"</p>
+  <div class="row" id="q2"></div>
+
+  <h2>3 · The group in the Focus header</h2>
+  <p class="q">"how does that work with the spacing issues we've already had in that title head … consider on smaller screens how to display the group here or if it's worth doing in the first place"</p>
+  <p class="rules">Each variant at a 1440-wide window (1140px pane), 1024 (724px) and a 900 split (600px), with a long title. #73 is the open bug that the meta line wraps when it needn't; anything added to this row makes that worse before it is fixed.</p>
+  <div class="row" id="q3"></div>
+
+  <h2>3b · Decided: title first, group dropped first</h2>
+  <p class="q">"prioritise the title up to a certain point … give the space for the group dropdown but on smaller screens drop it to prioritise the file and branch"</p>
+  <div class="row" id="q3b"></div>
+
+  <h2>4 · No groups yet</h2>
+  <p class="q">"How does the nav display when there are no groups other than the default ungrouped?"</p>
+  <div class="row" id="q4"></div>
+</div>
+</body>
+</html>

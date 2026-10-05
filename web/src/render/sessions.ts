@@ -40,10 +40,20 @@ export interface CardOptions {
    * `focusedId`; the strip always passes `null` (a strip card is never "current"). */
   currentId: number | null;
   railActivity: RailActivity;
+  /** Select mode (kb:adr/rail-select-mode-disables-card-drag): a checkbox per card, the card
+   * carrying `.selected` while its id is in `selectedIds`. Absent outside select mode and on
+   * every strip card — the checkbox is then removed, never hidden. The caller also passes
+   * `draggable: false` while selecting. */
+  selection?: CardSelection | undefined;
 }
 
-/** `reconcileCards`/`renderSessions`'s own options: `CardOptions` plus the one field only
- * a full reconcile pass needs. */
+export interface CardSelection {
+  selectedIds: ReadonlySet<number>;
+  onToggle: (id: number) => void;
+}
+
+/** `reconcileCards`'s own options: `CardOptions` plus the fields only a full reconcile pass
+ * needs. */
 export interface CardListOptions extends CardOptions {
   /** A rail drag's initiating `mousedown` blurs whatever
    * control currently has focus before `dragstart`/`drop` ever runs (same mechanism as
@@ -53,6 +63,11 @@ export interface CardListOptions extends CardOptions {
    * `installDragReorder`'s `onMove` here instead; every other caller (a plain render
    * tick, a pin click, a strip reconcile) omits this and gets the live capture. */
   pendingFocus?: FocusedControl | null | undefined;
+  /** Cards that may already be mounted in a *different* container (the rail's other sections),
+   * by session id: a card that moved between sections reuses its node instead of being rebuilt,
+   * so its focus and in-card state survive the move. The caller indexes every section's cards
+   * once, before it reconciles any of them. */
+  adopt?: ReadonlyMap<number, HTMLElement> | undefined;
 }
 
 /** Per-card options: `CardOptions` plus the one field `reconcileCards` computes itself,
@@ -173,8 +188,46 @@ function applyCardText(card: HTMLElement, vm: CardViewModel, session: Session): 
 
 /** The card's `class` attribute — extracted from `updateSessionCardContent` to keep it
  * under Biome's complexity ceiling (five independent modifiers, one ternary each). */
-function cardClassName(vm: CardViewModel, pinnedLast: boolean, isCurrent: boolean): string {
-  return `card ${vm.stateClass}${vm.ended ? " ended" : ""}${vm.pinned ? " pinned" : ""}${pinnedLast ? " pinned-last" : ""}${isCurrent ? " current" : ""}${vm.unread ? " unread" : ""}`;
+function cardClassName(
+  vm: CardViewModel,
+  pinnedLast: boolean,
+  isCurrent: boolean,
+  isSelected: boolean,
+): string {
+  return `card ${vm.stateClass}${vm.ended ? " ended" : ""}${vm.pinned ? " pinned" : ""}${pinnedLast ? " pinned-last" : ""}${isCurrent ? " current" : ""}${vm.unread ? " unread" : ""}${isSelected ? " selected" : ""}`;
+}
+
+/** The select-mode checkbox: built the first time a pass asks for one, updated in place after
+ * that, removed when the mode ends. It carries `data-action`/`data-id` so a keyboard user's focus
+ * on it survives a reorder through the same `captureFocusedControl` contract the pin button uses.
+ * Disabled while the daemon is down, like every other selection control. */
+function reconcileSelectCheckbox(
+  card: HTMLElement,
+  title: string,
+  id: number,
+  selection: CardSelection | undefined,
+  connected: boolean,
+): void {
+  let box = card.querySelector<HTMLInputElement>(":scope > input.chk");
+  if (!selection) {
+    box?.remove();
+    return;
+  }
+  if (!box) {
+    const built = document.createElement("input");
+    built.type = "checkbox";
+    built.className = "chk";
+    built.dataset["action"] = "select";
+    built.dataset["id"] = String(id);
+    // The card's own click toggles too; this one must not toggle a second time.
+    built.addEventListener("click", (event) => event.stopPropagation());
+    built.addEventListener("change", () => selection.onToggle(id));
+    card.insertBefore(built, card.querySelector(".card-in"));
+    box = built;
+  }
+  box.checked = selection.selectedIds.has(id);
+  box.disabled = !connected;
+  box.setAttribute("aria-label", `Select ${title}`);
 }
 
 /** The card's `aria-label` and `data-unread` (kb:adr/rail-unread-marker-neutral-dot) —
@@ -204,7 +257,9 @@ function updateSessionCardContent(
   const vm = buildCardViewModel(session, now, options.railActivity);
   const isCurrent = session.id === options.currentId;
 
-  card.className = cardClassName(vm, options.pinnedLast, isCurrent);
+  const isSelected = options.selection?.selectedIds.has(session.id) === true;
+  card.className = cardClassName(vm, options.pinnedLast, isCurrent, isSelected);
+  reconcileSelectCheckbox(card, vm.title, session.id, options.selection, options.connected);
   applyUnreadAttributes(card, vm);
   // The reconciliation key `reconcileCards` uses to match existing DOM nodes against
   // incoming sessions.
@@ -349,6 +404,7 @@ export function reconcileCards(
   options: CardListOptions,
 ): void {
   const existingById = indexCardsBySessionId(container);
+  const adopt = options.adopt;
 
   // A content update below (e.g. a genuine
   // live/ended transition rebuilding `.acts-row`) or the reorder itself can blur a
@@ -374,7 +430,7 @@ export function reconcileCards(
   for (const session of sessions) {
     seen.add(session.id);
     const cardOptions: CardRenderOptions = { ...options, pinnedLast: session.id === lastPinnedId };
-    let card = existingById.get(session.id);
+    let card = existingById.get(session.id) ?? adopt?.get(session.id);
     if (card) {
       updateSessionCardContent(card, session, now, cardOptions);
     } else {
@@ -390,25 +446,6 @@ export function reconcileCards(
   // The id-keyed insertBefore-reorder-plus-focus-restore algorithm, shared by the
   // rail/strip and (via features/tiles.ts) the Tiles grid.
   reconcileKeyedOrder(container, entries, focused);
-}
-
-/** Renders the honest empty state ("No sessions yet" — never a placeholder list) or one
- * card per session, in the order given (sorting is sessions/sort.ts's job, applied by
- * the caller). `options.onClick` is the rail's focus action. */
-export function renderSessions(
-  el: HTMLElement,
-  sessions: readonly Session[],
-  now: Date,
-  template: HTMLTemplateElement,
-  options: CardListOptions,
-): void {
-  if (sessions.length === 0) {
-    // `textContent` assignment already clears any existing children (real DOM), so no
-    // separate `replaceChildren()` call is needed here.
-    el.textContent = "No sessions yet";
-    return;
-  }
-  reconcileCards(el, sessions, now, template, options);
 }
 
 /** The rail's compact/comfortable/expanded density segmented control — the same

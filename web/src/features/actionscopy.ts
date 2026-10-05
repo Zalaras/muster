@@ -4,11 +4,17 @@
 // stays the DOM half: `initConfirmDialogs`'s `openEnd`/`openRemove` take the text these
 // produce as a parameter and only ever assign it to `textContent`.
 import type { Session } from "../protocol/session";
-import { repoLine } from "../sessions/card";
+import { displayTitle, repoLine } from "../sessions/card";
+
+/** The single-session dialogs' title and confirm label — the markup's own text, passed in like
+ * the batch copy (features/groupscopy.ts) because one dialog serves both. */
+export const END_DIALOG_TITLE = "Stop session?";
+export const END_CONFIRM_LABEL = "Stop session";
+export const REMOVE_DIALOG_TITLE = "Remove session?";
+export const REMOVE_CONFIRM_LABEL = "Remove";
 
 function sessionLabel(session: Session): string {
-  const title = session.title ?? "untitled";
-  return `${title} — ${repoLine(session)}`;
+  return `${displayTitle(session)} — ${repoLine(session)}`;
 }
 
 /** Stop dialog copy: names the session, says it stays as ended and can be

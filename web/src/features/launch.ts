@@ -15,6 +15,7 @@ import {
   fetchRepos,
   launchSession,
   type BrowseResult,
+  type LaunchGroup,
   type LaunchRequest,
   type Repo,
 } from "../api/launch";
@@ -34,7 +35,9 @@ import {
   renderResumeFooter,
   type ModelSelection,
 } from "../render/launch";
+import type { Group } from "../protocol/groups";
 import { splitCrumbs } from "./launchcrumbs";
+import { initLaunchGroup, type LaunchGroupElements } from "./launchgroup";
 import { initLaunchResume, type LaunchResumeElements } from "./launchresume";
 import {
   applyVerdicts,
@@ -84,12 +87,18 @@ export interface LaunchModalElements {
   launchButton: HTMLButtonElement;
   form: HTMLFormElement;
   /** The New | Resume tab pair and the Resume tab's own elements — handed to
-   * `./launchresume.ts`'s `initLaunchResume`, this controller's one sub-controller. */
+   * `./launchresume.ts`'s `initLaunchResume`, this controller's sub-controller. */
   resume: LaunchResumeElements;
+  /** The Group row, shared by both tabs — handed to `./launchgroup.ts`'s `initLaunchGroup`. */
+  group: LaunchGroupElements;
 }
 
 export interface LaunchModalHandlers {
   onLaunched: (session: Session) => void;
+  /** What a fresh open reads: the groups to offer and the focused session whose group is the
+   * Group row's default. Read at call time — the dialog holds neither. */
+  groups: () => readonly Group[];
+  focusedSession: () => Session | null;
 }
 
 export interface LaunchHandle {
@@ -101,6 +110,9 @@ export interface LaunchHandle {
   /** ⌘↑: navigates to the parent of the listed directory. Callers only invoke
    * this once `isOpen()` is true (dialog-scoped, not listing-scoped). */
   navigateToParentDir(): void;
+  /** The daemon's groups changed: an open dialog re-offers them (a deleted group drops out of the
+   * Group row). A closed dialog has nothing to update — the next open reads them fresh. */
+  syncGroups(groups: readonly Group[]): void;
 }
 
 function checkedValue(radios: readonly HTMLInputElement[]): string | null {
@@ -154,6 +166,9 @@ function initLaunchModal(
     // why a fetch landing must not also clear it.
     onUserAction: () => clearError(),
   });
+
+  // The Group row's own sub-controller (features/launchgroup.ts) — the one row both tabs show.
+  const group = initLaunchGroup(elements.group);
 
   function updateCustomModelVisibility(): void {
     const isOther = checkedValue(elements.modelRadios) === "other";
@@ -346,6 +361,7 @@ function initLaunchModal(
    * New restores it. */
   function refreshDialogFace(): void {
     const tab = resume.isActive() ? "resume" : "new";
+    group.place(tab);
     const mode = selectedPermissionMode();
     const face = launchPrimaryFace(tab, mode, resume.selectedMode());
     renderLaunchButtonFace(elements.launchButton, face);
@@ -478,6 +494,7 @@ function initLaunchModal(
     resume.reset();
     elements.titleInput.value = "";
     elements.customModelInput.value = "";
+    group.reset(handlers.focusedSession(), handlers.groups());
     setModel(DEFAULT_MODEL);
     // With no stored mode to restore, `permissionModeToCheck`'s own fallback (now
     // `auto`) decides — one source of truth, same as every other caller of
@@ -490,7 +507,7 @@ function initLaunchModal(
   /** The New tab's own submit — split out of `submit()` below purely to keep that
    * function's cognitive complexity under the project ceiling; `submit()` is still the
    * one place that decides New vs. Resume. */
-  async function submitNew(): Promise<void> {
+  async function submitNew(groupFields: LaunchGroup): Promise<void> {
     const directory = current?.path;
     if (!directory) {
       showError("Choose a directory to launch into.");
@@ -505,6 +522,7 @@ function initLaunchModal(
       directory,
       model,
       permissionMode: selectedPermissionMode(),
+      ...groupFields,
     };
     const title = elements.titleInput.value.trim();
     if (title) body.title = title;
@@ -545,11 +563,18 @@ function initLaunchModal(
   }
 
   async function submit(): Promise<void> {
-    if (!resume.isActive()) {
-      await submitNew();
+    // Both tabs launch into the Group row's choice; a `New group…` with no name is refused here,
+    // before any request, so no group is created for a launch that never happened.
+    const choice = group.request();
+    if (!choice.ok) {
+      showError(choice.message);
       return;
     }
-    const result = await resume.submit();
+    if (!resume.isActive()) {
+      await submitNew(choice.group);
+      return;
+    }
+    const result = await resume.submit(choice.group);
     if (!result.ok) {
       showError(result.error.message);
       return;
@@ -657,6 +682,9 @@ function initLaunchModal(
     navigateToParentDir: () => {
       void navigateUp();
     },
+    syncGroups: (groups) => {
+      if (elements.dialog.open) group.sync(groups);
+    },
   };
 }
 
@@ -708,9 +736,18 @@ export function initLaunch(app: App, deps: LaunchDeps): LaunchHandle {
       pastFilterInput: requireElement<HTMLInputElement>("#past-filter"),
       pastListEl: requireElement<HTMLElement>("#past-list"),
     },
+    group: {
+      select: requireElement<HTMLSelectElement>("#group-select"),
+      nameInput: requireElement<HTMLInputElement>("#group-name-input"),
+      field: requireElement<HTMLElement>("#launch-group"),
+      titleInput: requireElement<HTMLElement>("#title-input"),
+      resumeSlot: requireElement<HTMLElement>("#group-resume-slot"),
+    },
   };
 
-  return initLaunchModal(elements, {
+  const handle = initLaunchModal(elements, {
+    groups: () => app.state.groups,
+    focusedSession: () => app.store.values().find((s) => s.id === app.state.focusedId) ?? null,
     // The card must appear the instant the 201 comes back — before any hook can
     // possibly arrive. The `sessionUpsert` the daemon also broadcasts for this same
     // launch is a harmless duplicate upsert once the WS delivers it.
@@ -728,4 +765,6 @@ export function initLaunch(app: App, deps: LaunchDeps): LaunchHandle {
       deps.surfaces.focusSelected(session.id);
     },
   });
+  app.on("groups", (groups) => handle.syncGroups(groups));
+  return handle;
 }

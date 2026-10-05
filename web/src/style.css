@@ -537,8 +537,9 @@ body {
 
 .railhead {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px 10px;
   padding: 9px 12px;
   flex: none;
   border-bottom: 1px solid var(--line);
@@ -591,16 +592,15 @@ body {
   overflow-y: auto;
   flex: 1;
   min-height: 0;
-  padding: 16px 12px;
   font-family: var(--mono);
   font-size: var(--fs-md);
   color: var(--fg-dim);
 }
 
-/* the "No sessions yet" empty state is a plain text node in #sessions — no gauge, no
+/* the "No sessions yet" empty state is one plain line in #sessions — no gauge, no
  * placeholder card, just the honest word. */
-.cards:has(.card) {
-  padding: 0;
+.rail-empty {
+  padding: 16px 12px;
 }
 
 .main {
@@ -3003,8 +3003,8 @@ dialog.diagram-modal[open] {
   border-bottom: 1px solid var(--line);
 }
 
-/* The Resume tab hides `.fields` itself (`elements.fieldsEl.hidden`, features/launch.ts) —
- * `.fields [hidden]` above is a *descendant* selector (covers #model-error/#bypass-warning,
+/* The Resume tab hides `.fields` itself (`elements.fieldsEl.hidden`, features/launchresume.ts) —
+ * `.fields [hidden]` below is a *descendant* selector (covers #model-error/#bypass-warning,
  * children of `.fields`) and does not match `.fields` carrying the attribute itself; without
  * this companion the UA's `[hidden]` default loses to `#launch-form .fields`'s own `display:
  * grid` (kb:lesson/display-rule-overrides-hidden-attribute). */
@@ -3043,7 +3043,8 @@ dialog.diagram-modal[open] {
   color: var(--fg-muted);
 }
 
-.fields .lab {
+.fields .lab,
+.group-slot .lab {
   font-family: var(--mono);
   font-size: var(--fs-2xs);
   letter-spacing: 0.06em;
@@ -3125,7 +3126,10 @@ dialog.diagram-modal[open] {
   display: none;
 }
 
-.fields input[type="text"] {
+.fields input[type="text"],
+.fields select,
+.group-slot input[type="text"],
+.group-slot select {
   border: 1px solid var(--edge);
   padding: 6px 9px;
   color: var(--fg);
@@ -3674,4 +3678,649 @@ fieldset.seg legend {
 
 #protocol-mismatch[hidden] {
   display: none;
+}
+
+/* ── rail groups (plan groups; docs/design/mockups/groups, design-system §5) ───────────────
+ * Tokens only. State colour is meaning: the summary dots and the popover's state words use a
+ * state's own token for that state and nothing else (§3); every other ground, border and text
+ * here is neutral. */
+
+/* The rail head's second row: the filter, Select and the rail ⋯ menu. */
+.railhead .row2 {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.railhead .row2 .spacer {
+  flex: 1;
+}
+
+.railhead .row2 .seg-btn {
+  padding: 4px 8px;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.02em;
+  line-height: normal;
+}
+
+#rail-filter[hidden] {
+  display: none;
+}
+
+.railhead .row2 .btn {
+  padding: 3px 8px;
+  font-size: var(--fs-2xs);
+}
+
+.railhead .row2 .btn[aria-pressed="true"] {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+/* A section: a sticky header over its body. The wrapper is what bounds the sticky header, so a
+ * header lets go of the top when its own section has scrolled away. */
+.ghead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 7px 8px 7px 6px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-raised);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ghead[hidden] {
+  display: none;
+}
+
+.ghead:hover {
+  background: var(--bg-hover);
+}
+
+.ghead.ungrouped {
+  border-top: 1px solid var(--line);
+}
+
+.ghead.pending {
+  cursor: default;
+}
+
+.ghead .disc {
+  appearance: none;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-dim);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ghead .disc::before {
+  content: "▾";
+  display: inline-block;
+  transition: transform 120ms ease;
+}
+
+.ghead.collapsed .disc::before {
+  transform: rotate(-90deg);
+}
+
+.ghead .disc:disabled {
+  color: var(--disabled-fg);
+  cursor: default;
+}
+
+.ghead .gchk {
+  flex: none;
+  margin: 0 2px 0 0;
+}
+
+.ghead .gname {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.ghead.ungrouped .gname {
+  font-weight: 500;
+  color: var(--fg-dim);
+}
+
+.ghead .gname input {
+  width: 140px;
+  padding: 1px 4px;
+  border: 1px solid var(--edge);
+  background: var(--well);
+  color: var(--fg);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
+  user-select: text;
+}
+
+/* The summary: the member count, then a dot and a number per state present. Numbers change, so
+ * they are tabular (design-system §2). The dot is an empty <i>; the state's word is its title. */
+.ghead .gsum {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--fg-dim);
+}
+
+.gsum .cnt {
+  color: var(--fg-muted);
+}
+
+.gsum .st {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.gsum .dot,
+.pop .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fg-dim);
+}
+
+.gsum .st[data-state="needs_input"] .dot,
+.pop .pr[data-state="needs_input"] .dot {
+  background: var(--amber);
+}
+
+.gsum .st[data-state="failed"] .dot,
+.pop .pr[data-state="failed"] .dot {
+  background: var(--rose);
+}
+
+.gsum .st[data-state="started"] .dot,
+.pop .pr[data-state="started"] .dot {
+  background: var(--fg-muted);
+}
+
+.gsum .st[data-state="planning"] .dot,
+.pop .pr[data-state="planning"] .dot {
+  background: var(--violet);
+}
+
+.gsum .st[data-state="working"] .dot,
+.pop .pr[data-state="working"] .dot {
+  background: var(--teal);
+}
+
+.gsum .st[data-state="idle"] .dot,
+.pop .pr[data-state="idle"] .dot {
+  background: var(--idle);
+}
+
+.gsum .st[data-state="ended"] .dot,
+.pop .pr[data-state="ended"] .dot {
+  background: var(--line-control);
+}
+
+.ghead .kebab {
+  appearance: none;
+  flex: none;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--fg-dim);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.ghead:hover .kebab,
+.ghead:focus-within .kebab,
+.ghead .kebab[aria-expanded="true"] {
+  opacity: 1;
+}
+
+.ghead .kebab:hover:not(:disabled) {
+  color: var(--fg);
+}
+
+.ghead .kebab:disabled {
+  color: var(--disabled-fg);
+  cursor: default;
+}
+
+/* Drag feedback: neutral only (§3), the same family the card and tile drags use. */
+.ghead.dragging {
+  opacity: 0.6;
+}
+
+.ghead.drop-target {
+  outline: 1px solid var(--edge);
+  outline-offset: -1px;
+  background: var(--bg-hover);
+}
+
+.gbody.drop-target {
+  background: var(--bg-hover);
+}
+
+.gbody .empty {
+  padding: 14px 12px;
+  border-bottom: 1px dashed var(--line-control);
+  text-align: center;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.04em;
+  color: var(--fg-dim);
+}
+
+.gbody.drop-target .empty {
+  border-color: var(--edge);
+}
+
+/* Select mode: a checkbox per card in the stripe's gutter (absolute, so a compact card's one
+ * line is not pushed down), the pin control out of the way, a neutral selected treatment. */
+.card .chk {
+  position: absolute;
+  top: 9px;
+  left: 10px;
+  z-index: 1;
+  margin: 0;
+}
+
+.cards.selecting .card-in {
+  padding-left: 32px;
+}
+
+.cards.selecting .card .pin {
+  display: none;
+}
+
+.card.selected {
+  background: var(--bg-hover);
+  box-shadow: inset 3px 0 0 var(--fg);
+}
+
+.card.selected .stripe {
+  background: var(--fg);
+}
+
+/* The selection bar, at the rail's foot. */
+.selbar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--edge);
+  background: var(--bg-raised);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+}
+
+.selbar[hidden] {
+  display: none;
+}
+
+.selbar .cnt {
+  margin-right: 4px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+.selbar .btn {
+  padding: 3px 8px;
+  font-size: var(--fs-2xs);
+}
+
+.selbar .spacer {
+  flex: 1;
+}
+
+/* The one menu (render/menu.ts): rail ⋯, header ⋯, Move to and the Focus header's control. */
+.menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 190px;
+  padding: 4px 0;
+  border: 1px solid var(--line-control);
+  background: var(--bg-raised);
+  box-shadow: 0 8px 24px var(--scrim);
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+}
+
+.menu .mi {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.menu .mi:hover:not(:disabled),
+.menu .mi:focus-visible {
+  background: var(--bg-hover);
+  outline: none;
+}
+
+.menu .mi.danger {
+  color: var(--danger);
+}
+
+.menu .mi:disabled {
+  color: var(--disabled-fg);
+  cursor: default;
+}
+
+.menu .mi .k {
+  margin-left: auto;
+  padding-left: 16px;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--fg-dim);
+}
+
+.menu .mi .tick {
+  flex: none;
+  width: 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.menu .sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line);
+}
+
+.menu .hdr {
+  padding: 4px 12px;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+/* The header's hover popover: appended to <body>, never takes a click. */
+.pop {
+  position: fixed;
+  z-index: 55;
+  min-width: 220px;
+  max-width: 300px;
+  padding: 6px 0;
+  border: 1px solid var(--edge);
+  background: var(--bg-raised);
+  box-shadow: 0 8px 24px var(--scrim);
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--fg-muted);
+  pointer-events: none;
+}
+
+.pop .ph {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+  padding: 2px 12px 6px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg);
+}
+
+.pop .ph span {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--fg-dim);
+}
+
+.pop .prh {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px 1px;
+  color: var(--fg);
+}
+
+.pop .prh b {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pop .prh span {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-dim);
+}
+
+.pop .pr[data-state="needs_input"] .prh b {
+  color: var(--amber);
+}
+
+.pop .pr[data-state="failed"] .prh b {
+  color: var(--rose);
+}
+
+.pop .pr[data-state="planning"] .prh b {
+  color: var(--violet);
+}
+
+.pop .pr[data-state="working"] .prh b {
+  color: var(--teal);
+}
+
+.pop .pr[data-state="idle"] .prh b {
+  color: var(--idle);
+}
+
+.pop .pr[data-state="ended"] .prh b {
+  color: var(--fg-dim);
+}
+
+.pop .pt {
+  overflow: hidden;
+  padding: 1px 12px 1px 26px;
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-muted);
+}
+
+/* Delete group…: three choices, each a radio with its hint beneath. */
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 16px 4px;
+}
+
+.choices[hidden] {
+  display: none;
+}
+
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-control);
+  color: var(--fg);
+}
+
+.choice[hidden] {
+  display: none;
+}
+
+.choice:has(input:checked) {
+  border-color: var(--edge);
+  background: var(--bg-hover);
+}
+
+.choice input[type="radio"] {
+  margin: 3px 0 0;
+}
+
+.choice .ctext {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: var(--fs-sm);
+}
+
+.choice select {
+  max-width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--edge);
+  background: var(--well);
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+}
+
+.choice small {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+}
+
+/* New group from a selection: one labelled field, like the launch form's rows. */
+#new-group-form.fields {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 11px 14px;
+  align-items: center;
+  padding: 14px 16px;
+}
+
+/* The launch dialog's Group row: the select, and the name field beside it while New group… is
+ * chosen. One set of nodes serves both tabs (features/launchgroup.ts): on New it sits in `.fields`
+ * under Title, where `#launch-group` is `display: contents` so its label and row are grid items;
+ * on Resume, where `.fields` is hidden, it is moved into `.group-slot` under the past-sessions
+ * list, which lays out the same two columns. */
+#launch-group {
+  display: contents;
+}
+
+.group-slot {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 11px 14px;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.group-slot:empty {
+  display: none;
+}
+
+.group-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.group-row select {
+  min-width: 180px;
+  max-width: 100%;
+}
+
+.group-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The Focus header's group control (design-system §5): it hides only when the header's own
+ * container is narrower than 640px (kb:adr/focus-group-control-hides-below-640px-container-width).
+ * Above that the title shortens beside it, never below its 6rem floor, and the repo block keeps its
+ * 8-character floor and never hides, so a long folder name may ellipsize
+ * (kb:adr/focus-group-control-stays-while-title-shortens,
+ * kb:adr/focus-repo-block-keeps-floor-beside-group-control). */
+.mainhead {
+  container-type: inline-size;
+}
+
+.mainhead .ingroup {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.6ch;
+  max-width: 24ch;
+  padding: 2px 5px;
+  border: 1px solid var(--line-control);
+  background: transparent;
+  color: var(--fg-dim);
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* A long group name ends in an ellipsis; the caret never does. */
+.mainhead .ingroup .ig-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mainhead .ingroup:hover:not(:disabled) {
+  color: var(--fg);
+  border-color: var(--fg-muted);
+}
+
+.mainhead .ingroup:disabled {
+  border-color: var(--disabled-line);
+  background: var(--disabled-bg);
+  color: var(--disabled-fg);
+  cursor: default;
+}
+
+@container (width < 640px) {
+  .mainhead .ingroup {
+    display: none;
+  }
 }

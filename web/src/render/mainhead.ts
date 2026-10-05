@@ -10,6 +10,7 @@ import { requireElement } from "../dom";
 import {
   bypassChip,
   canResume,
+  displayTitle,
   mainheadMeta,
   resumeDisabledReason,
   type MainheadMeta,
@@ -31,6 +32,10 @@ export interface MainheadElements {
   // actual editor (render/rename.ts) to `nameEl` once at startup, this module never
   // opens/closes it.
   renameBtn: HTMLButtonElement;
+  // The group control between the name and the repo readout: its label is written here, its click
+  // is wired once by features/focus.ts, which also owns the Move to menu it opens
+  // (kb:adr/focus-group-control-hides-below-640px-container-width — the CSS hides it).
+  groupBtn: HTMLButtonElement;
   // The `claude | shell` segment (kb:adr/surfaces-shell-is-attach-target-not-session),
   // built once by features/focus.ts at startup and inserted between `.meta` and `.acts`
   // — this module only ever updates its attributes (below), never rebuilds it.
@@ -105,6 +110,8 @@ export function renderMainhead(
   // `elements.nameEl` itself. Required, not optional — the one production caller always
   // passes it.
   isEditingName: boolean,
+  // The focused session's group name, or `no group` (sessions/sections.ts's `groupLabel`).
+  groupText: string,
 ): void {
   if (!session) {
     elements.root.hidden = true;
@@ -122,7 +129,7 @@ export function renderMainhead(
   // render tick or `sessionUpsert` mid-edit never touches the input's value, focus or
   // selection.
   if (!isEditingName) {
-    const title = session.title ?? "untitled";
+    const title = displayTitle(session);
     elements.renameBtn.textContent = title;
     // The heading ends a long title in an ellipsis, so the hover reads it in full.
     elements.renameBtn.title = title;
@@ -138,6 +145,9 @@ export function renderMainhead(
   // dedicated `MainheadElements` field, matching `render/tiles.ts`'s `updateTileChrome`
   // (a `requireElement` lookup per chrome slot, not one field per slot).
   requireElement<HTMLElement>(".chip-danger", elements.root).hidden = !bypassChip(session);
+  const groupName = requireElement<HTMLElement>(".ig-name", elements.groupBtn);
+  if (groupName.textContent !== groupText) groupName.textContent = groupText;
+  elements.groupBtn.disabled = !connected;
   elements.endBtn.disabled = !connected || !session.alive;
   elements.resumeBtn.disabled = !connected || session.alive || !canResume(session.claudeSessionId);
   // A disabled-for-no-claudeSessionId Resume says why, not just sits greyed.

@@ -234,7 +234,8 @@ tags and verdict rules are the ones you route by. You run the gates, merge the p
 result.
 
 1. **Gates, once, yours.** `python3 $S <plan> start review`, then in the foreground with
-   `timeout: 600000` (a cold run exceeds the 120 s default and the harness would background it):
+   `timeout: 600000`; a cold full run is ~12 min, so the harness backgrounds it and wakes **you** —
+   fine for the main session, never for a subagent:
    ```bash
    GATES_LOG_DIR=$TMPDIR/gates-<plan>-c<N> .claude/skills/orchestrate/scripts/gates.sh <plan>   # --no-e2e for a daemon plan whose Step 1 was skipped
    ```
@@ -298,6 +299,11 @@ cycle (kb:lesson/decision-made-inside-a-fix-wave).
      `.claude/rules/*.md` and `internal/<pkg>/CLAUDE.md` trailers wave-1 agents hold
      (kb:lesson/orchestrator-work-spawned-as-agent).
    - **Every severity routes.** An agent with any tagged issue — Critical, Major or Minor — is spawned in its wave with all of them; Minors are never deferred to `TODO.md`. The cycle after a Minors-only wave is a cheap delta re-review (above).
+   - **Exception — comment-only cycles:** when `merge-review` printed `comment-only: yes`, no wave
+     runs: apply each issue's replacement sentence yourself in one `chore(<plan-name>): comments per
+     review cycle <N>` commit, run `make lint`, `make web-lint` and `comment-checks.py --gates`, then
+     archive, `retry review` and re-spawn only the reviewers who tagged one, in delta mode, reusing the
+     gate ledger. Three cycles of the groups run were comment text and cost a wave and a full gate run each.
    - **Exception — plan-log and doc-label Minors:** a Minor whose whole fix is wording or a label inside `plans/<plan>/*.md`, `docs/` or `TODO.md` (no code, test or assertion) is yours to make while the wave runs, in your own `docs(<plan-name>)` commit, cited in the completion summary; the delta re-review verifies it (kb:lesson/orchestrator-work-spawned-as-agent).
    - `[note]` items are never routed; list them in the completion summary.
 1a. **Decision items first.**

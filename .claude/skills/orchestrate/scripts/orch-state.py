@@ -124,6 +124,18 @@ def part_verdict(text):
     m = VERDICT_LINE.search(text)
     return m.group(1).strip().lower() if m else "unusable"
 
+def agent_tagged_lines(text):
+    """The numbered issue lines under Critical/Major/Minor that carry a pipeline-agent tag."""
+    out, blocking = [], False
+    for line in text.splitlines():
+        if line.startswith("### "):
+            blocking = line[4:].strip().split()[0] in ("Critical", "Major", "Minor")
+        elif line.startswith("## "):
+            blocking = False
+        elif blocking and AGENT_TAG.match(line):
+            out.append(line)
+    return out
+
 def has_agent_tagged_issue(text):
     """True iff a numbered issue under a Critical/Major/Minor heading carries a pipeline-agent tag.
     A [note] or an [orchestrator] item never blocks; Notes sit under their own heading."""
@@ -218,9 +230,19 @@ def merge_review(plan_dir, plan, cycle, gates_failed):
               "\n_Merged by orch-state.py merge-review; the verdict is computed from the parts and the gate run, never edited by hand._\n")
     (plan_dir / "review.md").write_text(header + "".join(bodies))
     print(f"merged {len(parts)} part(s) -> review.md: **Verdict**: {verdict}")
+    # groups retro (2026-10-05): three cycles were comment text only; a wave per cycle was the cost.
+    tagged = [l for _, _, f in parts for l in agent_tagged_lines(f.read_text())]
+    if tagged:
+        print("comment-only: " + ("yes" if all("[comment]" in l for l in tagged) else "no"))
     for w in scope_warnings(plan_dir, parts):
         print(w)
     return verdict, [k for k, _ in verdicts]
+
+def review_cycle(s):
+    """The review cycle number: a counter `retry review` increments and `reopen --reset-retries` never
+    touches. Before the counter existed it was derived from the retry count, which a reset zeroed:
+    groups' fourth cycle merged as "Cycle 2" and overwrote cycle 2's verdict (retro, 2026-10-05)."""
+    return s.get("review_cycle") or s["retry_counts"].get("review", 0) + 1
 
 def approved(plan_dir):
     r = plan_dir / "review.md"
@@ -308,6 +330,8 @@ def main():
             if (s.get("step_attempts") or {}).get(a.arg, [{}])[-1].get("finish", 0) is None:
                 close_attempt(s, a.arg)  # a retry means the step just reported
             s["retry_counts"][a.arg] = s["retry_counts"].get(a.arg, 0) + 1
+            if a.arg == "review":  # the cycle number survives --reset-retries (groups retro, 2026-10-05)
+                s["review_cycle"] = review_cycle(s) + 1
         elif a.cmd == "archive":
             src = path.parent / a.arg
             if not src.exists():
@@ -319,14 +343,14 @@ def main():
             src.rename(dst)
             print(f"archived {src.name} -> {dst.name}")
         elif a.cmd == "merge-review":
-            cycle = s["retry_counts"].get("review", 0) + 1
+            cycle = review_cycle(s)
             verdict, used = merge_review(path.parent, a.plan, cycle, a.gates_failed)
             s.setdefault("review_parts", {})[str(cycle)] = used
             s.setdefault("review_verdicts", {})[str(cycle)] = verdict
         elif a.cmd == "reviewed":
             if subprocess.run(["git", "cat-file", "-e", f"{a.arg}^{{commit}}"], capture_output=True).returncode != 0:
                 sys.exit(f"{a.arg} is not a commit in this repository")
-            cycle = s["retry_counts"].get("review", 0) + 1
+            cycle = review_cycle(s)
             s.setdefault("review_commits", {})[str(cycle)] = a.arg
         elif a.cmd == "status":
             if a.arg not in ("in-progress", "blocked", "completed"):

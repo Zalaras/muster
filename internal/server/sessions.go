@@ -13,10 +13,10 @@ import (
 	"github.com/Zalaras/muster/internal/session"
 )
 
-// sessionsFeature owns the session lifecycle endpoints: create, end, resume, remove,
-// pin, order, title and pane-snapshot. shells/terminals are the shared collaborators
-// shellFeature/terminalFeature also hold — sessions needs them
-// only for End/Remove's socket-close and Remove's shell-kill side effects. The launch and
+// sessionsFeature owns the session lifecycle endpoints: create, end, resume, remove, their
+// batch forms, pin, order, group, title and pane-snapshot. shells/terminals are the shared
+// collaborators shellFeature/terminalFeature also hold — sessions needs them only for
+// End/Remove's socket-close and Remove's shell-kill side effects. The launch and
 // resume work itself is launcher.go's sessionLauncher; this file only decodes, delegates
 // and encodes.
 type sessionsFeature struct {
@@ -51,6 +51,10 @@ func (f *sessionsFeature) mount(mux *http.ServeMux, guard func(http.Handler) htt
 	// segment over a wildcard, so "order" is never parsed as {id} regardless of
 	// registration order, but the literal route is listed first here to read that way too.
 	mux.Handle("PUT /api/sessions/order", guard(http.HandlerFunc(f.handleSetOrder)))
+	// The literal group, end and remove segments beat {id} the same way.
+	mux.Handle("PUT /api/sessions/group", guard(http.HandlerFunc(f.handleSetSessionsGroup)))
+	mux.Handle("POST /api/sessions/end", guard(http.HandlerFunc(f.handleEndSessions)))
+	mux.Handle("POST /api/sessions/remove", guard(http.HandlerFunc(f.handleRemoveSessions)))
 	mux.Handle("PUT /api/sessions/{id}/pin", guard(http.HandlerFunc(f.handlePinSession)))
 	mux.Handle("PUT /api/sessions/{id}/title", guard(http.HandlerFunc(f.handleSetTitle)))
 }
@@ -131,14 +135,124 @@ func (f *sessionsFeature) handleRemoveSession(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	f.teardownRemoved(context.WithoutCancel(r.Context()), id)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// teardownRemoved closes everything the server holds for a session the manager has just
+// removed: its terminal sockets, its shell and its write log. Run only after manager.Remove
+// succeeded; DELETE /api/sessions/{id}, the batch remove and delete-group's remove all end here.
+func (f *sessionsFeature) teardownRemoved(ctx context.Context, id int64) {
 	f.terminals.closeSessionAndShell(id)
-	f.shells.Kill(context.WithoutCancel(r.Context()), id)
+	f.shells.Kill(ctx, id)
 
 	if f.reader != nil {
 		f.reader.forgetSession(id)
 	}
+}
 
-	w.WriteHeader(http.StatusNoContent)
+// batchRequest is POST /api/sessions/end's and /remove's request body.
+type batchRequest struct {
+	IDs []int64 `json:"ids"`
+}
+
+const (
+	msgBatchIDs        = "ids must be a non-empty list of session ids without duplicates"
+	msgSessionGroupIDs = "ids must be known session ids without duplicates"
+)
+
+// decodeBatchRequest reads a batch body, writing 400 itself unless ids is a non-empty list.
+// A repeated id is the manager's to refuse (writeBatchError), as for the rail-order endpoints.
+func decodeBatchRequest(w http.ResponseWriter, r *http.Request) ([]int64, bool) {
+	var req batchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.IDs) == 0 {
+		writeInvalidRequest(w, msgBatchIDs)
+		return nil, false
+	}
+	return req.IDs, true
+}
+
+// writeBatchError maps the manager's refusal of a batch list to its response.
+func (f *sessionsFeature) writeBatchError(w http.ResponseWriter, err error) {
+	if errors.Is(err, session.ErrInvalidOrder) {
+		writeInvalidRequest(w, msgBatchIDs)
+		return
+	}
+	f.log.Error().Err(err).Msg("running a session batch failed")
+	writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
+}
+
+// handleEndSessions is POST /api/sessions/end (kb:anchor/sessions.end-many): the batch form
+// of handleEndSession, answering 200 with what happened to each id whatever the mix.
+func (f *sessionsFeature) handleEndSessions(w http.ResponseWriter, r *http.Request) {
+	ids, ok := decodeBatchRequest(w, r)
+	if !ok {
+		return
+	}
+
+	result, err := f.manager.EndMany(context.WithoutCancel(r.Context()), ids)
+	if err != nil {
+		f.writeBatchError(w, err)
+		return
+	}
+	for _, id := range result.Done {
+		f.terminals.closeSession(id)
+	}
+	writeJSON(w, http.StatusOK, toWireBatch(result))
+}
+
+// handleRemoveSessions is POST /api/sessions/remove (kb:anchor/sessions.remove-many): the
+// batch form of handleRemoveSession.
+func (f *sessionsFeature) handleRemoveSessions(w http.ResponseWriter, r *http.Request) {
+	ids, ok := decodeBatchRequest(w, r)
+	if !ok {
+		return
+	}
+
+	ctx := context.WithoutCancel(r.Context())
+	result, err := f.manager.RemoveMany(ctx, ids)
+	if err != nil {
+		f.writeBatchError(w, err)
+		return
+	}
+	for _, id := range result.Done {
+		f.teardownRemoved(ctx, id)
+	}
+	writeJSON(w, http.StatusOK, toWireBatch(result))
+}
+
+// setSessionsGroupRequest is PUT /api/sessions/group's request body
+// (kb:anchor/sessions.group). GroupID is a json.RawMessage so an absent key (400) is
+// distinguishable from an explicit null (Ungrouped) — the same shape setTitleRequest uses.
+type setSessionsGroupRequest struct {
+	IDs     []int64         `json:"ids"`
+	GroupID json.RawMessage `json:"groupId"`
+}
+
+// handleSetSessionsGroup is PUT /api/sessions/group (kb:anchor/sessions.group).
+func (f *sessionsFeature) handleSetSessionsGroup(w http.ResponseWriter, r *http.Request) {
+	var req setSessionsGroupRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.IDs == nil {
+		writeInvalidRequest(w, msgSessionGroupIDs)
+		return
+	}
+	groupID, ok := decodeGroupID(req.GroupID)
+	if !ok {
+		writeInvalidRequest(w, "groupId is required and must be an integer or null")
+		return
+	}
+
+	switch err := f.manager.SetSessionsGroup(context.WithoutCancel(r.Context()), req.IDs, groupID); {
+	case err == nil:
+		w.WriteHeader(http.StatusNoContent)
+	case errors.Is(err, session.ErrUnknownSession), errors.Is(err, session.ErrInvalidOrder):
+		writeInvalidRequest(w, msgSessionGroupIDs)
+	case errors.Is(err, session.ErrUnknownGroup):
+		writeUnknownGroup(w, msgUnknownGroup)
+	default:
+		f.log.Error().Err(err).Msg("moving sessions to a group failed")
+		writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
+	}
 }
 
 // handleResumeSession is POST /api/sessions/{id}/resume (kb:anchor/sessions.resume).
@@ -213,6 +327,9 @@ func (f *sessionsFeature) handlePinSession(w http.ResponseWriter, r *http.Reques
 type setOrderRequest struct {
 	IDs         []int64 `json:"ids"`
 	PinnedCount *int    `json:"pinnedCount"`
+	// GroupID is a json.RawMessage for the same reason setSessionsGroupRequest's is: absent
+	// leaves membership alone, null names Ungrouped, an integer names a group.
+	GroupID json.RawMessage `json:"groupId"`
 }
 
 // handleSetOrder is PUT /api/sessions/order (kb:anchor/sessions.order).
@@ -223,8 +340,20 @@ func (f *sessionsFeature) handleSetOrder(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := f.manager.SetOrder(context.WithoutCancel(r.Context()), req.IDs, *req.PinnedCount); err != nil {
+	var group *session.GroupRef
+	if len(req.GroupID) > 0 {
+		id, ok := decodeGroupID(req.GroupID)
+		if !ok {
+			writeInvalidRequest(w, msgGroupIDField)
+			return
+		}
+		group = &session.GroupRef{ID: id}
+	}
+
+	if err := f.manager.SetOrder(context.WithoutCancel(r.Context()), req.IDs, *req.PinnedCount, group); err != nil {
 		switch {
+		case errors.Is(err, session.ErrUnknownGroup):
+			writeUnknownGroup(w, msgUnknownGroup)
 		case errors.Is(err, session.ErrInvalidOrder):
 			writeJSONError(w, http.StatusBadRequest, "invalid_request", "ids must be a duplicate-free list of known session ids, and pinnedCount must be in [0, len(ids)]")
 		default:

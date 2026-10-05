@@ -34,6 +34,8 @@ const validSnapshot = {
     railActivity: "turn",
   },
   claudeTheme: { family: "unknown" },
+  groups: [],
+  ungrouped: { pos: 0, collapsed: false },
   update: validUpdateInfo,
 };
 describe("parsePrefs — railSort (plan order-sidebar REQ-5 / kb:anchor/prefs.put)", () => {

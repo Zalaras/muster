@@ -64,6 +64,10 @@ test("GET /api/state returns exactly the empty-daemon snapshot object once authe
   // `update.running` is matched structurally since the dev version changes every commit.
   expect(body).toEqual({
     sessions: [],
+    // The rail-groups contract (kb:anchor/ws.snapshot): a fresh daemon has no groups and an
+    // Ungrouped section at the default position, uncollapsed.
+    groups: [],
+    ungrouped: { pos: 0, collapsed: false },
     shellsBusy: [],
     usage: {
       fiveHour: null,

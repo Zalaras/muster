@@ -18,6 +18,12 @@ export function asNumber(value: unknown): number | null {
   return isNumber(value) ? value : null;
 }
 
+/** `unknown -> number | null` for a wire value that must be a whole number (an id, a count);
+ * a fractional or non-numeric value is `null`. */
+export function asInteger(value: unknown): number | null {
+  return isNumber(value) && Number.isInteger(value) ? value : null;
+}
+
 export function isString(value: unknown): value is string {
   return typeof value === "string";
 }

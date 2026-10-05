@@ -9,6 +9,7 @@ import type { BrowseEntry, Repo } from "../api/launch";
 import { requireElement } from "../dom";
 import { formatAge } from "../sessions/format";
 import type { LaunchPrimaryFace } from "../sessions/permission";
+import { fillOptions, type OptionRow } from "./options";
 
 function buildRecentButton(
   template: HTMLTemplateElement,
@@ -287,4 +288,17 @@ export function renderResumeFooter(
 export function renderLaunchButtonFace(button: HTMLButtonElement, face: LaunchPrimaryFace): void {
   button.textContent = face.label;
   button.className = face.danger ? "btn key-danger" : "btn key";
+}
+
+/** Writes the Group select's options and the value it holds. The caller rebuilds only when the
+ * option set genuinely changed (`features/launchgroupchoice.ts`'s `groupOptionsKey`): a select
+ * rebuilt on every pass loses a focused user's typeahead and open popup
+ * (kb:lesson/select-rebuilt-every-tick-passed-selectoption). */
+export function renderGroupOptions(
+  select: HTMLSelectElement,
+  options: readonly OptionRow[],
+  value: string,
+): void {
+  fillOptions(select, options);
+  select.value = value;
 }

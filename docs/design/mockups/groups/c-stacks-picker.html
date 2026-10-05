@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en" data-theme="instrument">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Groups C — Stacks + picker dialog</title>
+<link rel="stylesheet" href="shared.css">
+<script>
+window.V = {
+  ungroupedLabel: "Unfiled", summary: "bar", select: "hover", menus: "kebab",
+  pinScope: "section", attention: "flatten", filter: "eyes", create: "dialog",
+  createButton: "text", stacked: false, mainheadGroup: false,
+};
+window.V.stacked = true;
+</script>
+<script src="shared.js" defer></script>
+</head>
+<body>
+<div class="mock">
+  <div>
+    <h1>C · Stacks + picker dialog <span>ALTERNATIVE</span></h1>
+    <p class="lede">A collapsed group reads as a <b>stack of cards</b> (a titled card with a shadowed edge), not
+      a thin section rule; expanded, its members hang off an indented line. The summary is a proportional
+      <b>state bar</b> plus explicit counts only for needs-input and failed. Selection is Gmail-style: a
+      <b>checkbox appears on hover</b> at a card's corner, ticking one brings up the bar. Moving is a <b>picker
+      dialog</b> ("Move 2 sessions to…" with member counts and New group…) rather than a drop-down. Filter is
+      per-section: a <b>hide</b> button on hover hides a section, the <b>⌸</b> in the rail head lists what is hidden.
+      Attention sort <b>flattens</b> the rail — one list, each card wearing its group chip — and manual puts the
+      stacks back. "Everything else" is called <b>Unfiled</b>.</p>
+  </div>
+  <p class="try"><b>Try:</b> click PR REVIEWS to collapse it into a stack · hover a card, tick the box, then
+    <b>Move to ▾</b> for the picker · <b>+ group</b> opens a name dialog · hover a header and press <b>hide</b>,
+    then <b>⌸</b> to bring it back · <b>sort: attention</b> flattens into one list with chips · header
+    <b>⋯</b> → Delete group… shows the three outcomes.</p>
+  <div class="switch">theme <button class="on" data-theme-pick="instrument">instrument</button><button data-theme-pick="light">light</button></div>
+</div>
+<div class="app">
+  <div class="masthead">
+    <div class="brand">muster</div>
+    <div class="seg"><button class="seg-btn" aria-pressed="true">Focus</button><button class="seg-btn">Tiles</button></div>
+    <div class="right"><span class="gauge">5h <i><b style="width:38%"></b></i> 38%</span><span class="gauge">7d <i><b style="width:61%"></b></i> 61%</span><span>opus 4.1</span><button class="btn key">New session</button></div>
+  </div>
+  <div class="body">
+    <aside class="rail" id="rail">
+      <div class="railhead" id="railhead"></div>
+      <div class="cards" id="cards"></div>
+      <div class="selbar" id="selbar" hidden></div>
+    </aside>
+    <main class="main">
+      <div class="mainhead">
+        <span class="name" id="mh-name"></span>
+        <span class="meta" id="mh-meta"></span>
+        <button class="ingroup" id="mh-group" hidden></button>
+        <div class="acts"><button class="btn" id="mh-stop">Stop</button><button class="btn" id="mh-remove">Remove</button></div>
+      </div>
+      <div class="term"><span class="dim">❯</span> write the three rail-group mockups, then the interview
+
+<span class="dim">⏺</span> Building shared.css, shared.js and three pages under docs/design/mockups/groups/…
+<span class="dim">⏺</span> Write(docs/design/mockups/groups/shared.css)
+<span class="dim">  ⎿</span>  Wrote 212 lines
+
+<span class="dim">(live terminal — the rail on the left is the mockup)</span></div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

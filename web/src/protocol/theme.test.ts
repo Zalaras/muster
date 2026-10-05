@@ -34,6 +34,8 @@ const validSnapshot = {
     railActivity: "turn",
   },
   claudeTheme: { family: "unknown" },
+  groups: [],
+  ungrouped: { pos: 0, collapsed: false },
   update: validUpdateInfo,
 };
 describe("parseSnapshot — claudeTheme (plan new-ui-design-colors REQ-19, W8)", () => {

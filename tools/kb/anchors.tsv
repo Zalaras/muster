@@ -21,6 +21,14 @@
 3.18	update.restart-impact
 3.19	sessions.reader
 3.20	sessions.reader-file
+3.21	sessions.group
+3.22	sessions.end-many
+3.23	sessions.remove-many
+3.24	groups.create
+3.25	groups.update
+3.26	groups.order
+3.27	groups.collapsed
+3.28	groups.delete
 4	ingest
 4.1	ingest.transport
 4.2	ingest.envelope
@@ -33,6 +41,7 @@
 5.6	ws.claude-theme
 5.7	ws.update
 5.8	ws.doc-changed
+5.9	ws.groups
 6	terminal.ws
 6.1	terminal.shell-ws
 7	state

@@ -4,66 +4,103 @@
 // Escape-cancels-a-modal-dialog behaviour, which needs no code here to satisfy). DOM +
 // wiring only: the actual Stop/Remove HTTP calls are features/actions.ts's dispatcher's job
 // (it owns the session store and decides what happens next), which also composes each
-// dialog's body text (`features/actionscopy.ts`'s `endDialogBody`/`removeDialogBody` —
-// a DOM-free decision with one controller caller, so it lives beside it, not here) and
-// passes it in.
-import type { Session } from "../protocol/session";
+// dialog's title, body and confirm label (`features/actionscopy.ts`'s single-session copy and
+// `features/groupscopy.ts`'s batch copy — DOM-free decisions with one controller caller, so they
+// live beside it, not here) and passes them in. One dialog serves one session or a batch
+// (kb:adr/actions-bulk-stop-remove-are-daemon-batches): it holds the ids it was opened for and
+// hands them back whole.
 
 export interface ConfirmDialogElements {
   endDialog: HTMLDialogElement;
+  endTitle: HTMLElement;
   endBody: HTMLElement;
   endConfirmBtn: HTMLButtonElement;
   endCancelBtn: HTMLButtonElement;
   removeDialog: HTMLDialogElement;
+  removeTitle: HTMLElement;
   removeBody: HTMLElement;
   removeConfirmBtn: HTMLButtonElement;
   removeCancelBtn: HTMLButtonElement;
 }
 
 export interface ConfirmDialogHandlers {
-  onConfirmEnd: (id: number) => void;
-  onConfirmRemove: (id: number) => void;
+  onConfirmEnd: (ids: readonly number[]) => void;
+  onConfirmRemove: (ids: readonly number[]) => void;
+}
+
+/** What one open of a confirm dialog shows and acts on. */
+export interface ConfirmRequest {
+  ids: readonly number[];
+  title: string;
+  body: string;
+  confirmLabel: string;
 }
 
 export interface ConfirmDialogs {
-  openEnd: (session: Session, bodyText: string) => void;
-  openRemove: (session: Session, bodyText: string) => void;
+  openEnd: (request: ConfirmRequest) => void;
+  openRemove: (request: ConfirmRequest) => void;
   /** States: "Daemon down ... Dialogs, if open, close." */
   closeAll: () => void;
+}
+
+interface DialogParts {
+  dialog: HTMLDialogElement;
+  title: HTMLElement;
+  body: HTMLElement;
+  confirmBtn: HTMLButtonElement;
+  cancelBtn: HTMLButtonElement;
+}
+
+/** Wires one dialog's buttons once and returns its `open`. The ids live in this closure, so a
+ * confirm acts on exactly what the dialog was last opened for. */
+function wireDialog(
+  parts: DialogParts,
+  onConfirm: (ids: readonly number[]) => void,
+): (request: ConfirmRequest) => void {
+  let targetIds: readonly number[] = [];
+  parts.cancelBtn.addEventListener("click", () => parts.dialog.close());
+  parts.confirmBtn.addEventListener("click", () => {
+    const ids = targetIds;
+    parts.dialog.close();
+    if (ids.length > 0) onConfirm(ids);
+  });
+  return (request) => {
+    targetIds = request.ids;
+    parts.title.textContent = request.title;
+    parts.body.textContent = request.body;
+    parts.confirmBtn.textContent = request.confirmLabel;
+    if (!parts.dialog.open) parts.dialog.showModal();
+  };
 }
 
 export function initConfirmDialogs(
   elements: ConfirmDialogElements,
   handlers: ConfirmDialogHandlers,
 ): ConfirmDialogs {
-  let endTargetId: number | null = null;
-  let removeTargetId: number | null = null;
-
-  elements.endCancelBtn.addEventListener("click", () => elements.endDialog.close());
-  elements.endConfirmBtn.addEventListener("click", () => {
-    const id = endTargetId;
-    elements.endDialog.close();
-    if (id !== null) handlers.onConfirmEnd(id);
-  });
-
-  elements.removeCancelBtn.addEventListener("click", () => elements.removeDialog.close());
-  elements.removeConfirmBtn.addEventListener("click", () => {
-    const id = removeTargetId;
-    elements.removeDialog.close();
-    if (id !== null) handlers.onConfirmRemove(id);
-  });
+  const openEnd = wireDialog(
+    {
+      dialog: elements.endDialog,
+      title: elements.endTitle,
+      body: elements.endBody,
+      confirmBtn: elements.endConfirmBtn,
+      cancelBtn: elements.endCancelBtn,
+    },
+    handlers.onConfirmEnd,
+  );
+  const openRemove = wireDialog(
+    {
+      dialog: elements.removeDialog,
+      title: elements.removeTitle,
+      body: elements.removeBody,
+      confirmBtn: elements.removeConfirmBtn,
+      cancelBtn: elements.removeCancelBtn,
+    },
+    handlers.onConfirmRemove,
+  );
 
   return {
-    openEnd(session, bodyText) {
-      endTargetId = session.id;
-      elements.endBody.textContent = bodyText;
-      if (!elements.endDialog.open) elements.endDialog.showModal();
-    },
-    openRemove(session, bodyText) {
-      removeTargetId = session.id;
-      elements.removeBody.textContent = bodyText;
-      if (!elements.removeDialog.open) elements.removeDialog.showModal();
-    },
+    openEnd,
+    openRemove,
     closeAll() {
       if (elements.endDialog.open) elements.endDialog.close();
       if (elements.removeDialog.open) elements.removeDialog.close();

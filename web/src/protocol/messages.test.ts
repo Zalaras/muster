@@ -34,6 +34,8 @@ const validSnapshot = {
     railActivity: "turn",
   },
   claudeTheme: { family: "unknown" },
+  groups: [],
+  ungrouped: { pos: 0, collapsed: false },
   update: validUpdateInfo,
 };
 // A fully-populated Session per kb:anchor/ws.session, used as the baseline every
@@ -65,6 +67,7 @@ const validSession = {
   plan: null,
   unread: false,
   lastPrompt: null,
+  groupId: null,
 };
 // The measured "no data yet" shape (docs/history/spikes/canary-fields.md): a session that has just
 // been launched — no Claude session id bound yet, no repo/model/attention/failure known,
@@ -97,6 +100,7 @@ const freshLaunchSession = {
   plan: null,
   unread: false,
   lastPrompt: null,
+  groupId: null,
 };
 describe("parseMessage — snapshot", () => {
   it("parses the empty-sessions, null-usage snapshot", () => {
@@ -333,6 +337,8 @@ describe("parseMessage — snapshot with sessions", () => {
         railActivity: "turn",
       },
       claudeTheme: { family: "unknown" },
+      groups: [],
+      ungrouped: { pos: 0, collapsed: false },
       update: validUpdateInfo,
     };
     expect(parseMessage(snapshot)).toEqual(snapshot);
@@ -375,5 +381,134 @@ describe("parseMessage — sessionRemoved (W6, plan m4-reconcile REQ-15, kb:anch
       type: "sessionRemoved",
       id: 0,
     });
+  });
+});
+// kb:anchor/ws.groups: the whole list, broadcast on every change; the snapshot carries the same two
+// keys, and an older daemon's snapshot (neither key) is the flat, no-groups rail.
+describe("parseMessage — groups (plan groups kb:anchor/ws.groups)", () => {
+  const groupsMessage = {
+    type: "groups",
+    groups: [
+      { id: 3, name: "PR reviews", pos: 0, collapsed: false },
+      { id: 5, name: "Hotfix", pos: 2, collapsed: true },
+    ],
+    ungrouped: { pos: 1, collapsed: false },
+  };
+
+  it("parses a groups message whole, in the order sent (the client sorts by pos)", () => {
+    expect(parseMessage(groupsMessage)).toEqual(groupsMessage);
+  });
+
+  it("parses an empty groups message: no groups, Ungrouped alone", () => {
+    const message = { type: "groups", groups: [], ungrouped: { pos: 0, collapsed: true } };
+    expect(parseMessage(message)).toEqual(message);
+  });
+
+  it("ignores unknown fields on the message, a group and the Ungrouped layout (additive evolution)", () => {
+    const message = {
+      ...groupsMessage,
+      futureField: 1,
+      groups: [{ ...groupsMessage.groups[0], color: "red" }],
+      ungrouped: { ...groupsMessage.ungrouped, color: "blue" },
+    };
+    expect(parseMessage(message)).toEqual({
+      type: "groups",
+      groups: [groupsMessage.groups[0]],
+      ungrouped: groupsMessage.ungrouped,
+    });
+  });
+
+  it.each([
+    ["groups missing", { type: "groups", ungrouped: { pos: 0, collapsed: false } }],
+    ["ungrouped missing", { type: "groups", groups: [] }],
+    [
+      "groups not an array",
+      { type: "groups", groups: {}, ungrouped: { pos: 0, collapsed: false } },
+    ],
+    ["ungrouped null", { type: "groups", groups: [], ungrouped: null }],
+    ["ungrouped without collapsed", { type: "groups", groups: [], ungrouped: { pos: 0 } }],
+    [
+      "one malformed group rejects the whole list",
+      {
+        type: "groups",
+        groups: [groupsMessage.groups[0], { id: "5", name: "Hotfix", pos: 2, collapsed: true }],
+        ungrouped: { pos: 1, collapsed: false },
+      },
+    ],
+  ])("rejects a groups message with %s", (_label, message) => {
+    expect(parseMessage(message)).toBeNull();
+  });
+});
+
+describe("parseMessage — snapshot groups (plan groups kb:anchor/ws.snapshot)", () => {
+  const base = {
+    type: "snapshot",
+    sessions: [],
+    usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
+    prefs: { view: "focus", density: "2x2" },
+  };
+  const group = { id: 3, name: "PR reviews", pos: 0, collapsed: false };
+
+  it("parses groups and ungrouped as sent", () => {
+    const parsed = parseMessage({
+      ...base,
+      groups: [group],
+      ungrouped: { pos: 1, collapsed: true },
+    });
+    expect(parsed).toMatchObject({ groups: [group], ungrouped: { pos: 1, collapsed: true } });
+  });
+
+  it("a snapshot with neither key (an older daemon) parses as no groups, Ungrouped last and expanded", () => {
+    expect(parseMessage(base)).toMatchObject({
+      groups: [],
+      ungrouped: { pos: 0, collapsed: false },
+    });
+  });
+
+  it.each([
+    ["groups without ungrouped", { groups: [group] }],
+    ["ungrouped without groups", { ungrouped: { pos: 0, collapsed: false } }],
+    [
+      "a malformed group",
+      { groups: [{ ...group, collapsed: "no" }], ungrouped: { pos: 1, collapsed: false } },
+    ],
+    ["a malformed ungrouped", { groups: [], ungrouped: { pos: "0", collapsed: false } }],
+    ["groups null", { groups: null, ungrouped: { pos: 0, collapsed: false } }],
+  ])("rejects the whole snapshot with %s", (_label, fields) => {
+    expect(parseMessage({ ...base, ...fields })).toBeNull();
+  });
+
+  it("a session in the snapshot with no groupId rejects the whole snapshot", () => {
+    const { groupId, ...noGroup } = validSession;
+    expect(
+      parseMessage({
+        ...base,
+        sessions: [noGroup],
+        groups: [],
+        ungrouped: { pos: 0, collapsed: false },
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("parseMessage — sessionUpsert groupId (plan groups)", () => {
+  it("carries a session's group through an upsert, and null for Ungrouped", () => {
+    expect(
+      parseMessage({ type: "sessionUpsert", session: { ...validSession, groupId: 7 } }),
+    ).toEqual({
+      type: "sessionUpsert",
+      session: { ...validSession, groupId: 7 },
+    });
+    expect(
+      parseMessage({ type: "sessionUpsert", session: { ...validSession, groupId: null } }),
+    ).toEqual({
+      type: "sessionUpsert",
+      session: { ...validSession, groupId: null },
+    });
+  });
+
+  it("rejects an upsert whose session has no groupId", () => {
+    const { groupId, ...rest } = validSession;
+    expect(parseMessage({ type: "sessionUpsert", session: rest })).toBeNull();
   });
 });

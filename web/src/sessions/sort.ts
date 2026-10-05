@@ -84,9 +84,9 @@ function byRailPos(a: Session, b: Session): number {
  * tiebreak), the unpinned group after — `manual` orders that unpinned group by
  * `railPos`/`id` too (independent of `state`/`alive`/`attention`/`stateSince`), `attention`
  * orders it by `sortSessions`'s existing §3.4 priority (the pinned block still precedes
- * every unpinned session in this mode too). Never mutates its input — the rail, the Tiles
- * strip and `features/focus.ts`'s default-focus pick all read display order through this one
- * function rather than calling `sortSessions` directly. */
+ * every unpinned session in this mode too). Never mutates its input — the rail (once per
+ * section, `sessions/sections.ts`) and the Tiles strip (over every session) read display order
+ * through this one function rather than calling `sortSessions` directly. */
 export function orderRail(sessions: readonly Session[], mode: RailSort): Session[] {
   const pinned = sessions.filter((s) => s.pinned).sort(byRailPos);
   const unpinned = sessions.filter((s) => !s.pinned);

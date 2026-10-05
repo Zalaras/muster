@@ -34,6 +34,7 @@ function makeSession(id: number): Session {
     railPos: id,
     unread: false,
     lastPrompt: null,
+    groupId: null,
   };
 }
 

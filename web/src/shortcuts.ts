@@ -7,6 +7,7 @@
 
 export type ShortcutAction =
   | { readonly type: "new-session" }
+  | { readonly type: "new-group" }
   | { readonly type: "toggle-view" }
   | { readonly type: "launch-parent-dir" }
   | { readonly type: "focus-neediest" }
@@ -44,6 +45,14 @@ const BINDINGS: readonly Binding[] = [
     shiftKey: false,
     ctrlKey: false,
     action: { type: "new-session" },
+  },
+  {
+    code: "KeyG",
+    metaKey: true,
+    altKey: true,
+    shiftKey: false,
+    ctrlKey: false,
+    action: { type: "new-group" },
   },
   {
     code: "Backslash",

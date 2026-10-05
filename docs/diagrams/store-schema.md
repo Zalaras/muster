@@ -2,22 +2,24 @@
 id: store-schema
 type: diagram
 status: active
-date: 2026-09-22
+date: 2026-10-05
 kind: er
-summary: Every SQLite table at its final shape after migrations 0001-0012, with the schema's single foreign key.
+summary: Every SQLite table at its final shape after migrations 0001-0013, with the schema's two foreign keys.
 features: []
 tags: [store]
 files: [internal/store/migrations/*.sql, internal/store/*.go]
 tests: [TestMigrate_AppliesInitSchema, TestMigrate_CreatesSchemaMigrationsTableIfAbsent]
-refs: [kb:ref/data-model, kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/ingest-envelope-binds-never-cwd, plans/_audit/diagrams-from-code.md]
+refs: [kb:ref/data-model, kb:spec/rail, kb:adr/rail-groups-daemon-rows-whole-list-broadcast, kb:adr/rail-ungrouped-is-section-zero-on-the-wire, kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/ingest-envelope-binds-never-cwd, plans/_audit/diagrams-from-code.md]
 ---
-Final shape, with the additive `ALTER TABLE`s of 0003-0012 folded into `session`. Migrations are
+Final shape, with the additive `ALTER TABLE`s of 0003-0013 folded into `session`. Migrations are
 forward-only and purely additive: no migration has ever changed or dropped a column, and the one
 data statement is 0006's `rail_pos` backfill.
 
-The schema has exactly **one** foreign key — `session.repo_id REFERENCES repo(id)`, with no
-`ON DELETE` clause, so `NO ACTION`. It is genuinely enforced: `PRAGMA foreign_keys = ON` is set
-at connection time. `event.session_id` is deliberately *not* a foreign key and carries no
+The schema has **two** foreign keys — `session.repo_id REFERENCES repo(id)`, with no
+`ON DELETE` clause, so `NO ACTION`, and `session.group_id REFERENCES rail_group(id) ON DELETE SET
+NULL` (0013), a guard only: the daemon moves a group's members before it deletes the row
+(kb:adr/rail-groups-daemon-rows-whole-list-broadcast). Both are genuinely enforced: `PRAGMA
+foreign_keys = ON` is set at connection time. `event.session_id` is deliberately *not* a foreign key and carries no
 relationship line here: it is NULL while an event is unrouted, and an envelope that names an
 unknown Muster session is persisted unrouted rather than guessed at
 (kb:adr/ingest-envelope-binds-never-cwd).
@@ -29,18 +31,28 @@ because tmux window ids restart with the tmux server, so a dead session's target
 `(claude_session_id, seq)`, the per-session counter a single worker assigns at ingest
 (kb:adr/ingest-seq-assigned-at-ingest).
 
-All six tables a migration creates are declared `STRICT`, so SQLite enforces the column types
+All seven tables a migration creates are declared `STRICT`, so SQLite enforces the column types
 shown rather than applying its usual affinity rules. `schema_migrations` is the exception on both
 counts: it is created in Go rather than in a `.sql` file, so it has no migration of its own and
-is not `STRICT`. The only explicit index is `idx_event_session_id`.
+is not `STRICT`. The only explicit index is `idx_event_session_id`. `kv` also holds the Ungrouped
+section's place and collapsed flag under `rail_ungrouped` (kb:adr/rail-ungrouped-is-section-zero-on-the-wire).
 
 ```mermaid
 erDiagram
     repo ||--o{ session : "launched into"
+    rail_group ||--o{ session : "groups"
 
     kv {
         TEXT key PK
-        TEXT value "NOT NULL"
+        TEXT value "NOT NULL, tokens, prefs, rail_ungrouped"
+    }
+
+    rail_group {
+        INTEGER id PK
+        TEXT name "NOT NULL, 1-40 chars trimmed, not unique"
+        INTEGER pos "NOT NULL, unique among sections incl. Ungrouped"
+        INTEGER collapsed "NOT NULL DEFAULT 0"
+        TEXT created_at "NOT NULL"
     }
 
     schema_migrations {
@@ -104,6 +116,7 @@ erDiagram
         INTEGER background_tasks "0011, NOT NULL DEFAULT 0"
         TEXT attention_agent "0011, NULL = main agent"
         TEXT claude_dir "0012, last reported cwd, null = none"
+        INTEGER group_id FK "0013, REFERENCES rail_group(id) ON DELETE SET NULL, NULL = Ungrouped"
     }
 
     event {

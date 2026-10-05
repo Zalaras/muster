@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -68,12 +69,19 @@ type LaunchConfig struct {
 // its value) routes to the resume-from-list form instead — a pointer so an absent JSON
 // key is distinguishable from an explicit `"resumeSessionId": ""`, which the combination/
 // empty checks in validateResumeRequest need to tell apart.
+//
+// GroupID and NewGroup (kb:anchor/sessions.create) place the new session in the rail: an
+// existing group, or a new one created with the session. GroupID is a json.RawMessage so an
+// absent key, null and an integer stay distinguishable from NewGroup being named at all —
+// the same shape setTitleRequest and setOrderRequest use. Both forms accept them.
 type createSessionRequest struct {
-	Directory       string  `json:"directory"`
-	Title           string  `json:"title"`
-	Model           string  `json:"model"`
-	PermissionMode  string  `json:"permissionMode"`
-	ResumeSessionID *string `json:"resumeSessionId"`
+	Directory       string          `json:"directory"`
+	Title           string          `json:"title"`
+	Model           string          `json:"model"`
+	PermissionMode  string          `json:"permissionMode"`
+	ResumeSessionID *string         `json:"resumeSessionId"`
+	GroupID         json.RawMessage `json:"groupId"`
+	NewGroup        *string         `json:"newGroup"`
 }
 
 // sessionLauncher composes store+tmux+claudecode+session.Manager to perform one launch.
@@ -245,6 +253,33 @@ func (l *sessionLauncher) killSessionAfterRecordFailure(ctx context.Context, id 
 	}
 }
 
+// checkLaunchRequest is Launch's whole prefix before its first write: the pure request
+// rules, then the model check, then the group — in that order, so a request invalid in
+// several ways reports the first. A refusal here leaves nothing to roll back.
+func (l *sessionLauncher) checkLaunchRequest(ctx context.Context, req createSessionRequest) (launchGroup, *launchError) {
+	if lerr := validateLaunchRequest(req); lerr != nil {
+		return launchGroup{}, lerr
+	}
+
+	// checkModel runs after validation and before any write (UpsertRepo is next), so a
+	// refusal leaves nothing to roll back. Production's own closure (newSessionLauncher)
+	// takes its verdict from the model-catalog cache rather than running a fresh
+	// subprocess, so this is normally a cache hit; a check that errors fails open — the
+	// launch proceeds regardless (kb:adr/launch-model-check-cached-per-binary-identity) —
+	// and is logged at warn without the stderr body: that sentence is Claude-Code
+	// wire-format detail, kept inside internal/claudecode.
+	if l.checkModel != nil {
+		verdict, err := l.checkModel(ctx, req.Directory, req.Model)
+		if err != nil {
+			l.log.Warn().Err(err).Str("directory", req.Directory).Str("model", req.Model).Msg("model-catalog check failed; launch proceeding")
+		} else if verdict == claudecode.ModelUnrecognised {
+			return launchGroup{}, modelUnrecognized(req.Model)
+		}
+	}
+
+	return l.resolveLaunchGroup(req)
+}
+
 // Launch validates req, runs the model check, upserts the repo row, inserts the
 // session row, writes settings.local.json, spawns the tmux window, and
 // records/broadcasts the finished session — in that order (order matters: the session
@@ -256,26 +291,11 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 	if req.ResumeSessionID != nil {
 		return l.launchResume(ctx, req)
 	}
-	if lerr := validateLaunchRequest(req); lerr != nil {
+	grp, lerr := l.checkLaunchRequest(ctx, req)
+	if lerr != nil {
 		return nil, lerr
 	}
 	dir := req.Directory
-
-	// checkModel runs after validation and before any write (UpsertRepo is next), so a
-	// refusal leaves nothing to roll back. Production's own closure (newSessionLauncher)
-	// takes its verdict from the model-catalog cache rather than running a fresh
-	// subprocess, so this is normally a cache hit; a check that errors fails open — the
-	// launch proceeds regardless (kb:adr/launch-model-check-cached-per-binary-identity) —
-	// and is logged at warn without the stderr body: that sentence is Claude-Code
-	// wire-format detail, kept inside internal/claudecode.
-	if l.checkModel != nil {
-		verdict, err := l.checkModel(ctx, dir, req.Model)
-		if err != nil {
-			l.log.Warn().Err(err).Str("directory", dir).Str("model", req.Model).Msg("model-catalog check failed; launch proceeding")
-		} else if verdict == claudecode.ModelUnrecognised {
-			return nil, modelUnrecognized(req.Model)
-		}
-	}
 
 	isGit, branch, isWorktree := repoContext(ctx, dir)
 
@@ -309,7 +329,7 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 		PermissionMode: req.PermissionMode,
 	})
 
-	return l.createAndSpawn(ctx, dir, argv, session.CreateParams{
+	return l.createAndSpawn(ctx, dir, argv, grp, session.CreateParams{
 		RepoID:          repo.ID,
 		Directory:       dir,
 		Branch:          branch,
@@ -339,10 +359,12 @@ func checkoutState(ctx context.Context, dir string) (branch *string, isWorktree 
 }
 
 // createAndSpawn is Launch's and launchResume's shared tail, once each has assembled its
-// own CreateParams (MinID left zero — this fills it in per attempt) and argv: probes the
-// tmux floor, then creates the session row and spawns its pane, retrying on an id
-// collision (kb:adr/lifecycle-session-ids-monotonic-never-reused).
-func (l *sessionLauncher) createAndSpawn(ctx context.Context, dir string, argv []string, params session.CreateParams) (*session.Session, *launchError) {
+// own CreateParams (MinID and GroupID left zero — this fills them in) and argv: probes the
+// tmux floor, creates the new group when grp names one, then creates the session row and
+// spawns its pane, retrying on an id collision
+// (kb:adr/lifecycle-session-ids-monotonic-never-reused). A launch that fails after the group
+// was created deletes it again (kb:adr/launch-new-group-created-with-the-row-or-not-at-all).
+func (l *sessionLauncher) createAndSpawn(ctx context.Context, dir string, argv []string, grp launchGroup, params session.CreateParams) (*session.Session, *launchError) {
 	// probe the tmux socket's own highest id before allocating one, so a fresh store
 	// never lands on an id an orphaned "muster-<N>" already owns (issue #26;
 	// kb:adr/lifecycle-session-ids-monotonic-never-reused). A probe failure degrades to
@@ -352,10 +374,35 @@ func (l *sessionLauncher) createAndSpawn(ctx context.Context, dir string, argv [
 		l.log.Warn().Err(err).Msg("probing max tmux session id failed; launching with floor 0")
 		floor = 0
 	}
+	params.MinID = floor
+	params.GroupID = grp.id
 
+	if grp.newName != "" {
+		created, err := l.manager.CreateLaunchGroup(ctx, grp.newName)
+		if err != nil {
+			l.log.Error().Err(err).Msg("creating launch group failed")
+			return nil, launchFailed()
+		}
+		params.GroupID = &created.ID
+	}
+
+	final, lerr := l.spawnWithRetries(ctx, dir, argv, params)
+	if lerr != nil && grp.newName != "" {
+		if err := l.manager.DiscardLaunchGroup(ctx, *params.GroupID); err != nil {
+			l.log.Error().Err(err).Int64("group_id", *params.GroupID).Msg("failed to roll back group after launch failure")
+		}
+	}
+	return final, lerr
+}
+
+// spawnWithRetries creates the session row and spawns its pane, raising params.MinID above a
+// colliding orphan tmux session and retrying up to maxLaunchAttempts times.
+func (l *sessionLauncher) spawnWithRetries(ctx context.Context, dir string, argv []string, params session.CreateParams) (*session.Session, *launchError) {
 	for attempt := 1; attempt <= maxLaunchAttempts; attempt++ {
-		params.MinID = floor
 		sess, err := l.manager.CreateSession(ctx, params)
+		if errors.Is(err, session.ErrUnknownGroup) {
+			return nil, unknownGroup()
+		}
 		if err != nil {
 			l.log.Error().Err(err).Msg("creating session failed")
 			return nil, launchFailed()
@@ -371,7 +418,7 @@ func (l *sessionLauncher) createAndSpawn(ctx context.Context, dir string, argv [
 		// A colliding orphan: raise the floor above it and retry
 		// (kb:adr/lifecycle-session-ids-monotonic-never-reused) — spawnAndRecordLaunch
 		// already rolled the row back.
-		floor = sess.ID
+		params.MinID = sess.ID
 	}
 	// Unreachable: the loop above always returns on both its last-attempt paths.
 	return nil, launchFailed()

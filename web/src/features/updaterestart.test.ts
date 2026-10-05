@@ -78,6 +78,8 @@ function makeSnapshot(update: UpdateInfo | null): Snapshot {
       railActivity: "turn",
     },
     claudeTheme: { family: "unknown" },
+    groups: [],
+    ungrouped: { pos: 0, collapsed: false },
     update,
   };
 }

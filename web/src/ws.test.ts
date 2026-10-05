@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { GroupsMessage } from "./protocol/groups";
 import type { Hello } from "./protocol/hello";
 import type { DocChanged, Snapshot } from "./protocol/messages";
 import type { PrefsMessage } from "./protocol/prefs";
@@ -42,6 +43,8 @@ const snapshot: Snapshot = {
     railActivity: "turn",
   },
   claudeTheme: { family: "unknown" },
+  groups: [],
+  ungrouped: { pos: 0, collapsed: false },
   update: updateInfo,
 };
 
@@ -108,6 +111,7 @@ const session: Session = {
   railPos: 0,
   unread: false,
   lastPrompt: null,
+  groupId: null,
 };
 
 describe("backoffDelay", () => {
@@ -179,6 +183,7 @@ function makeHandlers(): WsClientHandlers & Record<string, ReturnType<typeof vi.
     onClaudeTheme: vi.fn(),
     onUpdate: vi.fn(),
     onDocChanged: vi.fn(),
+    onGroups: vi.fn(),
     onDisconnected: vi.fn(),
     onProtocolMismatch: vi.fn(),
     onHelloArrived: vi.fn(),
@@ -309,6 +314,30 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
   });
 });
 
+describe("WsClient.dispatch — groups (plan groups kb:anchor/ws.groups)", () => {
+  const groupsMessage: GroupsMessage = {
+    type: "groups",
+    groups: [{ id: 3, name: "PR reviews", pos: 0, collapsed: false }],
+    ungrouped: { pos: 1, collapsed: true },
+  };
+
+  it("routes a groups message to onGroups with the bare list and Ungrouped layout, not onSnapshot", () => {
+    const handlers = makeHandlers();
+    const client = new WsClient("ws://x", handlers);
+    client.dispatch(groupsMessage);
+    expect(handlers.onGroups).toHaveBeenCalledWith(
+      [{ id: 3, name: "PR reviews", pos: 0, collapsed: false }],
+      { pos: 1, collapsed: true },
+    );
+    expect(handlers.onSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op, not a throw, when no onGroups handler is registered (the pop-out has none)", () => {
+    const client = new WsClient("ws://x", {});
+    expect(() => client.dispatch(groupsMessage)).not.toThrow();
+  });
+});
+
 describe("WsClient — full socket lifecycle via an injected fake socket", () => {
   let sockets: FakeSocket[];
   let handlers: WsClientHandlers & Record<string, ReturnType<typeof vi.fn>>;
@@ -361,6 +390,29 @@ describe("WsClient — full socket lifecycle via an injected fake socket", () =>
     sockets[0]!.emitOpen();
     sockets[0]!.emitMessage(JSON.stringify(prefsMessage));
     expect(handlers.onPrefs).toHaveBeenCalledWith(prefsMessage.prefs);
+  });
+
+  it("dispatches a groups frame to onGroups (plan groups kb:anchor/ws.groups)", () => {
+    client.start();
+    sockets[0]!.emitOpen();
+    sockets[0]!.emitMessage(
+      JSON.stringify({
+        type: "groups",
+        groups: [{ id: 3, name: "PR reviews", pos: 0, collapsed: false }],
+        ungrouped: { pos: 1, collapsed: false },
+      }),
+    );
+    expect(handlers.onGroups).toHaveBeenCalledWith(
+      [{ id: 3, name: "PR reviews", pos: 0, collapsed: false }],
+      { pos: 1, collapsed: false },
+    );
+  });
+
+  it("drops a malformed groups frame without calling onGroups", () => {
+    client.start();
+    sockets[0]!.emitOpen();
+    sockets[0]!.emitMessage(JSON.stringify({ type: "groups", groups: "none" }));
+    expect(handlers.onGroups).not.toHaveBeenCalled();
   });
 
   it("dispatches a usage frame to onUsage", () => {

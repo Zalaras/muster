@@ -7,6 +7,7 @@ import {
   fetchRepos,
   launchSession,
   resumeFromList,
+  type LaunchRequest,
   type PastSession,
 } from "./launch";
 import { fakeResponse, fakeResponseThatThrows } from "./testfakes";
@@ -38,6 +39,7 @@ const validSession: Session = {
   railPos: 0,
   unread: false,
   lastPrompt: null,
+  groupId: null,
 };
 
 describe("launch — launchSession (POST /api/sessions)", () => {
@@ -882,5 +884,89 @@ describe("launch — resumeFromList (POST /api/sessions with resumeSessionId, kb
     });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("network_error");
+  });
+});
+
+// kb:anchor/sessions.create's `groupId` / `newGroup` (plan groups): valid on both request forms, and the
+// new session's own `groupId` comes back on the 201 Session.
+describe("launch — the Group fields on both POST /api/sessions forms (plan groups, REQ-11)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const launch: LaunchRequest = {
+    directory: "/Users/bob/code/muster",
+    model: "sonnet",
+    permissionMode: "default",
+  };
+  const resume = { directory: "/Users/bob/code/muster", resumeSessionId: "3f2a-abc" };
+
+  function sentBody(): Record<string, unknown> {
+    return JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string);
+  }
+
+  it("a launch with no group sends neither key", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, validSession));
+    await launchSession(launch);
+    expect(sentBody()).toEqual(launch);
+  });
+
+  it("a launch into a group sends groupId and no newGroup", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { ...validSession, groupId: 3 }));
+    const result = await launchSession({ ...launch, groupId: 3 });
+    expect(sentBody()).toEqual({ ...launch, groupId: 3 });
+    expect(result).toEqual({ ok: true, value: { ...validSession, groupId: 3 } });
+  });
+
+  it("a launch with a new group sends newGroup and no groupId, and the Session names the group it created", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { ...validSession, groupId: 7 }));
+    const result = await launchSession({ ...launch, newGroup: "Hotfix" });
+    expect(sentBody()).toEqual({ ...launch, newGroup: "Hotfix" });
+    expect(result.ok && result.value.groupId).toBe(7);
+  });
+
+  it("a resume from the list carries the same two fields", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { ...validSession, groupId: 3 }));
+    await resumeFromList({ ...resume, groupId: 3 });
+    expect(sentBody()).toEqual({ ...resume, groupId: 3 });
+    fetchMock.mockClear();
+    fetchMock.mockResolvedValue(fakeResponse(true, { ...validSession, groupId: 7 }));
+    await resumeFromList({ ...resume, newGroup: "Hotfix" });
+    expect(sentBody()).toEqual({ ...resume, newGroup: "Hotfix" });
+  });
+
+  it("a resume with no group still posts only directory and resumeSessionId", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, validSession));
+    await resumeFromList(resume);
+    expect(sentBody()).toEqual(resume);
+  });
+
+  it("decodes a 404 unknown_group (the chosen group was deleted under the open dialog)", async () => {
+    const error = { code: "unknown_group", message: "unknown group" };
+    fetchMock.mockResolvedValue(fakeResponse(false, { error }));
+    expect(await launchSession({ ...launch, groupId: 99 })).toEqual({ ok: false, error });
+  });
+
+  it("decodes a 400 when both keys are sent", async () => {
+    const error = { code: "invalid_request", message: "groupId and newGroup cannot be combined" };
+    fetchMock.mockResolvedValue(fakeResponse(false, { error }));
+    expect(await launchSession({ ...launch, groupId: 3, newGroup: "x" })).toEqual({
+      ok: false,
+      error,
+    });
+  });
+
+  it("rejects a 201 whose Session has no groupId, rather than rendering a card with an unknown group", async () => {
+    const { groupId, ...noGroup } = validSession;
+    fetchMock.mockResolvedValue(fakeResponse(true, noGroup));
+    const result = await launchSession(launch);
+    expect(result.ok).toBe(false);
   });
 });

@@ -8,6 +8,7 @@ import {
   deadCapPrefix,
   deadEndbarText,
   deadSurfaceText,
+  displayTitle,
   claudeHover,
   claudeLocationParts,
   claudeNote,
@@ -51,9 +52,33 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     railPos: overrides.id,
     unread: false,
     lastPrompt: null,
+    groupId: null,
     ...overrides,
   };
 }
+
+// The one `untitled` fallback every surface shares: the card, the Focus header, a group's popover and
+// the select-mode checkbox label (plan groups).
+describe("displayTitle", () => {
+  it("is the title as sent", () => {
+    expect(displayTitle({ title: "fix the thing" })).toBe("fix the thing");
+  });
+
+  it("reads `untitled` for a session with no title yet", () => {
+    expect(displayTitle({ title: null })).toBe("untitled");
+  });
+
+  it("keeps an empty string title as it is: only null is absence", () => {
+    expect(displayTitle({ title: "" })).toBe("");
+  });
+
+  it("agrees with the card view-model's title", () => {
+    for (const title of ["fix the thing", null]) {
+      const session = makeSession({ id: 1, title });
+      expect(buildCardViewModel(session, NOW).title).toBe(displayTitle(session));
+    }
+  });
+});
 
 describe("buildCardViewModel — title (REQ-15 'untitled' fallback)", () => {
   it("renders the title verbatim when present", () => {

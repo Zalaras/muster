@@ -2146,3 +2146,13 @@ since reported from real use.
 - [x] **A card's model name is empty or stale after the model changes in a session.** From the
   maintainability cleanup (2026-09-24).
   ✅ done 2026-10-01 (plan `stale-dirs-models-branches`): a bind naming a different model shows the id until the status line confirms the display name, so it is never blank (kb:adr/lifecycle-bind-model-display-name-is-id).
+
+## Together — rail groups and bulk remove (#74, #27) ✅ done 2026-10-05 (plan `groups`, via `/orchestrate`; approved in the fourth review cycle after the developer granted one more)
+
+- [x] **I'd like to be able to group sessions** ([#74](https://github.com/Zalaras/muster/issues/74)) —
+  put sessions (e.g. a set of review sessions) in a named group that collapses in the rail, its
+  header giving a short overview: how many are running, need input, idle.
+  ✅ done 2026-10-05 (plan `groups`): named, collapsible rail sections with a per-state summary and hover popover, made from the rail ⋯ menu, ⌥⌘G, the selection bar, the launch dialog's Group row or the Focus header's group control; groups are daemon rows broadcast whole, membership rides the session upsert, and order, collapsed state and membership survive restart (kb:adr/rail-groups-daemon-rows-whole-list-broadcast, kb:adr/rail-pin-invariant-scoped-per-section).
+- [x] **Remove All Sessions** ([#27](https://github.com/Zalaras/muster/issues/27)) — a bulk "remove everything" action to start from a
+  clean slate, plus the option to select several sessions and remove those.
+  ✅ done 2026-10-05 (plan `groups`): Select mode in the rail head with a checkbox per card and header and a bar offering Move to, Ungroup, Stop…, Remove…, All and Done; Select → All → Remove… empties the rail through one daemon batch that reports done, skipped and failed (kb:adr/actions-bulk-stop-remove-are-daemon-batches).

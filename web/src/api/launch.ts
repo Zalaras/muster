@@ -29,7 +29,14 @@ export interface BrowseResult {
   dirs: BrowseEntry[];
 }
 
-export interface LaunchRequest {
+/** The group a launch joins (kb:anchor/sessions.create): an existing group by id, or a name to
+ * create together with the session — the daemon refuses both at once. Neither is No group. */
+export interface LaunchGroup {
+  groupId?: number;
+  newGroup?: string;
+}
+
+export interface LaunchRequest extends LaunchGroup {
   directory: string;
   title?: string;
   model: string;
@@ -39,7 +46,7 @@ export interface LaunchRequest {
 /** kb:anchor/sessions.create's resume-from-list request form: `resumeSessionId`
  * combined with no `title`/`model`/`permissionMode` — the daemon reads the transcript's
  * own last mode and model, so the dialog sends neither. */
-export interface ResumeListRequest {
+export interface ResumeListRequest extends LaunchGroup {
   directory: string;
   resumeSessionId: string;
 }

@@ -212,7 +212,24 @@ no state colour, since state colours are already spoken for (§3). The strip (Ti
 copy of the rail card) never carries it — nothing in Tiles is "the session the Focus pane
 shows". The rail card's title is plain text, not a rename trigger — renaming happens from
 the Focus mainhead's heading or a tile's header in Tiles (REQ-13), one shared editor for
-both.
+both. In **select mode** (plan `groups`) every card gains a leading checkbox in the stripe
+column's gutter (`Select <title>`), loses `draggable` and hides its pin; a selected card
+carries `.selected` — a neutral `--fg` stripe on `--bg-hover` ground, never a state colour (§3).
+
+**Section header** (`.ghead`, plan `groups`; reference `mockups/groups/a-sections-select-mode.html`) —
+sticky over its section's cards: caret button, a select-mode checkbox, the name (mono
+`--fs-2xs`, uppercased by CSS, `--fg-muted`; Ungrouped's in `--fg-dim`), the summary and `⋯`. The summary is the member count then
+one item per state present in attention order — needs input, failed, started, planning, working,
+idle, ended — a 7px dot in that state's token (`--amber`, `--rose`, `--violet`, `--teal`,
+`--fg-muted`, `--idle`; ended `--line-control`) followed by its number (kb:adr/rail-summary-dot-order-is-attention-order-idle-once).
+An empty group's body is the line `empty — drop sessions here` on `--fg-muted`; the section
+rules are `--line`. A collapsed section renders its header only. The Ungrouped header has the
+same shape and no Rename, Ungroup or Delete.
+
+**Selection bar** (`#select-bar`) — fixed at the rail's foot while select mode is on: `n selected`
+(or `Select sessions`) in mono `--fs-xs`, then Move to, Ungroup, Stop…, Remove…, a spacer, All
+and Done as **Buttons** at `--fs-2xs` (one step under the ordinary button size, so the six fit the
+rail's width); actions without a valid target are disabled, never hidden.
 
 **Tile** (tiled view) — header (state dot, title, where, context, timer; *where* stays one
 line `repo / branch` with the full location as its hover `title`, followed by a bare `--fg-muted`
@@ -236,6 +253,13 @@ half-drawn), then the title shortens, and the mainhead wraps its surface switch 
 row as soon as the repo block would drop below its floor, so the repo block never hides (kb:adr/focus-model-never-truncates-name-blocks-give-way,
 kb:adr/focus-mainhead-wraps-to-second-row-when-narrow). The location group carries a hover `title` with the full repo, the launch directory
 and, while moved, where Claude is (reference `mockups/claude-location/c-long-names.html`).
+Between the name (and its bypass chip) and the meta row sits the **group control** (`.ingroup`,
+plan `groups`): a button reading the session's group name or `no group` with an `aria-hidden`
+`▾`, mono `--fs-2xs`, 1px `--line-control` border, `--fg-dim` text, capped at 24ch with an
+ellipsis; it opens the Move to **Menu**. A container query hides it whole while the header's own
+content box is under 640px; above that a long title may shorten beside it, never below its 6rem
+floor — the title gives way first, the control is the first item removed whole
+(kb:adr/focus-group-control-hides-below-640px-container-width, kb:adr/focus-group-control-stays-while-title-shortens).
 
 **Buttons** — mono, `--fs-xs` (11.25px), 1px `--line-control` border, transparent ground. Filled amber
 (`--amber` ground, `--amber-fg` text) for the single primary action. No border-radius above
@@ -258,6 +282,21 @@ a newer release is known and not yet installed, the masthead **Settings** button
 6px dot in `--fg-muted` and the name `Settings, update available`: the dot is a neutral cue,
 never `--amber` or `--rose`, because an available update is information, not a session state
 (§3). Reference: the Settings modal in `mockups/a-instrument.html`.
+
+**Menu** (`render/menu.ts`, plan `groups`; kb:adr/web-menu-component-single-builder) — a
+`role="menu"` panel of `role="menuitem"` buttons anchored below its opener: `--bg-raised`
+ground, 1px `--line-control` border, sans `--fs-sm`, items `--fg` with `--bg-hover` on hover
+and focus, a danger item in `--danger`, separators `--line`, an uppercase mono `--fs-2xs`
+header row, a right-aligned mono chord hint. The opener carries `aria-haspopup="menu"` and
+`aria-expanded`; Escape, an outside pointerdown and a choice close it and return focus to the
+opener; arrow keys move focus. One builder serves the rail `⋯`, the header `⋯`, Move to and
+the mainhead group control.
+
+**Popover** (`render/grouppopover.ts`) — a `role="tooltip"` panel below a section header after
+~350 ms of hover or on the caret taking focus: `--bg-raised`, 1px `--edge` border,
+`pointer-events: none`, appended to `body` so the rail's clipping never cuts it. It names the
+group and `n sessions`, then one row per state present (dot in the state token, state word,
+count) over that state's session titles in `--fg-muted`; an empty group says `empty`.
 
 **Form fields** — text inputs, selects and textareas sit on `--well` with a 1px `--edge`
 border (≥ 3:1 on the surface they sit on — nothing else marks a field's extent).

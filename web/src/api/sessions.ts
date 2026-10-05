@@ -1,5 +1,6 @@
 // Actions on an existing session: end, resume, remove, pin, rename, reorder, the ephemeral
 // shell and its pane snapshot.
+import { parseBatchResult, type BatchResult } from "../protocol/batch";
 import { parseSession, type Session } from "../protocol/session";
 import { isRecord } from "../protocol/decode";
 import { requestEmpty, requestJson, type ApiResult } from "./http";
@@ -93,11 +94,39 @@ export async function pinSession(id: number, pinned: boolean): Promise<ApiResult
 
 /** `PUT /api/sessions/order` (kb:anchor/sessions.order). Same no-optimistic-update shape
  * as `pinSession` above — the rail redraws from the
- * resulting `sessionUpsert`s. Errors: `400 invalid_request` (unknown/duplicate id,
- * `pinnedCount` out of range) — nothing changes on a 400. */
+ * resulting `sessionUpsert`s. `groupId` (a number, or `null` for Ungrouped) makes every listed
+ * id join that section before the order applies — a card dropped among another section's
+ * cards moves and lands in one call; omitted, membership is untouched. Errors:
+ * `400 invalid_request` (unknown/duplicate id, `pinnedCount` out of range) — nothing changes on
+ * a 400 — and `404 unknown_group`. */
 export async function putSessionOrder(
   ids: readonly number[],
   pinnedCount: number,
+  groupId?: number | null,
 ): Promise<ApiResult<null>> {
-  return requestEmpty("PUT", "/api/sessions/order", 204, { ids, pinnedCount });
+  const body = groupId === undefined ? { ids, pinnedCount } : { ids, pinnedCount, groupId };
+  return requestEmpty("PUT", "/api/sessions/order", 204, body);
+}
+
+/** `PUT /api/sessions/group` (kb:anchor/sessions.group): move `ids` to the end of the target
+ * section (`groupId` null = Ungrouped), pin flag kept. `204`; the moves reach every window as
+ * `sessionUpsert`s. Errors: `400 invalid_request`, `404 unknown_group` — nothing changes. */
+export async function putSessionsGroup(
+  ids: readonly number[],
+  groupId: number | null,
+): Promise<ApiResult<null>> {
+  return requestEmpty("PUT", "/api/sessions/group", 204, { ids, groupId });
+}
+
+/** `POST /api/sessions/end` (kb:anchor/sessions.end-many): the batch Stop. Each id is stopped
+ * under its own lock exactly as `endSession` does; `200` whatever the mix, the report says which
+ * ids were `done`, `skipped` (unknown at its turn, or not alive) or `failed`. */
+export async function endSessions(ids: readonly number[]): Promise<ApiResult<BatchResult>> {
+  return requestJson("POST", "/api/sessions/end", parseBatchResult, { ids });
+}
+
+/** `POST /api/sessions/remove` (kb:anchor/sessions.remove-many): the batch Remove — a live
+ * session is stopped first. Same report shape as `endSessions`; a `failed` row is kept. */
+export async function removeSessions(ids: readonly number[]): Promise<ApiResult<BatchResult>> {
+  return requestJson("POST", "/api/sessions/remove", parseBatchResult, { ids });
 }

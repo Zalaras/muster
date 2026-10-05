@@ -6,10 +6,11 @@
 // before this runs.
 import { restoreFocusedControl, type FocusedControl } from "./focuskeep";
 
-/** One entry already built or updated for this pass — `id` is the reconciliation key,
- * `root` is the mounted element to position. */
+/** One entry already built or updated for this pass — `id` is the reconciliation key (a session
+ * id, or a section key in the rail's `render/railsections.ts`), `root` is the mounted element to
+ * position. */
 export interface KeyedReorderEntry {
-  id: number;
+  id: number | string;
   root: HTMLElement;
 }
 

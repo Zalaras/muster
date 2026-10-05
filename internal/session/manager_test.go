@@ -2634,7 +2634,7 @@ func TestSetOrder_AppliesAndBroadcastsOnlyChangedSessions(t *testing.T) {
 	before := len(rec.all())
 
 	// Swap a and b; leave c unlisted (it stays last, its railPos unaffected).
-	require.NoError(t, mgr.SetOrder(context.Background(), []int64{b.ID, a.ID}, 0))
+	require.NoError(t, mgr.SetOrder(context.Background(), []int64{b.ID, a.ID}, 0, nil))
 
 	seen := rec.all()
 	changedIDs := map[int64]bool{}
@@ -2665,7 +2665,7 @@ func TestSetOrder_InvalidRequestReturnsErrInvalidOrderAndChangesNothing(t *testi
 	beforeRow, err := st.GetSession(context.Background(), a.ID)
 	require.NoError(t, err)
 
-	err = mgr.SetOrder(context.Background(), []int64{a.ID, 999999}, 0) // unknown id
+	err = mgr.SetOrder(context.Background(), []int64{a.ID, 999999}, 0, nil) // unknown id
 
 	require.ErrorIs(t, err, ErrInvalidOrder)
 	assert.Len(t, rec.all(), before)

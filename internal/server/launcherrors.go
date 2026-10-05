@@ -72,6 +72,12 @@ func directoryMissing(message string) *launchError {
 	return &launchError{status: http.StatusConflict, code: "directory_missing", message: message}
 }
 
+// unknownGroup is the 404 for a groupId naming no group (kb:anchor/sessions.create), found
+// before any side effect or lost to a concurrent delete before the session row.
+func unknownGroup() *launchError {
+	return &launchError{status: http.StatusNotFound, code: codeUnknownGroup, message: msgUnknownGroup}
+}
+
 // unknownClaudeSession is the resume-from-list 404 for a resumeSessionId that names no
 // transcript among the directory's past sessions (kb:anchor/sessions.create) — the
 // transcript may never have existed, or may have been deleted between listing and this

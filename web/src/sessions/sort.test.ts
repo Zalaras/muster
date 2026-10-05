@@ -31,6 +31,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     railPos: overrides.id,
     unread: false,
     lastPrompt: null,
+    groupId: null,
     ...overrides,
   };
 }
@@ -605,5 +606,41 @@ describe("pickNeediest — ignores pinned and railPos entirely (INV-4/W9)", () =
     const original = [...sessions];
     pickNeediest(sessions);
     expect(sessions).toEqual(original);
+  });
+});
+
+// plan groups W10 / I7: the Tiles grid and strip keep ordering every session flat. A session's
+// `groupId` is display-only and never reaches this order (kb:adr/rail-pin-invariant-scoped-per-section).
+describe("orderRail / sortSessions — groupId is ignored, so the Tiles order stays flat (plan groups W10)", () => {
+  const grouped = [
+    makeSession({ id: 1, groupId: 3, railPos: 40 }),
+    makeSession({ id: 2, groupId: null, railPos: 10 }),
+    makeSession({ id: 3, groupId: 5, railPos: 30, pinned: true }),
+    makeSession({ id: 4, groupId: 3, railPos: 20 }),
+  ];
+  const ungroupedCopy = grouped.map((s) => ({ ...s, groupId: null }));
+  const ids = (list: readonly Session[]) => list.map((s) => s.id);
+
+  it("manual: pinned first then railPos across every group, exactly as with no groups", () => {
+    expect(ids(orderRail(grouped, "manual"))).toEqual([3, 2, 4, 1]);
+    expect(ids(orderRail(grouped, "manual"))).toEqual(ids(orderRail(ungroupedCopy, "manual")));
+  });
+
+  it("attention: the same order grouped or not", () => {
+    const states = grouped.map((s, i) => ({
+      ...s,
+      state: (["working", "needs_input", "idle", "failed"] as const)[i]!,
+      attention: i === 1 ? { reason: "idle" as const, since: "2026-08-22T00:00:00Z" } : s.attention,
+    }));
+    const flat = states.map((s) => ({ ...s, groupId: null }));
+    expect(ids(orderRail(states, "attention"))).toEqual(ids(orderRail(flat, "attention")));
+  });
+
+  it("pickNeediest ignores groups: ⌥⌘0 lands wherever the neediest session is", () => {
+    const sessions = [
+      makeSession({ id: 1, groupId: 3, state: "working" }),
+      makeSession({ id: 2, groupId: 5, state: "failed" }),
+    ];
+    expect(pickNeediest(sessions)?.id).toBe(2);
   });
 });

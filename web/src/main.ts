@@ -25,6 +25,7 @@ import { initTiles } from "./features/tiles";
 import { initFocus } from "./features/focus";
 import { initSurfaces } from "./features/surfaces";
 import { initReader } from "./features/reader";
+import { initGroups } from "./features/groups";
 import { initRail } from "./features/rail";
 import { initViews } from "./features/views";
 import { initRename } from "./features/rename";
@@ -45,6 +46,7 @@ initUpdate(app);
 const updateRestart = initUpdateRestart(app);
 initIssue(app);
 const rename = initRename(app);
+const groups = initGroups(app, { actions });
 const tiles = initTiles(app, {
   actions,
   getSurfaces: () => surfaces,
@@ -57,10 +59,11 @@ const focus = initFocus(app, {
   promoteTile: tiles.promote,
   getReader: () => reader,
   renameHandlers: rename.mainheadRenameHandlers,
+  groups,
 });
 const surfaces = initSurfaces(app, { tilesLive: tiles.liveIds });
 const reader = initReader(app, { tilesLive: tiles.liveIds, surfaces });
-initRail(app, { actions, surfaces });
+initRail(app, { actions, surfaces, groups });
 // Render phase order (behaviour-bearing — see each phase's own controller for why its
 // position matters):
 //  1. actions  — dead-pane tracking (registered inside initActions)
@@ -71,7 +74,9 @@ initRail(app, { actions, surfaces });
 //  6. focus    — default focusedId (initFocus)
 //  7. surfaces — open/close diff over (id, kind) keys (initSurfaces)
 //  8. reader   — mount/dispose diff over docs-selected sessions (initReader)
-//  9. rail     — renderSessions, count, sort select (initRail)
+//  9. rail     — the groups chrome (filter row, Select, selection bar), the sections and
+//     their cards, count, sort select (initRail, which calls `groups.renderChrome` first;
+//     initGroups registers no phase of its own — it is constructed before focus, which reads it)
 // 10. views    — switcher, density control, view containers' hidden, then focus (view) in
 //     Focus, else tiles (view) in Tiles — registered inside initViews, since that phase is
 //     inherently split across two controllers by shared state (views.ts).
@@ -81,7 +86,7 @@ const views = initViews(app, { focus, tiles });
 initTheme(app);
 const launch = initLaunch(app, { focus, surfaces });
 initSettings(app);
-initShortcuts(app, { views, focus, actions, launch });
+initShortcuts(app, { views, focus, actions, launch, groups });
 const connection = initConnection(app, {
   restartBanner: updateRestart.bannerOverride,
   reloading: updateRestart.reloading,

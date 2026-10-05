@@ -10,7 +10,7 @@ go: [internal/server/browse*.go, internal/server/repos*.go, internal/server/sess
 web: [web/src/features/launch*.ts, web/src/render/crumbs*.ts, web/src/render/launch*.ts, web/src/sessions/permission*.ts]
 e2e: [web/e2e/launch.spec.ts, web/e2e/tiles-launch.spec.ts, web/e2e/permission-mode.spec.ts, web/e2e/helpers/picker.ts, web/e2e/launch-defaults.spec.ts, web/e2e/launch-model-check.spec.ts, web/e2e/launch-opens-session.spec.ts, web/e2e/bypass.spec.ts]
 protocol: [sessions.create, models.check, repos.list, browse.get]
-refs: [kb:adr/launch-picker-recent-sidebar-plus-browse-list, kb:adr/launch-browse-via-daemon-not-native-chooser, kb:adr/launch-hybrid-mru-directory-memory, kb:adr/launch-form-seeds-model-and-permission-mode, kb:adr/launch-start-in-explicit-flag-auto-fallback, kb:adr/launch-bypass-and-dontask-unoffered, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/launch-bypass-never-restored-as-default, kb:adr/launch-bypass-warning-surfaced-never-answered, kb:adr/launch-trust-prompt-never-auto-answered, kb:adr/launch-settings-local-json-not-settings-json, kb:adr/launch-project-scoped-settings-not-config-dir, kb:adr/tiles-launched-session-promoted-into-grid, kb:adr/launch-new-session-button-in-masthead, kb:adr/launch-model-check-cached-per-binary-identity, kb:adr/launch-unrecognized-model-marked-blocks-launch, kb:adr/launch-model-refusal-shown-in-field-error-only, kb:adr/launch-opens-launched-session, kb:adr/launch-open-outcome-decided-in-controller, kb:fact/name-flag-reaches-title, kb:fact/permission-mode-flag-on-wire, kb:fact/permission-mode-auto-model-gated, kb:fact/permission-mode-no-flag-follows-configured-default, kb:fact/fable-model-alias, kb:fact/local-settings-honoured, kb:fact/config-dir-breaks-oauth, kb:fact/trust-prompt-preselects-exit, kb:fact/bypass-acceptance-blocks-startup, kb:fact/model-catalog-precheck-zero-token, kb:fact/unknown-model-fails-first-turn, kb:spec/past-sessions, docs/design/ux-flows.md]
+refs: [kb:adr/launch-picker-recent-sidebar-plus-browse-list, kb:adr/launch-browse-via-daemon-not-native-chooser, kb:adr/launch-hybrid-mru-directory-memory, kb:adr/launch-form-seeds-model-and-permission-mode, kb:adr/launch-start-in-explicit-flag-auto-fallback, kb:adr/launch-bypass-and-dontask-unoffered, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/launch-bypass-never-restored-as-default, kb:adr/launch-bypass-warning-surfaced-never-answered, kb:adr/launch-trust-prompt-never-auto-answered, kb:adr/launch-settings-local-json-not-settings-json, kb:adr/launch-project-scoped-settings-not-config-dir, kb:adr/tiles-launched-session-promoted-into-grid, kb:adr/launch-new-session-button-in-masthead, kb:adr/launch-model-check-cached-per-binary-identity, kb:adr/launch-unrecognized-model-marked-blocks-launch, kb:adr/launch-model-refusal-shown-in-field-error-only, kb:adr/launch-opens-launched-session, kb:adr/launch-open-outcome-decided-in-controller, kb:fact/name-flag-reaches-title, kb:fact/permission-mode-flag-on-wire, kb:fact/permission-mode-auto-model-gated, kb:fact/permission-mode-no-flag-follows-configured-default, kb:fact/fable-model-alias, kb:fact/local-settings-honoured, kb:fact/config-dir-breaks-oauth, kb:fact/trust-prompt-preselects-exit, kb:fact/bypass-acceptance-blocks-startup, kb:fact/model-catalog-precheck-zero-token, kb:fact/unknown-model-fails-first-turn, kb:spec/past-sessions, docs/design/ux-flows.md, kb:adr/launch-group-row-moves-between-tabs, kb:adr/launch-new-group-created-with-the-row-or-not-at-all]
 ---
 Sessions are launched from the dashboard and nowhere else: macOS gives no access to another
 process's PTY, so Muster manages only what it started. The dialog opens from the masthead's
@@ -37,19 +37,20 @@ truthfully.
 Title is optional and maps to `--name` (kb:fact/name-flag-reaches-title); blank lets Claude
 Code auto-generate one. Model is a segmented control of presets plus a free-text override,
 passed to `--model` verbatim (kb:fact/fable-model-alias). Start in offers five modes: Claude
-Code's four tabbed modes under its own labels, manual being the wire's `default`
+Code's four tabbed modes under its own labels
 (kb:adr/launch-start-in-explicit-flag-auto-fallback, kb:fact/permission-mode-flag-on-wire), plus
 bypass — a fifth danger segment sending `bypassPermissions`, showing a warning line, and turning
 Launch into danger `Launch without checks` (kb:adr/launch-bypass-offered-with-danger-guardrails);
-don't-ask stays unoffered (kb:adr/launch-bypass-and-dontask-unoffered). Every mode, manual
-included, is sent as an explicit `--permission-mode` flag: with none, Claude Code starts in its
-own configured default (kb:fact/permission-mode-no-flag-follows-configured-default).
+don't-ask stays unoffered (kb:adr/launch-bypass-and-dontask-unoffered). Every mode is sent as an explicit
+flag (kb:fact/permission-mode-no-flag-follows-configured-default).
 The chosen mode seeds the permission-mode latch, which the first hook carrying the field corrects;
 a mode the model cannot run is corrected the same way
 (kb:adr/launch-form-seeds-model-and-permission-mode, kb:fact/permission-mode-auto-model-gated).
-Model and Start in default to the directory's last-used values, or auto with none; a value
+Model and Start in default to the directory's last-used values; a value
 picked before they arrive is kept. A remembered bypass is never restored — the dialog checks
-auto instead (kb:adr/launch-bypass-never-restored-as-default).
+auto instead (kb:adr/launch-bypass-never-restored-as-default). Group, under Title, offers groups, No
+group and New group… with a name field, defaulting to the focused session's group
+(kb:adr/launch-group-row-moves-between-tabs, kb:adr/launch-new-group-created-with-the-row-or-not-at-all).
 
 ## What launch does
 

@@ -30,6 +30,7 @@ const validSession = {
   plan: null,
   unread: false,
   lastPrompt: null,
+  groupId: null,
 };
 // The measured "no data yet" shape (docs/history/spikes/canary-fields.md): a session that has just
 // been launched — no Claude session id bound yet, no repo/model/attention/failure known,
@@ -62,6 +63,7 @@ const freshLaunchSession = {
   plan: null,
   unread: false,
   lastPrompt: null,
+  groupId: null,
 };
 describe("parseSession — full kb:anchor/ws.session shape", () => {
   it("parses a fully-populated session", () => {
@@ -443,5 +445,30 @@ describe("parseSession — backgroundTasks (W4: required non-negative integer)",
     ["a string", "2"],
   ])("rejects backgroundTasks that is %s", (_name, value) => {
     expect(parseSession({ ...validSession, backgroundTasks: value })).toBeNull();
+  });
+});
+// kb:anchor/ws.session `groupId`: required on every wire Session (null is the Ungrouped section),
+// same "daemon and client ship together" reasoning as pinned/railPos above. A value naming no
+// known group still parses: the rail renders it in Ungrouped (sessions/sections.ts).
+describe("parseSession — groupId (plan groups kb:anchor/ws.session)", () => {
+  it.each([null, 1, 3, 4200])("parses groupId %p and keeps it on the result", (groupId) => {
+    const session = { ...validSession, groupId };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("rejects a session missing groupId entirely (no pre-plan-daemon tolerance for this field)", () => {
+    const { groupId, ...rest } = validSession;
+    expect(parseSession(rest)).toBeNull();
+  });
+
+  it.each([
+    ["a numeric string", "3"],
+    ["a fraction", 1.5],
+    ["a boolean", false],
+    ["an object", { id: 3 }],
+    ["an array", [3]],
+    ["undefined", undefined],
+  ])("rejects a groupId that is %s", (_label, groupId) => {
+    expect(parseSession({ ...validSession, groupId })).toBeNull();
   });
 });

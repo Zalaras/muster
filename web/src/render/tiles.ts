@@ -214,7 +214,7 @@ export interface StripOptions {
  * ("a strip card carries the same pair" — it's the same shared card template).
  * Reconciles by session id via `render/sessions.ts`'s shared `reconcileCards`
  * rather than rebuilding every strip card each tick — same
- * fix, same reason, as the rail's `renderSessions`. `template` is looked up once by the
+ * fix, same reason, as the rail's sections (`render/railsections.ts`). `template` is looked up once by the
  * caller (same rule as `buildTile` above). */
 export function renderStrip(
   el: HTMLElement,

@@ -48,6 +48,12 @@ describe("matchShortcut — bound chords (W1/W2/W3)", () => {
     });
   });
 
+  it("returns new-group for Opt+Cmd+G (plan groups W11)", () => {
+    expect(
+      matchShortcut(keyEvent({ code: "KeyG", metaKey: true, altKey: true, key: "g" })),
+    ).toEqual({ type: "new-group" });
+  });
+
   it("returns toggle-view for Cmd+\\ (unchanged binding, REQ-10)", () => {
     expect(matchShortcut(keyEvent({ code: "Backslash", metaKey: true, key: "\\" }))).toEqual({
       type: "toggle-view",
@@ -73,6 +79,30 @@ describe("matchShortcut — bare Cmd chords no longer match (W4/W5, REQ-2)", () 
   });
 });
 
+describe("matchShortcut — Opt+Cmd+G matches only itself (plan groups W11)", () => {
+  it("returns null for bare Cmd+G: the browser's own Find Next is left alone", () => {
+    expect(matchShortcut(keyEvent({ code: "KeyG", metaKey: true, key: "g" }))).toBeNull();
+  });
+
+  it("returns null for Opt+Shift+Cmd+G: the browser's own Find Previous is left alone", () => {
+    expect(
+      matchShortcut(keyEvent({ code: "KeyG", metaKey: true, altKey: true, shiftKey: true })),
+    ).toBeNull();
+  });
+
+  it("returns null for Ctrl+Opt+Cmd+G", () => {
+    expect(
+      matchShortcut(keyEvent({ code: "KeyG", metaKey: true, altKey: true, ctrlKey: true })),
+    ).toBeNull();
+  });
+
+  it("matches on `code` when macOS delivers Opt+G as the dead-key glyph '©'", () => {
+    expect(
+      matchShortcut(keyEvent({ code: "KeyG", metaKey: true, altKey: true, key: "©" })),
+    ).toEqual({ type: "new-group" });
+  });
+});
+
 describe("matchShortcut — unbound codes and bare modifier keydowns", () => {
   it("returns null for a code that isn't in the binding table at all", () => {
     expect(matchShortcut(keyEvent({ code: "KeyA", metaKey: true, altKey: true }))).toBeNull();
@@ -88,6 +118,7 @@ describe("matchShortcut — unbound codes and bare modifier keydowns", () => {
 
   it("returns null for every binding's code with no modifiers held at all", () => {
     expect(matchShortcut(keyEvent({ code: "KeyN" }))).toBeNull();
+    expect(matchShortcut(keyEvent({ code: "KeyG" }))).toBeNull();
     expect(matchShortcut(keyEvent({ code: "Digit1" }))).toBeNull();
     expect(matchShortcut(keyEvent({ code: "Backslash" }))).toBeNull();
     expect(matchShortcut(keyEvent({ code: "ArrowUp" }))).toBeNull();
@@ -117,6 +148,14 @@ const BOUND_CHORDS: ReadonlyArray<{
     shift: false,
     ctrl: false,
     action: { type: "new-session" },
+  },
+  {
+    code: "KeyG",
+    meta: true,
+    alt: true,
+    shift: false,
+    ctrl: false,
+    action: { type: "new-group" },
   },
   {
     code: "Backslash",

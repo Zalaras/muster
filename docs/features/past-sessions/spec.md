@@ -10,10 +10,12 @@ go: [internal/claudecode/launchtranscripts*.go, internal/server/launcherpast*.go
 web: [web/src/features/launchresume*.ts, web/src/features/launchpastlist*.ts, web/src/render/launchpast*.ts]
 e2e: [web/e2e/past-sessions.spec.ts, web/e2e/helpers/resume.ts]
 protocol: [pastsessions.list]
-refs: [kb:spec/launch, kb:adr/launch-resume-listed-from-transcripts-by-cwd, kb:adr/launch-resume-running-guard-muster-only, kb:adr/launch-resume-pending-hold-persisted, kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-in-original-mode-else-default, kb:adr/launch-resume-passes-any-recorded-mode, kb:adr/launch-resume-display-name-falls-back-to-id, kb:fact/transcript-dir-encoding, kb:fact/transcript-session-lines, kb:fact/no-running-session-signal, kb:fact/resume-restores-model-and-mode-except-plan, "#62"]
+refs: [kb:spec/launch, kb:adr/launch-resume-listed-from-transcripts-by-cwd, kb:adr/launch-resume-running-guard-muster-only, kb:adr/launch-resume-pending-hold-persisted, kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-in-original-mode-else-default, kb:adr/launch-resume-passes-any-recorded-mode, kb:adr/launch-resume-display-name-falls-back-to-id, kb:fact/transcript-dir-encoding, kb:fact/transcript-session-lines, kb:fact/no-running-session-signal, kb:fact/resume-restores-model-and-mode-except-plan, "#62", kb:adr/launch-group-row-moves-between-tabs]
 ---
 The launch dialog's head carries New and Resume tabs (`kb:spec/launch`); the Resume tab lists a
-directory's own Claude Code sessions and resumes one Muster never started (issue #62).
+directory's own Claude Code sessions and resumes one Muster never started (issue #62). It carries
+the New tab's Group row under the list, and the resumed session joins the chosen group
+(kb:adr/launch-group-row-moves-between-tabs).
 
 ## The list
 

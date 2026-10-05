@@ -10,14 +10,13 @@ owns and gives examples at each severity; this file says what the severities and
 - **Critical** — must fix: a requirement not implemented or not observable, a failing test or gate
   line, a hard-rule violation (CLAUDE.md), a build failure, the protocol contract broken.
 - **Major** — must fix within the pipeline when a pipeline agent owns it: missing test coverage, a
-  contract or plan deviation that is not a hard rule, a false statement in a user-facing document or
-  a code comment about behaviour this plan shipped. Tag it to the agent that owns the file so it
-  rides a fix wave. A Major nobody in the pipeline can fix
+  contract or plan deviation that is not a hard rule, a false statement in a user-facing document.
+  Tag it to the agent that owns the file so it rides a fix wave. A Major nobody in the pipeline can fix
   (doc upkeep, a plan defect) is tagged `[orchestrator]`.
-- **Minor** — a real, small change you want made: naming, comment *style*, a cosmetic defect. Tag it
-  with the owning agent. The orchestrator routes it in that agent's wave, and the cycle after a
-  Minors-only wave is a delta re-review. A Minor costs a fix wave and a re-review, so keep the line
-  to Note sharp.
+- **Minor** — a real, small change you want made: naming, comment *style*, a false code comment
+  about behaviour this plan shipped, a cosmetic defect. Tag it with the owning agent. The
+  orchestrator routes it in that agent's wave, and the cycle after a Minors-only wave is a delta
+  re-review. A Minor costs a fix wave and a re-review, so keep the line to Note sharp.
 - **Note** — an observation with no change requested. Tag it `[note]`, never with an agent tag — an
   agent tag is a request for work. List notes under their own `### Notes` heading.
 
@@ -26,6 +25,9 @@ owns and gives examples at each severity; this file says what the severities and
 - `[daemon-impl]` / `[web-impl]` / `[daemon-tests]` / `[web-tests]` / `[e2e-specs]` — that agent
   fixes it in its wave.
 - `[note]` — nobody; listed in the completion summary, never routed.
+- `[comment]` — beside the agent tag, on a Minor whose whole fix is comment text in code; the issue
+  carries the replacement sentence. `merge-review` prints `comment-only: yes` when every agent-tagged
+  issue carries it, and the orchestrator applies those sentences itself instead of spawning a wave.
 - `[orchestrator]` — work no pipeline agent may do: `TODO.md` ticks (ticks only — follow-up worth
   keeping is *proposed* in `plans/<plan>/proposed-backlog.md`, and filing it is the developer's call:
   kb:adr/process-backlog-entries-are-the-users-to-file), an ADR for a `deviation:` line, an

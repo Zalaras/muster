@@ -1,6 +1,6 @@
 # internal/store — SQLite, hand-written SQL, migrations
 
-**Owns**: opening the database in WAL mode, embedded numbered migrations in `migrations/`, and the row types and queries for kv, events, sessions, repos and usage samples. Callers pass neutral values: no Claude Code vocabulary, no `internal/usage` or `internal/session` types. **Features**: lifecycle, launch, usage.
+**Owns**: opening the database in WAL mode, embedded numbered migrations in `migrations/`, and the row types and queries for kv, events, sessions, repos, rail groups and usage samples. Callers pass neutral values: no Claude Code vocabulary, no `internal/usage` or `internal/session` types. **Features**: lifecycle, launch, usage.
 
 **Invariants** (violations are review-Critical):
 - `database/sql` with hand-written SQL; no ORM, no query builder (kb:adr/stack-db-database-sql-hand-sql, kb:adr/stack-storage-sqlite-pure-go).
@@ -19,10 +19,11 @@
 - Don't test SQLite's own constraint enforcement.
 
 <!-- kb:trailer -->
-<!-- kb:hash cfa7493c89e3bd10 -->
+<!-- kb:hash 6fe19de8b776631f -->
+- **groups** — Rail groups: sections, header summary and popover, select mode, filter, group create, rename, ungroup and delete, persistence. → `docs/features/groups/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`
 - **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 18 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 19 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

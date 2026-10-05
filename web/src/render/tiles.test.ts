@@ -132,6 +132,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     railPos: overrides.id,
     unread: false,
     lastPrompt: null,
+    groupId: null,
     ...overrides,
   };
 }

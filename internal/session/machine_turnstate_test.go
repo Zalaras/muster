@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Zalaras/muster/internal/claudecode"
+	"github.com/Zalaras/muster/internal/claudecode/claudecodetest"
 )
 
 // allStates are the six displayed states, the source axis of every table below
@@ -114,7 +115,7 @@ func TestApplyInput_PostToolBatchLandsActive(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sess := seededSession(StateNeedsInput, "")
-			in := claudecode.Interpret("PostToolBatch", []byte(`{"hook_event_name":"PostToolBatch","session_id":"c1","prompt_id":"p1","permission_mode":"`+tt.mode+`"}`))
+			in := claudecode.Interpret("PostToolBatch", []byte(claudecodetest.RawPostToolBatch("c1", claudecodetest.ToolFileOpts{PromptID: "p1", PermissionMode: tt.mode})))
 			p := "p1"
 
 			applyInput(sess, "c1", &p, in, laterNow())

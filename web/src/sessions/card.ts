@@ -93,6 +93,13 @@ export function stateBadgeText(state: Session["state"]): string {
   return BADGE_TEXT[state];
 }
 
+/** The title every surface shows for a session: its display title, or `untitled` before it has
+ * one. Shared by the card, the Focus header, a rail group's popover and the select-mode
+ * checkbox label, so none composes its own fallback. */
+export function displayTitle(session: Pick<Session, "title">): string {
+  return session.title ?? "untitled";
+}
+
 /** The danger `bypass` chip a rail card, the Focus mainhead and a tile header show
  * whenever a session's last-known permission mode is bypassPermissions — alive or
  * not, in every state (kb:adr/launch-bypass-offered-with-danger-guardrails). One
@@ -431,7 +438,7 @@ export function buildCardViewModel(
 
   return {
     id: session.id,
-    title: session.title ?? "untitled",
+    title: displayTitle(session),
     stateClass: STATE_CLASS[session.state],
     badge: BADGE_TEXT[session.state],
     timer,

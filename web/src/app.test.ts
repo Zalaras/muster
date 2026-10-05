@@ -38,6 +38,19 @@ describe("createApp initial state", () => {
     expect(app.state.connection).toBe("connecting");
   });
 
+  it("starts with no groups and Ungrouped last and expanded, so the rail renders flat until the first snapshot", () => {
+    const app = createApp();
+    expect(app.state.groups).toEqual([]);
+    expect(app.state.ungrouped).toEqual({ pos: 0, collapsed: false });
+  });
+
+  it("gives each app its own groups state", () => {
+    const a = createApp();
+    const b = createApp();
+    expect(a.state.groups).not.toBe(b.state.groups);
+    expect(a.state.ungrouped).not.toBe(b.state.ungrouped);
+  });
+
   it("starts with an empty store", () => {
     const app = createApp();
     expect(app.store.values()).toEqual([]);

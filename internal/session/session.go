@@ -123,6 +123,14 @@ type Session struct {
 	Pinned  bool
 	RailPos int64
 
+	// GroupID (kb:adr/rail-groups-daemon-rows-whole-list-broadcast): the rail group this
+	// session belongs to, nil = the Ungrouped section. Display-only — never read by the state
+	// machine or the status path, and untouched by /clear, resume, reconcile, rename and pin.
+	// Written under Manager.mu by CreateSession and applyRailChangesLocked (the group
+	// endpoints' rail writes); always replaced with a fresh pointer, never written through, so
+	// restoreChangedFields can compare it by identity.
+	GroupID *int64
+
 	// TitleOverride (kb:adr/rename-muster-owned-title-override-wins): the user's rename
 	// via PUT .../title, nil = none. Display-only, wins over Title in DisplayTitle() —
 	// never read by the state machine or the status path; mutated only by

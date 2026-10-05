@@ -1,6 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "../protocol/session";
-import { createShell, endSession, fetchPane, removeSession, resumeSession } from "./sessions";
+import {
+  createShell,
+  endSession,
+  endSessions,
+  fetchPane,
+  putSessionOrder,
+  putSessionsGroup,
+  removeSession,
+  removeSessions,
+  resumeSession,
+} from "./sessions";
 import { fakeResponse, fakeResponseThatThrows, fakeStatusResponse } from "./testfakes";
 
 const validSession: Session = {
@@ -30,6 +40,7 @@ const validSession: Session = {
   railPos: 0,
   unread: false,
   lastPrompt: null,
+  groupId: null,
 };
 
 const endedSession: Session = { ...validSession, alive: false, endedAt: "2026-08-22T00:05:00Z" };
@@ -353,5 +364,158 @@ describe("sessions — fetchPane (GET /api/sessions/{id}/pane, kb:anchor/session
     const result = await fetchPane(1);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+});
+
+function jsonCall(method: string, body: unknown) {
+  return expect.objectContaining({
+    method,
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+describe("sessions — putSessionOrder (PUT /api/sessions/order, kb:anchor/sessions.order)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn().mockResolvedValue(fakeStatusResponse(204));
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("without a groupId sends only ids and pinnedCount, leaving membership untouched (the pre-groups call)", async () => {
+    expect(await putSessionOrder([4, 9, 2], 1)).toEqual({ ok: true, value: null });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/sessions/order",
+      jsonCall("PUT", { ids: [4, 9, 2], pinnedCount: 1 }),
+    );
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string);
+    expect("groupId" in body).toBe(false);
+  });
+
+  it("with a group id sends it, so the dragged card joins that section as the order applies", async () => {
+    await putSessionOrder([4, 9, 2], 1, 3);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/sessions/order",
+      jsonCall("PUT", { ids: [4, 9, 2], pinnedCount: 1, groupId: 3 }),
+    );
+  });
+
+  it("with null sends groupId:null, which moves the cards to Ungrouped — not the same as omitting it", async () => {
+    await putSessionOrder([4, 9], 0, null);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/sessions/order",
+      jsonCall("PUT", { ids: [4, 9], pinnedCount: 0, groupId: null }),
+    );
+  });
+
+  it("decodes a 404 unknown_group", async () => {
+    const error = { code: "unknown_group", message: "unknown group" };
+    fetchMock.mockResolvedValue(fakeStatusResponse(404, { error }));
+    expect(await putSessionOrder([1], 0, 99)).toEqual({ ok: false, error });
+  });
+});
+
+describe("sessions — putSessionsGroup (PUT /api/sessions/group, kb:anchor/sessions.group)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends the ids and the target group and treats 204 as success", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(204));
+    expect(await putSessionsGroup([4, 9], 3)).toEqual({ ok: true, value: null });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/sessions/group",
+      jsonCall("PUT", { ids: [4, 9], groupId: 3 }),
+    );
+  });
+
+  it("sends groupId:null for Ungrouped; the key is required, so it is never omitted", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(204));
+    await putSessionsGroup([4], null);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/sessions/group",
+      jsonCall("PUT", { ids: [4], groupId: null }),
+    );
+  });
+
+  it("decodes a 404 unknown_group and a 400 invalid_request", async () => {
+    const missing = { code: "unknown_group", message: "unknown group" };
+    fetchMock.mockResolvedValueOnce(fakeStatusResponse(404, { error: missing }));
+    expect(await putSessionsGroup([4], 99)).toEqual({ ok: false, error: missing });
+    const bad = {
+      code: "invalid_request",
+      message: "ids must be known session ids without duplicates",
+    };
+    fetchMock.mockResolvedValueOnce(fakeStatusResponse(400, { error: bad }));
+    expect(await putSessionsGroup([4, 4], 3)).toEqual({ ok: false, error: bad });
+  });
+});
+
+// kb:anchor/sessions.end-many and kb:anchor/sessions.remove-many share one request and report shape.
+describe.each([
+  ["endSessions", endSessions, "/api/sessions/end"],
+  ["removeSessions", removeSessions, "/api/sessions/remove"],
+] as const)("sessions — %s (POST %s)", (_name, call, url) => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts the ids as one request and decodes the per-id report", async () => {
+    const report = { done: [4], skipped: [9], failed: [2] };
+    fetchMock.mockResolvedValue(fakeResponse(true, report));
+    expect(await call([4, 9, 2])).toEqual({ ok: true, value: report });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(url, jsonCall("POST", { ids: [4, 9, 2] }));
+  });
+
+  it("a report with a skipped or failed id is still a success: the caller reports it, not the transport", async () => {
+    const report = { done: [], skipped: [4], failed: [9] };
+    fetchMock.mockResolvedValue(fakeResponse(true, report));
+    expect(await call([4, 9])).toEqual({ ok: true, value: report });
+  });
+
+  it("decodes a 400 invalid_request (an empty or duplicated id list)", async () => {
+    const error = {
+      code: "invalid_request",
+      message: "ids must be a non-empty list of session ids without duplicates",
+    };
+    fetchMock.mockResolvedValue(fakeResponse(false, { error }));
+    expect(await call([])).toEqual({ ok: false, error });
+  });
+
+  it("falls back to a generic error when the 200 body is not a report", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { done: [1] }));
+    const result = await call([1]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("resolves to network_error rather than throwing when fetch rejects", async () => {
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    const result = await call([1]);
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "network_error", message: "Could not reach musterd." },
+    });
   });
 });

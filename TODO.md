@@ -45,10 +45,7 @@ group deliberately, and otherwise don't re-sort this list.
   card reads needs input while a background agent is still running. It should not ask for input
   while background work is in progress.
 
-### Together — session retention and clearing (#27, #47; #39 in Post v1 is the same seam)
-
-- [ ] **Remove All Sessions** ([#27](https://github.com/Zalaras/muster/issues/27)) — a bulk "remove everything" action to start from a
-  clean slate, plus the option to select several sessions and remove those.
+### Together — session retention and clearing (#47; #39 in Post v1 is the same seam)
 
 - [ ] **Sessions survive only one daemon start after their tmux server is gone** — filed by the
   developer 2026-09-22 during `rail-card-improvements` planning. After a computer restart, or a
@@ -86,6 +83,8 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
 
 ### On their own
 
+- [ ] **Tiles per group** — a Tiles view scoped to one group (the grid holds that group's live sessions, the strip the rest of it), reached from the group's ⋯ menu. The grid and strip ignore groups today.
+
 - [ ] **Tool hooks surface `hook error` after a daemon update** ([#54](https://github.com/Zalaras/muster/issues/54)) — seen
   again 2026-09-30 after plan `maintainability-regressions` closed it: `PreToolUse`/`PostToolUse`
   report "Failed with non-blocking status code: No stderr output", seemingly only on the first
@@ -108,10 +107,6 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
 - [ ] **Title squashed for no reason** ([#73](https://github.com/Zalaras/muster/issues/73)) — in the
   Focus view header the repo/branch line (`work / main`) wraps onto two lines though the header
   has plenty of room. It should stay on one line while there is room.
-
-- [ ] **I'd like to be able to group sessions** ([#74](https://github.com/Zalaras/muster/issues/74)) —
-  put sessions (e.g. a set of review sessions) in a named group that collapses in the rail, its
-  header giving a short overview: how many are running, need input, idle.
 
 ### From the maintainability cleanup (2026-09-24)
 
@@ -278,6 +273,18 @@ tick a sub-item as it lands, the parent when all have.
   nav / outline panel on the right, and minimise the rail the way the docs nav already
   collapses. Each panel keeps its width across reloads.
 
+### Filed 2026-10-06 by the developer from the plans' proposed-backlog.md files
+
+- [ ] **`unknown_session` carries two message strings** — `POST /api/groups` answers an unknown
+  session id with `unknown session` while the older endpoints say `unknown session id`; one
+  string would do. From `plans/groups/`.
+- [ ] **Two terminal tests flake under the race detector** —
+  `TestHandleTerminal_SecondSocketSupersedesTheFirst` and
+  `TestHandleShellTerminal_ScrollErrorIsLoggedNotFatal` each failed once in a full
+  `make test-race`, pass alone and on re-run. From `plans/groups/`.
+- [ ] **`#rail-count` reads an empty string with zero sessions** — with no sessions the rail
+  count renders `""` rather than `0`. From `plans/groups/`.
+
 ## v1 Release
 
 The release itself: the Homebrew tap, then cutting v1.0.0 — last, once § Issues and § Pre-v1
@@ -393,6 +400,11 @@ New post-v1 ideas go here; re-rank when reached.
 
 - [ ] **Show rendered plan** ([#44](https://github.com/Zalaras/muster/issues/44)) — auto-open the document tab when Claude presents a plan. Likely
   only worth doing once the rendered view carries Accept/Reject and can swap back.
+
+- [ ] **Tiles view per group** — filed by the developer 2026-10-05 during the `groups` spec
+  interview. Rail groups (`plans/groups/spec.md`) leave the Tiles grid and strip flat; revisit
+  whether Tiles should instead show one group at a time (the grid as a group's sessions, the
+  strip as the rest), once groups have been used for a while.
 
 - [ ] **Explore offering Claude Code's dontAsk permission mode** ([#63](https://github.com/Zalaras/muster/issues/63)) —
   the launch dialog can't start a `dontAsk` session, though a resumed one can come back in that

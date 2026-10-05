@@ -576,7 +576,7 @@ func TestSetOrder_QueuedBehindRemovalSkipsOnlyTheRemovedSession(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		errOrder = mgr.SetOrder(ctx, []int64{c.ID, b.ID, a.ID}, 0)
+		errOrder = mgr.SetOrder(ctx, []int64{c.ID, b.ID, a.ID}, 0, nil)
 	}()
 	// SetOrder draws its own write tickets for all three ids internally, with no
 	// chain-head signal a test can poll for a batch call the way drawWriteTicket gives

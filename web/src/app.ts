@@ -2,6 +2,7 @@
 // AppState fields more than one feature reads, a typed event bus, the ordered render
 // phases, and render() itself. Pure enough to unit-test (no DOM) — every feature module
 // builds on top of this rather than main.ts wiring them together directly.
+import { emptyGroupsFields, type Group, type UngroupedLayout } from "./protocol/groups";
 import type { DocChanged, Snapshot } from "./protocol/messages";
 import {
   type Density,
@@ -34,6 +35,10 @@ export interface AppState {
   // even though `railActivity`'s control lives in the Settings dialog.
   railDensity: RailDensity; // written only by features/rail.ts (from prefs)
   railActivity: RailActivity; // written only by features/rail.ts (from prefs)
+  // The rail's groups and the Ungrouped section's layout (kb:anchor/ws.groups), adopted only from
+  // the `groups` event — never optimistically from a click (kb:adr/rail-groups-daemon-rows-whole-list-broadcast).
+  groups: readonly Group[]; // written only by features/groups.ts
+  ungrouped: UngroupedLayout; // written only by features/groups.ts
   focusedId: number | null; // written only via app.focus(id)
   connection: ConnectionStatus; // written only by features/connection.ts
 }
@@ -52,6 +57,8 @@ export interface AppEvents {
   status: (status: ConnectionStatus) => void; // after state.connection changed
   snapshot: (snapshot: Snapshot) => void; // after store.replaceAll
   prefs: (prefs: Prefs) => void; // snapshot.prefs and every prefs broadcast
+  // snapshot.groups/ungrouped and every `groups` broadcast, whole (the prefs pattern).
+  groups: (groups: readonly Group[], ungrouped: UngroupedLayout) => void;
   claudeTheme: (family: ClaudeFamily) => void;
   usage: (usage: Usage) => void;
   update: (update: UpdateInfo) => void;
@@ -101,6 +108,7 @@ export function createApp(): App {
     railSort: PREF_DEFAULTS.railSort,
     railDensity: PREF_DEFAULTS.railDensity,
     railActivity: PREF_DEFAULTS.railActivity,
+    ...emptyGroupsFields(),
     focusedId: null,
     connection: "connecting",
   };

@@ -69,14 +69,35 @@
                 <svg aria-hidden="true" viewBox="0 0 14 12"><rect y="0.5" width="14" height="4.5"/><rect y="7" width="14" height="4.5"/></svg>
               </button>
             </div>
+            <div class="row2">
+              <div id="rail-filter" class="seg" role="group" aria-label="Filter" hidden>
+                <button type="button" class="seg-btn" data-filter="all" aria-pressed="true">All</button>
+                <button type="button" class="seg-btn" data-filter="groups" aria-pressed="false">Groups</button>
+                <button type="button" class="seg-btn" data-filter="ungrouped" aria-pressed="false">Ungrouped</button>
+              </div>
+              <span class="spacer"></span>
+              <button type="button" id="rail-select-button" class="btn icon" aria-pressed="false" title="Select sessions">Select</button>
+              <button type="button" id="rail-actions-button" class="btn icon" aria-label="Rail actions" aria-haspopup="menu" aria-expanded="false" title="Rail actions">⋯</button>
+            </div>
           </div>
           <div id="sessions" class="cards"></div>
+          <div id="select-bar" class="selbar" hidden>
+            <span class="cnt" aria-live="polite">Select sessions</span>
+            <button type="button" class="btn" data-bar="move" aria-haspopup="menu" aria-expanded="false">Move to<span aria-hidden="true"> ▾</span></button>
+            <button type="button" class="btn" data-bar="ungroup">Ungroup</button>
+            <button type="button" class="btn" data-bar="stop">Stop…</button>
+            <button type="button" class="btn" data-bar="remove">Remove…</button>
+            <span class="spacer"></span>
+            <button type="button" class="btn" data-bar="all">All</button>
+            <button type="button" class="btn" data-bar="done">Done</button>
+          </div>
         </aside>
         <section class="main">
           <div id="main-empty" class="placeholder">No sessions yet — ⌥⌘N to launch</div>
           <div id="mainhead" class="mainhead" hidden>
             <h2 class="name"><button type="button" class="rename"></button></h2>
             <span class="chip-danger" hidden>bypass</span>
+            <button type="button" class="ingroup" title="Group — click to move" aria-haspopup="menu" aria-expanded="false"><span class="ig-name"></span><span aria-hidden="true">▾</span></button>
             <span class="meta">
               <span class="loc">
                 <span class="repo"><span class="rf"></span></span>
@@ -160,6 +181,14 @@
           <label class="lab" for="title-input">Title</label>
           <input id="title-input" type="text" autocomplete="off" placeholder="optional — Claude Code auto-generates" />
 
+          <div id="launch-group" class="group-field">
+            <label class="lab" for="group-select">Group</label>
+            <div class="group-row">
+              <select id="group-select"></select>
+              <input id="group-name-input" type="text" aria-label="Group name" placeholder="Group name" maxlength="40" autocomplete="off" hidden />
+            </div>
+          </div>
+
           <fieldset class="seg">
             <legend>Model</legend>
             <div class="seg-track" role="radiogroup" aria-label="Model">
@@ -189,6 +218,8 @@
           <p id="bypass-warning" class="bypass-warn" hidden><b>Bypass permissions</b> — every tool call runs without asking: edits, shell commands, network. Nothing stops a bad command.</p>
         </div>
 
+        <div id="group-resume-slot" class="group-slot"></div>
+
         <p id="launch-error" class="launch-error" role="alert" hidden></p>
 
         <div class="modal-foot">
@@ -214,6 +245,52 @@
       <div class="modal-foot">
         <button type="button" id="remove-cancel-button" class="btn">Cancel</button>
         <button type="button" id="remove-confirm-button" class="btn key-danger">Remove</button>
+      </div>
+    </dialog>
+
+    <dialog id="delete-group-dialog" class="modal confirm" aria-labelledby="delete-group-title" aria-describedby="delete-group-body">
+      <h2 id="delete-group-title">Delete group</h2>
+      <p id="delete-group-body"></p>
+      <div id="delete-group-choices" class="choices">
+        <div class="choice">
+          <input type="radio" id="delete-choice-ungroup" name="delete-group-choice" value="ungroup" checked aria-describedby="delete-hint-ungroup" />
+          <div class="ctext">
+            <label for="delete-choice-ungroup" id="delete-label-ungroup"></label>
+            <small id="delete-hint-ungroup"></small>
+          </div>
+        </div>
+        <div class="choice" id="delete-choice-move-row">
+          <input type="radio" id="delete-choice-move" name="delete-group-choice" value="move" aria-describedby="delete-hint-move" />
+          <div class="ctext">
+            <label for="delete-choice-move" id="delete-label-move"></label>
+            <select id="delete-group-target" aria-label="Target group"></select>
+            <small id="delete-hint-move"></small>
+          </div>
+        </div>
+        <div class="choice">
+          <input type="radio" id="delete-choice-remove" name="delete-group-choice" value="remove" aria-describedby="delete-hint-remove" />
+          <div class="ctext">
+            <label for="delete-choice-remove" id="delete-label-remove"></label>
+            <small id="delete-hint-remove"></small>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" id="delete-group-cancel" class="btn">Cancel</button>
+        <button type="button" id="delete-group-confirm" class="btn key-danger">Delete group</button>
+      </div>
+    </dialog>
+
+    <dialog id="new-group-dialog" class="modal confirm" aria-labelledby="new-group-title">
+      <h2 id="new-group-title">New group</h2>
+      <form id="new-group-form" class="fields">
+        <label class="lab" for="new-group-input">Group name</label>
+        <input id="new-group-input" type="text" maxlength="40" autocomplete="off" />
+        <p id="new-group-error" class="field-error" role="alert" hidden></p>
+      </form>
+      <div class="modal-foot">
+        <button type="button" id="new-group-cancel" class="btn">Cancel</button>
+        <button type="submit" form="new-group-form" id="new-group-create" class="btn key">Create</button>
       </div>
     </dialog>
 

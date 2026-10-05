@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en" data-theme="instrument">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Groups A — refinement board</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+body{display:block;overflow:auto;padding:0 0 60px}
+.board{max-width:1180px;margin:0 auto;padding:0 16px}
+h2{font-size:14px;margin:28px 0 6px}
+.rules{color:var(--fg-muted);font-size:13px;line-height:1.5;max-width:780px;margin:0 0 12px}
+.rules b{color:var(--fg)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,300px);gap:20px 24px;align-items:start}
+.cell .cap{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--fg-dim);margin:0 0 6px}
+.cell .why{font-size:12px;color:var(--fg-muted);line-height:1.45;margin:6px 0 0}
+.mini{border:1px solid var(--line);background:var(--bg-raised)}
+.mini .railhead{position:relative}
+.mini .ghead{position:static;cursor:default}
+.mini .ghead .kebab{display:none}
+.pick{border-color:var(--edge);box-shadow:0 0 0 1px var(--edge)}
+.cell.pick .cap::after{content:"  ← recommended";color:var(--fg)}
+</style>
+<script>window.V = { ungroupedLabel: "Ungrouped", summary: "dots", select: "mode", menus: "kebab", filter: "segmented", createButton: "icon", sortLabel: "outside", summaryHover: "popover", mainheadGroup: true };</script>
+<script src="shared.js" defer></script>
+<script>
+window.onRender = function () {
+  if (window.__boarded) return; window.__boarded = true;
+  const members = (gid) => S.sessions.filter((x) => (x.group || "_") === gid);
+  const heads = [["g1", "PR reviews"], ["g2", "Validation"], ["_", "Ungrouped"]];
+  // summaries
+  const sg = document.getElementById("summaries");
+  for (const [style, why, pick] of [
+    ["dots", "Colour dot + count per state, in attention order. Reads as the card stripes do; four of them fit with room. Hover tells the words.", true],
+    ["glyphs", "A glyph per state (? ✕ ◇ ▶ ○) in its colour, plus count. Survives colour-blindness and greyscale; the glyph set is new vocabulary nothing else in Muster uses yet.", false],
+    ["chips", "Micro versions of the card's own state badge: bordered count in the state's colour. Same component the card already carries, so no new meaning to learn; widest of the set.", false],
+    ["ticks", "One tick per session, coloured by state, sorted by attention (ended ticks are short). Count and mix at a glance, and it is the only one that shows how many are in trouble relative to the whole.", false],
+    ["nums", "Just the counts, each in its state's colour. Quietest; relies entirely on colour, which design-system §3 allows only alongside another carrier — so this one needs the hover.", false],
+    ["bar", "Proportional state bar (C's), with numbers only for needs-input and failed. Good for 'how healthy is this group', poor for 'how many'.", false],
+    ["text", "The words. Honest and accessible, truncates at 300px with more than two states.", false],
+  ]) {
+    const cell = document.createElement("div"); cell.className = "cell" + (pick ? " pick" : "");
+    cell.innerHTML = `<p class="cap">${style}</p>`;
+    const mini = document.createElement("div"); mini.className = "mini" + (pick ? " pick" : "");
+    for (const [gid, nm] of heads) {
+      const m = members(gid);
+      const el = document.createElement("div"); el.className = "ghead collapsed" + (gid === "_" ? " ungrouped" : "");
+      el.innerHTML = `<button class="disc"></button><span class="gname">${nm}</span>`;
+      el.append(summaryEl(m, style));
+      mini.append(el);
+      // popover on hover, same as the live rail
+      el.addEventListener("mouseenter", () => { const r = el.getBoundingClientRect(); window.__pop = showPop(el, m, nm); });
+      el.addEventListener("mouseleave", () => document.querySelector(".pop")?.remove());
+    }
+    cell.append(mini);
+    const w = document.createElement("p"); w.className = "why"; w.textContent = why; cell.append(w);
+    sg.append(cell);
+  }
+  // rail heads
+  const hg = document.getElementById("heads");
+  for (const [o, why, pick] of [
+    [{ sortLabel: "none", createButton: "icon" }, "As the live rail head today: the select stands alone, its values Manual / Attention are self-explanatory (the first round's 'sort:' prefix was my invention, not a pattern from the app). Row 2 is the groups row: filter, Select, and a square + with tooltip and ⌥⌘G — the sidebar convention (Finder, VS Code, Slack, Linear).", true],
+    [{ sortLabel: "outside", createButton: "icon" }, "A label beside the select. Honest, but at 300px it pushes the density control onto a third row — the label costs more than it tells.", false],
+    [{ sortLabel: "outside", createButton: "menu" }, "No create button at all: a ⋯ rail-actions menu carries New group, Select, Collapse all, Expand all. Cleanest head, one more click to create, and the menu is where Collapse-all wants to live anyway.", false],
+    [{ sortLabel: "outside", createButton: "text" }, "The first round's '+ group' text button — a label pretending to be a verb, and it competes with Select for the eye. Kept for comparison.", false],
+    [{ sortLabel: "inside", createButton: "icon" }, "The first-round 'sort: manual' value-with-prefix. The masthead's model readout uses this trick because it is a readout dressed as text; a real bordered control reads oddly with it.", false],
+  ]) {
+    const cell = document.createElement("div"); cell.className = "cell" + (pick ? " pick" : "");
+    cell.innerHTML = `<p class="cap">sort ${o.sortLabel} · create ${o.createButton}</p>`;
+    const mini = document.createElement("div"); mini.className = "mini" + (pick ? " pick" : "");
+    const head = document.createElement("div"); head.className = "railhead";
+    renderHeadInto(head, Object.assign({}, V, o));
+    head.querySelector("#count").textContent = "10 sessions";
+    head.querySelectorAll("#sort,#selbtn,#newgrp").forEach((e) => e.removeAttribute("id"));
+    const f = head.querySelector("#filter"); if (f) { f.removeAttribute("id"); f.innerHTML = '<div class="seg"><button class="seg-btn" aria-pressed="true">All</button><button class="seg-btn">Groups</button><button class="seg-btn">Ungrouped</button></div>'; }
+    mini.append(head); cell.append(mini);
+    const w = document.createElement("p"); w.className = "why"; w.textContent = why; cell.append(w);
+    hg.append(cell);
+  }
+};
+function showPop(anchor, members, gname) {
+  document.querySelector(".pop")?.remove();
+  const pop = document.createElement("div"); pop.className = "pop";
+  const order = ["needs_input", "failed", "planning", "working", "started", "idle", "ended"];
+  const lab = { needs_input: "needs input", failed: "failed", planning: "planning", working: "working", started: "started", idle: "idle", ended: "ended" };
+  const cls = { needs_input: "s-need", failed: "s-failed", planning: "s-plan", working: "s-work", started: "s-start", idle: "s-idle", ended: "s-ended" };
+  pop.innerHTML = `<div class="ph">${gname}<span>${members.length} session${members.length === 1 ? "" : "s"}</span></div>`;
+  for (const k of order) {
+    const ms = members.filter((m) => (m.alive ? m.state : "ended") === k); if (!ms.length) continue;
+    pop.insertAdjacentHTML("beforeend", `<div class="pr ${cls[k]}"><i class="dot ${cls[k]}"></i><b>${lab[k]}</b><span>${ms.length}</span></div>` + ms.map((m) => `<div class="pt">${m.title}</div>`).join(""));
+  }
+  document.body.append(pop);
+  const r = anchor.getBoundingClientRect(); pop.style.left = r.left + "px"; pop.style.top = r.bottom + 4 + "px";
+  return pop;
+}
+</script>
+</head>
+<body>
+<div class="mock" style="position:sticky;top:0;z-index:5">
+  <div>
+    <h1>A · refinement board <span>SUMMARY + RAIL HEAD</span></h1>
+    <p class="lede">Every summary style on the same three groups, hover any header for the popover (the words, and the
+      sessions under each state). Below, the rail head with the sort label and New-group affordance varied.
+      Pick by name and I set it in <code>a-sections-select-mode.html</code>.</p>
+  </div>
+  <div class="switch">theme <button class="on" data-theme-pick="instrument">instrument</button><button data-theme-pick="light">light</button></div>
+</div>
+<!-- hidden live rail so shared.js has what it expects to render -->
+<div class="app" style="position:absolute;left:-9999px;width:1200px;height:600px"><div class="body"><aside class="rail" id="rail"><div class="railhead" id="railhead"></div><div class="cards" id="cards"></div><div class="selbar" id="selbar" hidden></div></aside><main class="main"><div class="mainhead"><span id="mh-name"></span><span id="mh-meta"></span><button id="mh-group"></button><button id="mh-stop"></button><button id="mh-remove"></button></div></main></div></div>
+<div class="board">
+  <h2>Group summary</h2>
+  <p class="rules">Rules in play: a state colour may only mean its state (design-system §3), so every colour here is
+    the card's own stripe colour and nothing else; colour alone cannot carry information (§1 contrast bar — the
+    hover and the count are the second carrier); 300px rail; the summary must still read when the group is
+    collapsed, which is when it matters.</p>
+  <div class="grid2" id="summaries"></div>
+  <h2>Rail head</h2>
+  <p class="rules">Today's head is <code>Manual ▾ · 10 sessions · ☰ density</code>. Groups add at most one control (New group) and one
+    toggle (Select); the filter row sits beneath. The create affordance follows the sidebar convention —
+    icon-only <b>+</b> with a tooltip, a shortcut, and the same verb reachable from the header ⋯ and the selection bar.</p>
+  <div class="grid2" id="heads"></div>
+</div>
+</body>
+</html>

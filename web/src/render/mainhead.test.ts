@@ -126,6 +126,16 @@ function resumeDisabledReason(btn: HTMLButtonElement): string {
   );
 }
 
+/** The group control: a button holding a `.ig-name` span (index.html), which is the only child
+ * `renderMainhead` writes the group's name into. */
+function fakeGroupBtn(): HTMLButtonElement & { nameSpan: HTMLElement } {
+  const nameSpan = fakeElement();
+  return Object.assign(fakeButton(), {
+    querySelector: (selector: string) => (selector === ".ig-name" ? nameSpan : null),
+    nameSpan,
+  });
+}
+
 /** Models `#mainhead h2.name`: starts holding `renameBtn` as its one child (index.html's
  * static markup), and — like a real `HTMLElement` — any assignment to `.textContent`
  * detaches that child. `attached()` lets a test observe whether the button survived a
@@ -180,7 +190,10 @@ function fakeMainheadRoot(): HTMLElement {
   } as unknown as HTMLElement;
 }
 
-function fakeMainheadElements(): MainheadElements & { attached: () => boolean } {
+function fakeMainheadElements(): MainheadElements & {
+  attached: () => boolean;
+  groupBtn: ReturnType<typeof fakeGroupBtn>;
+} {
   const renameBtn = fakeButton();
   const nameEl = fakeNameEl(renameBtn);
   return {
@@ -191,6 +204,7 @@ function fakeMainheadElements(): MainheadElements & { attached: () => boolean } 
     resumeBtn: fakeButton(),
     removeBtn: fakeButton(),
     renameBtn,
+    groupBtn: fakeGroupBtn(),
     surfaceSegment: fakeSurfaceSegmentRefs(),
     attached: nameEl.attached,
   };
@@ -225,6 +239,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     railPos: overrides.id,
     unread: false,
     lastPrompt: null,
+    groupId: null,
     ...overrides,
   };
 }
@@ -233,7 +248,7 @@ describe("renderMainhead — no-session branch must not detach the rename button
   it("leaves button.rename attached to nameEl after a render with no focused session", () => {
     const elements = fakeMainheadElements();
 
-    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false);
+    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
 
     expect(elements.root.hidden).toBe(true);
     expect(elements.attached()).toBe(true);
@@ -243,9 +258,9 @@ describe("renderMainhead — no-session branch must not detach the rename button
   it("survives repeated zero-session render passes (the dashboard's actual startup shape: one or more empty ticks before the first sessionUpsert)", () => {
     const elements = fakeMainheadElements();
 
-    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false);
-    renderMainhead(elements, null, NOW, false, DEFAULT_SURFACE_STATE, "none", false);
-    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false);
+    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    renderMainhead(elements, null, NOW, false, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
 
     expect(elements.attached()).toBe(true);
   });
@@ -254,8 +269,8 @@ describe("renderMainhead — no-session branch must not detach the rename button
     const elements = fakeMainheadElements();
     const session = makeSession({ id: 1, title: "fix the thing" });
 
-    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false); // the startup zero-session tick
-    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false); // the first sessionUpsert
+    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group"); // the startup zero-session tick
+    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group"); // the first sessionUpsert
 
     expect(elements.attached()).toBe(true);
     expect(elements.nameEl.querySelector("button.rename")).toBe(elements.renameBtn);
@@ -271,7 +286,7 @@ describe("renderMainhead — Resume disabled reason (REQ-17/W3)", () => {
     const elements = fakeMainheadElements();
     const session = makeSession({ id: 1, alive: false, claudeSessionId: null });
 
-    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false);
+    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
 
     expect(elements.resumeBtn.disabled).toBe(true);
     expect(resumeDisabledReason(elements.resumeBtn)).not.toBe("");
@@ -281,10 +296,47 @@ describe("renderMainhead — Resume disabled reason (REQ-17/W3)", () => {
     const elements = fakeMainheadElements();
     const session = makeSession({ id: 1, alive: false, claudeSessionId: "claude-sess" });
 
-    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false);
+    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
 
     expect(elements.resumeBtn.disabled).toBe(false);
     expect(resumeDisabledReason(elements.resumeBtn)).toBe("");
+  });
+});
+
+// The group control (plan groups): its name span carries the label the caller composed
+// (sessions/sections.ts's `groupLabel`), and the whole control follows the connection.
+describe("renderMainhead — group control", () => {
+  it("writes the caller's group text into the name span", () => {
+    const elements = fakeMainheadElements();
+    const session = makeSession({ id: 1, groupId: 3 });
+    renderMainhead(
+      elements,
+      session,
+      NOW,
+      true,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      false,
+      "PR reviews",
+    );
+    expect(elements.groupBtn.nameSpan.textContent).toBe("PR reviews");
+    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    expect(elements.groupBtn.nameSpan.textContent).toBe("no group");
+  });
+
+  it("is disabled while the socket is down and enabled again on reconnect", () => {
+    const elements = fakeMainheadElements();
+    const session = makeSession({ id: 1 });
+    renderMainhead(elements, session, NOW, false, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    expect(elements.groupBtn.disabled).toBe(true);
+    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    expect(elements.groupBtn.disabled).toBe(false);
+  });
+
+  it("is untouched by the no-session pass", () => {
+    const elements = fakeMainheadElements();
+    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    expect(elements.groupBtn.nameSpan.textContent).toBe("");
   });
 });
 
@@ -327,7 +379,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
   const lines = (host: FakeNode) => host.kids.filter((k) => /\b(rf|rb)\b/.test(k.className));
   const render = (session: Session | null) => {
     const elements = fakeMainheadElements();
-    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false);
+    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
     return { elements, s: slots(elements) };
   };
 
@@ -385,7 +437,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
       id: 1,
       repo: { name: "muster", branch: "main", isWorktree: false },
     });
-    renderMainhead(elements, withRepo, NOW, true, DEFAULT_SURFACE_STATE, "none", false);
+    renderMainhead(elements, withRepo, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
     renderMainhead(
       elements,
       makeSession({ id: 1 }),
@@ -394,6 +446,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
       DEFAULT_SURFACE_STATE,
       "none",
       false,
+      "no group",
     );
     expect(lines(slots(elements).repo).map((n) => n.textContent)).toEqual(["muster"]);
   });
@@ -401,7 +454,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
   it("returning to the launch checkout hides the `↳` block again", () => {
     const elements = fakeMainheadElements();
     const moved = makeSession({ id: 1, claudeLocation: worktreeAt });
-    renderMainhead(elements, moved, NOW, true, DEFAULT_SURFACE_STATE, "none", false);
+    renderMainhead(elements, moved, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
     renderMainhead(
       elements,
       makeSession({ id: 1 }),
@@ -410,6 +463,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
       DEFAULT_SURFACE_STATE,
       "none",
       false,
+      "no group",
     );
     const s = slots(elements);
     expect(s.claudeAt.hidden).toBe(true);
@@ -448,7 +502,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
 
   it("the no-session pass leaves the meta slots in place for the next focused pass", () => {
     const elements = fakeMainheadElements();
-    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false);
+    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
     expect(slots(elements).repo).not.toBeNull();
     renderMainhead(
       elements,
@@ -458,6 +512,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
       DEFAULT_SURFACE_STATE,
       "none",
       false,
+      "no group",
     );
     expect(lines(slots(elements).repo).map((n) => n.textContent)).toEqual(["muster"]);
   });

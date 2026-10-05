@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en" data-theme="instrument">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Groups — mix and match</title>
+<link rel="stylesheet" href="shared.css">
+<script>
+// Every axis the three option pages differ on, settable from the URL: mix.html?select=hover&summary=bar
+(function () {
+  const q = new URLSearchParams(location.search);
+  const pick = (k, d) => q.get(k) ?? d;
+  window.V = {
+    ungroupedLabel: pick("ungrouped", "Ungrouped") === "none" ? null : pick("ungrouped", "Ungrouped"),
+    summary: pick("summary", "dots"), select: pick("select", "mode"), menus: pick("menus", "kebab"),
+    pinScope: pick("pin", "section"), attention: pick("attention", "within"), filter: pick("filter", "segmented"),
+    create: pick("create", "inline"), createButton: pick("createButton", "menu"), sortLabel: pick("sortLabel", "outside"), summaryHover: pick("hover", "popover"),
+    stacked: pick("look", "sections") === "stacks", mainheadGroup: pick("mainhead", "yes") === "yes",
+  };
+  window.AXES = [
+    ["ungrouped", "ungrouped label", ["Ungrouped", "Loose", "Unfiled", "Other", "none"]],
+    ["look", "look", ["sections", "stacks"]],
+    ["summary", "summary", ["dots", "glyphs", "chips", "ticks", "nums", "bar", "text"]],
+    ["hover", "summary hover", ["popover", "title"]],
+    ["sortLabel", "sort label", ["outside", "none", "inside"]],
+    ["select", "multi-select", ["mode", "modifier", "hover"]],
+    ["menus", "menus", ["kebab", "context"]],
+    ["pin", "pin scope", ["section", "global"]],
+    ["attention", "attention sort", ["within", "bubble", "flatten"]],
+    ["filter", "filter", ["segmented", "dropdown", "eyes"]],
+    ["create", "new group", ["inline", "dialog"]],
+    ["createButton", "new group in head", ["menu", "icon", "split", "text", "none"]],
+    ["mainhead", "group chip in Focus header", ["yes", "no"]],
+  ];
+  document.addEventListener("DOMContentLoaded", () => {
+    const host = document.querySelector(".axes");
+    for (const [k, label, opts] of AXES) {
+      const sel = document.createElement("select");
+      for (const o of opts) { const op = document.createElement("option"); op.value = o; op.textContent = o; if (o === pick(k, opts[0])) op.selected = true; sel.append(op); }
+      sel.addEventListener("change", () => { q.set(k, sel.value); location.search = q.toString(); });
+      const l = document.createElement("label"); l.append(label, sel); host.append(l);
+    }
+  });
+})();
+</script>
+<script src="shared.js" defer></script>
+</head>
+<body>
+<div class="mock">
+  <div>
+    <h1>Mix and match <span>EVERY AXIS</span></h1>
+    <p class="lede">The same engine as A, B and C with each decision exposed. Change a control and the page reloads
+      with that combination in the URL — paste the URL back as "this one".</p>
+    <div class="axes" style="margin-top:8px"></div>
+  </div>
+  <div class="switch">theme <button class="on" data-theme-pick="instrument">instrument</button><button data-theme-pick="light">light</button></div>
+</div>
+<div class="app">
+  <div class="masthead">
+    <div class="brand">muster</div>
+    <div class="seg"><button class="seg-btn" aria-pressed="true">Focus</button><button class="seg-btn">Tiles</button></div>
+    <div class="right"><span class="gauge">5h <i><b style="width:38%"></b></i> 38%</span><span class="gauge">7d <i><b style="width:61%"></b></i> 61%</span><span>opus 4.1</span><button class="btn key">New session</button></div>
+  </div>
+  <div class="body">
+    <aside class="rail" id="rail">
+      <div class="railhead" id="railhead"></div>
+      <div class="cards" id="cards"></div>
+      <div class="selbar" id="selbar" hidden></div>
+    </aside>
+    <main class="main">
+      <div class="mainhead">
+        <span class="name" id="mh-name"></span>
+        <span class="meta" id="mh-meta"></span>
+        <button class="ingroup" id="mh-group" title="Group"></button>
+        <div class="acts"><button class="btn" id="mh-stop">Stop</button><button class="btn" id="mh-remove">Remove</button></div>
+      </div>
+      <div class="term"><span class="dim">❯</span> write the three rail-group mockups, then the interview
+
+<span class="dim">(live terminal — the rail on the left is the mockup)</span></div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

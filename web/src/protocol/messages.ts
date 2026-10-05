@@ -10,6 +10,13 @@
 // additions never need a change here to keep working.
 
 import { asNumber, isRecord, parseListOf } from "./decode";
+import {
+  type Group,
+  type GroupsMessage,
+  type UngroupedLayout,
+  parseGroupsMessage,
+  parseSnapshotGroups,
+} from "./groups";
 import { type Hello, parseHello } from "./hello";
 import { type Prefs, type PrefsMessage, parsePrefs, parsePrefsMessage } from "./prefs";
 import { type Session, parseSession } from "./session";
@@ -41,6 +48,11 @@ export interface Snapshot {
   // an older daemon's payload round-trips unchanged. Real callers read `snapshot.shellsBusy ??
   // []`, same as every other present-only field's read site.
   shellsBusy?: number[];
+  // kb:anchor/ws.groups: always present on a current daemon's snapshot; an older daemon's
+  // payload (neither key) parses as no groups and Ungrouped in last place, so the rail renders
+  // flat — same additive-evolution tolerance as `update` above.
+  groups: Group[];
+  ungrouped: UngroupedLayout;
 }
 
 export interface SessionUpsert {
@@ -87,7 +99,8 @@ export type Message =
   | ClaudeThemeMessage
   | DocChanged
   | UpdateMessage
-  | ShellActivityMessage;
+  | ShellActivityMessage
+  | GroupsMessage;
 
 function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
   const sessions = parseListOf(rec["sessions"], parseSession);
@@ -107,7 +120,17 @@ function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
     update = parseUpdateInfo(rawUpdate);
     if (!update) return null;
   }
-  const snapshot: Snapshot = { type: "snapshot", sessions, usage, prefs, claudeTheme, update };
+  const groupsFields = parseSnapshotGroups(rec);
+  if (!groupsFields) return null;
+  const snapshot: Snapshot = {
+    type: "snapshot",
+    sessions,
+    usage,
+    prefs,
+    claudeTheme,
+    update,
+    ...groupsFields,
+  };
   // Present-only, same pattern as protocol/usage.ts's `model` field — an
   // absent key stays absent on the parsed object rather than gaining a synthesized `[]`,
   // so an older daemon's payload (and every existing snapshot fixture that predates this field)
@@ -177,6 +200,8 @@ export function parseMessage(data: unknown): Message | null {
       return parseDocChanged(data);
     case "shellActivity":
       return parseShellActivityMessage(data);
+    case "groups":
+      return parseGroupsMessage(data);
     default:
       return null; // unknown message types are ignored (kb:anchor/conventions)
   }

@@ -43,3 +43,8 @@ internal/webui/assets/*
 
 # Playwright MCP scratch output
 /.playwright-mcp/
+
+# Claude Code's own worktree directory (EnterWorktree); machine-local, cited by location.go
+# only as a path prefix to recognise. Ignored so dead-refs classifies it "by design" in a
+# fresh worktree (groups review cycle 1).
+.claude/worktrees/

@@ -35,6 +35,9 @@ type sessionWire struct {
 	CreatedAt       string                    `json:"createdAt"`
 	Pinned          bool                      `json:"pinned"`
 	RailPos         int64                     `json:"railPos"`
+	// GroupID (kb:anchor/ws.session): the rail group the session belongs to, null = the
+	// Ungrouped section. Required key on every Session object.
+	GroupID *int64 `json:"groupId"`
 	// Plan (kb:anchor/ws.session): the session's derived plan file, null until a
 	// transcript has named a plan; once set, a planless scan keeps it
 	// (kb:adr/reader-plan-sticky-once-named). Required key on every Session object.
@@ -141,6 +144,7 @@ func toWireSession(s *session.Session) sessionWire {
 		CreatedAt:       wireTime(s.CreatedAt),
 		Pinned:          s.Pinned,
 		RailPos:         s.RailPos,
+		GroupID:         s.GroupID,
 		Plan:            toWireSessionPlan(s),
 		Unread:          s.Unread,
 		LastPrompt:      s.LastPrompt,
@@ -185,4 +189,24 @@ func toWireLocation(l *session.Location) *sessionWireLocation {
 		w.Repo = &sessionWireRepo{Name: l.Repo.Name, Branch: &branch, IsWorktree: l.Repo.IsWorktree}
 	}
 	return w
+}
+
+// batchWire is the done / skipped / failed report of every batch endpoint
+// (kb:anchor/sessions.end-many, kb:anchor/sessions.remove-many, kb:anchor/groups.delete),
+// each list always an array, never null.
+type batchWire struct {
+	Done    []int64 `json:"done"`
+	Skipped []int64 `json:"skipped"`
+	Failed  []int64 `json:"failed"`
+}
+
+func toWireBatch(r session.BatchResult) batchWire {
+	return batchWire{Done: nonNil(r.Done), Skipped: nonNil(r.Skipped), Failed: nonNil(r.Failed)}
+}
+
+func nonNil(ids []int64) []int64 {
+	if ids == nil {
+		return []int64{}
+	}
+	return ids
 }

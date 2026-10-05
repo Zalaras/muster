@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createGroup, deleteGroup, putAllCollapsed, putGroupsOrder, updateGroup } from "./groups";
 import { fetchRestartImpact, applyUpdate } from "./update";
 import { browse, fetchRepos, launchSession } from "./launch";
 import { putPrefs } from "./prefs";
@@ -6,10 +7,13 @@ import { refreshUsage } from "./usage";
 import {
   createShell,
   endSession,
+  endSessions,
   fetchPane,
   pinSession,
   putSessionOrder,
+  putSessionsGroup,
   removeSession,
+  removeSessions,
   resumeSession,
 } from "./sessions";
 import { captureIssueSnapshot, fileIssue } from "./issue";
@@ -64,6 +68,15 @@ describe("http — network_error short-circuit on a rejected fetch (REQ-13, plan
     ["fetchPane", () => fetchPane(1)],
     ["pinSession", () => pinSession(1, true)],
     ["putSessionOrder", () => putSessionOrder([1, 2, 3], 1)],
+    ["putSessionOrder (with a group)", () => putSessionOrder([1, 2, 3], 1, 3)],
+    ["putSessionsGroup", () => putSessionsGroup([1, 2], 3)],
+    ["endSessions", () => endSessions([1, 2])],
+    ["removeSessions", () => removeSessions([1, 2])],
+    ["createGroup", () => createGroup("PR reviews", [1])],
+    ["updateGroup", () => updateGroup(3, { collapsed: true })],
+    ["putGroupsOrder", () => putGroupsOrder([3, 0])],
+    ["putAllCollapsed", () => putAllCollapsed(true)],
+    ["deleteGroup", () => deleteGroup(3, { sessions: "ungroup" })],
     ["captureIssueSnapshot", () => captureIssueSnapshot(1)],
     ["fileIssue", () => fileIssue({ captureId: "abc123", title: "T", note: "" })],
     ["locateDroppedFile", () => locateDroppedFile(1, new File(["x"], "x.txt"))],

@@ -7,6 +7,7 @@
 // Owns: connecting, reconnecting with backoff, and dispatching parsed messages to
 // handlers. Message parsing lives in protocol/messages.ts and the protocol-version gate
 // in protocol/hello.ts; this module just wires the socket lifecycle to them.
+import type { Group, UngroupedLayout } from "./protocol/groups";
 import { type Hello, isSupportedProtocolVersion } from "./protocol/hello";
 import { type DocChanged, type Message, type Snapshot, parseMessage } from "./protocol/messages";
 import type { Prefs } from "./protocol/prefs";
@@ -48,6 +49,7 @@ export interface WsClientHandlers {
   onUpdate?: (update: UpdateInfo) => void;
   onDocChanged?: (docChanged: DocChanged) => void;
   onShellActivity?: (sessionId: number, busy: boolean) => void;
+  onGroups?: (groups: Group[], ungrouped: UngroupedLayout) => void;
   onDisconnected?: () => void;
   onProtocolMismatch?: (protocolVersion: number) => void;
 }
@@ -165,6 +167,10 @@ export class WsClient {
     }
     if (message.type === "shellActivity") {
       this.handlers.onShellActivity?.(message.sessionId, message.busy);
+      return;
+    }
+    if (message.type === "groups") {
+      this.handlers.onGroups?.(message.groups, message.ungrouped);
       return;
     }
     this.handlers.onSnapshot?.(message);

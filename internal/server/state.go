@@ -20,10 +20,15 @@ type Snapshot struct {
 	// always present as [] when none — never null — so a reconnecting client re-syncs
 	// without waiting for a shellActivity transition.
 	ShellsBusy []int64 `json:"shellsBusy"`
+	// Groups and Ungrouped (kb:anchor/ws.groups): the rail's sections, always present — Groups
+	// as [] when there are none.
+	Groups    []groupWire   `json:"groups"`
+	Ungrouped ungroupedWire `json:"ungrouped"`
 }
 
 // buildSnapshot returns the fixed parts of a snapshot: no sessions, unknown usage,
-// default prefs, unknown claudeTheme family (before any PUT /api/prefs or poll tick).
+// default prefs, unknown claudeTheme family (before any PUT /api/prefs or poll tick), no
+// groups.
 // TestBuildSnapshot_M0Shape pins its exact shape; production handlers call
 // (*Server).currentSnapshot, which starts from it and fills Sessions, the real persisted
 // Prefs, and the poller's current family. Each field's empty/default value is owned by
@@ -37,13 +42,14 @@ func buildSnapshot() Snapshot {
 		ClaudeTheme: defaultClaudeThemeInfo(),
 		Update:      defaultUpdateInfo(),
 		ShellsBusy:  []int64{},
+		Groups:      []groupWire{},
 	}
 }
 
 // currentSnapshot is buildSnapshot with Sessions filled from the live session registry
 // (core — the session manager is not itself a registered feature) and every other section
 // filled by looping the registered features' snapshotContributor: usage, prefs,
-// claudeTheme and update. Field independence means contribution order doesn't matter —
+// claudeTheme, update, and groups. Field independence means contribution order doesn't matter —
 // each feature writes only its own Snapshot field.
 func (s *Server) currentSnapshot(ctx context.Context) Snapshot {
 	snap := buildSnapshot()

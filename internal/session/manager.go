@@ -79,16 +79,19 @@ type Config struct {
 	PaneChecker     PaneChecker
 	PaneSnapshotter PaneSnapshotter
 	TmuxSessions    TmuxSessions
-	// OnUpsert, OnRemoved and Watcher are wired by production exactly like the three tmux
+	// OnUpsert, OnRemoved, OnGroups and Watcher are wired by production exactly like the three tmux
 	// ports above, but stay nil-tolerant rather than required: a nil tmux port has no safe
 	// meaning (NewManager panics on one), whereas a nil value here already has a real,
 	// defined meaning documented on the field itself (skip the broadcast; count every
 	// session as unwatched). Tests lean on that tolerance to build a Manager without wiring
 	// a websocket hub or a terminal registry.
-	OnUpsert     func(*Session) // broadcasts a sessionUpsert; may be nil in tests
-	OnRemoved    func(id int64) // broadcasts sessionRemoved (kb:anchor/ws.session-removed); may be nil in tests
-	Watcher      Watcher        // nil counts every session as unwatched
-	PollInterval time.Duration  // 0 uses defaultPollInterval
+	OnUpsert  func(*Session) // broadcasts a sessionUpsert; may be nil in tests
+	OnRemoved func(id int64) // broadcasts sessionRemoved (kb:anchor/ws.session-removed); may be nil in tests
+	// OnGroups broadcasts the whole group list and the Ungrouped layout (kb:anchor/ws.groups)
+	// after every change to either, outside mu like OnUpsert; may be nil in tests.
+	OnGroups     func([]Group, UngroupedLayout)
+	Watcher      Watcher       // nil counts every session as unwatched
+	PollInterval time.Duration // 0 uses defaultPollInterval
 
 	// OnClaudeDirChange fires after Apply or ApplyStatus persisted a changed ClaudeDir, so
 	// the repo poll can derive claudeLocation without waiting out its interval. Nil-tolerant
@@ -117,6 +120,7 @@ type Manager struct {
 	tmuxSessions    TmuxSessions
 	onUpsert        func(*Session)
 	onRemoved       func(id int64)
+	onGroups        func([]Group, UngroupedLayout)
 	// onClaudeDirChange is Config.OnClaudeDirChange.
 	onClaudeDirChange func()
 	interval          time.Duration
@@ -132,6 +136,24 @@ type Manager struct {
 	mu       sync.Mutex
 	sessions map[int64]*Session
 	byClaude map[string]int64 // claude session id -> muster session id
+
+	// launchGroups holds the ids of groups a launch has inserted but whose session is not yet
+	// recorded (CreateLaunchGroup): invisible to snapshots and broadcasts until RecordLaunch
+	// announces them. Guarded by mu, because RecordLaunch reads it inside its own locked
+	// section; written by CreateLaunchGroup, DiscardLaunchGroup and announceLaunchGroup, each
+	// also under groupsMu.
+	launchGroups map[int64]struct{}
+
+	// groupsMu serialises every group write — the database write, the in-memory update and the
+	// broadcast it ends in — and guards groups and ungrouped, so two changes can neither
+	// interleave nor reach a client out of order, and a session cannot join a group a delete
+	// is removing. Lock order is always groupsMu, then mu; a method that takes a session's
+	// per-id lock (RemoveMany) never holds groupsMu across it. Written by the group methods in
+	// groupops.go and grouplaunch.go, loadGroups (via LoadAll) and CreateSession; the one lock
+	// besides mu that a rail write (SetOrder with a group, SetSessionsGroup) takes.
+	groupsMu  sync.Mutex
+	groups    map[int64]Group
+	ungrouped UngroupedLayout
 
 	// locks is the per-session-id lock (kb:adr/actions-serialized-per-session), guarded by
 	// its own mutex, not mu — the same keyedlock.Locks type internal/server's shellRegistry
@@ -256,18 +278,24 @@ func NewManager(cfg Config) *Manager {
 		tmuxSessions:      cfg.TmuxSessions,
 		onUpsert:          cfg.OnUpsert,
 		onRemoved:         cfg.OnRemoved,
+		onGroups:          cfg.OnGroups,
 		onClaudeDirChange: cfg.OnClaudeDirChange,
 		interval:          interval,
 		watcher:           cfg.Watcher,
 		interruptChecker:  cfg.InterruptChecker,
 		sessions:          make(map[int64]*Session),
 		byClaude:          make(map[string]int64),
+		launchGroups:      make(map[int64]struct{}),
+		groups:            make(map[int64]Group),
 	}
 }
 
-// LoadAll reloads every persisted session into memory (daemon-restart reconcile) — the
-// liveness poll re-evaluates alive on its own next tick.
+// LoadAll reloads every persisted group and session into memory (daemon-restart reconcile) —
+// the liveness poll re-evaluates alive on its own next tick.
 func (m *Manager) LoadAll(ctx context.Context) error {
+	if err := m.loadGroups(ctx); err != nil {
+		return err
+	}
 	rows, err := m.store.ListSessions(ctx)
 	if err != nil {
 		return fmt.Errorf("loading sessions: %w", err)
@@ -296,6 +324,10 @@ type CreateParams struct {
 	PermissionMode  PermissionMode
 	Model           string
 	FirstLaunchHere bool
+
+	// GroupID is the group the new session joins, nil = Ungrouped; ErrUnknownGroup from
+	// CreateSession when it names none. The session lands at the end of that section.
+	GroupID *int64
 
 	// ResumeClaudeSessionID is set only by a resume-from-list spawn (launchResume): the
 	// Claude session id this new row was launched to resume, held via
@@ -330,6 +362,16 @@ func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, 
 		model = &modelID
 	}
 
+	if p.GroupID != nil {
+		// Held through the insert so a delete cannot remove the group between the check and
+		// the row (lock order: groupsMu, then mu).
+		m.groupsMu.Lock()
+		defer m.groupsMu.Unlock()
+		if _, ok := m.groups[*p.GroupID]; !ok {
+			return nil, ErrUnknownGroup
+		}
+	}
+
 	// Deciding railPos and advancing nextRailPos happen in the same critical section, so
 	// two concurrent CreateSession calls can never both see the same value — unlike
 	// reading max(m.sessions) here and only registering the new session (invisible to that
@@ -350,6 +392,7 @@ func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, 
 		FirstLaunchHere:              p.FirstLaunchHere,
 		PendingResumeClaudeSessionID: ptrOrNil(p.ResumeClaudeSessionID),
 		RailPos:                      railPos,
+		GroupID:                      p.GroupID,
 		MinID:                        p.MinID,
 	})
 	if err != nil {

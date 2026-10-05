@@ -48,6 +48,12 @@ func writeJSONError(w http.ResponseWriter, status int, code, message string) {
 	writeJSON(w, status, resp)
 }
 
+// writeInvalidRequest is the 400 invalid_request envelope with message — the rejection every
+// request-body validator answers with.
+func writeInvalidRequest(w http.ResponseWriter, message string) {
+	writeJSONError(w, http.StatusBadRequest, "invalid_request", message)
+}
+
 // writeJSONErrorPaths is writeJSONError plus the `ambiguous` route's extra `paths` field
 // (kb:anchor/sessions.locate) — the only caller that needs the envelope's optional field.
 func writeJSONErrorPaths(w http.ResponseWriter, status int, code, message string, paths []string) {

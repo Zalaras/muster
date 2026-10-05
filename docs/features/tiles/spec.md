@@ -17,7 +17,7 @@ snapshot strip, under the same masthead (docs/design/ux-flows.md "Shape — Tile
 
 The live grid holds the top N sessions by attention, filled at view entry and when the grid
 grows; every other session is a snapshot card in the strip, in the rail's order
-(kb:adr/tiles-live-top-n-snapshot-rest). Membership is sticky: after entry it changes only by
+(kb:adr/tiles-live-top-n-snapshot-rest). The grid and strip ignore groups and render the flat list. Membership is sticky: after entry it changes only by
 user action or a newly launched session filling a free slot, so a terminal never vanishes
 mid-keystroke (kb:adr/tiles-sticky-live-membership). The grid never re-sorts itself by
 attention; a promoted session takes the demoted tile's slot and survivors keep their order

@@ -19,11 +19,13 @@ Option-Command family (kb:adr/shortcuts-option-command-family-off-reserved-chord
 - Option-Command-N opens the launch dialog; Command-Up goes to the parent directory inside
   it (kb:spec/launch).
 - Command-Backslash toggles Focus and Tiles (kb:spec/views).
-- Option-Command-1 to 9 select the nth card in the rail's displayed order, manual or
-  attention; in Tiles this promotes the session into the grid
+- Option-Command-G opens a new group in the rail (kb:spec/groups) and is inert in Tiles.
+- Option-Command-1 to 9 select the nth card as displayed, manual or attention, skipping a
+  collapsed or filtered-out card; in Tiles this promotes the session into the grid
   (kb:adr/shortcuts-cmd-n-follows-rail-order).
 - Option-Command-0 selects the neediest live session by attention priority, ignoring the
-  rail's sort mode and pinned block; with no live session it does nothing
+  rail's sort mode and pinned block, expanding the section it lands in and resetting a filter that
+  hides it; with no live session it does nothing
   (kb:adr/shortcuts-jump-to-neediest-option-command-zero).
 
 Session-focusing chords are inert while a modal dialog other than the launch dialog is open.

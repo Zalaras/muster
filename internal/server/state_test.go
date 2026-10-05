@@ -19,7 +19,8 @@ import (
 
 func TestBuildSnapshot_M0Shape(t *testing.T) {
 	// The fixed snapshot — empty sessions, every usage field null except the two sources,
-	// default prefs, shellsBusy present as [] when none (kb:anchor/ws.shell-activity). This
+	// default prefs, shellsBusy present as [] when none (kb:anchor/ws.shell-activity), groups
+	// as [] and ungrouped at last place, expanded (kb:anchor/ws.groups). This
 	// is the exact object kb:anchor/ws.snapshot pins, shared verbatim by GET /api/state and
 	// the WS `snapshot` message.
 	got, err := json.Marshal(buildSnapshot())
@@ -37,7 +38,9 @@ func TestBuildSnapshot_M0Shape(t *testing.T) {
 			"running": "", "install": "", "remedy": null, "canCheck": false, "available": null, "checkedAt": null, "installed": null,
 			"apply": {"phase": "idle", "version": null, "error": null}
 		},
-		"shellsBusy": []
+		"shellsBusy": [],
+		"groups": [],
+		"ungrouped": {"pos": 0, "collapsed": false}
 	}`, string(got))
 }
 

@@ -21,11 +21,11 @@ func (m *Manager) maxRailPosLocked() int64 {
 }
 
 // railEntriesLocked returns a railEntry view of every known session — the pure input
-// railorder.go's applyPin/applyOrder operate over. Must be called with m.mu held.
+// railorder.go's applyPin/applyOrder/applyGroupMove operate over. Must be called with m.mu held.
 func (m *Manager) railEntriesLocked() []railEntry {
 	out := make([]railEntry, 0, len(m.sessions))
 	for _, s := range m.sessions {
-		out = append(out, railEntry{ID: s.ID, Pinned: s.Pinned, RailPos: s.RailPos})
+		out = append(out, railEntry{ID: s.ID, Pinned: s.Pinned, RailPos: s.RailPos, GroupID: groupIDVal(s.GroupID)})
 	}
 	return out
 }
@@ -50,7 +50,7 @@ type railWrite struct {
 // to a caller.
 var errRailWriteAborted = errors.New("rail write aborted by an earlier failure in the same batch")
 
-// applyRailChangesLocked writes each changed entry's Pinned/RailPos into the live
+// applyRailChangesLocked writes each changed entry's Pinned/RailPos/GroupID into the live
 // in-memory session and draws its write ticket, all still under m.mu, returning what
 // persistAndBroadcastRail needs to persist and broadcast each one once unlocked. Must be
 // called with m.mu held; entries naming a session no longer present (removed between the
@@ -65,6 +65,9 @@ func (m *Manager) applyRailChangesLocked(changed []railEntry) []railWrite {
 		prev := sess.Clone()
 		sess.Pinned = c.Pinned
 		sess.RailPos = c.RailPos
+		if groupIDVal(sess.GroupID) != c.GroupID {
+			sess.GroupID = groupIDPtr(c.GroupID)
+		}
 		post := sess.Clone()
 		wait, done := m.nextWriteTurnLocked(c.ID)
 		writes = append(writes, railWrite{id: c.ID, sess: sess, prev: prev, post: post, wait: wait, done: done})
@@ -126,12 +129,26 @@ func (m *Manager) SetPinned(ctx context.Context, id int64, pinned bool) error {
 }
 
 // SetOrder applies kb:anchor/sessions.order's full rail-order mutation: the pure
-// applyOrder computes the new (pinned, railPos) for every session, and this persists +
-// broadcasts only the ones that changed. Returns ErrInvalidOrder for a malformed
-// request (the server maps it to 400 invalid_request) — nothing changes on that path.
-func (m *Manager) SetOrder(ctx context.Context, ids []int64, pinnedCount int) error {
+// applyOrder computes the new (pinned, railPos, group) for every session, and this persists +
+// broadcasts only the ones that changed. group, when non-nil, first moves every listed id
+// into that section (ErrUnknownGroup if it names none). Returns ErrInvalidOrder for a
+// malformed request (the server maps it to 400 invalid_request) — nothing changes on that path.
+func (m *Manager) SetOrder(ctx context.Context, ids []int64, pinnedCount int, group *GroupRef) error {
+	var join *int64
+	if group != nil {
+		// groupsMu keeps the target group from being deleted between this check and the
+		// write below (lock order: groupsMu, then mu).
+		m.groupsMu.Lock()
+		defer m.groupsMu.Unlock()
+		target, err := m.sectionIDLocked(group.ID)
+		if err != nil {
+			return err
+		}
+		join = &target
+	}
+
 	m.mu.Lock()
-	changed, err := applyOrder(m.railEntriesLocked(), ids, pinnedCount)
+	changed, err := applyOrder(m.railEntriesLocked(), ids, pinnedCount, join)
 	if err != nil {
 		m.mu.Unlock()
 		return err
