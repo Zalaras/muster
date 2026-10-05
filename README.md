@@ -4,7 +4,7 @@ A session manager for concurrent Claude Code sessions: a Go daemon (`musterd`) p
 dashboard, with interactive terminal panes backed by tmux. One place to see which session
 is working, which one is waiting on you, and how much context each has left.
 
-![The Muster dashboard — three sessions in the rail, one focused with a live terminal pane](https://raw.githubusercontent.com/Zalaras/muster/main/docs/images/dashboard.png)
+![The Muster dashboard — five sessions in the rail, grouped into acme, Docs and Ungrouped, one focused with a live shell pane](https://raw.githubusercontent.com/Zalaras/muster/main/docs/images/dashboard.png)
 
 Personal tool, macOS only, single user. Not a product. What remains before v1 is in
 [`TODO.md`](TODO.md).
