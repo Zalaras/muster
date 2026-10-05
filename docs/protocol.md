@@ -578,7 +578,7 @@ per-section invariant is re-enforced. Broadcast: one `groups`, **then** one `ses
 changed session. Errors: `400 invalid_request` — body not JSON, `name` missing or outside 1–40
 after trimming (`{"error": {"code": "invalid_request", "message": "name must be 1-40 characters after trimming"}}`),
 `sessionIds` not an integer array or with a duplicate; `404 unknown_session` — a listed id does not
-exist, nothing is created: `{"error": {"code": "unknown_session", "message": "unknown session"}}`.
+exist, nothing is created: `{"error": {"code": "unknown_session", "message": "unknown session id"}}`.
 
 <!-- kb:anchor groups.update -->
 ### `PUT /api/groups/{id}`

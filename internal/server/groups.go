@@ -161,7 +161,7 @@ func (f *groupsFeature) handleCreateGroup(w http.ResponseWriter, r *http.Request
 	case errors.Is(err, session.ErrInvalidOrder):
 		writeInvalidRequest(w, msgGroupSessionIDs)
 	case errors.Is(err, session.ErrUnknownSession):
-		writeJSONError(w, http.StatusNotFound, codeUnknownSession, "unknown session")
+		writeUnknownSession(w)
 	default:
 		f.log.Error().Err(err).Msg("creating group failed")
 		writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)

@@ -60,7 +60,7 @@ describe("groups — createGroup (POST /api/groups, kb:anchor/groups.create)", (
   });
 
   it("decodes a 404 unknown_session (a listed session is gone; nothing was created)", async () => {
-    const error = { code: "unknown_session", message: "unknown session" };
+    const error = { code: "unknown_session", message: "unknown session id" };
     fetchMock.mockResolvedValue(fakeResponse(false, { error }));
     expect(await createGroup("x", [99])).toEqual({ ok: false, error });
   });

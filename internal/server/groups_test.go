@@ -163,7 +163,7 @@ func TestCreateGroup_RefusesAndCreatesNothing(t *testing.T) {
 		{"name is a number", `{"name":5}`, 400, "invalid_request", "name must be 1-40 characters after trimming"},
 		{"sessionIds is not an array", `{"name":"x","sessionIds":"7"}`, 400, "invalid_request", "sessionIds must be session ids without duplicates"},
 		{"sessionIds holds a string", `{"name":"x","sessionIds":["a"]}`, 400, "invalid_request", "sessionIds must be session ids without duplicates"},
-		{"unknown session", `{"name":"x","sessionIds":[999999]}`, 404, "unknown_session", "unknown session"},
+		{"unknown session", `{"name":"x","sessionIds":[999999]}`, 404, "unknown_session", "unknown session id"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
