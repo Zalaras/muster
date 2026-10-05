@@ -27,7 +27,7 @@ grouped under `###` sub-headings by the work they share — a group is a plausib
 work, not a ranking. `/triage` appends new entries at the end of the section; move one into a
 group deliberately, and otherwise don't re-sort this list.
 
-### Together — compaction state (#65, #66)
+### Together — card state follows what Claude is doing (#65, #66, #70, #72)
 
 - [ ] **Compacting has not state in Muster** ([#65](https://github.com/Zalaras/muster/issues/65)) — while
   `/compact` runs the card reads idle, though the session can't take input until it finishes.
@@ -36,6 +36,14 @@ group deliberately, and otherwise don't re-sort this list.
 - [ ] **After compaction it goes to Started state** ([#66](https://github.com/Zalaras/muster/issues/66)) — once
   compaction finishes the card reads `started`. Decide whether it should read idle (unread)
   instead.
+
+- [ ] **Went from Planning to Working** ([#70](https://github.com/Zalaras/muster/issues/70)) — mid-turn
+  in plan mode the card switched from planning to working. The issue has no description: the
+  developer to confirm whether the switch was wrong or plan mode had really ended.
+
+- [ ] **Needs Input on background agent** ([#72](https://github.com/Zalaras/muster/issues/72)) — the
+  card reads needs input while a background agent is still running. It should not ask for input
+  while background work is in progress.
 
 ### Together — session retention and clearing (#27, #47; #39 in Post v1 is the same seam)
 
@@ -63,6 +71,26 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   refusal moves focus to the custom-model field. A refusal should move focus only while the
   refused model is still the selection. From `plans/maintainability-regressions/`.
 
+### Together — focus lands where the developer clicks (#69, #36)
+
+- [ ] **Focus click bug** ([#69](https://github.com/Zalaras/muster/issues/69)) — after typing in a
+  session's terminal, clicking a rail card takes two clicks; sometimes also when only switching
+  between rail cards. One click should always select a card, whatever holds focus.
+
+- [ ] **Dragging a file does not enable focus** ([#36](https://github.com/Zalaras/muster/issues/36)) — dropping a file on a Claude session does
+  not snap focus back to that terminal. Confirm the behaviour in a plain terminal first
+  (developer to check).
+
+### Together — the End action (#75, #56)
+
+- [ ] **Rename End to Stop** ([#75](https://github.com/Zalaras/muster/issues/75)) — End is easily
+  mistaken for removing the session. The action that stops Claude should read Stop.
+
+- [ ] **Add right click for rail card** ([#56](https://github.com/Zalaras/muster/issues/56)) — a custom
+  right-click menu on a rail card carrying each of its actions, End among them: the card itself
+  shows no End button (plan `status-inconsistencies` removes it), so this menu is where End
+  returns to the card.
+
 ### On their own
 
 - [ ] **Tool hooks surface `hook error` after a daemon update** ([#54](https://github.com/Zalaras/muster/issues/54)) — seen
@@ -71,18 +99,26 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   message of the first new session after musterd updates (not yet confirmed). No Muster hook
   should ever report an error.
 
-- [ ] **Dragging a file does not enable focus** ([#36](https://github.com/Zalaras/muster/issues/36)) — dropping a file on a Claude session does
-  not snap focus back to that terminal. Confirm the behaviour in a plain terminal first
-  (developer to check).
-
 - [ ] **Issue tag management** ([#43](https://github.com/Zalaras/muster/issues/43)) — define real GitHub labels and have the triage skill apply
   them per its assessment. Needs kb:adr/issue-daemon-creates-issues-only revisited first:
   triage deliberately never labels, assigns or milestones.
 
-- [ ] **Add right click for rail card** ([#56](https://github.com/Zalaras/muster/issues/56)) — a custom
-  right-click menu on a rail card carrying each of its actions, End among them: the card itself
-  shows no End button (plan `status-inconsistencies` removes it), so this menu is where End
-  returns to the card.
+- [ ] **Add effort to launch options** ([#68](https://github.com/Zalaras/muster/issues/68)) — the
+  launch dialog should offer an effort level, and wherever the model shows, its effort should
+  follow in brackets — kept current when the effort changes, as the model is, and right on
+  resumed sessions.
+
+- [ ] **Renaming in Muster does not rename Claude session** ([#71](https://github.com/Zalaras/muster/issues/71)) —
+  renaming a session in Muster leaves Claude Code's own session name unchanged. A rename should
+  reach both.
+
+- [ ] **Title squashed for no reason** ([#73](https://github.com/Zalaras/muster/issues/73)) — in the
+  Focus view header the repo/branch line (`work / main`) wraps onto two lines though the header
+  has plenty of room. It should stay on one line while there is room.
+
+- [ ] **I'd like to be able to group sessions** ([#74](https://github.com/Zalaras/muster/issues/74)) —
+  put sessions (e.g. a set of review sessions) in a named group that collapses in the rail, its
+  header giving a short overview: how many are running, need input, idle.
 
 ### From the maintainability cleanup (2026-09-24)
 
