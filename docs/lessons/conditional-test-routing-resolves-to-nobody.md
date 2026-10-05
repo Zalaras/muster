@@ -6,7 +6,7 @@ date: 2026-09-03
 summary: 'A unit test if unit-testable, otherwise E4 covers it' routed a Should-Have to nobody; it shipped with zero coverage and 'not mine' cost a review cycle.
 features: []
 tags: [pipeline, testing]
-roles: [plan-work, daemon-tests, web-tests]
+roles: [planner, daemon-tests, web-tests]
 files: []
 tests: []
 refs: [plan:fix-auto-mode-select, .claude/skills/plan-work/SKILL.md, .claude/agents/daemon-tests.md, .claude/agents/web-tests.md]

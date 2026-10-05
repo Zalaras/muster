@@ -6,7 +6,7 @@ date: 2026-09-23
 summary: A keep-or-replace plan rule read the stored value, released the lock, then wrote; two goroutines ran it, so a scan could clear a plan set in between.
 features: [reader, lifecycle]
 tags: [state-machine]
-roles: [daemon-impl, plan-work]
+roles: [daemon-impl, planner]
 files: [internal/session/manager.go, internal/server/reader.go]
 tests: []
 refs: [plan:frontmatter, plans/frontmatter/review.maintainability.cycle1.md]

@@ -6,7 +6,7 @@ date: 2026-08-16
 summary: tmux resize-pane exits 0 and does nothing on a single-pane window; sizing needs pty.Setsize and resize-window together, measured zero-diff at five widths.
 features: [surfaces]
 tags: [tmux]
-roles: [daemon-impl, daemon-tests, plan-work]
+roles: [daemon-impl, daemon-tests, planner]
 files: []
 tests: []
 refs: [CLAUDE.md, spikes/S4-findings.md, spikes/FINDINGS.md]

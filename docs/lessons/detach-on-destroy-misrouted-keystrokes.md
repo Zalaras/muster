@@ -6,7 +6,7 @@ date: 2026-08-23
 summary: A spike value measured under one tmux topology was carried into the plan that replaced it; killing one session sent keys to another's claude.
 features: [surfaces]
 tags: [tmux, testing]
-roles: [plan-work, daemon-tests, e2e-specs]
+roles: [planner, daemon-tests, e2e-specs]
 files: []
 tests: []
 refs: [plan:m2-terminal, spikes/FINDINGS.md, .claude/skills/plan-work/SKILL.md, .claude/agents/daemon-tests.md, .claude/agents/e2e-specs.md]

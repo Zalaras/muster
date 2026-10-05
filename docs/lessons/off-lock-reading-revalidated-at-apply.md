@@ -6,7 +6,7 @@ date: 2026-10-01
 summary: Two repo-poll races had one cause: a git reading taken outside the manager lock was applied later without re-checking what it was taken against.
 features: [card-location, lifecycle]
 tags: [pipeline]
-roles: [daemon-impl, daemon-tests, plan-work]
+roles: [daemon-impl, daemon-tests, planner]
 files: [internal/server/reporefresh.go, internal/session/repo.go]
 tests: []
 refs: [plan:stale-dirs-models-branches, plans/stale-dirs-models-branches/review.code.cycle1.md, plans/stale-dirs-models-branches/test-specs.md, plans/stale-dirs-models-branches/daemon-implementation.md]

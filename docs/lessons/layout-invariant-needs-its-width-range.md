@@ -6,7 +6,7 @@ date: 2026-10-01
 summary: A "never truncates" rule tested at one width took four review cycles: each fix was checked at the widths named, and the next sweep found the next case.
 features: [focus]
 tags: [pipeline]
-roles: [plan-work, web-impl, e2e-specs, review-browser]
+roles: [planner, web-impl, e2e-specs, review-browser]
 files: []
 tests: []
 refs: [plan:stale-dirs-models-branches, plans/stale-dirs-models-branches/review.browser.cycle2.md, plans/stale-dirs-models-branches/review.browser.cycle3.md, plans/stale-dirs-models-branches/review.browser.cycle4.md, plans/stale-dirs-models-branches/web-implementation.md]

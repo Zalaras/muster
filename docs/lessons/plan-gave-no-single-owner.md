@@ -6,7 +6,7 @@ date: 2026-08-29
 summary: SPEC.md under the Daemon track got edited by daemon-impl; a REQ with no owner was nobody's; a config change sat in an E2E subsection. One owner per file.
 features: []
 tags: [pipeline]
-roles: [plan-work, orchestrator, daemon-impl]
+roles: [planner, orchestrator, daemon-impl]
 files: []
 tests: []
 refs: [plan:m4-hook-lifetime, plan:post-worktree-spike-issues, plan:m0-skeleton, .claude/skills/plan-work/SKILL.md, .claude/skills/orchestrate/SKILL.md]

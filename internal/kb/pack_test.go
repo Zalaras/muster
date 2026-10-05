@@ -237,7 +237,7 @@ func TestPack_CarriesFeatureDiagramsToEveryRoleAndSystemDiagramsToPlanningRolesO
 	assert.Less(t, strings.Index(impl, "# Feature: sessions"), strings.Index(impl, "\n# Diagrams\n"))
 	assert.Less(t, strings.Index(impl, "\n# Diagrams\n"), strings.Index(impl, "\n# Decisions\n"))
 
-	for _, role := range []string{"planner", "review", "plan-work", "orchestrator", "review-maintainability"} {
+	for _, role := range []string{"planner", "review", "orchestrator", "review-maintainability"} {
 		out, _ := runPack(t, ix, role, "sessions")
 		assert.Contains(t, out, "## diagram system-container", role)
 	}

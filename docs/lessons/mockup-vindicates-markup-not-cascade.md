@@ -6,7 +6,7 @@ date: 2026-09-22
 summary: Both cycle-1 Majors were cascade defects the mockup carried or hid and a geometry-only spec missed one; measure a CSS effect as its computed property in-app.
 features: [rail]
 tags: [ux, testing]
-roles: [plan-work, web-impl, e2e-specs, review]
+roles: [planner, web-impl, e2e-specs, review]
 files: []
 tests: []
 refs: [plan:rail-card-improvements, plans/rail-card-improvements/review.cycle1.md, plans/rail-card-improvements/decisions/read-idle-title-colour/decision.md, kb:lesson/shared-class-css-hid-resume-button]

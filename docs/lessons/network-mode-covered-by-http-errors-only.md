@@ -6,7 +6,7 @@ date: 2026-08-31
 summary: A requirement named network among failure modes; specs covered only routed HTTP errors, and an unguarded fetch surfaced as a Critical two cycles later.
 features: [launch]
 tags: [testing]
-roles: [e2e-specs, plan-work]
+roles: [e2e-specs, planner]
 files: []
 tests: []
 refs: [plan:new-session-dialog, .claude/agents/e2e-specs.md]

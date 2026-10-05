@@ -56,8 +56,9 @@ var (
 	liveStatuses     = []string{"active", "draft", "retired"}
 	decisionStatuses = []string{"accepted", "proposed", "superseded", "rejected"}
 
-	// Roles lists every pipeline role a lesson may address.
-	Roles = []string{"e2e-specs", "daemon-impl", "web-impl", "daemon-tests", "web-tests", "e2e-validate", "review", "doc-reconcile", "plan-work", "orchestrator", "retro", "planner", "review-browser", "review-maintainability"}
+	// Roles lists every pipeline role a lesson may address. The /plan-work skill packs as
+	// "planner", so there is no "plan-work" role: a lesson tagged with it reached nobody.
+	Roles = []string{"e2e-specs", "daemon-impl", "web-impl", "daemon-tests", "web-tests", "e2e-validate", "review", "doc-reconcile", "orchestrator", "retro", "planner", "review-browser", "review-maintainability"}
 
 	// Tags is the closed tag list.
 	Tags = []string{"auth", "state-machine", "envelope", "tmux", "store", "security", "testing", "pipeline", "claude-code-format", "ux", "deps", "revisit", "never", "deferred", "user-decision", "consensus", "judged"}

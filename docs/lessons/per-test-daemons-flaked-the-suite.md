@@ -6,7 +6,7 @@ date: 2026-09-03
 summary: One added spec file made make e2e fail 3 of 6 runs with the implementation innocent: every spec spawned its own daemon. Fixtures are explicit and linted.
 features: []
 tags: [testing, pipeline]
-roles: [e2e-specs, plan-work, review]
+roles: [e2e-specs, planner, review]
 files: [web/e2e/helpers/fixtures.ts, web/scripts/e2e-lint.sh, web/playwright.config.ts]
 tests: []
 refs: [plan:file-drop-fix, kb:adr/process-e2e-explicit-fixtures, kb:adr/process-e2e-one-load-policy, kb:adr/process-e2e-lint-mechanises-fixture-rules, docs/history/design/test-strategy.md]

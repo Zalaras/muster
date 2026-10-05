@@ -6,7 +6,7 @@ date: 2026-08-23
 summary: An E criterion asserted a card readout no plan section defined; a composed text pattern carried a middot the mockup never had. Guessed markup, false pattern.
 features: [usage]
 tags: [pipeline, ux]
-roles: [plan-work, e2e-specs]
+roles: [planner, e2e-specs]
 files: []
 tests: []
 refs: [plan:m3-gauges, .claude/skills/plan-work/SKILL.md]

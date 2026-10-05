@@ -6,7 +6,7 @@ date: 2026-08-22
 summary: Tests missed invariants broken from a source state none started in, e.g. a row bound by resume, not startup. Name and cross invariants.
 features: [lifecycle]
 tags: [state-machine, testing]
-roles: [daemon-tests, e2e-specs, plan-work, review]
+roles: [daemon-tests, e2e-specs, planner, review]
 files: []
 tests: []
 refs: [plan:m1-sessions, plan:claude-status-fixes, plan:resume-and-dangerously-allow, .claude/agents/daemon-tests.md, .claude/skills/plan-work/SKILL.md]

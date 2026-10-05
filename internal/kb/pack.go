@@ -164,7 +164,7 @@ func writeFeatureSections(b *strings.Builder, ix *Index, opts PackOptions) {
 // systemDiagramRoles are the roles that read the feature-less (system-wide) diagrams; an
 // implementation pack carries only the diagrams naming one of its features. The
 // maintainability reviewer judges shape against the component diagrams, so it reads them too.
-var systemDiagramRoles = []string{"planner", "plan-work", "review", "orchestrator", "review-maintainability"}
+var systemDiagramRoles = []string{"planner", "review", "orchestrator", "review-maintainability"}
 
 // writeDiagrams writes the active diagrams for the pack, fence included: those naming
 // one of the pack's features for every role, the system-wide ones for the roles that

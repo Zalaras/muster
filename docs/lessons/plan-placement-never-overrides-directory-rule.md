@@ -6,7 +6,7 @@ date: 2026-09-23
 summary: A plan put pure logic in features/ against that directory's CLAUDE.md and required a seam that decided nothing; the impl followed it, costing a fix wave.
 features: []
 tags: [pipeline]
-roles: [plan-work, web-impl, daemon-impl]
+roles: [planner, web-impl, daemon-impl]
 files: []
 tests: []
 refs: [plan:new-session-improvement, plans/new-session-improvement/review.maintainability.cycle1.md]
