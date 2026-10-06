@@ -17,19 +17,20 @@ import (
 	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 )
 
-// newStubShellBin writes an executable script standing in for the user's interactive
+// newStubShellBin returns an executable script standing in for the user's interactive
 // $SHELL (never a real claude binary — plain harmless shell scripts are not the
 // CLAUDE.md restriction, which is specifically about launching `claude`): each
-// invocation appends one line "MUSTER_SESSION=[<value-or-empty>]" to logFile, then
-// sleeps so PaneExists sees it alive until killed. interactiveShellArgv() reads
-// os.Getenv("SHELL"), so tests point that at this stub via t.Setenv rather than
-// injecting a command directly — shells.go's Ensure has no seam for overriding argv,
-// which is deliberate (REQ-1 hardcodes the real $SHELL).
-func newStubShellBin(t *testing.T, logFile string) string {
+// invocation appends one line "MUSTER_SESSION=[<value-or-empty>]" to the file named by
+// MUSTER_TEST_SHELL_LOG, then sleeps so PaneExists sees it alive until killed. The log path
+// comes from the environment the per-test tmux server inherits, so the script is the same
+// every run and cachedStub can reuse it. interactiveShellArgv() reads os.Getenv("SHELL"),
+// so tests point that at this stub via t.Setenv rather than injecting a command directly —
+// shells.go's Ensure has no seam for overriding argv, which is deliberate (REQ-1 hardcodes
+// the real $SHELL).
+func newStubShellBin(t *testing.T) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "stub-shell.sh")
-	script := "#!/bin/sh\necho \"MUSTER_SESSION=[$MUSTER_SESSION]\" >> " + logFile + "\nsleep 60\n"
-	require.NoError(t, os.WriteFile(path, []byte(script), 0o755))
+	path, err := cachedStub("stub-shell.sh", "#!/bin/sh\necho \"MUSTER_SESSION=[$MUSTER_SESSION]\" >> \"$MUSTER_TEST_SHELL_LOG\"\nsleep 60\n")
+	require.NoError(t, err)
 	return path
 }
 
@@ -63,8 +64,11 @@ func newTestShellRegistry(t *testing.T) (reg *shellRegistry, tmuxClient *tmux.Cl
 	socket = tmuxtest.Socket(t)
 	tmuxClient = tmux.New(socket)
 
+	// Set before the first tmux call on the socket starts its server, whose environment
+	// every pane inherits.
 	logFile = filepath.Join(t.TempDir(), "shell-invocations.log")
-	t.Setenv("SHELL", newStubShellBin(t, logFile))
+	t.Setenv("MUSTER_TEST_SHELL_LOG", logFile)
+	t.Setenv("SHELL", newStubShellBin(t))
 
 	reg = newShellRegistry(tmuxClient, zerolog.Nop())
 	return reg, tmuxClient, socket, logFile

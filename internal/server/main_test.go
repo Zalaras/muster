@@ -21,21 +21,8 @@ const stubClaudeScript = "#!/bin/sh\n" +
 	"echo \"$MUSTER_SESSION\" > \"$PWD/muster-stub-session-$MUSTER_SESSION\"\n" +
 	"sleep 60\n"
 
-// sharedStubClaude is stubClaudeScript on disk, at a path keyed by the script's content
-// hash and reused across runs rather than rewritten.
-//
-// macOS charges the first exec of a *newly written* executable a real, serialized cost —
-// about 270 ms per inode, measured 2026-09-06
-// (kb:lesson/first-exec-of-fresh-script-costs-270ms). Writing the stub fresh each run pays
-// that every run, and under a full-tree `go test ./...` it pushed
-// TestLauncher_SuccessfulLaunchEndToEnd past its own three-second wait roughly one run in
-// five. Keying the path by content means the inode survives between runs and only the
-// first run on a machine ever pays. Mirrors web/e2e/helpers/daemon.ts's
-// ensureSharedStubClaude, which keys its stub the same way and for the same reason.
+// sharedStubClaude is stubClaudeScript on disk, from cachedStub.
 var sharedStubClaude string
-
-// stubDir holds sharedStubClaude, keyed by its content hash so it persists across runs.
-var stubDir string
 
 func TestMain(m *testing.M) {
 	os.Exit(runTestMain(m))
@@ -44,15 +31,8 @@ func TestMain(m *testing.M) {
 // runTestMain is TestMain's body, split out so its deferred cleanup actually runs — a
 // deferred call inside a function that itself calls os.Exit never fires.
 func runTestMain(m *testing.M) int {
-	sum := sha256.Sum256([]byte(stubClaudeScript))
-	stubDir = filepath.Join(os.TempDir(), "muster-server-stub-"+hex.EncodeToString(sum[:8]))
-	if err := os.MkdirAll(stubDir, 0o755); err != nil {
-		fmt.Fprintln(os.Stderr, "server test setup: MkdirAll:", err)
-		return 1
-	}
-	sharedStubClaude = filepath.Join(stubDir, "stub-claude.sh")
-
-	if err := ensureStubClaude(); err != nil {
+	var err error
+	if sharedStubClaude, err = cachedStub("stub-claude.sh", stubClaudeScript); err != nil {
 		fmt.Fprintln(os.Stderr, "server test setup: write shared stub claude:", err)
 		return 1
 	}
@@ -60,28 +40,44 @@ func runTestMain(m *testing.M) int {
 	return m.Run()
 }
 
-// ensureStubClaude writes the stub only when it is not already on disk, so repeat runs
-// reuse the existing inode and skip macOS's first-exec assessment. The write goes to a
-// temporary name and is renamed into place, so a concurrent `go test` of this package
-// can never observe a half-written executable.
-func ensureStubClaude() error {
-	if _, err := os.Stat(sharedStubClaude); err == nil {
-		return nil
+// cachedStub returns the path of an executable script holding body, at a path keyed by the
+// body's content hash and reused across runs rather than rewritten. A stub must therefore
+// never embed a per-test path; it reads anything per-test from its environment.
+//
+// macOS charges the first exec of a *newly written* executable a real, serialized cost —
+// about 270 ms per inode, measured 2026-09-06
+// (kb:lesson/first-exec-of-fresh-script-costs-270ms). Writing a stub fresh each run pays
+// that every run, and under a full-tree `go test ./...` it pushed
+// TestLauncher_SuccessfulLaunchEndToEnd past its own three-second wait roughly one run in
+// five. Keying the path by content means the inode survives between runs and only the
+// first run on a machine ever pays. Mirrors web/e2e/helpers/daemon.ts's
+// ensureSharedStubClaude, which keys its stub the same way and for the same reason. The
+// write goes to a temporary name and is renamed into place, so a concurrent `go test` of
+// this package can never observe a half-written executable.
+func cachedStub(name, body string) (string, error) {
+	sum := sha256.Sum256([]byte(body))
+	dir := filepath.Join(os.TempDir(), "muster-server-stub-"+hex.EncodeToString(sum[:8]))
+	path := filepath.Join(dir, name)
+	if _, err := os.Stat(path); err == nil {
+		return path, nil
 	}
-	tmp, err := os.CreateTemp(stubDir, "stub-claude-*.partial")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	tmp, err := os.CreateTemp(dir, name+"-*.partial")
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer func() { _ = os.Remove(tmp.Name()) }()
-	if _, err := tmp.WriteString(stubClaudeScript); err != nil {
+	if _, err := tmp.WriteString(body); err != nil {
 		_ = tmp.Close()
-		return err
+		return "", err
 	}
 	if err := tmp.Close(); err != nil {
-		return err
+		return "", err
 	}
 	if err := os.Chmod(tmp.Name(), 0o755); err != nil {
-		return err
+		return "", err
 	}
-	return os.Rename(tmp.Name(), sharedStubClaude)
+	return path, os.Rename(tmp.Name(), path)
 }
