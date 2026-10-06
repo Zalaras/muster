@@ -6,7 +6,7 @@ date: 2026-08-29
 summary: An authored check ran rg via bash -c and failed: rg is Claude Code's shell-function shim, not a binary on PATH, so a bare subshell cannot see it.
 features: []
 tags: [pipeline]
-roles: [orchestrator, e2e-validate, review]
+roles: [orchestrator, review, e2e-specs]
 files: []
 tests: []
 refs: [plan:m4-hook-lifetime, .claude/skills/orchestrate/scripts/gates.sh, .claude/skills/orchestrate/SKILL.md]

@@ -6,7 +6,7 @@ date: 2026-08-23
 summary: 10 of 12 specs failed against a stale prebuilt daemon and looked like implementation bugs; both Criticals were pre-existing specs asserting the old wire shape.
 features: [usage]
 tags: [testing]
-roles: [e2e-specs, e2e-validate, web-impl]
+roles: [e2e-specs, web-impl]
 files: []
 tests: []
 refs: [plan:m3-gauges, Makefile, .claude/agents/e2e-specs.md]

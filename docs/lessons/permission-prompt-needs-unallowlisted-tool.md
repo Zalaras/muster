@@ -6,7 +6,7 @@ date: 2026-08-16
 summary: The user's allowlist applies to spike sessions: Bash(echo hello) was auto-approved and no PermissionRequest fired. Pick a tool the allowlist does not cover.
 features: [canary]
 tags: [testing, claude-code-format]
-roles: [e2e-specs, e2e-validate, daemon-tests]
+roles: [e2e-specs, daemon-tests]
 files: []
 tests: []
 refs: [docs/history/spikes/canary-fields.md, CLAUDE.md, kb:fact/local-settings-honoured]

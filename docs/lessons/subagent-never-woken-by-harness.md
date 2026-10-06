@@ -6,7 +6,7 @@ date: 2026-09-10
 summary: An agent polled a backgrounded gate the harness never woke it for (2.1.26x). 2.1.284 does re-invoke subagents (probe 2026-09-29); gates stay foreground.
 features: []
 tags: [pipeline]
-roles: [orchestrator, daemon-impl, web-impl, daemon-tests, web-tests, e2e-specs, e2e-validate, review]
+roles: [orchestrator, daemon-impl, web-impl, daemon-tests, web-tests, e2e-specs, review]
 files: []
 tests: []
 refs: [CLAUDE.md, plan:canary-full-coverage, plan:mermaid-support, plan:resume-and-dangerously-allow, kb:fact/background-completion-new-prompt-id]

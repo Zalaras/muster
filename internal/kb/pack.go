@@ -319,7 +319,6 @@ var conventionsByRole = map[string][]string{
 	"daemon-tests": {"Testing", "Comments", "Knowledge records"},
 	"web-tests":    {"Testing", "Comments", "Knowledge records"},
 	"e2e-specs":    {"Testing", "Comments", "Knowledge records"},
-	"e2e-validate": {"Testing", "Comments", "Knowledge records"},
 	// The browser reviewer measures the running app; the maintainability reviewer judges shape and
 	// never reads the plan, so its rules are the code sections plus Design.
 	// The correctness reviewer judges statements against the plan: the code and testing sections,

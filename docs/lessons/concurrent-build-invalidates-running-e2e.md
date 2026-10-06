@@ -6,7 +6,7 @@ date: 2026-09-07
 summary: A stale prebuilt daemon and a build running beside a sweep each produced reds that read as implementation bugs. Rebuild, run alone, then blame.
 features: []
 tags: [testing]
-roles: [orchestrator, e2e-validate, review, web-impl, e2e-specs]
+roles: [orchestrator, review, web-impl, e2e-specs]
 files: []
 tests: []
 refs: [docs/history/design/test-strategy.md, plan:post-worktree-spike-issues, plan:m3-gauges, Makefile, .claude/agents/e2e-specs.md]

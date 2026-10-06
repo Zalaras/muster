@@ -56,9 +56,13 @@ var (
 	liveStatuses     = []string{"active", "draft", "retired"}
 	decisionStatuses = []string{"accepted", "proposed", "superseded", "rejected"}
 
-	// Roles lists every pipeline role a lesson may address. The /plan-work skill packs as
-	// "planner", so there is no "plan-work" role: a lesson tagged with it reached nobody.
-	Roles = []string{"e2e-specs", "daemon-impl", "web-impl", "daemon-tests", "web-tests", "e2e-validate", "review", "doc-reconcile", "orchestrator", "retro", "planner", "review-browser", "review-maintainability"}
+	// Roles lists every pipeline role a lesson may address: the agent files under
+	// .claude/agents (the review-work agent packs as "review") plus the roles the main session
+	// plays (orchestrator, planner, retro). A role is what a pack is requested as, never a
+	// pipeline step name: "plan-work" packs as "planner" and the validate step re-runs e2e-specs,
+	// so a lesson tagged "plan-work" or "e2e-validate" reached nobody. TestRoles_MatchTheAgentFiles
+	// keeps the list and the agent directory in step.
+	Roles = []string{"e2e-specs", "daemon-impl", "web-impl", "daemon-tests", "web-tests", "review", "doc-reconcile", "orchestrator", "retro", "planner", "review-browser", "review-maintainability"}
 
 	// Tags is the closed tag list.
 	Tags = []string{"auth", "state-machine", "envelope", "tmux", "store", "security", "testing", "pipeline", "claude-code-format", "ux", "deps", "revisit", "never", "deferred", "user-decision", "consensus", "judged"}

@@ -6,7 +6,7 @@ date: 2026-09-03
 summary: A narrowed locator pointed where the element is never created, green and asserting nothing; two out-of-delta tests were silently deleted. Majors both.
 features: []
 tags: [testing]
-roles: [e2e-validate, e2e-specs, review]
+roles: [e2e-specs, review]
 files: []
 tests: []
 refs: [plan:file-drop-fix, plan:new-session-dialog, .claude/agents/e2e-specs.md]
