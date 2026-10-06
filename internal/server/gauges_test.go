@@ -209,8 +209,13 @@ func TestIngestStatusLine_RoutedToOneSessionLeavesTheOtherUnaffected(t *testing.
 	assert.Equal(t, beforeA.State, afterA.State)
 
 	// The account-global masthead still updates, regardless of which session drove it.
+	// processStatus records the usage sample after applying the session update, so the
+	// wait above can end before the sample lands.
 	snap := srv.usage.aggregator.Current()
-	require.NotNil(t, snap.FiveHour)
+	require.Eventually(t, func() bool {
+		snap = srv.usage.aggregator.Current()
+		return snap.FiveHour != nil
+	}, 2*time.Second, 10*time.Millisecond)
 	assert.Equal(t, 61.0, snap.FiveHour.UsedPct)
 }
 
