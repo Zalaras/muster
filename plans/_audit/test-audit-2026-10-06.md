@@ -137,3 +137,40 @@ contention from the first exec of freshly written stub scripts
 lesson led to is used in `internal/server` and the E2E helpers but not in `cmd/musterd`,
 `internal/claudecode` or `internal/selfupdate`. The two "descendant holding stdout" tests
 (`internal/claudecode` 10 s, `internal/tmux` 8 s) are also exec-bound.
+
+## Investigation: running `internal/server`'s tests in parallel (2026-10-06)
+
+Method: a `go test -overlay` copy of every server test file adding `t.Parallel()` to each
+top-level test, except the 14 that reach `t.Setenv` (directly or through
+`newTestShellRegistry`), which Go refuses to run in parallel. Nothing in the tree changed.
+No test assigns a production package variable (checked with a parser, not grep), and nothing
+on record argues for serial; it is just the default.
+
+| Run | Serial | Parallel |
+|---|---|---|
+| `internal/server` alone | 78 s | 20–25 s, 5/5 clean (after one test fix, below) |
+| `internal/server` under `-race` | 203 s | 69–70 s, 1 flake in 2 |
+| whole `go test ./...` | 127 s | 63–67 s; `cmd/musterd` (61–65 s) becomes the slowest package |
+
+What has to be fixed first — all test-only:
+
+- **`TestHandleTerminal_SupersedesMidTyping`** failed 3 of 5 parallel runs: it takes the first
+  connection's next frame as the 4000 close, but terminal output can be queued ahead of it.
+  Its sibling `…SecondSocketSupersedesTheFirst` already drains with `readUntilError` for this
+  reason. A latent flake whether or not the package goes parallel.
+- **The shared stub's session files would collide silently.** `sharedStubClaude` writes
+  `session-<id>` into one package-wide directory and every test server numbers sessions from
+  1, so `TestLauncher_SuccessfulLaunchEndToEnd`'s `MUSTER_SESSION` check could be satisfied by
+  another test's file. It passes either way; it would stop proving anything. Recording into the
+  launch directory (per test) fixes it.
+- **Load-sensitive tests fail inside the full suite**, where the parallel burst overlaps every
+  other package: `TestShellRegistry_EnsurePaneEnvironmentNeverCarriesMusterSession` and
+  `…RespawnsAfterExternalKillWithNoMusterSession` (serial, but their per-test stub shell from
+  `newStubShellBin` pays the first-exec charge and misses a 5 s wait),
+  `TestWrapperScriptsShellRoundTrip_DaemonUnreachableExitsSilentlyAndFast` (fresh wrapper
+  scripts against a 3 s budget), and under `-race` `TestIngestStatusLine_RoutedToOneSession
+  LeavesTheOtherUnaffected` (not yet read). Each failed once; none failed with the package
+  alone.
+
+A lower-risk variant: 443 of the 559 tests take under 0.1 s, so marking only the ~116 slower
+ones parallel should keep most of the gain while exposing fewer tests to concurrency.
