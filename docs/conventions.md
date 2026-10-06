@@ -45,8 +45,10 @@ Each row's rationale is an ADR: `go run ./tools/kb ls --type adr | grep '/stack-
   helper is the other move. `applyInput` holds the only exemption
   (kb:adr/process-go-lint-complexity-ceiling-fifteen); adding a second needs the same bar.
 - **Every `//nolint` names its linter and says why**, enforced by `nolintlint`, which also
-  fails a directive that is not suppressing anything. A suppression without a reason is a
-  suppression nobody can re-evaluate.
+  fails a directive that is not suppressing anything — for an **enabled** linter. A
+  directive naming a linter the config never turned on passes silently (a `nolint:gosec`
+  did, for six weeks), so a new `//nolint` must name a linter in `.golangci.yml`'s `enable`
+  list. A suppression without a reason is a suppression nobody can re-evaluate.
 - No `init()` magic, no package-level mutable state. Wiring happens in `main`.
 - Middleware (auth token check) is a plain `func(http.Handler) http.Handler`.
 - Tests: table-driven, `t.Run` subtests. Never rely on test execution order and never
@@ -86,8 +88,9 @@ Each row's rationale is an ADR: `go run ./tools/kb ls --type adr | grep '/stack-
   so a matrix test comes down by hoisting the per-cell body to module scope. A
   `biome-ignore` needs its reason on the same line, and must sit immediately above the
   node — an intervening comment silently detaches it, which `suppressions/unused` then
-  reports. The only two live suppressions are `protocol/`'s wire validators
-  (`session.ts` and `usage.ts`).
+  reports. The live suppressions are `protocol/`'s two wire validators (`session.ts` and
+  `usage.ts`) and the empty destructuring pattern in `e2e/helpers/fixtures.ts` that
+  Playwright requires.
 - `web/src/style.css` belongs to the `contrast` gate alone; Biome does not format it.
 
 ## Composition roots
