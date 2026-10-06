@@ -227,14 +227,19 @@ func TestWrapperScriptsShellRoundTrip_DaemonUnreachableExitsSilentlyAndFast(t *t
 		t.Skip("sh not on PATH")
 	}
 
-	// A closed loopback port: bind then immediately close it, so nothing answers (D13's
-	// "daemon down" case) while the URL shape is still a real loopback address.
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	closedURL := "http://" + ln.Addr().String()
-	require.NoError(t, ln.Close())
+	// A closed loopback port, so nothing answers (D13's "daemon down" case) while the URL
+	// shape is still a real loopback address. Fixed rather than freshly bound, and in a data
+	// dir that persists across runs: the scripts then carry the same content every run, so
+	// WriteWrapperScripts leaves them untouched and the 3 s budget below measures the
+	// wrapper, not macOS's first exec of a newly written script
+	// (kb:lesson/first-exec-of-fresh-script-costs-270ms).
+	if conn, dialErr := net.DialTimeout("tcp", "127.0.0.1:1", time.Second); dialErr == nil {
+		_ = conn.Close()
+		t.Skip("something is listening on 127.0.0.1:1; this test needs that port closed")
+	}
+	closedURL := "http://127.0.0.1:1"
 
-	dataDir := filepath.Join(t.TempDir(), "muster data")
+	dataDir := filepath.Join(os.TempDir(), "muster-server-wrapper-unreachable", "muster data")
 	require.NoError(t, os.MkdirAll(dataDir, 0o700))
 	hookScript, _, _, err := claudecode.WriteWrapperScripts(dataDir, closedURL, testIngestToken)
 	require.NoError(t, err)
