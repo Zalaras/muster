@@ -112,9 +112,11 @@ git checkout -b plan/<name>
 git add plans/<name>/plan.md           # plus TODO.md / docs edits research made — by name
 git commit -m "docs(<name>): approved plan and planning-session edits"
 python3 $S <name> init --step daemon-tests     # or web-tests / e2e-specs — whichever ## Proof names
+git add plans/<name>/plan.md plans/<name>/orchestration-state.json && git commit -m "chore(<name>): init"
 ```
 
-Tick the entry now, per `.claude/skills/orchestrate/doc-upkeep.md` bullet 1 (tick, `✅ done` line,
+`init` stamps `plan.md` `**Status**: in-progress`; committed here, the agents start on a clean tree
+instead of each reporting the dirt. Tick the entry now, per `.claude/skills/orchestrate/doc-upkeep.md` bullet 1 (tick, `✅ done` line,
 move the block to `docs/history/todo-done.md`), and commit it `docs(<name>): tick <entry>` — the
 reviewer's DOC row checks it.
 
@@ -147,7 +149,11 @@ by design and that you may not edit — you are done when it is green. Your comm
 ```
 
 Then run the Proof line from the checks block yourself and read the result — no agent needed to
-re-run one test. Red: re-spawn the same agent once in FIX MODE
+re-run one test. Green: read the impl log's `## Decisions`; a `Measured:` line or a behaviour the
+plan's REQs never named (launch-inflight-guard's focus hand-back after a refusal) has no test yet,
+and the review will send it back for one — spawn the Proof agent now in its ordinary mode
+(`Execute the <side> test task for plan: <name>`, reading the impl log's Handoff), expected `pass`,
+a few minutes against a twenty-minute cycle. Red: re-spawn the same agent once in FIX MODE
 (`Execute in FIX MODE for plan: <name>` … `This is fix attempt 2 of 2.` … `Read the test output at
 plans/<name>/<side>-tests.md` … `Read the change log at plans/<name>/<side>-implementation.md`),
 re-run, and if still red `python3 $S <name> status blocked --step <side>-impl` and report. Spawn the
@@ -184,10 +190,12 @@ git add plans/<name>/review*.md && git commit -m "review(<name>): cycle 1"
 python3 $S <name> reviewed "$(git rev-parse HEAD)"
 ```
 
-`needs-changes`: one fix wave — `python3 $S <name> retry review`, the impl agent in FIX MODE with
-the issues quoted verbatim and `(review cycle 2)` as its commit suffix, a tester re-run only if a
-test must change, gates again (ledger reuse is fine), a delta re-review per Step 6 item 3, merge
-and commit as `cycle 2`. Still not approved: `status blocked --step review`, report the open
+`needs-changes`: one fix wave — `python3 $S <name> archive review.md`, then `archive
+review.<part>.md` for each part file, then `retry review`; the agent each issue's tag names in FIX
+MODE with the issues quoted verbatim and `(review cycle 2)` as its commit suffix (an `[e2e-specs]`
+prompt adds: "skip Validate step 5's soak — the gates run is the sweep; soak only when the plan
+fixes a flake"); gates again (ledger reuse is fine); a delta re-review per Step 6 item 3; merge and
+commit as `cycle 2`. Still not approved: `status blocked --step review`, report the open
 issues, and ask the developer. A `[orchestrator]`-tagged Minor is yours to fix in a `docs(<name>)`
 commit, as in `/orchestrate`.
 
