@@ -154,6 +154,10 @@ Quality of life:
 - [ ] **Keyboard focus drops to the page body after Check now** — pressing Check now by
   keyboard loses focus; it should stay on the button. From `plans/settings-update-failures/`.
 
+- [ ] **Loss of focus swapping between tabs** ([#76](https://github.com/Zalaras/muster/issues/76)) — dashboard: wrong-output.
+
+- [ ] **cannot drag when multiple selected** ([#77](https://github.com/Zalaras/muster/issues/77)) — dashboard: wrong-output.
+
 ## Pre-v1
 
 Everything below is blocking a v1 release (the developer, 2026-09-12: no v1 until all of it is
