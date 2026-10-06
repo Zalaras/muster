@@ -6,7 +6,7 @@ date: 2026-09-12
 summary: The session state machine, liveness, reconcile on start, shutdown policy, resume to idle.
 features: [lifecycle]
 tags: [state-machine, store, tmux]
-go: [internal/session/**, internal/server/sessionwire*.go, internal/store/session*.go, internal/store/store*.go, internal/store/migrate*.go, internal/store/migrations/**, internal/boundedwait/**, internal/keyedlock/**]
+go: [internal/session/actions*.go, internal/session/apply*.go, internal/session/group*.go, internal/session/interrupt*.go, internal/session/liveness*.go, internal/session/machine*.go, internal/session/manager*.go, internal/session/rail_unread*.go, internal/session/reconcile*.go, internal/session/row*.go, internal/session/session*.go, internal/session/status*.go, internal/session/writeorder*.go, internal/server/sessionwire*.go, internal/store/session*.go, internal/store/store*.go, internal/store/migrate*.go, internal/store/migrations/**, internal/boundedwait/**, internal/keyedlock/**]
 web: [web/src/sessions/store*.ts, web/src/sessions/live*.ts]
 e2e: [web/e2e/reconcile.spec.ts, web/e2e/helpers/session.ts, web/e2e/helpers/interrupt.ts]
 protocol: [state, state.displayed, state.tracked, state.transitions, state.ordering, state.liveness, ws.session, ws.session-upsert]

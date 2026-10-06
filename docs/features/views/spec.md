@@ -6,7 +6,7 @@ date: 2026-09-12
 summary: Focus and Tiles switch, density preference, view containers.
 features: [views]
 tags: [ux]
-go: [internal/server/prefs*.go]
+go: []
 web: [web/src/features/views.ts]
 e2e: [web/e2e/views.spec.ts]
 protocol: [prefs.put, ws.prefs]
