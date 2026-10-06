@@ -39,12 +39,10 @@ anywhere needs the tree-wide grep pasted.
 
 ## Comments
 
-Before writing your log, re-read every comment your diff adds or touches against
-`docs/conventions.md` §Comments: keep only a non-obvious *why*, citing `kb:<type>/<slug>` where a
-record exists, and delete narration. A path, `make` target or `musterd` flag a comment cites must
-exist — `python3 .claude/skills/orchestrate/scripts/dead-refs.py` fails the gate otherwise. Impl
-agents also grep tree-wide for comments naming anything they moved, renamed or deleted, and keep the
-hand-written part of every touched package's `CLAUDE.md` true.
+Write no comments: the comment pass strips every comment a branch adds to production code and a
+judge decides what returns (kb:adr/process-comment-pass-owns-code-comments). A path, `make` target
+or `musterd` flag any comment cites must exist — `python3 .claude/skills/orchestrate/scripts/dead-refs.py`
+fails the gate otherwise.
 
 ## Verdicts
 

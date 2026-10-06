@@ -1,7 +1,7 @@
 ---
 id: comment-truth-is-plan-wide-not-diff-wide
 type: lesson
-status: active
+status: retired
 date: 2026-10-05
 summary: Two review Majors in one run were comments that the plan's accepted deviation had made false; the agents' comment grep covered only their own diffs.
 features: []
@@ -17,3 +17,5 @@ refs: [plan:groups, plans/groups/review.cycle2.md, plans/groups/review.cycle3.md
 **Cost.** Two review cycles whose only agent-tagged issues were comment sentences, each with a full gate run.
 
 **What changed.** Before a fix wave's commit, grep every comment that names a symbol the plan's accepted deviations changed (the log's `deviation:` lines and the plan's Implementation Notes name them), not only the symbols the wave's own diff touched; a sentence about a repair path the test does not exercise says so rather than generalising.
+
+**Retired.** The prescribed grep is now the comment pass's stale-reference candidate step: `strip` lists every pre-existing comment naming an identifier the diff removed, so no agent runs it by hand (kb:adr/process-comment-pass-owns-code-comments).

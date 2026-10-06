@@ -300,6 +300,7 @@ PASS	make test"
   run_one e2e-lint  "make e2e-lint"   # fixtures only via helpers/fixtures.ts, no fixed sleeps (test-strategy)
   run_one features ".claude/skills/orchestrate/scripts/features-scope.sh $PLAN --touch"   # changed files' owning features all in **Features** or **Touches**, widening the latter itself (frontmatter retro, 2026-09-23)
   run_one comments "python3 .claude/skills/orchestrate/scripts/comment-checks.py --gates"   # plan IDs / review labels in added production lines (settings-update-failures retro, 2026-09-25)
+  run_one comment-ledger "go run ./tools/commentpass verify $PLAN"   # every added production comment is a ledger keep (the comment pass ran before these gates)
   run_warn size ".claude/skills/orchestrate/scripts/size-warn.sh --changed"   # funlen/dupl/file length on this branch's files; read by the maintainability reviewer, never a failure
   if (( RUN_E2E )); then
     run_one e2e "make e2e"

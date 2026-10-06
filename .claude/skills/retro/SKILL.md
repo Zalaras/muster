@@ -35,9 +35,8 @@ deviated from `orchestrate/SKILL.md`, re-sent a prompt, or were corrected by the
 
 An incident is a **cost with a cause**: a review cycle spent on something an earlier step
 should have caught, a fix that came back, a gate that passed on a broken tree, a step that ran
-twice, a rule you had to improvise, **a review finding that a comment or doc statement was
-false or pointed at something deleted** (doc drift — check whether `dead-refs` could have
-caught it, or the comment self-check in the agent's Verify section should have). Wall-clock
+twice, a rule you had to improvise, **a review `[note]` on a comment the judge kept** (check the
+ledger's reason in `plans/<plan>/comment-pass.json` — was the judge's context enough?). Wall-clock
 spent doing the work correctly is not an incident.
 
 ## 2. Classify each incident against the rule that already exists

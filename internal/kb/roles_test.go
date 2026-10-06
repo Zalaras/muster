@@ -19,7 +19,7 @@ func TestRoles_MatchTheAgentFiles(t *testing.T) {
 	// Agents that pack under a different name.
 	aliases := map[string]string{"review": "review-work"}
 	// Agents spawned outside the build pipeline; they read no pack and have no role.
-	noRole := []string{"debater", "judge", "triage-proposer"}
+	noRole := []string{"debater", "judge", "triage-proposer", "comment-judge"}
 
 	entries, err := os.ReadDir(filepath.Join("..", "..", ".claude", "agents"))
 	require.NoError(t, err)

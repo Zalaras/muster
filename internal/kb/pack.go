@@ -438,18 +438,20 @@ func writeDecisionForPack(b *strings.Builder, ix *Index, r *Record) {
 var conventionsByRole = map[string][]string{
 	// The impl and unit-test roles answer to Design (reuse before add, design: lines); the
 	// daemon tester matches the Go test style §Stack and §Go settle.
-	"daemon-impl":  {"Stack", "Go", "Composition roots", "Design", "Comments", "Knowledge records"},
-	"web-impl":     {"Stack", "TypeScript", "Composition roots", "Design", "Comments", "Knowledge records"},
-	"daemon-tests": {"Stack", "Go", "Design", "Testing", "Comments", "Knowledge records"},
-	"web-tests":    {"Design", "Testing", "Comments", "Knowledge records"},
-	"e2e-specs":    {"Testing", "Comments", "Knowledge records"},
+	// Comments are nobody's section: the comment pass enforces them on the diff
+	// (kb:adr/process-comment-pass-owns-code-comments).
+	"daemon-impl":  {"Stack", "Go", "Composition roots", "Design", "Knowledge records"},
+	"web-impl":     {"Stack", "TypeScript", "Composition roots", "Design", "Knowledge records"},
+	"daemon-tests": {"Stack", "Go", "Design", "Testing", "Knowledge records"},
+	"web-tests":    {"Design", "Testing", "Knowledge records"},
+	"e2e-specs":    {"Testing", "Knowledge records"},
 	// The browser reviewer measures the running app; the maintainability reviewer judges shape and
 	// never reads the plan, so its rules are the code sections plus Design.
 	// The correctness reviewer judges statements against the plan: the code and testing sections,
 	// never Commits or Backlog (the orchestrator's) or Design (the maintainability reviewer's).
-	"review":                 {"Stack", "Go", "TypeScript", "Composition roots", "Testing", "Comments", "Knowledge records"},
-	"review-browser":         {"Stack", "TypeScript", "Testing", "Comments", "Knowledge records"},
-	"review-maintainability": {"Stack", "Go", "TypeScript", "Composition roots", "Design", "Comments", "Knowledge records"},
+	"review":                 {"Stack", "Go", "TypeScript", "Composition roots", "Testing", "Knowledge records"},
+	"review-browser":         {"Stack", "TypeScript", "Testing", "Knowledge records"},
+	"review-maintainability": {"Stack", "Go", "TypeScript", "Composition roots", "Design", "Knowledge records"},
 }
 
 // conventionsForRole keeps the preamble and the level-two sections the role reads.

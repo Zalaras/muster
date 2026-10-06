@@ -233,18 +233,25 @@ none of them commits. They classify on `.claude/skills/orchestrate/review-scale.
 tags and verdict rules are the ones you route by. You run the gates, merge the parts and commit the
 result.
 
-1. **Gates, once, yours.** `python3 $S <plan> start review`, then in the foreground with
+1. **Gates, once, yours.** `python3 $S <plan> start review`, then the comment pass
+   (kb:adr/process-comment-pass-owns-code-comments): `go run ./tools/commentpass strip <plan> --out $TMPDIR/comment-pass-<plan>-c<N>`;
+   if it reports candidates > 0, spawn `subagent_type: "comment-judge"` (no model override) with
+   `Read <dir>/candidates.md and write <dir>/verdicts.json. Nothing else.`, then
+   `go run ./tools/commentpass apply <plan> <dir>/verdicts.json --cycle <N> --message "chore(<plan>): comment pass cycle <N>"`.
+   A missing `verdicts.json` or a rejected apply re-spawns the judge once with apply's output quoted,
+   then `status blocked --step review`. The completion summary reports candidates/kept/dropped per
+   cycle. Then the gates, in the foreground with
    `timeout: 600000`; a cold full run is ~12 min, so the harness backgrounds it and wakes **you** —
    fine for the main session, never for a subagent:
    ```bash
    GATES_LOG_DIR=$TMPDIR/gates-<plan>-c<N> .claude/skills/orchestrate/scripts/gates.sh <plan>   # --no-e2e for a daemon plan whose Step 1 was skipped
    ```
-   Note the summary's `<F> failed` count; the ledger makes a re-run on an identical tree a reuse,
-   which is why nobody runs it twice (kb:adr/process-gates-run-once-by-orchestrator-before-review).
+   Note the summary's `<F> failed` count; the ledger makes a re-run on an identical tree a reuse —
+   nobody runs it twice (kb:adr/process-gates-run-once-by-orchestrator-before-review).
    A red line does **not** stop the review — the reviewers report it as a Critical and one fix wave
-   answers gate and findings together. Exit **75** is not red: the gate lock is busy (another
-   worktree's Playwright run; the output names the holder) — rerun the same command, the ledger
-   makes it cheap; never sleep or poll for it. This holds for every `gates.sh` run below.
+   answers gate and findings together. Exit **75** is not red: the gate lock is busy (the output
+   names the holder) — rerun the same command; never sleep or poll for it. This holds for every
+   `gates.sh` run.
 2. **Choose the reviewer set.** `review-work` always. `review-browser` unless the plan's
    `**Work Type**` is `daemon`. On a delta cycle (below), `review-browser` runs only if
    `git diff --name-only <review_commits[N-1]>..HEAD -- web/src ':!*.test.ts'` is non-empty, and
@@ -260,7 +267,7 @@ result.
    Write your part file only; do not commit — the orchestrator commits all parts together.
    ```
    For `review-work` and `review-maintainability` on cycle 2+, when the previous cycle's only open
-   agent-tagged issues were Minors (no agent-tagged Critical/Major, in any part), append the line
+   agent-tagged issues were Minors, append the line
    naming that reviewer's own previous file — `review.cycle<N-1>.md` (the merged review) for
    `review-work`, `review.maintainability.cycle<N-1>.md` for `review-maintainability`:
    ```
@@ -268,8 +275,8 @@ result.
    Re-review applies; the previous review is plans/<plan-name>/<that file>, and its commit
    is review_commits[N-1] = <sha from `python3 $S <plan> show`>.
    ```
-   Those archives must exist before the re-spawn — Review Retry Logic step 5 (`python3 $S <plan>
-   archive review.md`, then each part) creates them; check they are there before spawning.
+   Those archives must exist before the re-spawn — Review Retry Logic step 5 creates them; check
+   before spawning.
 4. **Merge and commit.** When every spawned reviewer has reported:
    ```bash
    python3 $S <plan> merge-review --gates-failed <F>      # writes review.md; prints the verdict and any `WARN scope:` line — touch or promote that feature (Fix Wave Ordering § Rules) before wave 1
@@ -291,7 +298,7 @@ cycle (kb:lesson/decision-made-inside-a-fix-wave).
 **Review Retry Logic** — on `needs-changes`, the sequence is always wave 1 → gate → wave 2 → gate
 → wave 3 → gate → review; never start a later wave before an earlier one has landed:
 
-1. Read `review.md` and bucket every tagged issue **across all three parts**: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`. Quote each with its part name ("maintainability Major 2") — numbering restarts per part.
+1. Read `review.md` and bucket every tagged issue **across all three parts**: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`.
    - `[orchestrator]` issues are yours — never spawn an agent for them; handle them in Doc-Upkeep /
      Completion. A doc-only one may be fixed while a fix wave runs iff its file set (`docs/`,
      `TODO.md`, `SPEC.md`) is disjoint from every file the wave's agents may write and each wave
@@ -299,11 +306,9 @@ cycle (kb:lesson/decision-made-inside-a-fix-wave).
      `.claude/rules/*.md` and `internal/<pkg>/CLAUDE.md` trailers wave-1 agents hold
      (kb:lesson/orchestrator-work-spawned-as-agent).
    - **Every severity routes.** An agent with any tagged issue — Critical, Major or Minor — is spawned in its wave with all of them; Minors are never deferred to `TODO.md`. The cycle after a Minors-only wave is a cheap delta re-review (above).
-   - **Exception — comment-only cycles:** when `merge-review` printed `comment-only: yes`, no wave
-     runs: apply each issue's replacement sentence yourself in one `chore(<plan-name>): comments per
-     review cycle <N>` commit, run `make lint`, `make web-lint` and `comment-checks.py --gates`, then
-     archive, `retry review` and re-spawn only the reviewers who tagged one, in delta mode, reusing the
-     gate ledger. Three cycles of the groups run were comment text and cost a wave and a full gate run each.
+   - A reviewer's `[note]` naming a false or stale comment (`path:line`) is yours, never a wave:
+     `go run ./tools/commentpass drop <plan> <path:line> --message "chore(<plan>): drop comments per review cycle <N>"`
+     before the next cycle's pass.
    - **Exception — plan-log and doc-label Minors:** a Minor whose whole fix is wording or a label inside `plans/<plan>/*.md`, `docs/` or `TODO.md` (no code, test or assertion) is yours to make while the wave runs, in your own `docs(<plan-name>)` commit, cited in the completion summary; the delta re-review verifies it (kb:lesson/orchestrator-work-spawned-as-agent).
    - `[note]` items are never routed; list them in the completion summary.
 1a. **Decision items first.**
@@ -321,7 +326,7 @@ cycle (kb:lesson/decision-made-inside-a-fix-wave).
 4. Do **not** run a full-suite gate between waves. The next cycle's Step 6 item 1 runs
    `gates.sh <plan>` once — the baseline suites plus every line of the ```checks block — and that
    run is the cycle's validation; a red line becomes the merged header's `**Gates**: N failed` and
-   a Critical the same fix wave answers alongside the reviewers' findings.
+   a Critical for the same fix wave.
 5. `python3 $S <plan> archive review.md`, then `archive review.<part>.md` for each part file that
    exists (`code`, `browser`, `maintainability`), then `retry review` — **once per cycle**, not once
    per wave — then Step 6 from item 1.
@@ -332,7 +337,7 @@ If all 3 review cycles are used and the final merged verdict is still `needs-cha
 Minors-only cycle 3 included:
 1. Do not mark the pipeline as "completed"
 2. `python3 $S <plan> status blocked --step review`
-3. Report to the developer exactly what issues remain, referencing the review.md file
+3. Report to the developer exactly what issues remain, citing `review.md`
 4. Ask the developer whether to (a) continue with more review cycles, (b) fix manually, or (c) abort. Decision items never bring you here — Step 6 item 1a settles them.
 
 ### Step 7: Doc Reconcile
@@ -480,7 +485,7 @@ running only the runnable clause reports a pass the plan never earned.
    and `docs/protocol.md` describe the pre-plan world until it does.
 1. Re-verify the Doc-Upkeep Backstop (done during Step 3; fix anything the review cycles changed).
 2. Resolve every `[orchestrator]`-tagged issue in review.md: do the doc edit, or propose genuine follow-up in `plans/<plan>/proposed-backlog.md` (doc-upkeep.md gives the shape) — **never as a new `TODO.md` item**, which is the developer's to file (kb:adr/process-backlog-entries-are-the-users-to-file). List each one and its disposition in the completion summary. An approved review may carry these; a `completed` pipeline may not leave them unaddressed.
-3. An approved review.md has no agent-tagged issue open at any severity (review-scale.md § Verdicts) — if you find one, the verdict is wrong; stop and re-spawn the reviewer rather than writing it down anywhere. Every `[note]` is listed in the completion summary verbatim — no TODO line, no agent; one worth keeping goes to `proposed-backlog.md`, **Change requested: no**.
+3. An approved review.md has no agent-tagged issue open at any severity (review-scale.md § Verdicts) — if you find one, the verdict is wrong; stop and re-spawn the reviewer rather than writing it down anywhere. Every `[note]` is listed in the completion summary verbatim — no TODO line, no agent; one naming a comment is resolved with `commentpass drop` before Final Validation; one worth keeping goes to `proposed-backlog.md`, **Change requested: no**.
 4. **Accept this plan's ADRs.** For every name in the plan's `**Features**` and `**Touches**`, `go run ./tools/kb
    ls --feature <f> --status proposed` — for each record whose `refs` carry `plan:<plan>`, Edit
    `status: accepted` and `date:` today. The ADR and the code it describes land in one squash,

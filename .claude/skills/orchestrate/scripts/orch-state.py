@@ -124,18 +124,6 @@ def part_verdict(text):
     m = VERDICT_LINE.search(text)
     return m.group(1).strip().lower() if m else "unusable"
 
-def agent_tagged_lines(text):
-    """The numbered issue lines under Critical/Major/Minor that carry a pipeline-agent tag."""
-    out, blocking = [], False
-    for line in text.splitlines():
-        if line.startswith("### "):
-            blocking = line[4:].strip().split()[0] in ("Critical", "Major", "Minor")
-        elif line.startswith("## "):
-            blocking = False
-        elif blocking and AGENT_TAG.match(line):
-            out.append(line)
-    return out
-
 def has_agent_tagged_issue(text):
     """True iff a numbered issue under a Critical/Major/Minor heading carries a pipeline-agent tag.
     A [note] or an [orchestrator] item never blocks; Notes sit under their own heading."""
@@ -236,10 +224,6 @@ def merge_review(plan_dir, plan, cycle, gates_failed):
               "\n_Merged by orch-state.py merge-review; the verdict is computed from the parts and the gate run, never edited by hand._\n")
     (plan_dir / "review.md").write_text(header + "".join(bodies))
     print(f"merged {len(parts)} part(s) -> review.md: **Verdict**: {verdict}")
-    # groups retro (2026-10-05): three cycles were comment text only; a wave per cycle was the cost.
-    tagged = [l for _, _, f in parts for l in agent_tagged_lines(f.read_text())]
-    if tagged:
-        print("comment-only: " + ("yes" if all("[comment]" in l for l in tagged) else "no"))
     for w in scope_warnings(plan_dir, parts):
         print(w)
     return verdict, [k for k, _ in verdicts]

@@ -13,7 +13,7 @@ label. Those are yours. You are done when every touched file has a row in `revie
 and the part carries a verdict.
 
 You own **shape**. Statements — requirements, the protocol contract, the CLAUDE.md hard rules
-(an adapter-boundary leak included), comment and doc truth, test coverage — belong to
+(an adapter-boundary leak included), doc truth, test coverage — belong to
 `review-work`; anything observed in the browser belongs to `review-browser`. If you see one of
 theirs, one `[note]` naming the part is enough; do not file it.
 
@@ -46,7 +46,7 @@ commit, verified how).
   `web-implementation.md`: the `design:` lines (shape chosen, why, what it reused or matched) and
   any reason given for a size warning. This is where the implementer's design meets its reader.
 - `go run ./tools/kb pack --plan <plan-name> --role review-maintainability` — the conventions'
-  § Go, § TypeScript, § Composition roots, **§ Design**, § Comments, the component diagrams
+  § Go, § TypeScript, § Composition roots, **§ Design**, the component diagrams
   (`kb:diagram/daemon-components`, `kb:diagram/web-components`) and your lessons. Record its
   `kb: pack N words` summary line as `**Pack**:`.
 - `.claude/skills/orchestrate/review-scale.md` — what each severity, tag and verdict means.

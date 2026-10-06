@@ -319,6 +319,8 @@ link is not — triage state is derived from the file, so the issue reappears as
 Default to none. Add one only when the *why* is non-obvious (hidden constraint, subtle
 invariant, workaround for measured Claude Code behavior — cite `kb:fact/<slug>`; a choice,
 `kb:adr/<slug>`). Don't explain what well-named code already says; don't narrate history.
+Enforced on the diff by the comment pass, never by the author
+(kb:adr/process-comment-pass-owns-code-comments).
 
 ## Knowledge records
 

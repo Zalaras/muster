@@ -9,29 +9,32 @@ features: []
 tags: [pipeline]
 files: [.claude/skills/spec/SKILL.md, .claude/skills/plan-work/SKILL.md, .claude/skills/orchestrate/SKILL.md, .claude/skills/retro/SKILL.md, .claude/skills/land/SKILL.md, .claude/agents/*.md]
 tests: []
-refs: [kb:adr/process-doc-reconcile-after-review, plans/_audit/diagrams-from-code.md]
+refs: [kb:adr/process-doc-reconcile-after-review, kb:adr/process-comment-pass-owns-code-comments, plans/_audit/diagrams-from-code.md]
 ---
 One feature, end to end. Each arrow into a skill is a gate that refuses rather than warns:
 `/plan-work` refuses a spec whose `Status` is not `Approved`; `/orchestrate` refuses a `draft`
 plan or any `plan-lint` FAIL and spawns nobody; `/land` refuses a review verdict that is not
 `approved`, a dirty tree, or a `proposed` ADR still carrying this plan's name, and puts every open
-proposed follow-up to the user before it merges (kb:adr/process-land-decides-proposed-backlog).
+proposal to the user before merging (kb:adr/process-land-decides-proposed-backlog).
 
 Inside `/orchestrate`, a full-stack plan runs both tracks; a `daemon` or `web` plan drops the
 other track's two boxes, and an E2E Scope of `none` drops both E2E stages. E2E Specs authors
 against a feature that does not exist yet, so it gates on collection, never on a pass. Each
-tester starts as soon as its own track is green — the daemon tester never waits for the web
-coder. The orchestrator runs the gates once and then spawns three Opus reviewers in parallel —
+tester starts when its own track is green; the daemon tester never waits for the web coder.
+Before the gates the comment pass strips every added comment, a Sonnet judge with the plan
+withheld returns the load-bearing few, and reviewers file no finding on a comment
+(kb:adr/process-comment-pass-owns-code-comments). The orchestrator runs the gates once and
+then spawns three Opus reviewers in parallel —
 correctness against the plan, the browser matrix (UI plans only), a maintainability read with the
 plan withheld — and merges their parts into one `review.md` whose verdict is computed, never
 opined (kb:adr/process-review-split-three-reviewers-computed-verdict). Doc Reconcile
 is reached only by an `approved` merged review, and only its `reconciled` verdict completes the
-run (kb:adr/process-doc-reconcile-after-review). Retry budgets and the wave
-ordering a `needs-changes` verdict follows are in the orchestrate skill's tables, not here.
+run (kb:adr/process-doc-reconcile-after-review). Retry budgets and `needs-changes` wave
+ordering live in the orchestrate skill's tables.
 
-`/retro` runs in the session that ran `/orchestrate`, while the stumbles are still in context,
-and commits on the plan branch so its changes ride `/land`'s squash — which is why it comes
-before the merge, not after.
+`/retro` runs in the session that ran `/orchestrate`, while the stumbles are in context,
+and commits on the plan branch so its changes ride `/land`'s squash, which is why it precedes
+the merge.
 
 ```mermaid
 %%{init: {"layout": "dagre", "flowchart": {"curve": "stepAfter"}}}%%
@@ -52,7 +55,7 @@ flowchart TD
         WT --> V
         V -->|implementation-bug| DI
         V -->|implementation-bug| WI
-        V --> G[Gates — orchestrator, once]
+        V --> CP[Comment pass — strip, Sonnet judge, reconstruct] --> G[Gates — orchestrator, once]
         G --> RC[Review: correctness]
         G --> RB[Review: browser — UI plans]
         G --> RM[Review: maintainability]
@@ -62,7 +65,7 @@ flowchart TD
         M -->|needs-changes, in waves| DI
         M -->|needs-changes, in waves| WI
         M -->|approved| DR[Doc Reconcile]
-        DR -->|contradiction| G
+        DR -->|contradiction| CP
         DR -->|reconciled| C[Completion — accept ADRs, record closes]
     end
 

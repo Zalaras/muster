@@ -21,6 +21,9 @@ Why (settings-update-failures retro, 2026-09-25): the comments rule was reworded
 impl agents, yet cycle 1 filed 45 plan-ID comments across 12 files and cycle 3 filed one the
 cycle-2 fix wave had written, which cost a fourth review cycle. The SubagentStop hook runs this
 per role when an agent finishes; gates.sh runs --gates as the backstop. Exit 0 clean, 1 on hits.
+The comment pass (tools/commentpass, run by the orchestrator before the review gates) is now the
+primary mechanism for production code; this script stays as the per-role early warning and the
+only check covering test files.
 """
 import pathlib, re, subprocess, sys
 

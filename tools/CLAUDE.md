@@ -1,6 +1,6 @@
 # tools — dev tools, never shipped
 
-**Owns**: four dev-only commands: `tools/kb` (index, gate and generate the `docs/` knowledge base), `tools/versions` (the Claude Code verified-range record and its fragments), `tools/triage` (the program half of `/triage`) — all `go run` — and `tools/gatelock` (the machine-wide gate lock: exclusive round every Playwright run, shared round `make test`/`test-race`; exit 75 = busy, rerun), built to `bin/gatelock` because `go run` exits 1 for any non-zero program exit and would mask that 75. `.goreleaser.yaml` builds only `./cmd/musterd`. **Features**: canary, knowledge, triage.
+**Owns**: five dev-only commands: `tools/kb` (index, gate and generate the `docs/` knowledge base), `tools/versions` (the Claude Code verified-range record and its fragments), `tools/triage` (the program half of `/triage`), `tools/commentpass` (strip, judge-apply, verify and drop a plan branch's added production comments; logic in `internal/commentpass`) — all `go run` — and `tools/gatelock` (the machine-wide gate lock: exclusive round every Playwright run, shared round `make test`/`test-race`; exit 75 = busy, rerun), built to `bin/gatelock` because `go run` exits 1 for any non-zero program exit and would mask that 75. `.goreleaser.yaml` builds only `./cmd/musterd`. **Features**: canary, knowledge, triage.
 
 **Invariants** (violations are review-Critical):
 - A `main.go` only dispatches; logic lives in `internal/kb`, `internal/triage`, or beside the command with table tests.
@@ -9,6 +9,7 @@
 - Protocol citations are anchor ids from `tools/kb/anchors.tsv`, never section numbers (kb:adr/knowledge-protocol-sections-addressed-by-anchor-ids).
 - The verified range is observed, not pinned: `bump` appends after a green canary and edits nothing inside the range (kb:adr/canary-verified-range-observed-not-pinned).
 - Nothing between GitHub and `TODO.md` is a model with tools; triage is a program and never closes an issue (kb:adr/triage-program-not-model-between-github-and-todo).
+- The comment pass never edits a directive comment (`go:`, `nolint`, `biome-ignore`, `@ts-`) or a test file, and `apply` reconstructs from `strip`'s snapshot, never re-inserts (kb:adr/process-comment-pass-owns-code-comments).
 
 **Exemplar**: `tools/versions/main.go` + `main_test.go` — subcommand dispatch with one test per refusal path; copy this shape for a new tool.
 
@@ -19,8 +20,9 @@
 - A nested `CLAUDE.md` is budgeted at 400 words outside kb fragments, the root at 150 lines (`internal/kb/budget.go`).
 
 <!-- kb:trailer -->
-<!-- kb:hash c23e2372612b8021 -->
+<!-- kb:hash 952f6c97595cd674 -->
 - **canary** — The verified Claude Code version range, canary tiers, and the fragments tools/versions regenerates. → `docs/features/canary/INDEX.md`
+- **comment-pass** — The orchestrator's comment pass — strip a plan branch's added comments, a Sonnet judge keeps the load-bearing few, a ledger the gates verify. → `docs/features/comment-pass/INDEX.md`
 - **knowledge** — Typed knowledge records, the kb tool that indexes and gates them, and the generated rules and indexes. → `docs/features/knowledge/INDEX.md`
 - **triage** — GitHub issues into TODO.md through a program, and the pre-commit link guard. → `docs/features/triage/INDEX.md`
 - 7 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.

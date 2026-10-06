@@ -317,7 +317,7 @@ func TestPack_IncludesOnlyTheConventionsSectionsForTheRole(t *testing.T) {
 	assert.Contains(t, daemon, "Preamble.")
 	assert.Contains(t, daemon, "Go rule.")
 	assert.Contains(t, daemon, "Design rule.", "the design: lines an implementer writes answer to § Design")
-	assert.Contains(t, daemon, "Comment rule.")
+	assert.NotContains(t, daemon, "Comment rule.", "the comment pass enforces comments on the diff; no role reads the section")
 	assert.NotContains(t, daemon, "TS rule.")
 	assert.NotContains(t, daemon, "Test rule.")
 	tests, _ := runPack(t, ix, "web-tests", "sessions")

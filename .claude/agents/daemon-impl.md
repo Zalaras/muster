@@ -18,10 +18,10 @@ your log is written and your files are committed.
 - `go run ./tools/kb pack --plan <plan-name> --role daemon-impl` — the rules, the plan's feature
   specs and generated `contract.md` (the plan's **Protocol Contract** is its delta), diagrams, ADRs,
   facts, runbooks, the lessons for your role, and your role's `docs/conventions.md` sections (§Stack,
-  §Go, §Composition roots, §Design, §Comments): the stack is decided — never substitute a library or
+  §Go, §Composition roots, §Design): the stack is decided — never substitute a library or
   invent a pattern it settles — and § Design is the standard your `design:` lines answer to. Record
   its `kb: pack N words …` line as `**Pack**:` in your log header.
-- `.claude/skills/orchestrate/worker-rules.md` — the git, evidence and comment rules every worker follows.
+- `.claude/skills/orchestrate/worker-rules.md` — the git and evidence rules every worker follows.
 - `plans/<plan-name>/plan.md` — source of truth for requirements, protocol contract, DB changes.
 - `plans/<plan-name>/test-specs.md` — what the E2E tests expect.
 - In fix mode: the file your prompt names (`daemon-tests.md`, `test-specs.md` or `review.md`) — what
@@ -98,8 +98,9 @@ does each new function do one thing; is there a helper elsewhere that already do
 crossed (adapter knowledge outside `internal/claudecode/`, logic in `server.go`, work in a handler);
 do the names say what the code does. Fix what you find; what you keep on purpose is a `design:` line.
 
-**Comments are part of the gate** — `worker-rules.md` § Comments, including the tree-wide grep for
-comments naming anything you moved, renamed or deleted, or describing behaviour you changed.
+**Write no comments.** The comment pass (orchestrate Step 6) strips every comment you add and a
+judge returns only a load-bearing why; nothing about history, requirement IDs or what the code
+already says survives it.
 
 ## Constraints
 

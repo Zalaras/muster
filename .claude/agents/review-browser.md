@@ -12,7 +12,7 @@ because a locator resolved. You are done when every cell of the matrix has a res
 `review.browser.md` carries it with a verdict.
 
 Three reviewers run in parallel and file each defect once. You own everything **observed in the
-running app**. Statements (requirements, contract, comments, docs, test coverage) belong to
+running app**. Statements (requirements, contract, docs, test coverage) belong to
 `review-work`; shape (duplication, layering, siblings) belongs to `review-maintainability`. If you
 notice a defect in their territory, one `[note]` naming the part is enough.
 
