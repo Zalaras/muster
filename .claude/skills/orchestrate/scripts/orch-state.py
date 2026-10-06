@@ -319,9 +319,11 @@ def main():
         elif a.cmd == "retry":
             if (s.get("step_attempts") or {}).get(a.arg, [{}])[-1].get("finish", 0) is None:
                 close_attempt(s, a.arg)  # a retry means the step just reported
-            s["retry_counts"][a.arg] = s["retry_counts"].get(a.arg, 0) + 1
             if a.arg == "review":  # the cycle number survives --reset-retries (groups retro, 2026-10-05)
+                # Read the cycle before the retry count moves: with no counter yet, review_cycle()
+                # derives it from that count, and the first retry landed on 3 (launch-inflight-guard, 2026-10-06).
                 s["review_cycle"] = review_cycle(s) + 1
+            s["retry_counts"][a.arg] = s["retry_counts"].get(a.arg, 0) + 1
         elif a.cmd == "archive":
             src = path.parent / a.arg
             if not src.exists():
