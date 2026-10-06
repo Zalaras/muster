@@ -1,7 +1,7 @@
 ---
 id: process-features-scope-answered-by-widening-header
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-23
 summary: When features-scope fails because a plan edits files other features own, the plan's Features header widens to every owner; the gate is not loosened mid-run.
 features: []

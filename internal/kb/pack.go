@@ -12,7 +12,10 @@ import (
 	"strings"
 )
 
-var featuresHeaderRE = regexp.MustCompile(`(?m)^\*\*Features\*\*: *(.+)$`)
+var (
+	featuresHeaderRE = regexp.MustCompile(`(?m)^\*\*Features\*\*: *(.+)$`)
+	touchesHeaderRE  = regexp.MustCompile(`(?m)^\*\*Touches\*\*: *(.+)$`)
+)
 
 // PlanFeatures reads the Features header line of a plan file.
 func PlanFeatures(planPath string) ([]string, error) {
@@ -23,6 +26,21 @@ func PlanFeatures(planPath string) ([]string, error) {
 	m := featuresHeaderRE.FindSubmatch(data)
 	if m == nil {
 		return nil, errors.New("no **Features**: header")
+	}
+	return splitList(string(m[1])), nil
+}
+
+// PlanTouches reads a plan's optional Touches header: the features whose files the plan may
+// edit without owning the change (kb:adr/process-touched-features-widen-without-stopping). An
+// absent header is an empty list, never an error.
+func PlanTouches(planPath string) ([]string, error) {
+	data, err := os.ReadFile(planPath)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", planPath, err)
+	}
+	m := touchesHeaderRE.FindSubmatch(data)
+	if m == nil {
+		return nil, nil
 	}
 	return splitList(string(m[1])), nil
 }
@@ -38,12 +56,19 @@ func splitList(s string) []string {
 	return out
 }
 
-// PackOptions names one pack: the plan, the role and the features (already resolved).
+// PackOptions names one pack: the plan, the role, the features (already resolved) and the
+// touched features, which pack as spec body and contract only.
 type PackOptions struct {
 	Plan     string
 	Role     string
 	Features []string
+	Touches  []string
 }
+
+// touchesFullRoles pack a touched feature in full, as if it were in Features: the correctness
+// reviewer is the safety net for a settled decision a light edit breaks, so it reads the
+// touched feature's records the implementer did not.
+var touchesFullRoles = []string{"review"}
 
 // section is one row of a pack's word breakdown, in the order the sections are written.
 type section struct {
@@ -59,12 +84,29 @@ func Pack(ix *Index, opts PackOptions, w io.Writer) (int, error) {
 	if !contains(Roles, opts.Role) {
 		return 0, fmt.Errorf("unknown role %q (want one of: %s)", opts.Role, strings.Join(Roles, ", "))
 	}
-	for _, name := range opts.Features {
+	for _, name := range append(append([]string{}, opts.Features...), opts.Touches...) {
 		if ix.Feature(name) == nil {
 			return 0, fmt.Errorf("feature %q has no docs/features/%s/spec.md", name, name)
 		}
 	}
-	marker := fmt.Sprintf("<!-- kb:pack plan=%s role=%s features=%s -->\n", opts.Plan, opts.Role, strings.Join(opts.Features, ","))
+	// A feature in both headers is a Features one; a role that reads touched features in full
+	// folds them into Features before any section is written.
+	var touches []string
+	for _, name := range opts.Touches {
+		if !contains(opts.Features, name) && !contains(touches, name) {
+			touches = append(touches, name)
+		}
+	}
+	if contains(touchesFullRoles, opts.Role) {
+		opts.Features = append(append([]string{}, opts.Features...), touches...)
+		touches = nil
+	}
+	opts.Touches = touches
+	marker := fmt.Sprintf("<!-- kb:pack plan=%s role=%s features=%s", opts.Plan, opts.Role, strings.Join(opts.Features, ","))
+	if len(opts.Touches) > 0 {
+		marker += " touches=" + strings.Join(opts.Touches, ",")
+	}
+	marker += " -->\n"
 
 	// The body is built first so the summary can report on it. Every section starts with a
 	// newline, so slicing the body at these offsets never splits a word and the rows add up.
@@ -86,6 +128,8 @@ func Pack(ix *Index, opts PackOptions, w io.Writer) (int, error) {
 	record("design")
 	writeFeatureSections(&b, ix, opts)
 	record("features")
+	writeTouchedSections(&b, ix, opts)
+	record("touched")
 	writeDiagrams(&b, ix, opts)
 	record("diagrams")
 	writeDecisions(&b, ix, opts)
@@ -211,14 +255,27 @@ func writeDesignDocs(b *strings.Builder, ix *Index, opts PackOptions) error {
 // writeFeatureSections writes each feature's spec body followed by its contract slice.
 func writeFeatureSections(b *strings.Builder, ix *Index, opts PackOptions) {
 	for _, name := range opts.Features {
-		f := ix.Feature(name)
-		fmt.Fprintf(b, "\n# Feature: %s\n\n%s\n", name, strings.TrimSpace(f.Spec.Body))
-		if contains(contractlessRoles, opts.Role) {
-			fmt.Fprintf(b, "\n_contract: `go run ./tools/kb show %s` — not packed for this role_\n", f.Spec.Token())
-			continue
-		}
-		b.WriteString("\n" + strings.TrimSpace(renderContract(ix, f)) + "\n")
+		writeSpecAndContract(b, ix, opts, "Feature", name)
 	}
+}
+
+// writeTouchedSections writes each touched feature the same way, under a heading that says the
+// plan edits its files without owning the change; its decisions, facts, diagrams, lessons and
+// runbooks are not packed (every other writer keys on opts.Features alone).
+func writeTouchedSections(b *strings.Builder, ix *Index, opts PackOptions) {
+	for _, name := range opts.Touches {
+		writeSpecAndContract(b, ix, opts, "Touched", name)
+	}
+}
+
+func writeSpecAndContract(b *strings.Builder, ix *Index, opts PackOptions, kind, name string) {
+	f := ix.Feature(name)
+	fmt.Fprintf(b, "\n# %s: %s\n\n%s\n", kind, name, strings.TrimSpace(f.Spec.Body))
+	if contains(contractlessRoles, opts.Role) {
+		fmt.Fprintf(b, "\n_contract: `go run ./tools/kb show %s` — not packed for this role_\n", f.Spec.Token())
+		return
+	}
+	b.WriteString("\n" + strings.TrimSpace(renderContract(ix, f)) + "\n")
 }
 
 // systemDiagramRoles are the roles that read the feature-less (system-wide) diagrams; an

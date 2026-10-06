@@ -102,7 +102,7 @@ func TestPack_BreakdownRowsAndTheMarkerSumToTheReportedTotal(t *testing.T) {
 			labels = append(labels, label)
 			sum += words
 		}
-		assert.Equal(t, []string{"rules", "design", "features", "diagrams", "decisions", "proposed", "facts", "lessons", "runbooks"}, labels,
+		assert.Equal(t, []string{"rules", "design", "features", "touched", "diagrams", "decisions", "proposed", "facts", "lessons", "runbooks"}, labels,
 			"one row per section writer, in write order")
 		marker, _, ok := strings.Cut(out, "\n")
 		require.True(t, ok, out)
@@ -218,6 +218,64 @@ func TestPack_ScopesDecisionsAndFactsByRole(t *testing.T) {
 	assert.NotContains(t, decisionlessRoles, "e2e-specs", "e2e-specs keeps the decisions as a safety net for the behaviour it asserts")
 	out, _ := runPack(t, ix, "web-impl", "sessions")
 	assert.Contains(t, out, "## decision earlier", "web-impl keeps decisions and drops only facts")
+}
+
+func TestPack_TouchedFeaturesPackSpecAndContractOnlyExceptForReview(t *testing.T) {
+	root, _ := packFixture(t)
+	mustWriteFile(t, root, "docs/adr/other-decision.md", "---\nid: other-decision\ntype: decision\nstatus: accepted\ndate: 2026-08-30\nsummary: Settled for other.\nfeatures: [other]\n---\n**Decision.** Other binds.\n")
+	mustWriteFile(t, root, "docs/facts/other-fact.md", "---\nid: other-fact\ntype: fact\nstatus: active\ndate: 2026-08-30\nsummary: Measured for other.\nfeatures: [other]\nverified: [2.1.246, 2.1.267]\nguard: TestOtherFact\n---\nOther fact body.\n")
+	mustWriteFile(t, root, "internal/sess/other_test.go", "package sess\n\nfunc TestOtherFact() {}\n")
+	ix, _, err := Load(root)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	_, err = Pack(ix, PackOptions{Plan: "this-plan", Role: "daemon-impl", Features: []string{"sessions"}, Touches: []string{"other"}}, &buf)
+	require.NoError(t, err)
+	impl := buf.String()
+	assert.True(t, strings.HasPrefix(impl, "<!-- kb:pack plan=this-plan role=daemon-impl features=sessions touches=other -->\n"), impl)
+	assert.Contains(t, impl, "\n# Touched: other\n\nOther spec body.\n")
+	assert.Contains(t, impl, "No protocol surface.", "the touched feature's contract slice rides along")
+	assert.NotContains(t, impl, "# Feature: other")
+	assert.NotContains(t, impl, "## decision other-decision", "a touched feature's decisions are not packed")
+	assert.NotContains(t, impl, "## fact other-fact", "nor its facts")
+	assert.NotContains(t, impl, "## lesson other-feature", "nor its feature-scoped lessons")
+	assert.Less(t, strings.Index(impl, "# Feature: sessions"), strings.Index(impl, "# Touched: other"))
+	assert.Less(t, strings.Index(impl, "# Touched: other"), strings.Index(impl, "\n# Decisions\n"))
+	assert.Regexp(t, `kb: sections — rules \d+ · design \d+ · features \d+ · touched \d+ ·`, impl)
+
+	buf.Reset()
+	_, err = Pack(ix, PackOptions{Plan: "this-plan", Role: "review", Features: []string{"sessions"}, Touches: []string{"other"}}, &buf)
+	require.NoError(t, err)
+	review := buf.String()
+	assert.True(t, strings.HasPrefix(review, "<!-- kb:pack plan=this-plan role=review features=sessions,other -->\n"), review)
+	assert.Contains(t, review, "# Feature: other", "the correctness reviewer reads a touched feature in full")
+	assert.NotContains(t, review, "# Touched:")
+	assert.Contains(t, review, "## decision other-decision")
+	assert.Contains(t, review, "## fact other-fact")
+
+	buf.Reset()
+	_, err = Pack(ix, PackOptions{Plan: "this-plan", Role: "web-tests", Features: []string{"sessions", "other"}, Touches: []string{"other"}}, &buf)
+	require.NoError(t, err)
+	assert.NotContains(t, buf.String(), "# Touched:", "a feature in both headers is a Features one")
+
+	_, err = Pack(ix, PackOptions{Plan: "p", Role: "daemon-impl", Features: []string{"sessions"}, Touches: []string{"nope"}}, &bytes.Buffer{})
+	require.EqualError(t, err, `feature "nope" has no docs/features/nope/spec.md`)
+}
+
+func TestPlanTouches_ReadsTheOptionalHeader(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, root, "plans/a/plan.md", "# Plan\n\n**Features**: sessions\n**Touches**: other, rail\n")
+	got, err := PlanTouches(filepath.Join(root, "plans/a/plan.md"))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"other", "rail"}, got)
+
+	mustWriteFile(t, root, "plans/b/plan.md", "# Plan\n\n**Features**: sessions\n")
+	got, err = PlanTouches(filepath.Join(root, "plans/b/plan.md"))
+	require.NoError(t, err)
+	assert.Empty(t, got, "no Touches header is an empty list, not an error")
+
+	_, err = PlanTouches(filepath.Join(root, "plans/c/plan.md"))
+	require.Error(t, err)
 }
 
 func TestPack_CarriesTheDesignDocsToTheWebRolesOnly(t *testing.T) {

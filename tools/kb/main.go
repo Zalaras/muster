@@ -5,7 +5,7 @@
 //
 //	go run ./tools/kb gen                       # regenerate; write only changed files
 //	go run ./tools/kb check                     # every invariant; exit 1 listing each finding
-//	go run ./tools/kb pack --plan NAME --role ROLE [--features a,b]
+//	go run ./tools/kb pack --plan NAME --role ROLE [--features a,b] [--touches c,d]
 //	go run ./tools/kb for PATH                  # features + records covering a repo path
 //	go run ./tools/kb why PATH                  # decisions + facts explaining a path
 //	go run ./tools/kb show ID | cite ID | find WORD... | ls [--type T] [--feature F] [--status S] [--role R] [--guard none]
@@ -173,7 +173,7 @@ func cmdCheck(ix *kb.Index, loadFindings []kb.Finding, stdout io.Writer) error {
 }
 
 func cmdPack(ix *kb.Index, args []string, stdout io.Writer) error {
-	const packUsage = "usage: kb pack --plan NAME --role ROLE [--features a,b]"
+	const packUsage = "usage: kb pack --plan NAME --role ROLE [--features a,b] [--touches c,d]"
 	plan, err := flagValue(args, "--plan")
 	if err != nil {
 		return err
@@ -186,6 +186,10 @@ func cmdPack(ix *kb.Index, args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
+	touches, err := flagValue(args, "--touches")
+	if err != nil {
+		return err
+	}
 	if plan == "" || role == "" {
 		return fmt.Errorf("%s", packUsage)
 	}
@@ -194,20 +198,33 @@ func cmdPack(ix *kb.Index, args []string, stdout io.Writer) error {
 		return fmt.Errorf("plans/%s/plan.md does not exist", plan)
 	}
 	opts := kb.PackOptions{Plan: plan, Role: role}
+	// --features overrides the plan's headers outright (the planner packs before the plan
+	// exists); --touches alone adds to what the plan's Touches header says.
 	if features != "" {
-		for _, f := range strings.Split(features, ",") {
-			if f = strings.TrimSpace(f); f != "" {
-				opts.Features = append(opts.Features, f)
-			}
-		}
+		opts.Features = splitFlagList(features)
 	} else {
 		opts.Features, err = kb.PlanFeatures(planPath)
 		if err != nil {
 			return fmt.Errorf("plans/%s/plan.md: %w (add one, or pass --features)", plan, err)
 		}
+		if opts.Touches, err = kb.PlanTouches(planPath); err != nil {
+			return err
+		}
 	}
+	opts.Touches = append(opts.Touches, splitFlagList(touches)...)
 	_, err = kb.Pack(ix, opts, stdout)
 	return err
+}
+
+// splitFlagList splits a comma-separated flag value, trimming and dropping empties.
+func splitFlagList(s string) []string {
+	var out []string
+	for _, f := range strings.Split(s, ",") {
+		if f = strings.TrimSpace(f); f != "" {
+			out = append(out, f)
+		}
+	}
+	return out
 }
 
 func cmdPath(ix *kb.Index, args []string, stdout io.Writer) error {

@@ -107,7 +107,7 @@ func TestRun_PackRequiresPlanAndRoleAndRejectsAnUnknownRole(t *testing.T) {
 	root := newRepo(t)
 	t.Chdir(root)
 	var buf bytes.Buffer
-	const usage = "usage: kb pack --plan NAME --role ROLE [--features a,b]"
+	const usage = "usage: kb pack --plan NAME --role ROLE [--features a,b] [--touches c,d]"
 	require.EqualError(t, run([]string{"pack"}, &buf), usage)
 	require.EqualError(t, run([]string{"pack", "--plan", "p"}, &buf), usage)
 	require.EqualError(t, run([]string{"pack", "--plan"}, &buf), "--plan needs a value")
@@ -144,4 +144,26 @@ func TestRun_FencesChecksArbitraryFilesWithoutAnIndex(t *testing.T) {
 	require.EqualError(t, run([]string{"fences", "plans/p/plan.md", "bad.md"}, &buf), "kb fences: 1 problem(s)")
 	assert.Equal(t, "bad.md:1: mermaid fence opens with \"mindmap\" (want one of: C4Component, C4Container, C4Context, classDiagram, erDiagram, flowchart, sequenceDiagram, stateDiagram-v2)\n", buf.String())
 	require.EqualError(t, run([]string{"fences"}, &buf), "usage: kb fences <file> [file ...]")
+}
+
+func TestRun_PackReadsTouchesFromThePlanAndTheFlag(t *testing.T) {
+	root := newRepo(t)
+	t.Chdir(root)
+	write(t, root, "docs/features/other/spec.md", "---\nid: other\ntype: spec\nstatus: active\ndate: 2026-08-30\nsummary: Other.\nfeatures: [other]\n---\nOther spec body.\n")
+	write(t, root, "docs/features/third/spec.md", "---\nid: third\ntype: spec\nstatus: active\ndate: 2026-08-30\nsummary: Third.\nfeatures: [third]\n---\nThird spec body.\n")
+	write(t, root, "plans/t/plan.md", "# t\n\n**Features**: sessions\n**Touches**: other\n")
+
+	var buf bytes.Buffer
+	require.NoError(t, run([]string{"pack", "--plan", "t", "--role", "daemon-impl"}, &buf))
+	assert.True(t, strings.HasPrefix(buf.String(), "<!-- kb:pack plan=t role=daemon-impl features=sessions touches=other -->\n"), buf.String())
+	assert.Contains(t, buf.String(), "# Touched: other")
+
+	buf.Reset()
+	require.NoError(t, run([]string{"pack", "--plan", "t", "--role", "daemon-impl", "--touches", "third"}, &buf))
+	assert.True(t, strings.HasPrefix(buf.String(), "<!-- kb:pack plan=t role=daemon-impl features=sessions touches=other,third -->\n"), buf.String())
+
+	buf.Reset()
+	require.NoError(t, run([]string{"pack", "--plan", "t", "--role", "daemon-impl", "--features", "sessions", "--touches", "third"}, &buf))
+	assert.True(t, strings.HasPrefix(buf.String(), "<!-- kb:pack plan=t role=daemon-impl features=sessions touches=third -->\n"),
+		"--features overrides both headers; --touches then adds: "+buf.String())
 }
