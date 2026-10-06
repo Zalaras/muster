@@ -23,7 +23,7 @@ If no plan name was provided, list available plans from the `plans/` directory a
 `S=.claude/skills/orchestrate/scripts/orch-state.py` throughout — every state edit goes through it (State Tracking). Before starting:
 
 1. Read `plans/<plan-name>/plan.md`
-2. Verify the plan status is "approved" (not "draft") and run `.claude/skills/orchestrate/scripts/plan-lint.sh <plan-name>`. A draft, or any `FAIL` line, goes back to `/plan-work` — spawn nobody. Then `go run ./tools/kb pack --plan <plan-name> --role orchestrator` — the lessons earlier runs paid for; read them now, not after the stumble.
+2. Verify the plan status is "approved" (not "draft") and run `.claude/skills/orchestrate/scripts/plan-lint.sh <plan-name>`. A draft, or any `FAIL` line, goes back to `/plan-work` — spawn nobody. Then `go run ./tools/kb pack --plan <plan-name> --role orchestrator` — the lessons earlier runs paid for; read them now, not after the stumble. The pack keys on the plan's `**Features**` and its optional `**Touches**` header (features whose files the plan edits without changing their behaviour; packed as spec and contract only, except for review-work, which reads them in full).
 3. Check the **Work Type** field to determine which agents to run:
    - `daemon` → skip web agents; run the E2E steps only if the plan defines `E*` acceptance criteria (a daemon-only change can still be E2E-observable through the dashboard)
    - `web` → skip daemon agents
@@ -102,7 +102,7 @@ Every step ends with a `**Verdict**` in its output file. Read it from disk, then
 | 6 review | a part file (`review.code.md`, `review.browser.md`, `review.maintainability.md`) missing or without a usable `**Verdict**` | `archive` it if present, re-spawn **that one reviewer** with the same prompt; then `merge-review` again. | 1 per part per cycle |
 | 7 doc-reconcile | `reconciled` | Completion. | |
 | 7 doc-reconcile | `contradiction` | The code disagrees with a claim review approved. `python3 $S <plan> reopen review` and run a fix wave; it counts as a review cycle. | the review budget of 3 |
-| 7 doc-reconcile | `blocked` | A feature outside the plan's `**Features**`, or a spec that cannot hold its delta. `status blocked --step doc-reconcile`, report to the developer — never widen the header yourself. | |
+| 7 doc-reconcile | `blocked` | A feature in neither `**Features**` nor `**Touches**` (only possible on a run whose gates never ran — a gated run touches it at the first wave), or a spec that cannot hold its delta. `status blocked --step doc-reconcile`, report to the developer. | |
 | any | `blocked` | `python3 $S <plan> status blocked --step <step>`, report to the developer. | |
 | any | no output file, or an unusable verdict | `python3 $S <plan> archive <file>` to preserve what it wrote, re-spawn once; a second failure is `blocked`. | 1 |
 
@@ -272,7 +272,7 @@ result.
    archive review.md`, then each part) creates them; check they are there before spawning.
 4. **Merge and commit.** When every spawned reviewer has reported:
    ```bash
-   python3 $S <plan> merge-review --gates-failed <F>      # writes review.md; prints the verdict and any `WARN scope:` line — a user decision (1a) before wave 1
+   python3 $S <plan> merge-review --gates-failed <F>      # writes review.md; prints the verdict and any `WARN scope:` line — touch or promote that feature (Fix Wave Ordering § Rules) before wave 1
    git add plans/<plan>/review.md plans/<plan>/review.code.md [plans/<plan>/review.browser.md] [plans/<plan>/review.maintainability.md]
    git commit -- <those paths> -m "review(<plan>): cycle <N> — <verdict>"    # plus the harness trailers
    python3 $S <plan> reviewed "$(git rev-parse HEAD)"     # review_commits[N], for the next cycle's skip rules
@@ -349,8 +349,9 @@ plan amendment: `plan.md` stays as approved.
 The agent owns `docs/features/*/spec.md` and `docs/protocol.md`; you keep `TODO.md`,
 `proposed-backlog.md`, ADRs, facts and
 `docs/diagrams/` records. On `contradiction`, `reopen review` and run a fix wave — the code, not the
-sentence, is what moves. On `blocked`, stop: a feature set wider than the plan's `**Features**` means
-every agent ran this plan with an incomplete pack, and that is the developer's call, not a doc edit.
+sentence, is what moves. On `blocked`, stop: a changed file owned by a feature in neither header
+means the gates never ran on this tree, and a spec that cannot hold its delta is a feature-splitting
+decision — both are the developer's call, not a doc edit.
 
 ## Fix Wave Ordering
 
@@ -413,7 +414,21 @@ Every fix-wave prompt carries:
   - the review demonstrates the defect **by measurement**, and
   - the amendment restores consistency with the plan's acceptance criteria or a decision the developer already approved.
 
-  Record it in three places: an *Amended* note inline on the requirement citing the review issue, a `proposed` ADR for the plan, and the completion summary. A scope change, or contradicting a developer decision → stop and ask.
+  Record it in three places: an *Amended* note inline on the requirement citing the review issue, a `proposed` ADR for the plan, and the completion summary. A requirement-scope change, or contradicting a developer decision → stop and ask.
+- **File scope widens itself; you commit it and decide the tier.** Every `gates.sh` run passes
+  `--touch` to `features-scope.sh`: a changed file owned by a feature in neither header is
+  appended to `**Touches**` (packed as spec and contract only), printed as `touched <feature>`,
+  and the gate passes. Never stop for it. Commit the `plan.md` edit as
+  `docs(<plan-name>): touch <feature>` before the next spawn (the running wave keeps its packs; the
+  next spawn sees the touched spec), and list every auto-touch in the completion summary.
+  **Promotion** from `**Touches**` to `**Features**` is yours too, on evidence and never on a
+  question: when an impl log carries a `doc-delta:` line against that feature's spec, a review
+  issue tagged to an agent names that feature's *behaviour* (its spec sentence must change), or
+  doc-reconcile's delta names it — move the name between headers, commit
+  `docs(<plan-name>): promote <feature>`, and spawn nothing extra; the next wave's packs carry its
+  full records and review-work already read them. Log each promotion in the completion summary.
+  Only a protocol-contract change still goes to the developer (above)
+  (kb:adr/process-touched-features-widen-without-stopping).
 - **Every wave-3 prompt says "rebuild first"** — the agent definitions carry the order (`make web-build build`) and why; the harness serves prebuilt binaries, so a stale embed silently tests the previous tree.
 - **`[e2e-specs]` always lands in wave 3**, even when its issue looks self-contained. A locator repaired against pre-fix markup is worthless, and its fix mode ends in a live run — which must happen against the post-fix tree.
 - **New user-facing behaviour added by a fix wave gets E2E coverage in the same cycle.** When a
@@ -466,7 +481,7 @@ running only the runnable clause reports a pass the plan never earned.
 1. Re-verify the Doc-Upkeep Backstop (done during Step 3; fix anything the review cycles changed).
 2. Resolve every `[orchestrator]`-tagged issue in review.md: do the doc edit, or propose genuine follow-up in `plans/<plan>/proposed-backlog.md` (doc-upkeep.md gives the shape) — **never as a new `TODO.md` item**, which is the developer's to file (kb:adr/process-backlog-entries-are-the-users-to-file). List each one and its disposition in the completion summary. An approved review may carry these; a `completed` pipeline may not leave them unaddressed.
 3. An approved review.md has no agent-tagged issue open at any severity (review-scale.md § Verdicts) — if you find one, the verdict is wrong; stop and re-spawn the reviewer rather than writing it down anywhere. Every `[note]` is listed in the completion summary verbatim — no TODO line, no agent; one worth keeping goes to `proposed-backlog.md`, **Change requested: no**.
-4. **Accept this plan's ADRs.** For every name in the plan's `**Features**`, `go run ./tools/kb
+4. **Accept this plan's ADRs.** For every name in the plan's `**Features**` and `**Touches**`, `go run ./tools/kb
    ls --feature <f> --status proposed` — for each record whose `refs` carry `plan:<plan>`, Edit
    `status: accepted` and `date:` today. The ADR and the code it describes land in one squash,
    so acceptance is atomic with the merge and a rejected branch takes both with it. Then

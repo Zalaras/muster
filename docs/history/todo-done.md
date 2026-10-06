@@ -1226,6 +1226,18 @@ the mobile/responsive pass rem-ifies the pixel layer.
   `plans/resume-and-dangerously-allow/`.
   ✅ done 2026-09-29 (follow-up to plan `resume-and-dangerously-allow`): five of the six facts now have a canary guard (runs K–M plus a bypass row in run C); `no-running-session-signal` stays unguarded because observing it needs `~/.claude/sessions/`.
 
+- [x] **Pipeline gate fixes** — the any-owner sub-item; the parent and its web-lint sub-item stay open in `TODO.md`.
+  - [x] **Investigate an any-owner rule for `features-scope.sh`** — today a changed file fails
+    the gate unless *every* feature owning it is in the plan's `**Features**` header, so editing
+    one handler in a shared file (the session handler file was owned by launch, actions, rail
+    and rename until it was split) pulls in every co-owner and grows each role's pack by about
+    11,000 words. Find out
+    whether one owner is enough; `doc-reconcile.md` Step 1 would have to change to match.
+    Background: `plans/new-session-improvement/decisions/features-scope/`,
+    `kb:adr/process-features-scope-answered-by-widening-header`.
+    ✅ done 2026-10-06 (direct on `main`): resolved without an any-owner rule — one owning spec per source file (`7b4b57eb`), the session handler split (`8c3a2cff`), and a `**Touches**` header the scope gate widens itself, packing a touched feature as spec and contract only (kb:adr/process-touched-features-widen-without-stopping).
+
+
 ## Issues
 
 - [x] **Ingest: corroborate an envelope against the pane it came from** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) — `resolveSessionID`

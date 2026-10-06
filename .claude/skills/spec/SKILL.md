@@ -48,6 +48,10 @@ enumerate the feature folders to answer a question the frontmatter already answe
 If nothing matches, this is a **new feature**. Say so: it will need its own `docs/features/<name>/`
 folder, and `plan-lint` requires that spec to exist before `/orchestrate` runs.
 
+A feature whose files the change will edit without changing what the feature does (a call site, a
+fixture, a shared helper) is **Touches**, not Features: name it on its own header line so the plan
+packs its spec and contract only (kb:adr/process-touched-features-widen-without-stopping).
+
 **Then read what is already decided.** Run `go run ./tools/kb find <words>` for the feature's
 vocabulary, then `kb ls --feature <f>`, and read `docs/features/<f>/spec.md` for each feature you
 settled. (`kb pack` is not available here — it requires a `plans/<name>/plan.md` that does not exist
@@ -149,6 +153,7 @@ Then write `plans/<plan-name>/spec.md` using this format (use absolute dates, ne
 **Plan**: <plan-name>
 **Created**: <date>
 **Features**: <name>[, <name>] — or "new: <name>"
+**Touches**: <name>[, <name>] — files edited, behaviour unchanged (omit the line when none)
 **Status**: Approved | Draft
 
 ## Goal

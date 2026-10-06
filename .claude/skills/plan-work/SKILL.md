@@ -56,7 +56,10 @@ If no spec exists, proceed normally — the spec step is optional.
 
 Ask the developer to elaborate on what this adds or fixes and which `TODO.md` entry or issue it
 closes. Settle the plan's `**Features**` (names with a `docs/features/<name>/spec.md`) — carried from
-the spec, or agreed here when there is none.
+the spec, or agreed here when there is none. A feature whose files the plan edits but whose
+behaviour it leaves alone (a call-site repair, a fixture, a shared helper) goes under `**Touches**`
+instead: it packs as spec and contract only, so it costs the agents a page, not a library
+(kb:adr/process-touched-features-widen-without-stopping).
 
 Then run `go run ./tools/kb pack --plan <plan-name> --role planner` (`--features a,b` before the
 header exists) and read it before planning; never contradict it: accepted ADRs are settled,
@@ -300,6 +303,7 @@ Write the plan to `plans/<plan-name>/plan.md` using this structure. The template
 **E2E Scope**: new-specs | harness-only | none
 **Fixture plan**: <spec>.spec.ts daemon | startDaemon | fileDaemon (<why>) [; …] | none
 **Features**: <name>[, <name>] — each has a docs/features/<name>/spec.md
+**Touches**: <name>[, <name>] — files edited, behaviour unchanged; packs spec and contract only (omit the line when none)
 **Description**: <one-line summary>
 
 ## Overview

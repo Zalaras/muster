@@ -73,7 +73,7 @@ e2e-specs: 0 | daemon-impl: 0 | web-impl: 0 | daemon-tests: 0 | web-tests: 1 | e
 
 ## Knowledge
 
-Per feature in the plan's `**Features**`: `go run ./tools/kb ls --feature <f>` — <N> proposed
+Per feature in the plan's `**Features**` and `**Touches**`: `go run ./tools/kb ls --feature <f>` — <N> proposed
 ADR(s) with `refs: plan:<plan>`, <M> accepted, <K> fact(s). A `completed` plan with a
 `proposed` ADR has not finished Completion step 4.
 

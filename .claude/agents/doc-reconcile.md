@@ -26,7 +26,7 @@ In the pipeline, from `plans/<plan-name>/`:
   that is now true, or names something that stopped being true.
 - `daemon-implementation.md`, `web-implementation.md` — what shipped, including every `doc-delta:`
   line from a fix wave.
-- `plan.md` — for its `**Features**` header only.
+- `plan.md` — for its `**Features**` and `**Touches**` headers only.
 
 Plus `go run ./tools/kb pack --plan <plan-name> --role doc-reconcile` (record its
 `kb: pack N words …` line as `**Pack**:` in your report header),
@@ -39,10 +39,14 @@ a diff or a log — an implementation log says what an agent believed it did.
 Map every changed file to a feature through the `go:` / `web:` / `e2e:` globs in each
 `docs/features/*/spec.md` frontmatter.
 
-**If a changed file maps to a feature outside the plan's `**Features**` header, your verdict is
-`blocked`.** That is not a doc problem you may fix: it means every agent's `kb pack` was missing that
-feature's records for the whole run, and the planning defect needs the developer. Report the file,
-the feature and the header you compared against.
+**If a changed file maps to a feature in neither the plan's `**Features**` nor its `**Touches**`
+header, your verdict is `blocked`.** That is not a doc problem you may fix: it means the gates never
+ran on this tree (a gated run touches the feature at its first wave), so every agent's `kb pack` was
+missing that feature's spec for the whole run, and that needs the developer. Report the file, the
+feature and the headers you compared against. A `**Touches**` feature is in scope: its spec was in
+every pack, and a delta claim against it is yours to verify and promote like any other — note in
+`## For the orchestrator` that the claim changed a touched feature's behaviour, so the orchestrator
+promotes it to `**Features**` (kb:adr/process-touched-features-widen-without-stopping).
 
 **If a changed file maps to no feature at all**, fix the owning feature's globs first — `check-kb`
 hard-fails on uncovered files under `internal/`, `web/src/` and `web/e2e/`, and your later steps read

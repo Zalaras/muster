@@ -180,6 +180,11 @@ hard-rule violations, unimplemented requirements and a broken protocol contract.
   for the plan's features against the logs;
 - a `doc-delta:` line in a log that the plan's `## Doc Delta` does not reflect, tagged
   `[orchestrator]` — the delta is promoted verbatim after you approve.
+- a `**Touches**` feature whose behaviour this plan changed (a `deviation:` or `doc-delta:` line
+  against its spec, or a changed sentence in that spec's territory) still listed under
+  `**Touches**`, as a Minor tagged `[orchestrator]` — "promote to Features". Your pack carries
+  touched features in full; the implementers' did not, so read their changes to a touched
+  feature's files against its decisions with that in mind.
 
 A `deviation:` contradicting an *accepted* ADR is `[orchestrator:user-decision]`, never a Major.
 

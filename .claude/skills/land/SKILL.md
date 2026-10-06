@@ -47,7 +47,7 @@ Check all of these before touching anything. If any fails, stop and say exactly 
    its cwd (`lsof -a -d cwd -c claude -Fn` prints no `n<that path>` line) — end that session
    first; this command runs from the primary checkout, on `main`. A plan from before worktrees
    has no tree: then step 2 and preflight 7 use `git checkout plan/<plan>` here instead.
-7. For each name in the plan's `**Features**`, `go run ./tools/kb ls --feature <f> --status
+7. For each name in the plan's `**Features**` and `**Touches**`, `go run ./tools/kb ls --feature <f> --status
    proposed` lists no record with `refs: plan:<plan>`, and `make -C ../muster-<plan> check-kb`
    exits 0 on the branch. A `proposed` ADR here means orchestrate's Completion step 4 was skipped —
    send it back rather than flipping it yourself. The only files this command ever edits are

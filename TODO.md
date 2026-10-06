@@ -238,14 +238,6 @@ tick a sub-item as it lands, the parent when all have.
     `make web-lint` in its ```` ```checks ```` block. `terminal-fixes-cleanup` authored none, so a
     format error passed every wave gate and was caught only by hand (`bbad9cf`). Add `web-lint`
     to the wave-2 case so no plan can forget it. From `plans/terminal-fixes-cleanup/`.
-  - [ ] **Investigate an any-owner rule for `features-scope.sh`** — today a changed file fails
-    the gate unless *every* feature owning it is in the plan's `**Features**` header, so editing
-    one handler in a shared file (the session handler file was owned by launch, actions, rail
-    and rename until it was split) pulls in every co-owner and grows each role's pack by about
-    11,000 words. Find out
-    whether one owner is enough; `doc-reconcile.md` Step 1 would have to change to match.
-    Background: `plans/new-session-improvement/decisions/features-scope/`,
-    `kb:adr/process-features-scope-answered-by-widening-header`.
 
 - [ ] **Shell terminal follow-ups** — one web plan over the shell pane (`web/src/terminal/`,
   `web/src/style.css`):
