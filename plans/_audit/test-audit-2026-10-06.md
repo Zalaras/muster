@@ -174,3 +174,14 @@ What has to be fixed first — all test-only:
 
 A lower-risk variant: 443 of the 559 tests take under 0.1 s, so marking only the ~116 slower
 ones parallel should keep most of the gain while exposing fewer tests to concurrency.
+
+**After the fixes** (a32323d2..a3067f90): the four items above no longer fail. The real tree's
+`go test ./...` now takes 90 s (from 127 s) with the race-test and stub changes. Re-running
+the parallel overlay inside the full suite twice (63 s wall, server 30 s) still failed:
+`TestWrapperScriptsShellRoundTrip` and `…_UnmanagedSessionProducesZeroRequests` in both runs,
+timing out on freshly written wrapper scripts whose content embeds an `httptest` server's
+random port, so caching cannot help; and `TestHandleTerminal_TakeoverNeverLeavesTwoClients
+AttachedAtOnce` once (tmux's repaint on the new attach not seen within its wait). The class
+is any test that runs a newly written script, or waits on tmux, against a short budget
+while the parallel burst overlaps the other packages. Leaving those few tests serial is the
+simplest route.
