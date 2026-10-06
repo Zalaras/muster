@@ -80,6 +80,10 @@ func Pack(ix *Index, opts PackOptions, w io.Writer) (int, error) {
 		return 0, err
 	}
 	record("rules")
+	if err := writeDesignDocs(&b, ix, opts); err != nil {
+		return 0, err
+	}
+	record("design")
 	writeFeatureSections(&b, ix, opts)
 	record("features")
 	writeDiagrams(&b, ix, opts)
@@ -148,6 +152,62 @@ func writeRules(b *strings.Builder, ix *Index, opts PackOptions) error {
 // contracts were 5,800 of a three-feature pack's 7,300 feature words (audit 2026-09-25).
 var contractlessRoles = []string{"review-browser", "review-maintainability"}
 
+// factlessRoles read no fact records: the web roles take wire shapes from the contract slice,
+// the two non-correctness reviewers never code against the wire, and doc-reconcile verifies
+// claims against source. Facts were 7,400 of a three-feature pack (kb:adr/knowledge-pack-sections-scoped-by-role).
+var factlessRoles = []string{"web-impl", "web-tests", "review-browser", "review-maintainability", "doc-reconcile"}
+
+// decisionlessRoles read no accepted decisions: the unit-test roles test what the plan and
+// contract state, the browser reviewer measures, and doc-reconcile edits specs the decisions
+// already shaped. e2e-specs keeps them deliberately — a safety net for behaviour it asserts.
+// Accepted decisions were 12,700 of a three-feature pack (kb:adr/knowledge-pack-sections-scoped-by-role).
+var decisionlessRoles = []string{"daemon-tests", "web-tests", "review-browser", "doc-reconcile"}
+
+// designDoc is one docs/design file a role packs, whole or by its level-two sections.
+type designDoc struct {
+	path     string
+	sections []string // heading prefixes to keep; nil keeps the whole file
+}
+
+// designDocsByRole names the design documents each role packs. They bind the web roles in
+// full (web-impl) or in their correctness sections (review-browser §6 honesty, §7 terminal);
+// every other role reads them by path when it needs to.
+var designDocsByRole = map[string][]designDoc{
+	"web-impl": {
+		{path: "docs/design/design-system.md"},
+		{path: "docs/design/ux-flows.md"},
+	},
+	"review-browser": {
+		{path: "docs/design/design-system.md", sections: []string{"6.", "7."}},
+		{path: "docs/design/ux-flows.md"},
+	},
+}
+
+// writeDesignDocs writes the role's design documents, each sliced to the sections it reads.
+// The heading is written only when the role packs one.
+func writeDesignDocs(b *strings.Builder, ix *Index, opts PackOptions) error {
+	var out []string
+	for _, d := range designDocsByRole[opts.Role] {
+		data, err := os.ReadFile(filepath.Join(ix.Root, filepath.FromSlash(d.path)))
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("reading %s: %w", d.path, err)
+		}
+		text := string(data)
+		if d.sections != nil {
+			text = sectionsOf(text, d.sections)
+		}
+		out = append(out, fmt.Sprintf("\n<!-- %s -->\n%s\n", d.path, strings.TrimRight(text, "\n")))
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	b.WriteString("\n# Design\n" + strings.Join(out, ""))
+	return nil
+}
+
 // writeFeatureSections writes each feature's spec body followed by its contract slice.
 func writeFeatureSections(b *strings.Builder, ix *Index, opts PackOptions) {
 	for _, name := range opts.Features {
@@ -192,6 +252,10 @@ func writeDiagrams(b *strings.Builder, ix *Index, opts PackOptions) {
 // first, each trimmed to its Decision and Consequences paragraphs.
 func writeDecisions(b *strings.Builder, ix *Index, opts PackOptions) {
 	b.WriteString("\n# Decisions\n")
+	if contains(decisionlessRoles, opts.Role) {
+		fmt.Fprintf(b, "\n_decisions: `go run ./tools/kb ls --type decision --status accepted --feature <f>` — not packed for this role_\n")
+		return
+	}
 	var decisions []*Record
 	for _, r := range ix.RecordsOfType(TypeDecision) {
 		if r.Status == "accepted" && intersects(r.Features, opts.Features) {
@@ -226,6 +290,10 @@ func writeProposedDecisions(b *strings.Builder, ix *Index, opts PackOptions) {
 // writeFacts writes the active facts naming one of the pack's features.
 func writeFacts(b *strings.Builder, ix *Index, opts PackOptions) {
 	b.WriteString("\n# Facts\n")
+	if contains(factlessRoles, opts.Role) {
+		fmt.Fprintf(b, "\n_facts: `go run ./tools/kb ls --type fact --feature <f>` — not packed for this role_\n")
+		return
+	}
 	for _, r := range ix.RecordsOfType(TypeFact) {
 		if r.Status == "active" && intersects(r.Features, opts.Features) {
 			writeRecord(b, ix, r)
@@ -288,9 +356,9 @@ func RenderRecord(ix *Index, r *Record) string {
 	return b.String()
 }
 
-// writeDecisionForPack renders an accepted decision with only its Decision and
-// Consequences paragraphs: a pack tells an agent what binds it, and the context and the
-// options it weighed are one kb show away. A body without those bold leads renders whole.
+// writeDecisionForPack renders an accepted decision with only its Decision paragraph: that
+// is the text that binds an agent, and the context, the options it weighed and the
+// consequences are one kb show away. A body without that bold lead renders whole.
 func writeDecisionForPack(b *strings.Builder, ix *Index, r *Record) {
 	full := RenderRecord(ix, r)
 	head, body, ok := strings.Cut(full, "\n\n")
@@ -298,26 +366,25 @@ func writeDecisionForPack(b *strings.Builder, ix *Index, r *Record) {
 		b.WriteString("\n" + full)
 		return
 	}
-	var keep []string
 	for _, para := range strings.Split(strings.TrimSpace(body), "\n\n") {
-		if strings.HasPrefix(para, "**Decision.**") || strings.HasPrefix(para, "**Consequences.**") {
-			keep = append(keep, para)
+		if strings.HasPrefix(para, "**Decision.**") {
+			fmt.Fprintf(b, "\n%s\n\n%s\n_context, options and consequences: kb show %s_\n", head, para, r.ID)
+			return
 		}
 	}
-	if len(keep) == 0 {
-		b.WriteString("\n" + full)
-		return
-	}
-	fmt.Fprintf(b, "\n%s\n\n%s\n_context and options: kb show %s_\n", head, strings.Join(keep, "\n\n"), r.ID)
+	b.WriteString("\n" + full)
 }
 
 // conventionsByRole names the docs/conventions.md sections (by heading prefix) each role
-// reads in its pack; a role absent from the map reads the whole file.
+// reads in its pack — the full set, so no agent file sends its reader to the file for a
+// section the pack left out. A role absent from the map reads the whole file.
 var conventionsByRole = map[string][]string{
-	"daemon-impl":  {"Stack", "Go", "Composition roots", "Comments", "Knowledge records"},
-	"web-impl":     {"Stack", "TypeScript", "Composition roots", "Comments", "Knowledge records"},
-	"daemon-tests": {"Testing", "Comments", "Knowledge records"},
-	"web-tests":    {"Testing", "Comments", "Knowledge records"},
+	// The impl and unit-test roles answer to Design (reuse before add, design: lines); the
+	// daemon tester matches the Go test style §Stack and §Go settle.
+	"daemon-impl":  {"Stack", "Go", "Composition roots", "Design", "Comments", "Knowledge records"},
+	"web-impl":     {"Stack", "TypeScript", "Composition roots", "Design", "Comments", "Knowledge records"},
+	"daemon-tests": {"Stack", "Go", "Design", "Testing", "Comments", "Knowledge records"},
+	"web-tests":    {"Design", "Testing", "Comments", "Knowledge records"},
 	"e2e-specs":    {"Testing", "Comments", "Knowledge records"},
 	// The browser reviewer measures the running app; the maintainability reviewer judges shape and
 	// never reads the plan, so its rules are the code sections plus Design.
@@ -334,9 +401,15 @@ func conventionsForRole(conv, role string) string {
 	if !ok {
 		return conv
 	}
+	return sectionsOf(conv, wanted)
+}
+
+// sectionsOf keeps a document's preamble and the level-two sections whose title starts with
+// one of the wanted prefixes.
+func sectionsOf(doc string, wanted []string) string {
 	var out []string
 	keep := true // the preamble before the first heading
-	for _, line := range strings.Split(conv, "\n") {
+	for _, line := range strings.Split(doc, "\n") {
 		if strings.HasPrefix(line, "## ") {
 			title := strings.TrimSpace(strings.TrimPrefix(line, "## "))
 			keep = false

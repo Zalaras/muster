@@ -47,7 +47,9 @@ fact's verified range sits inside the observed Claude Code range, a superseded d
 has a successor, and a generated file is neither stale nor hand-edited.
 
 **Queries.** `pack` assembles the records for a plan, role and feature set into one context
-bundle and reports its word count; `for` and `why` list the features and records covering a
+bundle and reports its word count, carrying only the sections the role acts on — decisions,
+facts, contracts, design documents and conventions sections are scoped per role, and a dropped
+section leaves a one-line pointer (`kb:adr/knowledge-pack-sections-scoped-by-role`); `for` and `why` list the features and records covering a
 repo path; `show`, `cite`, `find` and `ls` look records up by id, word, type, feature, status,
 role or missing guard.
 

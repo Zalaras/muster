@@ -102,7 +102,7 @@ func TestPack_BreakdownRowsAndTheMarkerSumToTheReportedTotal(t *testing.T) {
 			labels = append(labels, label)
 			sum += words
 		}
-		assert.Equal(t, []string{"rules", "features", "diagrams", "decisions", "proposed", "facts", "lessons", "runbooks"}, labels,
+		assert.Equal(t, []string{"rules", "design", "features", "diagrams", "decisions", "proposed", "facts", "lessons", "runbooks"}, labels,
 			"one row per section writer, in write order")
 		marker, _, ok := strings.Cut(out, "\n")
 		require.True(t, ok, out)
@@ -182,17 +182,72 @@ func TestPack_RejectsAnUnknownRoleOrFeature(t *testing.T) {
 	require.EqualError(t, err, `feature "nope" has no docs/features/nope/spec.md`)
 }
 
-func TestPack_RendersAcceptedDecisionsAsDecisionAndConsequencesOnly(t *testing.T) {
+func TestPack_RendersAcceptedDecisionsAsTheDecisionParagraphOnly(t *testing.T) {
 	root, _ := packFixture(t)
 	mustWriteFile(t, root, "docs/adr/four-paragraphs.md", "---\nid: four-paragraphs\ntype: decision\nstatus: accepted\ndate: 2026-08-31\nsummary: s\nfeatures: [sessions]\n---\n**Context.** The situation.\n\n**Options.** (A) one. (B) two.\n\n**Decision.** B.\n\n**Consequences.** It follows.\n")
 	ix, _, err := Load(root)
 	require.NoError(t, err)
 	out, _ := runPack(t, ix, "daemon-impl", "sessions")
 	assert.Contains(t, out, "## decision four-paragraphs — s")
-	assert.Contains(t, out, "**Decision.** B.\n\n**Consequences.** It follows.\n_context and options: kb show four-paragraphs_")
+	assert.Contains(t, out, "**Decision.** B.\n_context, options and consequences: kb show four-paragraphs_")
 	assert.NotContains(t, out, "**Context.** The situation.")
 	assert.NotContains(t, out, "**Options.**")
-	assert.Contains(t, out, "## decision pin-order", "a body without the bold leads still renders whole")
+	assert.NotContains(t, out, "**Consequences.** It follows.", "the decision binds; its consequences are one kb show away")
+	assert.Contains(t, out, "## decision pin-order", "a body without the bold lead still renders whole")
+}
+
+func TestPack_ScopesDecisionsAndFactsByRole(t *testing.T) {
+	_, ix := packFixture(t)
+	for _, role := range []string{"daemon-impl", "e2e-specs", "review", "planner", "orchestrator"} {
+		out, _ := runPack(t, ix, role, "sessions")
+		assert.Contains(t, out, "## decision earlier", role)
+		assert.Contains(t, out, "## fact statusline-cadence", role)
+	}
+	for _, role := range decisionlessRoles {
+		out, _ := runPack(t, ix, role, "sessions")
+		assert.Contains(t, out, "\n# Decisions\n", role)
+		assert.NotContains(t, out, "## decision earlier", role)
+		assert.Contains(t, out, "_decisions: `go run ./tools/kb ls --type decision --status accepted --feature <f>` — not packed for this role_", role)
+	}
+	for _, role := range factlessRoles {
+		out, _ := runPack(t, ix, role, "sessions")
+		assert.Contains(t, out, "\n# Facts\n", role)
+		assert.NotContains(t, out, "## fact statusline-cadence", role)
+		assert.Contains(t, out, "_facts: `go run ./tools/kb ls --type fact --feature <f>` — not packed for this role_", role)
+	}
+	assert.NotContains(t, decisionlessRoles, "e2e-specs", "e2e-specs keeps the decisions as a safety net for the behaviour it asserts")
+	out, _ := runPack(t, ix, "web-impl", "sessions")
+	assert.Contains(t, out, "## decision earlier", "web-impl keeps decisions and drops only facts")
+}
+
+func TestPack_CarriesTheDesignDocsToTheWebRolesOnly(t *testing.T) {
+	root, _ := packFixture(t)
+	mustWriteFile(t, root, "docs/design/design-system.md", "# Design system\n\nPreamble.\n\n## 1. Tokens\n\nToken rule.\n\n## 6. Honesty rules\n\nHonesty rule.\n\n## 7. Terminal rules\n\nTerminal rule.\n\n## 8. Deferred\n\nDeferred note.\n")
+	mustWriteFile(t, root, "docs/design/ux-flows.md", "# UX flows\n\n## 1. New-session flow\n\nFlow rule.\n")
+	ix, _, err := Load(root)
+	require.NoError(t, err)
+
+	web, _ := runPack(t, ix, "web-impl", "sessions")
+	assert.Contains(t, web, "\n# Design\n")
+	assert.Contains(t, web, "<!-- docs/design/design-system.md -->")
+	for _, s := range []string{"Token rule.", "Honesty rule.", "Terminal rule.", "Deferred note.", "Flow rule."} {
+		assert.Contains(t, web, s, "web-impl packs both design documents whole")
+	}
+	assert.Less(t, strings.Index(web, "\n# Rules\n"), strings.Index(web, "\n# Design\n"))
+	assert.Less(t, strings.Index(web, "\n# Design\n"), strings.Index(web, "\n# Feature: sessions\n"))
+
+	browser, _ := runPack(t, ix, "review-browser", "sessions")
+	assert.Contains(t, browser, "Honesty rule.")
+	assert.Contains(t, browser, "Terminal rule.")
+	assert.Contains(t, browser, "Flow rule.")
+	assert.NotContains(t, browser, "Token rule.", "the browser reviewer reads §6 and §7 only")
+	assert.NotContains(t, browser, "Deferred note.")
+
+	for _, role := range []string{"daemon-impl", "web-tests", "review", "review-maintainability"} {
+		out, _ := runPack(t, ix, role, "sessions")
+		assert.NotContains(t, out, "\n# Design\n", role)
+		assert.NotContains(t, out, "Honesty rule.", role)
+	}
 }
 
 func TestPack_IncludesOnlyTheConventionsSectionsForTheRole(t *testing.T) {
@@ -203,12 +258,19 @@ func TestPack_IncludesOnlyTheConventionsSectionsForTheRole(t *testing.T) {
 	daemon, _ := runPack(t, ix, "daemon-impl", "sessions")
 	assert.Contains(t, daemon, "Preamble.")
 	assert.Contains(t, daemon, "Go rule.")
+	assert.Contains(t, daemon, "Design rule.", "the design: lines an implementer writes answer to § Design")
 	assert.Contains(t, daemon, "Comment rule.")
 	assert.NotContains(t, daemon, "TS rule.")
 	assert.NotContains(t, daemon, "Test rule.")
 	tests, _ := runPack(t, ix, "web-tests", "sessions")
 	assert.Contains(t, tests, "Test rule.")
+	assert.Contains(t, tests, "Design rule.", "reuse before add binds test helpers too")
 	assert.NotContains(t, tests, "Go rule.")
+	dtests, _ := runPack(t, ix, "daemon-tests", "sessions")
+	assert.Contains(t, dtests, "Test rule.")
+	assert.Contains(t, dtests, "Go rule.", "the Go test style is settled in § Go, so the pack carries it")
+	assert.Contains(t, dtests, "Design rule.")
+	assert.NotContains(t, dtests, "TS rule.")
 	planner, _ := runPack(t, ix, "planner", "sessions")
 	for _, s := range []string{"Go rule.", "TS rule.", "Design rule.", "Test rule.", "Comment rule."} {
 		assert.Contains(t, planner, s)
