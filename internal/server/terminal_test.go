@@ -426,10 +426,8 @@ func TestHandleTerminal_SupersedesMidTyping(t *testing.T) {
 	c2 := dialTerminalOK(t, httpSrv, sess.ID)
 	defer func() { _ = c2.CloseNow() }()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	_, _, readErr := c1.Read(ctx)
-	require.Error(t, readErr)
+	// The tail of FIRST_MARKER's echo can be queued on c1 ahead of the close, so drain to the error.
+	readErr := readUntilError(t, c1, 3*time.Second)
 	assert.Equal(t, websocket.StatusCode(4000), websocket.CloseStatus(readErr))
 
 	require.NoError(t, c2.Write(context.Background(), websocket.MessageBinary, []byte("echo SECOND_MARKER\n")))
