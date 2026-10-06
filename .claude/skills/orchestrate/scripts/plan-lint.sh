@@ -114,9 +114,13 @@ while IFS= read -r l; do
   fi
 done < <(checks_block)
 
-# 8. Every **Features** name is a registered feature (a spec.md under the docs features tree) — `kb pack --plan` keys on it.
-for f in $(grep -E '^\*\*Features\*\*:' "$P" | head -1 | sed -E 's/^\*\*Features\*\*:[[:space:]]*//; s/,/ /g'); do
-  [[ -f "docs/features/$f/spec.md" ]] || note "**Features** names '$f' but docs/features/$f/spec.md does not exist"
+# 8. Every **Features** and **Touches** name is a registered feature (a spec.md under the docs features
+#    tree) — `kb pack --plan` keys on both.
+scope_names() { grep -E "^\*\*$1\*\*:" "$P" | head -1 | sed -E "s/^\*\*$1\*\*:[[:space:]]*//; s/,/ /g"; }
+for h in Features Touches; do
+  for f in $(scope_names "$h"); do
+    [[ -f "docs/features/$f/spec.md" ]] || note "**$h** names '$f' but docs/features/$f/spec.md does not exist"
+  done
 done
 
 # 9. Every mermaid fence opens with an allowed diagram keyword — the rule check-kb applies to records,
@@ -146,7 +150,8 @@ fi
 #     and naming one would pull that feature into every plan that styles anything.
 #     A spec named in **Fixture plan** or a criterion must be owned too (only owned — a criterion may cite
 #     another feature's spec as a regression): resume-and-dangerously-allow named its new specs nowhere else.
-header="$(grep -E '^\*\*Features\*\*:' "$P" | head -1 | sed -E 's/^\*\*Features\*\*:[[:space:]]*//; s/,/ /g')"
+#     A **Touches** feature counts: the plan may edit its files (kb:adr/process-touched-features-widen-without-stopping).
+header="$(scope_names Features) $(scope_names Touches)"
 paths="$(section 'Affected Files' | grep -oE '`(cmd|internal|web/src|web/e2e)/[^`[:space:]]+\.[a-z]+(:[0-9]+)?`' \
   | tr -d '`' | sed -E 's/:[0-9]+$//' | grep -vE '(/CLAUDE\.md|^web/src/protocol\.ts|^web/src/style\.css)$' | sort -u)"
 named="$({ grep -E '^\*\*Fixture plan\*\*:' "$P"; section 'Acceptance Criteria'; } | grep -oE '[a-z0-9-]+\.spec\.ts' | sed 's|^|web/e2e/|' | sort -u)"
@@ -162,7 +167,7 @@ if [[ -n "$paths$named" ]]; then
         continue
       fi
       for o in $owners; do
-        case " $header " in *" $o "*) ;; *) note "$f → feature '$o', not in **Features** — widen the header" ;; esac
+        case " $header " in *" $o "*) ;; *) note "$f → feature '$o', in neither **Features** nor **Touches** — add it to one (Touches when its behaviour is unchanged)" ;; esac
       done
     done <<<"$paths"
     # A path named anywhere else in the plan (Doc upkeep, Implementation Notes) is judged by the
@@ -172,7 +177,7 @@ if [[ -n "$paths$named" ]]; then
     while IFS= read -r f; do
       [[ -n "$f" && -e "$f" ]] || continue
       for o in $("$kb" for "$f" 2>/dev/null | awk '/^features:/{on=1;next} /^[a-z]+:/{on=0} on && NF{print $1}'); do
-        case " $header " in *" $o "*) ;; *) note "$f (named outside Affected Files) → feature '$o', not in **Features** — widen the header" ;; esac
+        case " $header " in *" $o "*) ;; *) note "$f (named outside Affected Files) → feature '$o', in neither **Features** nor **Touches** — add it to one" ;; esac
       done
     done <<<"$others"
     while IFS= read -r f; do
@@ -216,6 +221,14 @@ PY
 section 'Affected Files' | grep -E '`[A-Za-z_][A-Za-z0-9_.]*\(' | while IFS= read -r l; do
   echo "NOTE  Affected Files names a signature — the shape is the implementer's: ${l:0:100}"
 done || true
+
+# 15. Warn, never fail: every **Features** name packs its full record set into every agent, about
+#     11,000 words each on a shared file's co-owner (groups: fourteen features, 60k-word packs). A
+#     feature whose files the plan edits without changing its behaviour belongs under **Touches**.
+nfeat=$(scope_names Features | wc -w | tr -d ' ')
+if (( nfeat > 5 )); then
+  echo "NOTE  **Features** names $nfeat features — a feature whose behaviour this plan leaves alone belongs under **Touches** (spec and contract only)"
+fi
 
 if (( FAILS )); then echo "plan-lint: $FAILS failure(s) in $P"; exit 1; fi
 echo "plan-lint: $P clean"

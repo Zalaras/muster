@@ -151,11 +151,17 @@ def has_agent_tagged_issue(text):
 
 def scope_warnings(plan_dir, parts):
     """WARN lines for agent-tagged issues naming a source path owned by a feature outside the plan's
-    **Features** — the fix would trip features-scope.sh at its wave gate, and widening the header is
-    the developer's call, so it is settled before the wave (settings-update-failures retro: a
-    maintainability Minor's required fix reached a surfaces-owned test and stopped wave 2)."""
-    m = re.search(r"^\*\*Features\*\*:\s*(.+)$", (plan_dir / "plan.md").read_text(), re.M)
-    header = set(re.split(r"[,\s]+", m.group(1).strip())) if m else set()
+    **Features** and **Touches** — the wave gate's features-scope.sh --touch would widen **Touches**
+    itself, but a fix that changes that feature's *behaviour* needs it under **Features** (the
+    orchestrator's promotion rule), so the orchestrator decides before the wave rather than after
+    (settings-update-failures retro: a maintainability Minor's required fix reached a
+    surfaces-owned test and stopped wave 2)."""
+    text = (plan_dir / "plan.md").read_text()
+    header = set()
+    for h in ("Features", "Touches"):
+        m = re.search(rf"^\*\*{h}\*\*:\s*(.+)$", text, re.M)
+        if m:
+            header |= set(re.split(r"[,\s]+", m.group(1).strip()))
     tracked = subprocess.run(["git", "ls-files", "cmd", "internal", "web/src", "web/e2e"],
                              capture_output=True, text=True).stdout.split()
     def resolve(tok):   # a bare `name.go` counts when exactly one tracked file has that name
@@ -192,8 +198,8 @@ def scope_warnings(plan_dir, parts):
             owners[path] = [l.split()[0] for l in block.split("records:", 1)[0].splitlines() if l.strip()]
         for owner in owners[path]:
             if owner not in header:
-                out.append(f"WARN scope: {key} {sev} {n} names {path} (feature {owner}, not in **Features**) "
-                           "— settle it with the developer before the fix wave")
+                out.append(f"WARN scope: {key} {sev} {n} names {path} (feature {owner}, in neither **Features** nor **Touches**) "
+                           "— touch or promote it before the fix wave")
     return sorted(set(out))
 
 def merge_review(plan_dir, plan, cycle, gates_failed):
