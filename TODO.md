@@ -177,6 +177,17 @@ and the second is the one to re-measure if a Claude Code bump touches worktrees.
   (`docs/history/design/test-strategy.md`, 2026-09-26). The gate lock now keeps a second suite
   out; these four are the ones to look at if the lock ever has to go.
 
+### Test suite time (filed 2026-10-06)
+
+- [ ] **The E2E sweep takes about six minutes and is most of the gate's time** — 715 tests ran
+  in 5.9 min at 4 workers, against 2.1 min for Go and 8 s for Vitest. The time is spread
+  across the whole suite, not a few slow tests: median 1.4 s per test, the slowest 100 are only
+  39% of E2E time, and only 8 take 10 s or more. Largest files: `card-location.spec.ts` (88
+  tests, 211 s) and `update.spec.ts` (27 tests, 195 s). The sweep should take a fraction of
+  that without dropping coverage. `workers: 4` is a measured load policy, not the lever
+  (`docs/conventions.md` § Testing). Measurements: `plans/_audit/test-audit-2026-10-06.md`
+  § "Where the time goes".
+
 - [ ] **Richer terminal functionality** — a second pass over the shell. The first pass
   (`plans/plain-terminal-session/spec.md`, #21 — cross-reference; the owning entry is in the history file)
   deliberately ships the smallest useful shell: one per Claude session, tethered to its
