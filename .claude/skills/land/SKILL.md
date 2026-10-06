@@ -45,16 +45,19 @@ Check all of these before touching anything. If any fails, stop and say exactly 
 6. The plan's worktree is there and idle: `make worktrees` lists `../muster-<plan>` on
    `plan/<plan>` (kb:adr/process-pipeline-runs-in-sibling-worktree), and no `claude` has it as
    its cwd (`lsof -a -d cwd -c claude -Fn` prints no `n<that path>` line) — end that session
-   first; this command runs from the primary checkout, on `main`. A plan from before worktrees
-   has no tree: then step 2 and preflight 7 use `git checkout plan/<plan>` here instead.
+   first; this command runs from the primary checkout, on `main`. A plan from before worktrees,
+   or a `/fix` plan (a `**Shape**` header) that `make worktrees` does not list, has no tree: then
+   step 2 and preflight 7 use `git checkout plan/<plan>` here instead, which needs preflight 3
+   strictly clean, and step 6 skips the worktree removal.
 7. For each name in the plan's `**Features**` and `**Touches**`, `go run ./tools/kb ls --feature <f> --status
    proposed` lists no record with `refs: plan:<plan>`, and `make -C ../muster-<plan> check-kb`
-   exits 0 on the branch. A `proposed` ADR here means orchestrate's Completion step 4 was skipped —
-   send it back rather than flipping it yourself. The only files this command ever edits are
-   `TODO.md` and `proposed-backlog.md` files, in step 2, on the developer's answers.
+   (or `make check-kb` on the checked-out branch when there is no tree) exits 0. A `proposed` ADR
+   here means orchestrate's Completion step 4 or `/fix` step 8 was skipped — send it back rather
+   than flipping it yourself. The only files this command ever edits are `TODO.md` and
+   `proposed-backlog.md` files, in step 2, on the developer's answers.
 
-A plan that never went through `/orchestrate` (no state file, no review) is not landable by this
-command. Say so and let the developer commit it themselves.
+A plan that never went through `/orchestrate` or `/fix` (no state file, no review) is not landable
+by this command. Say so and let the developer commit it themselves.
 
 ## 2. Decide the proposed follow-ups
 
@@ -82,7 +85,9 @@ explain one, explain it plainly and wait.
 
 **Apply**, on `plan/<plan>` in its worktree — edit `../muster-<plan>/TODO.md` and the
 `proposed-backlog.md` files there and commit with `git -C ../muster-<plan>` (the branch is
-checked out in that tree, so a `git checkout plan/<plan>` here is refused):
+checked out in that tree, so a `git checkout plan/<plan>` here is refused). With no tree:
+`git checkout plan/<plan>` here, edit, commit, `git checkout main`, and the two checks below run
+from this checkout:
 
 - File only what the developer chose. Each yes → `TODO.md`, in the section they name, else at the end of **Pre-v1**, under a
   `Filed <date> by the developer from the plans' proposed-backlog.md files` lead line: `- [ ] **Title** — body … From \`plans/<plan>/\`.` An
@@ -106,7 +111,10 @@ type(scope): imperative summary (closes #N, closes #M)
 - **Type** decides the release, so choose it deliberately: `feat` (minor) for new behaviour;
   `fix`, `perf` or `refactor` (patch) when that is what shipped; the remaining types
   (`docs`/`test`/`chore`/`ci`/`build`/`style`/`revert`) release nothing. Read the plan's
-  description and the impl logs rather than guessing from the plan name.
+  description and the impl logs rather than guessing from the plan name. A `**Shape**` header
+  names the type outright; `fix`/`perf`/`refactor` still need a staged file that changes the
+  shipped artifact (`.githooks/commit-msg` refuses otherwise) — a branch whose diff is all tests,
+  tooling or docs lands as the hook allows, and you say so.
 - **`!` needs an explicit go-ahead from the developer** — the commit-msg hook rejects it unless a
   human sets `MUSTER_BREAKING=1`, and this skill never sets it on its own. On 0.x it is safe
   when sanctioned: `release.yml` runs `svu next --v0`, so a breaking marker bumps minor, never
@@ -126,8 +134,8 @@ type(scope): imperative summary (closes #N, closes #M)
 Read `closes_issues` from `plans/<plan>/orchestration-state.json` — orchestrate writes it at
 completion for every issue the plan **fully** resolves, and `[]` when it closes none. If the key is
 absent (an older plan, or a run that skipped the step),
-grep the plan's ticked items in `docs/history/todo-done.md` for issue links and ask the developer to
-confirm.
+grep the plan's ticked items in `docs/history/todo-done.md` — and, for a `/fix` plan, its
+`## Symptom` — for issue links and ask the developer to confirm.
 
 Append one reference per issue, lowercase: `... (closes #2, closes #4)`.
 
@@ -199,9 +207,10 @@ being unlanded. Don't delete on that alone; establish all three:
 
 If any of the three is unclear, keep the branch and ask. A branch costs nothing; lost work does.
 
-Then, in order: `git worktree remove ../muster-<plan>` without `--force` — a refusal means the
-tree is dirty or still in use, so stop and ask — and only then `git branch -D plan/<plan>`, which git refuses
-while the branch is checked out in a tree. `git worktree remove` is deliberately not in
+Then, in order: `git worktree remove ../muster-<plan>` without `--force` when `make worktrees`
+lists the tree — a refusal means it is dirty or still in use, so stop and ask — and only then
+`git branch -D plan/<plan>`, which git refuses while the branch is checked out in a tree or here
+(`git branch --show-current` must print `main`). `git worktree remove` is deliberately not in
 `.claude/settings.json`'s allowlist: like `git push`, the point of no return prompts on its own.
 
 ## 7. Report
