@@ -99,3 +99,41 @@ About 5% of the audited tests were removable, and finding gaps outnumbered findi
 tests. More to the point, both packages' whole suites run in about a second: deleting
 weak unit tests does not shorten the run. Test time is the separate question of which
 tests are slow, answered by measuring durations, not by mutation.
+
+## Where the time goes (measured 2026-10-06, after 38b382d0)
+
+One run of each suite, nothing else on the machine (the Go run under the shared gate
+lock, E2E under the exclusive one).
+
+| Suite | Tests | Wall time | Shape |
+|---|---|---|---|
+| Playwright E2E | 715 | 5.9 min (4 workers) | flat: median 1.4 s, top 100 tests = 39% of test time |
+| Go `./...` | 1,645 | 127 s | wall = slowest package; a few tests dominate |
+| Vitest | 2,404 | 8 s | no test over 0.1 s |
+
+**E2E is about 70% of the total, and its time is breadth, not outliers.** Only 8 tests
+take 10 s or more (the worst is 21 s, all but one in `update.spec.ts`); the rest is ~715 ×
+per-test setup (a scratch daemon, a tmux server, a stub shell). `card-location.spec.ts`
+(88 tests, 211 s) and `update.spec.ts` (27 tests, 195 s) are the largest files. `workers: 4`
+is a measured load policy (`docs/conventions.md` §Testing), not a free knob. One flake in
+the run: `update.spec.ts:997` failed on `clock.pauseAt: Cannot fast-forward to the past`
+and passed three times alone.
+
+**Go wall time is `internal/server` (121 s), then `cmd/musterd` (84 s)**: packages run in
+parallel, so speeding up any other package does not shorten the run. `internal/server`
+runs its 559 tests serially (one of 59 test files uses `t.Parallel`); 443 take under
+0.1 s and five take 53 of its 106 s of test time:
+
+- `TestUpdateManager_StopNeverRacesAnApplyThatHasRegistered` — 30 s by design (200 trials
+  × a 150 ms stop timeout).
+- `TestWSHub_CloseAll…` ×2 and `TestShellRegistry_EnsureBoundedByShellTmuxTimeout…` —
+  5 s each, waiting out a production timeout.
+- `TestHandleCreateSession_OrphanedTmuxSessionDoesNotBlockLaunch` — 7 s.
+
+`cmd/musterd`: the six `TestOnExit_*` tests spawn a real daemon and take ~7.5 s each
+(~48 s). `TestCheckClaudeCode_MapsEachStatus…` took 24 s in the full run but 1.9 s alone —
+contention from the first exec of freshly written stub scripts
+(kb:lesson/first-exec-of-fresh-script-costs-270ms). The content-keyed shared stub that
+lesson led to is used in `internal/server` and the E2E helpers but not in `cmd/musterd`,
+`internal/claudecode` or `internal/selfupdate`. The two "descendant holding stdout" tests
+(`internal/claudecode` 10 s, `internal/tmux` 8 s) are also exec-bound.
