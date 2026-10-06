@@ -122,9 +122,9 @@ so a test file your change broke fails your own gate: repair it if the break is 
 `## Handoff`, and say plainly in your final message that the type check fails on those test files
 only, and why. Any other failure is yours to fix before you finish.
 
-**Run the plan's own E2E specs before you hand off.** They exist — e2e-specs authored them in Step 1
-against the same Testable UI Elements table you built to, and `plans/<plan-name>/test-specs.md`'s
-Tests table names the files. After your build gate: `make web-build build` from the project root
+**Run the plan's own E2E specs before you hand off.** They exist when `plans/<plan-name>/test-specs.md`
+does — e2e-specs authored them against the same Testable UI Elements table you built to, and its
+Tests table names the files; without that file write `**E2E smoke**: no spec authored`. After your build gate: `make web-build build` from the project root
 (that order — the binary embeds the dashboard), then `npx playwright test <those files>` from
 `web/`, and paste the summary line under `## Handoff`. A failure caused by your code is yours to fix
 now; a locator defect in the spec (wrong role, wrong name, an element the table never promised) goes

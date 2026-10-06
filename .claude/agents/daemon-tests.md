@@ -98,6 +98,16 @@ doesn't behave as the plan's requirements or protocol contract specify, or viola
 hard rule (e.g. blocks in the hook handler, keys identity on `session_id`) — which you document with
 the failing output (`worker-rules.md` § Evidence) and stop.
 
+## Red-first Mode
+
+The spawn prompt says red-first (`/fix`): no implementation log exists and nothing is handed off.
+Write only the test the plan's `## Proof` names, asserting what `## Requirements` promises; it must
+compile and lint against the current tree and fail on an assertion — a compile error is your
+defect, not red. Run it, paste the red output under `## Test Run Output`, write "None" under
+Handoff Received, commit `test(<plan-name>): <summary>` and finish `**Verdict**: authored`. Red is
+the plan's diagnosis holding, never `implementation-bug`; a test that passes today means the claim
+did not hold — say so and finish `blocked`. Re-spawned to re-run, the ordinary verdicts apply.
+
 ## Output
 
 Write to `plans/<plan-name>/daemon-tests.md`:

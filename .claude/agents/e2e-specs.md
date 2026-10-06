@@ -152,6 +152,12 @@ asserting new behaviour stay collection-only. Mark each Tests-table row `ran-gre
 `collection-only` and paste the filtered run's summary line
 (kb:lesson/authored-tests-never-run-before-validate).
 
+**Red-first (`/fix`).** When the prompt says red-first, the plan's `## Proof` spec pins a defect
+that exists now: after `make web-build build`, run it live; it must fail on the assertion the plan
+names — that red is the diagnosis holding, not a locator defect, so do not repair it. Mark the row
+`ran-red-at-authoring` with the pasted failure and finish `authored`. If it passes today the claim
+did not hold: say so and finish `blocked`.
+
 **Rewriting an existing spec file is a coverage event, not a blank page.** Inventory every test the
 rewrite deletes under `## Deleted Tests`. A deleted test covering behaviour *outside* the plan's
 delta — above all one a prior review demanded — is adapted to the new UI, never dropped; if you

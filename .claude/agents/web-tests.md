@@ -77,6 +77,16 @@ for absent data, opens its own WebSocket instead of subscribing to the client mo
 document and stop. When you escalate, paste the failing output and say how you distinguished a
 real defect from a test artifact (`worker-rules.md` § Evidence).
 
+## Red-first Mode
+
+The spawn prompt says red-first (`/fix`): no implementation log exists and nothing is handed off.
+Write only the test the plan's `## Proof` names, asserting what `## Requirements` promises; it must
+type-check and lint against the current tree and fail on an assertion — a compile error is your
+defect, not red. Run it, paste the red `npm test` output under `## Test Run Output`, write "None"
+under Handoff Received, commit `test(<plan-name>): <summary>` and finish `**Verdict**: authored`.
+Red is the plan's diagnosis holding, never `implementation-bug`; a test that passes today means the
+claim did not hold — say so and finish `blocked`. Re-spawned to re-run, the ordinary verdicts apply.
+
 ## Output
 
 Write to `plans/<plan-name>/web-tests.md`:
