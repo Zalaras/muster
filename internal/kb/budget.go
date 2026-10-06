@@ -18,8 +18,9 @@ const (
 	// RuleFileLines bounds a generated .claude/rules file; gen truncates past it and
 	// check fails on the source side.
 	RuleFileLines = 60
-	// PackWords is the pack budget; pack warns past it and never fails. Three features'
-	// specs, contracts and decisions measured 15,200 words before any role section (audit
-	// 2026-09-25), so the budget sits above that floor and warns on growth, not on every pack.
-	PackWords = 20000
+	// PackWords is the pack budget; pack warns past it and never fails. With the sections
+	// scoped by role (kb:adr/knowledge-pack-sections-scoped-by-role) a three-feature plan's
+	// largest pack measured 26,500 words (orchestrator, plans/settings-update-failures,
+	// 2026-10-06), so the budget sits above that floor and warns on growth, not on every pack.
+	PackWords = 30000
 )
