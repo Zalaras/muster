@@ -211,6 +211,7 @@ if m:
         spec = pathlib.Path(f"docs/features/{f}/spec.md")
         if not spec.exists(): continue
         body = spec.read_text().split("---", 2)[-1]
+        body = re.sub(r"```mermaid.*?```", "", body, flags=re.S)  # check-kb excludes mermaid source; a 947-word NOTE on a 797-word body cost launch-inflight-guard five minutes
         words = len(body.split()) + adds.get(f, 0) - cuts.get(f, 0)
         if words > 800:
             print(f"NOTE  Doc Delta: {f} spec would reach ~{words} words (cap 800) — cut more under 'stops being true' or split a feature before approval")
