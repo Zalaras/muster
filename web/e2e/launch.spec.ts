@@ -2,7 +2,8 @@ import { execFile } from "node:child_process";
 import { access, mkdir, rm } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
-import { expect, test } from "./helpers/fixtures";
+import { expect, settleFor, test } from "./helpers/fixtures";
+import { trackMutations } from "./helpers/groups";
 import {
   childEntry,
   composedCrumbPath,
@@ -1140,4 +1141,119 @@ test("an orphaned muster-1 on the socket does not block launching from the dashb
   // REQ-9/REQ-2's never-adopt, never-kill policy: the orphan itself is untouched by the
   // launch that worked around it.
   expect(await daemon.tmuxSessions()).toContain("muster-1");
+});
+
+// Plan launch-inflight-guard — REQ-1, REQ-2. Nothing in the dialog used to record that a launch
+// request was out, so every press before the daemon answered was another POST /api/sessions and
+// another session. The two presses are two synchronous click() calls on the button's own node,
+// so no answer can arrive between them: a button disabled by the first press swallows the
+// second (a disabled button's click() dispatches nothing), a button left enabled sends twice.
+// The per-test `daemon` fixture: the test counts every session the daemon holds, a
+// daemon-global state.
+test("a second press on Launch while the first is in flight sends nothing: one session, one card (REQ-1, REQ-2, E1)", async ({
+  page,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  const dialog = await openLaunchDialog(page);
+  await dialog.getByLabel("Title").fill("double-press");
+  const launch = dialog.getByRole("button", { name: "Launch" });
+  await expect(launch).toBeEnabled();
+
+  const mutations = trackMutations(page);
+  await launch.evaluate((button: HTMLElement) => {
+    button.click();
+    button.click();
+  });
+  await expect(dialog).toBeHidden();
+
+  // "Nothing was sent" is a negative over a bounded window: hold past the daemon's launch
+  // (tmux spawn plus the model pre-check) before counting, so a late second request is seen.
+  await settleFor(page, 1_300);
+  expect(
+    mutations.requests().filter((r) => r === "POST /api/sessions"),
+    "one launch request for two presses",
+  ).toHaveLength(1);
+  await expect(page.getByTestId("session-card")).toHaveCount(1);
+  await expect(sessionCard(page, "double-press")).toBeVisible();
+  const state = await getState(page, daemon);
+  expect(state.sessions, "the daemon holds exactly one session").toHaveLength(1);
+
+  // REQ-2's enabled half: the flag cleared with the daemon's answer, so a reopened dialog
+  // offers Launch again.
+  const reopened = await openLaunchDialog(page);
+  await expect(reopened.getByRole("button", { name: "Launch" })).toBeEnabled();
+});
+
+// Plan launch-inflight-guard review cycle 1, Major 1 — REQ-2 ("any other error re-enables it")
+// and the focus hand-back. Disabling a focused button drops focus to <body>, so without
+// `restoreLaunchFocus` a keyboard user who pressed Launch and was refused is left nowhere. The
+// refusal is a 500, not `model_unrecognized`: that code has its own focus target (the invalid
+// control), so only a different error reaches the hand-back. Enter on the focused button is
+// the activation; the node is tagged so a rebuilt button fails the identity check, and the
+// hold past a render tick would catch a tick that drops focus again.
+test("a refused launch (500) re-enables Launch with focus still on it, and the retry launches one session (REQ-2, focus hand-back)", async ({
+  page,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  const dialog = await openLaunchDialog(page);
+  await dialog.getByLabel("Title").fill("refused-then-retried");
+  const launch = dialog.getByRole("button", { name: "Launch" });
+  await expect(launch).toBeEnabled();
+
+  await page.route("**/api/sessions", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ error: { code: "internal", message: "tmux exploded" } }),
+    });
+  });
+
+  const mutations = trackMutations(page);
+  await launch.focus();
+  await launch.evaluate((button: HTMLElement) => {
+    button.dataset.e2eNode = "launch";
+  });
+  await page.keyboard.press("Enter");
+  await expect(launchError(dialog)).toContainText("tmux exploded");
+
+  // Re-enabled, and still the focused node: neither <body> nor a rebuilt button.
+  const focusedLaunch = async () =>
+    page.evaluate(() => {
+      const active = document.activeElement;
+      return {
+        id: active?.id ?? null,
+        node: (active as HTMLElement | null)?.dataset?.e2eNode ?? null,
+      };
+    });
+  await expect(launch).toBeEnabled();
+  await expect.poll(focusedLaunch, "focus is back on the Launch button").toEqual({
+    id: "launch-button",
+    node: "launch",
+  });
+  // Survive a tick (> 1 s): the dialog re-renders on every store change.
+  await settleFor(page, 1_300);
+  await expect(launch).toBeEnabled();
+  expect(await focusedLaunch(), "focus and node identity survive a tick").toEqual({
+    id: "launch-button",
+    node: "launch",
+  });
+  expect(
+    mutations.requests().filter((r) => r === "POST /api/sessions"),
+    "the refused press sent exactly one request",
+  ).toHaveLength(1);
+
+  // The retry is a real press with the daemon answering: one session, one card.
+  await page.unroute("**/api/sessions");
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeHidden();
+  await expect(sessionCard(page, "refused-then-retried")).toBeVisible();
+  await expect(page.getByTestId("session-card")).toHaveCount(1);
+  const state = await getState(page, daemon);
+  expect(state.sessions, "the refused launch left nothing; the retry made one").toHaveLength(1);
 });

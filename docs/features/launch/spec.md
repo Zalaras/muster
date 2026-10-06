@@ -26,9 +26,8 @@ listing served by `kb:anchor/browse.get`, rooted at the `-browse-root` directory
 The listed directory is the selection; descending into a child changes it, the parent chord
 goes up, and the footer always states where the launch will happen. Git checkouts are
 marked. Recents come from `kb:anchor/repos.list`, ordered pinned then most recently
-launched; clicking one navigates there, restoring its last model and mode. Directory memory is
-hybrid: every launch remembers its directory as a repo row, with promotion reserved for rows
-that carry per-repo config, which nothing writes yet (kb:adr/launch-hybrid-mru-directory-memory).
+launched; clicking one navigates there, restoring its last model and mode. Every launch
+remembers its directory as a repo row (kb:adr/launch-hybrid-mru-directory-memory).
 No worktree is created; a picked one is recognised, so the session shows repo and branch
 truthfully.
 
@@ -69,6 +68,10 @@ cancelled-and-reopened dialog's refusal is ignored, focus included. A dialog-ope
 verdict only moves focus when Launch itself held it and is now disabled
 (kb:adr/launch-model-refusal-shown-in-field-error-only).
 
+Launch is disabled from the press until the answer; a second press sends nothing. Success
+closes the dialog; any other refusal lifts the hold, refocusing Launch if it lost focus to
+`<body>`.
+
 `kb:anchor/sessions.create` upserts the repo row, ensures the directory's project-scoped
 `.claude/settings.local.json` carries Muster's hook and status-line entries
 (kb:adr/launch-settings-local-json-not-settings-json, kb:fact/local-settings-honoured),
@@ -85,8 +88,6 @@ focuses it, both views put keyboard focus in its terminal
 (kb:adr/launch-opens-launched-session).
 
 ## The model check
-
-The dialog checks first, so Launch itself pays no subprocess on the common path.
 
 ```mermaid
 sequenceDiagram

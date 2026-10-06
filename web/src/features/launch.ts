@@ -153,6 +153,8 @@ function initLaunchModal(
   // `updateModelRowState`.
   let modelVerdicts: VerdictStore = EMPTY_VERDICT_STORE;
 
+  let launchInFlight = false;
+
   // The Resume tab's own sub-controller (features/launchresume.ts) — owns the tab pair
   // itself, its fetch/filter/selection state and its own submit call. `onFaceChange`
   // funnels every event that could move `#launch-button`'s face, its footer text or its
@@ -200,6 +202,7 @@ function initLaunchModal(
       state,
       selection,
       forceFocusInvalid,
+      launchInFlight,
     );
   }
 
@@ -372,7 +375,7 @@ function initLaunchModal(
     // gate stays; only the mode comparison moved.
     elements.bypassWarning.hidden = !(tab === "new" && face.danger);
     if (tab === "resume") {
-      elements.launchButton.disabled = !resume.hasSelection();
+      elements.launchButton.disabled = !resume.hasSelection() || launchInFlight;
     } else {
       updateModelRowState();
     }
@@ -562,7 +565,7 @@ function initLaunchModal(
     handlers.onLaunched(result.value);
   }
 
-  async function submit(): Promise<void> {
+  async function dispatchSubmit(): Promise<void> {
     // Both tabs launch into the Group row's choice; a `New group…` with no name is refused here,
     // before any request, so no group is created for a launch that never happened.
     const choice = group.request();
@@ -581,6 +584,29 @@ function initLaunchModal(
     }
     elements.dialog.close();
     handlers.onLaunched(result.value);
+  }
+
+  function setLaunchInFlight(inFlight: boolean): void {
+    launchInFlight = inFlight;
+    refreshDialogFace();
+  }
+
+  async function submit(): Promise<void> {
+    if (launchInFlight) return;
+    const launchHadFocus = document.activeElement === elements.launchButton;
+    setLaunchInFlight(true);
+    try {
+      await dispatchSubmit();
+    } finally {
+      setLaunchInFlight(false);
+      restoreLaunchFocus(launchHadFocus);
+    }
+  }
+
+  function restoreLaunchFocus(launchHadFocus: boolean): void {
+    if (!launchHadFocus || !elements.dialog.open) return;
+    if (document.activeElement !== document.body || elements.launchButton.disabled) return;
+    elements.launchButton.focus();
   }
 
   function openModal(): void {

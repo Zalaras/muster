@@ -60,9 +60,6 @@ group deliberately, and otherwise don't re-sort this list.
 
 Filed 2026-09-26 by the developer from `plans/maintainability-regressions/proposed-backlog.md`.
 
-- [ ] **Launch can be pressed again while a launch is in flight** — during the ~1 s pre-check a
-  second press sends a second launch. Launch should stay disabled until the first one answers.
-  From `plans/maintainability-regressions/`.
 - [ ] **A model refusal can move focus after the selection changed** — in one open dialog:
   submit model A (refused), change to B and submit, change back to A and click Title; B's
   refusal moves focus to the custom-model field. A refusal should move focus only while the

@@ -1714,6 +1714,14 @@ the mobile/responsive pass rem-ifies the pixel layer.
   Finder, Finder stays the active app until the terminal is clicked. The drop already moves DOM
   focus into the session's terminal, so one click on the browser window is all it takes.
 
+### Together — a launch request in flight
+
+Filed 2026-09-26 by the developer from `plans/maintainability-regressions/proposed-backlog.md`.
+
+- [x] **Launch can be pressed again while a launch is in flight** ✅ done 2026-10-06 (plan `launch-inflight-guard`, via `/fix`) — during the ~1 s pre-check a
+  second press sends a second launch. Launch should stay disabled until the first one answers.
+  From `plans/maintainability-regressions/`.
+
 ## Post v1
 <!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 

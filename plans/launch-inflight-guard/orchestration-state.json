@@ -1,0 +1,59 @@
+{
+  "plan_name": "launch-inflight-guard",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 1,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [],
+  "step_started_at": {
+    "review": "2026-10-06T12:44:23Z",
+    "doc-reconcile": "2026-10-06T13:13:51Z"
+  },
+  "step_finished_at": {
+    "review": "2026-10-06T13:13:32Z",
+    "doc-reconcile": "2026-10-06T13:16:38Z"
+  },
+  "step_attempts": {
+    "review": [
+      {
+        "start": "2026-10-06T12:44:23Z",
+        "finish": "2026-10-06T12:52:58Z"
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-10-06T13:13:51Z",
+        "finish": "2026-10-06T13:16:38Z"
+      }
+    ]
+  },
+  "started_at": "2026-10-06T12:24:43Z",
+  "updated_at": "2026-10-06T13:16:38Z",
+  "review_parts": {
+    "1": [
+      "code",
+      "browser"
+    ],
+    "2": [
+      "code"
+    ]
+  },
+  "review_verdicts": {
+    "1": "needs-changes",
+    "2": "approved"
+  },
+  "review_commits": {
+    "1": "0260a7c17c2b3ec297ce60f1c92f8893053ebf87",
+    "2": "0bdcca3c3a4102d0479bb58065fa73be94cb8f39"
+  },
+  "review_cycle": 2,
+  "closes_issues": []
+}

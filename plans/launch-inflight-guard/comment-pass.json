@@ -1,0 +1,98 @@
+{
+  "plan": "launch-inflight-guard",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-06T12:33:54Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 4,
+        "keep": 1,
+        "drop": 3
+      },
+      "keeps": [
+        {
+          "key": "web/src/render/launch.ts:dd10361fdf853868",
+          "path": "web/src/render/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function renderModelRowState(",
+            "line": 183
+          },
+          "lines": [
+            "/** The Model row's invalid-field pattern (design-system §5,",
+            "* kb:adr/launch-unrecognized-model-marked-blocks-launch): a disabled preset takes `title`;",
+            "* the one control matching the current selection — a preset radio or the custom input —",
+            "* carries `aria-invalid`/`aria-describedby` when its own verdict is unrecognized;",
+            "* `#model-error` and the Launch button both follow `state.invalid`.",
+            "*",
+            "* Focus rule (stated once here; `features/launch.ts`'s callers reference this comment",
+            "* rather than restate it). By default this never moves focus off a control that stays",
+            "* enabled — a verdict landing from the dialog-open request, a restore, or a selection",
+            "* change touches only the row's own controls, never Title or the browse list. The one",
+            "* default-path exception is Launch itself: disabling it while it holds focus would",
+            "* otherwise drop focus to `\u003cbody\u003e` (browsers never move it themselves), so that one case",
+            "* hands focus to the invalid control instead — the field the developer needs to fix next.",
+            "*",
+            "* `forceFocusInvalid` is a second, deliberate exception on top of that default: a",
+            "* launch-time `model_unrecognized` refusal (kb:adr/launch-model-refusal-shown-in-field-error-only)",
+            "* forces focus onto the invalid control regardless of what currently holds it, because",
+            "* `#model-error` has no live-region role and moving focus is the refusal's only",
+            "* announcement. The caller (`features/launch.ts`'s `submit`) is the only one that passes",
+            "* `true`, and only once it has confirmed the refusal was merged into the *current* dialog's",
+            "* store (the same generation guard `applyVerdicts` applies to the write itself) — a stale",
+            "* refusal from a cancelled-and-reopened dialog moves nothing, focus included.",
+            "*",
+            "* `launchInFlight` is a second input to Launch's disabled flag, OR-ed with `state.invalid`: a",
+            "* verdict or selection change landing while a launch request is out must not re-enable it. It",
+            "* adds no focus handoff — only an invalid selection does that. */"
+          ],
+          "reason": "Orchestrator override of the judge's drop: this is an edited block, and apply removes the whole span, which would delete the 21 pre-existing lines stating the Model row's focus rule that features/launch.ts's comments defer to ('see that function's doc comment (render/launch.ts) for the exact focus rule'). Kept to preserve that rule; the appended launchInFlight paragraph rides with it."
+        }
+      ],
+      "drops": [
+        {
+          "key": "web/src/features/launch.ts:2929e335dd144ff1",
+          "path": "web/src/features/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "let launchInFlight = false;",
+            "line": 156
+          },
+          "lines": [
+            "// True from a Launch press until the daemon answers. Owned here and read by both recomputes",
+            "// of `#launch-button`'s disabled flag (`updateModelRowState`, `refreshDialogFace`'s Resume",
+            "// branch), so neither can re-enable the button while a request is out."
+          ]
+        },
+        {
+          "key": "web/src/features/launch.ts:9aa5b71420a2a624",
+          "path": "web/src/features/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "async function submit(): Promise\u003cvoid\u003e {",
+            "line": 594
+          },
+          "lines": [
+            "/** The one entry for a Launch press on either tab: a press while a request is out sends",
+            "* nothing, and the in-flight state clears on every exit path of the dispatch. */"
+          ]
+        },
+        {
+          "key": "web/src/features/launch.ts:2790418f3c0f50b5",
+          "path": "web/src/features/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function restoreLaunchFocus(launchHadFocus: boolean): void {",
+            "line": 606
+          },
+          "lines": [
+            "/** Disabling Launch while it holds focus drops focus to `\u003cbody\u003e`; once a refused launch",
+            "* re-enables it, hand focus back — unless the answer already moved it (an invalid model",
+            "* control) or the dialog closed. */"
+          ]
+        }
+      ]
+    }
+  ]
+}

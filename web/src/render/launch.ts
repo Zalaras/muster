@@ -201,7 +201,11 @@ function invalidControl(
  * announcement. The caller (`features/launch.ts`'s `submit`) is the only one that passes
  * `true`, and only once it has confirmed the refusal was merged into the *current* dialog's
  * store (the same generation guard `applyVerdicts` applies to the write itself) — a stale
- * refusal from a cancelled-and-reopened dialog moves nothing, focus included. */
+ * refusal from a cancelled-and-reopened dialog moves nothing, focus included.
+ *
+ * `launchInFlight` is a second input to Launch's disabled flag, OR-ed with `state.invalid`: a
+ * verdict or selection change landing while a launch request is out must not re-enable it. It
+ * adds no focus handoff — only an invalid selection does that. */
 export function renderModelRowState(
   modelRadios: readonly HTMLInputElement[],
   customModelInput: HTMLInputElement,
@@ -210,6 +214,7 @@ export function renderModelRowState(
   state: ModelRowState,
   selection: ModelSelection,
   forceFocusInvalid = false,
+  launchInFlight = false,
 ): void {
   for (const radio of modelRadios) {
     if (radio.value === "other") continue;
@@ -221,7 +226,7 @@ export function renderModelRowState(
   toggleControlInvalid(customModelInput, selection.isCustom && state.invalid);
   renderModelError(modelError, state.invalid ? state.errorMessage : null);
   const launchHadFocus = document.activeElement === launchButton;
-  launchButton.disabled = state.invalid;
+  launchButton.disabled = state.invalid || launchInFlight;
   if (state.invalid && (launchHadFocus || forceFocusInvalid)) {
     invalidControl(modelRadios, customModelInput, selection)?.focus();
   }
