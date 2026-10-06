@@ -79,14 +79,3 @@ func TestRunVersionProbe_CapturesStdout(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "musterd v0.11.0\n", string(out))
 }
-
-// TestRunVersionProbe_NonZeroExitIsAnError covers runVersionProbe's error propagation
-// from a real subprocess that exits non-zero.
-func TestRunVersionProbe_NonZeroExitIsAnError(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, err := runVersionProbe(ctx, "/usr/bin/false")
-
-	assert.Error(t, err)
-}

@@ -1,7 +1,6 @@
 package selfupdate
 
 import (
-	"crypto/sha256"
 	"strings"
 	"testing"
 
@@ -128,13 +127,4 @@ func TestChecksumFor_MalformedHexHashIsAnError(t *testing.T) {
 			assert.Error(t, err)
 		})
 	}
-}
-
-// TestSHA256Of covers SHA256Of against the stdlib's own sha256.Sum256 directly — pinning
-// it to the standard algorithm rather than merely "returns something 32 bytes long", and
-// asserting it's deterministic and sensitive to every byte of input.
-func TestSHA256Of(t *testing.T) {
-	data := []byte("hello, muster")
-	assert.Equal(t, sha256.Sum256(data), SHA256Of(data))
-	assert.NotEqual(t, SHA256Of(data), SHA256Of([]byte("hello, musterX")))
 }

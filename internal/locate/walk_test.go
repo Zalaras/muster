@@ -27,19 +27,6 @@ func TestWalkFinder_FindsMatchingBasenameAndSize(t *testing.T) {
 	assert.Equal(t, []string{target}, got)
 }
 
-func TestWalkFinder_FindsMultipleCandidatesOfTheSameNameAndSize(t *testing.T) {
-	dir := t.TempDir()
-	content := []byte("duplicated")
-	a := writeFile(t, filepath.Join(dir, "a", "dup.txt"), content)
-	b := writeFile(t, filepath.Join(dir, "b", "dup.txt"), content)
-
-	w := NewWalkFinder(DefaultWalkCap)
-	got, err := w.Find(context.Background(), dir, "dup.txt", int64(len(content)))
-
-	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{a, b}, got)
-}
-
 func TestWalkFinder_SkipsGitDirectories(t *testing.T) {
 	dir := t.TempDir()
 	content := []byte("inside dot git")

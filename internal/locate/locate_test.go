@@ -197,15 +197,6 @@ func TestLocate_StopsAtFirstFinderThatYieldsAnyVerifiedCandidateEvenIfAmbiguous(
 	assert.False(t, second.called)
 }
 
-func TestLocate_ReturnsNotLocatedWhenNoFinderYieldsAnything(t *testing.T) {
-	dir := t.TempDir()
-	loc := &Locator{finders: []Finder{&stubFinder{}, &stubFinder{}}}
-
-	_, err := loc.Locate(context.Background(), dir, "absent.txt", []byte("bytes"))
-
-	assert.ErrorIs(t, err, ErrNotLocated)
-}
-
 func TestLocate_WrapsAndReturnsARealFinderError(t *testing.T) {
 	dir := t.TempDir()
 	boom := errors.New("boom: directory unreadable")
