@@ -359,7 +359,7 @@ exit 0
 // other account on the machine. Named rather than inlined at its one call site so the
 // mode lives in one place, next to the reason for it.
 func writeScriptAtomically(path string, content []byte) error {
-	return AtomicWriteFile(path, content, 0o700) //nolint:gosec // wrapper scripts must be executable
+	return AtomicWriteFile(path, content, 0o700)
 }
 
 // AtomicWriteFile replaces path with content, at mode perm, by writing a temp file in

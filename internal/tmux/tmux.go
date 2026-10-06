@@ -703,11 +703,10 @@ func (c *Client) run(ctx context.Context, args ...string) (string, error) {
 			// this chain), and errors.Is(err, context.DeadlineExceeded) holds instead:
 			// PaneExists returns (false, err), never (false, nil), and KillSession's
 			// post-kill verify can't report a deadline-killed check as "gone"
-			// (kb:adr/actions-kill-is-idempotent).
-			//nolint:errorlint // err is deliberately %v, not %w: it must NOT join the
-			// chain, or errors.As(err, &exitErr) below would still match its
-			// *exec.ExitError and undo the whole point of this branch.
-			return string(stdout), fmt.Errorf("tmux %s: %w (%v)", args[0], ctx.Err(), err)
+			// (kb:adr/actions-kill-is-idempotent). err goes in as err.Error(), a string,
+			// never %w: it must NOT join the chain, or errors.As(err, &exitErr) below
+			// would still match its *exec.ExitError and undo the whole point of this branch.
+			return string(stdout), fmt.Errorf("tmux %s: %w (%s)", args[0], ctx.Err(), err.Error())
 		}
 		// tmux writes an ordinary query's error only to one of the two streams (its
 		// replies on success, a diagnostic on stderr on failure), so folding both into
@@ -748,8 +747,8 @@ func (c *Client) runCapture(ctx context.Context, args ...string) (string, error)
 	stdout, stderr, err := c.exec(ctx, "tmux", full...)
 	if err != nil {
 		if ctx.Err() != nil {
-			//nolint:errorlint // see run's identical branch: err must stay %v, never %w.
-			return "", fmt.Errorf("tmux %s: %w (%v)", args[0], ctx.Err(), err)
+			// See run's identical branch: err goes in as a string, never %w.
+			return "", fmt.Errorf("tmux %s: %w (%s)", args[0], ctx.Err(), err.Error())
 		}
 		return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(string(stderr)))
 	}

@@ -255,7 +255,7 @@ function parseSessionPlan(value: unknown): SessionPlan | null {
  * an unrecognized field name or type anywhere in the object rejects the whole session
  * (the caller drops the snapshot/upsert rather than render a half-formed card).
  *
- * Scores 41 on cognitive complexity (adding `unread`/
+ * Scores 36 on cognitive complexity (adding `unread`/
  * `lastPrompt`'s two guards), but every point is a flat `return null` guard at zero
  * nesting — the score tracks the wire object's field count, not any tangle. Splitting
  * it would scatter the "any bad field rejects the whole session" invariant across

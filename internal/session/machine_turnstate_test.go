@@ -22,12 +22,14 @@ func seededSession(state State, waitOwner string) *Session {
 	sess.StateSince = fixedNow
 	sess.currentPromptID = "p1"
 	sess.BackgroundTasks = 2
-	switch state { //nolint:exhaustive // only the two states that carry a note have anything to seed
+	switch state {
 	case StateNeedsInput:
 		sess.Attention = &Attention{Reason: "permission", Since: fixedNow}
 		sess.AttentionAgent = waitOwner
 	case StateFailed:
 		sess.Failure = &Failure{Error: "server_error", Message: "boom"}
+	default:
+		// Only needs_input and failed carry a note; every other state has nothing to seed.
 	}
 	return sess
 }
