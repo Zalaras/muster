@@ -81,11 +81,11 @@ func runTestMain(m *testing.M) int {
 		return 1
 	}
 
-	sharedStubClaude = filepath.Join(dir, "stub-claude.sh")
 	stubScript := "#!/bin/sh\n" +
 		"if [ \"$1\" = \"--version\" ]; then echo \"" + claudecode.Verified() + " (Claude Code)\"; exit 0; fi\n" +
 		"sleep 60\n"
-	if writeErr := os.WriteFile(sharedStubClaude, []byte(stubScript), 0o755); writeErr != nil {
+	var writeErr error
+	if sharedStubClaude, writeErr = cachedStub("stub-claude.sh", stubScript); writeErr != nil {
 		fmt.Fprintln(os.Stderr, "musterd on-exit test setup: write shared stub claude:", writeErr)
 		return 1
 	}

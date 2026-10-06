@@ -311,9 +311,7 @@ func TestReexecHelperProcess(t *testing.T) {
 func TestReexec_PassesArgvAndEnvVerbatim(t *testing.T) {
 	dir := t.TempDir()
 	recordFile := filepath.Join(dir, "record.txt")
-	script := filepath.Join(dir, "recorder.sh")
-	scriptBody := "#!/bin/sh\n{\n  printf 'ARGC:%s\\n' \"$#\"\n  i=0\n  for a in \"$@\"; do i=$((i+1)); printf 'ARG%s:%s\\n' \"$i\" \"$a\"; done\n  env\n} > \"$RECORD_FILE\"\n"
-	require.NoError(t, os.WriteFile(script, []byte(scriptBody), 0o755))
+	script := writeStub(t, "recorder.sh", "#!/bin/sh\n{\n  printf 'ARGC:%s\\n' \"$#\"\n  i=0\n  for a in \"$@\"; do i=$((i+1)); printf 'ARG%s:%s\\n' \"$i\" \"$a\"; done\n  env\n} > \"$RECORD_FILE\"\n")
 
 	selfPath, err := os.Executable()
 	require.NoError(t, err)

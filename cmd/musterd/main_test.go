@@ -169,11 +169,7 @@ func TestRun_InvalidOnExitValueIsRejected(t *testing.T) {
 // §Testing).
 func writeCheckClaudeCodeStub(t *testing.T, output string) string {
 	t.Helper()
-	dir := t.TempDir()
-	path := filepath.Join(dir, "claude")
-	script := fmt.Sprintf("#!/bin/sh\necho %q\nexit 0\n", output)
-	require.NoError(t, os.WriteFile(path, []byte(script), 0o755))
-	return path
+	return writeStub(t, "claude", fmt.Sprintf("#!/bin/sh\necho %q\nexit 0\n", output))
 }
 
 // TestCheckClaudeCode_MapsEachStatusAndLogsAtTheRightLevel covers D11: every one of the

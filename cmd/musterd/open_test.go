@@ -27,16 +27,16 @@ import (
 	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 )
 
-// newRecordingStub writes an executable standing in for -open-cmd's program: it appends
-// its first argument (the dashboard URL, REQ-6's single argument) as its own line to
-// recordFile. Follows -claude-bin's seam pattern exactly (Implementation Notes), the way
-// onexit_test.go's newSleepStubClaude stands in for -claude-bin.
-func newRecordingStub(t *testing.T, recordFile string) string {
+// newRecordingStub returns an executable standing in for -open-cmd's program: it appends
+// its first argument (the dashboard URL, REQ-6's single argument) as its own line to the
+// file named by MUSTER_TEST_OPEN_RECORD, which the daemon passes through to it — the env
+// entry is returned for the test to add to the daemon's cmd.Env. Follows -claude-bin's
+// seam pattern exactly (Implementation Notes), the way onexit_test.go's
+// newSleepStubClaude stands in for -claude-bin.
+func newRecordingStub(t *testing.T, recordFile string) (path, env string) {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "stub-open.sh")
-	script := "#!/bin/sh\necho \"$1\" >> " + recordFile + "\n"
-	require.NoError(t, os.WriteFile(path, []byte(script), 0o755))
-	return path
+	path = writeStub(t, "stub-open.sh", "#!/bin/sh\necho \"$1\" >> \"$MUSTER_TEST_OPEN_RECORD\"\n")
+	return path, "MUSTER_TEST_OPEN_RECORD=" + recordFile
 }
 
 // newPTYStdin opens a real pseudo-terminal (creack/pty, D8's "a pty from creack/pty")
@@ -127,10 +127,11 @@ func terminate(cmd *exec.Cmd) {
 // once with the dashboard URL from tokens.json as its only argument.
 func TestOpen_DefaultOpenWithTerminalStdinRunsStubOnce(t *testing.T) {
 	recordFile := filepath.Join(t.TempDir(), "record.txt")
-	stub := newRecordingStub(t, recordFile)
+	stub, recordEnv := newRecordingStub(t, recordFile)
 	args, dataDir := openTestDaemonArgs(t, "-open-cmd", stub) // -open left at its true default
 
 	cmd := exec.Command(musterdBinary, args...)
+	cmd.Env = append(os.Environ(), recordEnv)
 	cmd.Stdin = newPTYStdin(t)
 	var stderr syncBuf
 	cmd.Stderr = &stderr
@@ -163,10 +164,11 @@ func TestOpen_DefaultOpenWithTerminalStdinRunsStubOnce(t *testing.T) {
 // never execute the stub, even though the terminal condition alone would otherwise fire.
 func TestOpen_OpenFalseNeverRunsStub(t *testing.T) {
 	recordFile := filepath.Join(t.TempDir(), "record.txt")
-	stub := newRecordingStub(t, recordFile)
+	stub, recordEnv := newRecordingStub(t, recordFile)
 	args, dataDir := openTestDaemonArgs(t, "-open=false", "-open-cmd", stub)
 
 	cmd := exec.Command(musterdBinary, args...)
+	cmd.Env = append(os.Environ(), recordEnv)
 	cmd.Stdin = newPTYStdin(t)
 	require.NoError(t, cmd.Start())
 	t.Cleanup(func() { terminate(cmd) })
@@ -185,10 +187,11 @@ func TestOpen_OpenFalseNeverRunsStub(t *testing.T) {
 // its true default.
 func TestOpen_DefaultOpenWithDevNullStdinNeverRunsStub(t *testing.T) {
 	recordFile := filepath.Join(t.TempDir(), "record.txt")
-	stub := newRecordingStub(t, recordFile)
+	stub, recordEnv := newRecordingStub(t, recordFile)
 	args, dataDir := openTestDaemonArgs(t, "-open-cmd", stub) // -open defaulted true
 
 	cmd := exec.Command(musterdBinary, args...) // cmd.Stdin left nil -> /dev/null
+	cmd.Env = append(os.Environ(), recordEnv)
 	require.NoError(t, cmd.Start())
 	t.Cleanup(func() { terminate(cmd) })
 
@@ -207,12 +210,12 @@ func TestOpen_DefaultOpenWithDevNullStdinNeverRunsStub(t *testing.T) {
 // and the inverted expectation.
 func TestOpen_MusterRestartedSuppressesAutoOpenEvenWithATerminalStdin(t *testing.T) {
 	recordFile := filepath.Join(t.TempDir(), "record.txt")
-	stub := newRecordingStub(t, recordFile)
+	stub, recordEnv := newRecordingStub(t, recordFile)
 	args, dataDir := openTestDaemonArgs(t, "-open-cmd", stub) // -open left at its true default
 
 	cmd := exec.Command(musterdBinary, args...)
 	cmd.Stdin = newPTYStdin(t)
-	cmd.Env = append(os.Environ(), "MUSTER_RESTARTED=1")
+	cmd.Env = append(os.Environ(), "MUSTER_RESTARTED=1", recordEnv)
 	var stderr syncBuf
 	cmd.Stderr = &stderr
 	require.NoError(t, cmd.Start())
