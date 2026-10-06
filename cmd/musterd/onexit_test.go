@@ -141,7 +141,7 @@ type spawnedDaemon struct {
 // --model/--resume/etc. don't matter here) and just sleeps, so a launched "session" has
 // a real, live tmux pane to test against. CLAUDE.md forbids ever launching the real
 // `claude` from a unit test — this is the sanctioned substitute, mirroring
-// internal/server/sessions_test.go's newStubClaudeBin. One stub per package run
+// internal/server/main_test.go's ensureStubClaude. One stub per package run
 // (runTestMain writes it before any test starts), not one per call — see
 // sharedStubClaude's doc comment.
 func newSleepStubClaude(t *testing.T) string {

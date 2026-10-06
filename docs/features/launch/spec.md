@@ -6,7 +6,7 @@ date: 2026-09-12
 summary: Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv.
 features: [launch]
 tags: [tmux]
-go: [internal/server/browse*.go, internal/server/repos*.go, internal/server/launchcreate*.go, internal/server/launcher.go, internal/server/launcher_*.go, internal/server/launchergroup*.go, internal/server/launchermodels*.go, internal/server/launcherrors*.go, internal/server/main_test.go, internal/claudecode/launch.go, internal/claudecode/launch_test.go, internal/claudecode/modelcheck*.go, internal/gitutil/**, internal/store/repo*.go]
+go: [internal/server/browse*.go, internal/server/repos*.go, internal/server/launchcreate*.go, internal/server/launcher.go, internal/server/launcher_*.go, internal/server/launchergroup*.go, internal/server/launchermodels*.go, internal/server/launcherrors*.go, internal/server/main_test.go, internal/server/servertest_test.go, internal/claudecode/launch.go, internal/claudecode/launch_test.go, internal/claudecode/modelcheck*.go, internal/gitutil/**, internal/store/repo*.go]
 web: [web/src/features/launch.ts, web/src/features/launchcrumbs*.ts, web/src/features/launchgroup*.ts, web/src/features/launchmodels*.ts, web/src/features/launchrestore*.ts, web/src/render/crumbs*.ts, web/src/render/launch.ts, web/src/render/launch.test.ts, web/src/sessions/permission*.ts]
 e2e: [web/e2e/launch.spec.ts, web/e2e/tiles-launch.spec.ts, web/e2e/permission-mode.spec.ts, web/e2e/helpers/picker.ts, web/e2e/launch-defaults.spec.ts, web/e2e/launch-model-check.spec.ts, web/e2e/launch-opens-session.spec.ts, web/e2e/bypass.spec.ts]
 protocol: [sessions.create, models.check, repos.list, browse.get]

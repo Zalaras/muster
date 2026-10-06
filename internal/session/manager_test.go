@@ -3029,7 +3029,7 @@ func TestEnd_ConcurrentEndsProduceExactlyOneMarkEndedAndNeverAKillError(t *testi
 	assert.Equal(t, 1, endedBroadcasts, "D14: exactly one alive:false broadcast, never zero or two")
 }
 
-// TestHandleRemoveSession... (D15) lives in internal/server/sessions_test.go: it needs
+// TestHandleRemoveSession... (D15) lives in internal/server/actions_test.go: it needs
 // the shell registry and HTTP handler, which this package doesn't have.
 
 // TestMarkEnded_APersistFailureLeavesTheInMemorySessionAliveMatchingTheDB covers D16: when
