@@ -6,7 +6,7 @@ date: 2026-09-14
 summary: Session ids are allocated monotonically from a kv watermark and floored above every muster-N on the socket, so an id is never reissued.
 features: [lifecycle, launch, ingest]
 tags: [store, tmux]
-files: [internal/store/session.go, internal/store/store.go, internal/server/sessions.go, internal/tmux/tmux.go]
+files: [internal/store/session.go, internal/store/store.go, internal/server/launchcreate.go, internal/tmux/tmux.go]
 tests: [TestCreateSession_AfterRemovingTheHighestIDTheNextIDIsStrictlyGreater, TestHandleCreateSession_OrphanedTmuxSessionDoesNotBlockLaunch]
 refs: [plan:session-lifecycle, "#26", kb:adr/surfaces-one-tmux-session-per-session, kb:adr/ingest-envelope-authoritative-binding, kb:adr/stack-db-database-sql-hand-sql, kb:fact/hook-delivery-best-effort]
 supersedes: []

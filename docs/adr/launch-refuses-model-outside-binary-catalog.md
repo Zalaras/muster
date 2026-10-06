@@ -6,7 +6,7 @@ date: 2026-09-23
 summary: Launch refuses a model the installed Claude Code's catalog does not describe, via a fail-open zero-token --bare check run on every launch, uncached.
 features: [launch]
 tags: [claude-code-format, ux, user-decision]
-files: [internal/claudecode/modelcheck.go, internal/server/sessions.go, internal/server/server.go]
+files: [internal/claudecode/modelcheck.go, internal/server/launchcreate.go, internal/server/server.go]
 tests: []
 refs: [plan:new-session-improvement, kb:fact/model-catalog-precheck-zero-token, kb:fact/unknown-model-fails-first-turn, kb:fact/fable-model-alias, kb:anchor/sessions.create]
 supersedes: [launch-model-presets-passed-verbatim]

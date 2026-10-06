@@ -6,7 +6,7 @@ date: 2026-08-20
 summary: Muster writes the gitignored project settings.local.json, which alone honours hooks and status line, so the ingest token never lands in a committable file.
 features: [launch, ingest]
 tags: [security, claude-code-format]
-files: [internal/claudecode/settings.go, internal/server/sessions.go]
+files: [internal/claudecode/settings.go, internal/server/launchcreate.go]
 tests: [TestMergeSettings_CalledTwiceProducesByteIdenticalOutput, TestHandleCreateShell_LeavesSettingsLocalJSONUnchanged]
 refs: [docs/history/spec-changelog.md, kb:fact/local-settings-honoured, kb:anchor/sessions.create, kb:adr/launch-project-scoped-settings-not-config-dir, kb:adr/ingest-separate-token-in-url-path]
 supersedes: []

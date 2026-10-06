@@ -82,7 +82,7 @@ type terminalKey struct {
 // own attach begins; a session's Claude socket and its shell socket are independent keys
 // and never supersede each other. It is shared: terminalFeature (Claude surface) and
 // shellFeature (shell surface) both take a pointer to the same instance, and
-// sessionsFeature closes entries out of it on End/Remove — one registry, three
+// actionsFeature closes entries out of it on End/Remove — one registry, three
 // consumers, exactly one map.
 //
 // Two separate guards, never nested in the other order: keyLocks serialises one key's
@@ -269,7 +269,7 @@ func clampInt(v, lo, hi int) int {
 }
 
 // terminalFeature owns the Claude-surface terminal socket: GET /ws/terminal/{id}.
-// registry is shared with shellFeature (the shell surface) and sessionsFeature
+// registry is shared with shellFeature (the shell surface) and actionsFeature
 // (End/Remove's socket teardown) — see terminalRegistry's doc comment.
 type terminalFeature struct {
 	registry *terminalRegistry

@@ -126,7 +126,7 @@ type Server struct {
 	// construction order, is what Start/Stop honours.
 	features []feature
 
-	sessions      *sessionsFeature
+	launch        *launchFeature
 	terminal      *terminalFeature
 	ingest        *ingestFeature
 	usage         *usageFeature
@@ -218,12 +218,15 @@ func New(cfg Config) *Server {
 	shells := newShellRegistry(spawner, cfg.Logger)
 	launcher := newSessionLauncher(cfg.Store, s.manager, spawner, cfg.Launch, models, cfg.Logger)
 
-	// reader has no dependency on sessions (only on manager/hub, already built above), so
-	// it's built first and handed into newSessionsFeature — sessions' only use of it is
+	// reader has no dependency on actions (only on manager/hub, already built above), so
+	// it's built first and handed into newActionsFeature — actions' only use of it is
 	// Remove's write-log drop.
 	s.reader = register(s, newReaderFeature(s.manager, s.hub, cfg.Logger))
-	s.sessions = register(s, newSessionsFeature(s.manager, launcher, shells, terminals, s.reader, cfg.Logger))
-	register(s, newGroupsFeature(s.manager, s.sessions.teardownRemoved, cfg.Logger))
+	s.launch = register(s, newLaunchFeature(launcher))
+	actions := register(s, newActionsFeature(s.manager, launcher, shells, terminals, s.reader, cfg.Logger))
+	register(s, newRailFeature(s.manager, cfg.Logger))
+	register(s, newRenameFeature(s.manager, cfg.Logger))
+	register(s, newGroupsFeature(s.manager, actions.teardownRemoved, cfg.Logger))
 	s.terminal = register(s, newTerminalFeature(terminals, s.manager, attach, cfg.Logger))
 	register(s, newShellFeature(shells, terminals, s.manager, attach, shellScroll, cfg.Logger))
 	s.locate = register(s, newLocateFeature(s.manager, cfg.Locator, cfg.Logger))

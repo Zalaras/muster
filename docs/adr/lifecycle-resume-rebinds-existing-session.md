@@ -6,7 +6,7 @@ date: 2026-08-16
 summary: Resuming a dead session keeps the Muster row and its title and rebinds it to the new pane, matched on the unchanged Claude session_id.
 features: [lifecycle, actions]
 tags: [state-machine, tmux]
-files: [internal/session/manager.go, internal/server/sessions.go]
+files: [internal/session/manager.go, internal/server/actions.go]
 tests: [TestApplyInput_ResumeBind_SameClaudeIDFromEveryStateLandsIdleWithAttentionAndFailureCleared, TestRecordResume_UpdatesTargetClearsSnapshotLeavesStateUntouched, web/e2e/actions.spec.ts]
 refs: [docs/history/spec-changelog.md, kb:fact/resume-keeps-session-identity, kb:anchor/sessions.resume, kb:anchor/state.transitions]
 supersedes: []

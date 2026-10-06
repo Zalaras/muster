@@ -6,7 +6,7 @@ date: 2026-10-05
 summary: A request field whose absence and null mean different things decodes as a non-pointer json.RawMessage, because a pointer cannot tell the two apart.
 features: [rail, launch]
 tags: []
-files: [internal/server/sessions.go, internal/server/launcher.go, internal/server/launchergroup.go]
+files: [internal/server/rail.go, internal/server/rename.go, internal/server/launcher.go, internal/server/launchergroup.go]
 tests: []
 refs: [plan:groups, plans/groups/daemon-implementation.md, kb:anchor/sessions.order, kb:anchor/sessions.create]
 supersedes: []

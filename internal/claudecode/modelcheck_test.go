@@ -203,7 +203,7 @@ func TestRunModelCheck_CommandCannotStart_ReturnsError(t *testing.T) {
 
 // TestRunModelCheck_ContextDeadlineBoundsAHungProcess covers "blocks past the context
 // deadline" (D6/REQ-2/Edge Case 1: "the launch proceeds and a warn line is logged").
-// The warn line is Launch's own `if err != nil` branch (internal/server/sessions.go), so
+// The warn line is Launch's own `if err != nil` branch (internal/server/launcher.go), so
 // a killed-by-ctx run must come back as an error, the same as a run that could not start
 // at all — CheckModel's fail-open path only fires the warning when runModelCheck reports
 // one.

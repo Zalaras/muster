@@ -204,7 +204,7 @@ type createShellResponse struct {
 
 // shellFeature owns the plain-shell surface: spawning (POST /api/sessions/{id}/shell)
 // and attaching (GET /ws/shell/{id}). terminals is the shared takeover registry also
-// used by terminalFeature (Claude surface) and sessionsFeature (End/Remove's socket
+// used by terminalFeature (Claude surface) and actionsFeature (End/Remove's socket
 // teardown).
 type shellFeature struct {
 	registry  *shellRegistry

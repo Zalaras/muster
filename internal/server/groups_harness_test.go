@@ -133,7 +133,7 @@ func (k *namedKiller) killedNames() []string {
 	return append([]string(nil), k.killed...)
 }
 
-// shellSpawner wraps fakeTmux so the shell registry's kills are recorded: sessionsFeature's
+// shellSpawner wraps fakeTmux so the shell registry's kills are recorded: actionsFeature's
 // teardownRemoved ends in shells.Kill, which kills tmux.ShellSessionName(id), so the recorded
 // names prove which sessions the server tore down.
 type shellSpawner struct {
@@ -206,11 +206,13 @@ func newGroupsHarness(t *testing.T) *groupsHarness {
 		store: st, manager: h.mgr, tmux: h.spawner, log: zerolog.Nop(), claudeBin: "irrelevant-never-reached",
 		hookScript: "/bin/true", statusLineScript: "/bin/true",
 	}
-	sessionsFeat := newSessionsFeature(h.mgr, h.launcher, shells, terminals, nil, zerolog.Nop())
-	groupsFeat := newGroupsFeature(h.mgr, sessionsFeat.teardownRemoved, zerolog.Nop())
+	actionsFeat := newActionsFeature(h.mgr, h.launcher, shells, terminals, nil, zerolog.Nop())
+	groupsFeat := newGroupsFeature(h.mgr, actionsFeat.teardownRemoved, zerolog.Nop())
 	noGuard := func(next http.Handler) http.Handler { return next }
 	h.mux = http.NewServeMux()
-	sessionsFeat.mount(h.mux, noGuard)
+	newLaunchFeature(h.launcher).mount(h.mux, noGuard)
+	actionsFeat.mount(h.mux, noGuard)
+	newRailFeature(h.mgr, zerolog.Nop()).mount(h.mux, noGuard)
 	groupsFeat.mount(h.mux, noGuard)
 	return h
 }

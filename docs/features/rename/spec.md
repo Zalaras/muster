@@ -6,7 +6,7 @@ date: 2026-09-12
 summary: Muster-owned session title override, inline rename in the mainhead and tiles.
 features: [rename]
 tags: [ux]
-go: [internal/server/sessions*.go, internal/server/title_test.go, internal/session/title*.go]
+go: [internal/server/rename*.go, internal/server/title_test.go, internal/session/title*.go]
 web: [web/src/features/rename.ts, web/src/render/rename.ts, web/src/sessions/rename*.ts]
 e2e: [web/e2e/rename.spec.ts]
 protocol: [sessions.title]

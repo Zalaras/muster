@@ -6,7 +6,7 @@ date: 2026-08-30
 summary: Rail order and pinned state are daemon-owned per-session fields with daemon-held invariants; the daemon persists and broadcasts, the client sorts.
 features: [rail, lifecycle]
 tags: [store, ux]
-files: [internal/session/railorder.go, internal/server/sessions.go, internal/store/migrations/**, web/src/sessions/railorder.ts]
+files: [internal/session/railorder.go, internal/server/rail.go, internal/store/migrations/**, web/src/sessions/railorder.ts]
 tests: [TestApplyPin_InvariantsHoldFromEveryStartingConfiguration, TestApplyOrder_InvariantsHoldFromEveryStartingConfiguration, TestApplyOrder_OnlyChangedSessionsAreReturned, web/e2e/rail-order.spec.ts]
 refs: [docs/history/spec-changelog.md, docs/history/protocol-changelog.md, plan:order-sidebar, kb:anchor/sessions.pin, kb:anchor/sessions.order, kb:anchor/ws.session, kb:adr/connection-whole-object-session-upserts, kb:adr/tiles-order-ephemeral-per-window]
 supersedes: []

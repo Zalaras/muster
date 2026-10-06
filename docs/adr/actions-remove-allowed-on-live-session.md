@@ -6,7 +6,7 @@ date: 2026-08-27
 summary: Remove is allowed on a live session; it ends the session first and its dialog says so, then deletes the row and broadcasts sessionRemoved.
 features: [actions, lifecycle]
 tags: [ux, user-decision]
-files: [internal/server/sessions.go, internal/session/manager.go]
+files: [internal/server/actions.go, internal/session/manager.go]
 tests: [TestRemove_EndsAnAliveSessionFirstAndLeavesTheRowOnAFailingKill, TestHandleRemoveSession_DeadSessionSucceeds, web/e2e/actions.spec.ts]
 refs: [docs/history/spec-changelog.md, plan:m4-reconcile, kb:anchor/sessions.remove, kb:anchor/sessions.end, kb:anchor/ws.session-removed]
 supersedes: []

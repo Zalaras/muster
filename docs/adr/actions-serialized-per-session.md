@@ -6,7 +6,7 @@ date: 2026-09-14
 summary: Launch, Resume, End and Remove hold a per-session-id lock, and the shell registry's global mutex becomes per-id.
 features: [actions, lifecycle, surfaces]
 tags: [state-machine, tmux]
-files: [internal/session/manager.go, internal/server/sessions.go, internal/server/shells.go]
+files: [internal/session/manager.go, internal/server/actions.go, internal/server/shells.go]
 tests: [TestEnd_ConcurrentEndsProduceExactlyOneMarkEndedAndNeverAKillError]
 refs: [plan:session-lifecycle, kb:adr/actions-kill-is-idempotent, kb:adr/surfaces-shell-is-attach-target-not-session]
 supersedes: []

@@ -6,7 +6,7 @@ date: 2026-10-05
 summary: Bulk Stop and Remove are daemon batches over a list of ids, each under its per-session lock, reporting done, skipped and failed; the dashboard never loops.
 features: [actions, rail]
 tags: [tmux, ux]
-files: [internal/session/actions.go, internal/server/sessions.go, web/src/features/actions.ts]
+files: [internal/session/actions.go, internal/server/actions.go, web/src/features/actions.ts]
 tests: []
 refs: [plan:groups, kb:spec/rail]
 supersedes: []

@@ -6,7 +6,7 @@ date: 2026-09-03
 summary: A post-launch rename is a Muster-owned nullable title override that wins over the status-line name; the wire title is the display title.
 features: [rename, tiles, focus]
 tags: [ux, envelope, user-decision]
-files: [internal/server/sessions.go, internal/session/session.go, internal/store/migrations/0007_title_override.sql, web/src/features/rename.ts, web/src/render/rename.ts, web/src/sessions/rename.ts]
+files: [internal/server/rename.go, internal/session/session.go, internal/store/migrations/0007_title_override.sql, web/src/features/rename.ts, web/src/render/rename.ts, web/src/sessions/rename.ts]
 tests: [TestApplyStatusUpdate_NeverTouchesTitleOverride, TestHandleSetTitle_AbsentKeyIs400ButExplicitNullIs204, TestSetTitle_BroadcastsOnceOnARealChangeZeroOnEdgeCases3And4, TestSession_DisplayTitle, web/e2e/rename.spec.ts]
 refs: [docs/history/spec-changelog.md, docs/history/protocol-changelog.md, plan:ui-text-and-focus, kb:anchor/sessions.title, kb:anchor/ws.session, kb:adr/rename-title-from-status-line-session-name, kb:fact/status-session-name-source, "#10"]
 supersedes: [rename-title-from-status-line-session-name]

@@ -6,7 +6,7 @@ date: 2026-09-05
 summary: A shell outlives End and view switches and can open on a dead session; it dies on exit, Remove or reconcile, which kills every shell rather than adopting.
 features: [surfaces, lifecycle, actions]
 tags: [tmux, state-machine]
-files: [internal/server/shells.go, internal/session/manager.go, internal/server/sessions.go]
+files: [internal/server/shells.go, internal/session/manager.go, internal/server/actions.go]
 tests: [TestHandleEndSession_LeavesShellRunning, TestHandleCreateShell_DeadSessionSucceeds, TestReconcile_KillsEveryShellSessionUnconditionallyAndCountsThem, TestReconcile_NeverListsAnyShellSessionAsUnknown]
 refs: [docs/history/spec-changelog.md, docs/history/protocol-changelog.md, plan:plain-terminal-session, kb:anchor/sessions.remove, kb:anchor/sessions.end, kb:anchor/state.liveness, kb:adr/lifecycle-reconcile-before-first-snapshot, kb:adr/actions-remove-allowed-on-live-session, kb:adr/surfaces-shell-is-attach-target-not-session]
 supersedes: []

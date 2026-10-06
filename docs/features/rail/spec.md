@@ -6,7 +6,7 @@ date: 2026-09-12
 summary: Rail cards, attention versus manual order, pin, drag reorder, session count.
 features: [rail]
 tags: [ux]
-go: [internal/server/sessions*.go, internal/session/railorder*.go]
+go: [internal/server/rail*.go, internal/session/railorder*.go]
 web: [web/src/features/rail.ts, web/src/render/sessions*.ts, web/src/sessions/testfixtures*.ts, web/src/render/repolines*.ts, web/src/render/actionbutton*.ts, web/src/render/dragreorder*.ts, web/src/render/keyedreorder*.ts, web/src/sessions/card*.ts, web/src/sessions/railorder*.ts, web/src/sessions/reorder*.ts, web/src/sessions/format*.ts, web/src/sessions/paths*.ts, web/src/sessions/sort*.ts, web/src/dragmime*.ts]
 e2e: [web/e2e/rail-order.spec.ts, web/e2e/rail-cards.spec.ts, web/e2e/rail-unread.spec.ts, web/e2e/rail-layout.spec.ts, web/e2e/rail-activity.spec.ts, web/e2e/helpers/railorder.ts, web/e2e/helpers/railcards.ts]
 protocol: [sessions.pin, sessions.order]

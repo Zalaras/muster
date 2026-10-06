@@ -61,7 +61,7 @@ func (f *readerFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.
 	mux.Handle("GET /api/sessions/{id}/reader/file", guard(http.HandlerFunc(f.handleReaderFile)))
 }
 
-// forgetSession drops id's write log — called once from sessions.go's Remove path.
+// forgetSession drops id's write log — called once from actions.go's Remove path.
 func (f *readerFeature) forgetSession(id int64) {
 	f.writes.Forget(id)
 }

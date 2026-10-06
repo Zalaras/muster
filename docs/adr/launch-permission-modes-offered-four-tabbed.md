@@ -6,7 +6,7 @@ date: 2026-09-03
 summary: The Start-in control offers Claude Code's four tabbed modes under its own labels; default stays the wire value behind manual and auto is new end to end.
 features: [launch, lifecycle]
 tags: [ux, claude-code-format, state-machine, user-decision]
-files: [web/src/features/launch.ts, internal/claudecode/launch.go, internal/server/sessions.go]
+files: [web/src/features/launch.ts, internal/claudecode/launch.go, internal/server/launchcreate.go]
 tests: [TestHandleCreateSession_UnknownPermissionModeMessageNamesAllFive, TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault, web/e2e/permission-mode.spec.ts]
 refs: [docs/history/spec-changelog.md, docs/history/protocol-changelog.md, plan:fix-auto-mode-select, kb:fact/permission-mode-flag-on-wire, kb:fact/permission-mode-auto-model-gated, kb:fact/permission-mode-presence-split, kb:anchor/sessions.create, kb:anchor/ws.session, kb:adr/launch-form-seeds-model-and-permission-mode, kb:adr/launch-bypass-and-dontask-unoffered, "#12"]
 supersedes: []

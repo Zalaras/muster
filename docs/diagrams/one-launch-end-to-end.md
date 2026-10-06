@@ -7,7 +7,7 @@ kind: sequence
 summary: One POST /api/sessions launch end to end — validation, model verdict, repo/settings/tmux side effects in order, then the trust prompt.
 features: []
 tags: [tmux, claude-code-format]
-files: [internal/server/launcher.go, internal/server/launchergroup.go, internal/session/grouplaunch.go, internal/server/sessions.go, internal/claudecode/launch.go, internal/gitutil/**, internal/store/repo*.go]
+files: [internal/server/launcher.go, internal/server/launchergroup.go, internal/session/grouplaunch.go, internal/server/launchcreate.go, internal/claudecode/launch.go, internal/gitutil/**, internal/store/repo*.go]
 tests: []
 refs: [kb:spec/launch, kb:adr/launch-new-group-created-with-the-row-or-not-at-all, kb:adr/launch-trust-prompt-never-auto-answered, kb:adr/launch-settings-local-json-not-settings-json]
 ---

@@ -6,7 +6,7 @@ date: 2026-10-05
 summary: Group endpoints address the Ungrouped section as id 0; a session with no group has groupId null; Ungrouped's place and collapsed flag persist in kv.
 features: [rail, lifecycle, groups]
 tags: [store]
-files: [internal/store/store.go, internal/server/sessions.go, web/src/api/sessions.ts]
+files: [internal/store/store.go, internal/server/rail.go, internal/server/groups.go, web/src/api/sessions.ts]
 tests: []
 refs: [plan:groups, kb:spec/groups]
 supersedes: []

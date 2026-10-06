@@ -42,7 +42,7 @@ func TestNew_RegistersLifecycleFeaturesInStartOrder(t *testing.T) {
 func TestNew_ZeroValueLaunchConfigDefaultsClaudeBin(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{}) // Config.Launch left at its zero value
 
-	assert.Equal(t, "claude", srv.sessions.launcher.claudeBin, "a zero-value LaunchConfig.ClaudeBin must default to \"claude\"")
+	assert.Equal(t, "claude", srv.launch.launcher.claudeBin, "a zero-value LaunchConfig.ClaudeBin must default to \"claude\"")
 }
 
 // recordingLifecycleFeature is a minimal feature+lifecycle double that appends its name to

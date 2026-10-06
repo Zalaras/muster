@@ -6,7 +6,7 @@ date: 2026-08-27
 summary: The daemon captures each live pane on every liveness tick and serves the last capture for a dead session, dimmed under an ended cap; display only.
 features: [actions, focus]
 tags: [tmux, ux]
-files: [internal/server/sessions.go, internal/tmux/tmux.go, web/src/render/dead.ts]
+files: [internal/server/actions.go, internal/tmux/tmux.go, web/src/render/dead.ts]
 tests: [TestHandlePaneSnapshot_404BeforeCaptureThen200WithTextAfter, TestCapturePane_ReturnsPaneTextAndTrimsTrailingBlankLines, web/e2e/actions.spec.ts]
 refs: [docs/history/spec-changelog.md, plan:m4-reconcile, plan:m2-terminal, kb:anchor/sessions.pane, kb:adr/surfaces-shared-attach-single-pty]
 supersedes: []

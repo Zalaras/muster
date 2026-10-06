@@ -21,7 +21,7 @@ type launchError struct {
 func (e *launchError) Error() string { return e.message }
 
 // writeLaunchError writes lerr's status/code/message, including its optional `id` field
-// (already_open) when present — sessions.go's one write path for both
+// (already_open) when present — launchcreate.go's and actions.go's one write path for both
 // POST /api/sessions and POST /api/sessions/{id}/resume's *launchError results, so neither
 // handler needs to know which errors carry an id.
 func writeLaunchError(w http.ResponseWriter, lerr *launchError) {

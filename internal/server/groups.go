@@ -100,8 +100,9 @@ func decodeGroupID(raw json.RawMessage) (id *int64, ok bool) {
 	return &v, true
 }
 
-// groupsFeature owns the rail-group endpoints and the snapshot's groups and ungrouped.
-// teardown is sessionsFeature.teardownRemoved: delete-group's remove disposition tears down
+// groupsFeature owns the rail-group endpoints, the sessions-to-group move and the
+// snapshot's groups and ungrouped.
+// teardown is actionsFeature.teardownRemoved: delete-group's remove disposition tears down
 // each removed session's terminal, shell and write log exactly as DELETE /api/sessions/{id}
 // does.
 type groupsFeature struct {
@@ -121,6 +122,45 @@ func (f *groupsFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.
 	mux.Handle("PUT /api/groups/collapsed", guard(http.HandlerFunc(f.handleSetAllCollapsed)))
 	mux.Handle("PUT /api/groups/{id}", guard(http.HandlerFunc(f.handleUpdateGroup)))
 	mux.Handle("DELETE /api/groups/{id}", guard(http.HandlerFunc(f.handleDeleteGroup)))
+	// The literal group segment beats /api/sessions/{id}'s wildcard regardless of which
+	// feature mounted it.
+	mux.Handle("PUT /api/sessions/group", guard(http.HandlerFunc(f.handleSetSessionsGroup)))
+}
+
+const msgSessionGroupIDs = "ids must be known session ids without duplicates"
+
+// setSessionsGroupRequest is PUT /api/sessions/group's request body
+// (kb:anchor/sessions.group). GroupID is a json.RawMessage so an absent key (400) is
+// distinguishable from an explicit null (Ungrouped) — the same shape setTitleRequest uses.
+type setSessionsGroupRequest struct {
+	IDs     []int64         `json:"ids"`
+	GroupID json.RawMessage `json:"groupId"`
+}
+
+// handleSetSessionsGroup is PUT /api/sessions/group (kb:anchor/sessions.group).
+func (f *groupsFeature) handleSetSessionsGroup(w http.ResponseWriter, r *http.Request) {
+	var req setSessionsGroupRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.IDs == nil {
+		writeInvalidRequest(w, msgSessionGroupIDs)
+		return
+	}
+	groupID, ok := decodeGroupID(req.GroupID)
+	if !ok {
+		writeInvalidRequest(w, "groupId is required and must be an integer or null")
+		return
+	}
+
+	switch err := f.manager.SetSessionsGroup(context.WithoutCancel(r.Context()), req.IDs, groupID); {
+	case err == nil:
+		w.WriteHeader(http.StatusNoContent)
+	case errors.Is(err, session.ErrUnknownSession), errors.Is(err, session.ErrInvalidOrder):
+		writeInvalidRequest(w, msgSessionGroupIDs)
+	case errors.Is(err, session.ErrUnknownGroup):
+		writeUnknownGroup(w, msgUnknownGroup)
+	default:
+		f.log.Error().Err(err).Msg("moving sessions to a group failed")
+		writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
+	}
 }
 
 func (f *groupsFeature) contribute(_ context.Context, snap *Snapshot) {

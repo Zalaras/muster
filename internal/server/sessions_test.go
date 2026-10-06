@@ -848,7 +848,7 @@ func TestHandleRemoveSession_FailingEndLeavesTheShellRunningAndTheRowPresent(t *
 	// D7/REQ-10: a captured logger, not zerolog.Nop() — the raw error must reach the log
 	// even though the response body below only ever carries the fixed phrase.
 	var logBuf bytes.Buffer
-	f := newSessionsFeature(manager, launcher, shells, terminals, nil, zerolog.New(&logBuf))
+	f := newActionsFeature(manager, launcher, shells, terminals, nil, zerolog.New(&logBuf))
 
 	dir := t.TempDir()
 	repo, _, err := st.UpsertRepo(context.Background(), store.UpsertRepoParams{
@@ -917,7 +917,7 @@ func TestHandleEndSession_FailingKillLeavesTheTerminalSocketOpen(t *testing.T) {
 	// D7/REQ-10: a captured logger, not zerolog.Nop() — the raw error must reach the log
 	// even though the response body below only ever carries the fixed phrase.
 	var logBuf bytes.Buffer
-	sessionsFeat := newSessionsFeature(manager, launcher, shells, terminals, nil, zerolog.New(&logBuf))
+	sessionsFeat := newActionsFeature(manager, launcher, shells, terminals, nil, zerolog.New(&logBuf))
 
 	dir := t.TempDir()
 	repo, _, err := st.UpsertRepo(context.Background(), store.UpsertRepoParams{
