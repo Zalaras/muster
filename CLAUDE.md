@@ -42,16 +42,20 @@ Feature work goes through the multi-agent pipeline, not ad-hoc editing:
    review-browser ∥ review-maintainability (Opus; merged into one computed verdict) →
    doc-reconcile, with fix waves and `orchestration-state.json` resume. Only a merged review
    verdict of `approved` reaches doc-reconcile, and only its `reconciled` completes the run.
-4. `/work-status [name]` — where things stand.
-5. `/triage [N|--all|--audit]` — pulls open GitHub issues into `TODO.md` and audits the
+4. `/fix <name> "<desc>"` — the small track for a fix, perf change, refactor or chore: research
+   with evidence, the developer confirms the diagnosis, a small-shape `plans/<name>/plan.md` on
+   an in-place `plan/<name>` branch, the test agent writes the regression test red, the impl
+   agent makes it green, gates, review-work (+browser/maintainability when due), then `/land`.
+5. `/work-status [name]` — where things stand.
+6. `/triage [N|--all|--audit]` — pulls open GitHub issues into `TODO.md` and audits the
    two lists. An issue is triaged iff its `issues/N` link is in `TODO.md` or
    `docs/history/todo-done.md`; triage never closes an issue, and commits its `TODO.md` edit
    (`docs(triage): …`, no push).
-6. `/land <name>` — squash-merges the approved `plan/<name>` branch to `main` with a
+7. `/land <name>` — squash-merges the approved `plan/<name>` branch to `main` with a
    conventional subject carrying `closes #N`, pushes (cutting a release, which closes the
    issues), and deletes the branch.
-7. `/retro <name>` — run in the session that ran `/orchestrate`, once it completes and before
-   step 6's `/land` merges the branch away: names what the run cost and proposes the smallest
+8. `/retro <name>` — run in the session that ran `/orchestrate`, once it completes and before
+   step 7's `/land` merges the branch away: names what the run cost and proposes the smallest
    pipeline-doc change (net ≤ 0 lines) that would have prevented it, or says nothing needs
    changing. Commits `docs(retro)` on the plan branch, riding its squash merge.
 
@@ -65,8 +69,10 @@ claimed *effects* need measurement (the `ls -l` or the observed DOM, not the dif
 a green verdict hiding one. Never `sleep`, poll, or go idle waiting on a backgrounded command — the
 harness wakes only the **main session**, so agents run gates in the foreground (kb:lesson/subagent-never-woken-by-harness).
 
-The pipeline buys parallel daemon∥web tracks behind a protocol contract. Use it when the work
-changes the shipped artifact (`docs/conventions.md` § Commits). Work that releases nothing —
+The pipeline buys parallel daemon∥web tracks behind a protocol contract. Use `/orchestrate` when
+the work changes the daemon↔UI protocol, adds a feature spec, or adds a UI surface that needs a
+Testable UI Elements table; every other change to the shipped artifact (`docs/conventions.md`
+§ Commits) is `/fix` (kb:adr/process-small-track-for-fixes). Work that releases nothing —
 `tools/`, `internal/kb`, `internal/triage`, skills, agents, docs — is a plan and a commit.
 
 ## Hard rules
