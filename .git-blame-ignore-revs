@@ -10,3 +10,8 @@
 
 # refactor(session): split manager.go into sibling files by concern (pure move)
 02e80512be470aab16b3f67fb3a5adc1e9d8dd84
+
+# refactor(server): split the session handlers into one feature type per file (pure move)
+8c3a2cffbbd056f5687ae18a77f02a19e32cd0a8
+# test(server): split the session handler tests to match the handler files (pure move)
+7fa10be2be56e45aa0e9fda0dbbacec13da05149
