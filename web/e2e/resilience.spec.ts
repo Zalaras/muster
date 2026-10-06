@@ -1,5 +1,8 @@
 import { countMigrations } from "./helpers/db";
 import { expect, settleFor, test } from "./helpers/fixtures";
+import { readerStatusLine } from "./helpers/reader";
+import { launchSession, scratchDirectory, sessionCard } from "./helpers/session";
+import { liveTile } from "./helpers/terminal";
 
 // REQ-2, REQ-9, REQ-17, REQ-19, REQ-20 — daemon-down banner + reconnect, restart
 // behaviour (token/migration persistence). Every test kills or restarts its daemon, so
@@ -102,4 +105,124 @@ test.describe("daemon resilience", () => {
     const after = await countMigrations(daemon.dbPath);
     expect(after).toBe(before);
   });
+});
+
+// Plan general-cleanup — REQ-7 (focus restore across a drop and reconnect) and REQ-8 (a
+// pop-out never shows unreachable before its first hello). Each test kills or routes its own
+// daemon's socket, so each takes the test-scoped `daemon` fixture.
+
+test("focus returns to the mainhead End button by node identity after a daemon drop and reconnect (E1, REQ-7, INV-FOCUS)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dir, title: "focus-restore-e1" });
+    await sessionCard(page, "focus-restore-e1").click();
+
+    const mainhead = page.locator("#mainhead");
+    const endBtn = mainhead.getByRole("button", { name: "Stop" });
+    await endBtn.focus();
+    await expect(endBtn).toBeFocused();
+    // Node identity, not merely a re-resolved locator match (docs/conventions.md
+    // §Testing / kb:lesson/select-rebuilt-every-tick-passed-selectoption): the render
+    // that re-enables the button on reconnect must hand focus back to this exact DOM
+    // node, not a same-role-and-name replacement.
+    const endHandle = await endBtn.elementHandle();
+    if (!endHandle) throw new Error("mainhead End button not found");
+
+    await daemon.kill();
+    const banner = page.getByRole("alert");
+    await expect(banner).toBeVisible({ timeout: 15_000 });
+    await expect(endBtn).toBeDisabled();
+
+    await daemon.restart();
+    await expect(banner).toBeHidden({ timeout: 15_000 });
+    await expect(endBtn).toBeEnabled();
+    expect(await page.evaluate((n) => document.activeElement === n, endHandle)).toBe(true);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("focus returns to a tile's End button by node identity after a daemon drop and reconnect (E2, REQ-7, INV-FOCUS)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dir, title: "focus-restore-e2" });
+    await page.getByRole("button", { name: "Tiles" }).click();
+
+    const tile = liveTile(page, "focus-restore-e2");
+    await expect(tile).toBeVisible();
+    const endBtn = tile.locator(".tfoot").getByRole("button", { name: "Stop" });
+    await endBtn.focus();
+    await expect(endBtn).toBeFocused();
+    const endHandle = await endBtn.elementHandle();
+    if (!endHandle) throw new Error("tile End button not found");
+
+    await daemon.kill();
+    const banner = page.getByRole("alert");
+    await expect(banner).toBeVisible({ timeout: 15_000 });
+    await expect(endBtn).toBeDisabled();
+
+    await daemon.restart();
+    await expect(banner).toBeHidden({ timeout: 15_000 });
+    await expect(endBtn).toBeEnabled();
+    expect(await page.evaluate((n) => document.activeElement === n, endHandle)).toBe(true);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a pop-out that has never connected shows connecting…, never musterd unreachable, until its first hello (E3, REQ-8, INV-POPOUT-CONNECTING)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, { directory: dir, title: "popout-e3" });
+
+    // The plan's own E3 acceptance criterion names `daemon.kill()` before the pop-out's
+    // own navigation, but a genuinely killed daemon has no listener left to serve
+    // `/doc.html` at all — there is no HTTP response to assert a status line against.
+    // Routing (transparently proxying) the pop-out's OWN WebSocket and simply
+    // withholding `connectToServer()` reproduces the exact same observable state INV-
+    // POPOUT-CONNECTING names ("daemon down before load" — no hello has ever arrived)
+    // without that contradiction; it is the same technique actions.spec.ts's E14/Major 4
+    // test already uses to force a connection outage without touching the daemon
+    // process. Registered before the pop-out's navigation (Playwright: only sockets
+    // created after this call are routed).
+    const wsRouteBox: { connect: (() => void) | null } = { connect: null };
+    await page.routeWebSocket("**/ws", (ws) => {
+      wsRouteBox.connect = () => ws.connectToServer();
+    });
+
+    // Still-authed navigation on the SAME page (the dashboardUrl visit above already
+    // set the cookie) — a hand-built pop-out URL is fine here, unlike reader.spec.ts's
+    // "must go through the real link" pop-out-layout test: that note is about a page
+    // that never visited the dashboard at all, not this one.
+    await page.goto(
+      `${daemon.baseURL}/doc.html?session=${session.id}&path=${encodeURIComponent("does-not-exist.md")}`,
+    );
+
+    const statusLine = readerStatusLine(page.locator("#reader-host"));
+    await expect(statusLine).toHaveText(/connecting…/i, { timeout: 15_000 });
+    // Prove absence, held past any plausible transient render (settleFor — a
+    // stays-unchanged check per docs/conventions.md §Testing, never a wait).
+    await settleFor(page, 2000);
+    await expect(statusLine).not.toHaveText(/unreachable/i);
+
+    if (!wsRouteBox.connect) {
+      throw new Error("expected the pop-out's WebSocket route to be active");
+    }
+    wsRouteBox.connect();
+    await expect(statusLine).not.toHaveText(/connecting…/i, { timeout: 15_000 });
+  } finally {
+    await cleanup();
+  }
 });

@@ -6,6 +6,13 @@ import {
   rawUserPromptSubmit,
 } from "./helpers/payloads";
 import {
+  buildMarkdownFixtureTree,
+  fileEntry,
+  popOutLink,
+  readerRegion,
+  renderedBody,
+} from "./helpers/reader";
+import {
   envelopeOpts,
   getState,
   launchSession,
@@ -13,6 +20,7 @@ import {
   sessionCard,
   stateBadge,
 } from "./helpers/session";
+import { mainheadSurfaceButton } from "./helpers/shell";
 import { terminalRegion } from "./helpers/terminal";
 import {
   claudeConfigJSON,
@@ -622,4 +630,41 @@ test("GET /api/state always carries prefs.theme and claudeTheme.family (REQ-10, 
   };
   expect(state.prefs.theme).toBe("follow");
   expect(state.claudeTheme.family).toBe("unknown");
+});
+
+// Plan general-cleanup — REQ-9: an open pop-out follows a live theme change.
+test("an open pop-out follows a live theme change without reload (E5, REQ-9)", async ({
+  page,
+  daemon,
+  context,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    // decideInitialOpen has nothing to open in a directory with no plan and no files
+    // (reader.spec.ts's E4), and popOutLink is null whenever openPath is null
+    // (buildBarVM) — seed a file and open it so the pop-out link actually renders.
+    await buildMarkdownFixtureTree(dir);
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dir, title: "popout-theme-e5" });
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "popout-theme-e5");
+    await fileEntry(region, "TODO.md").click();
+    await expect(renderedBody(region)).toContainText("TODO", { timeout: 15_000 });
+    await expect(popOutLink(region)).toBeVisible({ timeout: 15_000 });
+
+    const [popup] = await Promise.all([context.waitForEvent("page"), popOutLink(region).click()]);
+    await popup.waitForLoadState();
+    await expect(readerRegion(popup, "popout-theme-e5")).toBeVisible({ timeout: 15_000 });
+    await expect.poll(() => htmlTheme(popup)).toBe("instrument");
+
+    const dialog = await openSettingsDialog(page);
+    await themeRadio(dialog, "Dark").check();
+    await expect.poll(() => htmlTheme(page)).toBe("dark");
+
+    // No reload of the pop-out anywhere above — the broadcast alone must move it.
+    await expect.poll(() => htmlTheme(popup)).toBe("dark");
+  } finally {
+    await cleanup();
+  }
 });

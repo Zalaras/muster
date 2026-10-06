@@ -1397,7 +1397,7 @@ test("a window holding a restart record reloads on a mismatched-protocol reconne
   // restart — no release check or apply is involved, so the plain `daemon` fixture is used
   // (per this file's own header note) and the restart record is armed directly by sending
   // a synthetic `update` broadcast over a routed `/ws`, the same technique actions.spec.ts's E14 test and
-  // general-cleanup.spec.ts's pop-out test use to force a connection outage without
+  // resilience.spec.ts's pop-out test use to force a connection outage without
   // touching the daemon process.
   const MISMATCHED_PROTOCOL_VERSION = 99;
 

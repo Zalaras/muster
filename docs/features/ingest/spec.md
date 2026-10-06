@@ -8,7 +8,7 @@ features: [ingest]
 tags: [envelope, claude-code-format]
 go: [internal/server/ingest*.go, internal/claudecode/ingest*.go, internal/claudecode/interpret*.go, internal/claudecode/settings*.go, internal/claudecode/doc.go, internal/claudecode/claudecodetest/**]
 web: []
-e2e: [web/e2e/general-cleanup.spec.ts, web/e2e/ingest.spec.ts, web/e2e/subagent-status.spec.ts, web/e2e/helpers/payloads.ts]
+e2e: [web/e2e/ingest.spec.ts, web/e2e/ingest-envelope.spec.ts, web/e2e/subagent-status.spec.ts, web/e2e/helpers/payloads.ts]
 protocol: [ingest, ingest.transport, ingest.envelope]
 refs: [kb:adr/ingest-all-hooks-command-wrappers, kb:adr/ingest-sessionstart-command-wrapper, kb:adr/ingest-envelope-binds-never-cwd, kb:adr/ingest-envelope-pane-must-corroborate, kb:adr/ingest-envelope-authoritative-binding, kb:adr/ingest-monotonic-rebind, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/ingest-separate-token-in-url-path, kb:adr/ingest-hook-entries-permanent, kb:adr/ingest-shell-quote-at-write-boundary, kb:adr/ingest-wrapper-scripts-replaced-atomically, kb:fact/sessionstart-not-over-http, kb:fact/command-hooks-inherit-pane-env, kb:fact/hook-commands-are-shell-lines, kb:fact/hook-delivery-best-effort, kb:fact/hook-payload-fields, kb:fact/status-line-keys, kb:fact/stopfailure-error-taxonomy, kb:fact/permission-mode-presence-split, kb:fact/local-settings-honoured]
 ---
