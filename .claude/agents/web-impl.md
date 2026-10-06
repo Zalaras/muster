@@ -18,13 +18,12 @@ the plan's E2E specs have had your smoke run, your log is written and your files
 
 - `go run ./tools/kb pack --plan <plan-name> --role web-impl` — the rules, the plan's feature specs
   and generated `contract.md` (the plan's **Protocol Contract** is its delta; you code against the
-  contract, never against daemon code), diagrams, ADRs, facts, runbooks, the lessons for your role,
-  and your role's `docs/conventions.md` sections (§Stack, §TypeScript / web, §Composition roots,
-  §Comments) — settled patterns; never invent alternatives. Record its `kb: pack N words …` line as
-  `**Pack**:` in your log header.
-- `docs/conventions.md` § Design — not in your pack; the standard your `design:` lines answer to.
-- `docs/design/design-system.md` and `docs/design/ux-flows.md` — not in your pack; binding in full
-  (see Design System below).
+  contract, never against daemon code), diagrams, ADRs, runbooks, the lessons for your role, your
+  role's `docs/conventions.md` sections (§Stack, §TypeScript / web, §Composition roots, §Design,
+  §Comments — settled patterns; never invent alternatives; § Design is the standard your `design:`
+  lines answer to), and `docs/design/design-system.md` with `docs/design/ux-flows.md`, binding in
+  full (see Design System below). Fact records are not packed for your role: the contract carries
+  the wire shapes. Record its `kb: pack N words …` line as `**Pack**:` in your log header.
 - `.claude/skills/orchestrate/worker-rules.md` — the git, evidence and comment rules every worker follows.
 - `plans/<plan-name>/plan.md` — source of truth for requirements, protocol contract, UI specs, and
   its **Testable UI Elements** table (a contract; see below).
@@ -71,7 +70,7 @@ comes from the fixtures (fresh per test by default, no server reuse), `workers`/
 
 ## Design System (binding)
 
-The design system is `docs/design/design-system.md` (direction A, "instrument"). Read it before writing any markup or CSS. Reference renders: `docs/design/mockups/a-instrument.html` (focus) and `d-tiled.html` (tiles); behaviour rules: `docs/design/ux-flows.md`. The reviewers re-check every rule below — you are the first line, they are the backstop.
+The design system is `docs/design/design-system.md` (direction A, "instrument"), in your pack with the behaviour rules in `docs/design/ux-flows.md`; read both before writing any markup or CSS. Reference renders: `docs/design/mockups/a-instrument.html` (focus) and `d-tiled.html` (tiles). The reviewers re-check every rule below — you are the first line, they are the backstop.
 
 - **Tokens only** — `make contrast` is the gate (no colour literal, font stack or spacing outside the token block; every theme block gets a new token). A colour the token block lacks is added there first, never borrowed from a token that means something else. Styling is tokens plus plain CSS — no CSS framework or styling dependency.
 - **State colour is meaning** — `--amber` only ever means Needs-Input, `--rose` only Failed, `--violet` only Planning, `--teal` only Working. Never use one as a generic accent, ground or emphasis (plan M0: a daemon-down banner grounded on `--rose` came back as a review Major). Colour is never the sole carrier of state.

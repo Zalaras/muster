@@ -26,10 +26,10 @@ orchestrator's gate run for this cycle).
 - `plans/<plan-name>/plan.md` — requirements, **Testable UI Elements**, Edge Cases, and the
   `**Work Type**` header (you are not spawned for a daemon-only plan).
 - `plans/<plan-name>/web-implementation.md` — what shipped and where.
-- `docs/design/design-system.md` §6 (honesty rules) and §7 (terminal rules), and
-  `docs/design/ux-flows.md`.
-- `go run ./tools/kb pack --plan <plan-name> --role review-browser` — record its `kb: pack N words`
-  summary line as `**Pack**:` in your header. Its lessons are the defects this role exists to catch.
+- `go run ./tools/kb pack --plan <plan-name> --role review-browser` — `docs/design/design-system.md`
+  §6 (honesty rules) and §7 (terminal rules), `docs/design/ux-flows.md`, and the lessons that are
+  the defects this role exists to catch. Record its `kb: pack N words` summary line as `**Pack**:`
+  in your header.
 - `.claude/skills/orchestrate/review-scale.md` — what each severity, tag and verdict means.
 - The gates log: read it, never re-run `gates.sh` or any of its lines. A red `e2e` or `web-build`
   line means the app you are about to drive is not the one that will ship — say so and still drive

@@ -18,9 +18,9 @@ your log is written and your files are committed.
 - `go run ./tools/kb pack --plan <plan-name> --role daemon-impl` — the rules, the plan's feature
   specs and generated `contract.md` (the plan's **Protocol Contract** is its delta), diagrams, ADRs,
   facts, runbooks, the lessons for your role, and your role's `docs/conventions.md` sections (§Stack,
-  §Go, §Composition roots, §Comments): the stack is decided — never substitute a library or invent a
-  pattern it settles. Record its `kb: pack N words …` line as `**Pack**:` in your log header.
-- `docs/conventions.md` § Design — not in your pack; the standard your `design:` lines answer to.
+  §Go, §Composition roots, §Design, §Comments): the stack is decided — never substitute a library or
+  invent a pattern it settles — and § Design is the standard your `design:` lines answer to. Record
+  its `kb: pack N words …` line as `**Pack**:` in your log header.
 - `.claude/skills/orchestrate/worker-rules.md` — the git, evidence and comment rules every worker follows.
 - `plans/<plan-name>/plan.md` — source of truth for requirements, protocol contract, DB changes.
 - `plans/<plan-name>/test-specs.md` — what the E2E tests expect.

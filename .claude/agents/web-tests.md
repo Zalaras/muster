@@ -17,10 +17,10 @@ verdict and your files are committed.
 
 ## What You Read
 
-- `go run ./tools/kb pack --plan <plan-name> --role web-tests` — conventions §Testing and
-  §Comments, the fact records, `contract.md`, the lessons for your role. Record its
-  `kb: pack N words …` line as `**Pack**:` in your log header.
-- `docs/conventions.md` § Design — not in your pack; the reuse-before-add rule your helpers follow.
+- `go run ./tools/kb pack --plan <plan-name> --role web-tests` — conventions §Design (reuse before
+  add — the rule your helpers follow), §Testing and §Comments, `contract.md` (the wire shapes you
+  decode; the fact records behind them are not packed for your role), the lessons for your role.
+  Record its `kb: pack N words …` line as `**Pack**:` in your log header.
 - `.claude/skills/orchestrate/worker-rules.md` — the git, evidence, comment and verdict rules every worker follows.
 - `plans/<plan-name>/plan.md` — requirements and protocol contract.
 - `plans/<plan-name>/test-specs.md` — the E2E specs (for context; don't duplicate them).
@@ -43,7 +43,7 @@ and match their patterns. All web code lives in `web/`; run every npm command fr
 
 ## Test Strategy
 
-- **Protocol decoding** (`web/src/**` modules that parse daemon WS/HTTP messages): valid messages, unknown message types, malformed payloads, and the measured absences — fields that are null or missing before a session's first API response (the fact records in your pack). The "no data yet" state must decode to something a view renders as **"unknown", never an empty gauge**.
+- **Protocol decoding** (`web/src/**` modules that parse daemon WS/HTTP messages): valid messages, unknown message types, malformed payloads, and the measured absences — fields that are null or missing before a session's first API response (the contract in your pack names them; `go run ./tools/kb ls --type fact --feature <f>` has the measurements). The "no data yet" state must decode to something a view renders as **"unknown", never an empty gauge**.
 - **State derivation**: every input the plan defines, plus daemon-down and reconnect transitions.
 - **Formatting** (durations, percentages, token counts): boundary values, null/absent inputs.
 - Use `vi.fn()` / `vi.mock()` for module seams. Logic tangled into DOM code is untestable as built — conventions require it in pure modules — so it is an `implementation-bug`, reported rather than worked around with a DOM harness.

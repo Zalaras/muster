@@ -16,12 +16,11 @@ committed.
 
 ## What You Read
 
-- `go run ./tools/kb pack --plan <plan-name> --role daemon-tests` — conventions §Testing and
-  §Comments, the fact records, `contract.md`, the lessons for your role. Record its
-  `kb: pack N words …` line as `**Pack**:` in your log header. Not in your pack, and still the
-  project's test style: table-driven tests with `t.Run` subtests, `testify` (`require` for setup,
-  `assert` for verdicts) — `docs/conventions.md` §Stack and §Go.
-- `docs/conventions.md` § Design — not in your pack; the reuse-before-add rule your helpers follow.
+- `go run ./tools/kb pack --plan <plan-name> --role daemon-tests` — conventions §Stack and §Go (the
+  test style: table-driven tests with `t.Run` subtests, `testify` — `require` for setup, `assert`
+  for verdicts), §Design (reuse before add — the rule your helpers follow), §Testing and §Comments,
+  the fact records, `contract.md`, the lessons for your role. Record its `kb: pack N words …` line
+  as `**Pack**:` in your log header.
 - `.claude/skills/orchestrate/worker-rules.md` — the git, evidence, comment and verdict rules every worker follows.
 - `plans/<plan-name>/plan.md` — requirements and protocol contract.
 - `plans/<plan-name>/test-specs.md` — the E2E specs (for context; don't duplicate them).

@@ -26,9 +26,9 @@ From `plans/<plan-name>/`:
 - `daemon-implementation.md` / `web-implementation.md` — change logs (file paths and descriptions)
 - `daemon-tests.md` / `web-tests.md` — test results
 
-Plus `go run ./tools/kb pack --plan <plan-name> --role review` — everything the impl and test agents
-were given, the lessons for your role, and the plan's `proposed` ADRs — and `CLAUDE.md` (hard
-rules). Record the pack's `kb: pack N words` summary line as `**Pack**:` in your review header.
+Plus `go run ./tools/kb pack --plan <plan-name> --role review` — the full record set the impl and
+test agents' packs are sliced from, the lessons for your role, and the plan's `proposed` ADRs.
+Record the pack's `kb: pack N words` summary line as `**Pack**:` in your review header.
 `.claude/skills/orchestrate/review-scale.md` defines the severities, tags and verdicts you apply.
 
 Then read the **actual source files** listed in the implementation logs to review the code itself.
