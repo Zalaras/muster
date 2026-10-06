@@ -21,7 +21,7 @@ func renderCandidates(m *Manifest, stripped map[string]string) string {
 	for _, f := range m.Files {
 		total += len(f.Candidates)
 	}
-	fmt.Fprintf(&b, "# Comment candidates — plan %s\n\n%d candidates in %d files. Rule on every id exactly once.\n\n", m.Plan, total, len(m.Files))
+	fmt.Fprintf(&b, "# Comment candidates — plan %s\n\n%d candidates in %d files. Rule on every id exactly once. An `edited` candidate is judged as the whole comment it now is: a drop removes all of it, its `previously:` lines included.\n\n", m.Plan, total, len(m.Files))
 	for _, f := range m.Files {
 		fmt.Fprintf(&b, "## %s (%d)\n\nThe file as it reads with every candidate removed:\n\n", f.Path, len(f.Candidates))
 		b.WriteString(fence(stripped[f.Path]))

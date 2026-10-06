@@ -36,8 +36,10 @@ candidates for that file. Each candidate carries:
 - an id, `<path>#<n>`;
 - the line it sat above or on (quoted from the stripped file);
 - its origin: `added` (new on this branch), `edited` (the branch changed it — a `previously:`
-  fence shows the text on `main`), or `stale-ref` (an existing comment naming an identifier the
-  branch removed — `names removed:` lists them);
+  fence shows the text on `main`; the verdict covers the whole comment as it now reads, and a
+  drop removes all of it, the `previously:` lines included — this is how the pass re-verifies
+  an existing comment), or `stale-ref` (an existing comment naming an identifier the branch
+  removed — `names removed:` lists them);
 - its exact text.
 
 ## The rule
