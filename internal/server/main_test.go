@@ -13,10 +13,12 @@ import (
 // CLAUDE.md forbids ever launching the real binary from a unit test. It records the
 // MUSTER_SESSION it was handed, then sleeps so a liveness check sees it alive.
 //
-// The output path is derived from $MUSTER_SESSION at run time rather than baked in. That
-// is what keeps the content — and so the content hash below — identical across runs.
+// It records into its working directory — the launch directory, unique to each test — never
+// beside itself: every test server numbers its sessions from 1, so a file shared across
+// tests could satisfy another test's wait. Deriving the path at run time also keeps the
+// content, and so the content hash below, identical across runs.
 const stubClaudeScript = "#!/bin/sh\n" +
-	"echo \"$MUSTER_SESSION\" > \"$(dirname \"$0\")/session-$MUSTER_SESSION\"\n" +
+	"echo \"$MUSTER_SESSION\" > \"$PWD/muster-stub-session-$MUSTER_SESSION\"\n" +
 	"sleep 60\n"
 
 // sharedStubClaude is stubClaudeScript on disk, at a path keyed by the script's content
@@ -32,11 +34,8 @@ const stubClaudeScript = "#!/bin/sh\n" +
 // ensureSharedStubClaude, which keys its stub the same way and for the same reason.
 var sharedStubClaude string
 
-// stubOutDir is where sharedStubClaude records what it was handed, one file per session
-// id. It sits beside the stub, so it is shared across runs too — runTestMain therefore
-// clears it at startup, or a file left by an earlier run could satisfy a later run's wait
-// before the stub had actually run.
-var stubOutDir string
+// stubDir holds sharedStubClaude, keyed by its content hash so it persists across runs.
+var stubDir string
 
 func TestMain(m *testing.M) {
 	os.Exit(runTestMain(m))
@@ -46,37 +45,19 @@ func TestMain(m *testing.M) {
 // deferred call inside a function that itself calls os.Exit never fires.
 func runTestMain(m *testing.M) int {
 	sum := sha256.Sum256([]byte(stubClaudeScript))
-	stubOutDir = filepath.Join(os.TempDir(), "muster-server-stub-"+hex.EncodeToString(sum[:8]))
-	if err := os.MkdirAll(stubOutDir, 0o755); err != nil {
+	stubDir = filepath.Join(os.TempDir(), "muster-server-stub-"+hex.EncodeToString(sum[:8]))
+	if err := os.MkdirAll(stubDir, 0o755); err != nil {
 		fmt.Fprintln(os.Stderr, "server test setup: MkdirAll:", err)
 		return 1
 	}
-	sharedStubClaude = filepath.Join(stubOutDir, "stub-claude.sh")
+	sharedStubClaude = filepath.Join(stubDir, "stub-claude.sh")
 
-	if err := clearStaleStubOutput(); err != nil {
-		fmt.Fprintln(os.Stderr, "server test setup: clearing stale stub output:", err)
-		return 1
-	}
 	if err := ensureStubClaude(); err != nil {
 		fmt.Fprintln(os.Stderr, "server test setup: write shared stub claude:", err)
 		return 1
 	}
 
 	return m.Run()
-}
-
-// clearStaleStubOutput removes every session file an earlier run left in stubOutDir.
-func clearStaleStubOutput() error {
-	matches, err := filepath.Glob(filepath.Join(stubOutDir, "session-*"))
-	if err != nil {
-		return err
-	}
-	for _, m := range matches {
-		if err := os.Remove(m); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-	}
-	return nil
 }
 
 // ensureStubClaude writes the stub only when it is not already on disk, so repeat runs
@@ -87,7 +68,7 @@ func ensureStubClaude() error {
 	if _, err := os.Stat(sharedStubClaude); err == nil {
 		return nil
 	}
-	tmp, err := os.CreateTemp(stubOutDir, "stub-claude-*.partial")
+	tmp, err := os.CreateTemp(stubDir, "stub-claude-*.partial")
 	if err != nil {
 		return err
 	}

@@ -180,7 +180,7 @@ func TestLauncher_SuccessfulLaunchEndToEnd(t *testing.T) {
 	// D4: the pane environment carries MUSTER_SESSION=<id> — proven by the stub binary
 	// itself observing it (see newStubClaudeBin's doc comment for why show-environment
 	// can't be used here).
-	envOutFile := stubSessionOutFile(sess.ID)
+	envOutFile := stubSessionOutFile(dir, sess.ID)
 	require.Eventually(t, func() bool {
 		b, err := os.ReadFile(envOutFile)
 		return err == nil && len(b) > 0

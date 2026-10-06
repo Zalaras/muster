@@ -147,12 +147,12 @@ func newSessionTestManager(t *testing.T, st *store.Store, opts ...sessionManager
 }
 
 // stubSessionOutFile is where sharedStubClaude (main_test.go) records the MUSTER_SESSION
-// it was handed for sessionID. Reading that back is the only reliable way to observe what
+// it was handed for sessionID, launched into dir. Reading that back is the only reliable way to observe what
 // a tmux `new-window -e` actually passed the spawned process: tmux's own `show-environment`
 // reflects a separate update-environment table, not the process env passed at spawn,
 // confirmed by manual probe.
-func stubSessionOutFile(sessionID int64) string {
-	return filepath.Join(stubOutDir, "session-"+strconv.FormatInt(sessionID, 10))
+func stubSessionOutFile(dir string, sessionID int64) string {
+	return filepath.Join(dir, "muster-stub-session-"+strconv.FormatInt(sessionID, 10))
 }
 
 // newTestTmuxClient returns a tmux.Client bound to a private, per-test socket (plan
