@@ -23,7 +23,7 @@ current state.
 
 ## Commands
 
-- `make help` lists everything: `build`, `check` (lint + unit + `refs` + `check-kb`), `web-test`,
+- `make help` lists everything: `build`, `check` (lint + unit + `check-kb`, which covers `refs`), `web-test`,
   `e2e`, `canary`, `web`.
 - Frontend: `nvm use` in the repo root first (Node pinned 24.21.0); then work in `web/`.
 

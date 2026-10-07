@@ -17,12 +17,11 @@ var (
 	urlRE      = regexp.MustCompile(`^https?://`)
 	issueRE    = regexp.MustCompile(`^#\d+$`)
 	planRE     = regexp.MustCompile(`^plan:([a-z0-9][a-z0-9-]*)$`)
-	// ownedDirs are the code roots every .go and .ts file under must belong to a feature.
-	ownedDirs = []string{"internal/", "web/src/", "web/e2e/"}
 )
 
 // Check runs every cross-record rule (design §5) on a loaded index and returns the sorted
-// union with the load-phase findings. Only I/O failures are errors.
+// union with the load-phase findings. Only I/O failures are errors. It needs no git
+// checkout; CheckRepo adds the one rule that does.
 func Check(ix *Index, loadFindings []Finding) ([]Finding, error) {
 	c := &checker{ix: ix, findings: append([]Finding(nil), loadFindings...)}
 	if err := c.run(); err != nil {
@@ -30,6 +29,30 @@ func Check(ix *Index, loadFindings []Finding) ([]Finding, error) {
 	}
 	sortFindings(c.findings)
 	return c.findings, nil
+}
+
+// CheckRepo runs Check and then the refs pass over every tracked file (kb refs --all), so a
+// cited repo path, make target or flag that no longer exists is a finding like any other.
+// It needs a git checkout at the root.
+func CheckRepo(ix *Index, loadFindings []Finding) ([]Finding, error) {
+	findings, err := Check(ix, loadFindings)
+	if err != nil {
+		return nil, err
+	}
+	res, err := Refs(ix, RefsOptions{All: true})
+	if err != nil {
+		return nil, err
+	}
+	for _, h := range res.Hits {
+		if !h.Ignored {
+			findings = append(findings, h.Finding())
+		}
+	}
+	for _, w := range res.StaleWhitelist {
+		findings = append(findings, Finding{Path: ConfigPath, Msg: fmt.Sprintf("refs whitelist entry %q now exists — remove it", w)})
+	}
+	sortFindings(findings)
+	return findings, nil
 }
 
 type checker struct {
@@ -107,7 +130,7 @@ func (c *checker) checkRecord(r *Record) {
 func (c *checker) checkFeatureRefs(r *Record) {
 	for _, name := range r.Features {
 		if c.ix.Feature(name) == nil {
-			c.fail(r.Path, 0, "feature %q has no docs/features/%s/spec.md", name, name)
+			c.fail(r.Path, 0, "feature %q has no %s/%s/spec.md", name, c.ix.Config.SpecDir(), name)
 		}
 	}
 }
@@ -142,7 +165,7 @@ func (c *checker) checkVerifiedRange(r *Record) {
 	}
 	switch {
 	case compareVersion(r.Verified.Hi, c.ix.Verified) > 0:
-		c.fail(r.Path, 0, "verified upper bound %s exceeds the observed ceiling %s (%s)", r.Verified.Hi, c.ix.Verified, observedVersionsPath)
+		c.fail(r.Path, 0, "verified upper bound %s exceeds the observed ceiling %s (%s)", r.Verified.Hi, c.ix.Verified, c.ix.Config.Paths.ObservedVersions)
 	case compareVersion(r.Verified.Hi, c.ix.Floor) < 0:
 		c.fail(r.Path, 0, "verified upper bound %s is below the observed floor %s — re-verify and raise it, or set status: retired", r.Verified.Hi, c.ix.Floor)
 	}
@@ -175,14 +198,14 @@ func (c *checker) checkSupersedesRefs(r *Record) {
 func (c *checker) checkProtocolRefs(r *Record) {
 	for _, id := range r.Protocol {
 		if _, ok := c.ix.Anchors[id]; !ok {
-			c.fail(r.Path, 0, "protocol entry %q — no kb:anchor with that id in %s", id, protocolPath)
+			c.fail(r.Path, 0, "protocol entry %q — no kb:anchor with that id in %s", id, c.ix.Config.Paths.Protocol)
 		}
 	}
 }
 
 func (c *checker) checkBodyBudget(r *Record) {
-	if r.BodyWords > r.bodyBudget() {
-		c.fail(r.Path, 0, "body is %d words (budget %d for a %s)", r.BodyWords, r.bodyBudget(), r.Type)
+	if budget := c.ix.Config.bodyBudget(r.Type); r.BodyWords > budget {
+		c.fail(r.Path, 0, "body is %d words (budget %d for a %s)", r.BodyWords, budget, r.Type)
 	}
 }
 
@@ -232,8 +255,8 @@ func (c *checker) checkRef(r *Record, ref string) {
 		}
 	case planRE.MatchString(ref):
 		name := planRE.FindStringSubmatch(ref)[1]
-		if !c.ix.InTree("plans/" + name + "/plan.md") {
-			c.fail(r.Path, 0, "refs entry %q — plans/%s/plan.md does not exist", ref, name)
+		if planPath := c.ix.Config.PlanPath(name); !c.ix.InTree(planPath) {
+			c.fail(r.Path, 0, "refs entry %q — %s does not exist", ref, planPath)
 		}
 	case strings.HasPrefix(ref, "kb:"):
 		m := citeRE.FindStringSubmatch(ref)
@@ -305,13 +328,13 @@ func (c *checker) checkClaudeBudgets() error {
 			if !strings.HasSuffix(text, "\n") && text != "" {
 				n++
 			}
-			if n > RootClaudeLines {
-				c.fail(rel, 0, "%d lines (budget %d)", n, RootClaudeLines)
+			if budget := c.ix.Config.Budgets.RootClaudeLines; n > budget {
+				c.fail(rel, 0, "%d lines (budget %d)", n, budget)
 			}
 			continue
 		}
-		if n := len(strings.Fields(stripFragments(text))); n > NestedClaudeWords {
-			c.fail(rel, 0, "%d words outside kb fragments (budget %d)", n, NestedClaudeWords)
+		if n, budget := len(strings.Fields(stripFragments(text))), c.ix.Config.Budgets.NestedClaudeWords; n > budget {
+			c.fail(rel, 0, "%d words outside kb fragments (budget %d)", n, budget)
 		}
 	}
 	return nil
@@ -346,6 +369,7 @@ func (c *checker) checkGenerated() error {
 		case GeneratedFresh:
 		}
 	}
+	rulesDir := c.ix.Config.Paths.RulesDir + "/"
 	for _, rel := range c.ix.Tree {
 		if !strings.HasPrefix(rel, rulesDir) || !strings.HasSuffix(rel, ".md") || generated[rel] {
 			continue
@@ -388,10 +412,11 @@ func classifyFragmentFile(disk, want string) GeneratedState {
 }
 
 // checkKBComments fails any kb comment outside a code fence that is not one of the four
-// shapes, and a kb:anchor anywhere but docs/protocol.md.
+// shapes, and a kb:anchor anywhere but the protocol file.
 func (c *checker) checkKBComments() error {
+	protocolPath := c.ix.Config.Paths.Protocol
 	for _, rel := range c.ix.Tree {
-		if !strings.HasSuffix(rel, ".md") || !citationScope(rel) {
+		if !strings.HasSuffix(rel, ".md") || !citationScope(c.ix.Config, rel) {
 			continue
 		}
 		data, err := os.ReadFile(filepath.Join(c.ix.Root, filepath.FromSlash(rel)))
@@ -426,8 +451,8 @@ func (c *checker) checkOwnership() {
 			continue
 		}
 		owned := false
-		for _, d := range ownedDirs {
-			if strings.HasPrefix(rel, d) {
+		for _, d := range c.ix.Config.Ownership {
+			if strings.HasPrefix(rel, d+"/") {
 				owned = true
 			}
 		}
@@ -442,7 +467,7 @@ func (c *checker) checkOwnership() {
 			}
 		}
 		if !covered {
-			c.fail(rel, 0, "owned by no feature (add it to a docs/features/<name>/spec.md glob)")
+			c.fail(rel, 0, "owned by no feature (add it to a %s/<name>/spec.md glob)", c.ix.Config.SpecDir())
 		}
 	}
 }

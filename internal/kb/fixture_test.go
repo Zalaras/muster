@@ -2,12 +2,72 @@ package kb
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+// fixtureConfig is the smallest kb.yaml a fixture needs: the eight directories, the roles
+// the pack tests request, and the closed tag list; every other key takes its default.
+const fixtureConfig = `dirs:
+  rule: docs/rules
+  decision: docs/adr
+  spec: docs/features
+  diagram: docs/diagrams
+  fact: docs/facts
+  lesson: docs/lessons
+  runbook: docs/runbooks
+  reference: docs/references
+paths:
+  observed_versions: internal/claudecode/observed_versions.txt
+roles: [e2e-specs, daemon-impl, web-impl, daemon-tests, web-tests, review, doc-reconcile, orchestrator, retro, planner, review-browser, review-maintainability]
+tags: [auth, state-machine, envelope, tmux, store, security, testing, pipeline, claude-code-format, ux, deps, revisit, never, deferred, user-decision, consensus, judged]
+`
+
+// writeConfig writes the fixture kb.yaml into root.
+func writeConfig(t *testing.T, root string) {
+	t.Helper()
+	mustWriteFile(t, root, ConfigPath, fixtureConfig)
+}
+
+// testConfig loads the fixture config from a scratch directory, for tests that need a
+// Config but no tree.
+func testConfig(t *testing.T) *Config {
+	t.Helper()
+	root := t.TempDir()
+	writeConfig(t, root)
+	cfg, err := LoadConfig(root)
+	require.NoError(t, err)
+	return cfg
+}
+
+// gitFx runs git in dir; a commit carries a scratch identity per command, never a
+// repo-local config (CLAUDE.md § Hard rules).
+func gitFx(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	if len(args) > 0 && args[0] == "commit" {
+		args = append([]string{"-c", "user.name=kb", "-c", "user.email=kb@example.invalid"}, args...)
+	}
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	require.NoErrorf(t, err, "git %v: %s", args, out)
+	return string(out)
+}
+
+// newGitRepo turns root into a git checkout on main with two commits (so HEAD~1 resolves),
+// the second holding everything written so far.
+func newGitRepo(t *testing.T, root string) {
+	t.Helper()
+	gitFx(t, root, "init", "-q")
+	gitFx(t, root, "symbolic-ref", "HEAD", "refs/heads/main")
+	gitFx(t, root, "commit", "-q", "--allow-empty", "-m", "initial")
+	gitFx(t, root, "add", "-A")
+	gitFx(t, root, "commit", "-q", "-m", "fixture")
+}
 
 func mustWriteFile(t *testing.T, root, rel, content string) {
 	t.Helper()
@@ -178,6 +238,7 @@ C4Container
 func newKBRoot(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
+	writeConfig(t, root)
 	mustWriteFile(t, root, "go.mod", "module example.invalid/fixture\n\ngo 1.27\n")
 	mustWriteFile(t, root, "internal/claudecode/observed_versions.txt",
 		"2.1.246 2026-08-29 m4-canary\n2.1.267 2026-09-10 canary-full-coverage\n")

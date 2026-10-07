@@ -20,7 +20,7 @@ first — never diverge silently in code.
 | Git/GitHub | `os/exec` + `git` / `gh` CLIs — never go-git |
 | Self-update signatures | `aead.dev/minisign` — verifies the release's `checksums.txt.minisig` against the key embedded in `internal/selfupdate` (plan `auto-update`, 2026-09-10). Import path corrected from the plan's `github.com/aead/minisign`: `go get github.com/aead/minisign@v0.3.0` fails ("module declares its path as: aead.dev/minisign but was required as: github.com/aead/minisign") — the module renamed its own path in `go.mod` while keeping the GitHub repo name; `go.sum` pins the real path |
 | Frontend | Vite + TypeScript, **no framework**; xterm.js 6.0.0 / addon-fit 0.11.0 (pinned) |
-| Record frontmatter | hand-rolled strict flat scanner in `internal/kb` (scalars, inline and block lists; no YAML library — the schema is fixed and strictness is the point) |
+| Record frontmatter | hand-rolled strict flat scanner in `internal/kb` (scalars, inline and block lists; no YAML library — the schema is fixed and strictness is the point). `kb.yaml`, the tool's repo settings, is the one YAML file: `github.com/goccy/go-yaml` in strict mode (kb:adr/stack-config-yaml-goccy-strict) |
 | Web unit tests | Vitest (logic only); Playwright for E2E |
 
 Each row's rationale is an ADR: `go run ./tools/kb ls --type adr | grep '/stack-'`.
@@ -328,6 +328,7 @@ Project knowledge is typed Markdown records with strict frontmatter, read throug
 `go run ./tools/kb` (`make gen-kb` regenerates, `make check-kb` gates). Layout:
 
 ```
+kb.yaml                         the tool's repo settings: record dirs, closed lists, paths, budgets, pack scoping, refs and scope (kb:adr/knowledge-repo-values-live-in-kb-yaml)
 docs/adr/<slug>.md              decision — accepted | proposed | superseded | rejected; supersedes: []
 docs/facts/<slug>.md            fact — verified: <lo>..<hi|canary>; guard: <Test name> | none
 docs/lessons/<slug>.md          lesson — roles: [pipeline roles that pay next time]
@@ -339,8 +340,9 @@ docs/features/<name>/{INDEX,contract}.md, docs/INDEX.md, .claude/rules/<name>.md
 ```
 
 - A record answers one question: one decision per ADR, one measured shape or behaviour per
-  fact, one cost-with-a-cause per lesson, one diagram per diagram record. Under 300 words
-  (specs 800, runbooks 600), mermaid fence source excluded; a longer one is two records.
+  fact, one cost-with-a-cause per lesson, one diagram per diagram record. Under the word budget
+  `kb.yaml` sets (300; specs 800, runbooks 600), mermaid fence source excluded; a longer one is
+  two records.
 - Diagrams are mermaid only (kb:adr/knowledge-diagrams-are-mermaid-records): a fence's first
   keyword must be its kind's (`C4Context`, `C4Container`, `C4Component`, `classDiagram`,
   `stateDiagram-v2`, `sequenceDiagram`, `erDiagram`, `flowchart`). System-wide diagrams are
@@ -357,4 +359,6 @@ docs/features/<name>/{INDEX,contract}.md, docs/INDEX.md, .claude/rules/<name>.md
   `kb check` tells a stale file from a hand-edited one and names the remedy.
 - `make gen-kb` after any record change, `make check-kb` before committing; generated files
   ride the same commit as the record. In a pipeline run only the orchestrator regenerates, and
-  only between waves.
+  only between waves. `check-kb` also runs `kb refs --all`: a repo path, `make` target or
+  `musterd` flag cited in a markdown line or a code comment must exist
+  (kb:adr/knowledge-refs-and-scope-are-kb-subcommands).

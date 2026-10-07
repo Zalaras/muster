@@ -114,12 +114,14 @@ while IFS= read -r l; do
   fi
 done < <(checks_block)
 
-# 8. Every **Features** and **Touches** name is a registered feature (a spec.md under the docs features
-#    tree) — `kb pack --plan` keys on both.
+# 8. Every **Features** and **Touches** name is a registered feature (one `kb ls --type spec` lists) —
+#    `kb pack --plan` keys on both.
 scope_names() { grep -E "^\*\*$1\*\*:" "$P" | head -1 | sed -E "s/^\*\*$1\*\*:[[:space:]]*//; s/,/ /g"; }
+registered="$(go run ./tools/kb ls --type spec 2>/dev/null | awk '{print $2}' | sed 's|^kb:spec/||')"
+[[ -n "$registered" ]] || note "could not list the registered features (go run ./tools/kb ls --type spec)"
 for h in Features Touches; do
   for f in $(scope_names "$h"); do
-    [[ -f "docs/features/$f/spec.md" ]] || note "**$h** names '$f' but docs/features/$f/spec.md does not exist"
+    grep -qx "$f" <<<"$registered" || note "**$h** names '$f' but no feature spec registers it (go run ./tools/kb ls --type spec)"
   done
 done
 
@@ -142,7 +144,7 @@ if [[ -z "$(section 'Out of scope' | grep -vE '^[[:space:]]*$' | head -1)" ]]; t
   note "missing or empty '## Out of scope' section (write 'Nothing.' if this plan defers no work)"
 fi
 
-# 12. Every source path under Affected Files is owned by a feature the header names — features-scope.sh's
+# 12. Every source path under Affected Files is owned by a feature the header names — kb scope's
 #     rule, applied before anyone spawns. new-session-improvement hit it at its first wave gate (a 49-minute
 #     stop), and its new files, owned by no feature, kept check-kb red until approval was impossible.
 #     `kb for` resolves a path that does not exist yet, so new files are judged by the globs they will match.
@@ -155,11 +157,18 @@ header="$(scope_names Features) $(scope_names Touches)"
 paths="$(section 'Affected Files' | grep -oE '`(cmd|internal|web/src|web/e2e)/[^`[:space:]]+\.[a-z]+(:[0-9]+)?`' \
   | tr -d '`' | sed -E 's/:[0-9]+$//' | grep -vE '(/CLAUDE\.md|^web/src/protocol\.ts|^web/src/style\.css)$' | sort -u)"
 named="$({ grep -E '^\*\*Fixture plan\*\*:' "$P"; section 'Acceptance Criteria'; } | grep -oE '[a-z0-9-]+\.spec\.ts' | sed 's|^|web/e2e/|' | sort -u)"
-if [[ -n "$paths$named" ]]; then
-  kb="$(mktemp -d)/kb"
-  if go build -o "$kb" ./tools/kb 2>/dev/null; then
+# A path named anywhere else in the plan (Doc upkeep, Implementation Notes) is judged by the
+# header rule only: groups named tools/kb/anchors.tsv under Doc upkeep, and `knowledge` reached
+# the header at doc-reconcile, two hours and a blocked verdict later.
+others="$(grep -oE '`(cmd|internal|web/src|web/e2e|tools|docs)/[^`[:space:]]+\.[a-z]+`' "$P" | tr -d '`' | sort -u | grep -vxF -f <(printf '%s\n' "$paths") || true)"
+if [[ -n "$paths$named$others" ]]; then
+  all="$(printf '%s\n%s\n%s\n' "$paths" "$others" "$named" | grep -v '^$' | sort -u)"
+  # One kb invocation resolves every path: `path<TAB>owner[,owner]`, `-` when none.
+  if owners_tsv="$(go run ./tools/kb owners $all 2>/dev/null)"; then
+    owners_of() { printf '%s\n' "$owners_tsv" | awk -F'\t' -v p="$1" '$1==p && $2!="-" {print $2}' | tr ',' ' '; }
     while IFS= read -r f; do
-      owners="$("$kb" for "$f" 2>/dev/null | awk '/^features:/{on=1;next} /^[a-z]+:/{on=0} on && NF{print $1}')"
+      [[ -n "$f" ]] || continue
+      owners="$(owners_of "$f")"
       if [[ -z "$owners" ]]; then
         # check-kb refuses a glob matching no file, so a not-yet-existing file cannot be registered at approval.
         if [[ -e "$f" ]]; then note "$f: owned by no feature — add its glob to docs/features/<f>/spec.md at approval"
@@ -170,25 +179,20 @@ if [[ -n "$paths$named" ]]; then
         case " $header " in *" $o "*) ;; *) note "$f → feature '$o', in neither **Features** nor **Touches** — add it to one (Touches when its behaviour is unchanged)" ;; esac
       done
     done <<<"$paths"
-    # A path named anywhere else in the plan (Doc upkeep, Implementation Notes) is judged by the
-    # header rule only: groups named tools/kb/anchors.tsv under Doc upkeep, and `knowledge` reached
-    # the header at doc-reconcile, two hours and a blocked verdict later.
-    others="$(grep -oE '`(cmd|internal|web/src|web/e2e|tools|docs)/[^`[:space:]]+\.[a-z]+`' "$P" | tr -d '`' | sort -u | grep -vxF -f <(printf '%s\n' "$paths") || true)"
     while IFS= read -r f; do
       [[ -n "$f" && -e "$f" ]] || continue
-      for o in $("$kb" for "$f" 2>/dev/null | awk '/^features:/{on=1;next} /^[a-z]+:/{on=0} on && NF{print $1}'); do
+      for o in $(owners_of "$f"); do
         case " $header " in *" $o "*) ;; *) note "$f (named outside Affected Files) → feature '$o', in neither **Features** nor **Touches** — add it to one" ;; esac
       done
     done <<<"$others"
     while IFS= read -r f; do
-      [[ -z "$f" ]] || "$kb" for "$f" 2>/dev/null | grep -q '^features:' || { [[ -e "$f" ]] \
+      [[ -z "$f" ]] || [[ -n "$(owners_of "$f")" ]] || { [[ -e "$f" ]] \
         && note "$f: owned by no feature — add its glob to docs/features/<f>/spec.md at approval" \
         || echo "NOTE  $f: new, owned by no feature — the orchestrator adds its glob once it exists (kb:adr/process-unowned-file-globs-land-before-approval)"; }
     done <<<"$named"
   else
-    note "could not build tools/kb to check Affected Files ownership"
+    note "could not run tools/kb owners to check Affected Files ownership"
   fi
-  rm -rf "$(dirname "$kb")"
 fi
 
 # 13. Doc Delta arithmetic: a spec body is capped at 800 words (check-kb). groups' rail delta needed

@@ -16,7 +16,7 @@ func TestWalkTree_SkipsGitNodeModulesDistAndBinAndReturnsSlashPaths(t *testing.T
 	} {
 		mustWriteFile(t, root, rel, "x")
 	}
-	got, err := WalkTree(root)
+	got, err := WalkTree(root, testConfig(t))
 	require.NoError(t, err)
 	assert.Equal(t, []string{".claude/rules/x.md", ".github/workflows/ci.yml", ".gitignore", "go.mod", "internal/a/a.go"}, got)
 }
@@ -41,5 +41,8 @@ func TestCommentLines_UsesTheDeadRefsRuleSetPerFileType(t *testing.T) {
 	require.Len(t, tsLines, 1)
 	assert.Equal(t, 2, tsLines[0].N)
 
-	assert.Empty(t, CommentLines("scripts/x.sh", "# kb:adr/a\n"), "other file types carry no citations")
+	shLines := CommentLines("scripts/x.sh", "# kb:adr/a\necho kb:adr/not-a-comment\n  # indented\n")
+	require.Len(t, shLines, 2, "other file types carry citations in hash-comment lines only")
+	assert.Equal(t, []int{1, 3}, []int{shLines[0].N, shLines[1].N})
+	assert.Len(t, CommentLines("Makefile", "# kb:adr/a\nbuild:\n"), 1)
 }

@@ -6,7 +6,7 @@ date: 2026-10-06
 summary: A Touches header names features a plan edits without changing; they pack as spec and contract only, the scope gate widens it itself, promotion is on evidence.
 features: [knowledge]
 tags: [pipeline]
-files: [.claude/skills/orchestrate/scripts/features-scope.sh, .claude/skills/orchestrate/scripts/plan-lint.sh, .claude/skills/orchestrate/scripts/orch-state.py, .claude/skills/orchestrate/SKILL.md, .claude/agents/doc-reconcile.md, internal/kb/pack.go, tools/kb/main.go]
+files: [internal/kb/scope.go, .claude/skills/orchestrate/scripts/plan-lint.sh, .claude/skills/orchestrate/scripts/orch-state.py, .claude/skills/orchestrate/SKILL.md, .claude/agents/doc-reconcile.md, internal/kb/pack.go, tools/kb/main.go]
 tests: [TestPack_TouchedFeaturesPackSpecAndContractOnlyExceptForReview, TestPlanTouches_ReadsTheOptionalHeader, TestRun_PackReadsTouchesFromThePlanAndTheFlag]
 refs: [kb:adr/process-features-scope-answered-by-widening-header, kb:adr/process-features-header-widens-for-forced-fixture-repairs, kb:adr/process-features-widened-for-a-refactor-call-site, kb:adr/knowledge-pack-sections-scoped-by-role]
 supersedes: [process-features-scope-answered-by-widening-header]

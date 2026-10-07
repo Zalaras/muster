@@ -9,23 +9,18 @@ import (
 	"strings"
 )
 
-// skipDirs are never walked, by slash-relative path.
-var skipDirs = map[string]bool{
-	".git":                  true,
-	"node_modules":          true,
-	"web/dist":              true,
-	"dist":                  true,
-	"bin":                   true,
-	"internal/webui/assets": true,
-}
-
-// keptHiddenDirs are the hidden directories the walk descends into.
-var keptHiddenDirs = map[string]bool{".claude": true, ".githooks": true, ".github": true}
-
 // WalkTree lists every regular file under root as a sorted, forward-slash, root-relative
-// path. Symlinks are not followed; the fixed skip list stands in for git ls-files
-// (design K10).
-func WalkTree(root string) ([]string, error) {
+// path. Symlinks are not followed; the config's skip list (slash-relative directories never
+// entered) and kept-hidden list (the dot-directories it does enter) stand in for git
+// ls-files (design K10). Any directory whose name contains node_modules is skipped too.
+func WalkTree(root string, cfg *Config) ([]string, error) {
+	skipDirs, keptHiddenDirs := map[string]bool{}, map[string]bool{}
+	for _, d := range cfg.Tree.SkipDirs {
+		skipDirs[strings.TrimSuffix(d, "/")] = true
+	}
+	for _, d := range cfg.Tree.KeepHiddenDirs {
+		keptHiddenDirs[d] = true
+	}
 	var out []string
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -68,21 +63,24 @@ type Line struct {
 var (
 	fenceRE       = regexp.MustCompile("^\\s*(`{3,}|~{3,})")
 	codeCommentRE = regexp.MustCompile(`^\s*(//|/\*|\*)`)
+	hashCommentRE = regexp.MustCompile(`^\s*#`)
 )
 
 // CommentLines returns the lines of text that may carry a citation, by file type: every
 // line outside a code fence for markdown, comment lines only for Go and TypeScript, and
-// nothing for anything else (the dead-refs rule set).
+// hash-comment lines for everything else (a shell script, a Makefile, a git hook).
 func CommentLines(relpath, text string) []Line {
+	if strings.HasSuffix(relpath, ".md") {
+		return proseLines(text)
+	}
+	re := hashCommentRE
+	if strings.HasSuffix(relpath, ".go") || strings.HasSuffix(relpath, ".ts") {
+		re = codeCommentRE
+	}
 	var out []Line
-	switch {
-	case strings.HasSuffix(relpath, ".md"):
-		out = append(out, proseLines(text)...)
-	case strings.HasSuffix(relpath, ".go"), strings.HasSuffix(relpath, ".ts"):
-		for i, t := range strings.Split(text, "\n") {
-			if codeCommentRE.MatchString(t) {
-				out = append(out, Line{N: i + 1, Text: t})
-			}
+	for i, t := range strings.Split(text, "\n") {
+		if re.MatchString(t) {
+			out = append(out, Line{N: i + 1, Text: t})
 		}
 	}
 	return out

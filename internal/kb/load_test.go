@@ -1,6 +1,7 @@
 package kb
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -104,4 +105,24 @@ func TestLoad_ReportsAFeatureDirectoryWithoutASpecAndANonSlugName(t *testing.T) 
 	}
 	assert.Contains(t, msgs, "docs/features/old/: directory has no spec.md")
 	assert.Contains(t, msgs, "docs/features/Bad_Name/: feature directory name is not a slug")
+}
+
+func TestLoad_FailsWithoutKbYaml(t *testing.T) {
+	root := newKBRoot(t)
+	mustRemove(t, root, ConfigPath)
+	_, _, err := Load(root)
+	require.ErrorContains(t, err, "kb.yaml is missing")
+}
+
+func TestLoad_SkipsTheVerifiedRangeWhenNoObservedVersionsPathIsSet(t *testing.T) {
+	root := newKBRoot(t)
+	mustWriteFile(t, root, ConfigPath, strings.Replace(fixtureConfig, "paths:\n  observed_versions: internal/claudecode/observed_versions.txt\n", "", 1))
+	mustRemove(t, root, "internal/claudecode/observed_versions.txt")
+	edit(t, root, "docs/facts/statusline-cadence.md", "verified: 2.1.246..2.1.267", "verified: 2.1.246..9.9.9")
+	runGen(t, root)
+	ix, findings := loadFixture(t, root)
+	assert.Empty(t, ix.Verified)
+	all, err := Check(ix, findings)
+	require.NoError(t, err)
+	assert.Empty(t, all, "with no observed range there is no ceiling to exceed")
 }

@@ -96,8 +96,8 @@ from this checkout:
   file: `filed: TODO.md § <section>, "<title>"`, `not doing`, `already done: <evidence>. Not
   filed.`, or `deferred`.
 - Commit the files by name, `docs(<plan>): file follow-ups from proposed-backlog`, then
-  `make -C ../muster-<plan> check-kb` and `../muster-<plan>/.claude/skills/orchestrate/scripts/dead-refs.py --all`
-  (it works in its own checkout) exit 0, and `git merge-tree --write-tree main plan/<plan>`
+  `make -C ../muster-<plan> check-kb` (it covers dead references and works in its own checkout)
+  exits 0, and `git merge-tree --write-tree main plan/<plan>`
   exits 0 (1 means the edit now conflicts with `main` — stop and ask).
 
 ## 3. Compose the subject

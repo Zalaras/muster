@@ -11,9 +11,13 @@ import (
 )
 
 // The role list was once seeded from pipeline step names, and a lesson tagged with a step
-// nobody packs as ("plan-work", "e2e-validate") reached no agent. This test ties Roles to what
-// is actually spawned: the agent files, plus the roles the main session plays.
+// nobody packs as ("plan-work", "e2e-validate") reached no agent. This test ties the roles
+// kb.yaml lists to what is actually spawned: the agent files, plus the roles the main
+// session plays.
 func TestRoles_MatchTheAgentFiles(t *testing.T) {
+	cfg, err := LoadConfig(filepath.Join("..", ".."))
+	require.NoError(t, err)
+	Roles := cfg.Roles
 	// Roles the main session packs as; no agent file exists for them.
 	sessionRoles := []string{"orchestrator", "planner", "retro"}
 	// Agents that pack under a different name.

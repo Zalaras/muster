@@ -125,7 +125,7 @@ func TestOutputs_TruncatesAnOverBudgetRulesFileAndPointsAtTheFeatureIndex(t *tes
 	}
 	rules := outputsOf(t, root)[".claude/rules/sessions.md"]
 	lines := strings.Split(strings.TrimRight(rules, "\n"), "\n")
-	assert.LessOrEqual(t, len(lines), RuleFileLines)
+	assert.LessOrEqual(t, len(lines), defaultBudgets.RuleFileLines)
 	last := lines[len(lines)-1]
 	assert.Regexp(t, "^… [0-9]+ more: see `docs/features/sessions/INDEX.md`$", last)
 	m := regexp.MustCompile(`… (\d+) more`).FindStringSubmatch(last)

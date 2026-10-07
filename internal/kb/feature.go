@@ -1,7 +1,7 @@
 package kb
 
-// Feature is one registered feature: the set of docs/features/<name>/spec.md
-// frontmatters is the registry (design K2).
+// Feature is one registered feature: the set of <spec dir>/<name>/spec.md frontmatters is
+// the registry (design K2). The two directories its files live under come from the config.
 type Feature struct {
 	Name     string
 	Summary  string
@@ -10,10 +10,13 @@ type Feature struct {
 	Web      []string
 	E2E      []string
 	Protocol []string
+
+	specDir, rulesDir string
 }
 
-func featureFromSpec(r *Record) *Feature {
-	return &Feature{Name: r.ID, Summary: r.Summary, Spec: r, Go: r.Go, Web: r.Web, E2E: r.E2E, Protocol: r.Protocol}
+func featureFromSpec(cfg *Config, r *Record) *Feature {
+	return &Feature{Name: r.ID, Summary: r.Summary, Spec: r, Go: r.Go, Web: r.Web, E2E: r.E2E, Protocol: r.Protocol,
+		specDir: cfg.SpecDir(), rulesDir: cfg.Paths.RulesDir}
 }
 
 // Globs is the union of the feature's go, web and e2e globs, in that order.
@@ -35,7 +38,7 @@ func (f *Feature) Covers(relpath string) bool {
 }
 
 // SpecPath and ContractPath name the feature's two fixed files.
-func (f *Feature) SpecPath() string     { return "docs/features/" + f.Name + "/spec.md" }
-func (f *Feature) ContractPath() string { return "docs/features/" + f.Name + "/contract.md" }
-func (f *Feature) IndexPath() string    { return "docs/features/" + f.Name + "/INDEX.md" }
-func (f *Feature) RulesPath() string    { return ".claude/rules/" + f.Name + ".md" }
+func (f *Feature) SpecPath() string     { return f.specDir + "/" + f.Name + "/spec.md" }
+func (f *Feature) ContractPath() string { return f.specDir + "/" + f.Name + "/contract.md" }
+func (f *Feature) IndexPath() string    { return f.specDir + "/" + f.Name + "/INDEX.md" }
+func (f *Feature) RulesPath() string    { return f.rulesDir + "/" + f.Name + ".md" }

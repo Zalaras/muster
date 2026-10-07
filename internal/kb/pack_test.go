@@ -157,27 +157,27 @@ func TestPack_IsByteIdenticalAcrossRuns(t *testing.T) {
 
 func TestPack_WarnsButDoesNotFailOverTheWordBudget(t *testing.T) {
 	root, _ := packFixture(t)
-	mustWriteFile(t, root, "docs/conventions.md", strings.Repeat("word ", PackWords+1)+"\n")
+	mustWriteFile(t, root, "docs/conventions.md", strings.Repeat("word ", defaultBudgets.PackWords+1)+"\n")
 	ix, _ := loadFixture(t, root)
 	out, n := runPack(t, ix, "daemon-impl", "sessions")
-	assert.Greater(t, n, PackWords)
+	assert.Greater(t, n, ix.Config.Budgets.PackWords)
 	head, _, _ := strings.Cut(out, "\n# Rules\n")
-	assert.Contains(t, head, fmt.Sprintf("kb: WARN pack exceeds budget of %d words\n", PackWords),
+	assert.Contains(t, head, fmt.Sprintf("kb: WARN pack exceeds budget of %d words\n", ix.Config.Budgets.PackWords),
 		"the warning opens the pack, where it can still change what the reader does")
 }
 
 func TestPack_UnderBudgetReportsTheCountWithNoWarning(t *testing.T) {
 	_, ix := packFixture(t)
 	out, n := runPack(t, ix, "daemon-impl", "sessions")
-	require.Less(t, n, PackWords)
-	assert.Contains(t, out, fmt.Sprintf("kb: pack %d words (budget %d)\n", n, PackWords))
+	require.Less(t, n, ix.Config.Budgets.PackWords)
+	assert.Contains(t, out, fmt.Sprintf("kb: pack %d words (budget %d)\n", n, ix.Config.Budgets.PackWords))
 	assert.NotContains(t, out, "WARN")
 }
 
 func TestPack_RejectsAnUnknownRoleOrFeature(t *testing.T) {
 	_, ix := packFixture(t)
 	_, err := Pack(ix, PackOptions{Plan: "p", Role: "ceo", Features: []string{"sessions"}}, &bytes.Buffer{})
-	require.EqualError(t, err, `unknown role "ceo" (want one of: `+strings.Join(Roles, ", ")+")")
+	require.EqualError(t, err, `unknown role "ceo" (want one of: `+strings.Join(ix.Config.Roles, ", ")+")")
 	_, err = Pack(ix, PackOptions{Plan: "p", Role: "review", Features: []string{"nope"}}, &bytes.Buffer{})
 	require.EqualError(t, err, `feature "nope" has no docs/features/nope/spec.md`)
 }
@@ -203,19 +203,19 @@ func TestPack_ScopesDecisionsAndFactsByRole(t *testing.T) {
 		assert.Contains(t, out, "## decision earlier", role)
 		assert.Contains(t, out, "## fact statusline-cadence", role)
 	}
-	for _, role := range decisionlessRoles {
+	for _, role := range ix.Config.Pack.DecisionlessRoles {
 		out, _ := runPack(t, ix, role, "sessions")
 		assert.Contains(t, out, "\n# Decisions\n", role)
 		assert.NotContains(t, out, "## decision earlier", role)
 		assert.Contains(t, out, "_decisions: `go run ./tools/kb ls --type decision --status accepted --feature <f>` — not packed for this role_", role)
 	}
-	for _, role := range factlessRoles {
+	for _, role := range ix.Config.Pack.FactlessRoles {
 		out, _ := runPack(t, ix, role, "sessions")
 		assert.Contains(t, out, "\n# Facts\n", role)
 		assert.NotContains(t, out, "## fact statusline-cadence", role)
 		assert.Contains(t, out, "_facts: `go run ./tools/kb ls --type fact --feature <f>` — not packed for this role_", role)
 	}
-	assert.NotContains(t, decisionlessRoles, "e2e-specs", "e2e-specs keeps the decisions as a safety net for the behaviour it asserts")
+	assert.NotContains(t, ix.Config.Pack.DecisionlessRoles, "e2e-specs", "e2e-specs keeps the decisions as a safety net for the behaviour it asserts")
 	out, _ := runPack(t, ix, "web-impl", "sessions")
 	assert.Contains(t, out, "## decision earlier", "web-impl keeps decisions and drops only facts")
 }
@@ -363,4 +363,17 @@ func TestPack_CarriesFeatureDiagramsToEveryRoleAndSystemDiagramsToPlanningRolesO
 	}
 	other, _ := runPack(t, ix, "web-impl", "other")
 	assert.NotContains(t, other, "# Diagrams", "no diagram, no heading")
+}
+
+func TestPack_ProposedDecisionRolesComeFromTheConfig(t *testing.T) {
+	root, _ := packFixture(t)
+	mustWriteFile(t, root, ConfigPath, fixtureConfig+"pack:\n  proposed_decision_roles: [daemon-impl]\n")
+	mustWriteFile(t, root, "docs/adr/pending.md", "---\nid: pending\ntype: decision\nstatus: proposed\ndate: 2026-08-31\nsummary: Not yet.\nfeatures: [sessions]\nrefs: [plan:this-plan]\n---\nBody.\n")
+	ix, _, err := Load(root)
+	require.NoError(t, err)
+	out, _ := runPack(t, ix, "daemon-impl", "sessions")
+	assert.Contains(t, out, "# Decisions (proposed for this plan)")
+	assert.Contains(t, out, "## decision pending")
+	out, _ = runPack(t, ix, "review", "sessions")
+	assert.NotContains(t, out, "# Decisions (proposed for this plan)", "review is no longer listed, so it no longer reads them")
 }

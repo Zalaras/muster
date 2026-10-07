@@ -6,7 +6,7 @@ date: 2026-09-23
 summary: When features-scope fails because a plan edits files other features own, the plan's Features header widens to every owner; the gate is not loosened mid-run.
 features: []
 tags: [pipeline, consensus]
-files: [.claude/skills/orchestrate/scripts/features-scope.sh, .claude/agents/doc-reconcile.md]
+files: [internal/kb/scope.go, .claude/agents/doc-reconcile.md]
 tests: []
 refs: [plan:new-session-improvement, plans/new-session-improvement/decisions/features-scope/decision.md, kb:adr/connection-installed-claude-classified-never-refused, kb:adr/process-size-linters-warn-never-fail]
 supersedes: []

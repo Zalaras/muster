@@ -50,7 +50,7 @@ must earn it. Then exactly one of:
 | Finding | Proposal |
 |---|---|
 | A rule exists and was followed; the cost was the pipeline working | No finding. Say so in one line if it looks like one. |
-| A rule exists and was **broken** | **Never add a sentence.** First count its edits: `git log --oneline -S'<a distinctive phrase of the rule>' -- <file>`. One commit → sharpen it in place, no more words than before. Two or more → rewording has already failed twice; the only proposals allowed are mechanical — a `plan-lint.sh` / `gates.sh` / `dead-refs.py` / `orch-state.py` check, a verdict field the orchestrator must read — or dropping the sentence. |
+| A rule exists and was **broken** | **Never add a sentence.** First count its edits: `git log --oneline -S'<a distinctive phrase of the rule>' -- <file>`. One commit → sharpen it in place, no more words than before. Two or more → rewording has already failed twice; the only proposals allowed are mechanical — a `plan-lint.sh` / `gates.sh` / `kb refs` / `orch-state.py` check, a verdict field the orchestrator must read — or dropping the sentence. |
 | No rule exists | A **lesson record**, not a sentence: `docs/lessons/<slug>.md` with `roles:` (the agents that pay next time), `refs: [plan:<name>, <evidence file>]`, and one sentence of lesson — `kb pack` delivers it to those roles. An agent file changes only for a **rule** (a must/never a gate or the reviewer enforces), in the file the actor reads: agent → its `agents/*.md`; orchestrator → `orchestrate/SKILL.md`; plan shape → `plan-work`; a fact any session in one directory needs → that directory's `CLAUDE.md`, hand-written part. |
 | One-off, environmental, or developer preference | No proposal. List it under *Not proposing*. |
 
@@ -58,7 +58,7 @@ must earn it. Then exactly one of:
 A lesson record has no delta to state; it counts toward the pack-size table in § 5 instead.
 Words, not lines — lines were gamed by length. **Whenever a proposal touches a file, also
 read that file for sentences whose class a script now enforces** (`plan-lint.sh`, `gates.sh`,
-`dead-refs.py`, `e2e-lint.sh`, `orch-state.py`, `.githooks/*`) and list each as a *retire*
+`kb refs`, `e2e-lint.sh`, `orch-state.py`, `.githooks/*`) and list each as a *retire*
 proposal naming the covering check — only where the check runs before the reader acts; a rule an
 author-agent reads before writing stays, or it learns from a red gate after a wasted run.
 Retirement is always a proposal; the developer vets.
@@ -122,7 +122,7 @@ the developer picks from (step 4 applies the picks).
 ```bash
 for f in CLAUDE.md .claude/agents/*.md .claude/skills/*/SKILL.md; do
   printf '%6d %6d %4d  %s\n' "$(wc -l <"$f")" "$(wc -w <"$f")" "$(awk 'length>400' "$f" | wc -l)" "$f"; done   # lines words long-lines
-python3 .claude/skills/orchestrate/scripts/dead-refs.py --all
+go run ./tools/kb refs --all
 make check-kb
 P=$(ls -t plans/*/orchestration-state.json | head -1 | xargs dirname | xargs basename)
 for r in planner daemon-impl web-impl daemon-tests web-tests e2e-specs review review-browser review-maintainability doc-reconcile orchestrator; do
@@ -136,14 +136,14 @@ Report, in this order, each item numbered:
    since the last audit (`git log -p` on the file).
 2. **Retirement candidates** — sentences whose class a script now enforces (method as in § 2),
    each with file, line, the sentence, and the covering check.
-3. **Dead references** — the `dead-refs.py --all` output, or "clean".
+3. **Dead references** — the `kb refs --all` output, or "clean".
 4. **Anecdote load** — the count, and the ten longest anecdotes (plan name plus more than a
    clause) as *move to a lesson record* proposals (roles = the agent whose file holds it).
 5. **Review-cycle trend** — cycles per run in date order; if the last three runs each needed
    two or more, name the cycle-one Major class they share.
 6. **Pack size** — the table above (each pack now opens with its own count and a per-section
    breakdown, so `wc -w` runs ~40 words high and the section that grew is read off the
-   `kb: sections` line rather than derived); a pack over 20,000 words (`PackWords`, `internal/kb/budget.go`)
+   `kb: sections` line rather than derived); a pack over the `pack_words` budget `kb.yaml` sets (30,000)
    warns exactly like an agent file over its threshold (it is read on top of one) and names the record class that grew (`kb ls --role <r>`, by `date`); a
    lesson no plan has cited in the last five runs is a *retire* proposal.
 

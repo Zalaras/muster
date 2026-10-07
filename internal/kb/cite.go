@@ -32,13 +32,11 @@ func typeForPrefix(prefix string) (Type, bool) {
 	return "", false
 }
 
-// citationScope mirrors dead-refs: markdown outside plans, history and research, and Go
-// and TypeScript comments, minus the e2e specs.
-func citationScope(rel string) bool {
-	if strings.HasPrefix(rel, "plans/") || strings.HasPrefix(rel, "docs/history/") || strings.HasPrefix(rel, "docs/research/") {
-		return false
-	}
-	if strings.HasPrefix(rel, "web/e2e/") && strings.HasSuffix(rel, ".spec.ts") {
+// citationScope is the set of files a citation binds in: markdown, Go and TypeScript
+// outside the config's citations.exclude globs (frozen plans and history, built output,
+// the e2e specs). kb refs reads the same exclusions over a wider file set.
+func citationScope(cfg *Config, rel string) bool {
+	if cfg.Excluded(rel) {
 		return false
 	}
 	return strings.HasSuffix(rel, ".md") || strings.HasSuffix(rel, ".go") || strings.HasSuffix(rel, ".ts")
@@ -49,7 +47,7 @@ func citationScope(rel string) bool {
 func ScanCitations(ix *Index) ([]Citation, error) {
 	var out []Citation
 	for _, rel := range ix.Tree {
-		if !citationScope(rel) {
+		if !citationScope(ix.Config, rel) {
 			continue
 		}
 		data, err := os.ReadFile(filepath.Join(ix.Root, filepath.FromSlash(rel)))
@@ -90,7 +88,7 @@ func recordAtPath(ix *Index, rel string) (*Record, bool) {
 func resolveCitation(ix *Index, prefix, id string) string {
 	if prefix == "anchor" {
 		if _, ok := ix.Anchors[id]; !ok {
-			return fmt.Sprintf("citation kb:anchor/%s names no kb:anchor in %s", id, protocolPath)
+			return fmt.Sprintf("citation kb:anchor/%s names no kb:anchor in %s", id, ix.Config.Paths.Protocol)
 		}
 		return ""
 	}

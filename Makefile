@@ -127,19 +127,19 @@ gen-kb: ## Regenerate the knowledge-base index files, per-feature contract slice
 	go run ./tools/kb gen
 
 .PHONY: check-kb
-check-kb: ## Fail on a malformed record, an unresolved kb: citation, an unregistered feature, a stale or hand-edited generated kb file, or a budget breach (run by make check)
+check-kb: ## Fail on a malformed record, an unresolved kb: citation, a dead cited path/make target/flag, an unregistered feature, a stale or hand-edited generated kb file, or a budget breach (run by make check)
 	go run ./tools/kb check
 
 .PHONY: refs
-refs: ## Every repo path, make target and musterd flag cited in docs or comments must exist (run by make check)
-	python3 .claude/skills/orchestrate/scripts/dead-refs.py --all
+refs: ## Every repo path, make target and musterd flag cited in docs or comments must exist (check-kb runs the same pass; this prints the ignored-by-design lines too)
+	go run ./tools/kb refs --all
 
 .PHONY: size-warn
 size-warn: ## Warn-only: long functions (funlen), duplicated blocks (dupl) and files over 500 lines, whole tree; never fails (the gates run it scoped to the branch)
 	.claude/skills/orchestrate/scripts/size-warn.sh
 
 .PHONY: check
-check: lint test web-lint web-test contrast e2e-lint check-versions check-kb refs ## Lint + test + web-lint + web-test + contrast + e2e-lint + check-versions + check-kb + refs
+check: lint test web-lint web-test contrast e2e-lint check-versions check-kb ## Lint + test + web-lint + web-test + contrast + e2e-lint + check-versions + check-kb (which covers refs)
 
 # Pipeline worktrees (kb:adr/process-pipeline-runs-in-sibling-worktree): every /orchestrate run
 # lives in ../<repo>-<plan> on plan/<plan>, created here before the session starts; the primary

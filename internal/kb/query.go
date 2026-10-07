@@ -163,10 +163,25 @@ func resolveTypeFilter(s string) (Type, error) {
 	if t, ok := typeForPrefix(s); ok {
 		return t, nil
 	}
-	if _, ok := dirOfType[Type(s)]; ok {
+	if contains(typeNames(), s) {
 		return Type(s), nil
 	}
 	return "", fmt.Errorf("unknown type %q (want %s)", s, joinOr(typeNames()))
+}
+
+// Owners prints one line per path: the path, a tab, then its owning features joined by
+// commas, or a dash when no feature glob covers it. The shape is for scripts, never prose.
+func Owners(ix *Index, rels []string, w io.Writer) error {
+	var b strings.Builder
+	for _, rel := range rels {
+		owners := ix.Owners(rel)
+		if len(owners) == 0 {
+			owners = []string{"-"}
+		}
+		fmt.Fprintf(&b, "%s\t%s\n", rel, strings.Join(owners, ","))
+	}
+	_, err := io.WriteString(w, b.String())
+	return err
 }
 
 // matchesFilter reports whether r satisfies every set field of f.

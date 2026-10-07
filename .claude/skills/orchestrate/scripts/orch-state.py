@@ -139,7 +139,7 @@ def has_agent_tagged_issue(text):
 
 def scope_warnings(plan_dir, parts):
     """WARN lines for agent-tagged issues naming a source path owned by a feature outside the plan's
-    **Features** and **Touches** — the wave gate's features-scope.sh --touch would widen **Touches**
+    **Features** and **Touches** — the wave gate's `kb scope --touch` would widen **Touches**
     itself, but a fix that changes that feature's *behaviour* needs it under **Features** (the
     orchestrator's promotion rule), so the orchestrator decides before the wave rather than after
     (settings-update-failures retro: a maintainability Minor's required fix reached a
@@ -175,16 +175,16 @@ def scope_warnings(plan_dir, parts):
                         found.append((key, sev, cur, path))
     if not found or not header:
         return []
-    kb = pathlib.Path(subprocess.run(["mktemp", "-d"], capture_output=True, text=True).stdout.strip()) / "kb"
-    if subprocess.run(["go", "build", "-o", str(kb), "./tools/kb"], capture_output=True).returncode:
-        return ["WARN scope: could not build tools/kb — check issue paths against **Features** by hand"]
-    out, owners = [], {}
+    r = subprocess.run(["go", "run", "./tools/kb", "owners", *sorted({p for *_, p in found})], capture_output=True, text=True)
+    if r.returncode:
+        return ["WARN scope: could not run tools/kb owners — check issue paths against **Features** by hand"]
+    owners = {}
+    for line in r.stdout.splitlines():   # path<TAB>owner[,owner], `-` for none
+        path, _, names = line.partition("\t")
+        owners[path] = [] if names == "-" else names.split(",")
+    out = []
     for key, sev, n, path in found:
-        if path not in owners:
-            r = subprocess.run([str(kb), "for", path], capture_output=True, text=True).stdout
-            block = r.split("features:", 1)[1] if "features:" in r else ""
-            owners[path] = [l.split()[0] for l in block.split("records:", 1)[0].splitlines() if l.strip()]
-        for owner in owners[path]:
+        for owner in owners.get(path, []):
             if owner not in header:
                 out.append(f"WARN scope: {key} {sev} {n} names {path} (feature {owner}, in neither **Features** nor **Touches**) "
                            "— touch or promote it before the fix wave")

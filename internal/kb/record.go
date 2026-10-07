@@ -28,18 +28,6 @@ const (
 // typeOrder is the fixed rendering order for indexes and listings.
 var typeOrder = []Type{TypeRule, TypeSpec, TypeDiagram, TypeDecision, TypeFact, TypeLesson, TypeRunbook, TypeReference}
 
-// dirOfType maps a type to its record directory (spec records live one level deeper).
-var dirOfType = map[Type]string{
-	TypeRule:      "docs/rules",
-	TypeDecision:  "docs/adr",
-	TypeSpec:      "docs/features",
-	TypeDiagram:   "docs/diagrams",
-	TypeFact:      "docs/facts",
-	TypeLesson:    "docs/lessons",
-	TypeRunbook:   "docs/runbooks",
-	TypeReference: "docs/references",
-}
-
 // prefixOfType is the citation prefix for each type.
 var prefixOfType = map[Type]string{
 	TypeRule:      "rule",
@@ -55,17 +43,6 @@ var prefixOfType = map[Type]string{
 var (
 	liveStatuses     = []string{"active", "draft", "retired"}
 	decisionStatuses = []string{"accepted", "proposed", "superseded", "rejected"}
-
-	// Roles lists every pipeline role a lesson may address: the agent files under
-	// .claude/agents (the review-work agent packs as "review") plus the roles the main session
-	// plays (orchestrator, planner, retro). A role is what a pack is requested as, never a
-	// pipeline step name: "plan-work" packs as "planner" and the validate step re-runs e2e-specs,
-	// so a lesson tagged "plan-work" or "e2e-validate" reached nobody. TestRoles_MatchTheAgentFiles
-	// keeps the list and the agent directory in step.
-	Roles = []string{"e2e-specs", "daemon-impl", "web-impl", "daemon-tests", "web-tests", "review", "doc-reconcile", "orchestrator", "retro", "planner", "review-browser", "review-maintainability"}
-
-	// Tags is the closed tag list.
-	Tags = []string{"auth", "state-machine", "envelope", "tmux", "store", "security", "testing", "pipeline", "claude-code-format", "ux", "deps", "revisit", "never", "deferred", "user-decision", "consensus", "judged"}
 
 	slugRE    = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 	versionRE = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
@@ -172,27 +149,15 @@ func (r *Record) Live() bool {
 // HasGuard reports whether a fact names a guard test (the word none counts as no guard).
 func (r *Record) HasGuard() bool { return r.Guard != "" && r.Guard != "none" }
 
-// bodyBudget is the word budget for the record's type.
-func (r *Record) bodyBudget() int {
-	switch r.Type {
-	case TypeSpec:
-		return SpecWords
-	case TypeRunbook:
-		return RunbookWords
-	default:
-		return BodyWords
-	}
-}
-
-// expectedFor derives the type and id a record at relpath must declare from its location.
-// ok is false when the path is not inside a record directory.
-func expectedFor(relpath string) (t Type, id string, ok bool) {
+// expectedFor derives the type and id a record at relpath must declare from its location
+// (the directories cfg names). ok is false when the path is not inside a record directory.
+func expectedFor(cfg *Config, relpath string) (t Type, id string, ok bool) {
 	dir, base := path.Split(relpath)
 	dir = strings.TrimSuffix(dir, "/")
-	if strings.HasPrefix(dir, "docs/features/") && base == "spec.md" {
+	if strings.HasPrefix(dir, cfg.SpecDir()+"/") && base == "spec.md" {
 		return TypeSpec, path.Base(dir), true
 	}
-	for ty, d := range dirOfType {
+	for ty, d := range cfg.Dirs {
 		if d == dir && ty != TypeSpec {
 			return ty, strings.TrimSuffix(base, ".md"), true
 		}
@@ -219,22 +184,22 @@ func typeNames() []string {
 // reports every field-level problem as a finding (design §2 and §5 load rules). The
 // record is always returned so cross-record checks can still resolve it; its type falls
 // back to the directory's when the declared one is unusable.
-func RecordFromFields(relpath string, f Fields, body string, bodyLine int) (*Record, []Finding) {
+func RecordFromFields(cfg *Config, relpath string, f Fields, body string, bodyLine int) (*Record, []Finding) {
 	var out []Finding
 	fail := func(line int, format string, args ...any) {
 		out = append(out, Finding{Path: relpath, Line: line, Msg: fmt.Sprintf(format, args...)})
 	}
-	dirType, expectedID, _ := expectedFor(relpath)
+	dirType, expectedID, _ := expectedFor(cfg, relpath)
 	r := &Record{Path: relpath, Type: dirType, ID: expectedID, Body: body, BodyLine: bodyLine,
 		BodyWords: wordsOutsideMermaid(body), FieldLine: map[string]int{}}
 
 	// Pass one: the declared type decides which fields are valid.
 	if tf, ok := f.Get("type"); ok {
 		declared := Type(tf.Values[0])
-		if _, known := dirOfType[declared]; !known {
+		if _, known := cfg.Dirs[declared]; !known {
 			fail(tf.Line, "unknown type %q (want %s)", tf.Values[0], joinOr(typeNames()))
 		} else if declared != dirType {
-			fail(tf.Line, "type %q does not belong in %s/ (that directory holds %s records)", declared, dirOfType[dirType], dirType)
+			fail(tf.Line, "type %q does not belong in %s/ (that directory holds %s records)", declared, cfg.Dirs[dirType], dirType)
 		} else {
 			r.Type = declared
 		}
@@ -246,9 +211,9 @@ func RecordFromFields(relpath string, f Fields, body string, bodyLine int) (*Rec
 	validateID(r, expectedID, fail)
 	validateStatus(r, fail)
 	validateDate(r, fail)
-	validateSummary(r, fail)
-	validateTags(r, fail)
-	validateRoles(r, fail)
+	validateSummary(cfg, r, fail)
+	validateTags(cfg, r, fail)
+	validateRoles(cfg, r, fail)
 	validateFeatures(r, expectedID, fail)
 	validateGuard(r, fail)
 	return r, out
@@ -383,27 +348,27 @@ func validateDate(r *Record, fail failFunc) {
 	}
 }
 
-func validateSummary(r *Record, fail failFunc) {
-	if line, ok := r.FieldLine["summary"]; ok && len(r.Summary) > SummaryChars {
-		fail(line, "summary is %d chars (budget %d)", len(r.Summary), SummaryChars)
+func validateSummary(cfg *Config, r *Record, fail failFunc) {
+	if line, ok := r.FieldLine["summary"]; ok && len(r.Summary) > cfg.Budgets.SummaryChars {
+		fail(line, "summary is %d chars (budget %d)", len(r.Summary), cfg.Budgets.SummaryChars)
 	}
 }
 
-func validateTags(r *Record, fail failFunc) {
+func validateTags(cfg *Config, r *Record, fail failFunc) {
 	if line, ok := r.FieldLine["tags"]; ok {
 		for _, tag := range r.Tags {
-			if !contains(Tags, tag) {
-				fail(line, "unknown tag %q (want one of: %s)", tag, strings.Join(Tags, ", "))
+			if !contains(cfg.Tags, tag) {
+				fail(line, "unknown tag %q (want one of: %s)", tag, strings.Join(cfg.Tags, ", "))
 			}
 		}
 	}
 }
 
-func validateRoles(r *Record, fail failFunc) {
+func validateRoles(cfg *Config, r *Record, fail failFunc) {
 	if line, ok := r.FieldLine["roles"]; ok {
 		for _, role := range r.Roles {
-			if !contains(Roles, role) {
-				fail(line, "unknown role %q (want one of: %s)", role, strings.Join(Roles, ", "))
+			if !contains(cfg.Roles, role) {
+				fail(line, "unknown role %q (want one of: %s)", role, strings.Join(cfg.Roles, ", "))
 			}
 		}
 	}

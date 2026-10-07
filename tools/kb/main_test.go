@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -18,10 +20,25 @@ func write(t *testing.T, root, rel, content string) {
 	require.NoError(t, os.WriteFile(p, []byte(content), 0o644))
 }
 
-// newRepo builds a minimal store: one feature, one decision, one plan, one code file.
+// git runs git in dir; a commit carries a scratch identity per command, never a repo-local
+// config (CLAUDE.md § Hard rules).
+func git(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	if len(args) > 0 && args[0] == "commit" {
+		args = append([]string{"-c", "user.name=kb", "-c", "user.email=kb@example.invalid"}, args...)
+	}
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	require.NoErrorf(t, err, "git %v: %s", args, out)
+}
+
+// newRepo builds a minimal store: one feature, one decision, one plan, one code file, in a
+// git checkout on main (check's refs pass reads the tracked files).
 func newRepo(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
+	write(t, root, "kb.yaml", "dirs:\n  rule: docs/rules\n  decision: docs/adr\n  spec: docs/features\n  diagram: docs/diagrams\n  fact: docs/facts\n  lesson: docs/lessons\n  runbook: docs/runbooks\n  reference: docs/references\npaths:\n  observed_versions: internal/claudecode/observed_versions.txt\nroles: [daemon-impl, review, planner]\ntags: [ux]\n")
 	write(t, root, "go.mod", "module example.invalid/fixture\n")
 	write(t, root, "internal/claudecode/observed_versions.txt", "2.1.246 2026-08-29 a\n2.1.267 2026-09-10 b\n")
 	write(t, root, "docs/protocol.md", "# P\n\n<!-- kb:anchor sessions.pin -->\n### 3.10 Pin\n\nBody.\n")
@@ -29,6 +46,11 @@ func newRepo(t *testing.T) string {
 	write(t, root, "internal/sess/sess.go", "package sess\n")
 	write(t, root, "docs/adr/pin-order.md", "---\nid: pin-order\ntype: decision\nstatus: accepted\ndate: 2026-08-30\nsummary: Keep order.\nfeatures: [sessions]\n---\nBody.\n")
 	write(t, root, "plans/p/plan.md", "# p\n\n**Features**: sessions\n")
+	git(t, root, "init", "-q")
+	git(t, root, "symbolic-ref", "HEAD", "refs/heads/main")
+	git(t, root, "commit", "-q", "--allow-empty", "-m", "initial")
+	git(t, root, "add", "-A")
+	git(t, root, "commit", "-q", "-m", "fixture")
 	return root
 }
 
@@ -36,8 +58,8 @@ func TestRun_UsageAndUnknownSubcommandErrors(t *testing.T) {
 	root := newRepo(t)
 	t.Chdir(root)
 	var buf bytes.Buffer
-	require.EqualError(t, run(nil, &buf), "usage: kb <gen|check|pack|for|why|show|cite|find|ls|fences> [args]")
-	require.EqualError(t, run([]string{"bogus"}, &buf), `unknown subcommand "bogus" (want gen, check, pack, for, why, show, cite, find, ls or fences)`)
+	require.EqualError(t, run(nil, &buf), "usage: kb <gen|check|pack|for|why|show|cite|find|ls|fences|refs|scope|owners> [args]")
+	require.EqualError(t, run([]string{"bogus"}, &buf), `unknown subcommand "bogus" (want gen, check, pack, for, why, show, cite, find, ls, fences, refs, scope or owners)`)
 	require.EqualError(t, run([]string{"show"}, &buf), "usage: kb show <id>")
 	require.EqualError(t, run([]string{"show", "nope"}, &buf), `no record with id "nope" (try: kb find nope)`)
 }
@@ -114,7 +136,7 @@ func TestRun_PackRequiresPlanAndRoleAndRejectsAnUnknownRole(t *testing.T) {
 	require.EqualError(t, run([]string{"pack", "--plan", "nope", "--role", "review"}, &buf), "plans/nope/plan.md does not exist")
 	err := run([]string{"pack", "--plan", "p", "--role", "ceo"}, &buf)
 	require.Error(t, err)
-	assert.True(t, strings.HasPrefix(err.Error(), `unknown role "ceo" (want one of: e2e-specs, daemon-impl`), err.Error())
+	assert.Equal(t, `unknown role "ceo" (want one of: daemon-impl, review, planner)`, err.Error(), "the role list is kb.yaml's, not the code's")
 
 	write(t, root, "plans/q/plan.md", "# q\n\nno header\n")
 	require.EqualError(t, run([]string{"pack", "--plan", "q", "--role", "review"}, &buf),
@@ -166,4 +188,44 @@ func TestRun_PackReadsTouchesFromThePlanAndTheFlag(t *testing.T) {
 	require.NoError(t, run([]string{"pack", "--plan", "t", "--role", "daemon-impl", "--features", "sessions", "--touches", "third"}, &buf))
 	assert.True(t, strings.HasPrefix(buf.String(), "<!-- kb:pack plan=t role=daemon-impl features=sessions touches=third -->\n"),
 		"--features overrides both headers; --touches then adds: "+buf.String())
+}
+
+func TestRun_RefsReportsNothingToScanThenOneMissingReference(t *testing.T) {
+	root := newRepo(t)
+	t.Chdir(root)
+	var buf bytes.Buffer
+	require.NoError(t, run([]string{"refs", "--all"}, &buf))
+	assert.Equal(t, "dead-refs: 0 references checked (nothing to scan in 4 file(s))\n", buf.String())
+
+	write(t, root, "docs/dead.md", "`docs/nope.md`\n")
+	buf.Reset()
+	require.EqualError(t, run([]string{"refs", "docs/dead.md"}, &buf), "kb refs: 1 missing")
+	assert.Equal(t, "docs/dead.md:1  docs/nope.md  missing (path)\ndead-refs: 1 references checked, 1 missing\n", buf.String())
+
+	err := run([]string{"refs", "--all", "docs/dead.md"}, &buf)
+	require.EqualError(t, err, "usage: kb refs [--all | --changed | FILE...]")
+	assert.Equal(t, 2, exitCode(err))
+
+	buf.Reset()
+	git(t, root, "add", "docs/dead.md")
+	require.EqualError(t, run([]string{"check"}, &buf), "kb check: 5 problem(s)", "check folds the dead reference in beside the generated-file findings (tracked files only)")
+	assert.Contains(t, buf.String(), "docs/dead.md:1: reference `docs/nope.md` missing (path)\n")
+}
+
+func TestRun_ScopeAndOwners(t *testing.T) {
+	root := newRepo(t)
+	t.Chdir(root)
+	var buf bytes.Buffer
+	err := run([]string{"scope"}, &buf)
+	require.EqualError(t, err, "usage: kb scope --plan NAME [--touch]")
+	assert.Equal(t, 2, exitCode(err))
+	assert.Equal(t, 1, exitCode(errors.New("anything else")))
+
+	require.NoError(t, run([]string{"scope", "--plan", "p"}, &buf))
+	assert.Equal(t, "features-scope: no changed source files\n", buf.String())
+
+	buf.Reset()
+	require.NoError(t, run([]string{"owners", "internal/sess/sess.go", "docs/x.md"}, &buf))
+	assert.Equal(t, "internal/sess/sess.go\tsessions\ndocs/x.md\t-\n", buf.String())
+	require.EqualError(t, run([]string{"owners"}, &buf), "usage: kb owners <path> [<path> ...]")
 }

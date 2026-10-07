@@ -1,21 +1,25 @@
 // Command kb indexes and gates the docs/ knowledge base: the record frontmatters in the
-// eight record directories (rules, adr, diagrams, facts, lessons, runbooks, references,
-// and the per-feature spec.md), the kb:anchor comments in docs/protocol.md, and every
-// generated file rendered from them.
+// eight record directories kb.yaml names (rules, adr, diagrams, facts, lessons, runbooks,
+// references, and the per-feature spec.md), the kb:anchor comments in the protocol file,
+// and every generated file rendered from them.
 //
 //	go run ./tools/kb gen                       # regenerate; write only changed files
-//	go run ./tools/kb check                     # every invariant; exit 1 listing each finding
+//	go run ./tools/kb check                     # every invariant incl. refs --all; exit 1 listing each finding
 //	go run ./tools/kb pack --plan NAME --role ROLE [--features a,b] [--touches c,d]
 //	go run ./tools/kb for PATH                  # features + records covering a repo path
 //	go run ./tools/kb why PATH                  # decisions + facts explaining a path
 //	go run ./tools/kb show ID | cite ID | find WORD... | ls [--type T] [--feature F] [--status S] [--role R] [--guard none]
 //	go run ./tools/kb fences FILE...           # every mermaid fence opens with an allowed keyword; exit 1 listing each that does not
+//	go run ./tools/kb refs [--all | FILE...]   # every cited repo path, make target and flag exists; default = files changed against main
+//	go run ./tools/kb scope --plan NAME [--touch]  # every changed source file's feature is in the plan's headers; --touch widens Touches
+//	go run ./tools/kb owners PATH...           # path<TAB>feature[,feature] per path, - when none (for scripts)
 //
 // All logic lives in internal/kb; this file only dispatches. It is a dev tool, not part
 // of the product: .goreleaser.yaml builds only ./cmd/musterd.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -28,11 +32,19 @@ import (
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "kb:", err)
-		os.Exit(1)
+		os.Exit(exitCode(err))
 	}
 }
 
-const usage = "usage: kb <gen|check|pack|for|why|show|cite|find|ls|fences> [args]"
+// exitCode is 2 for a usage mistake and 1 for everything else.
+func exitCode(err error) int {
+	if errors.Is(err, kb.ErrUsage) {
+		return 2
+	}
+	return 1
+}
+
+const usage = "usage: kb <gen|check|pack|for|why|show|cite|find|ls|fences|refs|scope|owners> [args]"
 
 func run(args []string, stdout io.Writer) error {
 	if len(args) == 0 {
@@ -40,6 +52,10 @@ func run(args []string, stdout io.Writer) error {
 	}
 	if args[0] == "fences" {
 		return cmdFences(args[1:], stdout)
+	}
+	cmd, ok := commands[args[0]]
+	if !ok {
+		return fmt.Errorf("unknown subcommand %q (want gen, check, pack, for, why, show, cite, find, ls, fences, refs, scope or owners)", args[0])
 	}
 	root, err := repoRoot()
 	if err != nil {
@@ -49,30 +65,35 @@ func run(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	switch args[0] {
-	case "gen":
-		return cmdGen(ix, findings, stdout)
-	case "check":
-		return cmdCheck(ix, findings, stdout)
-	case "pack":
-		return cmdPack(ix, args[1:], stdout)
-	case "for", "why":
-		return cmdPath(ix, args, stdout)
-	case "show", "cite":
-		if len(args) != 2 {
-			return fmt.Errorf("usage: kb %s <id>", args[0])
-		}
-		if args[0] == "show" {
-			return kb.Show(ix, args[1], stdout)
-		}
-		return kb.Cite(ix, args[1], stdout)
-	case "find":
-		return kb.Find(ix, args[1:], stdout)
-	case "ls":
-		return cmdLs(ix, args[1:], stdout)
-	default:
-		return fmt.Errorf("unknown subcommand %q (want gen, check, pack, for, why, show, cite, find, ls or fences)", args[0])
+	return cmd(ix, findings, args, stdout)
+}
+
+// command is one subcommand over a loaded index; args[0] is its own name.
+type command func(ix *kb.Index, findings []kb.Finding, args []string, stdout io.Writer) error
+
+var commands = map[string]command{
+	"gen":   func(ix *kb.Index, f []kb.Finding, _ []string, w io.Writer) error { return cmdGen(ix, f, w) },
+	"check": func(ix *kb.Index, f []kb.Finding, _ []string, w io.Writer) error { return cmdCheck(ix, f, w) },
+	"pack":  func(ix *kb.Index, _ []kb.Finding, a []string, w io.Writer) error { return cmdPack(ix, a[1:], w) },
+	"for":   func(ix *kb.Index, _ []kb.Finding, a []string, w io.Writer) error { return cmdPath(ix, a, w) },
+	"why":   func(ix *kb.Index, _ []kb.Finding, a []string, w io.Writer) error { return cmdPath(ix, a, w) },
+	"show":  func(ix *kb.Index, _ []kb.Finding, a []string, w io.Writer) error { return cmdID(ix, a, w, kb.Show) },
+	"cite":  func(ix *kb.Index, _ []kb.Finding, a []string, w io.Writer) error { return cmdID(ix, a, w, kb.Cite) },
+	"find":  func(ix *kb.Index, _ []kb.Finding, a []string, w io.Writer) error { return kb.Find(ix, a[1:], w) },
+	"ls":    func(ix *kb.Index, _ []kb.Finding, a []string, w io.Writer) error { return cmdLs(ix, a[1:], w) },
+	"refs":  func(ix *kb.Index, _ []kb.Finding, a []string, w io.Writer) error { return cmdRefs(ix, a[1:], w) },
+	"scope": func(ix *kb.Index, _ []kb.Finding, a []string, w io.Writer) error { return cmdScope(ix, a[1:], w) },
+	"owners": func(ix *kb.Index, _ []kb.Finding, a []string, w io.Writer) error {
+		return cmdOwners(ix, a[1:], w)
+	},
+}
+
+// cmdID runs a one-id query (show, cite).
+func cmdID(ix *kb.Index, args []string, stdout io.Writer, query func(*kb.Index, string, io.Writer) error) error {
+	if len(args) != 2 {
+		return fmt.Errorf("usage: kb %s <id>", args[0])
 	}
+	return query(ix, args[1], stdout)
 }
 
 // cmdFences checks the mermaid fences of files outside the record tree (a plan, a scratch
@@ -157,7 +178,7 @@ func cmdGen(ix *kb.Index, findings []kb.Finding, stdout io.Writer) error {
 }
 
 func cmdCheck(ix *kb.Index, loadFindings []kb.Finding, stdout io.Writer) error {
-	findings, err := kb.Check(ix, loadFindings)
+	findings, err := kb.CheckRepo(ix, loadFindings)
 	if err != nil {
 		return err
 	}
@@ -193,9 +214,10 @@ func cmdPack(ix *kb.Index, args []string, stdout io.Writer) error {
 	if plan == "" || role == "" {
 		return fmt.Errorf("%s", packUsage)
 	}
-	planPath := filepath.Join(ix.Root, "plans", plan, "plan.md")
+	planRel := ix.Config.PlanPath(plan)
+	planPath := filepath.Join(ix.Root, filepath.FromSlash(planRel))
 	if _, err = os.Stat(planPath); err != nil {
-		return fmt.Errorf("plans/%s/plan.md does not exist", plan)
+		return fmt.Errorf("%s does not exist", planRel)
 	}
 	opts := kb.PackOptions{Plan: plan, Role: role}
 	// --features overrides the plan's headers outright (the planner packs before the plan
@@ -205,7 +227,7 @@ func cmdPack(ix *kb.Index, args []string, stdout io.Writer) error {
 	} else {
 		opts.Features, err = kb.PlanFeatures(planPath)
 		if err != nil {
-			return fmt.Errorf("plans/%s/plan.md: %w (add one, or pass --features)", plan, err)
+			return fmt.Errorf("%s: %w (add one, or pass --features)", planRel, err)
 		}
 		if opts.Touches, err = kb.PlanTouches(planPath); err != nil {
 			return err
@@ -257,4 +279,95 @@ func cmdLs(ix *kb.Index, args []string, stdout io.Writer) error {
 		}
 	}
 	return kb.List(ix, f, stdout)
+}
+
+// relPaths normalises every argument to a repo-relative slash path.
+func relPaths(root string, args []string) ([]string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("getting working directory: %w", err)
+	}
+	out := make([]string, 0, len(args))
+	for _, a := range args {
+		rel, err := kb.RelPath(root, cwd, a)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rel)
+	}
+	return out, nil
+}
+
+// cmdRefs prints every dead reference and the dead-refs summary line the gates and retro
+// read; it fails only when a reference is missing.
+func cmdRefs(ix *kb.Index, args []string, stdout io.Writer) error {
+	var opts kb.RefsOptions
+	var files []string
+	for _, a := range args {
+		switch a {
+		case "--all":
+			opts.All = true
+		case "--changed":
+		default:
+			files = append(files, a)
+		}
+	}
+	if opts.All && len(files) > 0 {
+		return fmt.Errorf("%w: kb refs [--all | --changed | FILE...]", kb.ErrUsage)
+	}
+	var err error
+	if opts.Files, err = relPaths(ix.Root, files); err != nil {
+		return err
+	}
+	res, err := kb.Refs(ix, opts)
+	if err != nil {
+		return err
+	}
+	for _, h := range res.Hits {
+		fmt.Fprintln(stdout, h)
+	}
+	for _, w := range res.StaleWhitelist {
+		fmt.Fprintf(stdout, "dead-refs: whitelist entry %q now exists — remove it from %s\n", w, kb.ConfigPath)
+	}
+	if res.Checked == 0 {
+		fmt.Fprintf(stdout, "dead-refs: 0 references checked (nothing to scan in %d file(s))\n", res.Files)
+		return nil
+	}
+	fmt.Fprintf(stdout, "dead-refs: %d references checked, %d missing\n", res.Checked, res.Missing)
+	if res.Missing > 0 {
+		return fmt.Errorf("kb refs: %d missing", res.Missing)
+	}
+	return nil
+}
+
+func cmdScope(ix *kb.Index, args []string, stdout io.Writer) error {
+	plan, err := flagValue(args, "--plan")
+	if err != nil {
+		return err
+	}
+	opts := kb.ScopeOptions{Plan: plan}
+	for _, a := range args {
+		if a == "--touch" {
+			opts.Touch = true
+		}
+	}
+	n, err := kb.Scope(ix, opts, stdout)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return fmt.Errorf("kb scope: %d file(s) outside the plan's features", n)
+	}
+	return nil
+}
+
+func cmdOwners(ix *kb.Index, args []string, stdout io.Writer) error {
+	if len(args) == 0 {
+		return fmt.Errorf("%w: kb owners <path> [<path> ...]", kb.ErrUsage)
+	}
+	rels, err := relPaths(ix.Root, args)
+	if err != nil {
+		return err
+	}
+	return kb.Owners(ix, rels, stdout)
 }

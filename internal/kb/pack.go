@@ -65,11 +65,6 @@ type PackOptions struct {
 	Touches  []string
 }
 
-// touchesFullRoles pack a touched feature in full, as if it were in Features: the correctness
-// reviewer is the safety net for a settled decision a light edit breaks, so it reads the
-// touched feature's records the implementer did not.
-var touchesFullRoles = []string{"review"}
-
 // section is one row of a pack's word breakdown, in the order the sections are written.
 type section struct {
 	label string
@@ -81,12 +76,13 @@ type section struct {
 // The count and that warning open the pack, straight after the provenance marker, so the
 // reader meets the cost before the payload and not several hundred KB after it.
 func Pack(ix *Index, opts PackOptions, w io.Writer) (int, error) {
-	if !contains(Roles, opts.Role) {
-		return 0, fmt.Errorf("unknown role %q (want one of: %s)", opts.Role, strings.Join(Roles, ", "))
+	cfg := ix.Config
+	if !contains(cfg.Roles, opts.Role) {
+		return 0, fmt.Errorf("unknown role %q (want one of: %s)", opts.Role, strings.Join(cfg.Roles, ", "))
 	}
 	for _, name := range append(append([]string{}, opts.Features...), opts.Touches...) {
 		if ix.Feature(name) == nil {
-			return 0, fmt.Errorf("feature %q has no docs/features/%s/spec.md", name, name)
+			return 0, fmt.Errorf("feature %q has no %s/%s/spec.md", name, cfg.SpecDir(), name)
 		}
 	}
 	// A feature in both headers is a Features one; a role that reads touched features in full
@@ -97,7 +93,7 @@ func Pack(ix *Index, opts PackOptions, w io.Writer) (int, error) {
 			touches = append(touches, name)
 		}
 	}
-	if contains(touchesFullRoles, opts.Role) {
+	if contains(cfg.Pack.TouchesFullRoles, opts.Role) {
 		opts.Features = append(append([]string{}, opts.Features...), touches...)
 		touches = nil
 	}
@@ -144,7 +140,7 @@ func Pack(ix *Index, opts PackOptions, w io.Writer) (int, error) {
 	record("runbooks")
 
 	words := len(strings.Fields(marker)) + len(strings.Fields(b.String()))
-	_, err := io.WriteString(w, marker+packSummary(words, sections)+b.String())
+	_, err := io.WriteString(w, marker+packSummary(words, cfg.Budgets.PackWords, sections)+b.String())
 	return words, err
 }
 
@@ -153,11 +149,11 @@ func Pack(ix *Index, opts PackOptions, w io.Writer) (int, error) {
 // already quote; the rows that follow say which section grew. The reported total covers the
 // marker and the body only — never this block — so the number stays comparable with the
 // figures earlier runs recorded.
-func packSummary(words int, sections []section) string {
+func packSummary(words, budget int, sections []section) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "kb: pack %d words (budget %d)\n", words, PackWords)
-	if words > PackWords {
-		fmt.Fprintf(&b, "kb: WARN pack exceeds budget of %d words\n", PackWords)
+	fmt.Fprintf(&b, "kb: pack %d words (budget %d)\n", words, budget)
+	if words > budget {
+		fmt.Fprintf(&b, "kb: WARN pack exceeds budget of %d words\n", budget)
 	}
 	rows := make([]string, 0, len(sections))
 	for _, s := range sections {
@@ -171,12 +167,12 @@ func packSummary(words int, sections []section) string {
 // the feature-less ones first, then those naming one of the pack's features.
 func writeRules(b *strings.Builder, ix *Index, opts PackOptions) error {
 	b.WriteString("\n# Rules\n")
-	conv, err := os.ReadFile(filepath.Join(ix.Root, "docs", "conventions.md"))
+	conv, err := os.ReadFile(filepath.Join(ix.Root, filepath.FromSlash(ix.Config.Paths.Conventions)))
 	switch {
 	case err == nil:
-		b.WriteString("\n" + strings.TrimRight(conventionsForRole(string(conv), opts.Role), "\n") + "\n")
+		b.WriteString("\n" + strings.TrimRight(conventionsForRole(ix.Config, string(conv), opts.Role), "\n") + "\n")
 	case !errors.Is(err, fs.ErrNotExist):
-		return fmt.Errorf("reading docs/conventions.md: %w", err)
+		return fmt.Errorf("reading %s: %w", ix.Config.Paths.Conventions, err)
 	}
 	for _, r := range ix.RecordsOfType(TypeRule) {
 		if r.Status == "active" && len(r.Features) == 0 {
@@ -191,59 +187,23 @@ func writeRules(b *strings.Builder, ix *Index, opts PackOptions) error {
 	return nil
 }
 
-// contractlessRoles read no contract slice: the browser reviewer measures the running app and
-// the maintainability reviewer judges shape, and neither codes against the wire. The generated
-// contracts were 5,800 of a three-feature pack's 7,300 feature words (audit 2026-09-25).
-var contractlessRoles = []string{"review-browser", "review-maintainability"}
-
-// factlessRoles read no fact records: the web roles take wire shapes from the contract slice,
-// the two non-correctness reviewers never code against the wire, and doc-reconcile verifies
-// claims against source. Facts were 7,400 of a three-feature pack (kb:adr/knowledge-pack-sections-scoped-by-role).
-var factlessRoles = []string{"web-impl", "web-tests", "review-browser", "review-maintainability", "doc-reconcile"}
-
-// decisionlessRoles read no accepted decisions: the unit-test roles test what the plan and
-// contract state, the browser reviewer measures, and doc-reconcile edits specs the decisions
-// already shaped. e2e-specs keeps them deliberately — a safety net for behaviour it asserts.
-// Accepted decisions were 12,700 of a three-feature pack (kb:adr/knowledge-pack-sections-scoped-by-role).
-var decisionlessRoles = []string{"daemon-tests", "web-tests", "review-browser", "doc-reconcile"}
-
-// designDoc is one docs/design file a role packs, whole or by its level-two sections.
-type designDoc struct {
-	path     string
-	sections []string // heading prefixes to keep; nil keeps the whole file
-}
-
-// designDocsByRole names the design documents each role packs. They bind the web roles in
-// full (web-impl) or in their correctness sections (review-browser §6 honesty, §7 terminal);
-// every other role reads them by path when it needs to.
-var designDocsByRole = map[string][]designDoc{
-	"web-impl": {
-		{path: "docs/design/design-system.md"},
-		{path: "docs/design/ux-flows.md"},
-	},
-	"review-browser": {
-		{path: "docs/design/design-system.md", sections: []string{"6.", "7."}},
-		{path: "docs/design/ux-flows.md"},
-	},
-}
-
-// writeDesignDocs writes the role's design documents, each sliced to the sections it reads.
-// The heading is written only when the role packs one.
+// writeDesignDocs writes the role's design documents (the config's pack.design_docs), each
+// sliced to the sections it reads. The heading is written only when the role packs one.
 func writeDesignDocs(b *strings.Builder, ix *Index, opts PackOptions) error {
 	var out []string
-	for _, d := range designDocsByRole[opts.Role] {
-		data, err := os.ReadFile(filepath.Join(ix.Root, filepath.FromSlash(d.path)))
+	for _, d := range ix.Config.Pack.DesignDocs[opts.Role] {
+		data, err := os.ReadFile(filepath.Join(ix.Root, filepath.FromSlash(d.Path)))
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
 		if err != nil {
-			return fmt.Errorf("reading %s: %w", d.path, err)
+			return fmt.Errorf("reading %s: %w", d.Path, err)
 		}
 		text := string(data)
-		if d.sections != nil {
-			text = sectionsOf(text, d.sections)
+		if d.Sections != nil {
+			text = sectionsOf(text, d.Sections)
 		}
-		out = append(out, fmt.Sprintf("\n<!-- %s -->\n%s\n", d.path, strings.TrimRight(text, "\n")))
+		out = append(out, fmt.Sprintf("\n<!-- %s -->\n%s\n", d.Path, strings.TrimRight(text, "\n")))
 	}
 	if len(out) == 0 {
 		return nil
@@ -271,28 +231,23 @@ func writeTouchedSections(b *strings.Builder, ix *Index, opts PackOptions) {
 func writeSpecAndContract(b *strings.Builder, ix *Index, opts PackOptions, kind, name string) {
 	f := ix.Feature(name)
 	fmt.Fprintf(b, "\n# %s: %s\n\n%s\n", kind, name, strings.TrimSpace(f.Spec.Body))
-	if contains(contractlessRoles, opts.Role) {
+	if contains(ix.Config.Pack.ContractlessRoles, opts.Role) {
 		fmt.Fprintf(b, "\n_contract: `go run ./tools/kb show %s` — not packed for this role_\n", f.Spec.Token())
 		return
 	}
 	b.WriteString("\n" + strings.TrimSpace(renderContract(ix, f)) + "\n")
 }
 
-// systemDiagramRoles are the roles that read the feature-less (system-wide) diagrams; an
-// implementation pack carries only the diagrams naming one of its features. The
-// maintainability reviewer judges shape against the component diagrams, so it reads them too.
-var systemDiagramRoles = []string{"planner", "review", "orchestrator", "review-maintainability"}
-
 // writeDiagrams writes the active diagrams for the pack, fence included: those naming
-// one of the pack's features for every role, the system-wide ones for the roles that
-// plan and judge. The heading is written only when a diagram follows.
+// one of the pack's features for every role, the system-wide ones for the roles the
+// config lists as reading them. The heading is written only when a diagram follows.
 func writeDiagrams(b *strings.Builder, ix *Index, opts PackOptions) {
 	var out []*Record
 	for _, r := range ix.RecordsOfType(TypeDiagram) {
 		if r.Status != "active" {
 			continue
 		}
-		if intersects(r.Features, opts.Features) || (len(r.Features) == 0 && contains(systemDiagramRoles, opts.Role)) {
+		if intersects(r.Features, opts.Features) || (len(r.Features) == 0 && contains(ix.Config.Pack.SystemDiagramRoles, opts.Role)) {
 			out = append(out, r)
 		}
 	}
@@ -309,7 +264,7 @@ func writeDiagrams(b *strings.Builder, ix *Index, opts PackOptions) {
 // first, each trimmed to its Decision and Consequences paragraphs.
 func writeDecisions(b *strings.Builder, ix *Index, opts PackOptions) {
 	b.WriteString("\n# Decisions\n")
-	if contains(decisionlessRoles, opts.Role) {
+	if contains(ix.Config.Pack.DecisionlessRoles, opts.Role) {
 		fmt.Fprintf(b, "\n_decisions: `go run ./tools/kb ls --type decision --status accepted --feature <f>` — not packed for this role_\n")
 		return
 	}
@@ -330,10 +285,10 @@ func writeDecisions(b *strings.Builder, ix *Index, opts PackOptions) {
 	}
 }
 
-// writeProposedDecisions writes this plan's not-yet-accepted decisions, for the two roles
-// that rule on them.
+// writeProposedDecisions writes this plan's not-yet-accepted decisions, for the roles that
+// rule on them.
 func writeProposedDecisions(b *strings.Builder, ix *Index, opts PackOptions) {
-	if opts.Role != "review" && opts.Role != "planner" {
+	if !contains(ix.Config.Pack.ProposedDecisionRoles, opts.Role) {
 		return
 	}
 	b.WriteString("\n# Decisions (proposed for this plan)\n")
@@ -347,7 +302,7 @@ func writeProposedDecisions(b *strings.Builder, ix *Index, opts PackOptions) {
 // writeFacts writes the active facts naming one of the pack's features.
 func writeFacts(b *strings.Builder, ix *Index, opts PackOptions) {
 	b.WriteString("\n# Facts\n")
-	if contains(factlessRoles, opts.Role) {
+	if contains(ix.Config.Pack.FactlessRoles, opts.Role) {
 		fmt.Fprintf(b, "\n_facts: `go run ./tools/kb ls --type fact --feature <f>` — not packed for this role_\n")
 		return
 	}
@@ -432,31 +387,11 @@ func writeDecisionForPack(b *strings.Builder, ix *Index, r *Record) {
 	b.WriteString("\n" + full)
 }
 
-// conventionsByRole names the docs/conventions.md sections (by heading prefix) each role
-// reads in its pack — the full set, so no agent file sends its reader to the file for a
-// section the pack left out. A role absent from the map reads the whole file.
-var conventionsByRole = map[string][]string{
-	// The impl and unit-test roles answer to Design (reuse before add, design: lines); the
-	// daemon tester matches the Go test style §Stack and §Go settle.
-	// Comments are nobody's section: the comment pass enforces them on the diff
-	// (kb:adr/process-comment-pass-owns-code-comments).
-	"daemon-impl":  {"Stack", "Go", "Composition roots", "Design", "Knowledge records"},
-	"web-impl":     {"Stack", "TypeScript", "Composition roots", "Design", "Knowledge records"},
-	"daemon-tests": {"Stack", "Go", "Design", "Testing", "Knowledge records"},
-	"web-tests":    {"Design", "Testing", "Knowledge records"},
-	"e2e-specs":    {"Testing", "Knowledge records"},
-	// The browser reviewer measures the running app; the maintainability reviewer judges shape and
-	// never reads the plan, so its rules are the code sections plus Design.
-	// The correctness reviewer judges statements against the plan: the code and testing sections,
-	// never Commits or Backlog (the orchestrator's) or Design (the maintainability reviewer's).
-	"review":                 {"Stack", "Go", "TypeScript", "Composition roots", "Testing", "Knowledge records"},
-	"review-browser":         {"Stack", "TypeScript", "Testing", "Knowledge records"},
-	"review-maintainability": {"Stack", "Go", "TypeScript", "Composition roots", "Design", "Knowledge records"},
-}
-
-// conventionsForRole keeps the preamble and the level-two sections the role reads.
-func conventionsForRole(conv, role string) string {
-	wanted, ok := conventionsByRole[role]
+// conventionsForRole keeps the preamble and the level-two sections (by heading prefix) the
+// config's pack.conventions_sections names for the role; a role it does not name reads the
+// whole file.
+func conventionsForRole(cfg *Config, conv, role string) string {
+	wanted, ok := cfg.Pack.ConventionsSections[role]
 	if !ok {
 		return conv
 	}

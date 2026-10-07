@@ -9,13 +9,13 @@ limited to the paths the role owns:
   daemon-tests  *_test.go under cmd/ internal/     review labels, dead references
   web-tests     web/src/**/*.test.ts               review labels, dead references
   e2e-specs     web/e2e/                           review labels, dead references
-  --gates       both impl roles' paths             plan IDs, review labels (gates.sh runs dead-refs --all itself)
+  --gates       both impl roles' paths             plan IDs, review labels (the gates' check-kb runs kb refs --all itself)
 
 - **Plan IDs** (`REQ-4`, `INV-2`, `D8`, `W6`, `E5`) inside a production comment point into a
   plans/ directory a reader outside the branch can't follow. Test titles keep them by convention.
 - **Review labels** (`Fix Attempt 1`, `browser Minor 1`, `review cycle 2`, soak runs) narrate how
   the branch got here, which `docs/conventions.md` § Comments rules out everywhere.
-- **Dead references**: dead-refs.py over the role's changed files.
+- **Dead references**: `go run ./tools/kb refs` over the role's changed files.
 
 Why (settings-update-failures retro, 2026-09-25): the comments rule was reworded twice in the
 impl agents, yet cycle 1 filed 45 plan-ID comments across 12 files and cycle 3 filed one the
@@ -75,8 +75,7 @@ def check(roles, plan_ids, dead_refs):
             if REVIEW_LABEL.search(text):
                 hits.append(f"{path}:{n}: review/fix-attempt label — say what the code guarantees, not how the branch got here: {text.strip()[:110]}")
     if dead_refs and files:
-        r = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name("dead-refs.py")), *sorted(files)],
-                           capture_output=True, text=True)
+        r = subprocess.run(["go", "run", "./tools/kb", "refs", *sorted(files)], capture_output=True, text=True)
         if r.returncode:
             hits.append((r.stdout + r.stderr).strip())
     return hits

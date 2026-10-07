@@ -17,12 +17,6 @@ type Output struct {
 	Content string
 }
 
-// rootIndexPath is the whole-store index; rulesDir holds the per-feature rules files.
-const (
-	rootIndexPath = "docs/INDEX.md"
-	rulesDir      = ".claude/rules/"
-)
-
 // Outputs renders every generated file (design §8): the store index, each feature's
 // INDEX and contract, each feature's rules file, and every CLAUDE.md carrying a kb
 // fragment. An empty store renders nothing but fragments. Fragment problems in a
@@ -31,7 +25,7 @@ func Outputs(ix *Index) ([]Output, []Finding, error) {
 	var outs []Output
 	var findings []Finding
 	if !ix.Empty() {
-		outs = append(outs, Output{Path: rootIndexPath, Content: WrapGenerated(renderRootIndex(ix))})
+		outs = append(outs, Output{Path: ix.Config.Paths.RootIndex, Content: WrapGenerated(renderRootIndex(ix))})
 	}
 	for _, f := range ix.Features {
 		outs = append(outs,
@@ -210,7 +204,7 @@ func renderFeatureIndex(ix *Index, f *Feature) string {
 
 func renderContract(ix *Index, f *Feature) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# %s — protocol contract\n\nSlices of `%s` named by the protocol list in `%s`.\n", f.Name, protocolPath, f.SpecPath())
+	fmt.Fprintf(&b, "# %s — protocol contract\n\nSlices of `%s` named by the protocol list in `%s`.\n", f.Name, ix.Config.Paths.Protocol, f.SpecPath())
 	if len(f.Protocol) == 0 {
 		b.WriteString("\nNo protocol surface.\n")
 		return b.String()
@@ -226,7 +220,7 @@ func renderContract(ix *Index, f *Feature) string {
 		if !ok || nestedInAnother(a, listed) {
 			continue
 		}
-		b.WriteString("\n" + Slice(ix.Protocol, a) + "\n")
+		b.WriteString("\n" + Slice(ix.Config.Paths.Protocol, ix.Protocol, a) + "\n")
 	}
 	return b.String()
 }
@@ -259,7 +253,7 @@ func liveRecordsOf(ix *Index, name string) []*Record {
 
 // renderRules renders the path-scoped rules file: frontmatter listing the feature's
 // globs, then the summary, the two read-first paths and its live records, truncated to
-// RuleFileLines with a pointer at the feature index.
+// the rule-file line budget with a pointer at the feature index.
 func renderRules(ix *Index, f *Feature) string {
 	var head strings.Builder
 	head.WriteString("---\npaths:\n")
@@ -278,8 +272,8 @@ func renderRules(ix *Index, f *Feature) string {
 	// One header line is added by WrapGenerated; one blank line precedes the rows.
 	fixed := strings.Count(head.String(), "\n") + 2
 	keep := len(rows)
-	if fixed+keep > RuleFileLines {
-		keep = RuleFileLines - fixed - 1
+	if budget := ix.Config.Budgets.RuleFileLines; fixed+keep > budget {
+		keep = budget - fixed - 1
 		if keep < 0 {
 			keep = 0
 		}

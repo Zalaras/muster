@@ -13,7 +13,7 @@ func parseRecord(t *testing.T, relpath, src string) (*Record, []string) {
 	t.Helper()
 	fields, body, bodyLine, err := ParseFrontmatter([]byte(src))
 	require.NoError(t, err)
-	r, findings := RecordFromFields(relpath, fields, body, bodyLine)
+	r, findings := RecordFromFields(testConfig(t), relpath, fields, body, bodyLine)
 	sortFindings(findings)
 	var msgs []string
 	for _, f := range findings {
@@ -51,9 +51,9 @@ func TestRecordFromFields_EnforcesPerTypeRequiredAndForbiddenFields(t *testing.T
 		{"scalar where list", "docs/adr/x.md", "id: x\ntype: decision\nstatus: accepted\ndate: 2026-08-30\nsummary: s\ntags: ux\n",
 			[]string{`docs/adr/x.md:7: field "tags" takes a list (write tags: [a, b])`}},
 		{"unknown tag", "docs/adr/x.md", "id: x\ntype: decision\nstatus: accepted\ndate: 2026-08-30\nsummary: s\ntags: [nope]\n",
-			[]string{`docs/adr/x.md:7: unknown tag "nope" (want one of: ` + strings.Join(Tags, ", ") + ")"}},
+			[]string{`docs/adr/x.md:7: unknown tag "nope" (want one of: ` + strings.Join(testConfig(t).Tags, ", ") + ")"}},
 		{"unknown role", "docs/lessons/x.md", "id: x\ntype: lesson\nstatus: active\ndate: 2026-08-30\nsummary: s\nroles: [ceo]\n",
-			[]string{`docs/lessons/x.md:7: unknown role "ceo" (want one of: ` + strings.Join(Roles, ", ") + ")"}},
+			[]string{`docs/lessons/x.md:7: unknown role "ceo" (want one of: ` + strings.Join(testConfig(t).Roles, ", ") + ")"}},
 		{"bad guard", "docs/facts/x.md", "id: x\ntype: fact\nstatus: active\ndate: 2026-08-30\nsummary: s\nverified: 2.1.246..canary\nguard: notATest\n",
 			[]string{`docs/facts/x.md:8: guard "notATest" is not a Go test name (or the word none)`}},
 		{"clean rule", "docs/rules/x.md", "id: x\ntype: rule\nstatus: active\ndate: 2026-08-30\nsummary: s\n", nil},

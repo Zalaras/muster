@@ -23,6 +23,7 @@ func TestCheck_PassesOnTheFixtureAfterGen(t *testing.T) {
 
 func TestCheck_PassesOnAnEmptyStore(t *testing.T) {
 	root := t.TempDir()
+	writeConfig(t, root)
 	mustWriteFile(t, root, "go.mod", "module x\n")
 	mustWriteFile(t, root, "internal/claudecode/observed_versions.txt", "2.1.246 2026-08-29 a\n")
 	mustWriteFile(t, root, "internal/sess/sess.go", "package sess\n")
@@ -308,7 +309,7 @@ func TestCheck_PassesWhenARulesFileIsTruncatedToBudget(t *testing.T) {
 	got := runCheck(t, root)
 	assert.Empty(t, got)
 	rules := mustReadFile(t, root, ".claude/rules/sessions.md")
-	assert.LessOrEqual(t, strings.Count(rules, "\n"), RuleFileLines)
+	assert.LessOrEqual(t, strings.Count(rules, "\n"), defaultBudgets.RuleFileLines)
 	assert.Contains(t, rules, "more: see `docs/features/sessions/INDEX.md`")
 }
 
@@ -369,4 +370,14 @@ func TestCheck_ResolvesDiagramCitationsAndNamesTheDiagramPrefixOnAMismatch(t *te
 	assert.Contains(t, got, "internal/sess/state.go:3: citation kb:adr/sessions-state names a diagram (want kb:diagram/sessions-state)")
 	assert.Contains(t, got, "internal/sess/state.go:3: citation kb:diagram/nope resolves to no record")
 	assert.NotContains(t, strings.Join(got, "\n"), "kb:diagram/sessions-state resolves")
+}
+
+func TestCheck_OwnershipRootsComeFromTheConfig(t *testing.T) {
+	root := freshRoot(t)
+	mustWriteFile(t, root, ConfigPath, fixtureConfig+"ownership: [cmd]\n")
+	mustWriteFile(t, root, "internal/other/other.go", "package other\n")
+	mustWriteFile(t, root, "cmd/musterd/main.go", "package main\n")
+	got := runCheck(t, root)
+	assert.Contains(t, got, "cmd/musterd/main.go: owned by no feature (add it to a docs/features/<name>/spec.md glob)")
+	assert.NotContains(t, strings.Join(got, "\n"), "internal/other/other.go")
 }

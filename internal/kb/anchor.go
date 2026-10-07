@@ -6,9 +6,6 @@ import (
 	"strings"
 )
 
-// protocolPath is the one file that may carry kb:anchor comments.
-const protocolPath = "docs/protocol.md"
-
 var (
 	anchorRE  = regexp.MustCompile(`^<!-- kb:anchor ([a-z0-9-]+(?:\.[a-z0-9-]+)*) -->$`)
 	headingRE = regexp.MustCompile(`^(#{1,6}) (.*)$`)
@@ -73,10 +70,10 @@ func computeParentAndEnd(headings []heading, next *heading, end int) (parent str
 	return parent, end
 }
 
-// ParseAnchors reads every kb:anchor comment in protocol (design §7): each must sit on
-// the line immediately before a level-two or level-three heading outside a code fence,
-// and ids must be unique. order lists ids by line.
-func ParseAnchors(protocol string) (anchors map[string]Anchor, order []string, findings []Finding) {
+// ParseAnchors reads every kb:anchor comment in protocol, the text of the file at path
+// (design §7): each must sit on the line immediately before a level-two or level-three
+// heading outside a code fence, and ids must be unique. order lists ids by line.
+func ParseAnchors(path, protocol string) (anchors map[string]Anchor, order []string, findings []Finding) {
 	anchors = map[string]Anchor{}
 	lines := strings.Split(protocol, "\n")
 	prose := map[int]bool{}
@@ -96,12 +93,12 @@ func ParseAnchors(protocol string) (anchors map[string]Anchor, order []string, f
 		id, lineNo := m[1], i+1
 		next := findHeadingAt(headings, lineNo+1)
 		if next == nil || next.level < 2 || next.level > 3 {
-			findings = append(findings, Finding{Path: protocolPath, Line: lineNo,
+			findings = append(findings, Finding{Path: path, Line: lineNo,
 				Msg: fmt.Sprintf("kb:anchor %q is not immediately followed by a ## or ### heading", id)})
 			continue
 		}
 		if first, dup := firstLine[id]; dup {
-			findings = append(findings, Finding{Path: protocolPath, Line: lineNo,
+			findings = append(findings, Finding{Path: path, Line: lineNo,
 				Msg: fmt.Sprintf("duplicate kb:anchor %q (first at line %d)", id, first)})
 			continue
 		}
@@ -114,14 +111,15 @@ func ParseAnchors(protocol string) (anchors map[string]Anchor, order []string, f
 	return anchors, order, findings
 }
 
-// Slice renders an anchored section: one italic breadcrumb naming the parent section,
-// then the source lines from the heading to the section end with every anchor comment
-// omitted and trailing blank lines trimmed. Heading levels are kept as in the source.
-func Slice(protocol string, a Anchor) string {
+// Slice renders an anchored section of the protocol file at path: one italic breadcrumb
+// naming the parent section, then the source lines from the heading to the section end
+// with every anchor comment omitted and trailing blank lines trimmed. Heading levels are
+// kept as in the source.
+func Slice(path, protocol string, a Anchor) string {
 	lines := strings.Split(protocol, "\n")
-	crumb := "_" + protocolPath + "_"
+	crumb := "_" + path + "_"
 	if a.Parent != "" {
-		crumb = "_" + protocolPath + " § " + a.Parent + "_"
+		crumb = "_" + path + " § " + a.Parent + "_"
 	}
 	out := []string{crumb}
 	for i := a.Start - 1; i < a.End && i < len(lines); i++ {

@@ -9,7 +9,7 @@ import (
 )
 
 func TestParseAnchors_RecordsLevelParentAndExtentForEachAnchor(t *testing.T) {
-	anchors, order, findings := ParseAnchors(fixtureProtocol)
+	anchors, order, findings := ParseAnchors("docs/protocol.md", fixtureProtocol)
 	require.Empty(t, findings)
 	assert.Equal(t, []string{"sessions", "sessions.pin", "sessions.order"}, order)
 
@@ -43,7 +43,7 @@ func TestParseAnchors_RecordsLevelParentAndExtentForEachAnchor(t *testing.T) {
 
 func TestParseAnchors_FailsAnAnchorNotImmediatelyBeforeAHeading(t *testing.T) {
 	src := "# P\n\n<!-- kb:anchor a -->\n\n## A\n\n<!-- kb:anchor b -->\n# Top\n\n<!-- kb:anchor c -->\n#### Deep\n"
-	anchors, _, findings := ParseAnchors(src)
+	anchors, _, findings := ParseAnchors("docs/protocol.md", src)
 	assert.Empty(t, anchors)
 	var msgs []string
 	for _, f := range findings {
@@ -58,7 +58,7 @@ func TestParseAnchors_FailsAnAnchorNotImmediatelyBeforeAHeading(t *testing.T) {
 
 func TestParseAnchors_FailsDuplicateIDsNamingTheFirstLine(t *testing.T) {
 	src := "<!-- kb:anchor a -->\n## A\n\n<!-- kb:anchor a -->\n## B\n"
-	anchors, order, findings := ParseAnchors(src)
+	anchors, order, findings := ParseAnchors("docs/protocol.md", src)
 	assert.Equal(t, []string{"a"}, order)
 	assert.Equal(t, 2, anchors["a"].Start)
 	require.Len(t, findings, 1)
@@ -67,24 +67,24 @@ func TestParseAnchors_FailsDuplicateIDsNamingTheFirstLine(t *testing.T) {
 
 func TestParseAnchors_IgnoresHeadingsInsideCodeFences(t *testing.T) {
 	src := "<!-- kb:anchor a -->\n## A\n\n```\n## fake\n<!-- kb:anchor fake -->\n## fake2\n```\n\nstill A\n\n## B\n"
-	anchors, order, findings := ParseAnchors(src)
+	anchors, order, findings := ParseAnchors("docs/protocol.md", src)
 	require.Empty(t, findings)
 	assert.Equal(t, []string{"a"}, order)
 	assert.Equal(t, 11, anchors["a"].End, "the fenced heading does not end the section; the real ## B does")
 }
 
 func TestSlice_RunsToTheNextHeadingOfSameOrHigherLevelAndOmitsTheAnchorLine(t *testing.T) {
-	anchors, _, findings := ParseAnchors(fixtureProtocol)
+	anchors, _, findings := ParseAnchors("docs/protocol.md", fixtureProtocol)
 	require.Empty(t, findings)
 
-	pin := Slice(fixtureProtocol, anchors["sessions.pin"])
+	pin := Slice("docs/protocol.md", fixtureProtocol, anchors["sessions.pin"])
 	assert.True(t, strings.HasPrefix(pin, "_docs/protocol.md § 3. HTTP endpoints — UI_\n### 3.10 `PUT /api/sessions/{id}/pin`\n"), pin)
 	assert.Contains(t, pin, "## not a heading", "fenced pseudo-heading stays in the slice")
 	assert.NotContains(t, pin, "3.11 Order")
 	assert.NotContains(t, pin, "kb:anchor")
 	assert.False(t, strings.HasSuffix(pin, "\n"), "trailing blank lines are trimmed")
 
-	sess := Slice(fixtureProtocol, anchors["sessions"])
+	sess := Slice("docs/protocol.md", fixtureProtocol, anchors["sessions"])
 	assert.True(t, strings.HasPrefix(sess, "_docs/protocol.md_\n## 3. HTTP endpoints — UI\n"), sess)
 	assert.Contains(t, sess, "### 3.10")
 	assert.Contains(t, sess, "### 3.11 Order")

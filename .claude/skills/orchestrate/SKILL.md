@@ -420,8 +420,8 @@ Every fix-wave prompt carries:
   - the amendment restores consistency with the plan's acceptance criteria or a decision the developer already approved.
 
   Record it in three places: an *Amended* note inline on the requirement citing the review issue, a `proposed` ADR for the plan, and the completion summary. A requirement-scope change, or contradicting a developer decision → stop and ask.
-- **File scope widens itself; you commit it and decide the tier.** Every `gates.sh` run passes
-  `--touch` to `features-scope.sh`: a changed file owned by a feature in neither header is
+- **File scope widens itself; you commit it and decide the tier.** Every `gates.sh` run runs
+  `kb scope --touch`: a changed file owned by a feature in neither header is
   appended to `**Touches**` (packed as spec and contract only), printed as `touched <feature>`,
   and the gate passes. Never stop for it. Commit the `plan.md` edit as
   `docs(<plan-name>): touch <feature>` before the next spawn (the running wave keeps its packs; the

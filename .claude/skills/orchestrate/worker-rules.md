@@ -41,7 +41,7 @@ anywhere needs the tree-wide grep pasted.
 
 Write no comments: the comment pass strips every comment a branch adds to production code and a
 judge decides what returns (kb:adr/process-comment-pass-owns-code-comments). A path, `make` target
-or `musterd` flag any comment cites must exist — `python3 .claude/skills/orchestrate/scripts/dead-refs.py`
+or `musterd` flag any comment cites must exist — `go run ./tools/kb refs`, inside `make check-kb`,
 fails the gate otherwise.
 
 ## Verdicts

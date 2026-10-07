@@ -6,6 +6,7 @@ import "sort"
 // and the observed Claude Code range, plus the walked file tree.
 type Index struct {
 	Root        string
+	Config      *Config
 	Records     []*Record
 	ByID        map[string]*Record
 	Features    []*Feature
@@ -35,7 +36,7 @@ func (ix *Index) finish() {
 	ix.Features = nil
 	for _, r := range ix.Records {
 		if r.Type == TypeSpec {
-			ix.Features = append(ix.Features, featureFromSpec(r))
+			ix.Features = append(ix.Features, featureFromSpec(ix.Config, r))
 		}
 	}
 	sort.Slice(ix.Features, func(i, j int) bool { return ix.Features[i].Name < ix.Features[j].Name })
@@ -90,6 +91,17 @@ func (ix *Index) Covering(relpath string) ([]*Feature, []*Record) {
 	}
 	sortRecords(rs)
 	return fs, rs
+}
+
+// Owners returns the names of the features whose globs cover relpath, by name.
+func (ix *Index) Owners(relpath string) []string {
+	var out []string
+	for _, f := range ix.Features {
+		if f.Covers(relpath) {
+			out = append(out, f.Name)
+		}
+	}
+	return out
 }
 
 // InTree reports whether relpath is a walked file.
