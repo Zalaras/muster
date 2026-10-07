@@ -45,7 +45,7 @@ commit, verified how).
 - **The `## Decisions` section** of `plans/<plan-name>/daemon-implementation.md` and
   `web-implementation.md`: the `design:` lines (shape chosen, why, what it reused or matched) and
   any reason given for a size warning. This is where the implementer's design meets its reader.
-- `go run ./tools/kb pack --plan <plan-name> --role review-maintainability` — the conventions'
+- `go tool kb pack --plan <plan-name> --role review-maintainability` — the conventions'
   § Go, § TypeScript, § Composition roots, **§ Design**, the component diagrams
   (`kb:diagram/daemon-components`, `kb:diagram/web-components`) and your lessons. Record its
   `kb: pack N words` summary line as `**Pack**:`.

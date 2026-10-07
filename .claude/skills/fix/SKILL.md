@@ -34,7 +34,7 @@ The entry can be wrong — a TODO line or an issue describes a symptom from memo
 built on what you measured, not on what it says. Before any change:
 
 - Read the entry in full: the `TODO.md` block, the issue (`gh issue view <N>`), the description.
-- `go run ./tools/kb for <path>` on every file you suspect — its features, ADRs, facts and diagrams
+- `go tool kb for <path>` on every file you suspect — its features, ADRs, facts and diagrams
   are the context; read the spec and the code they name.
 - Reproduce. A unit test run, a `curl` against a scratch daemon (`dev-loop` skill), an E2E spec,
   a `tmux capture-pane` — and paste the output. A real `claude` launch costs the developer's
@@ -205,7 +205,7 @@ commit, as in `/orchestrate`.
    `plans/<name>/doc-delta.md` from the plan, fold the log lines in, `python3 $S <name> start
    doc-reconcile`, spawn `doc-reconcile` with the plan name and root, require `reconciled`.
    Otherwise record the skip in one line.
-2. `go run ./tools/kb ls --feature <f> --status proposed` for every Features/Touches name shows no
+2. `go tool kb ls --feature <f> --status proposed` for every Features/Touches name shows no
    record with `refs: plan:<name>` (flip any to `accepted`, `date:` today). `make gen-kb && make
    check-kb`.
 3. `python3 $S <name> closes <N> …` — run it with no numbers when the plan closes nothing.

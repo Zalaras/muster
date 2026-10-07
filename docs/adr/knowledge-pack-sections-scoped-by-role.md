@@ -6,8 +6,8 @@ date: 2026-10-06
 summary: A pack carries only the sections its role acts on (decisions, facts, design docs, conventions per role); the role list is checked against the agent files.
 features: [knowledge]
 tags: [pipeline]
-files: [internal/kb/pack.go, internal/kb/record.go, .claude/agents/daemon-impl.md, .claude/agents/web-impl.md, .claude/agents/daemon-tests.md, .claude/agents/web-tests.md, .claude/agents/review-browser.md]
-tests: [TestPack_ScopesDecisionsAndFactsByRole, TestPack_CarriesTheDesignDocsToTheWebRolesOnly, TestRoles_MatchTheAgentFiles]
+files: [kb.yaml, .claude/agents/daemon-impl.md, .claude/agents/web-impl.md, .claude/agents/daemon-tests.md, .claude/agents/web-tests.md, .claude/agents/review-browser.md]
+tests: []
 refs: [kb:adr/process-size-linters-warn-never-fail]
 ---
 **Context.** Packs measured 26k–47k words against a 20k budget on ordinary plans and 58k–60k on

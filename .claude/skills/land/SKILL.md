@@ -49,7 +49,7 @@ Check all of these before touching anything. If any fails, stop and say exactly 
    or a `/fix` plan (a `**Shape**` header) that `make worktrees` does not list, has no tree: then
    step 2 and preflight 7 use `git checkout plan/<plan>` here instead, which needs preflight 3
    strictly clean, and step 6 skips the worktree removal.
-7. For each name in the plan's `**Features**` and `**Touches**`, `go run ./tools/kb ls --feature <f> --status
+7. For each name in the plan's `**Features**` and `**Touches**`, `go tool kb ls --feature <f> --status
    proposed` lists no record with `refs: plan:<plan>`, and `make -C ../muster-<plan> check-kb`
    (or `make check-kb` on the checked-out branch when there is no tree) exits 0. A `proposed` ADR
    here means orchestrate's Completion step 4 or `/fix` step 8 was skipped — send it back rather

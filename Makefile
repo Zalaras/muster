@@ -124,15 +124,15 @@ check-versions: ## Fail if any Claude Code version-range fragment is stale (run 
 
 .PHONY: gen-kb
 gen-kb: ## Regenerate the knowledge-base index files, per-feature contract slices, .claude/rules/*.md and CLAUDE.md kb fragments from record frontmatter
-	go run ./tools/kb gen
+	go tool kb gen
 
 .PHONY: check-kb
 check-kb: ## Fail on a malformed record, an unresolved kb: citation, a dead cited path/make target/flag, an unregistered feature, a stale or hand-edited generated kb file, or a budget breach (run by make check)
-	go run ./tools/kb check
+	go tool kb check
 
 .PHONY: refs
 refs: ## Every repo path, make target and musterd flag cited in docs or comments must exist (check-kb runs the same pass; this prints the ignored-by-design lines too)
-	go run ./tools/kb refs --all
+	go tool kb refs --all
 
 .PHONY: size-warn
 size-warn: ## Warn-only: long functions (funlen), duplicated blocks (dupl) and files over 500 lines, whole tree; never fails (the gates run it scoped to the branch)

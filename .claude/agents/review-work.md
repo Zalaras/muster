@@ -27,7 +27,7 @@ From `plans/<plan-name>/`:
 - `daemon-implementation.md` / `web-implementation.md` — change logs (file paths and descriptions)
 - `daemon-tests.md` / `web-tests.md` — test results
 
-Plus `go run ./tools/kb pack --plan <plan-name> --role review` — the full record set the impl and
+Plus `go tool kb pack --plan <plan-name> --role review` — the full record set the impl and
 test agents' packs are sliced from, the lessons for your role, and the plan's `proposed` ADRs.
 Record the pack's `kb: pack N words` summary line as `**Pack**:` in your review header.
 `.claude/skills/orchestrate/review-scale.md` defines the severities, tags and verdicts you apply.
@@ -102,7 +102,7 @@ delta; `docs/features/*/spec.md` and `docs/protocol.md` are reconciled after thi
 For each requirement in the plan, confirm from the logs and the files they name:
 - it is implemented, and tested;
 - the implementation matches the Protocol Contract on both sides;
-- the diagrams are still true. For each changed file, `go run ./tools/kb for <path>` names the
+- the diagrams are still true. For each changed file, `go tool kb for <path>` names the
   `kb:diagram/` records depicting it; read each fence (and any plan `## Diagrams` delta) against
   what shipped. A stale diagram is a Major (doc drift) — one `DIAG` row in the Requirements table.
 

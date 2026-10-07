@@ -41,7 +41,7 @@ spent doing the work correctly is not an incident.
 
 ## 2. Classify each incident against the rule that already exists
 
-Before writing any proposal, run `go run ./tools/kb find <words>` and grep `.claude/skills/`, `.claude/agents/`, every `CLAUDE.md`
+Before writing any proposal, run `go tool kb find <words>` and grep `.claude/skills/`, `.claude/agents/`, every `CLAUDE.md`
 (`find . -name CLAUDE.md -not -path '*/node_modules/*'`) and `docs/conventions.md` for the rule or lesson
 that governs the incident, and read the whole section it sits in. Root `CLAUDE.md` is loaded into
 every session and every subagent, so a line there is the most expensive line in the repo — it
@@ -122,11 +122,11 @@ the developer picks from (step 4 applies the picks).
 ```bash
 for f in CLAUDE.md .claude/agents/*.md .claude/skills/*/SKILL.md; do
   printf '%6d %6d %4d  %s\n' "$(wc -l <"$f")" "$(wc -w <"$f")" "$(awk 'length>400' "$f" | wc -l)" "$f"; done   # lines words long-lines
-go run ./tools/kb refs --all
+go tool kb refs --all
 make check-kb
 P=$(ls -t plans/*/orchestration-state.json | head -1 | xargs dirname | xargs basename)
 for r in planner daemon-impl web-impl daemon-tests web-tests e2e-specs review review-browser review-maintainability doc-reconcile orchestrator; do
-  printf '%6d %s\n' "$(go run ./tools/kb pack --plan "$P" --role $r | wc -w)" "$r"; done   # pack sizes
+  printf '%6d %s\n' "$(go tool kb pack --plan "$P" --role $r | wc -w)" "$r"; done   # pack sizes
 grep -ohE '\b[a-z0-9-]+\b' .claude/agents/*.md .claude/skills/*/SKILL.md | grep -xF -f <(for p in plans/*/; do [ -f "$p/orchestration-state.json" ] && basename "$p"; done) | wc -l   # anecdotes: run dirs only
 for p in plans/*/; do [ -f "$p/orchestration-state.json" ] && echo "$(ls "$p" | grep -cE '^review(\.cycle[0-9]+)?\.md$') $(basename "$p")"; done | sort -n   # review cycles per run (merged files only — parts are review.<part>.md)
 ```

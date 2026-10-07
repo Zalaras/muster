@@ -105,7 +105,7 @@ unverified.
   **A bump is not finished until `make gen-kb` has run.** The record and the fragments `gen`
   rewrites are not the only files that move, though this section claimed so until 2026-09-13.
   Facts guarded by the canary carry the symbolic ceiling `verified: <floor>..canary`, which
-  `internal/kb` resolves against the record when it renders, so every generated file listing one
+  `go tool kb` resolves against the record when it renders, so every generated file listing one
   embeds the literal ceiling — `docs/INDEX.md`, the per-feature `INDEX.md` files and
   `.claude/rules/*.md`, ~21 files. A ceiling bump makes all of them stale and `make check-kb`
   fails them. Commit `30c4cf8` is the proof: it committed the record and the two fragments alone
@@ -128,7 +128,7 @@ A red `make canary` is a real interface change. There is no version-gated adapte
 machinery to extend — because there has never yet been a change point to hang one off — so
 the first one is added by hand:
 
-1. **Diagnose.** Read the fact record the failing assertion guards (`go run ./tools/kb ls
+1. **Diagnose.** Read the fact record the failing assertion guards (`go tool kb ls
    --type fact`, `docs/facts/`); it names the field or behaviour that changed.
 2. **Branch the fix inside `internal/claudecode`.** Key the new behaviour off the
    classified installed version (`claudecode.Classify`/`CheckVersion`), keeping the old
@@ -246,7 +246,7 @@ unanswered permission prompt in the same turn. `SubagentStop` itself is not a re
 `interpret.go` treats it as `KindInert` and Muster reads nothing from it.
 
 The fact records are the index of what is and isn't gated:
-`go run ./tools/kb ls --type fact --guard none` lists every measured fact still carrying no
+`go tool kb ls --type fact --guard none` lists every measured fact still carrying no
 canary assertion.
 
 If run E's `PermissionRequest` wait times out (haiku answered the `ExitPlanMode` prompt with

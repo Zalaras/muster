@@ -52,7 +52,7 @@ A feature whose files the change will edit without changing what the feature doe
 fixture, a shared helper) is **Touches**, not Features: name it on its own header line so the plan
 packs its spec and contract only (kb:adr/process-touched-features-widen-without-stopping).
 
-**Then read what is already decided.** Run `go run ./tools/kb find <words>` for the feature's
+**Then read what is already decided.** Run `go tool kb find <words>` for the feature's
 vocabulary, then `kb ls --feature <f>`, and read `docs/features/<f>/spec.md` for each feature you
 settled. (`kb pack` is not available here — it requires a `plans/<name>/plan.md` that does not exist
 yet.) A spec states how its area behaves **today**, so your questions become "`reader` is read-only

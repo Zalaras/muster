@@ -28,7 +28,7 @@ In the pipeline, from `plans/<plan-name>/`:
   line from a fix wave.
 - `plan.md` — for its `**Features**` and `**Touches**` headers only.
 
-Plus `go run ./tools/kb pack --plan <plan-name> --role doc-reconcile` (record its
+Plus `go tool kb pack --plan <plan-name> --role doc-reconcile` (record its
 `kb: pack N words …` line as `**Pack**:` in your report header),
 `.claude/skills/orchestrate/worker-rules.md` (git and evidence rules), and the **actual source
 files** named by the frontmatter of every feature you touch. You verify against code, never against
@@ -67,7 +67,7 @@ review has already approved, so you are the last reader.
 
 Edit `docs/features/<name>/spec.md` bodies and `docs/protocol.md` so they describe the world as it is
 now. Apply the delta's deletions — they are not optional, they are what keeps a spec inside its
-800-word budget (`internal/kb/budget.go`), and `check-kb` hard-fails past it. A delta you cannot fit
+800-word budget (`kb.yaml` budgets), and `check-kb` hard-fails past it. A delta you cannot fit
 even after its deletions is a feature-splitting decision, not an editorial call: the verdict is
 `blocked`.
 
@@ -83,7 +83,7 @@ the regenerated files included), so a run that dies half-way leaves a tree whose
 No plan, so no staged delta, no `**Features**` header and no pack. Derive the claims from the
 changed files themselves; derive the feature set as in Step 1 and report it (there is no header to
 widen, so Step 1's `blocked` does not apply); read each derived feature's `spec.md` and
-`contract.md` and run `go run ./tools/kb for <path>` on each changed file for what governs it. Steps
+`contract.md` and run `go tool kb for <path>` on each changed file for what governs it. Steps
 2 and 3 apply unchanged, with `docs(<feature>): reconcile spec with <summary>` as the subject.
 Report in your final message instead of writing a file, and say the claims were derived.
 

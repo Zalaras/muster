@@ -9,7 +9,7 @@ tags: [pipeline, security]
 roles: [daemon-impl, web-impl, review, review-maintainability]
 files: []
 tests: []
-refs: [plan:m1-sessions, plan:version-claude-interface, CLAUDE.md, internal/kb/refs.go]
+refs: [plan:m1-sessions, plan:version-claude-interface, CLAUDE.md]
 ---
 **What happened.** Two claims stated from the diff were false. An implementer wrote that a world-readable window on the database was closed; the file mode was fixed, but the WAL sidecar was still readable, and only an `ls -l` showed it. Another wrote "remaining references updated" after a rename; a Go comment still cited the old name and the reviewer's tree-wide grep found it.
 

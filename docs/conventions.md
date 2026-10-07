@@ -2,7 +2,7 @@
 
 Patterns the build agents (and any session writing code) follow. Chosen 2026-08-16 with
 the developer, deliberately *before* the first line of daemon code, so the multi-agent pipeline
-never invents patterns mid-run. Library decisions are the `stack-` ADRs (`go run ./tools/kb ls --type adr`); this file is
+never invents patterns mid-run. Library decisions are the `stack-` ADRs (`go tool kb ls --type adr`); this file is
 the how-we-write-code companion. If a convention here needs to change, change it here
 first — never diverge silently in code.
 
@@ -20,10 +20,10 @@ first — never diverge silently in code.
 | Git/GitHub | `os/exec` + `git` / `gh` CLIs — never go-git |
 | Self-update signatures | `aead.dev/minisign` — verifies the release's `checksums.txt.minisig` against the key embedded in `internal/selfupdate` (plan `auto-update`, 2026-09-10). Import path corrected from the plan's `github.com/aead/minisign`: `go get github.com/aead/minisign@v0.3.0` fails ("module declares its path as: aead.dev/minisign but was required as: github.com/aead/minisign") — the module renamed its own path in `go.mod` while keeping the GitHub repo name; `go.sum` pins the real path |
 | Frontend | Vite + TypeScript, **no framework**; xterm.js 6.0.0 / addon-fit 0.11.0 (pinned) |
-| Record frontmatter | hand-rolled strict flat scanner in `internal/kb` (scalars, inline and block lists; no YAML library — the schema is fixed and strictness is the point). `kb.yaml`, the tool's repo settings, is the one YAML file: `github.com/goccy/go-yaml` in strict mode (kb:adr/stack-config-yaml-goccy-strict) |
+| Record frontmatter | the `github.com/Zalaras/kb` module's hand-rolled strict flat scanner (scalars, inline and block lists; no YAML library — the schema is fixed and strictness is the point). `kb.yaml`, the tool's repo settings, is the one YAML file: `github.com/goccy/go-yaml` in strict mode, inside that module (kb:adr/stack-config-yaml-goccy-strict) |
 | Web unit tests | Vitest (logic only); Playwright for E2E |
 
-Each row's rationale is an ADR: `go run ./tools/kb ls --type adr | grep '/stack-'`.
+Each row's rationale is an ADR: `go tool kb ls --type adr | grep '/stack-'`.
 
 ## Go
 
@@ -216,7 +216,7 @@ however much it improved the repo:
 | What the commit changes | Type |
 |---|---|
 | tests, E2E specs and helpers, `test/` | `test` |
-| `tools/`, `internal/kb`, `internal/triage` — real code, but not in the binary | `chore` |
+| `tools/`, `internal/triage`, `kb.yaml` and the kb records — real code or its settings, but not in the binary | `chore` |
 | `.golangci.yml`, `web/biome.json`, `Makefile`, dependencies | `build` |
 | docs, `plans/`, `.claude/` | `docs` |
 
@@ -325,7 +325,9 @@ Enforced on the diff by the comment pass, never by the author
 ## Knowledge records
 
 Project knowledge is typed Markdown records with strict frontmatter, read through
-`go run ./tools/kb` (`make gen-kb` regenerates, `make check-kb` gates). Layout:
+`go tool kb` — the `github.com/Zalaras/kb` module pinned in `go.mod`
+(kb:adr/knowledge-kb-tool-is-a-separate-module); `make gen-kb` regenerates, `make check-kb`
+gates. Layout:
 
 ```
 kb.yaml                         the tool's repo settings: record dirs, closed lists, paths, budgets, pack scoping, refs and scope (kb:adr/knowledge-repo-values-live-in-kb-yaml)

@@ -15,7 +15,7 @@ limited to the paths the role owns:
   plans/ directory a reader outside the branch can't follow. Test titles keep them by convention.
 - **Review labels** (`Fix Attempt 1`, `browser Minor 1`, `review cycle 2`, soak runs) narrate how
   the branch got here, which `docs/conventions.md` § Comments rules out everywhere.
-- **Dead references**: `go run ./tools/kb refs` over the role's changed files.
+- **Dead references**: `go tool kb refs` over the role's changed files.
 
 Why (settings-update-failures retro, 2026-09-25): the comments rule was reworded twice in the
 impl agents, yet cycle 1 filed 45 plan-ID comments across 12 files and cycle 3 filed one the
@@ -75,7 +75,7 @@ def check(roles, plan_ids, dead_refs):
             if REVIEW_LABEL.search(text):
                 hits.append(f"{path}:{n}: review/fix-attempt label — say what the code guarantees, not how the branch got here: {text.strip()[:110]}")
     if dead_refs and files:
-        r = subprocess.run(["go", "run", "./tools/kb", "refs", *sorted(files)], capture_output=True, text=True)
+        r = subprocess.run(["go", "tool", "kb", "refs", *sorted(files)], capture_output=True, text=True)
         if r.returncode:
             hits.append((r.stdout + r.stderr).strip())
     return hits

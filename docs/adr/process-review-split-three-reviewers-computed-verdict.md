@@ -6,8 +6,8 @@ date: 2026-09-22
 summary: Three parallel Opus reviewers (correctness, browser, maintainability) each own one defect class; their parts merge into one review.md with a computed verdict.
 features: []
 tags: [pipeline]
-files: [.claude/agents/review-work.md, .claude/agents/review-browser.md, .claude/agents/review-maintainability.md, .claude/skills/orchestrate/SKILL.md, .claude/skills/orchestrate/scripts/orch-state.py, internal/kb/pack.go]
-tests: [TestPack_IncludesOnlyTheConventionsSectionsForTheRole]
+files: [.claude/agents/review-work.md, .claude/agents/review-browser.md, .claude/agents/review-maintainability.md, .claude/skills/orchestrate/SKILL.md, .claude/skills/orchestrate/scripts/orch-state.py, kb.yaml]
+tests: []
 refs: [kb:adr/process-gates-run-once-by-orchestrator-before-review, kb:adr/process-doc-reconcile-after-review, kb:lesson/surface-never-measured-against-its-host, kb:lesson/handoff-commit-defects, plans/_audit/code-quality-2026-09-22.md]
 supersedes: []
 ---

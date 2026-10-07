@@ -38,7 +38,7 @@ pipeline may have left stale and what a complete entry looks like.
   record with `verified:` the version measured and `guard:` the test that pins it; a fact
   proved wrong gets its ceiling pinned and a new record linked by `refs`, never a rewrite.
 - **Diagrams** (kb:adr/knowledge-diagrams-are-mermaid-records) — for every file the branch
-  changed, `go run ./tools/kb for <path>` names the `kb:diagram/` records depicting it; each is
+  changed, `go tool kb for <path>` names the `kb:diagram/` records depicting it; each is
   still true of what shipped or you update its fence now. A plan `## Diagrams` entry marked
   `delta of kb:diagram/<slug>` (or of a feature spec's inline diagram) is applied to that
   record. Say "no diagram touched" in the completion summary when none applies.

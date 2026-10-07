@@ -6,8 +6,8 @@ date: 2026-10-07
 summary: Dead cited references and the changed-files feature scope are kb subcommands over the index; the full refs pass is part of kb check; the scripts are gone.
 features: [knowledge]
 tags: [pipeline]
-files: [internal/kb/refs.go, internal/kb/scope.go, internal/kb/git.go, tools/kb/main.go, .claude/skills/orchestrate/scripts/plan-lint.sh, .claude/skills/orchestrate/scripts/gates.sh]
-tests: [TestRefs_AllChecksEveryCitedPathMakeTargetAndFlag, TestCheckRepo_FoldsMissingReferencesIntoTheFindings, TestScope_TouchWidensTheTouchesHeaderWithoutDuplicates, TestOwners_PrintsOneTabSeparatedLinePerPath]
+files: [kb.yaml, .claude/skills/orchestrate/scripts/plan-lint.sh, .claude/skills/orchestrate/scripts/gates.sh]
+tests: []
 refs: [plan:kb-config, kb:adr/process-touched-features-widen-without-stopping, kb:adr/knowledge-repo-values-live-in-kb-yaml]
 supersedes: []
 ---

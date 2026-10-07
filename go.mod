@@ -6,7 +6,6 @@ require (
 	aead.dev/minisign v0.3.0
 	github.com/coder/websocket v1.8.15
 	github.com/creack/pty v1.1.24
-	github.com/goccy/go-yaml v1.19.2
 	github.com/mattn/go-isatty v0.0.24
 	github.com/rs/zerolog v1.35.1
 	github.com/stretchr/testify v1.12.1
@@ -15,7 +14,9 @@ require (
 )
 
 require (
+	github.com/Zalaras/kb v0.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
@@ -26,3 +27,5 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
+
+tool github.com/Zalaras/kb/cmd/kb

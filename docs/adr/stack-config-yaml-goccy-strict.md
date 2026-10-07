@@ -6,8 +6,8 @@ date: 2026-10-07
 summary: kb.yaml is parsed by github.com/goccy/go-yaml in strict mode; record frontmatter keeps the hand-rolled flat scanner; the frozen go.yaml.in fork was rejected.
 features: [knowledge]
 tags: [deps, user-decision]
-files: [go.mod, internal/kb/config.go]
-tests: [TestLoadConfig_RejectsAnUnknownKeyAtAnyDepth]
+files: [go.mod, kb.yaml]
+tests: []
 refs: [plan:kb-config, kb:adr/knowledge-repo-values-live-in-kb-yaml, docs/conventions.md, https://github.com/goccy/go-yaml, https://github.com/yaml/go-yaml]
 supersedes: []
 ---

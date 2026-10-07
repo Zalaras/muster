@@ -16,7 +16,7 @@ committed.
 
 ## What You Read
 
-- `go run ./tools/kb pack --plan <plan-name> --role daemon-tests` — conventions §Stack and §Go (the
+- `go tool kb pack --plan <plan-name> --role daemon-tests` — conventions §Stack and §Go (the
   test style: table-driven tests with `t.Run` subtests, `testify` — `require` for setup, `assert`
   for verdicts), §Design (reuse before add — the rule your helpers follow), §Testing,
   the fact records, `contract.md`, the lessons for your role. Record its `kb: pack N words …` line

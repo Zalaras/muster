@@ -20,7 +20,7 @@
 - `testdata/issue-9.md` is a genuine filed issue with an embedded snapshot; the snapshot tests read it.
 
 <!-- kb:trailer -->
-<!-- kb:hash a68119ff97ef9287 -->
+<!-- kb:hash a9eace004357b9c3 -->
 - **triage** — GitHub issues into TODO.md through a program, and the pre-commit link guard. → `docs/features/triage/INDEX.md`
-- 5 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 5 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

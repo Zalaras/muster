@@ -53,10 +53,10 @@ if printf '%s\n' "$subject" | grep -qE '^[a-z]+(\([^)]*\))?!:' && [ "${MUSTER_BR
 fi
 
 # Paths that ship nothing: tests, E2E, dev tooling not in the binary (`go list -deps
-# ./cmd/musterd` carries neither internal/kb nor internal/triage), docs, pipeline files
+# ./cmd/musterd` does not carry internal/triage), docs, pipeline files
 # and build/lint config. Anything else counts as shipped, so this list can only ever
 # miss a case — never block an honest release.
-unshipped='(_test\.go|\.test\.ts)$|^(web/e2e|web/scripts|test|tools|internal/kb|internal/triage|docs|plans|\.claude|\.github|\.githooks)/|(\.md|\.json|\.ya?ml)$|^Makefile$|\.config\.(ts|js|mjs)$'
+unshipped='(_test\.go|\.test\.ts)$|^(web/e2e|web/scripts|test|tools|internal/triage|docs|plans|\.claude|\.github|\.githooks)/|(\.md|\.json|\.ya?ml)$|^Makefile$|\.config\.(ts|js|mjs)$'
 
 # The four release-worthy types cut a version and publish their subject verbatim as a
 # release-note bullet. Only main publishes — plan-branch subjects (e.g. fix(<plan>): …

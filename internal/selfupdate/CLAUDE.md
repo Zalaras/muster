@@ -18,7 +18,7 @@
 - The redirect's `Location` may be absolute or relative; only its last segment is a tag.
 
 <!-- kb:trailer -->
-<!-- kb:hash a461a52d639bf39e -->
+<!-- kb:hash 2fa3e2380551caef -->
 - **update** — Release check, minisign-verified apply, in-place restart with sessions re-adopted. → `docs/features/update/INDEX.md`
-- 10 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 10 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

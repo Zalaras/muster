@@ -32,7 +32,7 @@ plus pure functions, no logger, no HTTP).
   the same layering `internal/boundedwait` uses.
 
 <!-- kb:trailer -->
-<!-- kb:hash 4a6d0c0f1aa666cd -->
+<!-- kb:hash 5de7323ad02250e2 -->
 - **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`
-- 1 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 1 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

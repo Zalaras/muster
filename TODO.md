@@ -407,7 +407,7 @@ New post-v1 ideas go here; re-rank when reached.
 
 ## Open questions carried forward
 
-From `spikes/FINDINGS.md` "Still open" and the open-question ADRs (`go run ./tools/kb ls --type adr --status proposed`).
+From `spikes/FINDINGS.md` "Still open" and the open-question ADRs (`go tool kb ls --type adr --status proposed`).
 
 - [ ] **Launch/worktree data-layer design** (`docs/design/ux-flows.md` § 2, `kb:adr/launch-hybrid-mru-directory-memory`) — genuinely unsettled; revisit at
       SPEC §3.2 (worktree manager).

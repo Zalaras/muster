@@ -117,18 +117,18 @@ done < <(checks_block)
 # 8. Every **Features** and **Touches** name is a registered feature (one `kb ls --type spec` lists) —
 #    `kb pack --plan` keys on both.
 scope_names() { grep -E "^\*\*$1\*\*:" "$P" | head -1 | sed -E "s/^\*\*$1\*\*:[[:space:]]*//; s/,/ /g"; }
-registered="$(go run ./tools/kb ls --type spec 2>/dev/null | awk '{print $2}' | sed 's|^kb:spec/||')"
-[[ -n "$registered" ]] || note "could not list the registered features (go run ./tools/kb ls --type spec)"
+registered="$(go tool kb ls --type spec 2>/dev/null | awk '{print $2}' | sed 's|^kb:spec/||')"
+[[ -n "$registered" ]] || note "could not list the registered features (go tool kb ls --type spec)"
 for h in Features Touches; do
   for f in $(scope_names "$h"); do
-    grep -qx "$f" <<<"$registered" || note "**$h** names '$f' but no feature spec registers it (go run ./tools/kb ls --type spec)"
+    grep -qx "$f" <<<"$registered" || note "**$h** names '$f' but no feature spec registers it (go tool kb ls --type spec)"
   done
 done
 
 # 9. Every mermaid fence opens with an allowed diagram keyword — the rule check-kb applies to records,
 #    applied here because plans/ is outside the kb scan (kb:adr/knowledge-diagrams-are-mermaid-records).
 if grep -qE '^[[:space:]]*(```|~~~)mermaid' "$P"; then
-  go run ./tools/kb fences "$P" >/dev/null 2>&1 || note "a mermaid fence opens with a keyword outside the closed kind list (run: go run ./tools/kb fences $P)"
+  go tool kb fences "$P" >/dev/null 2>&1 || note "a mermaid fence opens with a keyword outside the closed kind list (run: go tool kb fences $P)"
 fi
 
 # 10. A non-empty `## Doc Delta` section — the staged claims doc-reconcile promotes after review.
@@ -158,13 +158,13 @@ paths="$(section 'Affected Files' | grep -oE '`(cmd|internal|web/src|web/e2e)/[^
   | tr -d '`' | sed -E 's/:[0-9]+$//' | grep -vE '(/CLAUDE\.md|^web/src/protocol\.ts|^web/src/style\.css)$' | sort -u)"
 named="$({ grep -E '^\*\*Fixture plan\*\*:' "$P"; section 'Acceptance Criteria'; } | grep -oE '[a-z0-9-]+\.spec\.ts' | sed 's|^|web/e2e/|' | sort -u)"
 # A path named anywhere else in the plan (Doc upkeep, Implementation Notes) is judged by the
-# header rule only: groups named tools/kb/anchors.tsv under Doc upkeep, and `knowledge` reached
+# header rule only: groups named the anchors table (docs/protocol-anchors.tsv) under Doc upkeep, and `knowledge` reached
 # the header at doc-reconcile, two hours and a blocked verdict later.
 others="$(grep -oE '`(cmd|internal|web/src|web/e2e|tools|docs)/[^`[:space:]]+\.[a-z]+`' "$P" | tr -d '`' | sort -u | grep -vxF -f <(printf '%s\n' "$paths") || true)"
 if [[ -n "$paths$named$others" ]]; then
   all="$(printf '%s\n%s\n%s\n' "$paths" "$others" "$named" | grep -v '^$' | sort -u)"
   # One kb invocation resolves every path: `path<TAB>owner[,owner]`, `-` when none.
-  if owners_tsv="$(go run ./tools/kb owners $all 2>/dev/null)"; then
+  if owners_tsv="$(go tool kb owners $all 2>/dev/null)"; then
     owners_of() { printf '%s\n' "$owners_tsv" | awk -F'\t' -v p="$1" '$1==p && $2!="-" {print $2}' | tr ',' ' '; }
     while IFS= read -r f; do
       [[ -n "$f" ]] || continue
@@ -191,7 +191,7 @@ if [[ -n "$paths$named$others" ]]; then
         || echo "NOTE  $f: new, owned by no feature — the orchestrator adds its glob once it exists (kb:adr/process-unowned-file-globs-land-before-approval)"; }
     done <<<"$named"
   else
-    note "could not run tools/kb owners to check Affected Files ownership"
+    note "could not run kb owners to check Affected Files ownership"
   fi
 fi
 

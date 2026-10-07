@@ -6,8 +6,8 @@ date: 2026-09-15
 summary: Diagrams are mermaid, in a closed kind list; system-wide ones are diagram records under docs/diagrams, feature ones sit inline in the feature spec.
 features: [knowledge]
 tags: [pipeline]
-files: [internal/kb/mermaid.go, docs/conventions.md]
-tests: [TestCheck_HoldsADiagramToOneFenceWhoseKeywordMatchesItsKind, TestPack_CarriesFeatureDiagramsToEveryRoleAndSystemDiagramsToPlanningRolesOnly]
+files: [docs/conventions.md]
+tests: []
 refs: [kb:spec/knowledge, kb:spec/reader]
 supersedes: []
 ---

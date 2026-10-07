@@ -5,7 +5,7 @@ Claude Code sessions running in tmux. Personal tool for the developer, macOS onl
 
 ## Knowledge — records, read through `kb`
 
-Project truth is typed records under `docs/`, found with `go run ./tools/kb` — never by
+Project truth is typed records under `docs/`, found with `go tool kb` — never by
 browsing: `docs/adr/` (decisions; `accepted` binds, `proposed` is a plan's not-yet-landed
 choice, `superseded`/`rejected` are history — don't re-litigate them or reintroduce cut
 features), `docs/facts/` (**measured** Claude Code facts with the versions they hold on; they
@@ -73,7 +73,7 @@ The pipeline buys parallel daemon∥web tracks behind a protocol contract. Use `
 the work changes the daemon↔UI protocol, adds a feature spec, or adds a UI surface that needs a
 Testable UI Elements table; every other change to the shipped artifact (`docs/conventions.md`
 § Commits) is `/fix` (kb:adr/process-small-track-for-fixes). Work that releases nothing —
-`tools/`, `internal/kb`, `internal/triage`, skills, agents, docs — is a plan and a commit.
+`tools/`, `internal/triage`, `kb.yaml`, skills, agents, docs — is a plan and a commit.
 
 ## Hard rules
 

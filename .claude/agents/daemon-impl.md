@@ -15,7 +15,7 @@ your log is written and your files are committed.
 
 ## What You Read
 
-- `go run ./tools/kb pack --plan <plan-name> --role daemon-impl` — the rules, the plan's feature
+- `go tool kb pack --plan <plan-name> --role daemon-impl` — the rules, the plan's feature
   specs and generated `contract.md` (the plan's **Protocol Contract** is its delta), diagrams, ADRs,
   facts, runbooks, the lessons for your role, and your role's `docs/conventions.md` sections (§Stack,
   §Go, §Composition roots, §Design): the stack is decided — never substitute a library or

@@ -6,8 +6,8 @@ date: 2026-10-07
 summary: Every repo-specific value the kb tool reads (record dirs, closed lists, paths, budgets, pack scoping, refs, scope) is a strict kb.yaml; the model stays code.
 features: [knowledge]
 tags: [pipeline]
-files: [kb.yaml, internal/kb/config.go, internal/kb/budget.go]
-tests: [TestLoadConfig_RejectsAnUnknownKeyAtAnyDepth, TestLoadConfig_DefaultsAbsentKeysAndKeepsExplicitValues, TestCheck_OwnershipRootsComeFromTheConfig, TestPack_ProposedDecisionRolesComeFromTheConfig]
+files: [kb.yaml]
+tests: []
 refs: [plan:kb-config, kb:adr/knowledge-pack-sections-scoped-by-role, kb:adr/stack-config-yaml-goccy-strict]
 supersedes: []
 ---

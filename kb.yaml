@@ -1,7 +1,8 @@
-# Repo-side configuration for `go run ./tools/kb` (internal/kb). Required: Load fails without
-# it, and an unknown key at any depth fails too. The record model itself — the eight types,
+# Repo-side configuration for `go tool kb`, the github.com/Zalaras/kb module pinned in go.mod
+# (kb:adr/knowledge-kb-tool-is-a-separate-module). Required: the tool fails without it, and an
+# unknown key at any depth fails too. The record model itself — the eight types,
 # their statuses and fields, the kb:<type>/<id> citation syntax, the generated-file markers —
-# is code; this file holds what is specific to this repo (kb:adr/knowledge-repo-values-live-in-kb-yaml).
+# is the module's code; this file holds what is specific to this repo (kb:adr/knowledge-repo-values-live-in-kb-yaml).
 
 # The directory each record type lives in; a spec is <dirs.spec>/<feature>/spec.md.
 dirs:
@@ -20,18 +21,35 @@ paths:
   rules_dir: .claude/rules                   # generated per-feature rules files
   conventions: docs/conventions.md           # sliced per role into every pack
   plans_dir: plans                           # plan:<name> refs resolve to plans/<name>/plan.md
-  observed_versions: internal/claudecode/observed_versions.txt   # a fact's verified range must sit inside it
+
+# How this repo spells the tool's own invocations in generated text and findings.
+commands:
+  cli: go tool kb
+  regen: make gen-kb
+
+# A fact's verified range must sit inside the observed Claude Code record; `canary` as an
+# upper bound tracks its ceiling (kb:adr/canary-verified-range-observed-not-pinned).
+versions:
+  file: internal/claudecode/observed_versions.txt
+  ceiling_word: canary
 
 # Every pipeline role a lesson may address and a pack may be requested as: the agent files
 # under .claude/agents (review-work packs as review) plus the roles the main session plays
 # (orchestrator, planner, retro). A role is what a pack is requested as, never a pipeline
-# step name. TestRoles_MatchTheAgentFiles keeps this list and the agent directory in step.
+# step name. The agents section below makes `kb check` hold this list and the agent
+# directory in step, both ways.
 roles: [e2e-specs, daemon-impl, web-impl, daemon-tests, web-tests, review, doc-reconcile, orchestrator, retro, planner, review-browser, review-maintainability]
+
+agents:
+  dir: .claude/agents
+  aliases: {review: review-work}                      # agents that pack under a different name
+  session_roles: [orchestrator, planner, retro]        # roles the main session packs as; no agent file
+  agentless: [debater, judge, triage-proposer, comment-judge]   # spawned outside the pipeline; read no pack
 
 # The closed tag list.
 tags: [auth, state-machine, envelope, tmux, store, security, testing, pipeline, claude-code-format, ux, deps, revisit, never, deferred, user-decision, consensus, judged]
 
-# Word and line budgets check enforces as hard failures (internal/kb/budget.go documents each).
+# Word and line budgets check enforces as hard failures (the module documents each default).
 budgets:
   body_words: 300
   spec_words: 800
@@ -119,6 +137,8 @@ refs:
   whitelist:
     test/expect/types: a @playwright/test import path, not a repo dir
     cmd/muster-desktop/: the future Wails wrapper (kb:adr/stack-wails-desktop-shell-deferred), deliberately not built
+    internal/kb: the kb tool's former home, now github.com/Zalaras/kb (kb:adr/knowledge-kb-tool-is-a-separate-module); accepted decisions keep their text
+    tools/kb: the kb tool's former command, now `go tool kb` (kb:adr/knowledge-kb-tool-is-a-separate-module)
 
 # kb scope: every changed file under these roots needs its owning feature in the plan's
 # Features or Touches header (kb:adr/process-touched-features-widen-without-stopping).

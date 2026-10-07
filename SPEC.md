@@ -145,7 +145,7 @@ corrects it from the first hook carrying the field (kb:fact/permission-mode-pres
 ## 4. Tech stack and layout
 
 The stack is listed in `docs/conventions.md` § Stack, and each row's rationale is an ADR:
-`go run ./tools/kb ls --type adr | grep '/stack-'`.
+`go tool kb ls --type adr | grep '/stack-'`.
 
 Layout: `cmd/musterd/` (daemon), `web/` (frontend), `internal/claudecode/` (the adapter
 boundary, the only package that knows Claude Code's formats), the other `internal/` packages
@@ -181,4 +181,4 @@ The milestone plan v1 was built against is frozen at `docs/history/build-order.m
 - `docs/facts/` — measured Claude Code and tmux behaviour, each with a verified version range.
 - `docs/protocol.md` — the daemon↔dashboard wire contract, addressed by `kb:anchor` ids.
 - `docs/history/` — how things got here: changelogs, frozen notes, done work. Never current state.
-- `go run ./tools/kb` — indexes and gates all of the above; `kb show <id>` reads any record.
+- `go tool kb` — indexes and gates all of the above; `kb show <id>` reads any record.

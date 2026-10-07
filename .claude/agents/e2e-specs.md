@@ -27,7 +27,7 @@ burns a real subscription (CLAUDE.md hard rule).
 
 ## What You Read
 
-- `go run ./tools/kb pack --plan <plan-name> --role e2e-specs` — every fact for the wire events the plan's features use, `contract.md`,
+- `go tool kb pack --plan <plan-name> --role e2e-specs` — every fact for the wire events the plan's features use, `contract.md`,
   conventions §Testing, the lessons for your role. Record its `kb: pack N words …`
   line as `**Pack**:` in your log header.
 - `.claude/skills/orchestrate/worker-rules.md` — the git, evidence and verdict rules every worker follows.

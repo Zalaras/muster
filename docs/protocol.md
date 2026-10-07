@@ -17,7 +17,7 @@ existing message (additive fields don't bump it). This file carries no provenanc
 piece arrived is in `docs/history/protocol-changelog.md` and `git log -- docs/protocol.md`.
 Sections are addressed by stable `kb:anchor` ids, not numbers: an HTML comment naming the id
 sits on the line before each `##`/`###` heading, and code and docs cite a section as
-`kb:anchor/<id>` (resolved by `go run ./tools/kb`; the id table is `tools/kb/anchors.tsv`).
+`kb:anchor/<id>` (resolved by `go tool kb`; the id table is `docs/protocol-anchors.tsv`).
 
 ---
 

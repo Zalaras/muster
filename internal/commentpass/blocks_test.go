@@ -124,6 +124,6 @@ func TestInScope(t *testing.T) {
 	assert.False(t, InScope("internal/session/manager_test.go"))
 	assert.False(t, InScope("web/src/features/launch.test.ts"))
 	assert.False(t, InScope("web/e2e/launch.spec.ts"))
-	assert.False(t, InScope("tools/kb/main.go"))
+	assert.False(t, InScope("tools/versions/main.go"))
 	assert.False(t, InScope("test/canary/live_test.go"))
 }

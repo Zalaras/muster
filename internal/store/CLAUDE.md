@@ -19,10 +19,10 @@
 - Don't test SQLite's own constraint enforcement.
 
 <!-- kb:trailer -->
-<!-- kb:hash 844f3b0fb45e63cf -->
+<!-- kb:hash 3c72228d533f0bc6 -->
 - **groups** — Rail groups: sections, header summary and popover, select mode, filter, group create, rename, ungroup and delete, persistence. → `docs/features/groups/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 19 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 19 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

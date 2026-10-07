@@ -39,10 +39,10 @@ following is still `claude` posting its own hooks back to the ingest endpoint: t
 the wrapper scripts, tmux hosts the pane, and state arrives over HTTP rather than from the
 terminal.
 
-Not shown, because they are other containers: `tools/kb`, `tools/triage` and `tools/versions`,
-the dev-tooling binaries built from `internal/kb` and `internal/triage` (`.goreleaser.yaml`
-builds only `./cmd/musterd`). `internal/kb` imports `internal/claudecode` for version records;
-nothing in the daemon imports either of them.
+Not shown, because they are other containers: `tools/triage` and `tools/versions`
+(`.goreleaser.yaml` builds only `./cmd/musterd`), and the knowledge tool, the external module
+`github.com/Zalaras/kb` run as `go tool kb` (kb:adr/knowledge-kb-tool-is-a-separate-module).
+Nothing in the daemon imports `internal/triage`.
 
 ```mermaid
 C4Component

@@ -26,7 +26,7 @@ orchestrator's gate run for this cycle).
 - `plans/<plan-name>/plan.md` — requirements, **Testable UI Elements**, Edge Cases, and the
   `**Work Type**` header (you are not spawned for a daemon-only plan).
 - `plans/<plan-name>/web-implementation.md` — what shipped and where.
-- `go run ./tools/kb pack --plan <plan-name> --role review-browser` — `docs/design/design-system.md`
+- `go tool kb pack --plan <plan-name> --role review-browser` — `docs/design/design-system.md`
   §6 (honesty rules) and §7 (terminal rules), `docs/design/ux-flows.md`, and the lessons that are
   the defects this role exists to catch. Record its `kb: pack N words` summary line as `**Pack**:`
   in your header.

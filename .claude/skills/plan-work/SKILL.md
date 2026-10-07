@@ -61,7 +61,7 @@ behaviour it leaves alone (a call-site repair, a fixture, a shared helper) goes 
 instead: it packs as spec and contract only, so it costs the agents a page, not a library
 (kb:adr/process-touched-features-widen-without-stopping).
 
-Then run `go run ./tools/kb pack --plan <plan-name> --role planner` (`--features a,b` before the
+Then run `go tool kb pack --plan <plan-name> --role planner` (`--features a,b` before the
 header exists) and read it before planning; never contradict it: accepted ADRs are settled,
 `rejected` ones are why a cut feature stays cut, facts beat Claude Code's docs, `contract.md` is the
 protocol you state deltas against, conventions choose the stack (a plan never picks libraries).

@@ -6,7 +6,7 @@ date: 2026-10-05
 summary: A plan's Features header widens, by developer decision, to a feature whose only change is a test fixture the protocol delta forces; its spec does not change.
 features: []
 tags: [pipeline, user-decision]
-files: [internal/kb/scope.go, plans/groups/plan.md]
+files: [kb.yaml, plans/groups/plan.md]
 tests: []
 refs: [plan:groups, plans/groups/decisions/features-header-widened/decision.md, kb:lesson/plan-gave-no-single-owner]
 supersedes: []

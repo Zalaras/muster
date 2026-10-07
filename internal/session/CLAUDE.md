@@ -23,11 +23,11 @@
 - Per-transition tests miss invariants; name each invariant and cross it from every source state (kb:lesson/invariant-missed-by-per-transition-tests).
 
 <!-- kb:trailer -->
-<!-- kb:hash d139eb90e2710a26 -->
+<!-- kb:hash 8d57fbcc1622559a -->
 - **card-location** — The card's launch directory, its branch kept fresh by the repo poll, where Claude works when elsewhere, and the bind's model name. → `docs/features/card-location/INDEX.md`
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`
 - **rail** — Rail cards, attention versus manual order, pin, drag reorder, session count. → `docs/features/rail/INDEX.md`
 - **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`
 - **rename** — Muster-owned session title override, inline rename in the mainhead and tiles. → `docs/features/rename/INDEX.md`
-- 61 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 61 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

@@ -23,7 +23,7 @@ If no plan name was provided, list available plans from the `plans/` directory a
 `S=.claude/skills/orchestrate/scripts/orch-state.py` throughout — every state edit goes through it (State Tracking). Before starting:
 
 1. Read `plans/<plan-name>/plan.md`
-2. Verify the plan status is "approved" (not "draft") and run `.claude/skills/orchestrate/scripts/plan-lint.sh <plan-name>`. A draft, or any `FAIL` line, goes back to `/plan-work` — spawn nobody. Then `go run ./tools/kb pack --plan <plan-name> --role orchestrator` — the lessons earlier runs paid for; read them now, not after the stumble. The pack keys on the plan's `**Features**` and its optional `**Touches**` header (features whose files the plan edits without changing their behaviour; packed as spec and contract only, except for review-work, which reads them in full).
+2. Verify the plan status is "approved" (not "draft") and run `.claude/skills/orchestrate/scripts/plan-lint.sh <plan-name>`. A draft, or any `FAIL` line, goes back to `/plan-work` — spawn nobody. Then `go tool kb pack --plan <plan-name> --role orchestrator` — the lessons earlier runs paid for; read them now, not after the stumble. The pack keys on the plan's `**Features**` and its optional `**Touches**` header (features whose files the plan edits without changing their behaviour; packed as spec and contract only, except for review-work, which reads them in full).
 3. Check the **Work Type** field to determine which agents to run:
    - `daemon` → skip web agents; run the E2E steps only if the plan defines `E*` acceptance criteria (a daemon-only change can still be E2E-observable through the dashboard)
    - `web` → skip daemon agents
@@ -486,7 +486,7 @@ running only the runnable clause reports a pass the plan never earned.
 1. Re-verify the Doc-Upkeep Backstop (done during Step 3; fix anything the review cycles changed).
 2. Resolve every `[orchestrator]`-tagged issue in review.md: do the doc edit, or propose genuine follow-up in `plans/<plan>/proposed-backlog.md` (doc-upkeep.md gives the shape) — **never as a new `TODO.md` item**, which is the developer's to file (kb:adr/process-backlog-entries-are-the-users-to-file). List each one and its disposition in the completion summary. An approved review may carry these; a `completed` pipeline may not leave them unaddressed.
 3. An approved review.md has no agent-tagged issue open at any severity (review-scale.md § Verdicts) — if you find one, the verdict is wrong; stop and re-spawn the reviewer rather than writing it down anywhere. Every `[note]` is listed in the completion summary verbatim — no TODO line, no agent; one naming a comment is resolved with `commentpass drop` before Final Validation; one worth keeping goes to `proposed-backlog.md`, **Change requested: no**.
-4. **Accept this plan's ADRs.** For every name in the plan's `**Features**` and `**Touches**`, `go run ./tools/kb
+4. **Accept this plan's ADRs.** For every name in the plan's `**Features**` and `**Touches**`, `go tool kb
    ls --feature <f> --status proposed` — for each record whose `refs` carry `plan:<plan>`, Edit
    `status: accepted` and `date:` today. The ADR and the code it describes land in one squash,
    so acceptance is atomic with the merge and a rejected branch takes both with it. Then

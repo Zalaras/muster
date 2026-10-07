@@ -20,7 +20,7 @@
 - Run `golangci-lint --tests=false` too while a test file is broken (kb:lesson/sanctioned-test-break-blinds-lint).
 
 <!-- kb:trailer -->
-<!-- kb:hash ec72f7e935080393 -->
+<!-- kb:hash b9b65681669992bb -->
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
-- 24 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 24 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

@@ -6,7 +6,7 @@ date: 2026-09-11
 summary: Protocol sections are addressed by stable anchor ids in HTML comments, not section numbers; every citation is an anchor token the kb check validates.
 features: [knowledge]
 tags: [pipeline]
-files: [docs/protocol.md, tools/kb/anchors.tsv, internal/kb/anchor.go, internal/kb/cite.go]
+files: [docs/protocol.md, docs/protocol-anchors.tsv]
 tests: []
 refs: [docs/history/protocol-changelog.md, docs/conventions.md, kb:anchor/conventions]
 supersedes: []

@@ -264,7 +264,7 @@ if [[ -n "$WAVE" ]]; then
        (( WEB_TOUCHED ))    && { run_one web-test "make web-test"; run_one web-build "make web-build"; } ;;
     3) run_one e2e "make e2e" ;;
   esac
-  run_one features "go run ./tools/kb scope --plan $PLAN --touch"   # a fix wave that moved code into another feature widens **Touches** itself
+  run_one features "go tool kb scope --plan $PLAN --touch"   # a fix wave that moved code into another feature widens **Touches** itself
   run_one comments "python3 .claude/skills/orchestrate/scripts/comment-checks.py --gates"   # plan IDs / review labels in added production lines; the SubagentStop hook's backstop
   run_one kb-check "make check-kb"   # a new file owned by no feature, or a dead cited path, shows here, not at the full run (groups retro: four hand glob edits)
   # A wave runs every authored check except the suites a later wave owns — this is what makes
@@ -297,7 +297,7 @@ PASS	make test"
   run_one e2e-honest "! rg -n 'test\\.(skip|fixme|only)\\(' web/e2e"   # a skipped/only spec is a vacuous pass (file-drop-fix E9 class)
   run_one kb-check  "make check-kb"   # records parse, cited kb: ids resolve, generated INDEX/contract/rules/CLAUDE trailers fresh, cited paths / make targets / musterd flags exist (two second review cycles were dead references, 2026-09-10)
   run_one e2e-lint  "make e2e-lint"   # fixtures only via helpers/fixtures.ts, no fixed sleeps (test-strategy)
-  run_one features "go run ./tools/kb scope --plan $PLAN --touch"   # changed files' owning features all in **Features** or **Touches**, widening the latter itself (frontmatter retro, 2026-09-23)
+  run_one features "go tool kb scope --plan $PLAN --touch"   # changed files' owning features all in **Features** or **Touches**, widening the latter itself (frontmatter retro, 2026-09-23)
   run_one comments "python3 .claude/skills/orchestrate/scripts/comment-checks.py --gates"   # plan IDs / review labels in added production lines (settings-update-failures retro, 2026-09-25)
   run_one comment-ledger "go run ./tools/commentpass verify $PLAN"   # every added production comment is a ledger keep (the comment pass ran before these gates)
   run_warn size ".claude/skills/orchestrate/scripts/size-warn.sh --changed"   # funlen/dupl/file length on this branch's files; read by the maintainability reviewer, never a failure

@@ -10,7 +10,7 @@ allowed-tools: Bash, Read, Write, Edit, Grep, Glob
 
 `make canary` (`test/canary/harness_test.go`) drives the same production chain automatically but
 cannot answer *new* questions — that is this skill's job. Known gotchas are fact records;
-`go run ./tools/kb show kb:fact/<slug>` tells you which versions each holds on.
+`go tool kb show kb:fact/<slug>` tells you which versions each holds on.
 
 You are running an interface probe: a controlled experiment against the **real**
 Claude Code binary to settle a question the docs can't be trusted to answer

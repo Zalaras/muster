@@ -133,7 +133,7 @@ inside `internal/claudecode` — `/plan-work`-sized work, not something to impro
 Report:
 
 - the failing assertion, quoted from the log, not paraphrased;
-- the fact record it guards (`go run ./tools/kb ls --type fact`);
+- the fact record it guards (`go tool kb ls --type fact`);
 - that `docs/claude-code-versions.md` § "The red ritual" is the next step, and that rolling
   back with `claude update <version>` is available meanwhile.
 

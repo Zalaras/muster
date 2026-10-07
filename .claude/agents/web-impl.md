@@ -16,7 +16,7 @@ the plan's E2E specs have had your smoke run, your log is written and your files
 
 ## What You Read
 
-- `go run ./tools/kb pack --plan <plan-name> --role web-impl` — the rules, the plan's feature specs
+- `go tool kb pack --plan <plan-name> --role web-impl` — the rules, the plan's feature specs
   and generated `contract.md` (the plan's **Protocol Contract** is its delta; you code against the
   contract, never against daemon code), diagrams, ADRs, runbooks, the lessons for your role, your
   role's `docs/conventions.md` sections (§Stack, §TypeScript / web, §Composition roots, §Design

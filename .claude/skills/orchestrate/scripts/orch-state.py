@@ -175,9 +175,9 @@ def scope_warnings(plan_dir, parts):
                         found.append((key, sev, cur, path))
     if not found or not header:
         return []
-    r = subprocess.run(["go", "run", "./tools/kb", "owners", *sorted({p for *_, p in found})], capture_output=True, text=True)
+    r = subprocess.run(["go", "tool", "kb", "owners", *sorted({p for *_, p in found})], capture_output=True, text=True)
     if r.returncode:
-        return ["WARN scope: could not run tools/kb owners — check issue paths against **Features** by hand"]
+        return ["WARN scope: could not run kb owners — check issue paths against **Features** by hand"]
     owners = {}
     for line in r.stdout.splitlines():   # path<TAB>owner[,owner], `-` for none
         path, _, names = line.partition("\t")

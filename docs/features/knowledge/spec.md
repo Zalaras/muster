@@ -6,20 +6,25 @@ date: 2026-09-12
 summary: Typed knowledge records, the kb tool that indexes and gates them, and the generated rules and indexes.
 features: [knowledge]
 tags: [pipeline]
-go: [internal/kb/**, tools/kb/**]
+go: []
 web: []
 e2e: []
 protocol: []
-files: [kb.yaml]
-refs: [kb:adr/knowledge-protocol-sections-addressed-by-anchor-ids, kb:adr/knowledge-repo-values-live-in-kb-yaml, kb:adr/knowledge-refs-and-scope-are-kb-subcommands, docs/conventions.md]
+files: [kb.yaml, docs/protocol-anchors.tsv]
+refs: [kb:adr/knowledge-protocol-sections-addressed-by-anchor-ids, kb:adr/knowledge-repo-values-live-in-kb-yaml, kb:adr/knowledge-refs-and-scope-are-kb-subcommands, kb:adr/knowledge-kb-tool-is-a-separate-module, docs/conventions.md, https://github.com/Zalaras/kb]
 ---
 Project knowledge is a store of typed Markdown records with strict frontmatter, read and
-gated by `go run ./tools/kb` (docs/conventions.md "Knowledge records"). It exists so that
-pipeline agents load the records their feature needs instead of whole documents. Everything
-specific to this repo — the record directories, the closed tag and role lists, the paths the
-tool reads and writes, the budgets, which sections each role packs, and the refs and scope
-settings — is `kb.yaml` at the repo root, parsed strictly; the record model is code
-(kb:adr/knowledge-repo-values-live-in-kb-yaml).
+gated by `go tool kb` (docs/conventions.md "Knowledge records"). It exists so that
+pipeline agents load the records their feature needs instead of whole documents. The tool is
+the module `github.com/Zalaras/kb`, pinned by the `tool` directive in `go.mod`; this repo
+holds no tool code (kb:adr/knowledge-kb-tool-is-a-separate-module). Everything specific to
+this repo — the record directories, the closed tag and role lists, the paths the tool reads
+and writes, the version record and its `canary` ceiling word, the agent directory the role
+list is checked against, how generated text spells `go tool kb` and `make gen-kb`, the
+budgets, which sections each role packs, and the refs and scope settings — is `kb.yaml` at
+the repo root, parsed strictly; the record model is the module's code
+(kb:adr/knowledge-repo-values-live-in-kb-yaml). `docs/protocol-anchors.tsv` is the table of
+protocol section numbers to anchor ids, a record of this repo, read by nobody but people.
 
 **Records.** Eight types, each in its own directory: rules, decisions in `docs/adr`, diagrams
 in `docs/diagrams`, facts in `docs/facts`, lessons in `docs/lessons`, runbooks, references, and
@@ -48,8 +53,9 @@ regenerates and `make check-kb` gates.
 **Checks.** `check` enforces every invariant: ids match filenames, types match directories,
 statuses and tags are from their lists, summaries fit, budgets hold, globs match files,
 tests and guards exist, every citation in scope resolves to a live record or anchor, a
-fact's verified range sits inside the observed Claude Code range, a superseded decision
-has a successor, a generated file is neither stale nor hand-edited, and every repo path,
+fact's verified range sits inside the observed Claude Code range, every role has an agent
+file and every agent file a role, a superseded decision has a successor, a generated file is
+neither stale nor hand-edited, and every repo path,
 `make` target and `musterd` flag a markdown line or a code comment cites exists — the
 `refs` pass, also runnable alone over the files a branch changed or an explicit list
 (kb:adr/knowledge-refs-and-scope-are-kb-subcommands).
