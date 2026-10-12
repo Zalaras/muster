@@ -45,8 +45,9 @@ defines the **roles**; it does not repeat the numbers.
 | `--scrim` / `--bg-raised-95` | modal backdrop and overlays / the dead-surface pill (translucent; exempt) |
 | `--mono` / `--sans` / `--disp` | type — system stacks only |
 
-`--green` (health dot) exists in the mockups only; it has no consumer in the app yet and is
-added to `style.css` with its first real one.
+`--health-ok` / `--health-pending` / `--health-down` colour the masthead's daemon-health dot
+(green, yellow, red) and nothing else. They take the mockups' `--green` role, deliberately
+outside the state hue families, so the dot never reads as a session state (kb:adr/connection-health-dot).
 
 **The terminal pair follows Claude Code, not Muster.** Claude Code draws its own TUI colours
 for *its* theme (read from Claude Code's own global config by `internal/claudecode`, which alone knows the file and key), which Muster reads but never sets (§7.5 forbids
@@ -135,7 +136,7 @@ are always reachable, and the switcher sits in the masthead beside the brand.
 | **Tiles** | grid of live tiles + snapshot strip | *show me several at once* | `mockups/d-tiled.html` |
 
 What is identical across both, and must stay identical: the **masthead** (brand, switcher,
-5-hour bar, 7-day bar, model-week (selectable), refresh, model, daemon health), the **state colours and badges**, the
+5-hour bar, 7-day bar, model-week (selectable), refresh, daemon health), the **state colours and badges**, the
 **attention ordering**, and the **degraded states**. A user should never have to re-learn
 anything when switching.
 
@@ -174,10 +175,13 @@ This is the one rule that makes two views safe, and it is the same law as §7.1:
 
 **Masthead** — brand, view switcher (`Focus` / `Tiles`), the `New session` button (the only
 launcher, present in both views), then right-aligned: 5-hour bar,
-7-day bar, model-week (selectable), refresh, model, daemon health. Always visible in both views; account-level truth is never
-behind a tab. Its text never wraps. Below 1840px the gaps tighten and the bars drop to 40px, and the model
-name is the one readout that truncates, with its full name on hover
-(kb:adr/usage-masthead-narrow-width-shrinks-bars-truncates-model).
+7-day bar, model-week (selectable), refresh, daemon health. Always visible in both views; account-level truth is never
+behind a tab. It shows no model; the model shows per session only (kb:adr/usage-masthead-shows-no-model). Each
+bar's reset reads `(HH:MM)` today and `(HH:MM Ddd)` otherwise, with the full date on hover
+(kb:adr/usage-reset-time-bracketed). Daemon health is a 6px dot coloured by the `--health-*` tokens, its
+state word visually hidden for screen readers and its detail on hover (kb:adr/connection-health-dot). Its text
+never wraps. Below 1840px the gaps tighten and the bars drop to 40px; nothing truncates
+(kb:adr/usage-masthead-narrow-width-shrinks-bars).
 
 **Claude Code version readout** (`#claude-version`, plan `version-claude-interface`) —
 `claude <installed>`, or `Claude installation unknown` when the check failed or hasn't

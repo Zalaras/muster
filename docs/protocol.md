@@ -1320,7 +1320,6 @@ Value semantics (within the nullability rules above):
 { "type": "usage", "usage": {
     "fiveHour": { "usedPct": 61.2, "resetsAt": "2026-08-20T11:00:00Z" },  // null until the first post-boot sample → masthead "unknown"
     "sevenDay": { "usedPct": 23.0, "resetsAt": "2026-08-22T06:00:00Z" },  // wire name seven_day; null as above
-    "model": { "id": "claude-opus-5", "displayName": "Opus 5" },  // freshest sample's model (masthead readout); null iff buckets null
     "sampledAt": "2026-08-20T09:15:31Z",   // null iff buckets null
     "source": "subscription",              // the kb:adr/usage-no-source-interface seam: "api"/"otel" later
     "modelScoped": [                        // per-model weekly windows from GET /api/oauth/usage; null until the first successful fetch, then the full list sorted by displayName ([] is a valid, distinct result)
@@ -1338,9 +1337,12 @@ the buckets are null until the next status post — per-session
 context, by contrast, lives on the session row and survives restarts like title/state. A
 sample is recorded only from a **routed** status post (valid envelope) carrying both
 buckets and the model in the same payload; anything less persists as an event and feeds
-nothing.
+nothing. The model is kept for the `usage_sample` history only and is not on the wire
+(kb:adr/usage-masthead-shows-no-model), so a change in the model alone records a row and sends a
+`usage` message identical to the previous one apart from `sampledAt`, which the daemon re-stamps for
+every recorded sample; clients replace the object whole.
 
-**Two sources, one object**: the `fiveHour`/`sevenDay`/`model`
+**Two sources, one object**: the `fiveHour`/`sevenDay`/`sampledAt`
 half comes from routed status posts as above; the `modelScoped*` half comes from musterd's
 own poll of Claude Code's `/api/oauth/usage` endpoint (default every 5 min, plus `kb:anchor/usage.refresh`),
 because the status line filters the per-model window out (`spikes/FINDINGS.md`

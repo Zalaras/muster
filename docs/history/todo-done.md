@@ -1729,6 +1729,22 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   another session, or from Docs to the Claude or Shell tab and back. It should keep what was
   expanded.
 
+### Together — masthead indicators (#79, #80, #85) ✅ done 2026-10-12 (plan `masthead-indicators`, via `/orchestrate`; all three review parts approved in cycle 2)
+
+- [x] **Change deamon connection strong to icon** ([#79](https://github.com/Zalaras/muster/issues/79)) — the
+  masthead's daemon-connection text should become an icon: red when not connected, green when
+  connected, yellow while musterd restarts or updates, with the details on hover.
+  ✅ done 2026-10-12 (plan `masthead-indicators`): the connection text is a 6px dot on dedicated `--health-*` tokens — green connected, yellow while connecting or during the dashboard's own update restart, red once lost — with the state word kept for screen readers and the detail on hover (kb:adr/connection-health-dot).
+
+- [x] **Add reset time to bar** ([#80](https://github.com/Zalaras/muster/issues/80)) — the masthead usage
+  gauges should show when each window resets.
+  ✅ done 2026-10-12 (plan `masthead-indicators`): every usage bar shows its reset as `(HH:MM)` today or `(HH:MM Ddd)` otherwise, with the full date on hover (kb:adr/usage-reset-time-bracketed).
+
+- [x] **Remove the model from the top bar** ([#85](https://github.com/Zalaras/muster/issues/85)) — the
+  masthead shows a model that seems to be only the latest session's launch model and never
+  changes. The masthead should not show a model.
+  ✅ done 2026-10-12 (plan `masthead-indicators`): the masthead model readout and the wire `usage.model` field are gone; usage history still records the model (kb:adr/usage-masthead-shows-no-model).
+
 ## Post v1
 <!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 

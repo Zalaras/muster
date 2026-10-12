@@ -120,18 +120,18 @@ describe("parseMessage — snapshot", () => {
     expect(parseMessage(snapshot)).toEqual(snapshot);
   });
 
-  it("parses a snapshot whose usage carries the model field", () => {
+  it("parses a snapshot whose usage carries a stray model key, dropping it from the parsed usage (REQ-2)", () => {
+    const usage = {
+      fiveHour: { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" },
+      sevenDay: null,
+      sampledAt: "2026-08-20T09:15:31Z",
+      source: "subscription",
+    };
     const snapshot = {
       ...validSnapshot,
-      usage: {
-        fiveHour: { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" },
-        sevenDay: null,
-        model: { id: "claude-haiku-4-5", displayName: "Haiku 4.5" },
-        sampledAt: "2026-08-20T09:15:31Z",
-        source: "subscription",
-      },
+      usage: { ...usage, model: { id: "claude-haiku-4-5", displayName: "Haiku 4.5" } },
     };
-    expect(parseMessage(snapshot)).toEqual(snapshot);
+    expect(parseMessage(snapshot)).toEqual({ ...validSnapshot, usage });
   });
 
   it("rejects a snapshot whose sessions field is not an array", () => {

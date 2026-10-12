@@ -22,17 +22,9 @@ type UsageModelWindow struct {
 	ResetsAt    string  `json:"resetsAt"`
 }
 
-// UsageInfo is the `usage` object inside a snapshot (kb:anchor/ws.usage). Model is the
-// freshest sample's model, for the masthead readout — present as an explicit `null` key
-// (no `omitempty`), matching FiveHour/SevenDay/SampledAt: null iff the buckets are null,
-// not an absent key. ModelScoped/ModelScopedAt/ModelScopedError are the second,
-// independent usage source: nil slice/pointer renders `null` on the wire (no `omitempty`)
-// until the first successful fetch; an empty-but-non-nil ModelScoped is a valid, distinct
-// successful result. ModelScopedSource is a wire constant in v1, never empty.
 type UsageInfo struct {
 	FiveHour          *UsageBucket       `json:"fiveHour"`
 	SevenDay          *UsageBucket       `json:"sevenDay"`
-	Model             *sessionWireModel  `json:"model"`
 	SampledAt         *string            `json:"sampledAt"`
 	Source            string             `json:"source"`
 	ModelScoped       []UsageModelWindow `json:"modelScoped"`
@@ -73,9 +65,6 @@ func toWireUsage(snap usage.Snapshot, model usage.ModelSnapshot) UsageInfo {
 			UsedPct:  snap.SevenDay.UsedPct,
 			ResetsAt: wireTime(snap.SevenDay.ResetsAt),
 		}
-	}
-	if snap.Model != nil {
-		out.Model = &sessionWireModel{ID: snap.Model.ID, DisplayName: snap.Model.DisplayName}
 	}
 
 	// model.Windows is nil until the first successful fetch; a non-nil (possibly

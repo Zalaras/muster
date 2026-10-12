@@ -67,7 +67,6 @@ const updateMessage: UpdateMessage = { type: "update", update: updateInfo };
 const usage: Usage = {
   fiveHour: { usedPct: 61.2, resetsAt: "2026-08-23T11:00:00Z" },
   sevenDay: { usedPct: 23.0, resetsAt: "2026-08-25T06:00:00Z" },
-  model: { id: "claude-opus-5", displayName: "Opus 5" },
   sampledAt: "2026-08-23T09:15:31Z",
   source: "subscription",
 };

@@ -107,19 +107,6 @@ The refusal entry was filed 2026-09-26 by the developer from
   rail card should show at a glance whether the session's prompt cache is still warm (a colour
   or an icon), tied to the idle timer it already shows, since the cache stays warm only so long.
 
-### Together — masthead indicators (#79, #80, #85)
-
-- [ ] **Change deamon connection strong to icon** ([#79](https://github.com/Zalaras/muster/issues/79)) — the
-  masthead's daemon-connection text should become an icon: red when not connected, green when
-  connected, yellow while musterd restarts or updates, with the details on hover.
-
-- [ ] **Add reset time to bar** ([#80](https://github.com/Zalaras/muster/issues/80)) — the masthead usage
-  gauges should show when each window resets.
-
-- [ ] **Remove the model from the top bar** ([#85](https://github.com/Zalaras/muster/issues/85)) — the
-  masthead shows a model that seems to be only the latest session's launch model and never
-  changes. The masthead should not show a model.
-
 ### Together — `MUSTER_SESSION` from the surrounding environment
 
 Filed 2026-10-12 by the developer from `plans/reader-expanded-persists/proposed-backlog.md`.
@@ -333,6 +320,15 @@ tick a sub-item as it lands, the parent when all have.
   developer can drag to resize both the session rail on the left and the docs reader's file
   nav / outline panel on the right, and minimise the rail the way the docs nav already
   collapses. Each panel keeps its width across reloads.
+
+Filed 2026-10-12 by the developer from the plans' proposed-backlog.md files
+
+- [ ] **The comment pass keeps comments a plan did not write** — on `masthead-indicators` the
+  pass removed module headers from `features/connection.ts`, `features/usage.ts` and
+  `render/masthead.ts`, plus `UsageInfo`'s doc comment and the `shellsBusy?` note, all of which
+  predate the plan. Expected: a comment that existed before the plan survives the pass, even
+  where the plan edited it; weigh against the judge's edited-comment rule. From
+  `plans/masthead-indicators/`.
 
 ## v1 Release
 

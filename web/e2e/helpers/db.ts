@@ -61,3 +61,17 @@ export async function countUsageSamples(dbPath: string): Promise<number> {
   }>;
   return rows[0]?.n ?? 0;
 }
+
+/**
+ * The model each `usage_sample` row carries, oldest first — the oracle for
+ * kb:adr/usage-history-persisted-not-rendered: history keeps the model even though the
+ * wire and the masthead no longer show it.
+ */
+export async function listUsageSampleModels(
+  dbPath: string,
+): Promise<Array<{ model_id: string; model_display_name: string }>> {
+  return (await runQuery(
+    dbPath,
+    "SELECT model_id, model_display_name FROM usage_sample ORDER BY id;",
+  )) as Array<{ model_id: string; model_display_name: string }>;
+}

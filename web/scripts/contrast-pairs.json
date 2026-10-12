@@ -43,7 +43,10 @@
     { "fg": "--edge", "bg": "--bg-raised", "min": 3 },
     { "fg": "--edge", "bg": "--well", "min": 3 },
     { "fg": "--edge", "bg": "--bg", "min": 3 },
-    { "fg": "--amber", "bg": "--bg-raised", "min": 3 }
+    { "fg": "--amber", "bg": "--bg-raised", "min": 3 },
+    { "fg": "--health-ok", "bg": "--bg-raised", "min": 3 },
+    { "fg": "--health-pending", "bg": "--bg-raised", "min": 3 },
+    { "fg": "--health-down", "bg": "--bg-raised", "min": 3 }
   ],
   "exempt": [
     { "item": "--line hairlines", "reason": "decorative" },

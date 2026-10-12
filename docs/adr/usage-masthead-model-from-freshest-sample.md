@@ -1,7 +1,7 @@
 ---
 id: usage-masthead-model-from-freshest-sample
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-23
 summary: The masthead shows the model from the freshest usage sample; flicker under mixed-model sessions is accepted.
 features: [usage]

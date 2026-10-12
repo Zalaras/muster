@@ -2,63 +2,46 @@ import { describe, expect, it } from "vitest";
 import { parseMessage } from "./messages";
 import { UNKNOWN_USAGE } from "./usage";
 
-describe("parseMessage — usage (kb:anchor/ws.usage: broadcast on value/model change)", () => {
+describe("parseMessage — usage (kb:anchor/ws.usage: broadcast on value change)", () => {
   const knownUsage = {
     type: "usage",
     usage: {
       fiveHour: { usedPct: 61.2, resetsAt: "2026-08-23T11:00:00Z" },
       sevenDay: { usedPct: 23.0, resetsAt: "2026-08-25T06:00:00Z" },
-      model: { id: "claude-opus-5", displayName: "Opus 5" },
       sampledAt: "2026-08-23T09:15:31Z",
       source: "subscription",
     },
   };
 
-  it("parses a fully-populated usage message including the model field", () => {
+  it("parses a fully-populated usage message", () => {
     expect(parseMessage(knownUsage)).toEqual(knownUsage);
   });
 
-  it("parses the boot/no-hydration state: null buckets, no model key at all, null sampledAt (REQ-7)", () => {
+  it("parses the boot/no-hydration state: null buckets, null sampledAt (REQ-7)", () => {
     const message = {
       type: "usage",
       usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
     };
-    const parsed = parseMessage(message);
-    expect(parsed).toEqual(message);
-    // Distinguishes "no model key on the wire" from "model: null" — additive evolution
-    // (protocol.ts's parseUsage comment): the parsed object must not gain a synthesized key.
-    expect(parsed && "usage" in parsed && "model" in (parsed.usage as object)).toBe(false);
-  });
-
-  it("parses an explicit usage.model: null the same as an absent key (both mean 'no sample yet')", () => {
-    const message = { ...knownUsage, usage: { ...knownUsage.usage, model: null } };
     expect(parseMessage(message)).toEqual(message);
   });
 
-  // kb:adr/launch-resume-display-name-falls-back-to-id: displayName is never null on
-  // the wire — a resumed-from-list session's model carries its transcript's model id as
-  // displayName instead. Usage.model shares parseModelInfo verbatim, so an explicit null
-  // here is rejected the same as it is on Session.model.
-  it("rejects a usage.model with an explicit null displayName", () => {
-    const message = {
-      ...knownUsage,
-      usage: { ...knownUsage.usage, model: { id: "claude-opus-5", displayName: null } },
-    };
-    expect(parseMessage(message)).toBeNull();
-  });
-
-  it("rejects a usage.model missing displayName", () => {
-    const message = {
-      ...knownUsage,
-      usage: { ...knownUsage.usage, model: { id: "claude-opus-5" } },
-    };
-    expect(parseMessage(message)).toBeNull();
-  });
-
-  it("rejects a usage.model that isn't an object", () => {
-    const message = { ...knownUsage, usage: { ...knownUsage.usage, model: "Opus 5" } };
-    expect(parseMessage(message)).toBeNull();
-  });
+  // REQ-2 / kb:adr/usage-masthead-shows-no-model: the model is not on the wire. A daemon (or
+  // an older one) that still sends the key is tolerated: the key is dropped, never exposed on
+  // the parsed Usage, and a malformed value never rejects the message.
+  it.each([
+    ["an object", { id: "claude-opus-5", displayName: "Opus 5" }],
+    ["null", null],
+    ["a malformed object (null displayName)", { id: "claude-opus-5", displayName: null }],
+    ["a string", "Opus 5"],
+  ])(
+    "ignores a stray usage.model that is %s: parsed, and the key is not exposed",
+    (_name, model) => {
+      const message = { ...knownUsage, usage: { ...knownUsage.usage, model } };
+      const parsed = parseMessage(message);
+      expect(parsed).toEqual(knownUsage);
+      expect(parsed && "usage" in parsed && "model" in (parsed.usage as object)).toBe(false);
+    },
+  );
 
   it("rejects a usage message missing the usage field", () => {
     expect(parseMessage({ type: "usage" })).toBeNull();

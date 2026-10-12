@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatResets } from "./format";
+import { formatResets, formatResetsTitle } from "./format";
 import type { UsageBucket as UsageBucketSource } from "../protocol/usage";
 import { buildUsageBucketViewModel } from "./usage";
 
@@ -23,6 +23,7 @@ describe("buildUsageBucketViewModel — honesty rule 1 (design-system §6.1): nu
     expect(vm.warn).toBe(false);
     expect(vm.fillPercent).toBeNull();
     expect(vm.resetsText).toBeNull();
+    expect(vm.resetsTitle).toBeNull();
   });
 
   it("is a true no-op regardless of the current time — no time-dependent path taken when the bucket is null", () => {
@@ -33,12 +34,14 @@ describe("buildUsageBucketViewModel — honesty rule 1 (design-system §6.1): nu
 });
 
 describe("buildUsageBucketViewModel — known bucket", () => {
-  it("rounds usedPct for display and carries formatResets' text, prefixed with '· '", () => {
+  it("rounds usedPct for display and carries formatResets' bracketed text, with no '· ' prefix, and the hover title", () => {
     const source = bucket({ usedPct: 61.2 });
     const vm = buildUsageBucketViewModel(source, NOW);
     expect(vm.percentText).toBe("61%");
     expect(vm.fillPercent).toBe(61);
-    expect(vm.resetsText).toBe(`· ${formatResets(source.resetsAt, NOW)}`);
+    expect(vm.resetsText).toBe(formatResets(source.resetsAt, NOW));
+    expect(vm.resetsText?.startsWith("(")).toBe(true);
+    expect(vm.resetsTitle).toBe(formatResetsTitle(source.resetsAt));
   });
 
   it("rounds the boundary values 0 and 99.6 correctly (0% and 100%, never blank)", () => {

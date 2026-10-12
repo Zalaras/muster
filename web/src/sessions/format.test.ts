@@ -5,6 +5,7 @@ import {
   elapsedSeconds,
   formatAge,
   formatResets,
+  formatResetsTitle,
   formatTimer,
   formatTokens,
   GAUGE_WARN_THRESHOLD,
@@ -176,38 +177,100 @@ function localIso(year: number, month: number, day: number, hour = 0, minute = 0
   return new Date(year, month, day, hour, minute).toISOString();
 }
 
-describe("formatResets (W6/REQ-14): same local day -> 'resets HH:MM', else 'resets <short weekday>'", () => {
-  it("renders HH:MM when resetsAt falls on the same local day as now", () => {
-    const now = new Date(localIso(2026, 7, 23, 9, 15));
-    const resetsAt = localIso(2026, 7, 23, 14, 20);
-    expect(formatResets(resetsAt, now)).toBe("resets 14:20");
-  });
+type LocalParts = readonly [number, number, number, number, number];
 
-  it("pads single-digit hours and minutes", () => {
-    const now = new Date(localIso(2026, 7, 23, 0, 0));
-    const resetsAt = localIso(2026, 7, 23, 6, 5);
-    expect(formatResets(resetsAt, now)).toBe("resets 06:05");
-  });
+function localIsoAt(parts: LocalParts): string {
+  return localIso(parts[0], parts[1], parts[2], parts[3], parts[4]);
+}
 
-  it("renders the short weekday when resetsAt falls on a different local day", () => {
+describe("formatResets (W2/REQ-4): same local day -> '(HH:MM)', else '(HH:MM Ddd)'", () => {
+  it.each([
+    ["the same local day", [2026, 7, 23, 9, 15], [2026, 7, 23, 14, 20], "(14:20)"],
+    ["a single-digit hour and minute, padded", [2026, 7, 23, 0, 0], [2026, 7, 23, 6, 5], "(06:05)"],
+    [
+      "a past resetsAt earlier today, verbatim (edge case 10)",
+      [2026, 7, 23, 14, 0],
+      [2026, 7, 23, 9, 0],
+      "(09:00)",
+    ],
+    ["local midnight exactly, same day", [2026, 7, 23, 0, 0], [2026, 7, 23, 0, 0], "(00:00)"],
+    ["the last minute of the day, same day", [2026, 7, 23, 0, 0], [2026, 7, 23, 23, 59], "(23:59)"],
+  ] as const)(
+    "renders %s",
+    (_name: string, nowParts: LocalParts, resetsParts: LocalParts, expected: string) => {
+      const now = new Date(localIsoAt(nowParts));
+      expect(formatResets(localIsoAt(resetsParts), now)).toBe(expected);
+    },
+  );
+
+  const OTHER_DAY = /^\((\d{2}:\d{2}) ([\p{L}.]{2,})\)$/u;
+
+  it.each([
+    ["two days later", [2026, 7, 23, 9, 15], [2026, 7, 25, 6, 0], "06:00"],
+    [
+      "just after local midnight, with now just before it",
+      [2026, 7, 22, 23, 59],
+      [2026, 7, 23, 0, 1],
+      "00:01",
+    ],
+    ["the same weekday a week on", [2026, 7, 23, 9, 15], [2026, 7, 30, 9, 15], "09:15"],
+    ["a past resetsAt on an earlier day", [2026, 7, 23, 9, 15], [2026, 7, 21, 17, 45], "17:45"],
+    [
+      "the same day of the month in a later month",
+      [2026, 7, 23, 9, 15],
+      [2026, 8, 23, 9, 15],
+      "09:15",
+    ],
+  ] as const)(
+    "renders the clock and short weekday for %s",
+    (_name: string, nowParts: LocalParts, resetsParts: LocalParts, clock: string) => {
+      const now = new Date(localIsoAt(nowParts));
+      const match = OTHER_DAY.exec(formatResets(localIsoAt(resetsParts), now));
+      expect(match?.[1]).toBe(clock);
+    },
+  );
+
+  it("uses the weekday of the reset day, not of now", () => {
     const now = new Date(localIso(2026, 7, 23, 9, 15));
     const resetsAt = localIso(2026, 7, 25, 6, 0);
-    const result = formatResets(resetsAt, now);
-    expect(result).toMatch(/^resets [A-Za-z]{3}$/);
-    expect(result).not.toContain(":");
+    const weekday = new Date(resetsAt).toLocaleDateString(undefined, { weekday: "short" });
+    expect(formatResets(resetsAt, now)).toBe(`(06:00 ${weekday})`);
   });
 
-  it("renders verbatim (no special-casing) for a resetsAt in the past — self-corrects on the next sample (edge case 10)", () => {
-    const now = new Date(localIso(2026, 7, 23, 14, 0));
-    const resetsAt = localIso(2026, 7, 23, 9, 0); // earlier today
-    expect(formatResets(resetsAt, now)).toBe("resets 09:00");
+  it("never carries the old 'resets' wording", () => {
+    const now = new Date(localIso(2026, 7, 23, 9, 15));
+    expect(formatResets(localIso(2026, 7, 23, 14, 20), now)).not.toContain("resets");
+    expect(formatResets(localIso(2026, 7, 25, 6, 0), now)).not.toContain("resets");
+  });
+});
+
+describe("formatResetsTitle (REQ-12): the full local date and the same HH:MM as the suffix", () => {
+  it.each([
+    [[2026, 9, 13, 15, 59], "15:59"],
+    [[2026, 9, 13, 6, 5], "06:05"],
+    [[2026, 9, 13, 0, 0], "00:00"],
+  ] as const)("%j ends in the 24-hour clock %s", (parts: LocalParts, clock: string) => {
+    const title = formatResetsTitle(localIsoAt(parts));
+    expect(title.startsWith("Resets ")).toBe(true);
+    expect(title.endsWith(`, ${clock}`)).toBe(true);
   });
 
-  it("treats a resetsAt just after local midnight as a different day when now is just before midnight the day before", () => {
-    const now = new Date(localIso(2026, 7, 22, 23, 59));
-    const resetsAt = localIso(2026, 7, 23, 0, 1);
-    const result = formatResets(resetsAt, now);
-    expect(result).not.toBe("resets 00:01");
-    expect(result).toMatch(/^resets [A-Za-z]{3}$/);
+  it("names the weekday and the day of the month from the same locale call", () => {
+    const iso = localIso(2026, 9, 13, 15, 59);
+    const date = new Date(iso).toLocaleDateString(undefined, {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+    expect(formatResetsTitle(iso)).toBe(`Resets ${date}, 15:59`);
+  });
+
+  it("contains the HH:MM the suffix shows, for same-day and other-day resets alike", () => {
+    const now = new Date(localIso(2026, 9, 13, 9, 0));
+    for (const resetsAt of [localIso(2026, 9, 13, 15, 59), localIso(2026, 9, 15, 6, 30)]) {
+      const clock = /\d{2}:\d{2}/.exec(formatResets(resetsAt, now))?.[0];
+      expect(clock).toBeDefined();
+      expect(formatResetsTitle(resetsAt)).toContain(clock as string);
+    }
   });
 });

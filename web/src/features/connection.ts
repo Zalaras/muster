@@ -1,12 +1,6 @@
-// Connection status readout, daemon-down banner, protocol mismatch, and the Claude Code
-// version readout (kb:adr/process-one-name-per-feature: "connection"). Owns `everConnected` —
-// only true once a `hello` has ever been received, so a socket that hasn't connected yet
-// reads "connecting…" rather than flashing "musterd unreachable" on first load. Also owns
-// whether a mismatched hello actually shows the mismatch screen: a window mid update-restart
-// reload suppresses it (kb:adr/update-restart-reloads-dashboard), decided here via
-// `ConnectionDeps.reloading` rather than by the WS-message caller.
 import type { App, ConnectionStatus } from "../app";
 import { requireElement } from "../dom";
+import { describeConnectionHealth } from "./connectionhealth";
 import { isRestorableControl, shouldRestoreFocus } from "./connectionrestore";
 import { describeClaudeVersion } from "./connectionversion";
 import { DAEMON_ABSENCE_CLAUSE, renderBanner, renderBannerContent } from "../render/banner";
@@ -108,7 +102,6 @@ export function initConnection(app: App, deps: ConnectionDeps): ConnectionHandle
   let lastBannerVisible = false;
 
   const state = createConnectionState(app, (status) => {
-    renderConnectionStatus(connectionStatusEl, status);
     // Broadcasts every non-connected status (disconnected, daemon down) so any open
     // dialog can close itself — each dialog controller subscribes to this event
     // itself rather than being reached from here.
@@ -149,6 +142,10 @@ export function initConnection(app: App, deps: ConnectionDeps): ConnectionHandle
   // status change through this same phase.
   app.onRender((frame) => {
     const override = deps.restartBanner(frame.now, frame.connection);
+    renderConnectionStatus(
+      connectionStatusEl,
+      describeConnectionHealth(frame.connection, override),
+    );
     const text = override?.text ?? DAEMON_DOWN_TEXT;
     const neutral = override?.neutral ?? false;
     const visible = override !== null || frame.connection === "reconnecting";

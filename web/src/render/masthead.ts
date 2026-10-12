@@ -1,23 +1,25 @@
-// Pure DOM updates for the masthead: connection status, usage readouts, Claude Code
-// version/verification status. Brand ("Muster") is static markup in index.html — nothing
-// to render.
-//
-// Honesty rules (design-system §6.1): a null usage bucket renders the word "unknown"
-// and no track/gauge markup at all — never a 0%-filled bar.
-import type { ConnectionStatus } from "../app";
+import { requireElement } from "../dom";
 import type { Density, View } from "../protocol/prefs";
-import type { SessionModelInfo } from "../protocol/session";
 import type { ModelWindow, Usage, UsageBucket } from "../protocol/usage";
 import { buildUsageBucketViewModel } from "../sessions/usage";
 
-export function renderConnectionStatus(el: HTMLElement, status: ConnectionStatus): void {
-  const text =
-    status === "connected"
-      ? "connected"
-      : status === "reconnecting"
-        ? "reconnecting…"
-        : "connecting…";
-  el.textContent = text;
+export interface ConnectionHealthDescription {
+  health: "ok" | "pending" | "down";
+  word: string;
+  title: string;
+}
+
+/** Writes only what changed: the host is a `role="status"` live region, so rewriting its
+ * word every tick would re-announce it. The visually hidden word lives in the host's
+ * `.sr-only` child. */
+export function renderConnectionStatus(
+  el: HTMLElement,
+  description: ConnectionHealthDescription,
+): void {
+  const wordEl = requireElement<HTMLElement>(".sr-only", el);
+  if (wordEl.textContent !== description.word) wordEl.textContent = description.word;
+  if (el.dataset["health"] !== description.health) el.dataset["health"] = description.health;
+  if (el.title !== description.title) el.title = description.title;
 }
 
 /** One bucket's persistent DOM refs, built once and held by the
@@ -94,6 +96,7 @@ export function renderUsageBucket(
     refs.container.appendChild(refs.resets);
   }
   refs.resets.textContent = vm.resetsText ?? "";
+  refs.resets.title = vm.resetsTitle ?? "";
 }
 
 export interface ViewSwitcherElements {
@@ -123,30 +126,6 @@ export function renderDensityControl(
   elements.container.hidden = view !== "tiles";
   elements.twoByTwoButton.setAttribute("aria-pressed", String(density === "2x2"));
   elements.threeByTwoButton.setAttribute("aria-pressed", String(density === "3x2"));
-}
-
-/** The masthead model readout — the Usage object's freshest-sample model, verbatim.
- * Empty/hidden while null (no hydration at boot; also null again right after a daemon
- * restart until the next status post). Accepts `undefined` too since `Usage.model` is an
- * optional wire field (protocol/usage.ts) — a payload that omits it entirely reads the same as
- * an explicit null.
- *
- * Issue #52: `.model` ellipsizes whenever the masthead row runs out of room (style.css),
- * so `title` carries the full name for a hover tooltip whenever a truncated one might be
- * showing. */
-export function renderUsageModel(
-  el: HTMLElement,
-  model: SessionModelInfo | null | undefined,
-): void {
-  if (!model) {
-    el.hidden = true;
-    el.textContent = "";
-    el.removeAttribute("title");
-    return;
-  }
-  el.hidden = false;
-  el.textContent = model.displayName;
-  el.title = model.displayName;
 }
 
 /** `#usage-model-week`'s own persistent refs — the caller (`features/usage.ts`) builds

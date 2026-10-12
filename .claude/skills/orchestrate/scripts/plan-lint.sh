@@ -64,6 +64,8 @@ if ! grep -q '^```checks' "$P"; then
 else
   while IFS= read -r l; do
     [[ "$l" =~ ^[A-Z]+[0-9]+\ .+ ]] || note "malformed checks line (need '<ID> <command>'): $l"
+    # gates.sh evals each line; a quoting error there is a red gate nobody can fix (masthead-indicators X4).
+    bash -n -c "${l#* }" 2>/dev/null || note "checks line ${l%% *}: shell syntax error under eval"
   done < <(checks_block)
 fi
 
@@ -102,8 +104,10 @@ while IFS= read -r l; do
   [[ "$cmd" =~ ^!\ *rg ]] || continue
   pat="$(echo "$cmd" | grep -oE -- "(-e )?(\"[^\"]+\"|'[^']+')" | head -1 | sed -E "s/^-e //; s/^[\"']//; s/[\"']$//")"
   # The checks block itself necessarily spells the pattern; grep the plan without it (markdown-viewing, 2026-09-13).
-  if [[ -n "$pat" ]] && awk '/^```checks[[:space:]]*$/{f=1;next} f&&/^```/{f=0;next} !f' "$P" | grep -qE -- "$pat"; then
-    note "$id: the plan text itself contains the banned pattern '$pat' — agents copying it will trip the check"
+  if [[ -n "$pat" ]]; then
+    awk '/^```checks[[:space:]]*$/{f=1;next} f&&/^```/{f=0;next} !f' "$P" | grep -qE -- "$pat" 2>/dev/null; rc=$?
+    (( rc == 0 )) && note "$id: the plan text itself contains the banned pattern '$pat' — agents copying it will trip the check"
+    (( rc == 2 )) && echo "NOTE  $id: could not self-check the pattern '$pat' (grep -E rejected it) — check it by hand"
   fi
   positive="${cmd#!}"
   if hits="$(eval "$positive" 2>/dev/null)" && [[ -n "$hits" ]]; then

@@ -29,12 +29,6 @@ export function mastheadBucketWarn(page: Page, bucket: Bucket): Locator {
     .or(page.locator(`#usage-${bucket}.warn`));
 }
 
-/** The masthead's model readout (`#usage-model.model` in index.html), matched by its
- * `.model` class under the masthead. */
-export function mastheadModelReadout(page: Page): Locator {
-  return page.locator(".masthead-right .model, .masthead .model, [data-testid='masthead-model']");
-}
-
 /** A rail/strip card's context row (`.r3`), which holds the track markup. */
 export function cardContextRow(card: Locator): Locator {
   return card.locator(".r3");
@@ -64,9 +58,8 @@ export function tileContextTrack(tile: Locator): Locator {
 
 // --- Plan usage-model-bar (2026-08-30): the third masthead readout, the per-model
 // weekly ("Fable") window fetched by musterd itself (`GET /api/oauth/usage`), unlike
-// the two buckets above which come from the status line. Unlike `mastheadModelReadout`
-// above, this plan's Testable UI Elements table PINS the container id (`#usage-model-week`),
-// the select's accessible name (`aria-label="Usage model"`), and the refresh button's
+// the two buckets above which come from the status line. This plan's Testable UI Elements
+// table PINS the container id (`#usage-model-week`), the select's accessible name (`aria-label="Usage model"`), and the refresh button's
 // accessible name (`"Refresh usage"`) directly in the plan's own markup snippet — so
 // these locators are not hedged guesses the way the pre-existing ones in this file are.
 

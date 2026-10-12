@@ -224,6 +224,17 @@ lint_src() {
   printf 'NOTE  lint-src: typecheck errors only in %s — sanctioned wave-1 breakage iff the impl Handoff names each file\n' "$(printf '%s' "$files" | tr '\n' ' ')" >&3
   return 0
 }
+# Every non-test web/src/features module is named in that directory's CLAUDE.md, as a `file.ts` or a
+# **feature** trailer entry; web-impl twice left a new module out (groups, masthead-indicators retros).
+features_inventory() {
+  local f b c=web/src/features/CLAUDE.md rc=0
+  for f in web/src/features/*.ts; do
+    [[ $f == *.test.ts ]] && continue; b=$(basename "$f")
+    grep -qF "\`$b\`" "$c" || grep -qF "**${b%.ts}**" "$c" || { echo "$f is not named in $c"; rc=1; }
+  done
+  return $rc
+}
+
 web_build_src() {
   if make web-build; then return 0; fi
   local out files bad
@@ -259,7 +270,7 @@ if [[ -n "$WAVE" ]]; then
   echo "== wave $WAVE gate (plan $PLAN; daemon=$DAEMON_TOUCHED web=$WEB_TOUCHED)"
   case "$WAVE" in
     1) (( DAEMON_TOUCHED )) && { run_one build "go build ./..."; run_one lint-src "lint_src"; }
-       (( WEB_TOUCHED ))    && run_one web-build-src "web_build_src" ;;
+       (( WEB_TOUCHED ))    && { run_one web-build-src "web_build_src"; run_one features-inventory "features_inventory"; } ;;
     2) (( DAEMON_TOUCHED )) && { run_one test "make test"; run_one lint "make lint"; }
        (( WEB_TOUCHED ))    && { run_one web-test "make web-test"; run_one web-build "make web-build"; } ;;
     3) run_one e2e "make e2e" ;;
@@ -293,6 +304,7 @@ PASS	make test"
   run_one web-test  "make web-test"
   run_one web-lint  "make web-lint"        # Biome lint + format over web/src, web/e2e, web/scripts
   run_one contrast  "make contrast"        # AA contrast/hue/literal gate over web/src/style.css
+  run_one features-inventory "features_inventory"   # every features/*.ts named in its CLAUDE.md
   run_one versions  "make check-versions"  # no stale Claude Code version-range fragment
   run_one e2e-honest "! rg -n 'test\\.(skip|fixme|only)\\(' web/e2e"   # a skipped/only spec is a vacuous pass (file-drop-fix E9 class)
   run_one kb-check  "make check-kb"   # records parse, cited kb: ids resolve, generated INDEX/contract/rules/CLAUDE trailers fresh, cited paths / make targets / musterd flags exist (two second review cycles were dead references, 2026-09-10)

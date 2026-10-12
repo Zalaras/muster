@@ -7,7 +7,7 @@
 // `usedPct`/`resetsAt` pair, just from two different daemon sources; `ModelWindow` is
 // structurally a `UsageBucket` plus `displayName`, so both pass here unchanged.
 import type { UsageBucket } from "../protocol/usage";
-import { formatResets, GAUGE_WARN_THRESHOLD } from "./format";
+import { formatResets, formatResetsTitle, GAUGE_WARN_THRESHOLD } from "./format";
 
 export interface UsageBucketViewModel {
   /** `"42%"`, or `"unknown"` — design-system §6.1: never a percentage guessed from a
@@ -21,6 +21,7 @@ export interface UsageBucketViewModel {
   fillPercent: number | null;
   /** `null` iff the bucket is unknown. */
   resetsText: string | null;
+  resetsTitle: string | null;
 }
 
 export function buildUsageBucketViewModel(
@@ -28,13 +29,20 @@ export function buildUsageBucketViewModel(
   now: Date,
 ): UsageBucketViewModel {
   if (!bucket) {
-    return { percentText: "unknown", warn: false, fillPercent: null, resetsText: null };
+    return {
+      percentText: "unknown",
+      warn: false,
+      fillPercent: null,
+      resetsText: null,
+      resetsTitle: null,
+    };
   }
   const pct = Math.round(bucket.usedPct);
   return {
     percentText: `${pct}%`,
     warn: bucket.usedPct >= GAUGE_WARN_THRESHOLD,
     fillPercent: pct,
-    resetsText: `· ${formatResets(bucket.resetsAt, now)}`,
+    resetsText: formatResets(bucket.resetsAt, now),
+    resetsTitle: formatResetsTitle(bucket.resetsAt),
   };
 }

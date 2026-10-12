@@ -1,5 +1,3 @@
-// The masthead's usage gauges: text readout, track/resets markup, model readout, and the
-// per-model weekly window. No dependency on any other controller.
 import type { App } from "../app";
 import { sendPrefsPatch } from "../api/prefs";
 import { refreshUsage } from "../api/usage";
@@ -8,7 +6,6 @@ import {
   buildUsageBucket,
   buildUsageModelWeek,
   renderUsageBucket,
-  renderUsageModel,
   renderUsageModelWeek,
 } from "../render/masthead";
 import { UNKNOWN_USAGE, type Usage } from "../protocol/usage";
@@ -18,7 +15,6 @@ export function initUsage(app: App): void {
   const usageSevenDayEl = requireElement<HTMLElement>("#usage-7d");
   const usageModelWeekEl = requireElement<HTMLElement>("#usage-model-week");
   const usageRefreshBtn = requireElement<HTMLButtonElement>("#usage-refresh");
-  const usageModelEl = requireElement<HTMLElement>("#usage-model");
 
   // The account-global Usage object, from the initial `snapshot` and every subsequent
   // `usage` broadcast — re-rendered every pass so the reset-time formatting stays current
@@ -87,7 +83,6 @@ export function initUsage(app: App): void {
   app.onRender((frame) => {
     renderUsageBucket(fiveHourRefs, currentUsage.fiveHour, frame.now);
     renderUsageBucket(sevenDayRefs, currentUsage.sevenDay, frame.now);
-    renderUsageModel(usageModelEl, currentUsage.model);
     renderUsageModelWeek(modelWeekRefs, currentUsage, usageModel, frame.now, requestUsageModel);
   });
 }

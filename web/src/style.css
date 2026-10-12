@@ -68,10 +68,9 @@
   --term-light-fg: #1c1e26;
   --scrim: rgba(8, 9, 13, 0.72);
   --bg-raised-95: rgba(23, 26, 36, 0.95);
-  /* --green ("health ok, tool success" per design-system §1) has no consumer yet — the
-   * mockups declare it (a health dot), this file doesn't. Left undeclared rather than
-   * declared-and-unused (review m1-sessions Minor 5); reintroduce it with its first real
-   * consumer instead of guessing the shade needed then. */
+  --health-ok: #7bc47f;
+  --health-pending: #e3c64a;
+  --health-down: #ee6a32;
 }
 
 /* Dark — conventional web-style dark (neutral greys, editor/GitHub sense) */
@@ -113,6 +112,9 @@
   --term-light-fg: #1f2228;
   --scrim: rgba(10, 11, 14, 0.72);
   --bg-raised-95: rgba(31, 34, 40, 0.95);
+  --health-ok: #6cc07a;
+  --health-pending: #e3c64a;
+  --health-down: #ee6a32;
 }
 
 /* Light — standard light */
@@ -154,6 +156,9 @@
   --term-light-fg: #1c1e26;
   --scrim: rgba(28, 30, 38, 0.45);
   --bg-raised-95: rgba(251, 250, 247, 0.95);
+  --health-ok: #1f7a3a;
+  --health-pending: #8a6d00;
+  --health-down: #c2410c;
 }
 
 /* Terminal ground follows Claude Code's own theme family, never the Muster theme
@@ -222,8 +227,7 @@ body {
  * instead of eliding it. Direct children stay unshrinkable (`flex: none`) except
  * `.masthead-right`, which is allowed to shrink down to its own children's minimum
  * (`min-width: 0` — otherwise flexbox's default `min-width: auto` keeps it at its
- * unshrunk content width and the row still overflows); within it, only `.model` (below)
- * is elastic. */
+ * unshrunk content width and the row still overflows). */
 .masthead > * {
   flex: none;
 }
@@ -292,10 +296,8 @@ body {
   color: var(--fg-muted);
 }
 
-/* Issue #52: every readout inside `.masthead-right` stays fixed-size by default — only
- * `.model` (below) is allowed to shrink, and never `.usage-readout`/`.bar`: prototyping
- * showed a shrunk readout's text overlaps its neighbour once it's narrower than its
- * content, which is worse than the model name eliding. */
+/* Issue #52: every readout inside `.masthead-right` stays fixed-size — a shrunk readout's
+ * text overlaps its neighbour once it's narrower than its content. */
 .masthead-right > * {
   flex: none;
 }
@@ -326,9 +328,40 @@ body {
 }
 
 .usage-readout,
-.claude-version,
-#connection-status {
+.claude-version {
   font-variant-numeric: tabular-nums;
+}
+
+#connection-status {
+  position: relative;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  cursor: default;
+}
+
+#connection-status::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--health-pending);
+}
+
+#connection-status[data-health="ok"]::before {
+  background: var(--health-ok);
+}
+
+#connection-status[data-health="pending"]::before {
+  background: var(--health-pending);
+}
+
+#connection-status[data-health="down"]::before {
+  background: var(--health-down);
 }
 
 /* Plan version-claude-interface: the above/below-range warning glyph inside
@@ -381,24 +414,6 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Issue #52: the one elastic readout in `.masthead-right` — a long model name ellipsizes
- * rather than wrapping or forcing the row to overflow; `masthead.ts` sets `title` to the
- * full name so it's still readable on hover when truncated. Scoped as
- * `.masthead-right > .model` (0,2,0) rather than bare `.model` (0,1,0) so it wins over
- * `.masthead-right > * { flex: none; }` above regardless of source order — the two rules
- * would tie on specificity as bare classes and source order would decide, which is
- * fragile to a future reorder. */
-.masthead-right > .model {
-  flex: 0 1 auto;
-  min-width: 6ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.model[hidden] {
-  display: none;
-}
-
 /* Plan usage-model-bar: the model-week readout's `<select>` (persisted across render
  * passes by renderModelWeek/modelWeekCache — rebuilt only when the option set or
  * placeholder-need actually changes, see masthead.ts) takes over the `.lbl` slot the two
@@ -442,16 +457,9 @@ body {
   line-height: 1;
 }
 
-/* Issue #52: below the masthead's measured natural width — ~1780px with the default
- * "connected"/short-version strings, ~1820px with the longest realistic strings
- * ("reconnecting…", "claude 2.1.281 ⚠") — tighten spacing and shrink the gauge bars so
- * the row still fits without wrapping (a 14" MacBook's default 1512px viewport is the
- * motivating case). One tier — measured (a static repro, playwright) to fit the default
- * and realistic-usage states down to 1440px, and the longest-strings state down to
- * 1512px, with `.model` ellipsizing the rest. The rare "Claude installation unknown" +
- * "reconnecting…" combination still overflows by ~25px at 1512px and further below that —
- * accepted per the ADR, since it needs both an unrecognized install and a dropped
- * connection at once (kb:adr/usage-masthead-narrow-width-shrinks-bars-truncates-model). */
+/* Issue #52: below 1840px tighten spacing and shrink the gauge bars so the row still fits
+ * without wrapping (a 14" MacBook's default 1512px viewport is the motivating case;
+ * kb:adr/usage-masthead-narrow-width-shrinks-bars). */
 @media (max-width: 1840px) {
   .masthead {
     gap: 14px;
@@ -833,8 +841,8 @@ body {
   margin: 0 6px;
 }
 
-/* The masthead's bare `.model` gives its readout its own size and colour; in the meta the
- * model reads as part of the line, and never truncates. */
+/* The bare `.model` rule gives the readout its own size and colour; in the meta the model
+ * reads as part of the line, and never truncates. */
 .mainhead .meta .model {
   font-size: inherit;
   color: inherit;

@@ -74,18 +74,27 @@ export function formatTokens(tokens: number): string {
   return `${(tokens / 1_000_000).toFixed(1)}M`;
 }
 
-/** A usage bucket's or session context's reset time, compactly — same local
- * day as `now` renders `resets HH:MM`, otherwise the short weekday (`resets Fri`). Uses
- * the client's local timezone — the daemon ships UTC RFC3339Nano; `Date`'s local
- * getters do the conversion. */
+function clockText(at: Date): string {
+  return `${pad2(at.getHours())}:${pad2(at.getMinutes())}`;
+}
+
 export function formatResets(resetsAtIso: string, now: Date): string {
   const resetsAt = new Date(resetsAtIso);
   const sameDay =
     resetsAt.getFullYear() === now.getFullYear() &&
     resetsAt.getMonth() === now.getMonth() &&
     resetsAt.getDate() === now.getDate();
-  if (sameDay) {
-    return `resets ${pad2(resetsAt.getHours())}:${pad2(resetsAt.getMinutes())}`;
-  }
-  return `resets ${resetsAt.toLocaleDateString(undefined, { weekday: "short" })}`;
+  if (sameDay) return `(${clockText(resetsAt)})`;
+  const weekday = resetsAt.toLocaleDateString(undefined, { weekday: "short" });
+  return `(${clockText(resetsAt)} ${weekday})`;
+}
+
+export function formatResetsTitle(resetsAtIso: string): string {
+  const resetsAt = new Date(resetsAtIso);
+  const date = resetsAt.toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+  return `Resets ${date}, ${clockText(resetsAt)}`;
 }

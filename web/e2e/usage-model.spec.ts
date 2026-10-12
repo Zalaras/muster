@@ -8,6 +8,7 @@ import {
   mastheadModelWeekWarn,
   mastheadUsageRefreshButton,
 } from "./helpers/gauges";
+import { clockText, expectedResetsText, RESETS_OTHER_DAY } from "./helpers/masthead";
 import {
   credentialsFileContent,
   FakeUsageAPI,
@@ -61,7 +62,19 @@ test("with the fake endpoint returning a Fable 61% window, the readout shows the
     await expect(mastheadModelSelect(page).locator("option")).toHaveText("Fable");
     await expect(mastheadModelWeekWarn(page)).toHaveCount(1);
     await expect(mastheadModelWeekTrack(page)).toHaveCount(1);
-    await expect(mastheadModelWeekResets(page)).toContainText(/^· resets/);
+    // RESETS_AT (2026-09-01) is a past, other-day instant: the bracketed (HH:MM Ddd)
+    // form, evaluated for that exact instant in the page's own zone (plan
+    // masthead-indicators REQ-4/REQ-12), with the HH:MM also in the hover title.
+    const resetsInstant = new Date(RESETS_AT);
+    await expect(mastheadModelWeekResets(page)).toHaveText(
+      await expectedResetsText(page, resetsInstant),
+    );
+    await expect(mastheadModelWeekResets(page)).toHaveText(RESETS_OTHER_DAY);
+    await expect(mastheadModelWeekResets(page)).not.toContainText(/resets|·/i);
+    await expect(mastheadModelWeekResets(page)).toHaveAttribute(
+      "title",
+      new RegExp(await clockText(page, resetsInstant)),
+    );
   } finally {
     await api.stop();
   }
@@ -206,6 +219,11 @@ test("the fake endpoint switched to 401 marks the readout stale while keeping th
     // INV-3: a failed poll never changes the last-good list.
     await expect(mastheadModelWeekPercent(page)).toHaveText("61%");
     await expect(mastheadModelWeekTrack(page)).toHaveCount(1);
+    // Plan masthead-indicators E2: the stale readout keeps its last-good reset text, in
+    // the bracketed format.
+    await expect(mastheadModelWeekResets(page)).toHaveText(
+      await expectedResetsText(page, new Date(RESETS_AT)),
+    );
 
     api.setResponse(
       200,

@@ -1,0 +1,217 @@
+{
+  "plan": "masthead-indicators",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-12T16:14:38Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 13,
+        "keep": 1,
+        "drop": 12
+      },
+      "keeps": [
+        {
+          "key": "web/src/render/masthead.ts:89dc6bcec29bfe77",
+          "path": "web/src/render/masthead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function renderConnectionStatus(",
+            "line": 12
+          },
+          "lines": [
+            "/** Writes only what changed: the host is a `role=\"status\"` live region, so rewriting its",
+            "* word every tick would re-announce it. The visually hidden word lives in the host's",
+            "* `.sr-only` child. */"
+          ],
+          "reason": "Without it a reader would delete the `!==` guards and assign `wordEl.textContent` every render tick as redundant; that makes the `role=\"status\"` live region re-announce the word every second at `if (wordEl.textContent !== description.word) wordEl.textContent = description.word;`."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/server/usagewire.go:c9e4d901e9ef5844",
+          "path": "internal/server/usagewire.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type UsageInfo struct {",
+            "line": 25
+          },
+          "lines": [
+            "// UsageInfo is the `usage` object inside a snapshot (kb:anchor/ws.usage). FiveHour,",
+            "// SevenDay and SampledAt are explicit `null` keys (no `omitempty`) until the first sample.",
+            "// ModelScoped/ModelScopedAt/ModelScopedError are the second,",
+            "// independent usage source: nil slice/pointer renders `null` on the wire (no `omitempty`)",
+            "// until the first successful fetch; an empty-but-non-nil ModelScoped is a valid, distinct",
+            "// successful result. ModelScopedSource is a wire constant in v1, never empty."
+          ]
+        },
+        {
+          "key": "web/src/features/connection.ts:2bc313939da9417a",
+          "path": "web/src/features/connection.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { App, ConnectionStatus } from \"../app\";",
+            "line": 1
+          },
+          "lines": [
+            "// Connection health dot, daemon-down banner, protocol mismatch, and the Claude Code",
+            "// version readout (kb:adr/process-one-name-per-feature: \"connection\"). Owns `everConnected` —",
+            "// only true once a `hello` has ever been received, so a socket that hasn't connected yet",
+            "// reads \"connecting…\" rather than flashing \"musterd unreachable\" on first load. Also owns",
+            "// whether a mismatched hello actually shows the mismatch screen: a window mid update-restart",
+            "// reload suppresses it (kb:adr/update-restart-reloads-dashboard), decided here via",
+            "// `ConnectionDeps.reloading` rather than by the WS-message caller."
+          ]
+        },
+        {
+          "key": "web/src/features/usage.ts:0d948d57dbf7eb94",
+          "path": "web/src/features/usage.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { App } from \"../app\";",
+            "line": 1
+          },
+          "lines": [
+            "// The masthead's usage gauges: text readout, track/resets markup, and the",
+            "// per-model weekly window. No dependency on any other controller."
+          ]
+        },
+        {
+          "key": "web/src/protocol/messages.ts:e16db6787d37e073",
+          "path": "web/src/protocol/messages.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "shellsBusy?: number[];",
+            "line": 43
+          },
+          "lines": [
+            "// kb:anchor/ws.shell-activity: session ids whose shell is",
+            "// busy right now — lets a reconnecting dashboard re-sync the activity indicator without",
+            "// waiting for a `shellActivity` transition. Present-only, same tolerance as",
+            "// `usage.modelScoped` (kb:anchor/conventions's additive evolution): an absent",
+            "// wire key stays absent on the parsed object rather than gaining a synthesized `[]`, so",
+            "// an older daemon's payload round-trips unchanged. Real callers read `snapshot.shellsBusy ??",
+            "// []`, same as every other present-only field's read site."
+          ]
+        },
+        {
+          "key": "web/src/protocol/usage.ts:e68d0f7a66db0d03",
+          "path": "web/src/protocol/usage.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "modelScoped?: ModelWindow[] | null;",
+            "line": 31
+          },
+          "lines": [
+            "// kb:anchor/ws.usage — optional wire fields: an absent key round-trips as absent, not",
+            "// synthesized null, so an older daemon's payload (all four keys absent) round-trips",
+            "// unchanged. That modelScopedAt is null iff modelScoped is null is a daemon-side invariant",
+            "// only — a client reads `usage.modelScoped ?? null` and `usage.modelScopedAt ?? null` uniformly."
+          ]
+        },
+        {
+          "key": "web/src/protocol/usage.ts:5a9995d48326fd72",
+          "path": "web/src/protocol/usage.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat guards plus present-only key blocks whose comments must stay with their fields",
+            "line": 74
+          },
+          "lines": [
+            "/** Scores 20 on cognitive complexity, still over Biome's 15 ceiling: the remainder is the",
+            "* four `if (\"key\" in value)` blocks that implement present-only additive evolution",
+            "* (kb:anchor/conventions), each carrying the comment explaining why an absent key must",
+            "* stay absent rather than become `null`. Splitting the function strands those comments",
+            "* away from the fields they govern. */"
+          ]
+        },
+        {
+          "key": "web/src/protocol/usage.ts:741b8d389853c840",
+          "path": "web/src/protocol/usage.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "if (\"modelScoped\" in value) {",
+            "line": 87
+          },
+          "lines": [
+            "// kb:anchor/ws.usage: present-only pattern — each of the four optional fields is read",
+            "// only when its key is on the wire, and a",
+            "// malformed value (wrong type, an unrecognized `modelScopedError` string, a malformed",
+            "// `modelScoped` element) rejects the whole message rather than silently degrading to",
+            "// \"unknown\" (guarded by web/src/protocol/usage.test.ts)."
+          ]
+        },
+        {
+          "key": "web/src/render/masthead.ts:945069d01174a0f5",
+          "path": "web/src/render/masthead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import { requireElement } from \"../dom\";",
+            "line": 1
+          },
+          "lines": [
+            "// Pure DOM updates for the masthead: connection health dot, usage readouts, Claude Code",
+            "// version/verification status. Brand (\"Muster\") is static markup in index.html — nothing",
+            "// to render.",
+            "//",
+            "// Honesty rules (design-system §6.1): a null usage bucket renders the word \"unknown\"",
+            "// and no track/gauge markup at all — never a 0%-filled bar."
+          ]
+        },
+        {
+          "key": "web/src/render/masthead.ts:934e7c61d14f74bf",
+          "path": "web/src/render/masthead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface ConnectionHealthDescription {",
+            "line": 6
+          },
+          "lines": [
+            "/** What `#connection-status` shows: the dot's colour state, the screen-reader word and the",
+            "* hover detail. `features/connectionhealth.ts`'s `describeConnectionHealth` is its one",
+            "* producer. */"
+          ]
+        },
+        {
+          "key": "web/src/sessions/format.ts:07ff333f2216807c",
+          "path": "web/src/sessions/format.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function formatResets(resetsAtIso: string, now: Date): string {",
+            "line": 81
+          },
+          "lines": [
+            "/** A usage bucket's reset time, bracketed: the same local day as `now` renders `(HH:MM)`,",
+            "* any other day `(HH:MM Ddd)`. Uses the client's local timezone — the daemon ships UTC",
+            "* RFC3339Nano; `Date`'s local getters do the conversion. */"
+          ]
+        },
+        {
+          "key": "web/src/sessions/format.ts:9ee373a971c31ec7",
+          "path": "web/src/sessions/format.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function formatResetsTitle(resetsAtIso: string): string {",
+            "line": 92
+          },
+          "lines": [
+            "/** The hover text for a reset suffix: the full local date and the same 24-hour `HH:MM` the",
+            "* suffix shows. */"
+          ]
+        },
+        {
+          "key": "web/src/sessions/usage.ts:5e70f97eae5fc5fe",
+          "path": "web/src/sessions/usage.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "resetsTitle: string | null;",
+            "line": 24
+          },
+          "lines": [
+            "/** The full local reset date and time for the suffix's hover; `null` iff unknown. */"
+          ]
+        }
+      ]
+    }
+  ]
+}

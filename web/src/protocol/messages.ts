@@ -40,13 +40,6 @@ export interface Snapshot {
   // rejecting the snapshot - same additive-evolution tolerance as
   // `claudeTheme` before it.
   update: UpdateInfo | null;
-  // kb:anchor/ws.shell-activity: session ids whose shell is
-  // busy right now — lets a reconnecting dashboard re-sync the activity indicator without
-  // waiting for a `shellActivity` transition. Present-only, same tolerance as
-  // `usage.model`/`modelScoped` (kb:anchor/conventions's additive evolution): an absent
-  // wire key stays absent on the parsed object rather than gaining a synthesized `[]`, so
-  // an older daemon's payload round-trips unchanged. Real callers read `snapshot.shellsBusy ??
-  // []`, same as every other present-only field's read site.
   shellsBusy?: number[];
   // kb:anchor/ws.groups: always present on a current daemon's snapshot; an older daemon's
   // payload (neither key) parses as no groups and Ungrouped in last place, so the rail renders

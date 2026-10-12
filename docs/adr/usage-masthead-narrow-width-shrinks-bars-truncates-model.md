@@ -1,7 +1,7 @@
 ---
 id: usage-masthead-narrow-width-shrinks-bars-truncates-model
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-23
 summary: The masthead never wraps its text; below 1840px its gaps tighten and bars drop to 40px, and only the model name truncates, with a hover title.
 features: [usage]

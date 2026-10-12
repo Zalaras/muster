@@ -7,10 +7,10 @@ summary: Token and cookie auth, the /ws hello and snapshot, protocol version, co
 features: [connection]
 tags: [auth, security]
 go: [cmd/musterd/**, internal/server/server*.go, internal/server/respond*.go, internal/server/auth*.go, internal/server/ws*.go, internal/server/state*.go, internal/server/bgloop*.go, internal/server/staticserve_test.go, internal/server/fakes_test.go, internal/server/helpers_test.go, internal/webui/**]
-web: [web/src/features/connection*.ts, web/src/ws*.ts, web/src/protocol/**, web/src/api/**, web/src/app*.ts, web/src/dom*.ts, web/src/main.ts, web/src/render/banner*.ts]
-e2e: [web/e2e/auth.spec.ts, web/e2e/resilience.spec.ts, web/e2e/claude-version.spec.ts, web/e2e/embedded.spec.ts, web/e2e/type-scale.spec.ts, web/e2e/helpers/daemon.ts, web/e2e/helpers/db.ts, web/e2e/helpers/fixtures.ts, web/e2e/helpers/gatelock.ts]
+web: [web/src/features/connection*.ts, web/src/ws*.ts, web/src/protocol/**, web/src/api/**, web/src/app*.ts, web/src/dom*.ts, web/src/main.ts, web/src/render/banner*.ts, web/src/style.test.ts]
+e2e: [web/e2e/auth.spec.ts, web/e2e/resilience.spec.ts, web/e2e/claude-version.spec.ts, web/e2e/embedded.spec.ts, web/e2e/type-scale.spec.ts, web/e2e/helpers/daemon.ts, web/e2e/helpers/db.ts, web/e2e/helpers/fixtures.ts, web/e2e/helpers/gatelock.ts, web/e2e/masthead-update-dot.spec.ts]
 protocol: [transport, ws, ws.hello, ws.snapshot]
-refs: [kb:adr/connection-ui-token-reusable-not-one-time, kb:adr/ingest-separate-token-in-url-path, kb:adr/connection-commands-http-ws-push-only, kb:adr/connection-whole-object-session-upserts, kb:adr/connection-banner-only-after-first-hello, kb:adr/connection-protocol-bumps-only-on-shape-change, kb:adr/connection-installed-claude-classified-never-refused, kb:adr/connection-dashboard-embedded-in-binary, kb:adr/connection-missing-web-build-fails-fast, kb:adr/connection-dashboard-auto-opens-on-terminal, kb:adr/surfaces-tmux-preflight-at-startup, kb:adr/theme-banner-tokens-not-rose, kb:adr/update-restart-reloads-dashboard, kb:adr/stack-http-stdlib-net-http, kb:adr/stack-websocket-coder, docs/design/ux-flows.md]
+refs: [kb:adr/connection-ui-token-reusable-not-one-time, kb:adr/ingest-separate-token-in-url-path, kb:adr/connection-commands-http-ws-push-only, kb:adr/connection-whole-object-session-upserts, kb:adr/connection-banner-only-after-first-hello, kb:adr/connection-protocol-bumps-only-on-shape-change, kb:adr/connection-installed-claude-classified-never-refused, kb:adr/connection-dashboard-embedded-in-binary, kb:adr/connection-missing-web-build-fails-fast, kb:adr/connection-dashboard-auto-opens-on-terminal, kb:adr/surfaces-tmux-preflight-at-startup, kb:adr/theme-banner-tokens-not-rose, kb:adr/connection-health-dot, kb:adr/connection-health-dot-hues-kept, kb:adr/connection-dot-red-during-update-confirmation, kb:adr/update-restart-reloads-dashboard, kb:adr/stack-http-stdlib-net-http, kb:adr/stack-websocket-coder, docs/design/ux-flows.md]
 ---
 Connection is the daemon's front door and the dashboard's link to it.
 
@@ -48,11 +48,17 @@ version shows a fatal "reload the dashboard" state.
 
 ## What the dashboard shows
 
-A status readout reads connecting until the first hello, then connected; a socket lost
-after a hello reads reconnecting and raises the full-width daemon-down banner, on its own
-banner tokens, until a hello returns, except after an update restart, when the banner reads
-as updating (kb:spec/update) (kb:adr/connection-banner-only-after-first-hello,
-kb:adr/theme-banner-tokens-not-rose, docs/design/ux-flows.md "Degraded and honest states").
+The masthead's status readout is a health dot: yellow while connecting before the first hello
+and during the dashboard's own update restart, green when connected, red once the connection is
+lost. Its word (`connecting…`, `connected`, `reconnecting…`) is screen-reader text and its detail
+is on hover; its colours are the dedicated `--health-ok`, `--health-pending` and `--health-down`
+tokens (kb:adr/connection-health-dot, kb:adr/connection-health-dot-hues-kept). A socket lost
+after a hello raises the full-width daemon-down banner, on its own banner tokens, until a hello
+returns, except after an update restart, when the banner reads as updating (kb:spec/update). The
+dot agrees with the banner, except that a socket lost during the confirmation banner's ≤ 3 s is
+red beside the neutral banner (kb:adr/connection-banner-only-after-first-hello,
+kb:adr/theme-banner-tokens-not-rose, kb:adr/connection-dot-red-during-update-confirmation,
+docs/design/ux-flows.md "Degraded and honest states").
 Masthead controls are disabled while down. One client module owns reconnection with backoff.
 The reader pop-out (`/doc.html`) shares the same rule and the same connection state: it
 reads `connecting…` until its own first hello and follows the dashboard's live theme

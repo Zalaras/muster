@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClaudeCodeInfo } from "../protocol/hello";
 import type { Density } from "../protocol/prefs";
-import type { SessionModelInfo } from "../protocol/session";
 import type { ModelWindow, Usage } from "../protocol/usage";
-import { formatResets } from "../sessions/format";
+import { formatResets, formatResetsTitle } from "../sessions/format";
 import {
   buildUsageBucket,
   buildUsageModelWeek,
@@ -11,9 +10,9 @@ import {
   renderConnectionStatus,
   renderDensityControl,
   renderUsageBucket,
-  renderUsageModel,
   renderUsageModelWeek,
   renderViewSwitcher,
+  type ConnectionHealthDescription,
   type DensityControlElements,
   type UsageBucketRefs,
   type UsageModelWeekRefs,
@@ -22,10 +21,9 @@ import {
 import { describeClaudeVersion } from "../features/connectionversion";
 
 /** A bare `{ textContent }` stub, plus an attribute store (same `Map`-backed idiom as
- * `fakeButton` below) so `renderUsageModel`'s `title`/`removeAttribute("title")` calls —
- * issue #52's hover-tooltip fix — have somewhere to land. `title` reflects the "title"
- * attribute the way a real `HTMLElement` does, so `removeAttribute` leaves it genuinely
- * absent (`hasAttribute` false), not just an empty string. */
+ * `fakeButton` below). `title` reflects the "title" attribute the way a real `HTMLElement`
+ * does, so `removeAttribute` leaves it genuinely absent (`hasAttribute` false), not just an
+ * empty string. */
 function fakeElement(): HTMLElement {
   const attrs = new Map<string, string>();
   return {
@@ -61,6 +59,7 @@ class FakeDomNode {
   readonly tagName: string;
   className = "";
   hidden = false;
+  title = "";
   readonly style: Record<string, string> = {};
   private parent: FakeDomNode | null = null;
   private children: FakeDomNode[] = [];
@@ -131,15 +130,104 @@ function fakeButton(): HTMLButtonElement {
   } as unknown as HTMLButtonElement;
 }
 
-describe("renderConnectionStatus", () => {
+/** The `#connection-status` host as `renderConnectionStatus` reads it: a `.sr-only` word
+ * child found by `querySelector`, a `dataset`, and a `title`. Every write to `word`, `data-health`
+ * and `title` is counted so the skip-unchanged contract (a `role="status"` host must not
+ * re-announce its word every tick) is observable. */
+function fakeHealthHost(): {
+  el: HTMLElement;
+  word: { textContent: string };
+  dataset: Record<string, string>;
+  writes: { word: number; health: number; title: number };
+} {
+  const writes = { word: 0, health: 0, title: 0 };
+  const wordState = { text: "" };
+  const word = {
+    get textContent(): string {
+      return wordState.text;
+    },
+    set textContent(value: string) {
+      writes.word++;
+      wordState.text = value;
+    },
+  };
+  const data: Record<string, string> = {};
+  const dataset = new Proxy(data, {
+    set(target, key: string, value: string) {
+      writes.health++;
+      target[key] = value;
+      return true;
+    },
+  });
+  let title = "";
+  const el = {
+    dataset,
+    get title(): string {
+      return title;
+    },
+    set title(value: string) {
+      writes.title++;
+      title = value;
+    },
+    querySelector: (selector: string) => (selector === ".sr-only" ? word : null),
+  } as unknown as HTMLElement;
+  return { el, word, dataset: data, writes };
+}
+
+describe("renderConnectionStatus — the health dot (W4/W5): hidden word, data-health, title", () => {
+  const OK: ConnectionHealthDescription = {
+    health: "ok",
+    word: "connected",
+    title: "Connected to musterd",
+  };
+  const PENDING: ConnectionHealthDescription = {
+    health: "pending",
+    word: "connecting…",
+    title: "Connecting to musterd…",
+  };
+  const DOWN: ConnectionHealthDescription = {
+    health: "down",
+    word: "reconnecting…",
+    title: "musterd unreachable — reconnecting…",
+  };
+
   it.each([
-    ["connected", "connected"],
-    ["connecting", "connecting…"],
-    ["reconnecting", "reconnecting…"],
-  ] as const)("renders %s as %p", (status, expected) => {
-    const el = fakeElement();
-    renderConnectionStatus(el, status);
-    expect(el.textContent).toBe(expected);
+    ["ok", OK],
+    ["pending", PENDING],
+    ["down", DOWN],
+  ] as const)(
+    "writes the %s description to the .sr-only word, data-health and title",
+    (_name, description) => {
+      const host = fakeHealthHost();
+      renderConnectionStatus(host.el, description);
+      expect(host.word.textContent).toBe(description.word);
+      expect(host.dataset["health"]).toBe(description.health);
+      expect(host.el.title).toBe(description.title);
+    },
+  );
+
+  it("writes nothing on a repeat render of an unchanged description (no live-region re-announce)", () => {
+    const host = fakeHealthHost();
+    renderConnectionStatus(host.el, OK);
+    const before = { ...host.writes };
+    renderConnectionStatus(host.el, { ...OK });
+    renderConnectionStatus(host.el, { ...OK });
+    expect(host.writes).toEqual(before);
+  });
+
+  it("rewrites only the fields that changed: pending -> down keeps the same word and so does not touch it", () => {
+    const host = fakeHealthHost();
+    renderConnectionStatus(host.el, { ...PENDING, word: "reconnecting…" });
+    const wordWrites = host.writes.word;
+    renderConnectionStatus(host.el, DOWN);
+    expect(host.writes.word).toBe(wordWrites);
+    expect(host.dataset["health"]).toBe("down");
+    expect(host.el.title).toBe(DOWN.title);
+  });
+
+  it("throws when the host has no .sr-only word child (a broken template is loud, not silent)", () => {
+    const el = { dataset: {}, title: "", querySelector: () => null } as unknown as HTMLElement;
+    expect(() => renderConnectionStatus(el, OK)).toThrow("missing required element: .sr-only");
   });
 });
 
@@ -188,9 +276,10 @@ describe("buildUsageBucket + renderUsageBucket — honesty rule: null renders 'u
     const { container, refs } = bucketRefs("5h");
     renderUsageBucket(refs, { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" }, now);
     expect(container.querySelector(".num")?.textContent).toBe("61%");
-    expect(container.querySelector(".resets")?.textContent).toBe(
-      `· ${formatResets("2026-08-20T11:00:00Z", now)}`,
-    );
+    const resets = container.querySelector(".resets");
+    expect(resets?.textContent).toBe(formatResets("2026-08-20T11:00:00Z", now));
+    expect(resets?.textContent).toMatch(/^\(\d{2}:\d{2}( \S+)?\)$/);
+    expect(resets?.title).toBe(formatResetsTitle("2026-08-20T11:00:00Z"));
   });
 
   it("removes an existing bar/resets on a known -> unknown transition (self-healing, e.g. a daemon restart)", () => {
@@ -248,7 +337,7 @@ describe("renderUsageBucket — element order matches the reference render (Majo
     expect(container.querySelector(".lbl")?.textContent).toBe("5h");
     expect(container.querySelector(".num")?.textContent).toBe("61%");
     expect(container.querySelector(".resets")?.textContent).toBe(
-      `· ${formatResets(bucket.resetsAt, now)}`,
+      formatResets(bucket.resetsAt, now),
     );
   });
 
@@ -488,81 +577,6 @@ describe("renderDensityControl — renders only in Tiles; aria-pressed reflects 
   );
 });
 
-describe("renderUsageModel (REQ-12): the masthead model readout", () => {
-  it("hides and clears the element when model is null (no sample yet)", () => {
-    const el = fakeElement() as HTMLElement & { hidden: boolean };
-    el.hidden = false;
-    el.textContent = "stale";
-    renderUsageModel(el, null);
-    expect(el.hidden).toBe(true);
-    expect(el.textContent).toBe("");
-  });
-
-  it("hides and clears the element when model is undefined (payload with no model key)", () => {
-    const el = fakeElement() as HTMLElement & { hidden: boolean };
-    el.hidden = false;
-    renderUsageModel(el, undefined);
-    expect(el.hidden).toBe(true);
-    expect(el.textContent).toBe("");
-  });
-
-  it("shows the element with the model's displayName verbatim when present", () => {
-    const el = fakeElement() as HTMLElement & { hidden: boolean };
-    el.hidden = true;
-    const model: SessionModelInfo = { id: "claude-haiku-4-5", displayName: "Haiku 4.5" };
-    renderUsageModel(el, model);
-    expect(el.hidden).toBe(false);
-    expect(el.textContent).toBe("Haiku 4.5");
-  });
-
-  it("re-hides on a known -> null transition (e.g. daemon restart, REQ-7) — self-healing, no stale name left behind", () => {
-    const el = fakeElement() as HTMLElement & { hidden: boolean };
-    renderUsageModel(el, { id: "claude-opus-5", displayName: "Opus 5" });
-    expect(el.textContent).toBe("Opus 5");
-    renderUsageModel(el, null);
-    expect(el.hidden).toBe(true);
-    expect(el.textContent).toBe("");
-  });
-
-  // Issue #52: `.model` truncates whenever the masthead row runs out of horizontal space
-  // (style.css), so `title` carries the full name for a hover tooltip whenever a
-  // truncated one might be showing.
-  it("sets title to the model's displayName verbatim when shown", () => {
-    const el = fakeElement();
-    const model: SessionModelInfo = { id: "claude-haiku-4-5", displayName: "Haiku 4.5" };
-    renderUsageModel(el, model);
-    expect(el.title).toBe("Haiku 4.5");
-    expect(el.hasAttribute("title")).toBe(true);
-  });
-
-  it("clears title on a known -> null transition — attribute absent, not an empty string", () => {
-    const el = fakeElement();
-    renderUsageModel(el, { id: "claude-opus-5", displayName: "Opus 5" });
-    expect(el.hasAttribute("title")).toBe(true);
-    renderUsageModel(el, null);
-    expect(el.hasAttribute("title")).toBe(false);
-    expect(el.title).toBe("");
-  });
-
-  it("clears title on a known -> undefined transition (pre-plan payload with no model key) — attribute absent", () => {
-    const el = fakeElement();
-    renderUsageModel(el, { id: "claude-opus-5", displayName: "Opus 5" });
-    expect(el.hasAttribute("title")).toBe(true);
-    renderUsageModel(el, undefined);
-    expect(el.hasAttribute("title")).toBe(false);
-    expect(el.title).toBe("");
-  });
-
-  it("updates title on a model -> different-model change", () => {
-    const el = fakeElement();
-    renderUsageModel(el, { id: "claude-haiku-4-5", displayName: "Haiku 4.5" });
-    expect(el.title).toBe("Haiku 4.5");
-    renderUsageModel(el, { id: "claude-opus-5", displayName: "Opus 5" });
-    expect(el.title).toBe("Opus 5");
-    expect(el.hasAttribute("title")).toBe(true);
-  });
-});
-
 // Plan usage-model-bar: `renderModelWeek` needs more than the plain `.lbl`/`.num` span
 // pair `FakeDomNode` above models — it builds a `<select>` with `disabled`/`value`
 // properties and a `change` listener, and toggles `.stale`/`title` directly on the
@@ -783,7 +797,8 @@ describe("buildUsageModelWeek + renderUsageModelWeek (plan usage-model-bar REQ-9
     expect(select!.optionTexts()).toEqual(["Fable", "Opus"]);
     expect(select!.value).toBe("Fable");
     expect(num!.textContent).toBe("61%");
-    expect(resets!.textContent).toBe(`· ${formatResets(fable.resetsAt, now)}`);
+    expect(resets!.textContent).toBe(formatResets(fable.resetsAt, now));
+    expect(resets!.title).toBe(formatResetsTitle(fable.resetsAt));
   });
 
   it("applies the warn modifier at or above 60% and omits it below (design-system §5 threshold)", () => {

@@ -7,10 +7,15 @@ import {
   mastheadBucket,
   mastheadBucketTrack,
   mastheadBucketWarn,
-  mastheadModelReadout,
   tileContextInfo,
   tileContextTrack,
 } from "./helpers/gauges";
+import {
+  mastheadBucketResets,
+  RESETS_OTHER_DAY,
+  RESETS_SAME_DAY,
+  removedModelReadout,
+} from "./helpers/masthead";
 import {
   envelopedSessionStart,
   envelopedStatusLineFull,
@@ -182,7 +187,7 @@ test("the same status data renders in the Tiles view's tile header (E4)", async 
   }
 });
 
-test("a full status post fills both masthead gauge bars with rounded percentages and reset suffixes, and shows the model readout (E5)", async ({
+test("a full status post fills both masthead gauge bars with rounded percentages and bracketed reset suffixes, and shows no model readout (E5)", async ({
   page,
   request,
   daemon,
@@ -210,18 +215,25 @@ test("a full status post fills both masthead gauge bars with rounded percentages
 
     await expect(mastheadBucket(page, "5h")).toContainText("5h");
     await expect(mastheadBucket(page, "5h")).toContainText("45%");
-    // REQ-14: reset suffix is present whenever the bucket is known — client-side
-    // formatting picks same-day-HH:MM vs. short-weekday, neither of which this test
-    // depends on (no wall-clock assumption), only that a reset time renders at all.
-    await expect(mastheadBucket(page, "5h")).toContainText(/resets/i);
+    // REQ-14 / plan masthead-indicators REQ-4: the reset suffix is present whenever the
+    // bucket is known, as `(HH:MM)` or `(HH:MM Ddd)` — which of the two depends on the
+    // wall clock, so this test asserts only that one of the bracketed forms renders (the
+    // default fixture resets are a fixed far-future instant, an other-day form).
+    await expect(mastheadBucketResets(page, "5h")).toHaveText(
+      new RegExp(`${RESETS_SAME_DAY.source}|${RESETS_OTHER_DAY.source}`),
+    );
     await expect(mastheadBucketTrack(page, "5h")).toHaveCount(1);
 
     await expect(mastheadBucket(page, "7d")).toContainText("7d");
     await expect(mastheadBucket(page, "7d")).toContainText("10%");
-    await expect(mastheadBucket(page, "7d")).toContainText(/resets/i);
+    await expect(mastheadBucketResets(page, "7d")).toHaveText(
+      new RegExp(`${RESETS_SAME_DAY.source}|${RESETS_OTHER_DAY.source}`),
+    );
     await expect(mastheadBucketTrack(page, "7d")).toHaveCount(1);
 
-    await expect(mastheadModelReadout(page)).toHaveText("Haiku 4.5");
+    // Plan masthead-indicators REQ-1: the model the status line carried no longer shows
+    // in the masthead at all.
+    await expect(removedModelReadout(page)).toHaveCount(0);
   } finally {
     await cleanup();
   }
@@ -271,7 +283,7 @@ test("two identical rapid status posts persist exactly one usage_sample row; a c
   }
 });
 
-test("a status post's session name updates the card title and its model updates the masthead model readout (E7)", async ({
+test("a status post's session name updates the card title and its model leaves the masthead without a model readout (E7)", async ({
   page,
   request,
   daemon,
@@ -298,7 +310,8 @@ test("a status post's session name updates the card title and its model updates 
     });
 
     await expect(sessionCard(page, "gauge-e7-status-title")).toBeVisible();
-    await expect(mastheadModelReadout(page)).toHaveText("Opus 5");
+    await expect(mastheadBucket(page, "5h")).toContainText("61%");
+    await expect(removedModelReadout(page)).toHaveCount(0);
   } finally {
     await cleanup();
   }

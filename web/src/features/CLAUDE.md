@@ -1,6 +1,6 @@
 # web/src/features — controllers, one per feature (update: two)
 
-**Owns**: one controller per feature, except **update** (two: `update.ts`, and `updaterestart.ts` for the WS-driven restart). Each `init<Name>(app, deps)` looks up its elements, attaches listeners, subscribes via `app.on`, registers a render phase via `app.onRender`, and returns a small handle. `main.ts` registers each in one line; `app.ts` is the shared seam (store, `AppState`, event bus, render frame). Shared pure logic lives in `sessions/` or `terminal/`, DOM building in `render/`. A pure decision with one controller caller lives beside it in `features/` — inline when short, else in its own `<owner><concern>.ts` (the pure ones: `actionscopy.ts`, `batchplan.ts`, `connectionrestore.ts`, `connectionversion.ts`, `groupscopy.ts`, `launchcrumbs.ts`, `launchgroupchoice.ts`, `launchmodels.ts`, `launchrestore.ts`, `updateview.ts`). `groups.ts` owns the rail's per-window state (filter, name editor, menus), looks up its two sub-controllers' markup and hands it in, and adopts the `groups` event; `rail.ts` calls its `renderChrome` first. `groupsselect.ts` is its select-mode sub-controller (toggle, selection, bar) and `groupsdialogs.ts` its Delete group and New group dialogs. `launchgroup.ts` is `launch.ts`'s Group-row sub-controller, the shape both copy. **Features**: actions, connection, focus, issue, launch, rail, reader, rename, settings, shortcuts, surfaces, theme, tiles, update, usage, views.
+**Owns**: one controller per feature, except **update** (two: `update.ts`, and `updaterestart.ts` for the WS-driven restart). Each `init<Name>(app, deps)` looks up its elements, attaches listeners, subscribes via `app.on`, registers an `app.onRender` phase, returns a handle. `main.ts` registers each in one line; `app.ts` is the shared seam (store, `AppState`, event bus, render frame). Shared pure logic lives in `sessions/` or `terminal/`, DOM building in `render/`. A pure decision with one controller caller lives beside it in `features/` — inline when short, else in its own `<owner><concern>.ts` (the pure ones: `actionscopy.ts`, `batchplan.ts`, `connectionhealth.ts`, `connectionrestore.ts`, `connectionversion.ts`, `groupscopy.ts`, `launchcrumbs.ts`, `launchgroupchoice.ts`, `launchmodels.ts`, `launchpastlist.ts`, `launchrestore.ts`, `updateview.ts`). `groups.ts` owns the rail's per-window state (filter, name editor, menus), looks up its two sub-controllers' markup and hands it in, and adopts the `groups` event; `rail.ts` calls its `renderChrome` first. `groupsselect.ts` is its select-mode sub-controller (toggle, selection, bar) and `groupsdialogs.ts` its Delete group and New group dialogs. `launchgroup.ts` is `launch.ts`'s Group-row sub-controller, the shape both copy, and `launchresume.ts` its Resume-tab one. **Features**: actions, connection, focus, issue, launch, rail, reader, rename, settings, shortcuts, surfaces, theme, tiles, update, usage, views.
 
 **Invariants** (violations are review-Critical):
 - `main.ts` holds no DOM lookup, listener, or module-level mutable state (kb:adr/process-composition-roots-registration-only).
@@ -21,7 +21,7 @@
 - `deps` is always a named exported `<Name>Deps` interface, never inline; a thunk reaching a later-constructed controller is named `get<Noun>`; `init` returns a handle only when a caller uses it.
 
 <!-- kb:trailer -->
-<!-- kb:hash f996ce264136989d -->
+<!-- kb:hash a691bb54a0cc0c9e -->
 - **actions** — Stop, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
@@ -40,5 +40,5 @@
 - **update** — Release check, minisign-verified apply, in-place restart with sessions re-adopted. → `docs/features/update/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
 - **views** — Focus and Tiles switch, density preference, view containers. → `docs/features/views/INDEX.md`
-- 62 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 64 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

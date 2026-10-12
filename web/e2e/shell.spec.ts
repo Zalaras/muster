@@ -56,12 +56,13 @@ test("GET /api/state returns exactly the empty-daemon snapshot object once authe
   // Values that follow from this scratch daemon's setup rather than from the defaults:
   // it writes no usage-token-file content, so its immediate on-Start fetch fails fast
   // with "no-credentials" (what a machine with no Keychain item sees) and
-  // `modelScoped`/`modelScopedAt` stay null; `usage.model` stays null until a status post
-  // carries buckets and model together; `claudeTheme.family` is "unknown" because no
+  // `modelScoped`/`modelScopedAt` stay null; `usage` carries no `model` key at all (plan
+  // masthead-indicators REQ-2); `claudeTheme.family` is "unknown" because no
   // `-claude-theme-poll` is passed; `update.install` is "dev" because `bin/musterd` is
   // stamped by `git describe`, so it never checks (`available`/`checkedAt`/`installed`
   // null, no remedy, `canCheck` false regardless of `-update-base-url`), and
   // `update.running` is matched structurally since the dev version changes every commit.
+  expect(body.usage).not.toHaveProperty("model");
   expect(body).toEqual({
     sessions: [],
     // The rail-groups contract (kb:anchor/ws.snapshot): a fresh daemon has no groups and an
@@ -72,7 +73,6 @@ test("GET /api/state returns exactly the empty-daemon snapshot object once authe
     usage: {
       fiveHour: null,
       sevenDay: null,
-      model: null,
       sampledAt: null,
       source: "subscription",
       modelScoped: null,
