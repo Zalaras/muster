@@ -92,7 +92,7 @@ The refusal entry was filed 2026-09-26 by the developer from
 - [ ] **Keyboard focus drops to the page body after Check now** — pressing Check now by
   keyboard loses focus; it should stay on the button. From `plans/settings-update-failures/`.
 
-### Together — rail card interactions (#56, #77)
+### Together — rail card (#56, #77, #84)
 
 - [ ] **Add right click for rail card** ([#56](https://github.com/Zalaras/muster/issues/56)) — a custom
   right-click menu on a rail card carrying each of its actions, Stop among them: the card itself
@@ -102,6 +102,10 @@ The refusal entry was filed 2026-09-26 by the developer from
 - [ ] **cannot drag when multiple selected** ([#77](https://github.com/Zalaras/muster/issues/77)) — with
   several sessions selected in the rail, they cannot be dragged into a group. A multi-selection
   should drag into a group together.
+
+- [ ] **I want to be able to see my cache warmth** ([#84](https://github.com/Zalaras/muster/issues/84)) — a
+  rail card should show at a glance whether the session's prompt cache is still warm (a colour
+  or an icon), tied to the idle timer it already shows, since the cache stays warm only so long.
 
 ### Together — masthead indicators (#79, #80, #85)
 
@@ -164,10 +168,6 @@ Filed 2026-10-12 by the developer from `plans/reader-expanded-persists/proposed-
 - [ ] **Renaming in Muster does not rename Claude session** ([#71](https://github.com/Zalaras/muster/issues/71)) —
   renaming a session in Muster leaves Claude Code's own session name unchanged. A rename should
   reach both.
-
-- [ ] **I want to be able to see my cache warmth** ([#84](https://github.com/Zalaras/muster/issues/84)) — a
-  rail card should show at a glance whether the session's prompt cache is still warm (a colour
-  or an icon), tied to the idle timer it already shows, since the cache stays warm only so long.
 
 ### From the maintainability cleanup (2026-09-24)
 
