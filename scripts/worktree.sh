@@ -188,7 +188,7 @@ cmd_list() {
   # Radar: which plan branches (plus their trees' dirty files) touch the same paths.
   local branches=() b tmp; tmp="$(mktemp -d)"
   while IFS= read -r b; do branches+=("$b"); done < <(git -C "$PRIMARY" for-each-ref --format='%(refname:short)' 'refs/heads/plan/')
-  for b in "${branches[@]}"; do
+  for b in ${branches[@]+"${branches[@]}"}; do
     { git -C "$PRIMARY" diff --name-only "main...$b"
       at="$(branch_checked_out_at "$b")"; [ -n "$at" ] && git -C "$at" status --porcelain | cut -c4- | sed 's/.* -> //'
     } | sort -u > "$tmp/${b//\//_}"
