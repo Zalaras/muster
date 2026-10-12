@@ -71,7 +71,7 @@ function isModelScopedError(value: unknown): value is ModelScopedError {
   return (MODEL_SCOPED_ERRORS as readonly unknown[]).includes(value);
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat guards plus present-only key blocks whose comments must stay with their fields
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat per-field guards plus one present-only block per optional modelScoped* key
 export function parseUsage(value: unknown): Usage | null {
   if (!isRecord(value)) return null;
   const fiveHour = parseNullable(value["fiveHour"], parseUsageBucket);

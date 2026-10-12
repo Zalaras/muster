@@ -356,10 +356,6 @@ body {
   background: var(--health-ok);
 }
 
-#connection-status[data-health="pending"]::before {
-  background: var(--health-pending);
-}
-
 #connection-status[data-health="down"]::before {
   background: var(--health-down);
 }

@@ -35,16 +35,17 @@ describe("health dot tokens (W6, REQ-10)", () => {
     expect(css.match(new RegExp(`^\\s*${token}:`, "gm"))).toHaveLength(3);
   });
 
-  it("the dot rule and its three state rules paint only through the health tokens", () => {
+  it("the dot rule paints pending and its two state rules paint ok and down, only through the health tokens", () => {
     const rules = [
       "#connection-status::before",
       '#connection-status[data-health="ok"]::before',
-      '#connection-status[data-health="pending"]::before',
       '#connection-status[data-health="down"]::before',
     ].map((selector) => blockBody(selector));
     for (const body of rules) expect(body).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(/i);
-    expect(rules.slice(1).map((body) => /background:\s*var\((--[\w-]+)\)/.exec(body)?.[1])).toEqual(
-      ["--health-ok", "--health-pending", "--health-down"],
-    );
+    expect(rules.map((body) => /background:\s*var\((--[\w-]+)\)/.exec(body)?.[1])).toEqual([
+      "--health-pending",
+      "--health-ok",
+      "--health-down",
+    ]);
   });
 });
