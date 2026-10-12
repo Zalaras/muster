@@ -112,6 +112,22 @@ The refusal entry was filed 2026-09-26 by the developer from
 - [ ] **Add reset time to bar** ([#80](https://github.com/Zalaras/muster/issues/80)) — the masthead usage
   gauges should show when each window resets.
 
+### Together — `MUSTER_SESSION` from the surrounding environment
+
+Filed 2026-10-12 by the developer from `plans/reader-expanded-persists/proposed-backlog.md`.
+
+- [ ] **`make test` fails inside a Muster session** — run from a Claude session Muster launched,
+  `TestShellRegistry_EnsurePaneEnvironmentNeverCarriesMusterSession` and
+  `TestShellRegistry_RespawnsAfterExternalKillWithNoMusterSession` (`internal/server`) fail with
+  `MUSTER_SESSION=[9]` where they expect `MUSTER_SESSION=[]`; with it unset they pass. They
+  should pass whatever environment they run in.
+
+- [ ] **Shell panes may inherit `MUSTER_SESSION` from the daemon's environment** — a `musterd`
+  started from a terminal that already carries `MUSTER_SESSION` (a Claude session Muster
+  launched) may hand it on to the shell panes it creates; not yet measured against a running
+  daemon. A shell pane should never see `MUSTER_SESSION`, whatever environment the daemon was
+  started in.
+
 ### On their own
 
 - [ ] **Tiles per group** — a Tiles view scoped to one group (the grid holds that group's live sessions, the strip the rest of it), reached from the group's ⋯ menu. The grid and strip ignore groups today.
