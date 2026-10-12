@@ -103,7 +103,7 @@ The refusal entry was filed 2026-09-26 by the developer from
   several sessions selected in the rail, they cannot be dragged into a group. A multi-selection
   should drag into a group together.
 
-### Together — masthead indicators (#79, #80)
+### Together — masthead indicators (#79, #80, #85)
 
 - [ ] **Change deamon connection strong to icon** ([#79](https://github.com/Zalaras/muster/issues/79)) — the
   masthead's daemon-connection text should become an icon: red when not connected, green when
@@ -111,6 +111,10 @@ The refusal entry was filed 2026-09-26 by the developer from
 
 - [ ] **Add reset time to bar** ([#80](https://github.com/Zalaras/muster/issues/80)) — the masthead usage
   gauges should show when each window resets.
+
+- [ ] **Remove the model from the top bar** ([#85](https://github.com/Zalaras/muster/issues/85)) — the
+  masthead shows a model that seems to be only the latest session's launch model and never
+  changes. The masthead should not show a model.
 
 ### Together — `MUSTER_SESSION` from the surrounding environment
 
@@ -127,6 +131,16 @@ Filed 2026-10-12 by the developer from `plans/reader-expanded-persists/proposed-
   launched) may hand it on to the shell panes it creates; not yet measured against a running
   daemon. A shell pane should never see `MUSTER_SESSION`, whatever environment the daemon was
   started in.
+
+### Together — Focus view header (#73, #83)
+
+- [ ] **Title squashed for no reason** ([#73](https://github.com/Zalaras/muster/issues/73)) — in the
+  Focus view header the repo/branch line (`work / main`) wraps onto two lines though the header
+  has plenty of room. It should stay on one line while there is room.
+
+- [ ] **Resume/Stop should be interchangeable** ([#83](https://github.com/Zalaras/muster/issues/83)) — the
+  header's Stop and Resume should be one button that swaps between the two, rather than a
+  greyed-out one taking space, without the layout shifting when Stop is clicked.
 
 ### On their own
 
@@ -151,9 +165,9 @@ Filed 2026-10-12 by the developer from `plans/reader-expanded-persists/proposed-
   renaming a session in Muster leaves Claude Code's own session name unchanged. A rename should
   reach both.
 
-- [ ] **Title squashed for no reason** ([#73](https://github.com/Zalaras/muster/issues/73)) — in the
-  Focus view header the repo/branch line (`work / main`) wraps onto two lines though the header
-  has plenty of room. It should stay on one line while there is room.
+- [ ] **I want to be able to see my cache warmth** ([#84](https://github.com/Zalaras/muster/issues/84)) — a
+  rail card should show at a glance whether the session's prompt cache is still warm (a colour
+  or an icon), tied to the idle timer it already shows, since the cache stays warm only so long.
 
 ### From the maintainability cleanup (2026-09-24)
 
