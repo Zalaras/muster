@@ -65,9 +65,10 @@ does; one mermaid cannot parse keeps its fenced source with a labelled reason be
 follow the dashboard theme and re-render when it changes, and each enlarges into a modal with
 zoom and pan. The sanitized output enters the DOM as a fragment, never through `innerHTML`. A leading YAML
 frontmatter block renders as a key/value table above the body (raw when not flat) and never
-reaches the outline. Last open file and cleared dots
-are remembered per session in the browser; the pop-out (`/doc.html`) is a second page sharing the
-component, the socket client and that memory. The pop-out's status line shows `connecting…`
+reaches the outline. The last open file, cleared dots, expanded
+folders and the Files and Outline folds are remembered per session in the browser; the pop-out
+(`/doc.html`) is a second page sharing the component, the socket client and that memory live — a
+change in one window shows in the other without a switch or reload. The pop-out's status line shows `connecting…`
 until its first `hello`, the unreachable text after a lost connection, and its theme follows
 the dashboard's live broadcasts (kb:adr/connection-banner-only-after-first-hello). Compact in
 a tile; nav collapsed at 3×2. Works on a dead session with the plan slot — and the nav's plan

@@ -1,0 +1,92 @@
+{
+  "plan": "reader-expanded-persists",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-12T11:49:55Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 1,
+        "keep": 0,
+        "drop": 1
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "web/src/reader/memory.ts:92291b9b250b8be0",
+          "path": "web/src/reader/memory.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import { isRecord } from \"../protocol/decode\";",
+            "line": 1
+          },
+          "lines": [
+            "// Browser-side reader memory (kb:adr/reader-memory-split-browser-and-daemon):",
+            "// which file was last open, which writes the user has already acknowledged, and which folders",
+            "// are expanded and nav sections folded — kept in",
+            "// `localStorage` under `muster.reader.\u003cid\u003e`, shared by the dashboard and the pop-out page",
+            "// (same origin, same key). A `ReaderInstance` is disposed whenever its surface isn't",
+            "// visible (features/reader.ts's diff), so this is also how a re-mount (switching back to",
+            "// `docs`, reloading, popping out) recovers \"which files has Claude written since the user",
+            "// last looked\" without any live event history to lean on — the daemon's own write log is",
+            "// in-memory only and resets on restart, so acknowledging a write is keyed by its",
+            "// `writtenAt`/`docChanged.at` value (they're the same timestamp, one write log): a later",
+            "// write to the same path gets a new value and lights the dot again."
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 3,
+      "at": "2026-10-12T13:46:29Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 1,
+        "keep": 0,
+        "drop": 1
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "web/src/reader/memory.ts:6d54c92f851ce47e",
+          "path": "web/src/reader/memory.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function isMemoryWrite(",
+            "line": 114
+          },
+          "lines": [
+            "/** Whether a `storage` event is another window writing this session's memory — the key",
+            "* matches and a value was written (a removal is `forget`, handled by `sessionRemoved`). */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 3,
+      "at": "2026-10-12T14:06:31Z",
+      "by": "orchestrator",
+      "counts": {
+        "candidates": 1,
+        "keep": 0,
+        "drop": 1
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "web/src/reader/memory.ts:3b95998baa60cd27",
+          "path": "web/src/reader/memory.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function loadMemory(",
+            "line": 49
+          },
+          "lines": [
+            "/** A throwing storage (private mode, disabled storage) or a foreign JSON shape (an older",
+            "* build, hand-edited storage) yields the empty default rather than throwing. */"
+          ]
+        }
+      ]
+    }
+  ]
+}

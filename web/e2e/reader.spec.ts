@@ -1,6 +1,14 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { expect, type Locator, type Page, settleFor, test } from "./helpers/fixtures";
+import {
+  type BrowserContext,
+  expect,
+  type Locator,
+  type Page,
+  type ScratchDaemon,
+  settleFor,
+  test,
+} from "./helpers/fixtures";
 import {
   envelopedSessionStart,
   rawPostToolUse,
@@ -2439,6 +2447,388 @@ test("a long frontmatter key never forces article.md to scroll horizontally in a
         { timeout: 15_000 },
       )
       .toBe("fits");
+  } finally {
+    await cleanup();
+  }
+});
+
+// Plan reader-expanded-persists (#82, REQ-1, REQ-2): fixture plan is this file's `daemon`
+// fixture, unchanged. Red-first proof — pins a defect that exists today.
+test("expanded folders and folds survive selecting Claude and then Docs again (reader-expanded-persists REQ-1, REQ-2)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await buildMarkdownFixtureTree(dir);
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dir, title: "reader-persist" });
+    await expect(terminalRegion(page, "reader-persist")).toContainText("MUSTER-STUB-READY", {
+      timeout: 15_000,
+    });
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-persist");
+    await expect(folderEntry(region, "docs")).toBeVisible({ timeout: 15_000 });
+
+    await folderEntry(region, "docs").click();
+    await expect(folderEntry(region, "adr")).toBeVisible({ timeout: 15_000 });
+
+    await outlineHeaderToggle(region).click();
+    await expect(outlineHeaderToggle(region)).toHaveAttribute("aria-expanded", "false");
+
+    await mainheadSurfaceButton(page, "claude").click();
+    await expect(terminalRegion(page, "reader-persist")).toBeVisible({ timeout: 15_000 });
+    await expect(readerRegion(page, "reader-persist")).toHaveCount(0);
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const back = readerRegion(page, "reader-persist");
+    await expect(back).toBeVisible({ timeout: 15_000 });
+    await expect(folderEntry(back, "docs")).toBeVisible({ timeout: 15_000 });
+    await expect(folderEntry(back, "adr")).toBeVisible();
+    await expect(outlineHeaderToggle(back)).toHaveAttribute("aria-expanded", "false");
+  } finally {
+    await cleanup();
+  }
+});
+
+// The `muster.reader.<id>` record as THIS page's localStorage view of it. Chromium
+// propagates a localStorage write to another page's renderer asynchronously, so two hosts
+// acting within the same few milliseconds can read each other's stale copy — a latency no
+// person acting by hand can hit. The shared-memory tests below therefore wait until the
+// host about to act can itself see the other host's write (a retried read of the real
+// oracle, not a fixed sleep), then assert what the second write left behind.
+async function storedReaderMemory(
+  page: Page,
+): Promise<{ expanded?: string[]; outlineFolded?: boolean }> {
+  return page.evaluate(() => {
+    const key = Object.keys(localStorage).find((k) => k.startsWith("muster.reader."));
+    return key ? JSON.parse(localStorage.getItem(key) ?? "{}") : {};
+  });
+}
+
+// Plan reader-expanded-persists, review cycle 2 (browser Major 1): the dashboard and its
+// pop-out share `muster.reader.<id>`; a toggle in one host must leave the other host's
+// stored changes intact. Pins the fix — expected to pass.
+test("a pop-out's Outline fold leaves the dashboard's expanded folders intact on its next Claude to Docs switch (reader-expanded-persists REQ-1, REQ-2, shared memory)", async ({
+  page,
+  daemon,
+  context,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await buildMarkdownFixtureTree(dir);
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dir, title: "reader-shared-a" });
+    await expect(terminalRegion(page, "reader-shared-a")).toContainText("MUSTER-STUB-READY", {
+      timeout: 15_000,
+    });
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-shared-a");
+    await expect(folderEntry(region, "docs")).toBeVisible({ timeout: 15_000 });
+
+    // The pop-out opens first and keeps its mount-time copy of the memory (nothing
+    // expanded) while the dashboard goes on to expand docs/ then adr/.
+    // (The pop-out link lives in the docbar, which exists once a file is open.)
+    await fileEntry(region, "TODO.md").click();
+    await expect(renderedBody(region)).toContainText("one", { timeout: 15_000 });
+    const [popup] = await Promise.all([context.waitForEvent("page"), popOutLink(region).click()]);
+    await popup.waitForLoadState();
+    const popRegion = readerRegion(popup, "reader-shared-a");
+    await expect(popRegion).toBeVisible({ timeout: 15_000 });
+    await expect(folderEntry(popRegion, "docs")).toBeVisible({ timeout: 15_000 });
+    // Settled: the pop-out has restored and rendered the open file, so its own mount-time
+    // write is done and cannot land after the dashboard's next one.
+    await expect(renderedBody(popRegion)).toContainText("one", { timeout: 15_000 });
+
+    await folderEntry(region, "docs").click();
+    await expect(folderEntry(region, "adr")).toBeVisible({ timeout: 15_000 });
+    await folderEntry(region, "adr").click();
+    await expect(fileEntry(region, "x.md")).toBeVisible({ timeout: 15_000 });
+    await expect
+      .poll(async () => (await storedReaderMemory(popup)).expanded, { timeout: 15_000 })
+      .toEqual(["docs", "docs/adr"]);
+
+    // The pop-out writes a different field.
+    await outlineHeaderToggle(popRegion).click();
+    await expect(outlineHeaderToggle(popRegion)).toHaveAttribute("aria-expanded", "false");
+    await expect
+      .poll(async () => (await storedReaderMemory(page)).outlineFolded, { timeout: 15_000 })
+      .toBe(true);
+
+    await mainheadSurfaceButton(page, "claude").click();
+    await expect(terminalRegion(page, "reader-shared-a")).toBeVisible({ timeout: 15_000 });
+    await expect(readerRegion(page, "reader-shared-a")).toHaveCount(0);
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const back = readerRegion(page, "reader-shared-a");
+    await expect(back).toBeVisible({ timeout: 15_000 });
+    await expect(folderEntry(back, "docs")).toHaveAttribute("aria-expanded", "true", {
+      timeout: 15_000,
+    });
+    await expect(folderEntry(back, "adr")).toBeVisible();
+    await expect(folderEntry(back, "adr")).toHaveAttribute("aria-expanded", "true");
+    await expect(fileEntry(back, "x.md")).toBeVisible();
+    // The pop-out's own fold is kept too: both hosts' writes survive.
+    await expect(outlineHeaderToggle(back)).toHaveAttribute("aria-expanded", "false");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a dashboard's collapse of docs/ survives the pop-out's later Outline toggle and the dashboard's next switch (reader-expanded-persists REQ-1, REQ-2, shared memory reverse)", async ({
+  page,
+  daemon,
+  context,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await buildMarkdownFixtureTree(dir);
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dir, title: "reader-shared-b" });
+    await expect(terminalRegion(page, "reader-shared-b")).toContainText("MUSTER-STUB-READY", {
+      timeout: 15_000,
+    });
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-shared-b");
+    await expect(folderEntry(region, "docs")).toBeVisible({ timeout: 15_000 });
+    await folderEntry(region, "docs").click();
+    await expect(folderEntry(region, "adr")).toBeVisible({ timeout: 15_000 });
+
+    // The pop-out opens with docs/ expanded (shared memory) and holds that copy.
+    // (The pop-out link lives in the docbar, which exists once a file is open.)
+    await fileEntry(region, "TODO.md").click();
+    await expect(renderedBody(region)).toContainText("one", { timeout: 15_000 });
+    const [popup] = await Promise.all([context.waitForEvent("page"), popOutLink(region).click()]);
+    await popup.waitForLoadState();
+    const popRegion = readerRegion(popup, "reader-shared-b");
+    await expect(popRegion).toBeVisible({ timeout: 15_000 });
+    await expect(folderEntry(popRegion, "adr")).toBeVisible({ timeout: 15_000 });
+    // Settled: the pop-out has restored and rendered the open file, so its own mount-time
+    // write is done and cannot land after the dashboard's next one.
+    await expect(renderedBody(popRegion)).toContainText("one", { timeout: 15_000 });
+
+    // The dashboard collapses docs/; the pop-out then writes the Outline fold.
+    await folderEntry(region, "docs").click();
+    await expect(folderEntry(region, "adr")).toHaveCount(0, { timeout: 15_000 });
+    await expect
+      .poll(async () => (await storedReaderMemory(popup)).expanded, { timeout: 15_000 })
+      .toEqual([]);
+    await outlineHeaderToggle(popRegion).click();
+    await expect(outlineHeaderToggle(popRegion)).toHaveAttribute("aria-expanded", "false");
+    await expect
+      .poll(async () => (await storedReaderMemory(page)).outlineFolded, { timeout: 15_000 })
+      .toBe(true);
+
+    await mainheadSurfaceButton(page, "claude").click();
+    await expect(readerRegion(page, "reader-shared-b")).toHaveCount(0);
+    await mainheadSurfaceButton(page, "docs").click();
+    const back = readerRegion(page, "reader-shared-b");
+    await expect(back).toBeVisible({ timeout: 15_000 });
+    await expect(folderEntry(back, "docs")).toHaveAttribute("aria-expanded", "false", {
+      timeout: 15_000,
+    });
+    await expect(folderEntry(back, "adr")).toHaveCount(0);
+    await expect(outlineHeaderToggle(back)).toHaveAttribute("aria-expanded", "false");
+  } finally {
+    await cleanup();
+  }
+});
+
+// Review cycle 3 (cycle-2 browser Minor 1): the dashboard and a pop-out both SHOW docs/adr
+// expanded. Shared by the two tests below; each launches its own session on its own daemon.
+async function openBothHostsWithAdrExpanded(
+  page: Page,
+  daemon: ScratchDaemon,
+  context: BrowserContext,
+  dir: string,
+  title: string,
+): Promise<{ region: Locator; popup: Page; popRegion: Locator }> {
+  await page.goto(daemon.dashboardUrl);
+  await launchSession(page, daemon, {
+    directory: dir,
+    title,
+  });
+  await expect(terminalRegion(page, title)).toContainText("MUSTER-STUB-READY", {
+    timeout: 15_000,
+  });
+  await mainheadSurfaceButton(page, "docs").click();
+  const region = readerRegion(page, title);
+  await expect(folderEntry(region, "docs")).toBeVisible({ timeout: 15_000 });
+  await folderEntry(region, "docs").click();
+  await expect(folderEntry(region, "adr")).toBeVisible({ timeout: 15_000 });
+  await folderEntry(region, "adr").click();
+  await expect(fileEntry(region, "x.md")).toBeVisible({ timeout: 15_000 });
+  // (The pop-out link lives in the docbar, which exists once a file is open.)
+  await fileEntry(region, "TODO.md").click();
+  await expect(renderedBody(region)).toContainText("one", { timeout: 15_000 });
+  const [popup] = await Promise.all([context.waitForEvent("page"), popOutLink(region).click()]);
+  await popup.waitForLoadState();
+  const popRegion = readerRegion(popup, title);
+  await expect(popRegion).toBeVisible({ timeout: 15_000 });
+  // Both hosts show docs/adr expanded: the pop-out adopted the dashboard's memory on mount.
+  await expect(folderEntry(popRegion, "adr")).toHaveAttribute("aria-expanded", "true", {
+    timeout: 15_000,
+  });
+  await expect(fileEntry(popRegion, "x.md")).toBeVisible({ timeout: 15_000 });
+  // Settled: the pop-out has restored and rendered the open file, so its own mount-time
+  // write is done and cannot land after the dashboard's next one.
+  await expect(renderedBody(popRegion)).toContainText("one", { timeout: 15_000 });
+  await expect
+    .poll(async () => (await storedReaderMemory(popup)).expanded, { timeout: 15_000 })
+    .toEqual(["docs", "docs/adr"]);
+  return { region, popup, popRegion };
+}
+
+// Plan reader-expanded-persists, review cycle 3 (cycle-2 browser Minor 1): a host adopts the
+// other host's write, so its display is current without any click of its own, and a click
+// then does what it looks like it does. Pins the fix — expected to pass.
+test("a dashboard's collapse of adr/ shows in the pop-out with no click there and the pop-out's next adr/ click expands it in both (reader-expanded-persists REQ-1, shared memory live adoption)", async ({
+  page,
+  daemon,
+  context,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await buildMarkdownFixtureTree(dir);
+    const { region, popup, popRegion } = await openBothHostsWithAdrExpanded(
+      page,
+      daemon,
+      context,
+      dir,
+      "reader-adopt",
+    );
+
+    // The dashboard collapses adr/; the pop-out is not touched.
+    await folderEntry(region, "adr").click();
+    await expect(folderEntry(region, "adr")).toHaveAttribute("aria-expanded", "false", {
+      timeout: 15_000,
+    });
+    await expect(fileEntry(region, "x.md")).toHaveCount(0);
+
+    // The pop-out follows with no click: adr/ collapsed, x.md gone, docs/ still open.
+    await expect(folderEntry(popRegion, "adr")).toHaveAttribute("aria-expanded", "false", {
+      timeout: 15_000,
+    });
+    await expect(fileEntry(popRegion, "x.md")).toHaveCount(0);
+    await expect(folderEntry(popRegion, "docs")).toHaveAttribute("aria-expanded", "true");
+
+    // Now the pop-out's click expands adr/ there, and the dashboard follows.
+    await folderEntry(popRegion, "adr").click();
+    await expect(folderEntry(popRegion, "adr")).toHaveAttribute("aria-expanded", "true", {
+      timeout: 15_000,
+    });
+    await expect(fileEntry(popRegion, "x.md")).toBeVisible({ timeout: 15_000 });
+    await expect
+      .poll(async () => (await storedReaderMemory(popup)).expanded, { timeout: 15_000 })
+      .toEqual(["docs", "docs/adr"]);
+    await expect(folderEntry(region, "adr")).toHaveAttribute("aria-expanded", "true", {
+      timeout: 15_000,
+    });
+    await expect(fileEntry(region, "x.md")).toBeVisible({ timeout: 15_000 });
+  } finally {
+    await cleanup();
+  }
+});
+
+// The listener is the primary path; this pins the fallback the review asked for: when a
+// host's display is stale (its storage event never lands), a click toggles from what it
+// shows, so a displayed-expanded folder collapses and the stored set is the collapse.
+test("a click on a pop-out's displayed-expanded adr/ collapses it and stores the collapse when its storage events never land (reader-expanded-persists REQ-1, stale display)", async ({
+  page,
+  daemon,
+  context,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await buildMarkdownFixtureTree(dir);
+    const { region, popup, popRegion } = await openBothHostsWithAdrExpanded(
+      page,
+      daemon,
+      context,
+      dir,
+      "reader-stale",
+    );
+
+    // Defeat the storage event in the pop-out only: the reader ignores an event whose key
+    // is null, exactly as for any other key, so this host keeps its stale display. This is
+    // a test-only stand-in for "the event has not landed yet" (it cannot be timed by hand).
+    await popup.evaluate(() => {
+      Object.defineProperty(StorageEvent.prototype, "key", { get: () => null });
+    });
+
+    // The dashboard collapses adr/; the pop-out's storage holds the collapse...
+    await folderEntry(region, "adr").click();
+    await expect(folderEntry(region, "adr")).toHaveAttribute("aria-expanded", "false", {
+      timeout: 15_000,
+    });
+    await expect
+      .poll(async () => (await storedReaderMemory(popup)).expanded, { timeout: 15_000 })
+      .toEqual(["docs"]);
+    // ...but its display is stale: adr/ still shows expanded with x.md. (A stays-unchanged
+    // check, so the one sanctioned fixed hold.)
+    await settleFor(popup, 1_500);
+    await expect(folderEntry(popRegion, "adr")).toHaveAttribute("aria-expanded", "true");
+    await expect(fileEntry(popRegion, "x.md")).toBeVisible();
+
+    // Clicking what it shows as expanded collapses it, rather than re-expanding it.
+    await folderEntry(popRegion, "adr").click();
+    await expect(folderEntry(popRegion, "adr")).toHaveAttribute("aria-expanded", "false", {
+      timeout: 15_000,
+    });
+    await expect(fileEntry(popRegion, "x.md")).toHaveCount(0);
+    await expect
+      .poll(async () => (await storedReaderMemory(popup)).expanded, { timeout: 15_000 })
+      .toEqual(["docs"]);
+    await settleFor(popup, 1_500);
+    await expect(folderEntry(popRegion, "adr")).toHaveAttribute("aria-expanded", "false");
+    expect((await storedReaderMemory(page)).expanded).toEqual(["docs"]);
+  } finally {
+    await cleanup();
+  }
+});
+
+// Plan reader-expanded-persists, review cycle 2 (browser Minor 1): while a filter is
+// typed the tree shows every match expanded, so a folder click has no visible effect and
+// must not be saved either — what a later return shows is something the developer saw.
+test("a folder click while a filter is typed saves nothing that shows after switching away with the filter still typed (reader-expanded-persists REQ-3)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await buildMarkdownFixtureTree(dir);
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dir, title: "reader-filter-click" });
+    await expect(terminalRegion(page, "reader-filter-click")).toContainText("MUSTER-STUB-READY", {
+      timeout: 15_000,
+    });
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-filter-click");
+    await expect(folderEntry(region, "docs")).toBeVisible({ timeout: 15_000 });
+
+    // The filter shows x.md under its auto-expanded ancestors.
+    await filterBox(region).click();
+    await page.keyboard.type("x");
+    await expect(fileEntry(region, "x.md")).toBeVisible({ timeout: 15_000 });
+
+    // Click the folder while filtering: no visible effect, so nothing may be saved.
+    await folderEntry(region, "docs").click();
+    await expect(fileEntry(region, "x.md")).toBeVisible();
+
+    // Switch away with the filter still typed (the instance, and the filter with it, is
+    // dropped): the return must show only what the developer saw — docs/ collapsed.
+    await mainheadSurfaceButton(page, "claude").click();
+    await expect(readerRegion(page, "reader-filter-click")).toHaveCount(0);
+    await mainheadSurfaceButton(page, "docs").click();
+    const back = readerRegion(page, "reader-filter-click");
+    await expect(back).toBeVisible({ timeout: 15_000 });
+    await expect(folderEntry(back, "docs")).toBeVisible({ timeout: 15_000 });
+    await expect(folderEntry(back, "docs")).toHaveAttribute("aria-expanded", "false");
+    await expect(folderEntry(back, "adr")).toHaveCount(0);
   } finally {
     await cleanup();
   }

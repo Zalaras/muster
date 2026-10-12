@@ -1,22 +1,21 @@
-// Browser-side reader memory (kb:adr/reader-memory-split-browser-and-daemon):
-// which file was last open, and which writes the user has already acknowledged — kept in
-// `localStorage` under `muster.reader.<id>`, shared by the dashboard and the pop-out page
-// (same origin, same key). A `ReaderInstance` is disposed whenever its surface isn't
-// visible (features/reader.ts's diff), so this is also how a re-mount (switching back to
-// `docs`, reloading, popping out) recovers "which files has Claude written since the user
-// last looked" without any live event history to lean on — the daemon's own write log is
-// in-memory only and resets on restart, so acknowledging a write is keyed by its
-// `writtenAt`/`docChanged.at` value (they're the same timestamp, one write log): a later
-// write to the same path gets a new value and lights the dot again.
 import { isRecord } from "../protocol/decode";
 import { readJson, removeItem, writeJson, type StorageLike } from "../storage";
 
 export interface ReaderMemory {
   openPath: string | null;
   clearedAt: Readonly<Record<string, string>>;
+  expanded: readonly string[];
+  filesFolded: boolean;
+  outlineFolded: boolean;
 }
 
-const EMPTY_MEMORY: ReaderMemory = { openPath: null, clearedAt: {} };
+const EMPTY_MEMORY: ReaderMemory = {
+  openPath: null,
+  clearedAt: {},
+  expanded: [],
+  filesFolded: false,
+  outlineFolded: false,
+};
 
 function keyFor(sessionId: number): string {
   return `muster.reader.${sessionId}`;
@@ -27,17 +26,30 @@ function isClearedAtShape(value: unknown): value is Record<string, string> {
   return Object.values(value).every((v) => typeof v === "string");
 }
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((v) => typeof v === "string");
+}
+
 function parseMemory(value: unknown): ReaderMemory | null {
   if (!isRecord(value)) return null;
   const openPath = typeof value["openPath"] === "string" ? value["openPath"] : null;
   const clearedAt = isClearedAtShape(value["clearedAt"]) ? value["clearedAt"] : {};
-  return { openPath, clearedAt };
+  const expanded = isStringArray(value["expanded"]) ? value["expanded"] : [];
+  return {
+    openPath,
+    clearedAt,
+    expanded,
+    filesFolded: value["filesFolded"] === true,
+    outlineFolded: value["outlineFolded"] === true,
+  };
 }
 
-/** A throwing storage (private mode, disabled storage) or a foreign JSON shape (an older
- * build, hand-edited storage) yields the empty default rather than throwing. */
-export function loadMemory(storage: StorageLike, sessionId: number): ReaderMemory {
-  return readJson(storage, keyFor(sessionId), parseMemory, EMPTY_MEMORY);
+export function loadMemory(
+  storage: StorageLike,
+  sessionId: number,
+  fallback: ReaderMemory = EMPTY_MEMORY,
+): ReaderMemory {
+  return readJson(storage, keyFor(sessionId), parseMemory, fallback);
 }
 
 export function saveMemory(storage: StorageLike, sessionId: number, memory: ReaderMemory): void {
@@ -74,4 +86,33 @@ export function withOpened(
 ): ReaderMemory {
   if (writtenAt === null) return { ...memory, openPath: path };
   return { ...memory, openPath: path, clearedAt: { ...memory.clearedAt, [path]: writtenAt } };
+}
+
+export function withFolderExpanded(
+  memory: ReaderMemory,
+  path: string,
+  expanded: boolean,
+): ReaderMemory {
+  const rest = memory.expanded.filter((p) => p !== path);
+  return { ...memory, expanded: expanded ? [...rest, path] : rest };
+}
+
+export function withExpandedCleared(memory: ReaderMemory): ReaderMemory {
+  return { ...memory, expanded: [] };
+}
+
+export function withFilesFolded(memory: ReaderMemory, folded: boolean): ReaderMemory {
+  return { ...memory, filesFolded: folded };
+}
+
+export function withOutlineFolded(memory: ReaderMemory, folded: boolean): ReaderMemory {
+  return { ...memory, outlineFolded: folded };
+}
+
+export function isMemoryWrite(
+  key: string | null,
+  newValue: string | null,
+  sessionId: number,
+): boolean {
+  return newValue !== null && key === keyFor(sessionId);
 }

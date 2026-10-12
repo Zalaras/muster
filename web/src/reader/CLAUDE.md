@@ -4,7 +4,8 @@
 rendering + outline extraction (`markdown.ts`), splitting a leading frontmatter block off
 a file's raw text into a table/raw-fallback shape (`frontmatter.ts`), heading-id slugging
 (`slug.ts`), the nav tree (`tree.ts`), the freshness cue's text (`freshness.ts`), the
-browser-side "last open file / which writes are acknowledged" memory (`memory.ts`),
+browser-side "last open file / which writes are acknowledged / expanded folders and nav
+folds" memory (`memory.ts`),
 the loading-cue status text (`paths.ts`, built on `basename` from `sessions/paths.ts` — that
 one function lives below `reader/` so the directory graph stays acyclic), mermaid
 fence/theme/error-text/id helpers (`mermaid.ts`) and the diagram modal's zoom/pan
@@ -24,7 +25,8 @@ fetches and which session gets a mounted instance. **Features**: reader.
   `mermaid.ts` and `zoom.ts` themselves are pure and join `slug.ts` as exemplars.
 - The sanitized fragment `markdown.ts` returns is the only thing ever inserted into the
   reader body, via `replaceChildren` — never `innerHTML` with interpolated data.
-- `memory.ts` never throws: every storage access is try/caught, defaulting to empty.
+- `memory.ts` never throws: every storage access is try/caught, falling back to the caller's default.
+- One memory per session id, shared by every host; each adopts another window's write live on a `storage` event (`features/reader.ts`).
 - A write is acknowledged by its own `writtenAt`/`docChanged.at` value, not a boolean —
   the same path written again after being opened must re-dirty.
 
@@ -33,7 +35,7 @@ a new derivation.
 
 **Gotchas**:
 - `tree.ts`'s `filterTree` doesn't remember anything across calls; "clearing restores the
-  collapsed tree" is `features/reader.ts` dropping its own manual-expand set, not a tree
+  collapsed tree" is `features/reader.ts` clearing the memory's `expanded` list, not a tree
   property.
 - `markdown.ts` assigns heading `id`s during the same walk that builds the outline, so
   the two can never name different headings for the same entry.

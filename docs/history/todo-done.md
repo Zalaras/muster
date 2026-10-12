@@ -1722,6 +1722,13 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   second press sends a second launch. Launch should stay disabled until the first one answers.
   From `plans/maintainability-regressions/`.
 
+### On their own
+
+- [x] **File explorer for docs resets expanded on tab swap** ✅ done 2026-10-12 (plan `reader-expanded-persists`, via `/fix`) ([#82](https://github.com/Zalaras/muster/issues/82)) — the
+  docs reader's file explorer collapses its expanded folders when the developer switches to
+  another session, or from Docs to the Claude or Shell tab and back. It should keep what was
+  expanded.
+
 ## Post v1
 <!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 

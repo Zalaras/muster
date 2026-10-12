@@ -18,8 +18,13 @@ import { renderMarkdown, type OutlineEntry } from "../reader/markdown";
 import {
   forget,
   isDirty,
+  isMemoryWrite,
   loadMemory,
   saveMemory,
+  withExpandedCleared,
+  withFilesFolded,
+  withFolderExpanded,
+  withOutlineFolded,
   withOpened,
   type ReaderMemory,
 } from "../reader/memory";
@@ -122,10 +127,7 @@ class ReaderInstance {
   private openPath: string | null = null;
   private outline: OutlineEntry[] = [];
   private filterQuery = "";
-  private manualExpanded = new Set<string>();
   private navCollapsed: boolean;
-  private filesFolded = false;
-  private outlineFolded = false;
   private currentHeadingId: string | null = null;
   private noticeText: string | null = null;
   /** The absolute path of a user-initiated open in flight; `null` otherwise. Drives both
@@ -200,8 +202,16 @@ class ReaderInstance {
     this.refs.root.remove();
   }
 
-  private saveMemory(): void {
-    saveMemory(window.localStorage, this.sessionId, this.memory);
+  private commitMemory(transition: (memory: ReaderMemory) => ReaderMemory): void {
+    const next = transition(loadMemory(window.localStorage, this.sessionId, this.memory));
+    this.memory = next;
+    saveMemory(window.localStorage, this.sessionId, next);
+  }
+
+  handleStorage(event: StorageEvent): void {
+    if (!isMemoryWrite(event.key, event.newValue, this.sessionId)) return;
+    this.memory = loadMemory(window.localStorage, this.sessionId, this.memory);
+    this.requestRender();
   }
 
   private async loadListing(): Promise<void> {
@@ -306,8 +316,7 @@ class ReaderInstance {
       theme: currentMermaidTheme(),
     });
     const writtenAt = this.writtenAt.get(absPath) ?? null;
-    this.memory = withOpened(this.memory, absPath, writtenAt);
-    this.saveMemory();
+    this.commitMemory((m) => withOpened(m, absPath, writtenAt));
     this.requestRender();
   }
 
@@ -323,14 +332,17 @@ class ReaderInstance {
   }
 
   private toggleFolder(path: string): void {
-    if (this.manualExpanded.has(path)) this.manualExpanded.delete(path);
-    else this.manualExpanded.add(path);
+    if (this.filterQuery.trim() !== "") return;
+    const expand = !this.memory.expanded.includes(path);
+    this.commitMemory((m) => withFolderExpanded(m, path, expand));
     this.requestRender();
   }
 
   private setFilter(value: string): void {
     this.filterQuery = value;
-    if (value.trim() === "") this.manualExpanded.clear();
+    if (value.trim() === "") {
+      this.commitMemory(withExpandedCleared);
+    }
     this.requestRender();
   }
 
@@ -340,12 +352,14 @@ class ReaderInstance {
   }
 
   private toggleFiles(): void {
-    this.filesFolded = !this.filesFolded;
+    const fold = !this.memory.filesFolded;
+    this.commitMemory((m) => withFilesFolded(m, fold));
     this.requestRender();
   }
 
   private toggleOutline(): void {
-    this.outlineFolded = !this.outlineFolded;
+    const fold = !this.memory.outlineFolded;
+    this.commitMemory((m) => withOutlineFolded(m, fold));
     this.requestRender();
   }
 
@@ -447,7 +461,7 @@ class ReaderInstance {
     const baseTree = listing ? buildTree(listing.files.map((f) => f.path)) : [];
     const filtering = this.filterQuery.trim() !== "";
     const activeTree = filtering ? filterTree(baseTree, this.filterQuery) : baseTree;
-    return flattenTree(activeTree, filtering ? new Set<string>() : this.manualExpanded, {
+    return flattenTree(activeTree, new Set(filtering ? [] : this.memory.expanded), {
       isDirty: isDirtyRel,
       isCurrent: isCurrentRel,
     });
@@ -486,8 +500,8 @@ class ReaderInstance {
     const vm: ReaderVM = {
       title: session?.title ?? null,
       navCollapsed: this.navCollapsed,
-      filesFolded: this.filesFolded,
-      outlineFolded: this.outlineFolded,
+      filesFolded: this.memory.filesFolded,
+      outlineFolded: this.memory.outlineFolded,
       bar: this.buildBarVM(session, now),
       notice,
       planSlot: this.buildPlanSlot(session),
@@ -604,6 +618,10 @@ export function initReader(
 
   window.addEventListener("focus", () => {
     for (const instance of instances.values()) instance.handleWindowFocus();
+  });
+
+  window.addEventListener("storage", (event) => {
+    for (const instance of instances.values()) instance.handleStorage(event);
   });
 
   if (!standalone) {

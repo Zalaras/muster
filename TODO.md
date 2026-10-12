@@ -155,11 +155,6 @@ Filed 2026-10-12 by the developer from `plans/reader-expanded-persists/proposed-
   Focus view header the repo/branch line (`work / main`) wraps onto two lines though the header
   has plenty of room. It should stay on one line while there is room.
 
-- [ ] **File explorer for docs resets expanded on tab swap** ([#82](https://github.com/Zalaras/muster/issues/82)) — the
-  docs reader's file explorer collapses its expanded folders when the developer switches to
-  another session, or from Docs to the Claude or Shell tab and back. It should keep what was
-  expanded.
-
 ### From the maintainability cleanup (2026-09-24)
 
 Filed by the developer from the cleanup's proposed backlog (`plans/maintainability-cleanup/proposed-backlog.md`).
