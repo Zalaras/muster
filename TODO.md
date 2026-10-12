@@ -27,7 +27,7 @@ grouped under `###` sub-headings by the work they share — a group is a plausib
 work, not a ranking. `/triage` appends new entries at the end of the section; move one into a
 group deliberately, and otherwise don't re-sort this list.
 
-### Together — card state follows what Claude is doing (#65, #66, #70, #72)
+### Together — card state follows what Claude is doing (#65, #66, #70, #72, #78)
 
 - [ ] **Compacting has not state in Muster** ([#65](https://github.com/Zalaras/muster/issues/65)) — while
   `/compact` runs the card reads idle, though the session can't take input until it finishes.
@@ -45,6 +45,10 @@ group deliberately, and otherwise don't re-sort this list.
   card reads needs input while a background agent is still running. It should not ask for input
   while background work is in progress.
 
+- [ ] **API Error still says WORKING** ([#78](https://github.com/Zalaras/muster/issues/78)) — a turn
+  failed with an API error; after the developer cancelled the last message and Claude was back at
+  idle, the card still read working. It should read idle once Claude is.
+
 ### Together — session retention and clearing (#47; #39 in Post v1 is the same seam)
 
 - [ ] **Sessions survive only one daemon start after their tmux server is gone** — filed by the
@@ -56,27 +60,57 @@ group deliberately, and otherwise don't re-sort this list.
   gone after stopping musterd and killing tmux. They should come back on restart as resumable
   rows, even though Claude itself has quit.
 
-### Together — a launch request in flight
+### Together — a launch request in flight (#81)
 
-Filed 2026-09-26 by the developer from `plans/maintainability-regressions/proposed-backlog.md`.
+The refusal entry was filed 2026-09-26 by the developer from
+`plans/maintainability-regressions/proposed-backlog.md`.
 
 - [ ] **A model refusal can move focus after the selection changed** — in one open dialog:
   submit model A (refused), change to B and submit, change back to A and click Title; B's
   refusal moves focus to the custom-model field. A refusal should move focus only while the
   refused model is still the selection. From `plans/maintainability-regressions/`.
 
-### Focus lands where the developer clicks (#69)
+- [ ] **Taking long time to launch a new session** ([#81](https://github.com/Zalaras/muster/issues/81)) — a
+  newly launched session took a long time to come up (six live sessions at the time). The issue
+  has no description: the developer to say how long, and from which point to which. A launch
+  should be ready promptly.
+
+### Together — focus lands where the developer expects (#69, #76)
 
 - [ ] **Focus click bug** ([#69](https://github.com/Zalaras/muster/issues/69)) — after typing in a
   session's terminal, clicking a rail card takes two clicks; sometimes also when only switching
   between rail cards. One click should always select a card, whatever holds focus.
 
-### Together — the Stop action (#56)
+- [ ] **Loss of focus swapping between tabs** ([#76](https://github.com/Zalaras/muster/issues/76)) — switching
+  a session between its Claude, Shell and Docs tabs leaves keyboard focus dangling in the UI. The
+  tab switched to should take focus.
+
+- [ ] **Switching a session to its shell leaves keyboard focus on the `shell` button** — typing
+  goes nowhere until the terminal is clicked. Same on `main` before the cleanup. From
+  `plans/maintainability-cleanup/`.
+
+- [ ] **Keyboard focus drops to the page body after Check now** — pressing Check now by
+  keyboard loses focus; it should stay on the button. From `plans/settings-update-failures/`.
+
+### Together — rail card interactions (#56, #77)
 
 - [ ] **Add right click for rail card** ([#56](https://github.com/Zalaras/muster/issues/56)) — a custom
   right-click menu on a rail card carrying each of its actions, Stop among them: the card itself
   shows no Stop button (plan `status-inconsistencies` removes it), so this menu is where Stop
   returns to the card.
+
+- [ ] **cannot drag when multiple selected** ([#77](https://github.com/Zalaras/muster/issues/77)) — with
+  several sessions selected in the rail, they cannot be dragged into a group. A multi-selection
+  should drag into a group together.
+
+### Together — masthead indicators (#79, #80)
+
+- [ ] **Change deamon connection strong to icon** ([#79](https://github.com/Zalaras/muster/issues/79)) — the
+  masthead's daemon-connection text should become an icon: red when not connected, green when
+  connected, yellow while musterd restarts or updates, with the details on hover.
+
+- [ ] **Add reset time to bar** ([#80](https://github.com/Zalaras/muster/issues/80)) — the masthead usage
+  gauges should show when each window resets.
 
 ### On their own
 
@@ -121,8 +155,6 @@ Fix:
 - [ ] **The ingest endpoint accepts hook bodies of any size.**
 - [ ] **Check the Focus view's first-attach terminal height** — the size note's reserved row
   was restored; confirm the terminal is not a row short on first attach.
-- [ ] **Switching a session to its shell leaves keyboard focus on the `shell` button** — typing
-  goes nowhere until the terminal is clicked. Same on `main` before the cleanup.
 
 Refactor:
 
@@ -148,12 +180,6 @@ Quality of life:
 - [ ] **The pop-out reader keeps the old dashboard after Update and restart** — dashboard
   windows reload onto the new version; an open pop-out should too. From
   `plans/settings-update-failures/`.
-- [ ] **Keyboard focus drops to the page body after Check now** — pressing Check now by
-  keyboard loses focus; it should stay on the button. From `plans/settings-update-failures/`.
-
-- [ ] **Loss of focus swapping between tabs** ([#76](https://github.com/Zalaras/muster/issues/76)) — dashboard: wrong-output.
-
-- [ ] **cannot drag when multiple selected** ([#77](https://github.com/Zalaras/muster/issues/77)) — dashboard: wrong-output.
 
 ## Pre-v1
 
