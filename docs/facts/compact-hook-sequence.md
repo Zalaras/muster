@@ -8,9 +8,9 @@ features: [lifecycle]
 tags: [claude-code-format, state-machine]
 files: [internal/claudecode/interpret.go, internal/session/machine.go]
 tests: []
-refs: [test/rig/captures/capture-3-state-2026-10-12.jsonl, kb:fact/local-command-orphan-idle-prompt, "#65", "#66"]
-verified: 2.1.296..2.1.296
-guard: none
+refs: [test/rig/captures/capture-3-state-2026-10-12.jsonl, test/rig/captures/capture-3-state-2026-10-12b.jsonl, kb:fact/local-command-orphan-idle-prompt, "#65", "#66"]
+verified: 2.1.296..canary
+guard: TestCompactHookSequence
 ---
 A manual `/compact` that compacts fires, in order, all under one **fresh** `prompt_id` that no
 `UserPromptSubmit` opens:
@@ -27,16 +27,21 @@ the compaction's `prompt_id` (60.04 s, 1 of 1 watched).
 Two shorter shapes:
 
 - **Nothing to compact** ("Not enough messages to compact."): `PreCompact` only. No
-  `SubagentStop`, `SessionStart` or `PostCompact` follows.
-- **Esc during compaction**: `PreCompact`, then a `SubagentStop` whose `last_assistant_message`
-  is null, then nothing. The transcript gets no interrupt line, and the `/compact` text is put
-  back in the input box.
+  `SubagentStop`, `SessionStart` or `PostCompact` follows, but the `idle_prompt` 60 s later
+  carries the `PreCompact`'s `prompt_id` (1 of 1).
+- **Esc during compaction**: `PreCompact`, then nothing that ends it. One run had a
+  `SubagentStop` with a null `last_assistant_message` and the other had none (1 of 2). The
+  transcript gets no interrupt line, the `/compact` text is put back in the input box, and no
+  `idle_prompt` came within 80 s (0 of 1).
 
 Fed through `Interpret` + `applyInput`, the full sequence leaves the card `idle` throughout
 the compaction, then `started` (from the `SessionStart`), then `needs_input` (from the
 `idle_prompt`).
 
-Evidence: interface probe 2026-10-12, instance 3, 1 interactive haiku session `f7c88c`:
-2 full compactions (one with custom instructions), 1 empty, 1 interrupted. The developer's
+Evidence: interface probe 2026-10-12, instance 3. Interactive haiku session `f7c88c` had
+2 full compactions (one with custom instructions), 1 empty and 1 interrupted; session `dbafa3`
+had 1 empty and 1 interrupted. The developer's
 live event log held 2 `PreCompact` the same day. Auto-compaction (`trigger:"auto"`, mid-turn)
 was not measured.
+
+Guarded since 2026-10-12 by `TestCompactHookSequence` (canary run O).

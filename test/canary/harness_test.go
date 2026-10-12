@@ -60,9 +60,13 @@ import (
 //	   ($MUSTER_SESSION=52), one prompt that fails                           (0 tokens)
 //	N  interactive against a fail server ($MUSTER_SESSION=57): `!cd sub`, then `!cd /`
 //	   outside the project — each a shell command whose follow-up turn fails (0 tokens)
+//	O  interactive ($MUSTER_SESSION=58): "say hi", then /context and its idle_prompt, then
+//	   /compact and the idle_prompt after it                                 (2 haiku turns)
+//	P  interactive against a fail server holding every reply ($MUSTER_SESSION=59): Esc
+//	   while the first request is in flight, then a quiet window             (0 tokens)
 //
 // Runs G–J and N live in harness_turns_test.go; K–M, the bypass and resume-defaults runs, in
-// harness_resume_test.go.
+// harness_resume_test.go; O and P, the prompts no hook closes, in harness_state_test.go.
 //
 // Isolation: the scratch repo lives under os.MkdirTemp (/var/folders, outside ~/Documents
 // so no parent CLAUDE.md leaks into the session); ~/.claude/settings.json is never read or
@@ -73,22 +77,24 @@ const (
 	haikuModel = "claude-haiku-4-5-20251001"
 	testToken  = "canary-token"
 
-	sessionManaged       int64 = 42
-	sessionUnauth        int64 = 43 // unauthenticated, no --permission-mode flag
-	sessionInteract      int64 = 44
-	sessionUnauthPlan    int64 = 45 // unauthenticated, --permission-mode plan
-	sessionUnauthAccept  int64 = 46 // unauthenticated, --permission-mode acceptEdits
-	sessionUnauthAuto    int64 = 47 // unauthenticated, --permission-mode auto (haiku model-gated to default)
-	sessionResume        int64 = 48 // run E: resume of sessionInteract's claude session_id
-	sessionUnauthDefault int64 = 49 // unauthenticated, explicit --permission-mode default (REQ-9)
-	sessionInterrupt     int64 = 50 // run G: Esc during a running Bash call
-	sessionToolBatch     int64 = 51 // run H: parallel Reads, PostToolUse responses held
-	sessionFailedTurn    int64 = 52 // run J: interactive, every API call fails with a 429
-	sessionUnauthBypass  int64 = 53 // unauthenticated, --permission-mode bypassPermissions
-	sessionBypassWarning int64 = 54 // run K: interactive bypassPermissions, warning left unanswered
-	sessionResumeUnknown int64 = 55 // run L: --resume of an id with no transcript
-	sessionResumeBare    int64 = 56 // run M: resume of run D's id with no --model or --permission-mode
-	sessionBangCd        int64 = 57 // run N: `!cd` shell commands against a fail server
+	sessionManaged        int64 = 42
+	sessionUnauth         int64 = 43 // unauthenticated, no --permission-mode flag
+	sessionInteract       int64 = 44
+	sessionUnauthPlan     int64 = 45 // unauthenticated, --permission-mode plan
+	sessionUnauthAccept   int64 = 46 // unauthenticated, --permission-mode acceptEdits
+	sessionUnauthAuto     int64 = 47 // unauthenticated, --permission-mode auto (haiku model-gated to default)
+	sessionResume         int64 = 48 // run E: resume of sessionInteract's claude session_id
+	sessionUnauthDefault  int64 = 49 // unauthenticated, explicit --permission-mode default (REQ-9)
+	sessionInterrupt      int64 = 50 // run G: Esc during a running Bash call
+	sessionToolBatch      int64 = 51 // run H: parallel Reads, PostToolUse responses held
+	sessionFailedTurn     int64 = 52 // run J: interactive, every API call fails with a 429
+	sessionUnauthBypass   int64 = 53 // unauthenticated, --permission-mode bypassPermissions
+	sessionBypassWarning  int64 = 54 // run K: interactive bypassPermissions, warning left unanswered
+	sessionResumeUnknown  int64 = 55 // run L: --resume of an id with no transcript
+	sessionResumeBare     int64 = 56 // run M: resume of run D's id with no --model or --permission-mode
+	sessionBangCd         int64 = 57 // run N: `!cd` shell commands against a fail server
+	sessionCompact        int64 = 58 // run O: /context, then /compact
+	sessionEarlyInterrupt int64 = 59 // run P: Esc before any output, against a held fail server
 	// sessionStopFailureBase is run I's first row; row i is sessionStopFailureBase+i.
 	sessionStopFailureBase int64 = 60
 
@@ -106,6 +112,8 @@ const (
 	bypassWarningTmuxID     int64 = 95 // tmux session "muster-95" on the scratch socket: run K
 	resumeBareTmuxID        int64 = 94 // tmux session "muster-94" on the scratch socket: run M
 	bangCdTmuxID            int64 = 93 // tmux session "muster-93" on the scratch socket: run N
+	compactTmuxID           int64 = 92 // tmux session "muster-92" on the scratch socket: run O
+	earlyInterruptTmuxID    int64 = 91 // tmux session "muster-91" on the scratch socket: run P
 
 	// refreshIntervalSeconds is the one settings key the canary writes that production never
 	// does (kb:adr/canary-refresh-interval-key-canary-only): MergeSettings emits statusLine
@@ -228,6 +236,9 @@ type fixture struct {
 	resumeBare    resumeBareRun    // run M
 	bangCd        bangCdRun        // run N
 
+	compact        compactRun        // run O
+	earlyInterrupt earlyInterruptRun // run P
+
 	tmuxClient *tmux.Client
 }
 
@@ -278,7 +289,7 @@ func TestMain(m *testing.M) {
 // build
 
 func (f *fixture) build() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 16*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 22*time.Minute)
 	defer cancel()
 
 	installed, err := claudecode.InstalledVersion(ctx, claudeBin)
@@ -353,6 +364,8 @@ func (f *fixture) build() error {
 		{"run L (resume of an unknown id)", f.runL},
 		{"run M (resume with no model or mode flag)", f.runM},
 		{"run N (`!cd` against a failing API)", f.runN},
+		{"run O (/context and /compact)", f.runO},
+		{"run P (Esc before any output)", f.runP},
 	}
 	for _, r := range runs {
 		if err := r.fn(ctx); err != nil {
@@ -1087,11 +1100,11 @@ func (f *fixture) teardown() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if f.tmuxClient != nil {
-		// REQ-12: every tmux session (D, E, G, J, K, M) before the scratch socket's server itself.
+		// REQ-12: every tmux session (D, E, G, J, K, M, N, O, P) before the scratch socket's server itself.
 		// Each KillSession is a no-op error if that session already exited (e.g. the build
 		// failed before runE ever created muster-98) — ignored the same way run D's kill
 		// always was.
-		for _, id := range []int64{interactiveTmuxID, interactiveResumeTmuxID, interruptTmuxID, failedTurnTmuxID, bypassWarningTmuxID, resumeBareTmuxID} {
+		for _, id := range []int64{interactiveTmuxID, interactiveResumeTmuxID, interruptTmuxID, failedTurnTmuxID, bypassWarningTmuxID, resumeBareTmuxID, bangCdTmuxID, compactTmuxID, earlyInterruptTmuxID} {
 			_ = f.tmuxClient.KillSession(ctx, fmt.Sprintf("muster-%d", id))
 		}
 		args := []string{"kill-server"}

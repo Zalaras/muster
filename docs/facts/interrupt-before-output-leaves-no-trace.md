@@ -9,11 +9,13 @@ tags: [claude-code-format, state-machine]
 files: [internal/claudecode/interpret_transcript.go, internal/session/interrupt.go]
 tests: []
 refs: [test/rig/captures/capture-3-state-2026-10-12.jsonl, kb:fact/interrupt-recorded-in-transcript, kb:fact/interrupt-emits-no-turn-end, "#78"]
-verified: 2.1.296..2.1.296
-guard: none
+verified: 2.1.296..canary
+guard: TestInterruptBeforeOutputLeavesNoTrace
 ---
-If Esc lands before the turn has produced any assistant output, the TUI shows "Interrupted ·
-What should Claude do instead?" and puts the prompt text back in the input box. The turn's
+If Esc lands before the turn has produced any assistant output, the TUI puts the prompt text
+back in the input box. Once the model has begun (thinking shown), it also prints "Interrupted ·
+What should Claude do instead?". While the first request is still in flight it prints nothing,
+and the turn simply disappears from the screen (1 of 1, against a fail server holding its reply). The turn's
 `UserPromptSubmit` has already fired, but after the Esc there is nothing:
 
 - no hook of any kind for 80 s (31 of the binary's 33 events were registered, all but `WorktreeCreate`/`WorktreeRemove`);
@@ -39,3 +41,5 @@ Fed through `Interpret` + `applyInput`, a rewound turn stays `working` until the
 Evidence: interface probe 2026-10-12, instance 3. Sessions `f7c88c` (3 early Esc, 1 Ctrl+C,
 real API), `d51ae8` (Esc during retries) and `3e7d2c` (retries left to run out), the last two
 through `bin/probe-failproxy -status 500`.
+
+Guarded since 2026-10-12 by `TestInterruptBeforeOutputLeavesNoTrace` (canary run P).

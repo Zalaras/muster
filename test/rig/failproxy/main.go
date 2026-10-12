@@ -38,6 +38,7 @@ func main() {
 		errType   = flag.String("error-type", "api_error", "Anthropic error .type to inject")
 		upstream  = flag.String("upstream", "", "if set, reverse-proxy to this origin and only fail after -fail-after")
 		failAfter = flag.Int("fail-after", 0, "with -upstream: number of /v1/messages requests to let through first")
+		hold      = flag.Duration("hold", 0, "hold each injected failure this long before answering, so a turn has no output yet")
 		message   = flag.String("message", "probe-induced failure", "Anthropic error .message to inject (some mappings key on it, e.g. \"Credit balance is too low\")")
 		headers   headerFlags
 	)
@@ -46,7 +47,7 @@ func main() {
 
 	lg := log.New(log.Writer(), "[failproxy] ", log.LstdFlags|log.Lmicroseconds)
 
-	failure := failapi.Failure{Status: *status, Type: *errType, Message: *message, Headers: headers}
+	failure := failapi.Failure{Status: *status, Type: *errType, Message: *message, Headers: headers, Hold: *hold}
 
 	var seen int64
 	var rp *httputil.ReverseProxy

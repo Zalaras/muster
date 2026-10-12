@@ -9,8 +9,8 @@ tags: [claude-code-format, state-machine]
 files: [internal/claudecode/interpret.go, internal/session/machine.go]
 tests: []
 refs: [test/rig/captures/capture-3-state-2026-10-12.jsonl, kb:fact/notification-types-observed, kb:fact/compact-hook-sequence, "#72"]
-verified: 2.1.296..2.1.296
-guard: none
+verified: 2.1.296..canary
+guard: TestLocalCommandOrphanIdlePrompt
 ---
 Running a local slash command (`/context`, measured) mints a new `prompt_id` and fires **no
 hook**: no `UserPromptSubmit`, no `Stop`. The status line picks up the new id on its next
@@ -27,3 +27,5 @@ Evidence: interface probe 2026-10-12, instance 3, session `f7c88c` (1 `/context`
 The developer's live event log for the same day held 2 such `idle_prompt`s, in sessions 14 and
 9, each on a prompt id that only one status-line post had named 60 s earlier. Which command
 produced those two is not known.
+
+Guarded since 2026-10-12 by `TestLocalCommandOrphanIdlePrompt` (canary run O).
