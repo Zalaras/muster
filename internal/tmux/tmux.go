@@ -13,11 +13,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 )
+
+const MusterSessionEnvVar = "MUSTER_SESSION"
 
 // Client issues tmux commands against one dedicated socket.
 type Client struct {
@@ -722,6 +726,9 @@ func (c *Client) run(ctx context.Context, args ...string) (string, error) {
 // inherited a pipe (docs/conventions.md §Go).
 func execSeparated(ctx context.Context, name string, args ...string) (stdout, stderr []byte, err error) {
 	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Env = slices.DeleteFunc(os.Environ(), func(kv string) bool {
+		return strings.HasPrefix(kv, MusterSessionEnvVar+"=")
+	})
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf

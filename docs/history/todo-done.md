@@ -1745,6 +1745,24 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   changes. The masthead should not show a model.
   ✅ done 2026-10-12 (plan `masthead-indicators`): the masthead model readout and the wire `usage.model` field are gone; usage history still records the model (kb:adr/usage-masthead-shows-no-model).
 
+### Together — `MUSTER_SESSION` from the surrounding environment ✅ done 2026-10-13 (plan `tmux-server-env-leak`, via `/fix`)
+
+Filed 2026-10-12 by the developer from `plans/reader-expanded-persists/proposed-backlog.md`.
+
+- [x] **`make test` fails inside a Muster session** — run from a Claude session Muster launched,
+  `TestShellRegistry_EnsurePaneEnvironmentNeverCarriesMusterSession` and
+  `TestShellRegistry_RespawnsAfterExternalKillWithNoMusterSession` (`internal/server`) fail with
+  `MUSTER_SESSION=[9]` where they expect `MUSTER_SESSION=[]`; with it unset they pass. They
+  should pass whatever environment they run in.
+  ✅ done 2026-10-13 (plan `tmux-server-env-leak`): the tests were right — the per-test tmux server inherited the variable from the test process; the daemon's tmux client now strips it, so they pass from any shell.
+
+- [x] **Shell panes may inherit `MUSTER_SESSION` from the daemon's environment** — a `musterd`
+  started from a terminal that already carries `MUSTER_SESSION` (a Claude session Muster
+  launched) may hand it on to the shell panes it creates; not yet measured against a running
+  daemon. A shell pane should never see `MUSTER_SESSION`, whatever environment the daemon was
+  started in.
+  ✅ done 2026-10-13 (plan `tmux-server-env-leak`): measured — a tmux server's global environment comes from the client that starts it and every pane inherits it, so a daemon started inside a managed pane did hand it on; `tmux.Client` now runs every tmux command without `MUSTER_SESSION`.
+
 ## Post v1
 <!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 

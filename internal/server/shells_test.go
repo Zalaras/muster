@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/tmux"
 	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 )
@@ -425,4 +426,9 @@ func TestShellRegistry_KillRemovesOnlyItsOwnSession(t *testing.T) {
 	stillExists, err := tmuxClient.PaneExists(context.Background(), survivorTarget)
 	require.NoError(t, err)
 	assert.True(t, stillExists, "INV-4: killing one session's shell must never touch another session's shell")
+}
+
+func TestTmuxScrubbedEnvVarNameMatchesTheWrapperContract(t *testing.T) {
+	assert.Equal(t, claudecode.MusterSessionEnvVar, tmux.MusterSessionEnvVar,
+		"the tmux client scrubs this name from its own environment; it must stay the name the wrapper script and pane environment use")
 }

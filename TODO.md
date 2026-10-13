@@ -85,22 +85,6 @@ The refusal entry was filed 2026-09-26 by the developer from
   rail card should show at a glance whether the session's prompt cache is still warm (a colour
   or an icon), tied to the idle timer it already shows, since the cache stays warm only so long.
 
-### Together — `MUSTER_SESSION` from the surrounding environment
-
-Filed 2026-10-12 by the developer from `plans/reader-expanded-persists/proposed-backlog.md`.
-
-- [ ] **`make test` fails inside a Muster session** — run from a Claude session Muster launched,
-  `TestShellRegistry_EnsurePaneEnvironmentNeverCarriesMusterSession` and
-  `TestShellRegistry_RespawnsAfterExternalKillWithNoMusterSession` (`internal/server`) fail with
-  `MUSTER_SESSION=[9]` where they expect `MUSTER_SESSION=[]`; with it unset they pass. They
-  should pass whatever environment they run in.
-
-- [ ] **Shell panes may inherit `MUSTER_SESSION` from the daemon's environment** — a `musterd`
-  started from a terminal that already carries `MUSTER_SESSION` (a Claude session Muster
-  launched) may hand it on to the shell panes it creates; not yet measured against a running
-  daemon. A shell pane should never see `MUSTER_SESSION`, whatever environment the daemon was
-  started in.
-
 ### Together — Focus view header (#73, #83)
 
 - [ ] **Title squashed for no reason** ([#73](https://github.com/Zalaras/muster/issues/73)) — in the

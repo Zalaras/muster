@@ -94,6 +94,26 @@ func TestNewSession_SetsExtraEnvironmentInThePane(t *testing.T) {
 	assert.Equal(t, "hello123\n", string(got))
 }
 
+func TestNewSession_PaneNeverInheritsMusterSessionFromTheClientEnvironment(t *testing.T) {
+	t.Setenv("MUSTER_SESSION", "leaked")
+	c := New(newTestSocket(t))
+	dir := t.TempDir()
+	outFile := filepath.Join(dir, "inherited-env.txt")
+
+	_, _, err := c.NewSession(context.Background(), nextID(t), dir, nil,
+		[]string{"/bin/sh", "-c", `echo "[$MUSTER_SESSION]" > ` + outFile + "; sleep 60"})
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		b, readErr := os.ReadFile(outFile)
+		return readErr == nil && len(b) > 0
+	}, 5*time.Second, 50*time.Millisecond)
+
+	got, err := os.ReadFile(outFile)
+	require.NoError(t, err)
+	assert.Equal(t, "[]\n", string(got))
+}
+
 func TestNewSession_SpawnsInTheGivenDirectory(t *testing.T) {
 	c := New(newTestSocket(t))
 	dir := t.TempDir()

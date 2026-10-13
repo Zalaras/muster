@@ -52,8 +52,10 @@ The shell is spawned lazily by `kb:anchor/sessions.shell` and attached over
 `kb:anchor/terminal.shell-ws`, which never spawns, so a spawn failure has a body the
 dashboard can render — a fixed-phrase message, with the raw tmux/OS error in the daemon
 log only (kb:adr/surfaces-shell-spawn-http-then-attach-ws). It runs the user's
-interactive shell in the session's directory with no Muster session environment, so a
-nested `claude` cannot drive the parent's state (kb:adr/surfaces-shell-pane-carries-no-session-env).
+interactive shell in the session's directory with no Muster session environment, whatever
+environment the daemon was started in (the tmux client strips `MUSTER_SESSION` from every
+command it runs, so the server whose global environment each pane inherits never holds the
+daemon's own), so a nested `claude` cannot drive the parent's state (kb:adr/surfaces-shell-pane-carries-no-session-env).
 A shell is not a session: no row, card, state or wire kind
 (kb:adr/surfaces-shell-is-attach-target-not-session). It outlives End and view switches, can
 open on a dead session, and dies on exit, Remove, reconcile or a kill shutdown
