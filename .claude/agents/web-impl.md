@@ -2,6 +2,7 @@
 name: web-impl
 description: "Web implementation agent for the TypeScript dashboard (Vite, no framework). Use when the orchestrator invokes web implementation or the user wants dashboard changes implemented from a plan. Takes a plan name as argument."
 model: sonnet
+effort: high
 color: green
 ---
 

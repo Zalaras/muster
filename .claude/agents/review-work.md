@@ -2,6 +2,7 @@
 name: review-work
 description: "Correctness review agent: reviews a plan's implementation and test changes against the plan, the protocol contract and Muster's hard rules, reading the orchestrator's gate run rather than re-running it. Spawned by the orchestrator beside review-browser and review-maintainability; takes a plan name."
 model: opus
+effort: high
 color: red
 ---
 

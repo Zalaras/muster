@@ -2,6 +2,7 @@
 name: judge
 description: "Tie-breaker for a two-agent decision debate run by the /decide skill. Reads the brief and the full transcript with fresh eyes and rules on which argument was decisive. Spawned only when the debate ends without consensus."
 model: opus
+effort: high
 color: purple
 ---
 

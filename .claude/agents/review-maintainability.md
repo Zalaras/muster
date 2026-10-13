@@ -2,6 +2,7 @@
 name: review-maintainability
 description: "Maintainability review agent: a newcomer's read of a plan's code changes with the sibling modules open and the plan deliberately withheld — duplication, divergence from neighbours, layering, guards on shared state, and the reasons given for size warnings. Spawned by the orchestrator beside review-work and review-browser; takes a plan name."
 model: opus
+effort: high
 color: red
 ---
 

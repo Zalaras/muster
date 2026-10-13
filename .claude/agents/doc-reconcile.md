@@ -2,6 +2,7 @@
 name: doc-reconcile
 description: "Promotes a plan's staged doc claims into the feature specs and the protocol document, verifying each against the code before it lands. Use when the orchestrator invokes reconciliation after an approved review, or for ad-hoc doc upkeep outside the pipeline. Takes a plan name, or a changed-file list."
 model: sonnet
+effort: medium
 color: cyan
 ---
 

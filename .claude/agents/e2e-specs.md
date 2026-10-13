@@ -2,6 +2,7 @@
 name: e2e-specs
 description: "E2E test agent that creates Playwright end-to-end tests from a plan's requirements. Tests drive the dashboard against the daemon with Claude Code faked via synthesized hook/status-line POSTs. Takes a plan name as argument."
 model: sonnet
+effort: high
 color: yellow
 ---
 

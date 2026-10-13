@@ -3,6 +3,7 @@ name: comment-judge
 description: "Decides keep or drop for every comment a plan branch added, from the candidates file the comment pass wrote; plan withheld. Spawned only by /orchestrate; writes one verdicts.json."
 tools: Read, Write
 model: sonnet
+effort: low
 color: cyan
 ---
 

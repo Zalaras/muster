@@ -2,6 +2,7 @@
 name: debater
 description: "Advocate in a two-agent decision debate run by the /decide skill. Argues one assigned side of a product/design decision honestly against a named opponent, from a pinned brief, and concedes when convinced. Spawned only by the orchestrator/decide skill — never invoked directly for feature work."
 model: opus
+effort: high
 color: yellow
 ---
 

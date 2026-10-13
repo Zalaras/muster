@@ -2,6 +2,7 @@
 name: daemon-tests
 description: "Daemon unit testing agent for Go code. Use when the orchestrator invokes daemon testing or the user wants Go unit tests written for implementation code. Takes a plan name as argument."
 model: sonnet
+effort: high
 color: cyan
 ---
 

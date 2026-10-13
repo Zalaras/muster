@@ -2,6 +2,7 @@
 name: web-tests
 description: "Web unit testing agent for the TypeScript dashboard. Use when the orchestrator invokes web testing or the user wants Vitest unit tests written for dashboard logic. Takes a plan name as argument."
 model: sonnet
+effort: medium
 color: cyan
 ---
 

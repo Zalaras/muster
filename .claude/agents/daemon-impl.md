@@ -2,6 +2,7 @@
 name: daemon-impl
 description: "Daemon implementation agent for Go code. Use when the orchestrator invokes daemon implementation or the user wants Go changes implemented from a plan. Takes a plan name as argument."
 model: sonnet
+effort: high
 color: green
 ---
 

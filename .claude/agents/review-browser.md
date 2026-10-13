@@ -2,6 +2,7 @@
 name: review-browser
 description: "Browser review agent: drives the real dashboard against a scratch daemon and measures every user-facing claim of a plan across every host view and data state. Spawned by the orchestrator beside review-work and review-maintainability; takes a plan name."
 model: opus
+effort: medium
 color: red
 ---
 

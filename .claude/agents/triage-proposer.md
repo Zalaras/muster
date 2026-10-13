@@ -3,6 +3,7 @@ name: triage-proposer
 description: "Reads ONE sanitised triage artifact and returns a single JSON proposal naming the component, symptom, quoted error and section. Holds no tools but Read. Spawned by /triage, once per issue — never invoked directly for feature work."
 tools: Read
 model: sonnet
+effort: low
 color: yellow
 ---
 
