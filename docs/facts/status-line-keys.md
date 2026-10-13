@@ -15,8 +15,8 @@ guard: TestStatusLineFields
 Top-level keys of every status-line post: `context_window`, `cost`, `cwd`,
 `exceeds_200k_tokens`, `fast_mode`, `model`, `output_style`, `prompt_id`, `rate_limits`,
 `session_id`, `session_name`, `thinking`, `transcript_path`, `version`, `workspace`. Added
-later, superset only: `scratchpad_dir` (2.1.259+), `prompt_cache` (first seen 2.1.267,
-contents uninspected, nothing reads it). Conditional, so absent from most posts: `effort`
+later, superset only: `scratchpad_dir` (2.1.259+), `prompt_cache` (present by 2.1.259,
+shape in kb:fact/prompt-cache-status-shape, nothing reads it). Conditional, so absent from most posts: `effort`
 (kb:fact/status-line-effort-key) and `worktree` (kb:fact/enter-worktree-moves-project-dir).
 
 `permission_mode` is absent from every capture — read it from hooks. `rate_limits` is absent
