@@ -723,7 +723,11 @@ func (c *Client) run(ctx context.Context, args ...string) (string, error) {
 
 // execSeparated is the Client.exec production seam: spawns name with args, stdout and
 // stderr captured into separate buffers, bounded by a WaitDelay for a descendant that
-// inherited a pipe (docs/conventions.md §Go).
+// inherited a pipe (docs/conventions.md §Go). The child gets the daemon's environment
+// minus MusterSessionEnvVar: a tmux server inherits the environment of the client that
+// starts it and every pane inherits the server's, so a daemon launched inside a managed
+// pane would otherwise hand its own session id to every shell pane
+// (kb:adr/surfaces-shell-pane-carries-no-session-env).
 func execSeparated(ctx context.Context, name string, args ...string) (stdout, stderr []byte, err error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Env = slices.DeleteFunc(os.Environ(), func(kv string) bool {
