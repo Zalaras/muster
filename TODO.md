@@ -299,15 +299,6 @@ tick a sub-item as it lands, the parent when all have.
   nav / outline panel on the right, and minimise the rail the way the docs nav already
   collapses. Each panel keeps its width across reloads.
 
-Filed 2026-10-12 by the developer from the plans' proposed-backlog.md files
-
-- [ ] **The comment pass keeps comments a plan did not write** — on `masthead-indicators` the
-  pass removed module headers from `features/connection.ts`, `features/usage.ts` and
-  `render/masthead.ts`, plus `UsageInfo`'s doc comment and the `shellsBusy?` note, all of which
-  predate the plan. Expected: a comment that existed before the plan survives the pass, even
-  where the plan edited it; weigh against the judge's edited-comment rule. From
-  `plans/masthead-indicators/`.
-
 ## v1 Release
 
 The release itself: the Homebrew tap, then cutting v1.0.0 — last, once § Issues and § Pre-v1

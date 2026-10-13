@@ -109,9 +109,11 @@ func fileCandidates(path string, fs *fileScan, added []addedBlock, stale []Candi
 	var cands []Candidate
 	for _, a := range added {
 		c := Candidate{Path: path, Kind: a.Kind, Span: a.Span, Lines: a.Lines, Total: len(a.Lines), Added: a.added, Origin: "added"}
-		if a.added < len(a.Lines) {
+		// At most half its lines new: still the comment that was on main, judged on truth
+		// alone. More than half: the branch wrote it, whatever stood there before.
+		if a.added*2 <= len(a.Lines) {
 			c.Origin = "edited"
-			c.Previous = d.removedComments(path)
+			c.Previous = d.removedComments(path, a.StartLine, a.EndLine)
 		}
 		cands = append(cands, c)
 	}

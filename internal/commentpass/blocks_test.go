@@ -88,7 +88,10 @@ func TestParseDiff_HunksAndRemovedIdents(t *testing.T) {
 	assert.Equal(t, map[int]bool{7: true, 8: true, 9: true, 13: true}, d.added["internal/a/a.go"])
 	assert.Equal(t, map[int]bool{1: true}, d.added["web/src/new.ts"])
 	assert.ElementsMatch(t, []string{"Helper", "A"}, d.removedIdents())
-	assert.Equal(t, []string{"// Helper does x."}, d.removedComments("internal/a/a.go"))
+	assert.Equal(t, []string{"// Helper does x."}, d.removedComments("internal/a/a.go", 1, 20))
+	assert.Equal(t, []string{"// Helper does x."}, d.removedComments("internal/a/a.go", 6, 6), "a pure deletion sits between new lines 5 and 6")
+	assert.Empty(t, d.removedComments("internal/a/a.go", 7, 9), "a hunk that landed elsewhere in the file is not this block's previous text")
+	assert.Empty(t, d.removedComments("web/src/new.ts", 1, 1), "a removed code line is not a comment")
 
 	moved := parseDiff("--- a/x.go\n+++ b/x.go\n@@ -1 +0,0 @@\n-func Helper() {}\n--- a/y.go\n+++ b/y.go\n@@ -0,0 +1 @@\n+func Helper() {}\n")
 	assert.Empty(t, moved.removedIdents(), "a moved declaration is not stale")

@@ -8,12 +8,19 @@ import (
 )
 
 // diffInfo is what the pass needs from the branch diff: which lines of which files are
-// new, and the removed and added lines for identifier bookkeeping.
+// new, each hunk's removed lines, and the removed and added lines for identifier bookkeeping.
 type diffInfo struct {
-	added   map[string]map[int]bool
-	removed map[string][]string
-	plus    []string
-	minus   []string
+	added map[string]map[int]bool
+	hunks map[string][]hunk
+	plus  []string
+	minus []string
+}
+
+// hunk is one `@@` section: where it lands in the new file and the lines it deleted. A
+// pure deletion has newCount 0 and sits between newStart and newStart+1.
+type hunk struct {
+	newStart, newCount int
+	removed            []string
 }
 
 var hunkRE = regexp.MustCompile(`^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@`)
@@ -36,7 +43,7 @@ func scopeDirs() []string {
 }
 
 func parseDiff(out string) *diffInfo {
-	d := &diffInfo{added: map[string]map[int]bool{}, removed: map[string][]string{}}
+	d := &diffInfo{added: map[string]map[int]bool{}, hunks: map[string][]hunk{}}
 	path := ""
 	n := 0
 	for _, line := range strings.Split(out, "\n") {
@@ -47,11 +54,9 @@ func parseDiff(out string) *diffInfo {
 				path = rest
 			}
 		case strings.HasPrefix(line, "@@"):
-			m := hunkRE.FindStringSubmatch(line)
-			if m == nil {
-				continue
+			if start, ok := d.startHunk(path, line); ok {
+				n = start
 			}
-			n, _ = strconv.Atoi(m[1])
 		case strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++"):
 			if path != "" {
 				if d.added[path] == nil {
@@ -62,13 +67,30 @@ func parseDiff(out string) *diffInfo {
 				n++
 			}
 		case strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---"):
-			if path != "" {
-				d.removed[path] = append(d.removed[path], line[1:])
+			if hs := d.hunks[path]; path != "" && len(hs) > 0 {
+				hs[len(hs)-1].removed = append(hs[len(hs)-1].removed, line[1:])
 				d.minus = append(d.minus, line[1:])
 			}
 		}
 	}
 	return d
+}
+
+// startHunk records the hunk a `@@` header opens in path and returns its new-file start.
+func (d *diffInfo) startHunk(path, header string) (int, bool) {
+	m := hunkRE.FindStringSubmatch(header)
+	if m == nil {
+		return 0, false
+	}
+	start, _ := strconv.Atoi(m[1])
+	count := 1
+	if m[2] != "" {
+		count, _ = strconv.Atoi(m[2])
+	}
+	if path != "" {
+		d.hunks[path] = append(d.hunks[path], hunk{newStart: start, newCount: count})
+	}
+	return start, true
 }
 
 func (p *Pass) untracked(ctx context.Context) ([]string, error) {
@@ -128,13 +150,24 @@ func (d *diffInfo) removedIdents() []string {
 	return out
 }
 
-// removedComments are the diff's deleted lines in path that look like comment lines.
-func (d *diffInfo) removedComments(path string) []string {
+// removedComments are the comment-looking lines the branch deleted from path within new
+// lines start..end: only the hunks landing inside that range, so a block's previous text
+// never carries a deletion from elsewhere in the file.
+func (d *diffInfo) removedComments(path string, start, end int) []string {
 	var out []string
-	for _, l := range d.removed[path] {
-		t := strings.TrimSpace(l)
-		if strings.HasPrefix(t, "//") || strings.HasPrefix(t, "/*") || strings.HasPrefix(t, "*") {
-			out = append(out, t)
+	for _, h := range d.hunks[path] {
+		lo, hi := h.newStart, h.newStart+h.newCount-1
+		if h.newCount == 0 {
+			hi = lo + 1
+		}
+		if lo > end || hi < start {
+			continue
+		}
+		for _, l := range h.removed {
+			t := strings.TrimSpace(l)
+			if strings.HasPrefix(t, "//") || strings.HasPrefix(t, "/*") || strings.HasPrefix(t, "*") {
+				out = append(out, t)
+			}
 		}
 	}
 	return out

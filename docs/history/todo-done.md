@@ -2248,3 +2248,13 @@ since reported from real use.
   about a minute after running `/rc`, the card read needs input although nothing was waiting on
   the developer. A local command should leave the card as it was.
   ✅ done 2026-10-13 (plan `state-issues`): a local command's orphan `idle_prompt` no longer raises `needs_input` (kb:adr/lifecycle-idle-prompt-ends-turn-never-attention).
+
+### Filed 2026-10-12 by the developer from the plans' proposed-backlog.md files ✅ done 2026-10-13 (plan `comment-pass-edited`, a plan and a commit)
+
+- [x] **The comment pass keeps comments a plan did not write** — on `masthead-indicators` the
+  pass removed module headers from `features/connection.ts`, `features/usage.ts` and
+  `render/masthead.ts`, plus `UsageInfo`'s doc comment and the `shellsBusy?` note, all of which
+  predate the plan. Expected: a comment that existed before the plan survives the pass, even
+  where the plan edited it; weigh against the judge's edited-comment rule. From
+  `plans/masthead-indicators/`.
+  ✅ done 2026-10-13 (plan `comment-pass-edited`): a block the branch edited by at most half its lines is judged on truth alone, and its `previously:` shows only its own removed lines (kb:adr/process-comment-pass-edited-comment-judged-on-truth).

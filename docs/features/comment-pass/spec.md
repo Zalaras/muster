@@ -11,7 +11,7 @@ go: [tools/commentpass/**, internal/commentpass/**]
 web: []
 e2e: []
 protocol: []
-refs: [kb:adr/process-comment-pass-owns-code-comments, kb:diagram/pipeline-execution-order]
+refs: [kb:adr/process-comment-pass-owns-code-comments, kb:adr/process-comment-pass-edited-comment-judged-on-truth, kb:diagram/pipeline-execution-order]
 ---
 The comment pass is how code comments are policed in the build pipeline: on the diff, by a
 program and one narrow judge, never by the author or the reviewers
@@ -26,8 +26,10 @@ names a top-level identifier the diff removed. Go comments come from `go/scanner
 comments from a small scanner that steps over strings, template literals and regex literals.
 Directives the toolchain parses (`go:build`, `go:embed`, `go:generate`, `nolint`, `line`,
 `biome-ignore`, `@ts-expect-error`) are never candidates and split any block they sit in. A
-block the branch edited is a whole candidate, shown with its previous text. A block the ledger
-already keeps is skipped unless `--all`.
+block that stood on `main` and whose lines the branch changed at most half of is an `edited`
+candidate: whole, shown with the comment lines the branch removed from its place (only the
+hunks landing inside it, never a deletion from elsewhere in the file). One the branch rewrote
+by more than half is `added`. A block the ledger already keeps is skipped unless `--all`.
 
 `strip` snapshots each touched file's bytes, removes every candidate, formats the result and
 writes it to the tree, then writes `candidates.json` (the manifest) and `candidates.md`: per
@@ -38,9 +40,12 @@ the whole run before any write.
 The orchestrator spawns `comment-judge` — Sonnet, holding Read and Write only, the plan
 withheld — with the two paths. It reads nothing but `candidates.md` and writes `verdicts.json`:
 every id exactly once, keep or drop, one sentence per keep naming the code line the comment
-protects. Keep means all of: deleting it would likely make a reader who never saw the plan
-break the code; the constraint cannot be a test, a type or a name; the statement is true of
-the stripped file shown.
+protects. For an `added` candidate keep means all of: deleting it would likely make a reader
+who never saw the plan break the code; the constraint cannot be a test, a type or a name; the
+statement is true of the stripped file shown. An `edited` or `stale-ref` candidate is judged
+on truth alone — kept unless the stripped file contradicts it or it names something the
+branch removed — because `main`'s comments are out of the pass's scope and an edit does not
+bring one in (kb:adr/process-comment-pass-edited-comment-judged-on-truth).
 
 `apply <plan> <verdicts.json> --cycle N --message <msg>` refuses a verdict set that misses,
 repeats or invents an id or keeps without a reason, and a tree that changed since `strip`.

@@ -83,7 +83,30 @@ func TestStrip_EditedBlockIsWholeWithPrevious(t *testing.T) {
 	assert.Equal(t, "edited", c.Origin)
 	assert.Equal(t, 1, c.Added)
 	assert.Equal(t, 2, c.Total)
-	assert.Contains(t, c.Previous, "// about to be edited")
+	assert.Equal(t, []string{"// about to be edited"}, c.Previous, "only the lines removed from this block's place, not `// Helper does x.` deleted elsewhere in the file")
+}
+
+func TestStrip_MajorityNewBlockIsAddedNotEdited(t *testing.T) {
+	p, _, root := newFixture(t)
+	writeFx(t, root, "internal/a/a.go", strings.Replace(branchAGo, "// Keep stays.\n", "// Keep stays.\n// now with a second line\n// and a third\n", 1))
+	_, m := strip(t, p)
+
+	var grown, edited Candidate
+	for _, f := range m.Files {
+		for _, c := range f.Candidates {
+			switch c.Lines[0] {
+			case "// Keep stays.":
+				grown = c
+			case "// edited first line":
+				edited = c
+			}
+		}
+	}
+	assert.Equal(t, "added", grown.Origin, "2 of 3 lines new: the branch wrote this comment")
+	assert.Equal(t, 2, grown.Added)
+	assert.Equal(t, 3, grown.Total)
+	assert.Empty(t, grown.Previous)
+	assert.Equal(t, "edited", edited.Origin, "1 of 2 lines new: still the comment that was on main")
 }
 
 func TestStrip_UntrackedFileEveryCommentAdded(t *testing.T) {
