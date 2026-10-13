@@ -288,10 +288,10 @@ async function titleAndRepoFloorProblems(page: Page, repoName: string): Promise<
 
 type FloorCheck = (page: Page, repoName: string) => Promise<string[]>;
 
-// The repo block's floor is 8 characters (kb:adr/focus-mainhead-wraps-to-second-row-when-narrow):
-// `muster /` is exactly that, so it can never be truncated, where `muster-app /` (12) is
-// ellipsized by the unchanged title-first layout at every width but 1140 (measured on the base
-// commit 41a4469 with no group control in the tree).
+// The repo block's floor is 8 characters: `muster /` is exactly that, so it can never be
+// truncated, where a longer folder such as `muster-app /` (12) ellipsizes only once the header
+// is on two rows and then before the title does (plan title-crop-stop-resume-button, REQ-2:
+// the readout gives way ahead of the title, which keeps its 6rem floor last).
 const FLOOR_FOLDER = "muster";
 
 async function expectHeaderAtWidth(

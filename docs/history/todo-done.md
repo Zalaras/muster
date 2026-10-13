@@ -1745,6 +1745,17 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   changes. The masthead should not show a model.
   ✅ done 2026-10-12 (plan `masthead-indicators`): the masthead model readout and the wire `usage.model` field are gone; usage history still records the model (kb:adr/usage-masthead-shows-no-model).
 
+### Together — Focus view header (#73, #83) ✅ done 2026-10-13 (plan `title-crop-stop-resume-button`, via `/orchestrate`; all three review parts approved in cycle 2)
+
+- [x] **Title squashed for no reason** ([#73](https://github.com/Zalaras/muster/issues/73)) — in the
+  Focus view header the repo/branch line (`work / main`) wraps onto two lines though the header
+  has plenty of room. It should stay on one line while there is room.
+
+- [x] **Resume/Stop should be interchangeable** ([#83](https://github.com/Zalaras/muster/issues/83)) — the
+  header's Stop and Resume should be one button that swaps between the two, rather than a
+  greyed-out one taking space, without the layout shifting when Stop is clicked.
+  ✅ done 2026-10-13 (plan `title-crop-stop-resume-button`): one Stop/Resume button in the same box under both labels; the ended age sits under the model in a reserved slot, so nothing moves at any width (kb:adr/actions-mainhead-one-stop-resume-button).
+
 ### Together — `MUSTER_SESSION` from the surrounding environment ✅ done 2026-10-13 (plan `tmux-server-env-leak`, via `/fix`)
 
 Filed 2026-10-12 by the developer from `plans/reader-expanded-persists/proposed-backlog.md`.

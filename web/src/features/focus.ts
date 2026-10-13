@@ -12,7 +12,7 @@ import { renderFocusMain, renderSizenote, setMainSlotHidden } from "../render/fo
 import { fitMainheadMeta, renderMainhead, type MainheadElements } from "../render/mainhead";
 import { attachRenameEditor, type RenameEditorHandlers } from "../render/rename";
 import { mountSlotRoot } from "../render/slotmount";
-import type { PaneState, SessionAction } from "../sessions/card";
+import { stopResumeButton, type PaneState, type SessionAction } from "../sessions/card";
 import { collectDeadSurfaceRefs, renderDeadSurface, type DeadSurfaceRefs } from "../render/dead";
 import {
   DEFAULT_SURFACE_STATE,
@@ -104,14 +104,13 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
       deps.getSurfaces().select(id, kind, () => deadSurfaceRefsFor(id));
     }
   });
-  requireElement<HTMLElement>("#mainhead .acts").before(mainheadSurfaceSegment.root);
+  requireElement<HTMLElement>("#mainhead .acts").prepend(mainheadSurfaceSegment.root);
 
   const mainheadElements: MainheadElements = {
     root: requireElement<HTMLElement>("#mainhead"),
     nameEl: requireElement<HTMLElement>("#mainhead .name"),
     metaEl: requireElement<HTMLElement>("#mainhead .meta"),
-    endBtn: requireElement<HTMLButtonElement>('#mainhead button[data-action="end"]'),
-    resumeBtn: requireElement<HTMLButtonElement>('#mainhead button[data-action="resume"]'),
+    stopResumeBtn: requireElement<HTMLButtonElement>("#mainhead .acts .stop-resume"),
     removeBtn: requireElement<HTMLButtonElement>('#mainhead button[data-action="remove"]'),
     renameBtn: requireElement<HTMLButtonElement>("#mainhead button.rename"),
     groupBtn: requireElement<HTMLButtonElement>("#mainhead .ingroup"),
@@ -135,18 +134,18 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
   // render pass. The pane's own size never depends on the header, so refitting cannot loop.
   const mainheadPane = mainheadElements.root.parentElement;
   if (mainheadPane) {
-    new ResizeObserver(() => fitMainheadMeta(mainheadElements.metaEl)).observe(mainheadPane);
+    new ResizeObserver(() =>
+      fitMainheadMeta(mainheadElements.metaEl, mainheadElements.root),
+    ).observe(mainheadPane);
   }
 
   const mainEmptyEl = requireElement<HTMLElement>("#main-empty");
   const mainSlotEl = requireElement<HTMLElement>("#main-terminal-slot");
   const sizenoteEl = requireElement<HTMLElement>("#sizenote");
 
-  mainheadElements.endBtn.addEventListener("click", () => {
-    if (app.state.focusedId !== null) deps.actions.dispatch("end", app.state.focusedId);
-  });
-  mainheadElements.resumeBtn.addEventListener("click", () => {
-    if (app.state.focusedId !== null) deps.actions.dispatch("resume", app.state.focusedId);
+  mainheadElements.stopResumeBtn.addEventListener("click", () => {
+    const session = app.store.values().find((s) => s.id === app.state.focusedId);
+    if (session) deps.actions.dispatch(stopResumeButton(session, true).action, session.id);
   });
   mainheadElements.removeBtn.addEventListener("click", () => {
     if (app.state.focusedId !== null) deps.actions.dispatch("remove", app.state.focusedId);

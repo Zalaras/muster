@@ -1,7 +1,7 @@
 ---
 id: focus-group-control-stays-while-title-shortens
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-05
 summary: Above the 640 px breakpoint the Focus header's group control stays while a long title shortens beside it; the title gives way first, the control goes whole.
 features: [focus]

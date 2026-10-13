@@ -5,8 +5,10 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -423,17 +425,57 @@ func TestDrop_RefusesDirectiveOutOfScopeAndNoComment(t *testing.T) {
 
 	err := p.Drop(context.Background(), []string{
 		"internal/a/a.go:" + strconv.Itoa(nolint),
-		"internal/a/a_test.go:3",
+		"docs/notes.md:3",
 		"internal/a/a.go:" + strconv.Itoa(code),
 		"internal/a/a.go:" + strconv.Itoa(lineOf(t, a, "// added trailing")),
 	}, 1, "m")
 
 	require.ErrorContains(t, err, "internal/a/a.go:"+strconv.Itoa(nolint)+" is a directive")
-	require.ErrorContains(t, err, "outside the pass's scope: internal/a/a_test.go:3")
+	require.ErrorContains(t, err, "outside the pass's scope: docs/notes.md:3")
 	require.ErrorContains(t, err, "no comment on internal/a/a.go:"+strconv.Itoa(code))
 	assert.Equal(t, before, readFx(t, root, "internal/a/a.go"), "nothing written")
 	_, exists, _ := p.readLedger()
 	assert.False(t, exists)
+}
+
+// Drop reaches the files strip leaves alone; a stylesheet is never handed to Biome.
+func TestDrop_ReachesTestFilesE2EHelpersAndStylesheets(t *testing.T) {
+	p, _, root := newFixture(t)
+	files := map[string]string{
+		"internal/a/a_test.go":      "package a\n\n// stale go test note\nfunc helper() {}\n",
+		"web/src/app.test.ts":       "// stale unit test note\nexport const u = 1;\n",
+		"web/e2e/helpers/header.ts": "/**\n * stale helper note\n */\nexport const h = 1;\n",
+		"web/src/style.css":         ".a {\n  /* stale style note */\n  background: url(https://x.test/a.png);\n  content: \"/* not a comment */\";\n}\n",
+	}
+	for path, body := range files {
+		writeFx(t, root, path, body)
+	}
+	gitFx(t, root, "add", "-A")
+	gitFx(t, root, "commit", "-q", "-m", "more")
+	var formatted []string
+	p.FormatTS = func(_ context.Context, _ string, rels []string) error {
+		formatted = append(formatted, rels...)
+		return nil
+	}
+	refs := []string{
+		"internal/a/a_test.go:3",
+		"web/src/app.test.ts:1",
+		"web/e2e/helpers/header.ts:2",
+		"web/src/style.css:" + strconv.Itoa(lineOf(t, files["web/src/style.css"], "stale style note")),
+	}
+
+	require.NoError(t, p.Drop(context.Background(), refs, 2, "chore(x): drop comments per review cycle 2"))
+
+	for path, body := range files {
+		live := readFx(t, root, path)
+		assert.NotContains(t, live, "stale", path)
+		assert.NotEqual(t, body, live, path)
+	}
+	css := readFx(t, root, "web/src/style.css")
+	assert.Contains(t, css, "url(https://x.test/a.png)", "a // inside a url is not a comment")
+	assert.Contains(t, css, `"/* not a comment */"`, "a comment opener inside a string is not a comment")
+	assert.ElementsMatch(t, []string{"web/e2e/helpers/header.ts", "web/src/app.test.ts"}, formatted)
+	assert.ElementsMatch(t, append(slices.Collect(maps.Keys(files)), "plans/x/comment-pass.json"), headFiles(t, root))
 }
 
 func TestApply_LeavesUnrelatedStagedFilesStaged(t *testing.T) {

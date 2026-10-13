@@ -9,7 +9,12 @@
 // features/actions.ts's job (`ensurePaneFetch`/`paneState`). Every displayed string is
 // `sessions/card.ts`'s `deadSurfaceText`; this module only assigns it.
 import type { Session } from "../protocol/session";
-import { canResume, deadSurfaceText, resumeDisabledReason, type PaneState } from "../sessions/card";
+import {
+  actionEnabled,
+  deadSurfaceText,
+  resumeDisabledReason,
+  type PaneState,
+} from "../sessions/card";
 import { showNotice } from "../terminal/notice";
 
 export interface DeadSurfaceRefs {
@@ -71,7 +76,7 @@ export function renderDeadSurface(
 
   refs.resumeBtn.dataset["action"] = "resume";
   refs.resumeBtn.dataset["id"] = String(session.id);
-  refs.resumeBtn.disabled = !connected || !canResume(session.claudeSessionId);
+  refs.resumeBtn.disabled = !actionEnabled("Resume", session.claudeSessionId, connected);
   // A disabled-for-no-claudeSessionId Resume says why, not just sits greyed.
   refs.resumeBtn.title = resumeDisabledReason(session) ?? "";
 }

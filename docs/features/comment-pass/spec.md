@@ -11,7 +11,7 @@ go: [tools/commentpass/**, internal/commentpass/**]
 web: []
 e2e: []
 protocol: []
-refs: [kb:adr/process-comment-pass-owns-code-comments, kb:adr/process-comment-pass-edited-comment-judged-on-truth, kb:diagram/pipeline-execution-order]
+refs: [kb:adr/process-comment-pass-owns-code-comments, kb:adr/process-comment-pass-edited-comment-judged-on-truth, kb:adr/process-comment-pass-drop-reaches-tests-and-css, kb:diagram/pipeline-execution-order]
 ---
 The comment pass is how code comments are policed in the build pipeline: on the diff, by a
 program and one narrow judge, never by the author or the reviewers
@@ -59,7 +59,9 @@ and fails on any whose key — path plus a hash of its whitespace-normalised tex
 ledger keep, or on any added block when no ledger exists. `drop <plan> <path:line>...` is the
 orchestrator's answer to a reviewer's `[note]` naming a false or stale comment: it removes
 the block holding each line, refusing a directive or an out-of-scope path, records an
-orchestrator cycle and commits.
+orchestrator cycle and commits. Its scope is wider than strip's: it also reaches Go and web unit
+test files, E2E specs and helpers, and stylesheets, whose block comments are read by a CSS-only
+scanner and never handed to Biome (kb:adr/process-comment-pass-drop-reaches-tests-and-css).
 
 Review files no finding on a comment at any severity. The `comment-checks.py` regex hook stays
-as the per-role early warning and the only check that reaches test files.
+as the per-role early warning and the only check that reads test files' added comments.

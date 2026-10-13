@@ -47,7 +47,7 @@ func (p *Pass) Drop(ctx context.Context, refs []string, cycle int, message strin
 		if werr := p.dropBlocks(path, planned[path], drops[path], &entry); werr != nil {
 			return werr
 		}
-		if !isGo(path) {
+		if isTS(path) {
 			tsRels = append(tsRels, path)
 		}
 	}
@@ -67,7 +67,7 @@ func parseDropRefs(refs []string) (map[string][]int, []string) {
 		switch {
 		case !ok || convErr != nil || line < 1:
 			problems = append(problems, "not a path:line: "+r)
-		case !InScope(path):
+		case !DropInScope(path):
 			problems = append(problems, "outside the pass's scope: "+r)
 		default:
 			byPath[path] = append(byPath[path], line)

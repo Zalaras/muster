@@ -1,19 +1,12 @@
-// The Focus mainhead — name, meta (repo block, `↳` block while Claude is in another
-// checkout, model, `ended <age>` when dead), and the Stop/Resume/Remove action row above
-// the terminal slot (kb:adr/actions-placement-mainhead-and-card-rows). DOM only; every
-// displayed string comes from card.ts's `mainheadMeta` view-model so the mainhead never
-// composes a second copy of text the card already owns. Static markup (one instance in index.html, unlike the
-// per-session card/tile templates) — features/focus.ts wires the three buttons' click
-// listeners once at startup and this module only ever toggles their `disabled` state.
 import type { Session } from "../protocol/session";
 import { requireElement } from "../dom";
 import {
   bypassChip,
-  canResume,
   displayTitle,
   mainheadMeta,
-  resumeDisabledReason,
+  stopResumeButton,
   type MainheadMeta,
+  type StopResumeButton,
 } from "../sessions/card";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import type { SessionSurfaceState } from "../terminal/surfaceswitch";
@@ -24,8 +17,7 @@ export interface MainheadElements {
   root: HTMLElement;
   nameEl: HTMLElement;
   metaEl: HTMLElement;
-  endBtn: HTMLButtonElement;
-  resumeBtn: HTMLButtonElement;
+  stopResumeBtn: HTMLButtonElement;
   removeBtn: HTMLButtonElement;
   // The rename trigger inside `nameEl` (kb:adr/rename-muster-owned-title-override-wins) —
   // its text is written here on every non-editing pass; `features/rename.ts` attaches the
@@ -36,9 +28,6 @@ export interface MainheadElements {
   // is wired once by features/focus.ts, which also owns the Move to menu it opens
   // (kb:adr/focus-group-control-hides-below-640px-container-width — the CSS hides it).
   groupBtn: HTMLButtonElement;
-  // The `claude | shell` segment (kb:adr/surfaces-shell-is-attach-target-not-session),
-  // built once by features/focus.ts at startup and inserted between `.meta` and `.acts`
-  // — this module only ever updates its attributes (below), never rebuilds it.
   surfaceSegment: SurfaceSegmentRefs;
 }
 
@@ -64,32 +53,58 @@ function renderMeta(metaEl: HTMLElement, meta: MainheadMeta): void {
   requireElement<HTMLElement>(".ended", endedAt).textContent = meta.ended ?? "";
 }
 
-/** Trims `.loc` to what it shows. `.loc`'s width follows the window continuously, but the `↳`
- * block shows or gives way whole, so in between `.loc` would hold room for a block it does not
- * draw — and a folder line shorter than the floor leaves the floor's room unused. Measured with
- * the cap cleared, every time, so the decision never feeds on its own result: while the `↳`
- * block is not on `.loc`'s first line, `--loc-cap` (style.css `.mainhead .meta`) caps `.loc` at
- * the repo block plus the room its `·` is drawn in, and the leftover is the header's ordinary
- * free space. Called after every meta write and whenever the pane resizes (features/focus.ts). */
-export function fitMainheadMeta(metaEl: HTMLElement): void {
+export function fitMainheadMeta(metaEl: HTMLElement, root: HTMLElement): void {
   metaEl.style.removeProperty("--loc-cap");
   if (metaEl.offsetParent === null) return;
+  metaEl.classList.remove("stacked");
   const loc = requireElement<HTMLElement>(".loc", metaEl);
-  const repo = requireElement<HTMLElement>(".repo", loc);
+  loc.classList.remove("repo-only");
   const claudeAt = requireElement<HTMLElement>(".claude-at", loc);
-  const locBox = loc.getBoundingClientRect();
-  if (!claudeAt.hidden && claudeAt.getBoundingClientRect().top < locBox.bottom - 1) return;
+  if (!claudeAt.hidden && onOneRow(root)) return;
+  loc.classList.add("repo-only");
+  const repo = requireElement<HTMLElement>(".repo", loc);
   const repoBox = repo.getBoundingClientRect();
   const room = Number.parseFloat(getComputedStyle(repo).marginRight) || 0;
-  metaEl.style.setProperty("--loc-cap", `${repoBox.right + room - locBox.left}px`);
+  metaEl.style.setProperty(
+    "--loc-cap",
+    `${repoBox.right + room - loc.getBoundingClientRect().left}px`,
+  );
+  stackMeta(metaEl, root);
+}
+
+function stackMeta(metaEl: HTMLElement, root: HTMLElement): void {
+  const title = requireElement<HTMLElement>(".name", root);
+  if (sharesRow(metaEl, title)) return;
+  metaEl.classList.add("stacked");
+  const rename = requireElement<HTMLElement>(".rename", title);
+  if (rename.scrollWidth > rename.clientWidth)
+    metaEl.style.setProperty("--loc-cap", "var(--loc-floor)");
+}
+
+function onOneRow(root: HTMLElement): boolean {
+  return sharesRow(
+    requireElement<HTMLElement>(".acts", root),
+    requireElement<HTMLElement>(".idrow", root),
+  );
+}
+
+function sharesRow(el: HTMLElement, other: HTMLElement): boolean {
+  return el.getBoundingClientRect().top < other.getBoundingClientRect().bottom - 1;
+}
+
+function renderStopResume(btn: HTMLButtonElement, view: StopResumeButton): void {
+  if (btn.textContent !== view.label) btn.textContent = view.label;
+  btn.dataset["action"] = view.action;
+  btn.disabled = view.disabled;
+  btn.title = view.reason ?? "";
 }
 
 /** `session` is the currently-focused one, or `null` when nothing is focused (no
  * sessions at all) — hidden in that case. `connected`
  * gates every button while the WS is down (States: "action buttons are disabled while
  * the WS is down"), on top of each button's own enablement rule:
- * - Stop: enabled iff `alive`.
- * - Resume: enabled iff `!alive && claudeSessionId`.
+ * - Stop/Resume: one button (sessions/card.ts's `stopResumeButton`) — `Stop` while alive,
+ *   `Resume` (enabled iff a Claude session id is bound) while dead.
  * - Remove: never disabled by session state (only by `connected`).
  *
  * `surfaceState` is the currently-focused session's
@@ -148,12 +163,9 @@ export function renderMainhead(
   const groupName = requireElement<HTMLElement>(".ig-name", elements.groupBtn);
   if (groupName.textContent !== groupText) groupName.textContent = groupText;
   elements.groupBtn.disabled = !connected;
-  elements.endBtn.disabled = !connected || !session.alive;
-  elements.resumeBtn.disabled = !connected || session.alive || !canResume(session.claudeSessionId);
-  // A disabled-for-no-claudeSessionId Resume says why, not just sits greyed.
-  elements.resumeBtn.title = resumeDisabledReason(session) ?? "";
+  renderStopResume(elements.stopResumeBtn, stopResumeButton(session, connected));
   elements.removeBtn.disabled = !connected;
   updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected, activity);
-  // Last, once every slot that shares the header's row (title, chip, meta) holds this pass's text.
-  fitMainheadMeta(elements.metaEl);
+  // Last, once every slot that shares the header's row (title, chip, meta, cluster) holds this pass's text.
+  fitMainheadMeta(elements.metaEl, elements.root);
 }

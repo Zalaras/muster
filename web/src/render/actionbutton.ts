@@ -2,13 +2,7 @@
 // a Stop/Resume/Remove row (kb:adr/actions-placement-mainhead-and-card-rows) — split out
 // of render/sessions.ts since it's shared by `render/sessions.ts` and `render/tiles.ts`,
 // so it belongs to neither.
-import type { CardAction, SessionAction } from "../sessions/card";
-
-const ACTION_BY_LABEL: Record<CardAction, SessionAction> = {
-  Stop: "end",
-  Resume: "resume",
-  Remove: "remove",
-};
+import { ACTION_BY_LABEL, type CardAction, type SessionAction } from "../sessions/card";
 
 /** `event.stopPropagation()` keeps a button click from also changing focus via the
  * card's own click-to-focus handling — attached directly on the button rather than via a

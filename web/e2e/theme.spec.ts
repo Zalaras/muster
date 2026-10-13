@@ -377,49 +377,73 @@ test("killing the daemon leaves both theme attributes unchanged while the banner
   await expect.poll(() => htmlTheme(page)).toBe("dark");
 });
 
-test("masthead Resume is disabled and its computed style differs from the enabled End button, in each theme (E13)", async ({
+// The header holds one Stop/Resume button since plan title-crop-stop-resume-button (REQ-5), so
+// a live session's enabled Stop and a disabled Resume can no longer be on screen together:
+// session A is live (an enabled Stop), session B is dead with no Claude id (a disabled
+// Resume), and the test focuses one and then the other in every theme. The assertion is the
+// original one — the disabled button's computed style differs from the enabled one's — and
+// the header never shows a Stop and a Resume at once.
+test("the header's disabled Resume button's computed style differs from the enabled Stop button, in each theme (E13)", async ({
   page,
   request,
   daemon,
 }) => {
-  const { path: dir, cleanup } = await scratchDirectory();
+  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "disabled-e13" });
+    const live = await launchSession(page, daemon, { directory: dirA.path, title: "enabled-e13" });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-e13", await envelopeOpts(session, daemon)),
+      data: envelopedSessionStart("claude-e13", await envelopeOpts(live, daemon)),
     });
+    const dead = await launchSession(page, daemon, { directory: dirB.path, title: "disabled-e13" });
+    // Kill the window before any hook arrives: no Claude id is ever bound, so Resume is disabled.
+    await daemon.killTmuxWindow(dead.tmuxTarget);
+    await page.reload();
+
     const mainhead = page.locator("#mainhead");
-    await expect(mainhead).toContainText("disabled-e13");
+    const stopBtn = mainhead.getByRole("button", { name: "Stop", exact: true });
+    const resumeBtn = mainhead.getByRole("button", { name: "Resume", exact: true });
+    const focusLive = async () => {
+      await sessionCard(page, "enabled-e13").click();
+      await expect(mainhead).toContainText("enabled-e13");
+      await expect(stopBtn).toBeEnabled();
+      await expect(resumeBtn).toHaveCount(0);
+    };
+    const focusDead = async () => {
+      await sessionCard(page, "disabled-e13").click();
+      await expect(mainhead).toContainText("disabled-e13");
+      await expect(resumeBtn).toBeDisabled();
+      await expect(stopBtn).toHaveCount(0);
+    };
 
-    const endBtn = mainhead.getByRole("button", { name: "Stop" });
-    const resumeBtn = mainhead.getByRole("button", { name: "Resume" });
-    await expect(endBtn).toBeEnabled();
-    await expect(resumeBtn).toBeDisabled();
-
-    const dialog = await openSettingsDialog(page);
     for (const [label, expectedTheme] of [
       ["Instrument", "instrument"],
       ["Dark", "dark"],
       ["Light", "light"],
     ] as const) {
+      const dialog = await openSettingsDialog(page);
       await themeRadio(dialog, label).check();
       await expect.poll(() => htmlTheme(page)).toBe(expectedTheme);
+      await settingsCloseButton(dialog).click();
 
-      const endColor = await endBtn.evaluate((el) => getComputedStyle(el).color);
+      await focusLive();
+      const endColor = await stopBtn.evaluate((el) => getComputedStyle(el).color);
+      const endBorder = await stopBtn.evaluate((el) => getComputedStyle(el).borderColor);
+      await focusDead();
       const resumeColor = await resumeBtn.evaluate((el) => getComputedStyle(el).color);
-      const endBorder = await endBtn.evaluate((el) => getComputedStyle(el).borderColor);
       const resumeBorder = await resumeBtn.evaluate((el) => getComputedStyle(el).borderColor);
       const resumeCursor = await resumeBtn.evaluate((el) => getComputedStyle(el).cursor);
 
-      expect(resumeColor, `${label}: Resume color must differ from enabled End`).not.toBe(endColor);
-      expect(resumeBorder, `${label}: Resume border-color must differ from enabled End`).not.toBe(
+      expect(resumeColor, `${label}: Resume color must differ from enabled Stop`).not.toBe(
+        endColor,
+      );
+      expect(resumeBorder, `${label}: Resume border-color must differ from enabled Stop`).not.toBe(
         endBorder,
       );
       expect(resumeCursor, `${label}: disabled Resume must show not-allowed`).toBe("not-allowed");
     }
   } finally {
-    await cleanup();
+    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
   }
 });
 

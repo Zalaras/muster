@@ -85,19 +85,9 @@ The refusal entry was filed 2026-09-26 by the developer from
   rail card should show at a glance whether the session's prompt cache is still warm (a colour
   or an icon), tied to the idle timer it already shows, since the cache stays warm only so long.
 
-### Together — Focus view header (#73, #83)
-
-- [ ] **Title squashed for no reason** ([#73](https://github.com/Zalaras/muster/issues/73)) — in the
-  Focus view header the repo/branch line (`work / main`) wraps onto two lines though the header
-  has plenty of room. It should stay on one line while there is room.
-
-- [ ] **Resume/Stop should be interchangeable** ([#83](https://github.com/Zalaras/muster/issues/83)) — the
-  header's Stop and Resume should be one button that swaps between the two, rather than a
-  greyed-out one taking space, without the layout shifting when Stop is clicked.
-
 ### On their own
 
-- [ ] **Tiles per group** — a Tiles view scoped to one group (the grid holds that group's live sessions, the strip the rest of it), reached from the group's ⋯ menu. The grid and strip ignore groups today.
+- [ ] **Tiles per group** — a Tiles view scoped to one group (the grid holds that group's live sessions, the strip the rest of it), reached from the group's ⋯ menu. The grid and strip ignore groups today. The tile footer's live (Stop) versus ended (age, Resume, Remove) row shapes, and the layout shift between them, are reworked here too, matching the Focus header's single Stop/Resume button (plan `title-crop-stop-resume-button` left the footer alone, 2026-10-13).
 
 - [ ] **Tool hooks surface `hook error` after a daemon update** ([#54](https://github.com/Zalaras/muster/issues/54)) — seen
   again 2026-09-30 after plan `maintainability-regressions` closed it: `PreToolUse`/`PostToolUse`

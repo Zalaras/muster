@@ -1,7 +1,7 @@
 ---
 id: rail-repo-line-wraps-at-slash
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-01
 summary: The repo readout wraps at the slash, folder over branch, each line truncated with a hover; compact and tile headers stay one line; the model never truncates.
 features: [rail, focus, tiles]

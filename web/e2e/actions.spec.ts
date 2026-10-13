@@ -675,8 +675,10 @@ test("action buttons are disabled while the daemon connection is down (E14)", as
     const banner = page.getByRole("alert");
     await expect(banner).toBeVisible({ timeout: 15_000 });
 
-    await expect(mainhead.getByRole("button", { name: "Stop" })).toBeDisabled();
-    await expect(mainhead.getByRole("button", { name: "Resume" })).toBeDisabled();
+    // One Stop/Resume button (plan title-crop-stop-resume-button, REQ-5): a live session's
+    // reads Stop, and it is the only one of the two in the header.
+    await expect(mainhead.getByRole("button", { name: "Stop", exact: true })).toBeDisabled();
+    await expect(mainhead.getByRole("button", { name: "Resume", exact: true })).toHaveCount(0);
     await expect(mainhead.getByRole("button", { name: "Remove" })).toBeDisabled();
     // REQ-7 (plan status-inconsistencies): a live card offers no End at all, so there is
     // nothing on it to disable — the mainhead's End above is the one that goes disabled.
@@ -739,10 +741,10 @@ test("action buttons are disabled while the daemon connection is down for a dead
     const cap = deadSurface.locator(".endcap");
 
     // Sanity: while connected, a dead focused session has Resume/Remove enabled on the
-    // mainhead and Resume enabled in the cap (End stays disabled — the session just
-    // isn't alive, unrelated to connection state).
-    await expect(mainhead.getByRole("button", { name: "Stop" })).toBeDisabled();
-    await expect(mainhead.getByRole("button", { name: "Resume" })).toBeEnabled();
+    // mainhead and Resume enabled in the cap. The header's one Stop/Resume button reads
+    // Resume now (plan title-crop-stop-resume-button, REQ-5): no Stop beside it.
+    await expect(mainhead.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
+    await expect(mainhead.getByRole("button", { name: "Resume", exact: true })).toBeEnabled();
     await expect(mainhead.getByRole("button", { name: "Remove" })).toBeEnabled();
     await expect(cap.getByRole("button", { name: "Resume" })).toBeEnabled();
 
@@ -762,8 +764,8 @@ test("action buttons are disabled while the daemon connection is down for a dead
     // This dead session's mainhead/cap have no terminal socket at all (REQ-13/INV-5),
     // so nothing incidentally re-renders them — only `setStatus`'s own `render()` call
     // can be responsible for these flipping to disabled.
-    await expect(mainhead.getByRole("button", { name: "Stop" })).toBeDisabled();
-    await expect(mainhead.getByRole("button", { name: "Resume" })).toBeDisabled();
+    await expect(mainhead.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
+    await expect(mainhead.getByRole("button", { name: "Resume", exact: true })).toBeDisabled();
     await expect(mainhead.getByRole("button", { name: "Remove" })).toBeDisabled();
     await expect(cap.getByRole("button", { name: "Resume" })).toBeDisabled();
 
@@ -772,7 +774,7 @@ test("action buttons are disabled while the daemon connection is down for a dead
     // (ws.ts, 500ms-8s) opens a fresh WebSocket that is routed and proxied to the same
     // real (never-killed) daemon.
     await expect(banner).toBeHidden({ timeout: 15_000 });
-    await expect(mainhead.getByRole("button", { name: "Resume" })).toBeEnabled();
+    await expect(mainhead.getByRole("button", { name: "Resume", exact: true })).toBeEnabled();
     await expect(mainhead.getByRole("button", { name: "Remove" })).toBeEnabled();
     await expect(cap.getByRole("button", { name: "Resume" })).toBeEnabled();
   } finally {
@@ -993,9 +995,12 @@ test("a session with no bound Claude id shows a disabled Resume control with a s
 
     const reason = "Can't resume — this session never started a Claude conversation.";
     const mainhead = page.locator("#mainhead");
-    const mainheadResume = mainhead.getByRole("button", { name: "Resume" });
+    const mainheadResume = mainhead.getByRole("button", { name: "Resume", exact: true });
     await expect(mainheadResume).toBeDisabled({ timeout: 15_000 });
     await expect(mainheadResume).toHaveAttribute("title", reason);
+    // The header's one Stop/Resume button (plan title-crop-stop-resume-button, REQ-5): a dead
+    // session's reads Resume, with no disabled Stop beside it.
+    await expect(mainhead.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
 
     const cap = page.locator("#dead-surface .endcap");
     const capResume = cap.getByRole("button", { name: "Resume" });

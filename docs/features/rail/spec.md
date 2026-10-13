@@ -21,7 +21,7 @@ A card is a title that wraps, above a state row of badge, time in the current st
 pin, then the repo block of the launch directory: the folder (`<repo> /`) over the branch, each
 line truncated at its own end (one line in compact), with a worktree marker when the directory is a
 linked worktree and the directory's name alone when it is not a git checkout
-(kb:adr/rail-repo-line-wraps-at-slash), the context gauge with absolute
+(kb:adr/focus-header-readout-sized-by-text), the context gauge with absolute
 tokens and the compaction counter (kb:adr/usage-context-gauge-shows-tokens-and-compactions),
 and an activity line whose text `prefs.railActivity` chooses
 (kb:adr/rail-activity-line-turn-aware-default-with-pref, kb:spec/settings).

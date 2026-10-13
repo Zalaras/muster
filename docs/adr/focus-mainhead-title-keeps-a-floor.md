@@ -1,7 +1,7 @@
 ---
 id: focus-mainhead-title-keeps-a-floor
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-29
 summary: The mainhead title shrinks first and ellipsises but never below 6rem, so Focus keeps a visible, clickable rename trigger; a short title leaves a small gap.
 features: [focus]

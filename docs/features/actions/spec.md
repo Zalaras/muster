@@ -10,12 +10,14 @@ go: [internal/server/actions*.go]
 web: [web/src/features/actions*.ts, web/src/features/batchplan*.ts, web/src/render/confirm.ts, web/src/render/dead*.ts, web/src/render/actionerror*.ts]
 e2e: [web/e2e/actions.spec.ts]
 protocol: [sessions.end, sessions.resume, sessions.remove, sessions.pane, ws.session-removed, sessions.end-many, sessions.remove-many]
-refs: [kb:adr/actions-bulk-stop-remove-are-daemon-batches, kb:adr/rail-live-card-offers-no-actions, kb:adr/actions-placement-mainhead-and-card-rows, kb:adr/actions-pane-snapshot-display-only, kb:adr/actions-remove-allowed-on-live-session, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/theme-danger-tokens-not-rose, kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-pending-hold-persisted, kb:fact/resume-keeps-session-identity]
+refs: [kb:adr/actions-bulk-stop-remove-are-daemon-batches, kb:adr/rail-live-card-offers-no-actions, kb:adr/actions-mainhead-one-stop-resume-button, kb:adr/actions-pane-snapshot-display-only, kb:adr/actions-remove-allowed-on-live-session, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/theme-danger-tokens-not-rose, kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-pending-hold-persisted, kb:fact/resume-keeps-session-identity]
 ---
 Three actions apply to a session: Stop, Resume and Remove. They live in the Focus mainhead
 above the terminal, in tile footers, and in hover-revealed action rows on ended rail and strip
 cards; a live rail or strip card offers no action button (kb:adr/rail-live-card-offers-no-actions).
-Each sits behind a confirm dialog (kb:adr/actions-placement-mainhead-and-card-rows). Destructive
+Each sits behind a confirm dialog. In the Focus mainhead Stop and Resume are one button, labelled by
+whether the session is alive, that keeps its box across the swap
+(kb:adr/actions-mainhead-one-stop-resume-button); tile footers keep their separate buttons. Destructive
 buttons use the danger token family (kb:adr/theme-danger-tokens-not-rose). Every trigger
 routes through one dispatcher in the actions controller.
 

@@ -335,11 +335,20 @@ async function readFitSnapshot(page: Page): Promise<FitSnapshot | null> {
         block: rect(block),
       })),
     );
+    // The surface switch sits inside `.acts` since plan title-crop-stop-resume-button (REQ-4),
+    // so the header items are the switch and each action button on its own: `.acts` itself
+    // would overlap its own children.
+    const actionButtons = [...acts.querySelectorAll<HTMLElement>("button")].filter(
+      (button) => !button.closest(".surfseg") && laidOut(button),
+    );
     const items = [
       { name: "name", el: one("#mainhead .name") },
       { name: "model", el: model },
       { name: "surface switch", el: one("#mainhead .surfseg") },
-      { name: "actions", el: acts },
+      ...actionButtons.map((button) => ({
+        name: `${button.textContent?.trim() ?? "?"} button`,
+        el: button,
+      })),
     ]
       .filter((item): item is { name: string; el: HTMLElement } => !!item.el && laidOut(item.el))
       .map((item) => ({ name: item.name, box: rect(item.el) }));
@@ -403,7 +412,9 @@ function lineProblems(s: FitSnapshot): string[] {
       out.push(`${line.name} ${span(line.box)} extends past .loc ${span(s.loc)}`);
     }
     if (!firstLine(line.box)) continue;
-    if (xOverlap(line.box, s.model)) {
+    // Boxes overlap in two dimensions: a model stacked under the readout (plan
+    // title-crop-stop-resume-button, `.meta.stacked`) shares its x-range without touching it.
+    if (xOverlap(line.box, s.model) && yOverlap(line.box, s.model)) {
       out.push(`${line.name} ${span(line.box)} overlaps the model ${span(s.model)}`);
     }
     for (const sep of visibleSeps.filter((sep) => xOverlap(line.box, sep))) {
@@ -491,7 +502,7 @@ function chromeProblems(s: FitSnapshot): string[] {
  * visible `.sep` glyph or the model; the repo block on `.loc`'s first line at no less than its
  * floor (the session has a repo; kb:adr/focus-mainhead-wraps-to-second-row-when-narrow); `.loc`
  * no wider than its visible blocks and separators (1 px tolerance); no two header items
- * overlapping; End/Resume/Remove inside the viewport.
+ * overlapping; the Stop/Resume button and Remove inside the viewport.
  */
 export async function mainheadFitProblems(page: Page): Promise<string[]> {
   const snapshot = await readFitSnapshot(page);

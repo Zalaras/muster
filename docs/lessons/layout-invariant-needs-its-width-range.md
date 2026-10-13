@@ -9,7 +9,7 @@ tags: [pipeline]
 roles: [planner, web-impl, e2e-specs, review-browser]
 files: []
 tests: []
-refs: [plan:stale-dirs-models-branches, plans/stale-dirs-models-branches/review.browser.cycle2.md, plans/stale-dirs-models-branches/review.browser.cycle3.md, plans/stale-dirs-models-branches/review.browser.cycle4.md, plans/stale-dirs-models-branches/web-implementation.md]
+refs: [plan:stale-dirs-models-branches, plans/stale-dirs-models-branches/review.browser.cycle2.md, plans/stale-dirs-models-branches/review.browser.cycle3.md, plans/stale-dirs-models-branches/review.browser.cycle4.md, plans/stale-dirs-models-branches/web-implementation.md, plan:title-crop-stop-resume-button, plans/title-crop-stop-resume-button/review.browser.cycle1.md]
 ---
 **What happened.** REQ-13 said the Focus header's model "never truncates", and the plan tested it at
 1280 px only (E11, edge case 24). Review cycle 2 measured it clipped at 960 px and below. Each fix
@@ -21,6 +21,6 @@ beside a truncated title, then blank room with short names. The implementer logg
 **Cost.** Review cycles 2–5 (about 100 min of review) plus four fix waves, roughly 3.3 h of a 6.7 h
 run, on one header.
 
-**The lesson.** A layout invariant names the width range it holds over. Its E2E test and the
-implementer's own check sweep that range in small steps, not only the widths a review named. A limit
+**The lesson.** A layout invariant names the width range it holds over. Every test of it, before-and-after
+swaps included, and the implementer's check sweep that range in small steps, not only named widths. A limit
 the implementer can only infer is measured or escalated, never shipped as "inferred".

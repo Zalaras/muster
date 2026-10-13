@@ -10,7 +10,7 @@ go: [internal/server/reporefresh*.go, internal/session/location*.go, internal/se
 web: []
 e2e: [web/e2e/card-location.spec.ts, web/e2e/helpers/card-location.ts]
 protocol: [ws.session]
-refs: [kb:adr/lifecycle-card-shows-launch-directory-marks-claude-elsewhere, kb:adr/lifecycle-branch-refreshed-by-repo-poll, kb:adr/lifecycle-claude-location-from-main-agent-cwd, kb:adr/lifecycle-bind-model-display-name-is-id, kb:adr/ingest-claude-cwd-read-in-interpret-only, kb:adr/rail-repo-line-wraps-at-slash, kb:fact/cwd-follows-claude-mid-session, kb:fact/enter-worktree-moves-project-dir, kb:fact/cwd-changed-hook, kb:fact/hook-delivery-best-effort, kb:fact/sessionstart-model-optional-string, kb:fact/status-model-is-object, kb:fact/model-switch-hooks]
+refs: [kb:adr/lifecycle-card-shows-launch-directory-marks-claude-elsewhere, kb:adr/lifecycle-branch-refreshed-by-repo-poll, kb:adr/lifecycle-claude-location-from-main-agent-cwd, kb:adr/lifecycle-bind-model-display-name-is-id, kb:adr/ingest-claude-cwd-read-in-interpret-only, kb:adr/focus-header-readout-sized-by-text, kb:fact/cwd-follows-claude-mid-session, kb:fact/enter-worktree-moves-project-dir, kb:fact/cwd-changed-hook, kb:fact/hook-delivery-best-effort, kb:fact/sessionstart-model-optional-string, kb:fact/status-model-is-object, kb:fact/model-switch-hooks]
 ---
 A card names the directory the session was launched in, and that stays true for the row's
 lifetime: the shell, the docs reader, file drop and resume all use it

@@ -250,20 +250,29 @@ reorders the grid; while an edit is open that header is `draggable="false"` so t
 starts a drag.
 
 **Focus mainhead** — the session name (a rename trigger whose hover `title` is the full name),
-then the meta row: the same repo block as the rail card with the folder line capped at 30ch and
-the branch line at 44ch, the `↳` block while Claude is elsewhere, then the model, which never
-truncates at any width: as the row narrows the `↳` block hides whole first (never
-half-drawn), then the title shortens, and the mainhead wraps its surface switch and actions to a second
-row as soon as the repo block would drop below its floor, so the repo block never hides (kb:adr/focus-model-never-truncates-name-blocks-give-way,
-kb:adr/focus-mainhead-wraps-to-second-row-when-narrow). The location group carries a hover `title` with the full repo, the launch directory
+then the meta row: the same repo block as the rail card, each line as wide as its text with no
+character cap (kb:adr/focus-header-readout-sized-by-text), the `↳` block while Claude is elsewhere
+— drawn only when the whole header, right cluster included, fits on one row, otherwise removed
+whole — then the model, which never truncates at any width. On a dead session the ended age sits
+under the model, without a `·`, in a slot the header reserves whether or not it shows, so a Stop
+or a Resume moves nothing. The `claude | shell | docs` surface switch is the first child of the
+right-aligned action cluster, before the one Stop/Resume button (the same box under both labels)
+and Remove, so a longer title or readout never moves it
+(kb:adr/focus-surface-switch-pinned-with-actions, kb:adr/actions-mainhead-one-stop-resume-button).
+As the header narrows it gives way in one order: the `↳` block hides whole; the cluster drops to
+a second row as one item; the folder and branch lines ellipsize to their 8ch floor; only then
+does the title shorten, never below its 6rem floor. In the narrowest headers, where the title
+floor, the readout floor and the model no longer fit side by side, the model (and the ended age
+under it) stacks under the readout while the title and readout stay side by side; below about
+316px of header content the cluster tightens its padding
+(kb:adr/focus-header-give-way-order-title-last,
+kb:adr/focus-model-never-truncates-name-blocks-give-way). The location group carries a hover `title` with the full repo, the launch directory
 and, while moved, where Claude is (reference `mockups/claude-location/c-long-names.html`).
 Between the name (and its bypass chip) and the meta row sits the **group control** (`.ingroup`,
 plan `groups`): a button reading the session's group name or `no group` with an `aria-hidden`
 `▾`, mono `--fs-2xs`, 1px `--line-control` border, `--fg-dim` text, capped at 24ch with an
 ellipsis; it opens the Move to **Menu**. A container query hides it whole while the header's own
-content box is under 640px; above that a long title may shorten beside it, never below its 6rem
-floor — the title gives way first, the control is the first item removed whole
-(kb:adr/focus-group-control-hides-below-640px-container-width, kb:adr/focus-group-control-stays-while-title-shortens).
+content box is under 640px (kb:adr/focus-group-control-hides-below-640px-container-width).
 
 **Buttons** — mono, `--fs-xs` (11.25px), 1px `--line-control` border, transparent ground. Filled amber
 (`--amber` ground, `--amber-fg` text) for the single primary action. No border-radius above

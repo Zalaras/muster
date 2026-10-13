@@ -89,3 +89,18 @@ func TestScanTS_RepoSelfCheck(t *testing.T) {
 	require.NoError(t, err)
 	require.Positive(t, n)
 }
+
+func TestScanCSS_FindsOnlyBlockComments(t *testing.T) {
+	src := ".a {\n  /* one */\n  background: url(https://x.test/a.png); // not CSS\n  content: \"/* in string */\";\n  quotes: '\\'' '/*';\n}\n/**\n * two\n */\n"
+	toks, err := scanCSS([]byte(src))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"/* one */", "/**\n * two\n */"}, texts(toks))
+	for _, tk := range toks {
+		assert.Equal(t, tk.text, src[tk.start:tk.end])
+	}
+}
+
+func TestScanCSS_ReportsAnUnterminatedComment(t *testing.T) {
+	_, err := scanCSS([]byte(".a { /* open\n}\n"))
+	require.Error(t, err)
+}

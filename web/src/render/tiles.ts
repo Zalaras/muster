@@ -7,7 +7,7 @@ import type { Session } from "../protocol/session";
 import { buildDeadSurfaceFromTemplate, collectDeadSurfaceRefs, renderDeadSurface } from "./dead";
 import {
   buildCardViewModel,
-  canResume,
+  actionEnabled,
   stateBadgeText,
   tileFooterAgeText,
   tileHeaderTimerText,
@@ -288,7 +288,7 @@ export function renderTileFooterActions(
   // ended 6m ago") — deliberately not the word this tile's `.endbar` also starts with
   // (see `tileHeaderTimerText`'s doc comment on the same collision).
   const ageText = tileFooterAgeText(session, now);
-  const resumeEnabled = connected && canResume(session.claudeSessionId);
+  const resumeEnabled = actionEnabled("Resume", session.claudeSessionId, connected);
 
   const [ageEl, resumeEl, removeEl] = tail;
   const sameShape =

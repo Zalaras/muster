@@ -231,6 +231,9 @@ test("a main-agent hook whose cwd is a worktree under .claude/worktrees shows th
   const repo = await scratchRepo();
   try {
     const daemon = await startLocationDaemon(startDaemon);
+    // The ↳ block hides first as the header narrows (REQ-2 a), and with the uncapped readout (REQ-1)
+    // the scratch repo's row no longer fits beside the cluster in the default 1280px window.
+    await page.setViewportSize({ width: 1400, height: 720 });
     await page.goto(daemon.dashboardUrl);
     await launchBound(page, request, daemon, repo, "loc-e2", "claude-loc-e2");
     const wt = await addClaudeWorktree(repo, "probewt");
@@ -276,6 +279,9 @@ test("the ↳ glyph is --fg-muted and the ↳ text --fg-dim, on the rail card an
   const repo = await scratchRepo();
   try {
     const daemon = await startLocationDaemon(startDaemon);
+    // The ↳ block hides first as the header narrows (REQ-2 a), and with the uncapped readout (REQ-1)
+    // the scratch repo's row no longer fits beside the cluster in the default 1280px window.
+    await page.setViewportSize({ width: 1400, height: 720 });
     await page.goto(daemon.dashboardUrl);
     await launchBound(page, request, daemon, repo, "loc-tokens", "claude-loc-tokens");
     const wt = await addClaudeWorktree(repo, "tokenwt");
@@ -911,7 +917,7 @@ test("in compact density the rail card's folder and branch stay on one line, cli
   }
 });
 
-test("with a 60-character folder and an 80-character branch at 1280x800 the Focus header caps each line and the model is not clipped (E11, REQ-13)", async ({
+test("with a 60-character folder and an 80-character branch at 2000x1000 the Focus header shows each line whole, uncapped, and the model is not clipped (E11, REQ-13; caps removed by plan title-crop-stop-resume-button REQ-1)", async ({
   page,
   request,
   startDaemon,
@@ -921,7 +927,7 @@ test("with a 60-character folder and an 80-character branch at 1280x800 the Focu
     await git(repo.path, "checkout", "-b", LONG_BRANCH);
     expect(LONG_FOLDER).toHaveLength(60);
     expect(LONG_BRANCH).toHaveLength(80);
-    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setViewportSize({ width: 2000, height: 1000 });
     const daemon = await startLocationDaemon(startDaemon);
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, {
@@ -951,31 +957,38 @@ test("with a 60-character folder and an 80-character branch at 1280x800 the Focu
     expect(modelMetrics.scrollWidth).toBeLessThanOrEqual(modelMetrics.clientWidth);
     expect(modelMetrics.right).toBeLessThanOrEqual(modelMetrics.metaRight + 0.5);
 
-    // The caps: each line is clipped at exactly its `ch` budget, measured against a clone
-    // of the line itself so the font (and so the `ch` unit) is the line's own.
-    const capped = async (cls: ".rf" | ".rb", ch: number) =>
+    // No cap (plan title-crop-stop-resume-button, REQ-1): at a 1700 px header, with room to
+    // spare, each line is as wide as its own text. The oracle is the line's max-content
+    // width, measured on a clone in the line's own font; it is re-read with the line
+    // inside the poll, so a stale or capped display times out instead of passing.
+    const uncapped = async (cls: ".rf" | ".rb") =>
       await mainheadMeta(page)
         .locator(`.loc .repo ${cls}`)
-        .evaluate((el, budget) => {
-          const probe = el.cloneNode(false) as HTMLElement;
-          probe.textContent = "";
-          probe.style.maxWidth = "none";
-          probe.style.width = `${budget}ch`;
+        .evaluate((el) => {
+          const probe = el.cloneNode(true) as HTMLElement;
+          probe.style.cssText =
+            "position:absolute;visibility:hidden;max-width:none;width:max-content;overflow:visible;text-overflow:clip";
           el.after(probe);
-          const expected = probe.getBoundingClientRect().width;
+          const natural = probe.getBoundingClientRect().width;
           probe.remove();
           return {
             actual: el.getBoundingClientRect().width,
-            expected,
+            natural,
             clipped: el.scrollWidth > el.clientWidth,
           };
-        }, ch);
-    const rf = await capped(".rf", 30);
-    const rb = await capped(".rb", 44);
-    expect(rf.clipped).toBe(true);
-    expect(rb.clipped).toBe(true);
-    expect(Math.abs(rf.actual - rf.expected)).toBeLessThanOrEqual(1.5);
-    expect(Math.abs(rb.actual - rb.expected)).toBeLessThanOrEqual(1.5);
+        });
+    await expect
+      .poll(async () => {
+        const rf = await uncapped(".rf");
+        const rb = await uncapped(".rb");
+        return {
+          rfClipped: rf.clipped,
+          rbClipped: rb.clipped,
+          rfWhole: rf.actual >= rf.natural - 1.5,
+          rbWhole: rb.actual >= rb.natural - 1.5,
+        };
+      })
+      .toEqual({ rfClipped: false, rbClipped: false, rfWhole: true, rbWhole: true });
   } finally {
     await repo.cleanup();
   }
@@ -1169,11 +1182,17 @@ async function assertFocusHeaderFits(
     }
     // Not a pixel breakpoint: a window too narrow for one row gets a second one, so the
     // header grows rather than a control leaving the screen.
-    for (const action of ["Stop", "Resume", "Remove"]) {
+    // The header holds one Stop/Resume button (plan title-crop-stop-resume-button, REQ-5):
+    // the label that matches `alive`, never both.
+    const [shown, absent] = state === "ended" ? ["Resume", "Stop"] : ["Stop", "Resume"];
+    for (const action of [shown ?? "Stop", "Remove"]) {
       await expect(
         page.locator("#mainhead").getByRole("button", { name: action, exact: true }),
       ).toBeInViewport({ ratio: 1 });
     }
+    await expect(
+      page.locator("#mainhead").getByRole("button", { name: absent ?? "Resume", exact: true }),
+    ).toHaveCount(0);
   } finally {
     await repo.cleanup();
   }
@@ -1239,9 +1258,16 @@ for (const nameSet of ["long", "short", "tiny"] as const) {
             .toEqual([]);
           if (await mainheadTitleEllipsized(page)) ellipsizedAt += 1;
         }
-        // The blank check applied across the sweep: the title was clipped at a good part of
-        // it, so the sweep was not silent about the Minor it guards.
-        expect(ellipsizedAt).toBeGreaterThan(sweep.length / 4);
+        // The blank check applied across the sweep: the title was clipped somewhere in it,
+        // so the sweep was not silent about the Minor it guards. Plan
+        // title-crop-stop-resume-button (REQ-2) makes the title give way last, after the
+        // readout is at its floor, so how much of the sweep clips it depends on how long the
+        // readout is: with the 60-character names the readout reaches its floor early and the
+        // title clips over a quarter of the sweep as before; with short names the title
+        // clips only in the narrowest windows, where the 66-character title cannot fit even
+        // on its own row.
+        expect(ellipsizedAt).toBeGreaterThan(0);
+        if (nameSet === "long") expect(ellipsizedAt).toBeGreaterThan(sweep.length / 4);
       } finally {
         await repo.cleanup();
       }

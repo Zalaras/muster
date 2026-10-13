@@ -72,7 +72,7 @@ class FakeNode {
 }
 
 /** `#mainhead .meta`'s static markup (index.html): `.loc > [.repo > .rf, .sep,
- * .claude-at > [.lead, .rf], .sep]`, then `.model`, `.ended-at > [.sep, .ended]`. `.loc`
+ * .claude-at > [.lead, .rf], .sep]`, then `.model`, `.ended-at > .ended`. `.loc`
  * holds two `.sep`s, as in the real tree: `renderMeta` must toggle the first (between the
  * blocks) and leave the last (before the model) shown, and `querySelector(".sep")` on
  * `.loc` finds the first. */
@@ -87,7 +87,7 @@ function fakeMeta(): FakeNode {
       new FakeNode("sep"),
     ),
     new FakeNode("model"),
-    new FakeNode("ended-at", new FakeNode("sep"), new FakeNode("ended")),
+    new FakeNode("ended-at", new FakeNode("ended")),
   );
 }
 
@@ -104,6 +104,7 @@ function fakeButton(): HTMLButtonElement {
     disabled: false,
     textContent: "",
     title: "",
+    dataset: {} as Record<string, string | undefined>,
     setAttribute(name: string, value: string) {
       attrs[name] = value;
     },
@@ -200,8 +201,7 @@ function fakeMainheadElements(): MainheadElements & {
     root: fakeMainheadRoot(),
     nameEl,
     metaEl: fakeMeta() as unknown as HTMLElement,
-    endBtn: fakeButton(),
-    resumeBtn: fakeButton(),
+    stopResumeBtn: fakeButton(),
     removeBtn: fakeButton(),
     renameBtn,
     groupBtn: fakeGroupBtn(),
@@ -278,28 +278,64 @@ describe("renderMainhead — no-session branch must not detach the rename button
   });
 });
 
-// REQ-17/W3 (plan session-lifecycle): a session that never bound a Claude session id is
-// refused Resume forever (409 not_resumable) — the button must say why, not just sit
-// disabled next to a live session's disabled-for-being-alive Resume button.
-describe("renderMainhead — Resume disabled reason (REQ-17/W3)", () => {
-  it("disables Resume with a non-empty reason when the session has no bound Claude session id", () => {
+// The one Stop/Resume button (plan title-crop-stop-resume-button, kb:adr/actions-mainhead-one-stop-resume-button):
+// the renderer rewrites label, data-action, disabled and the reason hover in place from
+// `stopResumeButton`; the derivation's own table is in sessions/card.test.ts.
+describe("renderMainhead — the single Stop/Resume button", () => {
+  const render = (session: Session, connected = true) => {
     const elements = fakeMainheadElements();
-    const session = makeSession({ id: 1, alive: false, claudeSessionId: null });
+    renderMainhead(
+      elements,
+      session,
+      NOW,
+      connected,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      false,
+      "no group",
+    );
+    return elements.stopResumeBtn;
+  };
 
-    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
-
-    expect(elements.resumeBtn.disabled).toBe(true);
-    expect(resumeDisabledReason(elements.resumeBtn)).not.toBe("");
+  it("reads Stop, enabled, with data-action end and no reason for a live session", () => {
+    const btn = render(makeSession({ id: 1, alive: true }));
+    expect(btn.textContent).toBe("Stop");
+    expect(btn.dataset["action"]).toBe("end");
+    expect(btn.disabled).toBe(false);
+    expect(resumeDisabledReason(btn)).toBe("");
   });
 
-  it("enables Resume with no disabling reason for a dead session with a bound Claude session id", () => {
+  it("disables Resume with a non-empty reason when the session has no bound Claude session id", () => {
+    const btn = render(makeSession({ id: 1, alive: false, claudeSessionId: null }));
+    expect(btn.textContent).toBe("Resume");
+    expect(btn.dataset["action"]).toBe("resume");
+    expect(btn.disabled).toBe(true);
+    expect(resumeDisabledReason(btn)).not.toBe("");
+  });
+
+  it("enables Resume with no reason for a dead session with a bound Claude session id", () => {
+    const btn = render(makeSession({ id: 1, alive: false, claudeSessionId: "claude-sess" }));
+    expect(btn.disabled).toBe(false);
+    expect(resumeDisabledReason(btn)).toBe("");
+  });
+
+  it("disables the button under either label while the connection is down", () => {
+    expect(render(makeSession({ id: 1, alive: true }), false).disabled).toBe(true);
+    expect(render(makeSession({ id: 1, alive: false }), false).disabled).toBe(true);
+  });
+
+  it("rewrites the same node in place when the session flips alive to dead, clearing a stale reason", () => {
     const elements = fakeMainheadElements();
-    const session = makeSession({ id: 1, alive: false, claudeSessionId: "claude-sess" });
-
-    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
-
-    expect(elements.resumeBtn.disabled).toBe(false);
-    expect(resumeDisabledReason(elements.resumeBtn)).toBe("");
+    const btn = elements.stopResumeBtn;
+    const draw = (s: Session) =>
+      renderMainhead(elements, s, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    draw(makeSession({ id: 1, alive: false, claudeSessionId: null }));
+    expect(resumeDisabledReason(btn)).not.toBe("");
+    draw(makeSession({ id: 1, alive: true, claudeSessionId: null }));
+    expect(elements.stopResumeBtn).toBe(btn);
+    expect(btn.textContent).toBe("Stop");
+    expect(btn.dataset["action"]).toBe("end");
+    expect(resumeDisabledReason(btn)).toBe("");
   });
 });
 

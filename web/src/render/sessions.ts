@@ -4,7 +4,7 @@ import type { RailActivity, RailDensity } from "../protocol/prefs";
 import type { Session } from "../protocol/session";
 import {
   buildCardViewModel,
-  canResume,
+  actionEnabled,
   unreadLabel,
   type CardAction,
   type CardViewModel,
@@ -105,15 +105,19 @@ function reconcileActsRow(
     existing.forEach((btn, i) => {
       const label = actions[i];
       if (label === undefined) return;
-      btn.disabled = !(connected && (label !== "Resume" || canResume(claudeSessionId)));
+      btn.disabled = !actionEnabled(label, claudeSessionId, connected);
     });
     return;
   }
 
   actsRow.replaceChildren(
     ...actions.map((label) => {
-      const enabled = connected && (label !== "Resume" || canResume(claudeSessionId));
-      return buildActionButton(label, id, enabled, onAction);
+      return buildActionButton(
+        label,
+        id,
+        actionEnabled(label, claudeSessionId, connected),
+        onAction,
+      );
     }),
   );
 }
@@ -277,7 +281,7 @@ function updateSessionCardContent(
 
   // No buttons on a live card, Resume+Remove on an ended one — `vm.actions` already
   // carries the exact label set and order (sessions/card.ts). Resume additionally needs
-  // a claudeSessionId to ever be enabled, same rule as the mainhead.
+  // a claudeSessionId to ever be enabled (`actionEnabled`, same rule as the mainhead).
   const actsRow = requireElement<HTMLElement>(".acts-row", card);
   actsRow.hidden = vm.actions.length === 0;
   reconcileActsRow(

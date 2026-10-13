@@ -1,7 +1,7 @@
 ---
 id: focus-mainhead-wraps-to-second-row-when-narrow
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-01
 summary: The Focus mainhead wraps to a second row as soon as the repo block would drop below its floor, so the model, actions and repo readout all stay whole.
 features: [focus]

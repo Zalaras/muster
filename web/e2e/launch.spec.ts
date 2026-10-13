@@ -49,10 +49,11 @@ test("opens on the browse root with an empty sidebar when there are no recents, 
   await expect(dialog).toBeVisible();
 
   // REQ-2: no Browse… button, no unfold panel, no Up button, no Use this folder
-  // button, no raw path field survives the rebuild.
-  await expect(dialog.getByRole("button", { name: "Browse…" })).toHaveCount(0);
-  await expect(dialog.getByRole("button", { name: "Up" })).toHaveCount(0);
-  await expect(dialog.getByRole("button", { name: "Use this folder" })).toHaveCount(0);
+  // button, no raw path field survives the rebuild. Exact names: every ancestor crumb is
+  // a button, and a scratch dir name containing "up" would match a substring.
+  await expect(dialog.getByRole("button", { name: "Browse…", exact: true })).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Up", exact: true })).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Use this folder", exact: true })).toHaveCount(0);
   for (const removedId of [
     "#browse-button",
     "#browse-panel",

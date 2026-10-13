@@ -22,6 +22,12 @@ export type CardAction = "Stop" | "Resume" | "Remove";
  * label and its own action names. */
 export type SessionAction = "end" | "resume" | "remove" | "pin";
 
+export const ACTION_BY_LABEL = {
+  Stop: "end",
+  Resume: "resume",
+  Remove: "remove",
+} as const satisfies Record<CardAction, SessionAction>;
+
 // kb:adr/rail-activity-line-turn-aware-default-with-pref: the two activity-line texts a
 // card renders, `.activity.you` and `.activity.claude` — either or both may be `null`, which
 // the renderer treats as "hide that line" (a null source renders no empty-prefix line).
@@ -116,15 +122,47 @@ export function canResume(claudeSessionId: string | null): boolean {
   return claudeSessionId !== null;
 }
 
+/** Whether a Stop/Resume/Remove control is enabled: every action needs the connection,
+ * and Resume also needs `canResume`. The one rule every rail, tile, mainhead and
+ * dead-surface button reads, so no surface re-derives it. */
+export function actionEnabled(
+  label: CardAction,
+  claudeSessionId: string | null,
+  connected: boolean,
+): boolean {
+  return connected && (label !== "Resume" || canResume(claudeSessionId));
+}
+
 /** Why a Resume control is disabled, shared with render/mainhead.ts and render/dead.ts
  * (their `title`/`aria-description`) so the two surfaces never drift into different
  * wording for the same `409 not_resumable` cause. `null` when there is no reason to give
  * (session is alive, or `claudeSessionId` is bound) — callers clear the attribute in that
  * case rather than writing an empty string over it. */
-export function resumeDisabledReason(session: Session): string | null {
+export function resumeDisabledReason(session: Pick<Session, "claudeSessionId">): string | null {
   if (!canResume(session.claudeSessionId))
     return "Can't resume — this session never started a Claude conversation.";
   return null;
+}
+
+export interface StopResumeButton {
+  label: Extract<CardAction, "Stop" | "Resume">;
+  action: Extract<SessionAction, "end" | "resume">;
+  disabled: boolean;
+  reason: string | null;
+}
+
+export function stopResumeButton(
+  session: Pick<Session, "alive" | "claudeSessionId">,
+  connected: boolean,
+): StopResumeButton {
+  if (session.alive)
+    return { label: "Stop", action: ACTION_BY_LABEL.Stop, disabled: !connected, reason: null };
+  return {
+    label: "Resume",
+    action: ACTION_BY_LABEL.Resume,
+    disabled: !actionEnabled("Resume", session.claudeSessionId, connected),
+    reason: resumeDisabledReason(session),
+  };
 }
 
 // ux-flows §1.4: "a session that has emitted no SessionStart within ~10s shows

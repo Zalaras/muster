@@ -1,7 +1,7 @@
 ---
 id: focus-repo-block-keeps-floor-beside-group-control
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-05
 summary: Beside the group control the Focus header's repo block keeps its 8-character floor and never hides; the title gives way first, so a long folder may ellipsize.
 features: [focus, rail]

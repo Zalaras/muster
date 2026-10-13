@@ -793,19 +793,20 @@ test("a 300-character unbroken mainhead title ellipsises in place and never push
         const mainhead = document.querySelector("#mainhead") as HTMLElement;
         const acts = document.querySelector("#mainhead .acts") as HTMLElement;
         const rename = document.querySelector("#mainhead .rename") as HTMLElement;
-        const actionRight = (name: string) =>
-          (
-            document.querySelector(`#mainhead button[data-action="${name}"]`) as HTMLElement
-          ).getBoundingClientRect().right;
         return {
           actsRight: acts.getBoundingClientRect().right,
           paddingBoxRight:
             mainhead.getBoundingClientRect().right -
             Number.parseFloat(getComputedStyle(mainhead).paddingRight),
           viewportWidth: document.documentElement.clientWidth,
-          endRight: actionRight("end"),
-          resumeRight: actionRight("resume"),
-          removeRight: actionRight("remove"),
+          // Every action button, the surface switch's segments left out: the header has one
+          // Stop/Resume button and Remove since plan title-crop-stop-resume-button (REQ-5).
+          buttons: [...acts.querySelectorAll<HTMLElement>("button")]
+            .filter((button) => !button.closest(".surfseg"))
+            .map((button) => ({
+              label: button.textContent?.trim() ?? "?",
+              right: button.getBoundingClientRect().right,
+            })),
           renameScrollWidth: rename.scrollWidth,
           renameClientWidth: rename.clientWidth,
         };
@@ -814,12 +815,12 @@ test("a 300-character unbroken mainhead title ellipsises in place and never push
         layout.actsRight,
         `#mainhead .acts stays inside the mainhead's padding box at ${width}px`,
       ).toBeLessThanOrEqual(layout.paddingBoxRight + 0.5);
-      for (const [name, right] of [
-        ["end", layout.endRight],
-        ["resume", layout.resumeRight],
-        ["remove", layout.removeRight],
-      ] as const) {
-        expect(right, `${name} button is in view at ${width}px`).toBeLessThanOrEqual(
+      expect(
+        layout.buttons.map((button) => button.label),
+        `the header's action buttons at ${width}px`,
+      ).toEqual(["Stop", "Remove"]);
+      for (const { label, right } of layout.buttons) {
+        expect(right, `${label} button is in view at ${width}px`).toBeLessThanOrEqual(
           layout.viewportWidth,
         );
       }

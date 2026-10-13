@@ -1,0 +1,274 @@
+{
+  "plan": "title-crop-stop-resume-button",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-13T13:24:55Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 9,
+        "keep": 2,
+        "drop": 7
+      },
+      "keeps": [
+        {
+          "key": "web/src/render/mainhead.ts:d1b2a382751ad04f",
+          "path": "web/src/render/mainhead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function renderMainhead(",
+            "line": 97
+          },
+          "lines": [
+            "/** `session` is the currently-focused one, or `null` when nothing is focused (no",
+            "* sessions at all) — hidden in that case. `connected`",
+            "* gates every button while the WS is down (States: \"action buttons are disabled while",
+            "* the WS is down\"), on top of each button's own enablement rule:",
+            "* - Stop/Resume: one button (sessions/card.ts's `stopResumeButton`) — `Stop` while alive,",
+            "*   `Resume` (enabled iff a Claude session id is bound) while dead.",
+            "* - Remove: never disabled by session state (only by `connected`).",
+            "*",
+            "* `surfaceState` is the currently-focused session's",
+            "* surface-switch state (features/surfaces.ts's `surfaceSwitchState`, or the default when there is no",
+            "* focused session) — updated every pass regardless of the `!session` branch below, since",
+            "* `updateSurfaceSegment` only ever writes attributes and is harmless while `root` is",
+            "* hidden. `activity` is that same session's `shell` segment",
+            "* busy/done verdict (`features/surfaces.ts`'s `activityFor`). */"
+          ],
+          "reason": "Edited on `main`; still true: `renderStopResume(elements.stopResumeBtn, stopResumeButton(session, connected));` and `elements.removeBtn.disabled = !connected;` do what it says."
+        },
+        {
+          "key": "web/src/render/mainhead.ts:ee9657d5ed5bc9fb",
+          "path": "web/src/render/mainhead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "fitMainheadMeta(elements.metaEl, elements.root);",
+            "line": 150
+          },
+          "lines": [
+            "// Last, once every slot that shares the header's row (title, chip, meta, cluster) holds this pass's text."
+          ],
+          "reason": "Without it a reader would move the fit call up beside `renderMeta`, before the title, chip and cluster are written; that makes it measure last pass's layout at `fitMainheadMeta(elements.metaEl, elements.root);`."
+        }
+      ],
+      "drops": [
+        {
+          "key": "web/src/render/mainhead.ts:2893381c6003ba6f",
+          "path": "web/src/render/mainhead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { Session } from \"../protocol/session\";",
+            "line": 1
+          },
+          "lines": [
+            "// The Focus mainhead — name, meta (repo block, `↳` block while Claude is in another",
+            "// checkout, model, `ended \u003cage\u003e` when dead), and the action cluster (surface switch, one",
+            "// Stop/Resume button, Remove) above the terminal slot (kb:adr/actions-placement-mainhead-and-card-rows).",
+            "// DOM only; every displayed string comes from card.ts's `mainheadMeta` and `stopResumeButton`",
+            "// view-models so the mainhead never composes a second copy of text the card already owns. Static",
+            "// markup (one instance in index.html, unlike the per-session card/tile templates) —",
+            "// features/focus.ts wires the buttons' click listeners once at startup and this module only ever",
+            "// updates the Stop/Resume button's label, `disabled` state and hover, and Remove's `disabled`."
+          ]
+        },
+        {
+          "key": "web/src/render/mainhead.ts:2d1f19e8eb6b8647",
+          "path": "web/src/render/mainhead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "surfaceSegment: SurfaceSegmentRefs;",
+            "line": 31
+          },
+          "lines": [
+            "// The `claude | shell | docs` segment (kb:adr/surfaces-shell-is-attach-target-not-session),",
+            "// built once by features/focus.ts at startup and inserted first in `.acts`, ahead of the",
+            "// Stop/Resume button (kb:adr/focus-surface-switch-pinned-with-actions) — this module only",
+            "// ever updates its attributes (below), never rebuilds it."
+          ]
+        },
+        {
+          "key": "web/src/render/mainhead.ts:497ab6029d0ce806",
+          "path": "web/src/render/mainhead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function fitMainheadMeta(metaEl: HTMLElement, root: HTMLElement): void {",
+            "line": 56
+          },
+          "lines": [
+            "/** Decides whether the `↳` block is drawn, trims `.loc` to what it shows, and stacks the readout",
+            "* over the model where the row cannot hold them side by side. The `↳` block gives way before the",
+            "* action cluster does (kb:adr/focus-header-give-way-order-title-last), so it is drawn only when",
+            "* the whole header, block included, holds on one row — measured with the block allowed and the",
+            "* cap cleared, every time, so the decision never feeds on its own result. Otherwise `.repo-only`",
+            "* removes the block from `.loc` (and from the header's natural width, so the cluster stays on row",
+            "* one wherever the rest fits) and `--loc-cap` (style.css `.mainhead .meta`) caps `.loc` at the",
+            "* repo block plus the room its `·` is drawn in, which also trims the room a folder line under the",
+            "* floor would leave blank. Called after every meta write and whenever the pane resizes",
+            "* (features/focus.ts). */"
+          ]
+        },
+        {
+          "key": "web/src/render/mainhead.ts:f1a6d23174ec4b20",
+          "path": "web/src/render/mainhead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function stackMeta(metaEl: HTMLElement, root: HTMLElement): void {",
+            "line": 75
+          },
+          "lines": [
+            "/** Where the title row cannot hold the readout and the model side by side, the model drops under",
+            "* the readout inside `.meta` (style.css `.meta.stacked`) rather than the whole meta row dropping",
+            "* under the title, so the readout stays beside the title and gives way first",
+            "* (kb:adr/focus-header-give-way-order-title-last). Beside a shortened title the readout is at its",
+            "* floor: the column the model needs would otherwise leave it wider than the floor with the title",
+            "* still cut. */"
+          ]
+        },
+        {
+          "key": "web/src/render/mainhead.ts:1bbbcb601e100729",
+          "path": "web/src/render/mainhead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function onOneRow(root: HTMLElement): boolean {",
+            "line": 84
+          },
+          "lines": [
+            "/** The action cluster sits beside the identity row, not below it. */"
+          ]
+        },
+        {
+          "key": "web/src/render/mainhead.ts:d5e22c5697eb13db",
+          "path": "web/src/render/mainhead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function renderStopResume(btn: HTMLButtonElement, view: StopResumeButton): void {",
+            "line": 90
+          },
+          "lines": [
+            "/** Writes a view-model into the header's one Stop/Resume node in place, never rebuilding it: the",
+            "* button keeps focus and its box across the swap (kb:adr/actions-mainhead-one-stop-resume-button).",
+            "* A disabled Resume says why in its hover; every other state clears it. */"
+          ]
+        },
+        {
+          "key": "web/src/sessions/card.ts:1fb4bb365386bd83",
+          "path": "web/src/sessions/card.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface StopResumeButton {",
+            "line": 130
+          },
+          "lines": [
+            "/** What the Focus header's one Stop/Resume button reads and does for a session",
+            "* (kb:adr/actions-mainhead-one-stop-resume-button): `Stop` while alive, `Resume` while dead.",
+            "* `disabled` folds the connection and Resume's bound-id rule; `reason` is the hover a disabled",
+            "* Resume gives, `null` for Stop and for an enabled Resume. */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-10-13T14:29:49Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 2,
+        "keep": 0,
+        "drop": 2
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "web/src/render/mainhead.ts:6bb1da1fffe39c02",
+          "path": "web/src/render/mainhead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function sharesRow(el: HTMLElement, other: HTMLElement): boolean {",
+            "line": 91
+          },
+          "lines": [
+            "/** Whether `el` starts above `other`'s bottom (1 px of rounding slack): the two are on one row. */"
+          ]
+        },
+        {
+          "key": "web/src/sessions/card.ts:cac0e67a4c73d4a4",
+          "path": "web/src/sessions/card.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export const ACTION_BY_LABEL = {",
+            "line": 25
+          },
+          "lines": [
+            "/** The one pairing of a button label with the action it dispatches: `buildActionButton` (card,",
+            "* strip, tile footer) and `stopResumeButton` (the Focus header) both read it. */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 3,
+      "at": "2026-10-13T16:27:23Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 4,
+        "keep": 0,
+        "drop": 4
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "internal/commentpass/csscomments.go:673a5017bd5e69e5",
+          "path": "internal/commentpass/csscomments.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func scanCSS(src []byte) ([]ctoken, error) {",
+            "line": 3
+          },
+          "lines": [
+            "// scanCSS finds the block comments of a stylesheet. CSS has no line comment, so a \"//\"",
+            "// (as in a url) is never one, and a \"/*\" inside a quoted string is skipped."
+          ]
+        },
+        {
+          "key": "internal/commentpass/csscomments.go:5e7047923b86882c",
+          "path": "internal/commentpass/csscomments.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func skipCSSString(src []byte, i int) int {",
+            "line": 21
+          },
+          "lines": [
+            "// skipCSSString returns the offset of the quote closing the string opened at i, or the",
+            "// end of the line for an unterminated one, as CSS itself treats it."
+          ]
+        },
+        {
+          "key": "internal/commentpass/scope.go:bdc0c2d30d90cada",
+          "path": "internal/commentpass/scope.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func DropInScope(rel string) bool {",
+            "line": 24
+          },
+          "lines": [
+            "// DropInScope reports whether drop may remove a named comment from rel: everything strip",
+            "// reads, plus the test files, E2E specs and helpers, and stylesheets strip leaves alone. A",
+            "// drop removes only a comment a reviewer named, so it needs no judge and no keep ledger."
+          ]
+        },
+        {
+          "key": "internal/commentpass/scope.go:5b629a6ee2c5f057",
+          "path": "internal/commentpass/scope.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func isTS(rel string) bool { return strings.HasSuffix(rel, \".ts\") }",
+            "line": 43
+          },
+          "lines": [
+            "// isTS reports whether rel is TypeScript, the only kind the Biome formatter is run over."
+          ]
+        }
+      ]
+    }
+  ]
+}

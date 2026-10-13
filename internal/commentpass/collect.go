@@ -60,9 +60,12 @@ type fileScan struct {
 func scanFile(path string, src []byte) (*fileScan, error) {
 	var toks []ctoken
 	var err error
-	if isGo(path) {
+	switch {
+	case isGo(path):
 		toks, err = scanGo(src)
-	} else {
+	case isCSS(path):
+		toks, err = scanCSS(src)
+	default:
 		toks, err = scanTS(src)
 	}
 	if err != nil {
