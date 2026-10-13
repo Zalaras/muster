@@ -20,16 +20,19 @@ import (
 // kb:adr/lifecycle-subagent-marked-events-not-stragglers.
 //
 //nolint:gocyclo // one arm per wire Kind; splitting strands the cross-referencing attention/failure/prompt invariant comments
-func applyInput(sess *Session, claudeSessionID string, promptID *string, input claudecode.StateInput, now time.Time) {
+func applyInput(sess *Session, claudeSessionID string, promptID *string, input claudecode.StateInput, now time.Time) (turnEnded bool) {
 	switch input.Kind {
 	case claudecode.KindBind, claudecode.KindClearRebind, claudecode.KindResumeBind:
 		applyBind(sess, claudeSessionID, input, now)
 
+	case claudecode.KindCompactionEnded:
+		return applyCompactionEnded(sess, claudeSessionID, promptID, input, now)
+
 	case claudecode.KindTurnActivity:
-		latchPermissionMode(sess, input.PermissionMode)
+		latchPermissionMode(sess, input)
 		closed := promptID != nil && sess.promptClosed(*promptID)
 		if closed && !input.FromSubagent {
-			return // straggler past a Stop — persist only, no transition
+			return false
 		}
 		// A closed prompt with the subagent marker is a background subagent still
 		// working past the parent's Stop (kb:fact/subagent-hooks-carry-agent-id): it
@@ -49,8 +52,8 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 		// Another agent's activity neither clears a permission wait nor leaves needs_input
 		// (INV-B, kb:adr/lifecycle-attention-owned-by-raising-agent): the latch and prompt
 		// adoption above already happened, nothing below does.
-		if sess.waitOwnedByOther(input.Agent) {
-			return
+		if sess.permissionWaitOwnedByOther(input.Agent) {
+			return false
 		}
 		// kb:anchor/ws.session's attention-iff-needs_input / failure-iff-failed
 		// invariants are unconditional: every transitioning path here — whether the
@@ -62,7 +65,7 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 
 	case claudecode.KindNeedsInputPermission:
 		if promptID != nil && sess.promptClosed(*promptID) && !input.FromSubagent {
-			return
+			return false
 		}
 		// A subagent-marked PermissionRequest for a closed prompt corroborates a
 		// background permission wait (measured 2.1.259) exactly like the open-prompt
@@ -72,7 +75,7 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 		if !input.AgentUnknown || sess.State != StateNeedsInput {
 			sess.AttentionAgent = input.Agent
 		}
-		sess.Attention = &Attention{Reason: "permission", Since: now}
+		sess.Attention = &Attention{Reason: attentionPermission, Since: now}
 		// kb:anchor/ws.session's failure-iff-failed invariant is unconditional: this
 		// branch always transitions to needs_input, so a failure note carried over
 		// from an earlier failed turn (e.g. StopFailure, then a subagent-marked
@@ -80,27 +83,19 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 		sess.Failure = nil
 		sess.setState(StateNeedsInput, now)
 
-	case claudecode.KindNeedsInputIdle:
-		// An idle_prompt with no prompt id follows /clear and says nothing about the new
-		// conversation (kb:fact/clear-idle-prompt-carries-no-prompt-id): persist only.
-		if promptID == nil || sess.promptClosed(*promptID) {
-			return
-		}
-		sess.AttentionAgent = ""
-		sess.Attention = &Attention{Reason: "idle", Since: now}
-		// Same reasoning as KindNeedsInputPermission above — this branch is also
-		// reachable from failed (an unseen fresh prompt id when the preceding
-		// turn-activity event was itself lost), and must not strand a stale failure note.
-		sess.Failure = nil
-		sess.setState(StateNeedsInput, now)
+	case claudecode.KindIdleNotice:
+		return applyIdleNotice(sess, promptID, now)
 
 	case claudecode.KindTurnClosed:
-		applyTurnClosed(sess, promptID, input, now)
+		return applyTurnClosed(sess, promptID, input, now)
 
 	case claudecode.KindTurnInterrupted:
-		applyTurnInterrupted(sess, promptID, now)
+		return applyTurnInterrupted(sess, promptID, now)
 
 	case claudecode.KindTurnFailed:
+		if input.FromSubagent {
+			return false
+		}
 		if promptID != nil {
 			sess.closePrompt(*promptID)
 		}
@@ -115,8 +110,8 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 		sess.Failure = &Failure{Error: errTok, Message: msg}
 		sess.setState(StateFailed, now)
 
-	case claudecode.KindCompaction:
-		sess.Compactions++
+	case claudecode.KindCompactionBegan:
+		applyCompactionBegan(sess, promptID, now)
 
 	case claudecode.KindDeathHint, claudecode.KindClearDeathHint, claudecode.KindInert:
 		// no-op: alive comes from the pane check alone
@@ -125,6 +120,7 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 		// SessionEnd(reason:"clear") is not a death hint either; unknown/inert events
 		// persist (already done by the ingest worker) with no state effect.
 	}
+	return false
 }
 
 // applyBind handles SessionStart's Bind/ClearRebind (kb:anchor/state.transitions),
@@ -138,22 +134,7 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 		kind = claudecode.KindClearRebind
 	}
 
-	sess.ClaudeSessionID = claudeSessionID
-	// A resume claim (if any) graduates into ClaudeSessionID itself the moment any bind
-	// lands, whichever kind: AliveByClaudeSessionID's ordinary ClaudeSessionID match
-	// already covers this row from here on, so the separate pending marker is cleared
-	// rather than left to shadow a future /clear onto a different id
-	// (kb:adr/launch-resume-pending-hold-persisted).
-	sess.pendingResumeClaudeSessionID = ""
-	if input.Model != nil && (sess.Model == nil || sess.Model.ID != *input.Model) {
-		// A fresh pointer, never a field written into the old one: List/Get hand out
-		// Clone()s that share this *Model, and Session.Clone's contract is that a changed
-		// model is always a new pointer, never mutated in place. A bind naming the model
-		// already held changes nothing, so a display name the status line confirmed
-		// survives; a different id shows as itself until the status line confirms a name
-		// (kb:adr/lifecycle-bind-model-display-name-is-id).
-		sess.Model = &Model{ID: *input.Model, DisplayName: *input.Model}
-	}
+	bindIdentity(sess, claudeSessionID, input.Model)
 
 	// kb:anchor/ws.session's attention-iff-needs_input / failure-iff-failed invariants
 	// are unconditional: no bind — clear-rebind or a plain re-bind with an unchanged
@@ -205,19 +186,40 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 	sess.setState(StateStarted, now)
 }
 
-func latchPermissionMode(sess *Session, mode *string) {
-	if mode == nil {
+func bindIdentity(sess *Session, claudeSessionID string, model *string) {
+	sess.ClaudeSessionID = claudeSessionID
+	sess.pendingResumeClaudeSessionID = ""
+	if model != nil && (sess.Model == nil || sess.Model.ID != *model) {
+		// A fresh pointer, never a field written into the old one: List/Get hand out
+		// Clone()s that share this *Model, and Session.Clone's contract is that a changed
+		// model is always a new pointer, never mutated in place. A bind naming the model
+		// already held changes nothing, so a display name the status line confirmed
+		// survives; a different id shows as itself until the status line confirms a name
+		// (kb:adr/lifecycle-bind-model-display-name-is-id).
+		sess.Model = &Model{ID: *model, DisplayName: *model}
+	}
+}
+
+func latchPermissionMode(sess *Session, input claudecode.StateInput) {
+	if input.PermissionMode == nil || input.FromSubagent {
 		return // never resets the latch (kb:fact/permission-mode-presence-split) — most events carry no permission_mode
 	}
-	sess.PermissionMode = PermissionMode(*mode)
+	sess.PermissionMode = PermissionMode(*input.PermissionMode)
 	sess.PermissionModeSource = "hook"
+}
+
+func endTurnIntoIdle(sess *Session, now time.Time) (turnEnded bool) {
+	sess.clearAttention()
+	sess.Failure = nil
+	sess.setState(StateIdle, now)
+	return true
 }
 
 // applyTurnClosed applies a Stop: closes the prompt, captures the Stop's fields, and
 // goes idle unless a subagent's permission wait outlives the main turn. Callers hold
 // the manager's lock.
-func applyTurnClosed(sess *Session, promptID *string, input claudecode.StateInput, now time.Time) {
-	latchPermissionMode(sess, input.PermissionMode)
+func applyTurnClosed(sess *Session, promptID *string, input claudecode.StateInput, now time.Time) (turnEnded bool) {
+	latchPermissionMode(sess, input)
 	if promptID != nil {
 		sess.closePrompt(*promptID)
 	}
@@ -232,23 +234,59 @@ func applyTurnClosed(sess *Session, promptID *string, input claudecode.StateInpu
 	// and the Stop's fields captured, but the session stays in needs_input
 	// (kb:adr/lifecycle-attention-owned-by-raising-agent).
 	if sess.State == StateNeedsInput && sess.AttentionAgent != "" {
-		return
+		return false
 	}
-	sess.clearAttention()
-	sess.Failure = nil
-	sess.setState(StateIdle, now)
+	return endTurnIntoIdle(sess, now)
 }
 
 // applyTurnInterrupted applies the transcript sweep's interrupt verdict. Only the
 // daemon's sweep produces this kind, and it decided on a snapshot: re-check under the
 // lock that the prompt is still the current one of an open turn. Callers hold the
 // manager's lock.
-func applyTurnInterrupted(sess *Session, promptID *string, now time.Time) {
+func applyTurnInterrupted(sess *Session, promptID *string, now time.Time) (turnEnded bool) {
 	if promptID == nil || sess.currentPromptID != *promptID || !sess.inOpenTurn() {
-		return
+		return false
 	}
 	sess.closePrompt(*promptID)
+	return endTurnIntoIdle(sess, now)
+}
+
+func applyIdleNotice(sess *Session, promptID *string, now time.Time) (turnEnded bool) {
+	if promptID == nil || sess.promptClosed(*promptID) {
+		return false
+	}
+	endsTurn := sess.State == StateWorking || sess.State == StatePlanning || sess.idleWait()
+	sess.closePrompt(*promptID)
+	if !endsTurn {
+		return false
+	}
+	if sess.currentPromptID != "" {
+		sess.closePrompt(sess.currentPromptID)
+	}
+	return endTurnIntoIdle(sess, now)
+}
+
+func applyCompactionBegan(sess *Session, promptID *string, now time.Time) {
+	sess.Compactions++
+	if sess.inOpenTurn() {
+		return
+	}
+	if promptID != nil {
+		sess.currentPromptID = *promptID
+		sess.compactionPromptID = *promptID
+	}
 	sess.clearAttention()
 	sess.Failure = nil
-	sess.setState(StateIdle, now)
+	sess.setState(StateWorking, now)
+}
+
+func applyCompactionEnded(sess *Session, claudeSessionID string, promptID *string, input claudecode.StateInput, now time.Time) (turnEnded bool) {
+	if sess.ClaudeSessionID == claudeSessionID {
+		bindIdentity(sess, claudeSessionID, input.Model)
+	}
+	if promptID == nil || !sess.compactionOpen(*promptID) {
+		return false
+	}
+	sess.closePrompt(*promptID)
+	return endTurnIntoIdle(sess, now)
 }

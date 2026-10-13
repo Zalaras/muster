@@ -7,7 +7,7 @@ summary: Events apply in seq order; Stop-family events close their prompt_id, a 
 features: [lifecycle]
 tags: [state-machine, envelope]
 files: [internal/session/machine.go]
-tests: [TestClosePrompt_IdempotentForAnAlreadyClosedID, TestApplyInput_TurnClosed, TestApplyInput_NeedsInputIdle_FromFailedViaUnseenFreshPromptClearsFailure]
+tests: [TestClosePrompt_IdempotentForAnAlreadyClosedID, TestApplyInput_TurnClosed, TestApplyInput_IdleNotice_FromFailedViaUnseenFreshPromptKeepsFailure]
 refs: [docs/history/spec-changelog.md, kb:anchor/state.ordering, kb:fact/hook-delivery-best-effort, kb:adr/ingest-seq-assigned-at-ingest]
 supersedes: []
 ---

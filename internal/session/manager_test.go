@@ -2056,7 +2056,7 @@ func TestApply_INV1_BindingMapConsistencyAcrossStatesAndInputClasses(t *testing.
 
 // TestApply_NeverBoundSessionBindsWithNoTransitionThenAppliesItsOwnEvent covers REQ-9's
 // precise "no transition" clause: the binding step itself must cause no state change —
-// only the triggering event's own row does. Proven with PreCompact (Kind that has no
+// only the triggering event's own row does. Proven with an inert input (a Kind that has no
 // transition of its own), so any state movement observed would have to have come from
 // the binding step, not the event.
 func TestApply_NeverBoundSessionBindsWithNoTransitionThenAppliesItsOwnEvent(t *testing.T) {
@@ -2066,12 +2066,12 @@ func TestApply_NeverBoundSessionBindsWithNoTransitionThenAppliesItsOwnEvent(t *t
 	require.Equal(t, StateStarted, sess.State)
 	require.Empty(t, sess.ClaudeSessionID)
 
-	final, err := mgr.Apply(context.Background(), sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindCompaction}, true)
+	final, err := mgr.Apply(context.Background(), sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindInert}, true)
 	require.NoError(t, err)
 
 	assert.Equal(t, "claude-1", final.ClaudeSessionID, "REQ-9: binds on the first enveloped event")
 	assert.Equal(t, StateStarted, final.State, "REQ-9: binding itself causes no transition")
-	assert.Equal(t, 1, final.Compactions, "PreCompact's own (no-transition) row is what actually applied")
+	assert.Zero(t, final.Compactions)
 }
 
 // TestApply_EnvelopedSameBoundIDNeverRebindsEvenForClearDeathHint covers Edge Case 6:
@@ -2118,7 +2118,7 @@ func TestApply_INV2_RebindResetsContextAndCompactionsBeforeItsOwnRowApplies(t *t
 				sess := createLaunchedSession(t, mgr, st, t.TempDir())
 				advanceToState(t, mgr, sess.ID, "claude-old", state, true)
 				// Give the rebind something to lose: a compaction and a context gauge.
-				_, err := mgr.Apply(context.Background(), sess.ID, "claude-old", nil, claudecode.StateInput{Kind: claudecode.KindCompaction}, true)
+				_, err := mgr.Apply(context.Background(), sess.ID, "claude-old", nil, claudecode.StateInput{Kind: claudecode.KindCompactionBegan}, true)
 				require.NoError(t, err)
 				_, err = mgr.ApplyStatus(context.Background(), sess.ID, claudecode.StatusUpdate{
 					Context: &claudecode.StatusContext{UsedPct: 84, TotalInputTokens: 168000, WindowSize: 200000},
@@ -2177,7 +2177,7 @@ func TestApply_MonotonicRebindGuard_ReorderedStragglerNeverRebindsBackwards(t *t
 
 		_, err := mgr.Apply(ctx, sess.ID, "claude-old", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
 		require.NoError(t, err)
-		_, err = mgr.Apply(ctx, sess.ID, "claude-old", nil, claudecode.StateInput{Kind: claudecode.KindCompaction}, true)
+		_, err = mgr.Apply(ctx, sess.ID, "claude-old", nil, claudecode.StateInput{Kind: claudecode.KindCompactionBegan}, true)
 		require.NoError(t, err)
 
 		_, err = mgr.Apply(ctx, sess.ID, "claude-new", nil, claudecode.StateInput{Kind: claudecode.KindClearRebind}, true)
@@ -2190,7 +2190,7 @@ func TestApply_MonotonicRebindGuard_ReorderedStragglerNeverRebindsBackwards(t *t
 			Context: &claudecode.StatusContext{UsedPct: 12, TotalInputTokens: 24000, WindowSize: 200000},
 		})
 		require.NoError(t, err)
-		final, err := mgr.Apply(ctx, sess.ID, "claude-new", nil, claudecode.StateInput{Kind: claudecode.KindCompaction}, true)
+		final, err := mgr.Apply(ctx, sess.ID, "claude-new", nil, claudecode.StateInput{Kind: claudecode.KindCompactionBegan}, true)
 		require.NoError(t, err)
 
 		require.Equal(t, StateWorking, final.State, "sanity: the new conversation is live before the straggler arrives")

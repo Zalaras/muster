@@ -433,7 +433,7 @@ func TestApply_TurnStatePersistsAcrossARestart(t *testing.T) {
 	assert.Nil(t, persisted.AttentionAgent, "the cleared owner is persisted as NULL")
 }
 
-// TestApply_StopKeepingASubagentWaitIsNotUnread covers apply.go's closesTurn guard: Unread is
+// TestApply_StopKeepingASubagentWaitIsNotUnread covers apply.go's turn-ended guard: Unread is
 // set only when the closing input actually lands idle, so a Stop that a subagent's wait survives
 // (REQ-8) never leaves unread set on a needs_input session; a main-owned wait's Stop does.
 func TestApply_StopKeepingASubagentWaitIsNotUnread(t *testing.T) {
@@ -478,7 +478,7 @@ func TestApply_PromptlessIdlePromptAfterClear(t *testing.T) {
 		mgr.sessions[sess.ID].BackgroundTasks = 2
 		mgr.mu.Unlock()
 
-		got, err := mgr.Apply(context.Background(), sess.ID, "claude-after-clear", nil, claudecode.StateInput{Kind: claudecode.KindNeedsInputIdle}, true)
+		got, err := mgr.Apply(context.Background(), sess.ID, "claude-after-clear", nil, claudecode.StateInput{Kind: claudecode.KindIdleNotice}, true)
 
 		require.NoError(t, err)
 		assert.Equal(t, StateStarted, got.State)
@@ -496,7 +496,7 @@ func TestApply_PromptlessIdlePromptAfterClear(t *testing.T) {
 			mgr := newTestManager(t, st, nil, nil)
 			sess := driveTo(t, mgr, st, state)
 
-			got, err := mgr.Apply(context.Background(), sess.ID, "claude-after-clear", nil, claudecode.StateInput{Kind: claudecode.KindNeedsInputIdle}, true)
+			got, err := mgr.Apply(context.Background(), sess.ID, "claude-after-clear", nil, claudecode.StateInput{Kind: claudecode.KindIdleNotice}, true)
 
 			require.NoError(t, err, state)
 			assert.Equal(t, StateStarted, got.State, state)
@@ -513,7 +513,7 @@ func TestApply_PromptlessIdlePromptAfterClear(t *testing.T) {
 		_, err := mgr.Apply(context.Background(), sess.ID, "claude-new", nil, claudecode.StateInput{Kind: claudecode.KindClearRebind}, true)
 		require.NoError(t, err)
 
-		got, err := mgr.Apply(context.Background(), sess.ID, "claude-new", nil, claudecode.StateInput{Kind: claudecode.KindNeedsInputIdle}, true)
+		got, err := mgr.Apply(context.Background(), sess.ID, "claude-new", nil, claudecode.StateInput{Kind: claudecode.KindIdleNotice}, true)
 
 		require.NoError(t, err)
 		assert.Equal(t, StateStarted, got.State)
@@ -530,7 +530,7 @@ func TestApply_PromptlessIdlePromptAfterClear(t *testing.T) {
 		require.NoError(t, err)
 		before := mustGet(t, mgr, sess.ID)
 
-		got, err := mgr.Apply(context.Background(), sess.ID, oldClaude, &oldPrompt, claudecode.StateInput{Kind: claudecode.KindNeedsInputIdle}, true)
+		got, err := mgr.Apply(context.Background(), sess.ID, oldClaude, &oldPrompt, claudecode.StateInput{Kind: claudecode.KindIdleNotice}, true)
 
 		require.NoError(t, err)
 		assert.Equal(t, before.State, got.State, "the straggler must not raise an idle wait on the fresh conversation")

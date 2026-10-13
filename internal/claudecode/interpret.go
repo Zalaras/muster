@@ -23,11 +23,12 @@ const (
 	KindResumeBind           InputKind = "resume_bind"
 	KindTurnActivity         InputKind = "turn_activity"
 	KindNeedsInputPermission InputKind = "needs_input_permission"
-	KindNeedsInputIdle       InputKind = "needs_input_idle"
+	KindIdleNotice           InputKind = "idle_notice"
 	KindTurnClosed           InputKind = "turn_closed"
 	KindTurnInterrupted      InputKind = "turn_interrupted"
 	KindTurnFailed           InputKind = "turn_failed"
-	KindCompaction           InputKind = "compaction"
+	KindCompactionBegan      InputKind = "compaction_began"
+	KindCompactionEnded      InputKind = "compaction_ended"
 	KindDeathHint            InputKind = "death_hint"
 	KindClearDeathHint       InputKind = "clear_death_hint"
 	KindInert                InputKind = "inert"
@@ -56,13 +57,6 @@ type StateInput struct {
 	// concern).
 	LastActivity *string
 
-	// FromSubagent is true iff the payload carries the subagent agent marker (measured
-	// 2.1.259, canary-fields.md "Subagent and background-task fields": a background
-	// subagent's PreToolUse/PostToolUse/PermissionRequest carry the parent turn's
-	// prompt_id plus an agent id key that main-agent hooks never carry — not even null).
-	// It is derived only for the turn-activity events and PermissionRequest; every other
-	// event (including Notification, which never carries the marker) leaves this false.
-	// internal/session sees only this neutral bool, never the marker's payload key name.
 	FromSubagent bool
 
 	// Agent is the subagent's opaque id when the payload carries the agent marker, "" for
@@ -167,9 +161,10 @@ func interpretKind(eventType string, payload []byte) StateInput {
 		var f struct {
 			Error                string  `json:"error"`
 			LastAssistantMessage *string `json:"last_assistant_message"`
+			AgentID              *string `json:"agent_id"`
 		}
 		_ = json.Unmarshal(payload, &f)
-		in := StateInput{Kind: KindTurnFailed, LastActivity: f.LastAssistantMessage}
+		in := StateInput{Kind: KindTurnFailed, LastActivity: f.LastAssistantMessage, FromSubagent: f.AgentID != nil, Agent: agentOf(f.AgentID)}
 		// nil (not a pointer to "") when the payload carried no error field — a StopFailure
 		// with an absent error must not render as a bare " — message" note.
 		if f.Error != "" {
@@ -177,7 +172,7 @@ func interpretKind(eventType string, payload []byte) StateInput {
 		}
 		return in
 	case "PreCompact":
-		return StateInput{Kind: KindCompaction}
+		return StateInput{Kind: KindCompactionBegan}
 	case "SessionEnd":
 		return interpretSessionEnd(payload)
 	case "SubagentStop", "status_line":
@@ -238,6 +233,8 @@ func interpretSessionStart(payload []byte) StateInput {
 		// actually changed (kb:adr/lifecycle-resume-rebinds-existing-session,
 		// kb:fact/resume-keeps-session-identity).
 		kind = KindResumeBind
+	case "compact":
+		kind = KindCompactionEnded
 	}
 
 	in := StateInput{Kind: kind}
@@ -274,7 +271,7 @@ func interpretNotification(payload []byte) StateInput {
 	case "permission_prompt":
 		return StateInput{Kind: KindNeedsInputPermission, AgentUnknown: true}
 	case "idle_prompt":
-		return StateInput{Kind: KindNeedsInputIdle}
+		return StateInput{Kind: KindIdleNotice}
 	default:
 		return StateInput{Kind: KindInert}
 	}

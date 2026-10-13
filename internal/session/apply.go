@@ -80,7 +80,7 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 		}
 	}
 
-	applyInput(sess, claudeSessionID, promptID, input, now)
+	turnEnded := applyInput(sess, claudeSessionID, promptID, input, now)
 	dirChanged := adoptClaudeDir(sess, input.Cwd)
 	if input.Kind == claudecode.KindBind || input.Kind == claudecode.KindClearRebind {
 		m.byClaude[claudeSessionID] = musterSessionID
@@ -90,7 +90,7 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 	// (kb:adr/rail-unread-inferred-from-live-terminal-client). A nil watcher
 	// (Config.Watcher unset, most unit tests) counts as unwatched. Every other input kind
 	// leaves Unread to setState's own idle-only rule (session.go).
-	if closesTurn(input.Kind) && sess.State == StateIdle {
+	if turnEnded {
 		sess.Unread = m.watcher == nil || !m.watcher.Watched(musterSessionID)
 	}
 	post := sess.Clone()
@@ -120,13 +120,6 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 	}
 	m.nudgeRepoPoll(dirChanged)
 	return *result, nil
-}
-
-// closesTurn reports whether kind ends a turn the way a Stop does — the inputs whose idle
-// landing sets Unread. The state check at the call site matters: a Stop that a subagent's
-// wait survives leaves the session in needs_input, which can never be unread.
-func closesTurn(kind claudecode.InputKind) bool {
-	return kind == claudecode.KindTurnClosed || kind == claudecode.KindTurnInterrupted
 }
 
 // isBindKind reports whether kind is one of the three inputs applyInput itself routes

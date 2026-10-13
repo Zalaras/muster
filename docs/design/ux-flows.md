@@ -226,7 +226,7 @@ sections keep their place in both modes; cards sort inside them, with a pinned b
 
 | State | Source | Rail treatment |
 |---|---|---|
-| `Needs-Input` | `Notification` (`permission_prompt` / `idle_prompt`) | Loudest. Timer counts up and escalates. |
+| `Needs-Input` | `PermissionRequest` / `Notification` (`permission_prompt`) | Loudest. Timer counts up and escalates. |
 | `Failed` | `StopFailure` with typed `error` | Loud, but static — it stopped, it isn't waiting. |
 | `Planning` | `permission_mode: plan`, latched forward from the last hook that carried it | Distinct from Working; it's the state you may want to interrupt. |
 | `Working` | mid-turn | Calm. Motion only, no color demand. |

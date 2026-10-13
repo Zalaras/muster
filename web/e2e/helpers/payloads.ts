@@ -74,8 +74,16 @@ export function unboundSessionStart(
 }
 
 interface SessionStartOpts extends EnvelopeOpts {
-  /** All three observed (canary-fields.md "Values worth asserting"). Default "startup". */
-  source?: "startup" | "resume" | "clear";
+  /** All three observed (canary-fields.md "Values worth asserting"), plus `compact`
+   * (kb:fact/compact-hook-sequence, 2.1.296). Default "startup". */
+  source?: "startup" | "resume" | "clear" | "compact";
+  /**
+   * Plan state-issues: a `SessionStart{source:"compact"}` carries the **compaction's**
+   * `prompt_id` — the same one its `PreCompact` carried, no `UserPromptSubmit` having opened
+   * it (kb:fact/compact-hook-sequence). No other source is measured carrying one, so the key
+   * is omitted unless a caller passes this.
+   */
+  promptId?: string;
   /**
    * `SessionStart.model` is optional (measured: present on 2 of 5 startup captures,
    * absent on another startup, on `source:"clear"`, and on a fresh headless startup —
@@ -118,6 +126,7 @@ export function envelopedSessionStart(
     model,
     transcriptPath = "/tmp/t.jsonl",
     cwd,
+    promptId,
   } = opts;
   const payload = withCwd(
     {
@@ -128,6 +137,7 @@ export function envelopedSessionStart(
     },
     cwd,
   );
+  if (promptId !== undefined) payload.prompt_id = promptId;
   if (model !== null) {
     payload.model = model ?? "claude-haiku-4-5-20251001";
   }
@@ -157,7 +167,7 @@ interface TurnActivityOpts {
    * docs/history/spikes/canary-fields.md "Permission-mode probe") alongside the three already here.
    * Plan resume-and-dangerously-allow: `bypassPermissions` is a fifth, reported verbatim
    * under `--permission-mode bypassPermissions` (kb:fact/bypass-permission-mode-on-wire). */
-  permissionMode?: "default" | "plan" | "acceptEdits" | "auto" | "bypassPermissions";
+  permissionMode?: "default" | "plan" | "acceptEdits" | "auto" | "bypassPermissions" | "dontAsk";
   /**
    * Plan claude-status-fixes REQ-1: when set, adds the measured subagent marker —
    * `agent_id` plus `agent_type: "general-purpose"` (docs/history/spikes/canary-fields.md "Subagent
@@ -166,6 +176,13 @@ interface TurnActivityOpts {
    * default, matching every main-agent hook (no `agent_id` key at all, never `null`).
    */
   agentId?: string;
+  /**
+   * Plan state-issues: the marker's `agent_type` when `agentId` is set. Default
+   * "general-purpose" (the measured Explore/general-purpose shape); a subagent that declares
+   * its own permission mode is a different agent — the built-in `claude-code-guide` declares
+   * `dontAsk` (kb:fact/subagent-declared-mode-on-hooks).
+   */
+  agentType?: string;
   /** Plan markdown-viewing: see `SessionStartOpts.transcriptPath`. Default unchanged. */
   transcriptPath?: string;
   /**
@@ -189,6 +206,7 @@ export function rawUserPromptSubmit(
     promptId = "p1",
     permissionMode = "default",
     agentId,
+    agentType = "general-purpose",
     transcriptPath = "/tmp/t.jsonl",
     prompt = "do the thing",
     cwd,
@@ -206,7 +224,7 @@ export function rawUserPromptSubmit(
   );
   if (agentId !== undefined) {
     payload.agent_id = agentId;
-    payload.agent_type = "general-purpose";
+    payload.agent_type = agentType;
   }
   return payload;
 }
@@ -231,6 +249,7 @@ export function rawPostToolUse(sessionId: string, opts: ToolUseOpts = {}): Recor
     promptId = "p1",
     permissionMode = "default",
     agentId,
+    agentType = "general-purpose",
     transcriptPath = "/tmp/t.jsonl",
     toolName = "Write",
     filePath = "/tmp/x.txt",
@@ -253,7 +272,7 @@ export function rawPostToolUse(sessionId: string, opts: ToolUseOpts = {}): Recor
   );
   if (agentId !== undefined) {
     payload.agent_id = agentId;
-    payload.agent_type = "general-purpose";
+    payload.agent_type = agentType;
   }
   return payload;
 }
@@ -270,6 +289,7 @@ export function rawPreToolUse(sessionId: string, opts: ToolUseOpts = {}): Record
     promptId = "p1",
     permissionMode = "plan",
     agentId,
+    agentType = "general-purpose",
     transcriptPath = "/tmp/t.jsonl",
     toolName = "ExitPlanMode",
     filePath = "/tmp/x.txt",
@@ -290,7 +310,7 @@ export function rawPreToolUse(sessionId: string, opts: ToolUseOpts = {}): Record
   );
   if (agentId !== undefined) {
     payload.agent_id = agentId;
-    payload.agent_type = "general-purpose";
+    payload.agent_type = agentType;
   }
   return payload;
 }
@@ -423,18 +443,29 @@ export function runningShellTask(id = "shell-1"): Record<string, unknown> {
 /**
  * Raw `StopFailure` — mutually exclusive with `Stop` for a given turn (canary-fields.md:
  * "never both for the same turn"); carries no `permission_mode` (never-present list).
+ * Plan state-issues: `agentId` adds the subagent marker a background subagent's failure
+ * carries — `agent_id` only, the one marker key the fact records on this event, with the
+ * parent's already-closed `prompt_id` (kb:fact/subagent-stopfailure-carries-agent-id).
+ * Omitted by default: a main-agent `StopFailure` has no `agent_id` key at all.
  */
 export function rawStopFailure(
   sessionId: string,
-  opts: { promptId?: string; error?: string; lastAssistantMessage?: string; cwd?: string } = {},
+  opts: {
+    promptId?: string;
+    error?: string;
+    lastAssistantMessage?: string;
+    cwd?: string;
+    agentId?: string;
+  } = {},
 ): Record<string, unknown> {
   const {
     promptId = "p1",
     error = "server_error",
     lastAssistantMessage = "API error ended the turn",
     cwd,
+    agentId,
   } = opts;
-  return withCwd(
+  const payload = withCwd(
     {
       hook_event_name: "StopFailure",
       session_id: sessionId,
@@ -445,6 +476,8 @@ export function rawStopFailure(
     },
     cwd,
   );
+  if (agentId !== undefined) payload.agent_id = agentId;
+  return payload;
 }
 
 /**
@@ -462,6 +495,7 @@ export function rawPostToolBatch(
     promptId = "p1",
     permissionMode = "default",
     agentId,
+    agentType = "general-purpose",
     transcriptPath = "/tmp/t.jsonl",
     cwd,
   } = opts;
@@ -479,7 +513,7 @@ export function rawPostToolBatch(
   );
   if (agentId !== undefined) {
     payload.agent_id = agentId;
-    payload.agent_type = "general-purpose";
+    payload.agent_type = agentType;
   }
   return payload;
 }
@@ -551,13 +585,20 @@ export function interruptTranscriptLine(
   };
 }
 
-/** Raw `PreCompact` — increments the compaction counter only (REQ-21), no transition. */
+/**
+ * Raw `PreCompact` (REQ-21: counts the compaction). Plan state-issues: outside a turn it
+ * also opens the compaction's own prompt (`promptId` a fresh id no `UserPromptSubmit` named,
+ * kb:fact/compact-hook-sequence) and reads `working`. Carries no `permission_mode`
+ * (kb:fact/permission-mode-presence-split). `opts.trigger` adds `trigger:"manual"`, the one
+ * value measured (an auto-compaction was not); `custom_instructions` is never sent — the
+ * fact names the key but not its value shape.
+ */
 export function rawPreCompact(
   sessionId: string,
   promptId = "p1",
-  opts: { cwd?: string } = {},
+  opts: { cwd?: string; trigger?: "manual" } = {},
 ): Record<string, unknown> {
-  return withCwd(
+  const payload = withCwd(
     {
       hook_event_name: "PreCompact",
       session_id: sessionId,
@@ -566,6 +607,8 @@ export function rawPreCompact(
     },
     opts.cwd,
   );
+  if (opts.trigger !== undefined) payload.trigger = opts.trigger;
+  return payload;
 }
 
 /**

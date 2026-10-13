@@ -251,6 +251,7 @@ func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Sess
 		restoreIfUnchanged(&cur.BackgroundTasks, post.BackgroundTasks, last.BackgroundTasks)
 		restoreIfUnchanged(&cur.AttentionAgent, post.AttentionAgent, last.AttentionAgent)
 		restoreIfUnchanged(&cur.currentPromptID, post.currentPromptID, last.currentPromptID)
+		restoreIfUnchanged(&cur.compactionPromptID, post.compactionPromptID, last.compactionPromptID)
 		// pendingResumeClaudeSessionID's writers are CreateSession, applyBind and
 		// markEnded: a failed Apply must roll it back together with the ClaudeSessionID
 		// bind it accompanies, or a rejected resume-bind could leave the row holding
@@ -278,7 +279,7 @@ var restoredSessionFields = []string{
 	"Attention", "Failure", "LastActivity", "Alive", "EndedAt", "LastSnapshot",
 	"LastSnapshotAt", "Pinned", "RailPos", "GroupID", "TitleOverride", "TranscriptPath",
 	"PlanPath", "PlanExists", "Unread", "LastPrompt", "BackgroundTasks", "AttentionAgent",
-	"currentPromptID", "closedPromptIDs",
+	"currentPromptID", "compactionPromptID", "closedPromptIDs",
 	"pendingResumeClaudeSessionID",
 }
 

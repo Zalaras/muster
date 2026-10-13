@@ -48,7 +48,7 @@ func assertTurnStateInvariants(t *testing.T, sess *Session) {
 func strp(s string) *string { return &s }
 func intp(n int) *int       { return &n }
 
-// TestApplyInput_PromptlessIdlePrompt covers D1/REQ-1: a prompt-less idle_prompt (the shape
+// TestApplyInput_PromptlessIdlePrompt covers REQ-4: a prompt-less idle_prompt (the shape
 // that follows /clear, kb:fact/clear-idle-prompt-carries-no-prompt-id) changes no field from
 // any of the six states, whoever owns the wait.
 func TestApplyInput_PromptlessIdlePrompt(t *testing.T) {
@@ -65,7 +65,7 @@ func TestApplyInput_PromptlessIdlePrompt(t *testing.T) {
 				sess := seededSession(from, owner)
 				before := *sess
 
-				applyInput(sess, "c1", nil, claudecode.StateInput{Kind: claudecode.KindNeedsInputIdle}, laterNow())
+				applyInput(sess, "c1", nil, claudecode.StateInput{Kind: claudecode.KindIdleNotice}, laterNow())
 
 				assert.Equal(t, before, *sess, "no state, attention, failure, stateSince or any other field may move")
 				assert.Equal(t, fixedNow, sess.StateSince)
@@ -74,16 +74,14 @@ func TestApplyInput_PromptlessIdlePrompt(t *testing.T) {
 		}
 	}
 
-	t.Run("a prompt-carrying idle_prompt still enters needs_input idle and drops a subagent owner", func(t *testing.T) {
+	t.Run("a prompt-carrying idle_prompt from working lands idle, never needs_input", func(t *testing.T) {
 		sess := seededSession(StateWorking, "")
-		sess.AttentionAgent = "" // working holds no owner
 		p := "p1"
 
-		applyInput(sess, "c1", &p, claudecode.StateInput{Kind: claudecode.KindNeedsInputIdle}, laterNow())
+		applyInput(sess, "c1", &p, claudecode.StateInput{Kind: claudecode.KindIdleNotice}, laterNow())
 
-		assert.Equal(t, StateNeedsInput, sess.State)
-		require.NotNil(t, sess.Attention)
-		assert.Equal(t, "idle", sess.Attention.Reason)
+		assert.Equal(t, StateIdle, sess.State)
+		assert.Nil(t, sess.Attention)
 		assert.Empty(t, sess.AttentionAgent)
 	})
 
@@ -93,7 +91,7 @@ func TestApplyInput_PromptlessIdlePrompt(t *testing.T) {
 		before := *sess
 		p := "p1"
 
-		applyInput(sess, "c1", &p, claudecode.StateInput{Kind: claudecode.KindNeedsInputIdle}, laterNow())
+		applyInput(sess, "c1", &p, claudecode.StateInput{Kind: claudecode.KindIdleNotice}, laterNow())
 
 		assert.Equal(t, before, *sess)
 	})
@@ -172,8 +170,12 @@ func TestApplyInput_WaitOwnership_INVB(t *testing.T) {
 						activity := claudecode.StateInput{Kind: claudecode.KindTurnActivity, Agent: actor, FromSubagent: actor != main, PermissionMode: &mode}
 						applyInput(sess, "c1", &p, activity, laterNow())
 
+						wantLatch, wantSource, wantEnded := PermissionDefault, "seed", StateWorking
+						if actor == main {
+							wantLatch, wantSource, wantEnded = PermissionPlan, "hook", StatePlanning
+						}
 						if actor == owner {
-							assert.Equal(t, StatePlanning, sess.State, "the owner's own activity ends its wait")
+							assert.Equal(t, wantEnded, sess.State, "the owner's own activity ends its wait; a subagent's mode never reads as plan (REQ-12)")
 							assert.Nil(t, sess.Attention)
 							assert.Empty(t, sess.AttentionAgent)
 						} else {
@@ -182,8 +184,9 @@ func TestApplyInput_WaitOwnership_INVB(t *testing.T) {
 							assert.Equal(t, "permission", sess.Attention.Reason)
 							assert.Equal(t, owner, sess.AttentionAgent, "the owner stays")
 							assert.Equal(t, fixedNow, sess.StateSince)
-							assert.Equal(t, PermissionPlan, sess.PermissionMode, "the latch still updates")
 						}
+						assert.Equal(t, wantLatch, sess.PermissionMode, "only a main-agent event moves the latch (REQ-12)")
+						assert.Equal(t, wantSource, sess.PermissionModeSource)
 						assertTurnStateInvariants(t, sess)
 					})
 				}
@@ -478,10 +481,10 @@ func TestApplyInput_BackgroundTasksCount(t *testing.T) {
 		others := []claudecode.StateInput{
 			{Kind: claudecode.KindTurnActivity},
 			{Kind: claudecode.KindNeedsInputPermission},
-			{Kind: claudecode.KindNeedsInputIdle},
+			{Kind: claudecode.KindIdleNotice},
 			{Kind: claudecode.KindTurnFailed},
 			{Kind: claudecode.KindTurnInterrupted},
-			{Kind: claudecode.KindCompaction},
+			{Kind: claudecode.KindCompactionBegan},
 			{Kind: claudecode.KindDeathHint},
 			{Kind: claudecode.KindClearDeathHint},
 			{Kind: claudecode.KindInert},
@@ -545,8 +548,8 @@ func TestApplyInput_TurnStateInvariantsAcrossEverySourceState(t *testing.T) {
 		{"main permission", claudecode.StateInput{Kind: claudecode.KindNeedsInputPermission}, strp("p1")},
 		{"subagent permission", claudecode.StateInput{Kind: claudecode.KindNeedsInputPermission, Agent: "agent-a", FromSubagent: true}, strp("p1")},
 		{"notification permission", claudecode.StateInput{Kind: claudecode.KindNeedsInputPermission, AgentUnknown: true}, strp("p1")},
-		{"idle_prompt with id", claudecode.StateInput{Kind: claudecode.KindNeedsInputIdle}, strp("p1")},
-		{"idle_prompt without id", claudecode.StateInput{Kind: claudecode.KindNeedsInputIdle}, nil},
+		{"idle_prompt with id", claudecode.StateInput{Kind: claudecode.KindIdleNotice}, strp("p1")},
+		{"idle_prompt without id", claudecode.StateInput{Kind: claudecode.KindIdleNotice}, nil},
 		{"Stop", claudecode.StateInput{Kind: claudecode.KindTurnClosed, BackgroundTasks: intp(1)}, strp("p1")},
 		{"StopFailure", claudecode.StateInput{Kind: claudecode.KindTurnFailed}, strp("p1")},
 		{"interrupt", claudecode.StateInput{Kind: claudecode.KindTurnInterrupted}, strp("p1")},

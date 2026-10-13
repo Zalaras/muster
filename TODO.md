@@ -27,36 +27,6 @@ grouped under `###` sub-headings by the work they share — a group is a plausib
 work, not a ranking. `/triage` appends new entries at the end of the section; move one into a
 group deliberately, and otherwise don't re-sort this list.
 
-### Together — card state follows what Claude is doing (#65, #66, #70, #72, #78, #86, #87)
-
-- [ ] **Compacting has not state in Muster** ([#65](https://github.com/Zalaras/muster/issues/65)) — while
-  `/compact` runs the card reads idle, though the session can't take input until it finishes.
-  It should show a busy state, new or reused.
-
-- [ ] **After compaction it goes to Started state** ([#66](https://github.com/Zalaras/muster/issues/66)) — once
-  compaction finishes the card reads `started`. Decide whether it should read idle (unread)
-  instead.
-
-- [ ] **Went from Planning to Working** ([#70](https://github.com/Zalaras/muster/issues/70)) — while
-  Claude was still planning, with no plan accepted, the card switched from planning to working. It
-  should read planning until plan mode really ends.
-
-- [ ] **Needs Input on background agent** ([#72](https://github.com/Zalaras/muster/issues/72)) — the
-  card reads needs input while a background agent is still running. It should not ask for input
-  while background work is in progress.
-
-- [ ] **API Error still says WORKING** ([#78](https://github.com/Zalaras/muster/issues/78)) — a turn
-  failed with an API error; after the developer cancelled the last message and Claude was back at
-  idle, the card still read working. It should read idle once Claude is.
-
-- [ ] **Showing network error when it went IDLE** ([#86](https://github.com/Zalaras/muster/issues/86)) —
-  after a turn finished and Claude was back at idle, the card read failed with `server_error`. It
-  should read idle while Claude is idle.
-
-- [ ] **After /rc it says needs input as status** ([#87](https://github.com/Zalaras/muster/issues/87)) —
-  about a minute after running `/rc`, the card read needs input although nothing was waiting on
-  the developer. A local command should leave the card as it was.
-
 ### Together — session retention and clearing (#47; #39 in Post v1 is the same seam)
 
 - [ ] **Sessions survive only one daemon start after their tmux server is gone** — filed by the

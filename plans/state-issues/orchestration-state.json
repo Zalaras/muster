@@ -1,0 +1,123 @@
+{
+  "plan_name": "state-issues",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 1,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "daemon-impl",
+    "daemon-tests",
+    "e2e-validate",
+    "review",
+    "doc-reconcile"
+  ],
+  "step_started_at": {
+    "e2e-specs": "2026-10-12T21:38:29Z",
+    "daemon-impl": "2026-10-12T22:49:56Z",
+    "daemon-tests": "2026-10-12T23:00:58Z",
+    "e2e-validate": "2026-10-12T22:18:18Z",
+    "review": "2026-10-12T23:08:03Z",
+    "doc-reconcile": "2026-10-12T23:24:15Z"
+  },
+  "step_finished_at": {
+    "e2e-specs": "2026-10-12T21:50:13Z",
+    "daemon-impl": "2026-10-12T22:59:01Z",
+    "daemon-tests": "2026-10-12T23:06:02Z",
+    "e2e-validate": "2026-10-12T22:27:22Z",
+    "review": "2026-10-12T23:23:10Z",
+    "doc-reconcile": "2026-10-12T23:27:52Z"
+  },
+  "step_attempts": {
+    "e2e-specs": [
+      {
+        "start": "2026-10-12T21:38:29Z",
+        "finish": "2026-10-12T21:50:13Z"
+      }
+    ],
+    "daemon-impl": [
+      {
+        "start": "2026-10-12T21:50:13Z",
+        "finish": "2026-10-12T21:54:32Z"
+      },
+      {
+        "start": "2026-10-12T22:49:56Z",
+        "finish": "2026-10-12T22:59:01Z"
+      }
+    ],
+    "daemon-tests": [
+      {
+        "start": "2026-10-12T21:54:58Z",
+        "finish": "2026-10-12T22:13:58Z"
+      },
+      {
+        "start": "2026-10-12T23:00:58Z",
+        "finish": "2026-10-12T23:06:02Z"
+      }
+    ],
+    "e2e-validate": [
+      {
+        "start": "2026-10-12T22:18:18Z",
+        "finish": "2026-10-12T22:27:22Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-10-12T22:27:22Z",
+        "finish": "2026-10-12T22:45:46Z"
+      },
+      {
+        "start": "2026-10-12T23:08:03Z",
+        "finish": "2026-10-12T23:22:38Z"
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-10-12T23:23:10Z",
+        "finish": "2026-10-12T23:24:15Z"
+      },
+      {
+        "start": "2026-10-12T23:24:15Z",
+        "finish": "2026-10-12T23:27:52Z"
+      }
+    ]
+  },
+  "started_at": "2026-10-12T21:38:24Z",
+  "updated_at": "2026-10-12T23:39:17Z",
+  "review_parts": {
+    "1": [
+      "code",
+      "maintainability"
+    ],
+    "2": [
+      "code",
+      "maintainability"
+    ]
+  },
+  "review_verdicts": {
+    "1": "needs-changes",
+    "2": "approved"
+  },
+  "review_commits": {
+    "1": "5d454de3464469d951ade29a04e97168dd447e1c",
+    "2": "9bfb4f288b26c07705944b9bdb30ad6e428021a7"
+  },
+  "review_cycle": 2,
+  "closes_issues": [
+    65,
+    66,
+    70,
+    72,
+    78,
+    86,
+    87
+  ]
+}

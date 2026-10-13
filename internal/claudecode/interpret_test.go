@@ -86,6 +86,46 @@ func TestInterpret_SessionStart(t *testing.T) {
 	})
 }
 
+// TestInterpret_SessionStartCompactAndUnknownSource covers D4's other half: a compact source
+// (kb:fact/compact-hook-sequence) is an input of its own, and a missing or unrecognised
+// source binds as a startup does.
+func TestInterpret_SessionStartCompactAndUnknownSource(t *testing.T) {
+	t.Run("compact source is its own input, distinct from every bind (REQ-8/REQ-9/D4)", func(t *testing.T) {
+		body := claudecodetest.EnvelopedSessionStart("claude-1", claudecodetest.SessionStartOpts{Source: "compact"})
+		payload := innerPayload(t, body)
+
+		in := Interpret("SessionStart", payload)
+
+		assert.Equal(t, KindCompactionEnded, in.Kind)
+		for _, bind := range []InputKind{KindBind, KindResumeBind, KindClearRebind} {
+			assert.NotEqual(t, bind, in.Kind)
+		}
+		assert.Nil(t, in.PermissionMode, "SessionStart never carries permission_mode")
+		assert.False(t, in.FromSubagent)
+	})
+
+	t.Run("compact source still extracts the optional model", func(t *testing.T) {
+		body := claudecodetest.EnvelopedSessionStart("claude-1", claudecodetest.SessionStartOpts{Source: "compact", ModelID: "claude-haiku-4-5-20251001"})
+
+		in := Interpret("SessionStart", innerPayload(t, body))
+
+		require.NotNil(t, in.Model)
+		assert.Equal(t, "claude-haiku-4-5-20251001", *in.Model)
+	})
+
+	t.Run("a missing or unrecognised source binds as startup does (REQ-10)", func(t *testing.T) {
+		for name, payload := range map[string]string{
+			"source key absent": `{"hook_event_name":"SessionStart","session_id":"claude-1"}`,
+			"source null":       `{"hook_event_name":"SessionStart","session_id":"claude-1","source":null}`,
+			"source empty":      `{"hook_event_name":"SessionStart","session_id":"claude-1","source":""}`,
+			"source unknown":    `{"hook_event_name":"SessionStart","session_id":"claude-1","source":"fork"}`,
+			"source wrong case": `{"hook_event_name":"SessionStart","session_id":"claude-1","source":"Compact"}`,
+		} {
+			assert.Equal(t, KindBind, Interpret("SessionStart", []byte(payload)).Kind, name)
+		}
+	})
+}
+
 // TestInterpret_TurnActivityEvents covers UserPromptSubmit/PreToolUse/PostToolUse, all
 // of which always carry permission_mode per canary-fields.md's measured split.
 func TestInterpret_TurnActivityEvents(t *testing.T) {
@@ -113,12 +153,14 @@ func TestInterpret_Notification(t *testing.T) {
 		assert.Equal(t, KindNeedsInputPermission, in.Kind)
 	})
 
-	t.Run("idle_prompt maps to needs_input_idle", func(t *testing.T) {
+	t.Run("idle_prompt maps to the idle notice, never a needs-input kind", func(t *testing.T) {
 		body := claudecodetest.RawNotification("c1", "p1", "idle_prompt")
 
 		in := Interpret("Notification", []byte(body))
 
-		assert.Equal(t, KindNeedsInputIdle, in.Kind)
+		assert.Equal(t, KindIdleNotice, in.Kind)
+		assert.NotEqual(t, KindNeedsInputPermission, in.Kind)
+		assert.False(t, in.AgentUnknown)
 	})
 
 	t.Run("an unrecognized notification_type (e.g. auth_success) is inert", func(t *testing.T) {
@@ -188,12 +230,49 @@ func TestInterpret_StopFailure_EmptyErrorYieldsNilFailureError(t *testing.T) {
 	assert.Nil(t, in.FailureError)
 }
 
+// TestInterpret_StopFailureSubagentMarker covers D8: a StopFailure with an agent_id key says
+// it came from a subagent and names it, an unmarked one is the main agent's, and the
+// failure fields still come through either way (kb:fact/subagent-stopfailure-carries-agent-id).
+func TestInterpret_StopFailureSubagentMarker(t *testing.T) {
+	tests := []struct {
+		name         string
+		payload      string
+		wantSubagent bool
+		wantAgent    string
+	}{
+		{"marked, from the fixture", claudecodetest.RawStopFailure("c1", claudecodetest.StopFailureOpts{AgentID: "agent-a7f3"}), true, "agent-a7f3"},
+		{"unmarked, from the fixture", claudecodetest.RawStopFailure("c1", claudecodetest.StopFailureOpts{}), false, ""},
+		{"marked with an empty-string id is still marked", `{"hook_event_name":"StopFailure","session_id":"c1","prompt_id":"p1","error":"server_error","agent_id":""}`, true, ""},
+		{"explicit agent_id:null is the main agent", `{"hook_event_name":"StopFailure","session_id":"c1","prompt_id":"p1","error":"server_error","agent_id":null}`, false, ""},
+		{"marked with no error field", `{"hook_event_name":"StopFailure","session_id":"c1","prompt_id":"p1","agent_id":"agent-b"}`, true, "agent-b"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in := Interpret("StopFailure", []byte(tt.payload))
+
+			assert.Equal(t, KindTurnFailed, in.Kind)
+			assert.Equal(t, tt.wantSubagent, in.FromSubagent)
+			assert.Equal(t, tt.wantAgent, in.Agent)
+			assert.False(t, in.AgentUnknown)
+		})
+	}
+
+	t.Run("a marked StopFailure still carries its error and message", func(t *testing.T) {
+		in := Interpret("StopFailure", []byte(claudecodetest.RawStopFailure("c1", claudecodetest.StopFailureOpts{AgentID: "agent-a", Error: "rate_limit", LastAssistantMessage: "slow down"})))
+
+		require.NotNil(t, in.FailureError)
+		assert.Equal(t, "rate_limit", *in.FailureError)
+		require.NotNil(t, in.LastActivity)
+		assert.Equal(t, "slow down", *in.LastActivity)
+	})
+}
+
 func TestInterpret_PreCompact(t *testing.T) {
 	body := claudecodetest.RawPreCompact("c1", "p1")
 
 	in := Interpret("PreCompact", []byte(body))
 
-	assert.Equal(t, KindCompaction, in.Kind)
+	assert.Equal(t, KindCompactionBegan, in.Kind)
 }
 
 // TestInterpret_SessionEnd covers REQ-10/D15: reason "clear" must never be read as a
@@ -316,7 +395,7 @@ func TestInterpret_FromSubagentMarker(t *testing.T) {
 		}
 	})
 
-	t.Run("event kinds outside REQ-1's scope leave FromSubagent false via the zero value even though they're never expected to carry the marker", func(t *testing.T) {
+	t.Run("Stop is outside the marker's scope and an unmarked StopFailure is the main agent's", func(t *testing.T) {
 		stopBody := claudecodetest.RawStop("c1", claudecodetest.StopOpts{})
 		in := Interpret("Stop", []byte(stopBody))
 		assert.False(t, in.FromSubagent)
@@ -422,13 +501,13 @@ func TestInterpret_AgentIdentity(t *testing.T) {
 	})
 }
 
-// TestInterpret_IdlePromptWithAndWithoutPromptID pins the interpreter's half of REQ-1: a
-// prompt-less idle_prompt (the shape after /clear) still interprets as needs_input_idle;
+// TestInterpret_IdlePromptWithAndWithoutPromptID pins the interpreter's half of REQ-4: a
+// prompt-less idle_prompt (the shape after /clear) still interprets as the idle notice;
 // the machine, which sees no prompt id, is what makes it a no-op.
 func TestInterpret_IdlePromptWithAndWithoutPromptID(t *testing.T) {
 	in := Interpret("Notification", []byte(claudecodetest.RawPromptlessIdleNotification("c1")))
 
-	assert.Equal(t, KindNeedsInputIdle, in.Kind)
+	assert.Equal(t, KindIdleNotice, in.Kind)
 	assert.False(t, in.AgentUnknown)
 }
 

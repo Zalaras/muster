@@ -62,7 +62,7 @@ instead: it packs as spec and contract only, so it costs the agents a page, not 
 (kb:adr/process-touched-features-widen-without-stopping).
 
 Then run `go tool kb pack --plan <plan-name> --role planner` (`--features a,b` before the
-header exists) and read it before planning; never contradict it: accepted ADRs are settled,
+header exists) and read it before planning; never contradict: accepted ADRs cover new inputs,
 `rejected` ones are why a cut feature stays cut, facts beat Claude Code's docs, `contract.md` is the
 protocol you state deltas against, conventions choose the stack (a plan never picks libraries).
 `CLAUDE.md` hard rules bind too — a plan that requires violating one is wrong by construction. Read

@@ -143,7 +143,7 @@ refs:
 # kb scope: every changed file under these roots needs its owning feature in the plan's
 # Features or Touches header (kb:adr/process-touched-features-widen-without-stopping).
 scope:
-  roots: [cmd, internal, web/src, web/e2e]
+  roots: [cmd, internal, web/src, web/e2e, test]
   # Judged by what they mirror, not by their glob owner: a generated kb trailer rides every
   # record edit; web/src/protocol.ts mirrors docs/protocol.md, whose anchor's feature owns the
   # change, and plan-work merges it under the plan's own anchors.

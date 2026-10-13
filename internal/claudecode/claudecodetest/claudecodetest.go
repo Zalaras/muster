@@ -86,9 +86,7 @@ type SessionStartOpts struct {
 	MusterSession int
 	// TmuxPane, left empty, omits the envelope's tmuxPane field (the headless shape).
 	TmuxPane string
-	// Source is one of "startup" (default), "resume" or "clear" (canary-fields.md
-	// "Values worth asserting" — all three observed).
-	Source string
+	Source   string
 	// ModelID, when non-empty, is embedded as the SessionStart payload's optional
 	// model field (m1-sessions plan Implementation Notes: sometimes absent). Leave
 	// empty and set OmitModel to omit the field entirely.
@@ -373,13 +371,14 @@ type StopFailureOpts struct {
 	PromptID             string
 	Error                string
 	LastAssistantMessage string
+	AgentID              string
 }
 
 // RawStopFailure returns a raw `StopFailure` — mutually exclusive with `Stop` for a
 // given turn (canary-fields.md: "never both for the same turn"); carries no
 // permission_mode (the never-present list).
 func RawStopFailure(sessionID string, opts StopFailureOpts) string {
-	return marshal(map[string]any{
+	body := map[string]any{
 		"hook_event_name":        "StopFailure",
 		"session_id":             sessionID,
 		"transcript_path":        defaultTranscriptPath,
@@ -387,11 +386,11 @@ func RawStopFailure(sessionID string, opts StopFailureOpts) string {
 		"prompt_id":              orDefault(opts.PromptID, defaultPromptID),
 		"error":                  orDefault(opts.Error, "server_error"),
 		"last_assistant_message": orDefault(opts.LastAssistantMessage, "API error ended the turn"),
-	})
+	}
+	markSubagent(body, opts.AgentID)
+	return marshal(body)
 }
 
-// RawPreCompact returns a raw `PreCompact` — increments the compaction counter only,
-// no transition.
 func RawPreCompact(sessionID, promptID string) string {
 	return marshal(map[string]any{
 		"hook_event_name": "PreCompact",

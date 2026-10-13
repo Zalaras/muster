@@ -2211,3 +2211,40 @@ since reported from real use.
   `make test-race`, pass alone and on re-run. From `plans/groups/`.
 - [x] **`#rail-count` reads an empty string with zero sessions** — with no sessions the rail
   count renders `""` rather than `0`. From `plans/groups/`.
+
+## Together — card state follows what Claude is doing (#65, #66, #70, #72, #78, #86, #87) ✅ done 2026-10-13 (plan `state-issues`, via `/orchestrate`; approved review cycle 2)
+
+- [x] **Compacting has not state in Muster** ([#65](https://github.com/Zalaras/muster/issues/65)) — while
+  `/compact` runs the card reads idle, though the session can't take input until it finishes.
+  It should show a busy state, new or reused.
+  ✅ done 2026-10-13 (plan `state-issues`): a compaction begun outside a turn reads `working` (kb:adr/lifecycle-compaction-reads-working).
+
+- [x] **After compaction it goes to Started state** ([#66](https://github.com/Zalaras/muster/issues/66)) — once
+  compaction finishes the card reads `started`. Decide whether it should read idle (unread)
+  instead.
+  ✅ done 2026-10-13 (plan `state-issues`): its compact `SessionStart` lands `idle`, with `unread` as a `Stop` sets it (kb:adr/lifecycle-compaction-reads-working).
+
+- [x] **Went from Planning to Working** ([#70](https://github.com/Zalaras/muster/issues/70)) — while
+  Claude was still planning, with no plan accepted, the card switched from planning to working. It
+  should read planning until plan mode really ends.
+  ✅ done 2026-10-13 (plan `state-issues`): only main-agent events move the mode latch; a subagent's declared mode is its own (kb:adr/lifecycle-mode-latch-main-agent-only).
+
+- [x] **Needs Input on background agent** ([#72](https://github.com/Zalaras/muster/issues/72)) — the
+  card reads needs input while a background agent is still running. It should not ask for input
+  while background work is in progress.
+  ✅ done 2026-10-13 (plan `state-issues`): an `idle_prompt` never raises `needs_input`; on an open turn it ends the turn into idle (kb:adr/lifecycle-idle-prompt-ends-turn-never-attention).
+
+- [x] **API Error still says WORKING** ([#78](https://github.com/Zalaras/muster/issues/78)) — a turn
+  failed with an API error; after the developer cancelled the last message and Claude was back at
+  idle, the card still read working. It should read idle once Claude is.
+  ✅ done 2026-10-13 (plan `state-issues`): accepted gap, no code change: an Esc before any output leaves no hook or transcript trace, so the card reads `working` until the next prompt (kb:adr/lifecycle-early-interrupt-gap-accepted).
+
+- [x] **Showing network error when it went IDLE** ([#86](https://github.com/Zalaras/muster/issues/86)) —
+  after a turn finished and Claude was back at idle, the card read failed with `server_error`. It
+  should read idle while Claude is idle.
+  ✅ done 2026-10-13 (plan `state-issues`): a subagent-marked `StopFailure` changes no state (kb:adr/lifecycle-subagent-stopfailure-not-session-failure).
+
+- [x] **After /rc it says needs input as status** ([#87](https://github.com/Zalaras/muster/issues/87)) —
+  about a minute after running `/rc`, the card read needs input although nothing was waiting on
+  the developer. A local command should leave the card as it was.
+  ✅ done 2026-10-13 (plan `state-issues`): a local command's orphan `idle_prompt` no longer raises `needs_input` (kb:adr/lifecycle-idle-prompt-ends-turn-never-attention).

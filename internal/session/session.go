@@ -52,6 +52,11 @@ func ValidPermissionMode(s string) bool {
 	return claudecode.ValidPermissionMode(s)
 }
 
+const (
+	attentionPermission = "permission"
+	attentionIdle       = "idle"
+)
+
 // Attention is non-nil iff State == StateNeedsInput.
 type Attention struct {
 	Reason string // "permission" | "idle"
@@ -195,6 +200,8 @@ type Session struct {
 	currentPromptID string
 	closedPromptIDs []string // bounded ring, most recent last, capped at maxClosedPrompts
 
+	compactionPromptID string
+
 	// pendingResumeClaudeSessionID is the Claude session id a resume-from-list spawn was
 	// launched to resume, until the enveloped SessionStart(source:"resume") lands and
 	// applyBind clears it in favor of the now-authoritative ClaudeSessionID
@@ -233,11 +240,16 @@ func (s *Session) clearAttention() {
 	s.AttentionAgent = ""
 }
 
-// waitOwnedByOther reports whether the session is in a needs_input wait that agent did
-// not raise: activity from such an agent neither clears the wait nor leaves needs_input
-// (kb:adr/lifecycle-attention-owned-by-raising-agent).
-func (s *Session) waitOwnedByOther(agent string) bool {
-	return s.State == StateNeedsInput && agent != s.AttentionAgent
+func (s *Session) permissionWaitOwnedByOther(agent string) bool {
+	return s.State == StateNeedsInput && s.Attention != nil && s.Attention.Reason == attentionPermission && agent != s.AttentionAgent
+}
+
+func (s *Session) idleWait() bool {
+	return s.State == StateNeedsInput && s.Attention != nil && s.Attention.Reason == attentionIdle
+}
+
+func (s *Session) compactionOpen(id string) bool {
+	return id != "" && id == s.compactionPromptID && id == s.currentPromptID && !s.promptClosed(id)
 }
 
 // inOpenTurn reports whether a turn is in progress in a state the interrupt sweep
@@ -265,6 +277,9 @@ func (s *Session) closePrompt(id string) {
 	}
 	if s.currentPromptID == id {
 		s.currentPromptID = ""
+	}
+	if s.compactionPromptID == id {
+		s.compactionPromptID = ""
 	}
 }
 

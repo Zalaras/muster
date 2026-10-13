@@ -3,7 +3,7 @@ id: hook-payload-fields
 type: fact
 status: active
 date: 2026-09-11
-summary: Per-event hook field inventory: the common set on every hook, prompt_id on all but SessionStart, and each event's own fields.
+summary: Per-event hook field inventory: the common set on every hook, prompt_id on all but a non-compact SessionStart, and each event's own fields.
 features: [ingest]
 tags: [claude-code-format]
 files: [internal/claudecode/interpret.go, internal/claudecode/ingest.go]
@@ -13,7 +13,8 @@ verified: 2.1.233..canary
 guard: TestHookFields
 ---
 Every hook carries `cwd`, `hook_event_name`, `session_id`, `transcript_path`. `prompt_id` is on
-all except `SessionStart`. `scratchpad_dir` is on every hook seen since 2.1.259.
+all except `SessionStart`; a `SessionStart{source:"compact"}` does carry its compaction's
+(kb:fact/compact-hook-sequence, 2.1.296). `scratchpad_dir` is on every hook seen since 2.1.259.
 
 | Event | Fields beyond the common set | `permission_mode` |
 |---|---|---|

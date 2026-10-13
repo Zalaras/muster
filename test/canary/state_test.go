@@ -9,9 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Zalaras/muster/internal/claudecode"
 )
 
 // Views over runs O and P (harness_state_test.go).

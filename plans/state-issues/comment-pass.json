@@ -1,0 +1,463 @@
+{
+  "plan": "state-issues",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-12T22:27:50Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 22,
+        "keep": 1,
+        "drop": 21
+      },
+      "keeps": [
+        {
+          "key": "internal/session/machine.go:ae513bd1ca06f666",
+          "path": "internal/session/machine.go",
+          "anchor": {
+            "kind": "above",
+            "text": "sess.Model = \u0026Model{ID: *model, DisplayName: *model}",
+            "line": 193
+          },
+          "lines": [
+            "// A fresh pointer, never a field written into the old one: List/Get hand out",
+            "// Clone()s that share this *Model, and Session.Clone's contract is that a changed",
+            "// model is always a new pointer, never mutated in place. A bind naming the model",
+            "// already held changes nothing, so a display name the status line confirmed",
+            "// survives; a different id shows as itself until the status line confirms a name",
+            "// (kb:adr/lifecycle-bind-model-display-name-is-id)."
+          ],
+          "reason": "Without it a reader would simplify to writing `sess.Model.ID = *model` into the existing Model when one is held; that mutates a *Model shared with the Clone()s handed out by List/Get and breaks the changed-model-is-a-new-pointer contract that restoreChangedFields compares by identity, at `sess.Model = \u0026Model{ID: *model, DisplayName: *model}`."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/claudecode/claudecodetest/claudecodetest.go:e3adaa5b48548050",
+          "path": "internal/claudecode/claudecodetest/claudecodetest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "Source string",
+            "line": 89
+          },
+          "lines": [
+            "// Source is one of \"startup\" (default), \"resume\", \"clear\" or \"compact\"",
+            "// (canary-fields.md \"Values worth asserting\"; kb:fact/compact-hook-sequence)."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/claudecodetest.go:d2821b37bf609034",
+          "path": "internal/claudecode/claudecodetest/claudecodetest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "AgentID string",
+            "line": 374
+          },
+          "lines": [
+            "// AgentID, when non-empty, marks the StopFailure as a background subagent's",
+            "// (kb:fact/subagent-stopfailure-carries-agent-id)."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/claudecodetest.go:e21aa2a3bfa505cb",
+          "path": "internal/claudecode/claudecodetest/claudecodetest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func RawPreCompact(sessionID, promptID string) string {",
+            "line": 394
+          },
+          "lines": [
+            "// RawPreCompact returns a raw `PreCompact` — it opens the compaction's prompt",
+            "// (kb:fact/compact-hook-sequence)."
+          ]
+        },
+        {
+          "key": "internal/claudecode/interpret.go:887c1bc069341c48",
+          "path": "internal/claudecode/interpret.go",
+          "anchor": {
+            "kind": "above",
+            "text": "FromSubagent bool",
+            "line": 60
+          },
+          "lines": [
+            "// FromSubagent is true iff the payload carries the subagent agent marker (measured",
+            "// 2.1.259, canary-fields.md \"Subagent and background-task fields\": a background",
+            "// subagent's PreToolUse/PostToolUse/PermissionRequest carry the parent turn's",
+            "// prompt_id plus an agent id key that main-agent hooks never carry — not even null).",
+            "// It is derived only for the turn-activity events, PermissionRequest and StopFailure; every other",
+            "// event (including Notification, which never carries the marker) leaves this false.",
+            "// internal/session sees only this neutral bool, never the marker's payload key name."
+          ]
+        },
+        {
+          "key": "internal/claudecode/interpret.go:a2482d6cee44a6d8",
+          "path": "internal/claudecode/interpret.go",
+          "anchor": {
+            "kind": "above",
+            "text": "kind = KindCompactionEnded",
+            "line": 237
+          },
+          "lines": [
+            "// The end of a compaction, not a new conversation: it binds like any SessionStart",
+            "// but is its own input so the state machine can tell it from a startup",
+            "// (kb:fact/compact-hook-sequence)."
+          ]
+        },
+        {
+          "key": "internal/session/apply.go:289a62b742366424",
+          "path": "internal/session/apply.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessionID string, promptID *string, input claudecode.StateInput, enveloped bool) (*Session, error) {",
+            "line": 11
+          },
+          "lines": [
+            "// Apply feeds one already-routed, already-persisted event into the state machine",
+            "// (kb:anchor/state.transitions) and persists + broadcasts the result. claudeSessionID and promptID",
+            "// are generic identifiers, not Claude Code payload vocabulary; input is the neutral",
+            "// StateInput the claudecode interpreter derived.",
+            "//",
+            "// enveloped is true iff the ingest post carried the kb:anchor/ingest.envelope envelope",
+            "// (i.e. arrived through Muster's own command wrapper, never a raw/legacy post); an",
+            "// enveloped post is the sole binding authority (kb:adr/ingest-envelope-authoritative-binding).",
+            "// For an enveloped event whose Kind is not itself a binder (KindBind/KindClearRebind/",
+            "// KindResumeBind/KindCompactionEnded — those already carry their own bind logic via applyInput/applyBind",
+            "// below), this session's *actual* claudeSessionID is compared against the one this event",
+            "// names before applyInput runs:",
+            "//   - never bound (ClaudeSessionID == \"\") → bind it, no state transition (this covers a",
+            "//     lost SessionStart: the pane's later events still bind it).",
+            "//   - bound to a different id, and that id has never been this session's → the same",
+            "//     rebind SessionStart(source:\"clear\") gets (reset context/compactions, → started),",
+            "//     applied first, so the event that follows lands on a freshly-started session — the",
+            "//     shape /clear produces (kb:fact/clear-mints-new-session-id).",
+            "//   - bound to a different id, but `byClaude[claudeSessionID]` already points at *this*",
+            "//     session — meaning this session left that id for its current one already — the",
+            "//     event is a reordered straggler from a conversation this session has moved on",
+            "//     from (typically the `/clear` pair's own `SessionEnd(reason:\"clear\")`, since",
+            "//     delivery is unordered per CLAUDE.md's hard rule). Rebinding is **monotonic**",
+            "//     (kb:adr/ingest-monotonic-rebind): it is routed and applied below,",
+            "//     but it never rebinds *backwards* — the current binding, context gauge and",
+            "//     compaction counter are left untouched.",
+            "//",
+            "// Raw (non-enveloped) events never take this path: they keep routing by the existing",
+            "// byClaude mapping and never bind or rebind. Status-line posts never call Apply at all —",
+            "// they go through ApplyStatus.",
+            "//",
+            "// Either way, this function does exactly one persist and one broadcast, whether or not",
+            "// the rebind branch ran."
+          ]
+        },
+        {
+          "key": "internal/session/apply.go:ce63cff419658deb",
+          "path": "internal/session/apply.go",
+          "anchor": {
+            "kind": "above",
+            "text": "if turnEnded {",
+            "line": 55
+          },
+          "lines": [
+            "// A turn that ended into idle sets Unread from the watcher's answer at this moment —",
+            "// true iff no terminal client is attached to this session on either surface, false",
+            "// otherwise (kb:adr/rail-unread-inferred-from-live-terminal-client). A nil watcher",
+            "// (Config.Watcher unset, most unit tests) counts as unwatched. Every other input leaves",
+            "// Unread to setState's own idle-only rule (session.go)."
+          ]
+        },
+        {
+          "key": "internal/session/apply.go:1b4c6d2e545c4286",
+          "path": "internal/session/apply.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func isBindKind(kind claudecode.InputKind) bool {",
+            "line": 87
+          },
+          "lines": [
+            "// isBindKind reports whether kind is one of the inputs applyInput itself routes to a",
+            "// bind — Apply's envelope-authoritative rebind check (above) only runs for everything",
+            "// else, since these already carry their own binding semantics."
+          ]
+        },
+        {
+          "key": "internal/session/machine.go:e6f23a4a5af41543",
+          "path": "internal/session/machine.go",
+          "anchor": {
+            "kind": "on",
+            "text": "return false",
+            "line": 35
+          },
+          "lines": [
+            "// straggler past a Stop — persist only, no transition"
+          ]
+        },
+        {
+          "key": "internal/session/machine.go:25c8f9f0d66a8eec",
+          "path": "internal/session/machine.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func bindIdentity(sess *Session, claudeSessionID string, model *string) {",
+            "line": 189
+          },
+          "lines": [
+            "// bindIdentity records the claude session id and model a SessionStart named, touching no",
+            "// state-machine field."
+          ]
+        },
+        {
+          "key": "internal/session/machine.go:4ff67de0d2a42088",
+          "path": "internal/session/machine.go",
+          "anchor": {
+            "kind": "above",
+            "text": "sess.pendingResumeClaudeSessionID = \"\"",
+            "line": 191
+          },
+          "lines": [
+            "// A resume claim (if any) graduates into ClaudeSessionID itself the moment any bind",
+            "// lands, whichever kind: AliveByClaudeSessionID's ordinary ClaudeSessionID match",
+            "// already covers this row from here on, so the separate pending marker is cleared",
+            "// rather than left to shadow a future /clear onto a different id",
+            "// (kb:adr/launch-resume-pending-hold-persisted)."
+          ]
+        },
+        {
+          "key": "internal/session/machine.go:4abced53ce9557de",
+          "path": "internal/session/machine.go",
+          "anchor": {
+            "kind": "on",
+            "text": "return",
+            "line": 199
+          },
+          "lines": [
+            "// never resets the latch (kb:fact/permission-mode-presence-split) — most events carry no permission_mode; a subagent's mode is its own (kb:fact/subagent-declared-mode-on-hooks)"
+          ]
+        },
+        {
+          "key": "internal/session/machine.go:3c6b8514135ccb94",
+          "path": "internal/session/machine.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func applyIdleNotice(sess *Session, promptID *string, now time.Time) (turnEnded bool) {",
+            "line": 247
+          },
+          "lines": [
+            "// applyIdleNotice applies an idle_prompt: Claude is back at its input box, so it ends the",
+            "// turn of a working or planning session (or a legacy idle wait) and otherwise only closes",
+            "// the prompt it names. It never raises needs_input",
+            "// (kb:fact/local-command-orphan-idle-prompt, kb:fact/permission-wait-gets-no-idle-prompt).",
+            "// An idle_prompt with no prompt id follows /clear, and one naming a closed prompt is a",
+            "// straggler: both change nothing (kb:fact/clear-idle-prompt-carries-no-prompt-id)."
+          ]
+        },
+        {
+          "key": "internal/session/machine.go:4a2d669c82ea32fe",
+          "path": "internal/session/machine.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func applyCompactionBegan(sess *Session, promptID *string, now time.Time) {",
+            "line": 265
+          },
+          "lines": [
+            "// applyCompactionBegan applies a PreCompact. Inside a turn it only counts; outside one the",
+            "// compaction is the work in progress, so it adopts its prompt id as current, remembers that",
+            "// id as the compaction's, and reads working whatever the latch says",
+            "// (kb:fact/compact-hook-sequence)."
+          ]
+        },
+        {
+          "key": "internal/session/machine.go:4c3e197a1844bd43",
+          "path": "internal/session/machine.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func applyCompactionEnded(sess *Session, claudeSessionID string, promptID *string, input claudecode.StateInput, now time.Time) (turnEnded bool) {",
+            "line": 279
+          },
+          "lines": [
+            "// applyCompactionEnded applies SessionStart(source:\"compact\"). It binds as any SessionStart",
+            "// does, a different claude session id escalating to the clear-rebind. When it names the",
+            "// prompt a compaction began outside a turn and that prompt is still current and open, it",
+            "// closes it into idle; any other compact SessionStart changes no state-machine field."
+          ]
+        },
+        {
+          "key": "internal/session/session.go:208677f2225a2317",
+          "path": "internal/session/session.go",
+          "anchor": {
+            "kind": "on",
+            "text": "Reason string",
+            "line": 62
+          },
+          "lines": [
+            "// \"permission\"; \"idle\" only on a row an earlier daemon persisted"
+          ]
+        },
+        {
+          "key": "internal/session/session.go:ed66e9c3bd4bf39e",
+          "path": "internal/session/session.go",
+          "anchor": {
+            "kind": "above",
+            "text": "compactionPromptID string",
+            "line": 203
+          },
+          "lines": [
+            "// compactionPromptID is the prompt id a compaction begun outside a turn opened, \"\" when",
+            "// none is open. In-memory only, like the other prompt guards; written by applyInput and",
+            "// closePrompt under Manager.mu."
+          ]
+        },
+        {
+          "key": "internal/session/session.go:e15268e976a5524d",
+          "path": "internal/session/session.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (s *Session) permissionWaitOwnedByOther(agent string) bool {",
+            "line": 243
+          },
+          "lines": [
+            "// permissionWaitOwnedByOther reports whether the session is in a permission wait that agent",
+            "// did not raise: activity from such an agent neither clears the wait nor leaves needs_input",
+            "// (kb:adr/lifecycle-attention-owned-by-raising-agent). A wait with any other reason belongs",
+            "// to nobody."
+          ]
+        },
+        {
+          "key": "internal/session/session.go:3f9a4cbf311c2140",
+          "path": "internal/session/session.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (s *Session) idleWait() bool {",
+            "line": 247
+          },
+          "lines": [
+            "// idleWait reports whether the session holds a wait of reason \"idle\", which only a row",
+            "// persisted by an earlier daemon can carry."
+          ]
+        },
+        {
+          "key": "internal/session/session.go:f405785aa9ac9898",
+          "path": "internal/session/session.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (s *Session) compactionOpen(id string) bool {",
+            "line": 251
+          },
+          "lines": [
+            "// compactionOpen reports whether id is the prompt a compaction began outside a turn and that",
+            "// prompt is still the current, open one."
+          ]
+        },
+        {
+          "key": "internal/session/writeorder.go:cdb756ac08cd26d7",
+          "path": "internal/session/writeorder.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Session) {",
+            "line": 165
+          },
+          "lines": [
+            "// restoreChangedFields returns finishWrite's restore func for one write on id: prev is",
+            "// sess's clone from immediately before this write's mutation, post its clone from",
+            "// immediately after (both taken in the same locked section, so nothing else could have",
+            "// touched sess in between) — the pair identifies exactly this write's own diff. On",
+            "// failure, each field this write changed is reverted only if cur still reads as post for",
+            "// it, i.e. nobody else's write has changed it since (a field a write queued behind this",
+            "// one has already moved on from is left alone) — but the value it reverts *to* is",
+            "// m.lastPersisted[id]'s field, the last row this id's write chain actually got into the",
+            "// DB, falling back to prev only when nothing has persisted for id yet (a fresh session, or",
+            "// this manager's own first write on it).",
+            "//",
+            "// Reverting to prev itself, rather than the last persisted row, would be wrong once any",
+            "// write is queued behind another on the same id: an earlier write in the turnstile can",
+            "// already have persisted and broadcast a live-read row that carries this write's own",
+            "// still-in-flight field (wholeRowPersist builds its row from live memory at its own turn,",
+            "// not from a value frozen at mutation time), and reverting past that committed value on",
+            "// this write's failure would leave memory disagreeing with both the DB and the last",
+            "// broadcast — not just with this write's own failed mutation. With no write racing on the",
+            "// same id, m.lastPersisted[id] already equals prev, so the effect on a single in-flight",
+            "// write is identical to the old copy-prev-back behaviour; this is a refinement of it, not a",
+            "// different policy, for any queue depth or mix of success/failure:",
+            "//",
+            "//   - earlier write succeeds, later write (same or a different field) fails: the later",
+            "//     write's restore target is the earlier write's own committed value, not this write's",
+            "//     stale prev — memory ends up matching the DB and the last broadcast.",
+            "//   - earlier write fails, later write succeeds: the earlier write's restore leaves the",
+            "//     later write's already-mutated field alone (post-comparison unchanged), same as",
+            "//     before.",
+            "//   - both fail: neither committed anything, so m.lastPersisted[id] never moved — both",
+            "//     restores land on the same pre-chain value prev already held, matching the DB, which",
+            "//     never saw either write.",
+            "//   - a rail batch write behind a plain setter, or vice versa, on the same id: the shared",
+            "//     m.lastPersisted[id] makes no distinction between a whole-row and a rail write: it is",
+            "//     an update to id, not to a particular setter's shape.",
+            "//",
+            "// Only fields some setter can actually mutate after creation are listed — ID, RepoID,",
+            "// Directory, FirstLaunchHere and CreatedAt never change once a session exists, so there's",
+            "// nothing to restore there. currentPromptID/compactionPromptID/closedPromptIDs are",
+            "// in-memory-only guard fields (session.go's doc), never part of SessionRow, but Apply is",
+            "// still the only writer that ever touches them, and a failed Apply must roll every field it",
+            "// touched back together, guard fields included, or memory would disagree with itself about",
+            "// which fields a rejected Apply call actually took effect for — so they go through the same",
+            "// CAS as every state-machine field. See mustCoverEverySessionField below for what keeps",
+            "// this list, and the immutable list above it, honest against Session's own field set."
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-10-12T23:08:28Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 3,
+        "keep": 0,
+        "drop": 3
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "internal/claudecode/interpret.go:887c1bc069341c48",
+          "path": "internal/claudecode/interpret.go",
+          "anchor": {
+            "kind": "above",
+            "text": "FromSubagent bool",
+            "line": 60
+          },
+          "lines": [
+            "// FromSubagent is true iff the payload carries the subagent agent marker (measured",
+            "// 2.1.259, canary-fields.md \"Subagent and background-task fields\": a background",
+            "// subagent's PreToolUse/PostToolUse/PermissionRequest carry the parent turn's",
+            "// prompt_id plus an agent id key that main-agent hooks never carry — not even null).",
+            "// It is derived only for the turn-activity events, PermissionRequest and StopFailure; every other",
+            "// event (including Notification, which never carries the marker) leaves this false.",
+            "// internal/session sees only this neutral bool, never the marker's payload key name."
+          ]
+        },
+        {
+          "key": "internal/session/machine.go:e6f23a4a5af41543",
+          "path": "internal/session/machine.go",
+          "anchor": {
+            "kind": "on",
+            "text": "return false",
+            "line": 35
+          },
+          "lines": [
+            "// straggler past a Stop — persist only, no transition"
+          ]
+        },
+        {
+          "key": "internal/session/machine.go:4ff67de0d2a42088",
+          "path": "internal/session/machine.go",
+          "anchor": {
+            "kind": "above",
+            "text": "sess.pendingResumeClaudeSessionID = \"\"",
+            "line": 191
+          },
+          "lines": [
+            "// A resume claim (if any) graduates into ClaudeSessionID itself the moment any bind",
+            "// lands, whichever kind: AliveByClaudeSessionID's ordinary ClaudeSessionID match",
+            "// already covers this row from here on, so the separate pending marker is cleared",
+            "// rather than left to shadow a future /clear onto a different id",
+            "// (kb:adr/launch-resume-pending-hold-persisted)."
+          ]
+        }
+      ]
+    }
+  ]
+}

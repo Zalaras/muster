@@ -474,18 +474,14 @@ func TestApplyInput_NeedsInputPermission_ClosedPromptSubagentMarked(t *testing.T
 	assert.True(t, sess.promptClosed("p1"), "INV-P: the closed prompt id must stay closed")
 }
 
-// TestApplyInput_NeedsInputIdle_FromFailedViaUnseenFreshPromptClearsFailure covers the
-// second INV-F gap the orchestrator's ruling named explicitly (daemon-implementation.md
-// "Fix Attempt 1"): StopFailure closes p1 and sets Failure, then p2's UserPromptSubmit
-// hook is lost, then a Notification idle_prompt for p2 arrives. p2 is neither closed nor
-// current, so KindNeedsInputIdle's closed-prompt guard does not fire (promptID != nil &&
-// sess.promptClosed(*promptID) is false for an unseen id) and the branch transitions
-// failed -> needs_input. INV-F (failure non-null iff state == failed, kb:anchor/ws.session,
-// unconditional) requires the stale failure note not survive that transition. This path
-// is distinct from TestApplyInput_CrossStateInvariants's
-// "closed_prompt_unmarked_notification_idle" row, which seeds p1 as CLOSED (a genuine
-// straggler, INV-G, no transition) rather than unseen.
-func TestApplyInput_NeedsInputIdle_FromFailedViaUnseenFreshPromptClearsFailure(t *testing.T) {
+// TestApplyInput_IdleNotice_FromFailedViaUnseenFreshPromptKeepsFailure covers the INV-F gap
+// the orchestrator's ruling named explicitly (daemon-implementation.md "Fix Attempt 1"):
+// StopFailure closes p1 and sets Failure, then p2's UserPromptSubmit hook is lost, then a
+// Notification idle_prompt for p2 arrives. p2 is neither closed nor current, so the
+// closed-prompt guard does not fire. Since the idle_prompt never raises needs_input
+// (REQ-3), the card stays failed with its failure note (INV-F holds as it was), p2 is closed,
+// and the unrelated earlier closed prompt stays closed.
+func TestApplyInput_IdleNotice_FromFailedViaUnseenFreshPromptKeepsFailure(t *testing.T) {
 	sess := newTestSession()
 	sess.State = StateFailed
 	sess.StateSince = fixedNow
@@ -494,13 +490,15 @@ func TestApplyInput_NeedsInputIdle_FromFailedViaUnseenFreshPromptClearsFailure(t
 	sess.currentPromptID = ""
 
 	promptID := "p2" // unseen: not in closedPromptIDs, not currentPromptID
-	applyInput(sess, "c1", &promptID, claudecode.StateInput{Kind: claudecode.KindNeedsInputIdle}, laterNow())
+	applyInput(sess, "c1", &promptID, claudecode.StateInput{Kind: claudecode.KindIdleNotice}, laterNow())
 
-	assert.Equal(t, StateNeedsInput, sess.State, "an unseen fresh prompt id is not gated by the closed-prompt guard")
-	require.NotNil(t, sess.Attention, "INV-A: state is needs_input, attention must be non-null")
-	assert.Equal(t, "idle", sess.Attention.Reason)
-	assert.Nil(t, sess.Failure, "INV-F: failure must be nil once state has moved off failed to needs_input, even via the idle door")
+	assert.Equal(t, StateFailed, sess.State, "REQ-3: an idle_prompt on a failed card changes no state")
+	assert.Equal(t, fixedNow, sess.StateSince)
+	assert.Nil(t, sess.Attention, "REQ-1: an idle_prompt never sets attention")
+	require.NotNil(t, sess.Failure, "INV-F: still failed, so the failure note stays")
+	assert.Equal(t, "stale_error", sess.Failure.Error)
 	assert.True(t, sess.promptClosed("p1"), "the unrelated earlier closed prompt must stay closed")
+	assert.True(t, sess.promptClosed("p2"), "REQ-3: the named prompt is closed")
 }
 
 // TestApplyInput_TurnActivity_REQ20Shape covers #20's exact reported shape (Edge Case
@@ -639,7 +637,7 @@ func TestApplyInput_CrossStateInvariants(t *testing.T) {
 		{"closed_prompt_unmarked_activity", claudecode.KindTurnActivity, true, false, false},
 		{"closed_prompt_marked_permission", claudecode.KindNeedsInputPermission, true, true, true},
 		{"closed_prompt_unmarked_permission", claudecode.KindNeedsInputPermission, true, false, false},
-		{"closed_prompt_unmarked_notification_idle", claudecode.KindNeedsInputIdle, true, false, false},
+		{"closed_prompt_unmarked_notification_idle", claudecode.KindIdleNotice, true, false, false},
 	}
 
 	for _, from := range sourceStates {
@@ -706,8 +704,8 @@ func TestApplyInput_CrossStateInvariants(t *testing.T) {
 	}
 }
 
-// TestApplyInput_NeedsInput covers both needs_input notification variants and their
-// shared closed-prompt guard.
+// TestApplyInput_NeedsInput covers the permission notification, the idle notification that
+// never raises needs_input, and the closed-prompt guard.
 func TestApplyInput_NeedsInput(t *testing.T) {
 	t.Run("permission notification sets needs_input with reason permission", func(t *testing.T) {
 		sess := newTestSession()
@@ -721,15 +719,14 @@ func TestApplyInput_NeedsInput(t *testing.T) {
 		assert.Equal(t, fixedNow, sess.Attention.Since)
 	})
 
-	t.Run("idle notification sets needs_input with reason idle", func(t *testing.T) {
+	t.Run("idle notification never sets needs_input", func(t *testing.T) {
 		sess := newTestSession()
 		promptID := "p1"
 
-		applyInput(sess, "c1", &promptID, claudecode.StateInput{Kind: claudecode.KindNeedsInputIdle}, fixedNow)
+		applyInput(sess, "c1", &promptID, claudecode.StateInput{Kind: claudecode.KindIdleNotice}, fixedNow)
 
-		assert.Equal(t, StateNeedsInput, sess.State)
-		require.NotNil(t, sess.Attention)
-		assert.Equal(t, "idle", sess.Attention.Reason)
+		assert.Equal(t, StateIdle, sess.State, "REQ-1/REQ-3: an idle card stays idle")
+		assert.Nil(t, sess.Attention)
 	})
 
 	t.Run("a needs-input event for an already-closed prompt causes no transition", func(t *testing.T) {
@@ -879,7 +876,7 @@ func TestApplyInput_Compaction(t *testing.T) {
 	sess.StateSince = fixedNow
 	sess.Compactions = 2
 
-	applyInput(sess, "c1", nil, claudecode.StateInput{Kind: claudecode.KindCompaction}, laterNow())
+	applyInput(sess, "c1", nil, claudecode.StateInput{Kind: claudecode.KindCompactionBegan}, laterNow())
 
 	assert.Equal(t, 3, sess.Compactions)
 	assert.Equal(t, StateWorking, sess.State, "PreCompact must cause no state transition")

@@ -1190,7 +1190,7 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
   "stateSince": "2026-08-20T09:15:00Z",
   "alive": true,                     // liveness is ORTHOGONAL to state (kb:anchor/state.liveness); false = pane gone, card greys out, offers resume
   "endedAt": null,
-  "attention": { "reason": "permission", "since": "2026-08-20T09:15:00Z" }, // non-null iff state == "needs_input"; reason "permission"|"idle"
+  "attention": { "reason": "permission", "since": "2026-08-20T09:15:00Z" }, // non-null iff state == "needs_input"; reason "permission"|"idle" — "idle" is no longer raised; only a row persisted by an earlier daemon carries it, until that session's next transition
   "failure": { "error": "server_error", "message": "API error ended the turn" }, // non-null iff state == "failed"; error is the RAW token — display it, never switch on it (H2: taxonomy isn't 1:1)
   "directory": "/Users/bob/code/Projects/muster",   // the LAUNCH directory, fixed for the row's lifetime; the shell, docs reader,
                                                      //   file drop, resume and past sessions all use it — never Claude's location
@@ -1301,7 +1301,8 @@ Value semantics (within the nullability rules above):
   the turn-activity row for a prompt that is not a straggler; `null` until a first prompt and
   after `/clear`; a prompt beginning `<task-notification>` (kb:fact/background-completion-new-prompt-id)
   is not the user's and never replaces it. Never logged.
-- `unread`: set by the `Stop` row iff no terminal client is attached to the session at that
+- `unread`: set when a turn ends into `idle` — the `Stop` row, the `idle_prompt` turn end, the
+  compaction end and the interrupt row — iff no terminal client is attached to the session at that
   moment (the daemon's terminal registry is the authority); cleared by every transition to a
   non-idle state and by a successful attach on either surface. Status posts never touch
   `unread` or `lastPrompt`.
@@ -1617,7 +1618,9 @@ the orthogonal `alive` flag (`kb:anchor/state.liveness`).
 
 - `state`, `stateSince` — the displayed pair.
 - `modeLatch` — last known `permission_mode`, seeded by the launch flag
-  (`source:"seed"`), overwritten by any payload carrying the field (`source:"hook"`).
+  (`source:"seed"`), overwritten by any **main-agent** payload carrying the field (`source:"hook"`).
+  Subagent-marked events never move it: a subagent may run under a mode its definition declares
+  (kb:fact/subagent-declared-mode-on-hooks).
   Events without the field (`SessionStart`, `SessionEnd`, `Notification`, `StopFailure`,
   `PreCompact` — measured) **never reset it**: a session failing in plan mode stays plan.
   A seeded `auto` on a model that cannot run it (haiku — measured 2.1.259, the TUI prints
@@ -1635,7 +1638,8 @@ the orthogonal `alive` flag (`kb:anchor/state.liveness`).
 - `attentionAgent` — who raised `attention`: empty for the main agent, else the subagent's
   opaque id (from the marker). Non-empty only while `attention` is non-null; persisted; never on
   the wire.
-- `unread` — set by the `Stop` row iff the daemon's terminal registry holds no connection for
+- `unread` — set when a turn ends into `idle` (the `Stop` row, the `idle_prompt` turn end, the
+  compaction end, the interrupt row) iff the daemon's terminal registry holds no connection for
   the session; cleared whenever the state becomes anything but `idle`, and by a successful
   attach on either surface (`kb:anchor/terminal.ws`). Persisted; reconcile never writes it.
 
@@ -1651,25 +1655,30 @@ distinct, and the latch is what separates them.
 | Event (guards) | Transition / effect |
 |---|---|
 | Muster launch | Row created → `started`; latch seeded from the form |
-| `SessionStart` (`source:"startup"`, enveloped) | Bind `claudeSessionId`, record model → stay/enter `started` |
+| `SessionStart` (`source:"startup"` or no source, enveloped) | Bind `claudeSessionId`, record model → stay/enter `started` |
+| `SessionStart` (`source:"compact"`), its `prompt_id` the prompt a compaction opened (below), still current and open | Envelope binding as any non-bind event (a new `session_id` escalates to the clear-rebind; one this session already left is a straggler, no rebind — kb:adr/lifecycle-compaction-end-monotonic); on the bound id, record model as `SessionStart` does; close the prompt → `idle`; `unread` as `Stop`; `lastActivity`, `lastPrompt`, `context`, `compactions`, `backgroundTasks` unchanged (kb:fact/compact-hook-sequence) |
+| `SessionStart` (`source:"compact"`), any other (mid-turn compaction, lost `PreCompact`, stale) | Envelope binding and model recording as the row above; **no transition, no state-machine field change** |
 | `SessionStart` (`source:"clear"`), or any enveloped non-status event whose `session_id` differs from the bound one | `/clear`: rebind, reset context + compactions + `lastActivity` + `lastPrompt` + `backgroundTasks` + `attentionAgent` → `started`; a non-`SessionStart` trigger then applies its own row |
 | Any enveloped non-status event whose `session_id` is a *previous* id of this session (already in `byClaude` → this session, not the current one) | Reordered straggler: route and apply the event's own row; **no** rebind, no reset (monotonic binding) |
 | Any enveloped non-status event on a never-bound session | Bind `claudeSessionId` (no transition), then apply the event's own row |
 | `SessionStart` (`source:"resume"`, same `session_id`) | Re-bind to new pane, `alive := true`, `backgroundTasks := 0` → `idle` (history exists; it is waiting for input, not new) |
-| Turn-activity event, state `needs_input`, event's agent ≠ `attentionAgent` | Another agent's activity (kb:fact/subagent-hooks-during-permission-wait): **no transition, `attention` kept**; the latch still updates and an open, unseen `prompt_id` is still adopted as current |
-| Turn-activity event (prompt not closed) | Adopt `prompt_id` as current (a new id is a new turn even if `UserPromptSubmit` was lost) → `ACTIVE`; update latch; **clear `attention` and `failure`** (`kb:anchor/ws.session`'s iff rules); a `UserPromptSubmit` whose `prompt` does not begin `<task-notification>` sets `lastPrompt` (truncated to 200) |
-| Turn-activity event (prompt already closed, **no subagent marker**) | Straggler from an unordered stream: persist, **no transition, no field change** (the latch still updates) |
+| Turn-activity event, state `needs_input` with `attention.reason:"permission"`, event's agent ≠ `attentionAgent` | Another agent's activity (kb:fact/subagent-hooks-during-permission-wait): **no transition, `attention` kept**; a main-agent event's latch still updates and an open, unseen `prompt_id` is still adopted as current. A wait with reason `"idle"` (legacy rows only) is owned by nobody: any turn activity ends it like the next row |
+| Turn-activity event (prompt not closed) | Adopt `prompt_id` as current (a new id is a new turn even if `UserPromptSubmit` was lost) → `ACTIVE`; update latch (main-agent events only); **clear `attention` and `failure`** (`kb:anchor/ws.session`'s iff rules); a `UserPromptSubmit` whose `prompt` does not begin `<task-notification>` sets `lastPrompt` (truncated to 200) |
+| Turn-activity event (prompt already closed, **no subagent marker**) | Straggler from an unordered stream: persist, **no transition, no field change** (a main-agent event's latch still updates) |
 | Turn-activity event (prompt already closed, **subagent marker present**) | A background subagent still working past the parent's `Stop` (#14, measured 2.1.259): → `ACTIVE`, clear `attention` and `failure`; the closed prompt is neither reopened nor adopted as current — the next Stop-family event still lands `idle`/`failed` |
 | `Notification` `permission_prompt` (prompt not closed) | → `needs_input`, `attention.reason:"permission"`; **clears `failure`** (`kb:anchor/ws.session`'s iff rule); `attentionAgent` kept when already `needs_input`, else main |
 | `Notification` `idle_prompt` with **no `prompt_id`** | Persist only, no transition, no field change — it follows `/clear` on the fresh id (kb:fact/clear-idle-prompt-carries-no-prompt-id) |
-| `Notification` `idle_prompt` (prompt not closed) | → `needs_input`, `attention.reason:"idle"`; **clears `failure`** (reachable from `failed` when the fresh prompt's `UserPromptSubmit` was lost) |
+| `Notification` `idle_prompt` (prompt not closed), state `working` / `planning`, or `needs_input` with reason `"idle"` (legacy) | Claude is back at its input box: close the named prompt and the current one → `idle`; clear `attention` and `failure`; `unread` as `Stop`; `lastActivity`, `backgroundTasks` unchanged. **Never `needs_input`** — the prompts it still names (local commands, compactions, background-subagent stretches) have no turn waiting on the developer (kb:fact/local-command-orphan-idle-prompt, kb:fact/permission-wait-gets-no-idle-prompt) |
+| `Notification` `idle_prompt` (prompt not closed), state `started` / `idle` / `failed`, or `needs_input` with reason `"permission"` | Close the named prompt; **no transition, no other field change** |
 | `Notification` — any other `notification_type` | Persist only, no transition (unobserved types stay inert) |
 | `PermissionRequest` (prompt not closed, **or closed with the subagent marker present**) | Corroborates → `needs_input`, reason `"permission"`; **clears `failure`** (`kb:anchor/ws.session`) (v1 never answers it; the terminal prompt races and wins); `attentionAgent` := the event's agent. A subagent's permission wait past the parent's `Stop` is identified by this event alone — its `Notification` carries no marker |
-| `Notification` `permission_prompt` / `idle_prompt` (prompt already closed) | Straggler: persist, no transition (if the subagent's `PermissionRequest` was lost, the terminal itself still shows the prompt — the honest gap) |
+| `Notification` `permission_prompt` (prompt already closed), or `idle_prompt` (prompt already closed) | Straggler: persist, no transition (if the subagent's `PermissionRequest` was lost, the terminal itself still shows the prompt — the honest gap) |
 | `Stop` | Close `prompt_id` → `idle`; capture `lastActivity`; `unread := true` iff no terminal client is attached to the session (`kb:anchor/terminal.ws` Seen on attach), else `false`; `backgroundTasks` := the running count of `background_tasks`, which is never a state input — a `Stop` with background work still running lands `idle`, and the first subagent-marked hook returns it to `ACTIVE`. **Exception:** state `needs_input` with a subagent `attentionAgent` keeps the state and `attention` (the prompt still closes) |
-| `StopFailure` | Close `prompt_id` → `failed`; capture raw `error` (`Stop`/`StopFailure` are mutually exclusive per prompt — H2); `backgroundTasks` unchanged |
+| `StopFailure`, **subagent marker present** | A background subagent's API failure, on the parent's closed prompt (kb:fact/subagent-stopfailure-carries-agent-id): persist only, **no transition, no field change**; the main agent's background-completion turn reports it |
+| `StopFailure` (no subagent marker) | Close `prompt_id` → `failed`; capture raw `error` (`Stop`/`StopFailure` are mutually exclusive per prompt — H2); `backgroundTasks` unchanged |
 | Transcript interrupt for `currentPromptId` (daemon, each liveness-poll tick, state `working`/`planning`/`needs_input`, prompt not closed) | An interrupt emits no hook (kb:fact/interrupt-recorded-in-transcript): close the prompt → `idle`; clear `attention` and `failure`; `unread` as `Stop`; `lastActivity` and `backgroundTasks` unchanged |
-| `PreCompact` | `compactions++`, no transition |
+| `PreCompact`, state `started` / `idle` / `failed` | A compaction outside a turn: `compactions++`; adopt its `prompt_id` as current, marked as the compaction's → `working` (never `planning`, whatever the latch); clear `attention` and `failure` |
+| `PreCompact`, state `working` / `planning` / `needs_input` | A compaction inside a turn: `compactions++`, no transition, current prompt unchanged |
 | `SubagentStop` | Persist only |
 | `SessionEnd` (`reason:"clear"`) | `/clear` in progress: no effect on `alive` (no `SessionEnd` has one); the successor `SessionStart(source:"clear")` follows |
 | `SessionEnd` (any other reason) | Persist only: no effect on `alive`, `endedAt` or state — `alive` flips when the liveness poll (`kb:anchor/state.liveness`) finds the pane gone |
@@ -1684,6 +1693,11 @@ invariant is held in one place, the state setter).
 turn-activity from the agent that raised it (→ `ACTIVE`), a Stop-family event (→
 `idle`/`failed`), or a transcript interrupt (→ `idle`). Nothing else clears it — if Muster missed the resolving event, the stale timer *is* the honest signal
 (ux-flows §3.5).
+
+Some turns end with no trace at all: an Esc before any output (API retries included) and an
+interrupted compaction emit no hook, no transcript line and no `idle_prompt`, so the session
+reads `working` until the next prompt (kb:fact/interrupt-before-output-leaves-no-trace). This gap
+is accepted; no terminal-derived signal fills it.
 
 <!-- kb:anchor state.ordering -->
 ### Ordering & loss tolerance
