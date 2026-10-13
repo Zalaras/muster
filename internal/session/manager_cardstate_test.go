@@ -117,9 +117,9 @@ func TestApply_CompactionStateThroughTheManager(t *testing.T) {
 }
 
 // TestApply_CompactionEndedBinding covers REQ-9's binding half through the enveloped path,
-// where the compact SessionStart is a binder: a never-bound session binds on it with no
-// transition; a different session_id is the clear-rebind, applied once, with the reverse
-// index following and the counters reset.
+// where the compact SessionStart is not a binder and goes through Apply's envelope guard: a
+// never-bound session binds on it with no transition; a different session_id is the
+// clear-rebind, applied once, with the reverse index following and the counters reset.
 func TestApply_CompactionEndedBinding(t *testing.T) {
 
 	t.Run("a never-bound session binds and keeps its state", func(t *testing.T) {
