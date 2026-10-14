@@ -1,0 +1,120 @@
+{
+  "plan": "model-catalog-sentence",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-14T20:11:50Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 5,
+        "keep": 2,
+        "drop": 3
+      },
+      "keeps": [
+        {
+          "key": "internal/claudecode/modelcheck.go:6d78cfee730bdf23",
+          "path": "internal/claudecode/modelcheck.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type ModelVerdict int",
+            "line": 20
+          },
+          "lines": [
+            "// ModelVerdict is CheckModel's neutral result — the caller branches on it and never sees",
+            "// modelCatalogSentence itself (the package-boundary hard rule)."
+          ],
+          "reason": "Edited on `main`; still true: `modelCatalogSentence` still exists in the stripped file and `ModelVerdict` is the neutral result `check` returns."
+        },
+        {
+          "key": "internal/claudecode/modelcheck.go:7dd91813c5022d9d",
+          "path": "internal/claudecode/modelcheck.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func CheckModel(ctx context.Context, bin, dir, model string) (ModelVerdict, error) {",
+            "line": 98
+          },
+          "lines": [
+            "// CheckModel runs the zero-token pre-check (kb:fact/model-catalog-precheck-zero-token) for",
+            "// model in dir: `\u003cbin\u003e --bare --no-session-persistence --model \u003cmodel\u003e -p \"\"`, bounded by",
+            "// modelCheckTimeout. A run error (the binary can't start, or blocks past the deadline) is",
+            "// returned to the caller — the model-catalog cache (modelsFeature) is what turns it into",
+            "// an uncached \"unchecked\" verdict and lets the launch fail open",
+            "// (kb:adr/launch-model-check-cached-per-binary-identity); the verdict is",
+            "// ModelUnrecognised iff stderr carries either unknown-model sentence, never the exit code."
+          ],
+          "reason": "Edited on `main`; still true: `check` returns ModelUnrecognised via `stderrSaysUnrecognised(stderr)`, never the exit code, and returns run errors to the caller."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/claudecode/modelcheck.go:035c6ebc9670d8f0",
+          "path": "internal/claudecode/modelcheck.go",
+          "anchor": {
+            "kind": "above",
+            "text": "const (",
+            "line": 15
+          },
+          "lines": [
+            "// modelCatalogSentence and unknownModelWindowSentence are the signals the pre-check trusts",
+            "// (kb:fact/model-catalog-precheck-zero-token, kb:fact/unknown-model-warning-names-assumed-window):",
+            "// the substrings Claude Code's `--bare` run prints to stderr for a model its own catalog does",
+            "// not describe, the first before 2.1.299 and the second from 2.1.299. Either is enough",
+            "// whatever version is installed (kb:adr/launch-model-check-matches-either-catalog-sentence).",
+            "// Exit code is always 1 either way, so it carries no information on its own."
+          ]
+        },
+        {
+          "key": "internal/claudecode/modelcheck.go:ef95c7c0d91004e4",
+          "path": "internal/claudecode/modelcheck.go",
+          "anchor": {
+            "kind": "above",
+            "text": "ModelUnrecognised",
+            "line": 27
+          },
+          "lines": [
+            "// ModelUnrecognised means stderr carried modelCatalogSentence or unknownModelWindowSentence."
+          ]
+        },
+        {
+          "key": "internal/claudecode/modelcheck.go:98c33e690702c261",
+          "path": "internal/claudecode/modelcheck.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func stderrSaysUnrecognised(stderr []byte) bool {",
+            "line": 115
+          },
+          "lines": [
+            "// stderrSaysUnrecognised reports whether stderr carries either of Claude Code's",
+            "// unknown-model sentences — the only thing the pre-check trusts."
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 1,
+      "at": "2026-10-14T20:19:30Z",
+      "by": "orchestrator",
+      "counts": {
+        "candidates": 1,
+        "keep": 0,
+        "drop": 1
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "internal/claudecode/modelcheck.go:6d78cfee730bdf23",
+          "path": "internal/claudecode/modelcheck.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type ModelVerdict int",
+            "line": 22
+          },
+          "lines": [
+            "// ModelVerdict is CheckModel's neutral result — the caller branches on it and never sees",
+            "// modelCatalogSentence itself (the package-boundary hard rule)."
+          ]
+        }
+      ]
+    }
+  ]
+}

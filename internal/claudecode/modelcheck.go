@@ -12,14 +12,11 @@ import (
 	"time"
 )
 
-// modelCatalogSentence is the one signal the pre-check trusts
-// (kb:fact/model-catalog-precheck-zero-token): the substring Claude Code's `--bare` run
-// prints to stderr for a model its own catalog does not describe. Exit code is always 1
-// either way, so it carries no information on its own.
-const modelCatalogSentence = "isn't described by this version's model catalog"
+const (
+	modelCatalogSentence       = "isn't described by this version's model catalog"
+	unknownModelWindowSentence = "Claude Code doesn't recognize the model"
+)
 
-// ModelVerdict is CheckModel's neutral result — the caller branches on it and never sees
-// modelCatalogSentence itself (the package-boundary hard rule).
 type ModelVerdict int
 
 const (
@@ -27,7 +24,6 @@ const (
 	// older binary with no catalog, or a check that could not run — the check fails open
 	// (kb:adr/launch-model-check-cached-per-binary-identity).
 	ModelRecognised ModelVerdict = iota
-	// ModelUnrecognised means stderr carried modelCatalogSentence.
 	ModelUnrecognised
 )
 
@@ -105,7 +101,7 @@ func runModelCheck(ctx context.Context, dir, name string, args ...string) ([]byt
 // returned to the caller — the model-catalog cache (modelsFeature) is what turns it into
 // an uncached "unchecked" verdict and lets the launch fail open
 // (kb:adr/launch-model-check-cached-per-binary-identity); the verdict is
-// ModelUnrecognised iff stderr carries modelCatalogSentence, never the exit code.
+// ModelUnrecognised iff stderr carries either unknown-model sentence, never the exit code.
 func CheckModel(ctx context.Context, bin, dir, model string) (ModelVerdict, error) {
 	return newModelChecker().check(ctx, bin, dir, model)
 }
@@ -123,10 +119,9 @@ func (m *modelChecker) check(ctx context.Context, bin, dir, model string) (Model
 	return ModelRecognised, nil
 }
 
-// stderrSaysUnrecognised reports whether stderr carries Claude Code's model-catalog
-// refusal sentence — the only thing the pre-check trusts.
 func stderrSaysUnrecognised(stderr []byte) bool {
-	return strings.Contains(string(stderr), modelCatalogSentence)
+	text := string(stderr)
+	return strings.Contains(text, modelCatalogSentence) || strings.Contains(text, unknownModelWindowSentence)
 }
 
 // BinaryIdentity is a resolved `claude` binary's cache key

@@ -63,6 +63,7 @@ func TestInstalledBinaryCarriesInterfaceStrings(t *testing.T) {
 	// and modelCatalogSentence is unexported, so mirroring rather than importing is the
 	// only option here).
 	needles["model catalog sentence"] = "isn't described by this version's model catalog"
+	needles["model catalog sentence 2.1.299+"] = "Claude Code doesn't recognize the model"
 	needles["--bare flag"] = "--bare"
 	needles["--no-session-persistence flag"] = "--no-session-persistence"
 	// REQ-9 (status-inconsistencies): the hook event and the two transcript marker texts the

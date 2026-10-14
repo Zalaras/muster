@@ -27,6 +27,17 @@ func TestStderrSaysUnrecognised(t *testing.T) {
 			want:   true,
 		},
 		{
+			name:   "the 2.1.299+ line",
+			stderr: `Claude Code doesn't recognize the model "zephyr", so it assumes a context window of 200k tokens. Update Claude Code, or see https://code.claude.com/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-id to set the window.`,
+			want:   true,
+		},
+		{
+			name: "both sentences together",
+			stderr: `"zephyr" isn't described by this version's model catalog; update Claude Code, or map it wi
+Claude Code doesn't recognize the model "zephyr", so it assumes a context window of 200k tokens.`,
+			want: true,
+		},
+		{
 			name:   "empty stderr",
 			stderr: "",
 			want:   false,
@@ -89,6 +100,7 @@ func TestCheckModel_VerdictFollowsStderr(t *testing.T) {
 		want   ModelVerdict
 	}{
 		{"unrecognised", `"zephyr" isn't described by this version's model catalog; update Claude Code.`, ModelUnrecognised},
+		{"unrecognised by the 2.1.299+ line", `Claude Code doesn't recognize the model "zephyr", so it assumes a context window of 200k tokens. Update Claude Code, or see https://code.claude.com/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-id to set the window.`, ModelUnrecognised},
 		{"recognised", "", ModelRecognised},
 	}
 	for _, tt := range tests {

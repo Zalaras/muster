@@ -219,8 +219,8 @@ collapsed. `GET /api/models?model=sonnet&model=opus&model=haiku&model=fable`
   { "model": "opus",   "verdict": "unchecked" }
 ] }
 // verdict: "recognized" | "unrecognized" | "unchecked"
-//   recognized   — the installed binary's catalog describes it (kb:fact/model-catalog-precheck-zero-token)
-//   unrecognized — its stderr carried the catalog sentence; kb:anchor/sessions.create would refuse it with model_unrecognized
+//   recognized   — the installed binary printed neither unknown-model sentence (kb:fact/unknown-model-warning-names-assumed-window, kb:fact/model-catalog-precheck-zero-token)
+//   unrecognized — stderr carried either unknown-model sentence; kb:anchor/sessions.create would refuse it with model_unrecognized
 //   unchecked    — the check errored, timed out, or the binary could not be identified; fail-open, a launch would proceed
 // message: string, present iff verdict is "unrecognized" — exactly the model_unrecognized message kb:anchor/sessions.create returns for that model
 ```

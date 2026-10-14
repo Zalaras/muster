@@ -1,0 +1,72 @@
+{
+  "plan_name": "model-catalog-sentence",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 0,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [
+    "daemon-tests",
+    "daemon-impl",
+    "doc-reconcile"
+  ],
+  "step_started_at": {
+    "daemon-tests": "2026-10-14T19:51:05Z",
+    "daemon-impl": "2026-10-14T19:54:08Z",
+    "review": "2026-10-14T20:11:27Z",
+    "doc-reconcile": "2026-10-14T20:19:30Z"
+  },
+  "step_finished_at": {
+    "daemon-tests": "2026-10-14T19:54:08Z",
+    "daemon-impl": "2026-10-14T19:55:51Z",
+    "review": "2026-10-14T20:19:17Z",
+    "doc-reconcile": "2026-10-14T20:20:56Z"
+  },
+  "step_attempts": {
+    "daemon-tests": [
+      {
+        "start": "2026-10-14T19:51:05Z",
+        "finish": "2026-10-14T19:54:08Z"
+      }
+    ],
+    "daemon-impl": [
+      {
+        "start": "2026-10-14T19:54:08Z",
+        "finish": "2026-10-14T19:55:51Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-10-14T20:11:27Z",
+        "finish": "2026-10-14T20:19:17Z"
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-10-14T20:19:30Z",
+        "finish": "2026-10-14T20:20:56Z"
+      }
+    ]
+  },
+  "started_at": "2026-10-14T19:51:04Z",
+  "updated_at": "2026-10-14T20:21:01Z",
+  "review_parts": {
+    "1": [
+      "code"
+    ]
+  },
+  "review_verdicts": {
+    "1": "approved"
+  },
+  "review_commits": {
+    "1": "d256f31eda6efae0229276823889a76b14ae44c2"
+  },
+  "closes_issues": []
+}

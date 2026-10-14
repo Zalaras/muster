@@ -1,16 +1,16 @@
 ---
 id: model-catalog-precheck-zero-token
 type: fact
-status: active
-date: 2026-09-23
-summary: claude --model X -p "" warns on stderr that X "isn't described by this version's model catalog" when the binary lacks it; no API call, no tokens.
+status: retired
+date: 2026-10-14
+summary: "Retired: through 2.1.296, claude --model X -p \"\" warned on stderr that X \"isn't described by this version's model catalog\"; no tokens."
 features: [launch]
 tags: [claude-code-format]
 files: [internal/claudecode/modelcheck.go]
 tests: [TestModelCatalogPrecheck, TestInstalledBinaryCarriesInterfaceStrings, TestStderrSaysUnrecognised]
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/fable-model-alias, plan:new-session-improvement]
-verified: 2.1.274..2.1.280
-guard: TestModelCatalogPrecheck
+refs: [test/rig/captures/capture-3.jsonl, kb:fact/fable-model-alias, plan:new-session-improvement, kb:fact/unknown-model-warning-names-assumed-window]
+verified: 2.1.274..2.1.296
+guard: none
 ---
 The binary checks `--model` against a built-in model catalog at startup, before it
 authenticates. For a string the catalog does not describe, it prints one stderr line beginning
