@@ -17,10 +17,12 @@ import {
   caretLabel,
   emptySectionLine,
   headerCheckboxLabel,
+  headerTimer,
   popoverModel,
   sectionShown,
   summarize,
   summaryTitle,
+  type HeaderTimer,
   type RailFilter,
   type Section,
 } from "../sessions/sections";
@@ -28,6 +30,7 @@ import { captureFocusedControl } from "./focuskeep";
 import type { GroupPopover } from "./grouppopover";
 import { reconcileKeyedOrder, type KeyedReorderEntry } from "./keyedreorder";
 import { reconcileCards, type CardListOptions } from "./sessions";
+import { applyWarmth } from "./warmth";
 
 /** The name field's owner: a rename of one group (`key` is its section key), or the pending new
  * group (`key` is `PENDING_KEY`). */
@@ -98,6 +101,7 @@ interface SectionRefs {
   header: HeaderRefs | null;
   /** The newest data for this section: handlers and the popover read it, never a captured copy. */
   section: Section;
+  now: Date;
 }
 
 function element<K extends keyof HTMLElementTagNameMap>(
@@ -128,10 +132,26 @@ function writeSummary(summaryEl: HTMLElement, cards: Section["cards"]): void {
   summaryEl.replaceChildren(count, ...items);
 }
 
+function writeHeaderTimer(summaryEl: HTMLElement, timer: HeaderTimer | null): void {
+  let el = summaryEl.querySelector<HTMLElement>(":scope > .gt");
+  if (timer === null) {
+    el?.remove();
+    return;
+  }
+  if (!el) {
+    el = element("span", "gt");
+    summaryEl.append(el);
+  }
+  el.textContent = timer.text;
+  el.title = timer.hover;
+  applyWarmth(el, timer.warmth);
+}
+
 function buildHeader(
   key: string,
   id: number | null,
   getSection: () => Section,
+  getNow: () => Date,
   handlers: RailSectionHandlers,
   popover: GroupPopover,
 ): HeaderRefs {
@@ -174,7 +194,7 @@ function buildHeader(
     const section = getSection();
     if (section.id !== null) handlers.onStartRename(section);
   });
-  const detachPopover = popover.attach(head, caret, () => popoverModel(getSection()));
+  const detachPopover = popover.attach(head, caret, () => popoverModel(getSection(), getNow()));
   return { head, caret, check, nameEl, field: null, summary, kebab, detachPopover };
 }
 
@@ -215,6 +235,7 @@ function updateHeader(header: HeaderRefs, section: Section, model: RailSectionsM
     header.nameEl.title = section.name;
   }
   writeSummary(header.summary, section.cards);
+  writeHeaderTimer(header.summary, headerTimer(section, model.now));
 }
 
 function openNameField(host: NameHost, editing: NameEditor, handlers: RailSectionHandlers): void {
@@ -297,7 +318,7 @@ export function createRailSections(
     const body = element("div", "gbody");
     body.dataset["groupId"] = section.key;
     root.append(body);
-    const refs: SectionRefs = { root, body, header: null, section };
+    const refs: SectionRefs = { root, body, header: null, section, now: new Date() };
     built.set(section.key, refs);
     return refs;
   }
@@ -315,7 +336,14 @@ export function createRailSections(
       return null;
     }
     if (!refs.header) {
-      refs.header = buildHeader(section.key, section.id, () => refs.section, handlers, popover);
+      refs.header = buildHeader(
+        section.key,
+        section.id,
+        () => refs.section,
+        () => refs.now,
+        handlers,
+        popover,
+      );
       refs.root.insertBefore(refs.header.head, refs.body);
     }
     return refs.header;
@@ -414,6 +442,7 @@ export function createRailSections(
   ): HTMLElement {
     const refs = built.get(section.key) ?? build(section);
     refs.section = section;
+    refs.now = model.now;
     const header = reconcileHeader(refs, section);
     if (header) {
       const editing = model.editing?.key === section.key ? model.editing : null;

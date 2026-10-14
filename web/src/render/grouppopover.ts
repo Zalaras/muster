@@ -9,6 +9,7 @@
 // popover opens, never captured.
 import type { PopoverModel } from "../sessions/sections";
 import { placeAnchored } from "./anchored";
+import { applyWarmth } from "./warmth";
 
 /** How long a header is hovered before its popover opens. */
 export const POPOVER_DELAY_MS = 350;
@@ -21,7 +22,6 @@ export interface GroupPopover {
   close(): void;
 }
 
-/** One state's row: its header line (dot, word, count), then each session in it as a `.pt`. */
 function buildRow(row: PopoverModel["rows"][number]): HTMLElement {
   const block = document.createElement("div");
   block.className = "pr";
@@ -35,13 +35,20 @@ function buildRow(row: PopoverModel["rows"][number]): HTMLElement {
   const count = document.createElement("span");
   count.textContent = String(row.n);
   head.append(dot, word, count);
-  const titles = row.titles.map((title) => {
+  const lines = row.sessions.map((session) => {
     const line = document.createElement("div");
-    line.className = "pt";
-    line.textContent = title;
+    line.className = "pl";
+    const title = document.createElement("div");
+    title.className = "pt";
+    title.textContent = session.title;
+    const timer = document.createElement("span");
+    timer.className = "tt";
+    timer.textContent = session.timer;
+    applyWarmth(timer, session.warmth);
+    line.append(title, timer);
     return line;
   });
-  block.append(head, ...titles);
+  block.append(head, ...lines);
   return block;
 }
 

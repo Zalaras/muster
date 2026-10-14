@@ -365,9 +365,10 @@ test("switching to Attention resorts unpinned cards by need while the pinned blo
     // (idle) — §3.4's priority order applied only within the unpinned group (REQ-6).
     await expect.poll(() => railOrderIds(page)).toEqual([a.id, c.id, b.id]);
 
-    // REQ-10: no card is draggable while in attention mode.
+    // Plan rail-card-organise REQ-12/REQ-13 (kb:adr/rail-cards-drag-in-both-sort-modes-selection-together):
+    // cards stay draggable while in attention mode — a drop there changes the group only.
     for (const title of ["order-e10-a", "order-e10-b", "order-e10-c"]) {
-      await expect(railCard(page, title)).toHaveAttribute("draggable", "false");
+      await expect(railCard(page, title)).toHaveAttribute("draggable", "true");
     }
 
     // Switching back to Manual (typeahead again, past the ~1s concatenation window)
@@ -384,7 +385,7 @@ test("switching to Attention resorts unpinned cards by need while the pinned blo
   }
 });
 
-test("rail cards are draggable only in Manual mode", async ({ page, daemon }) => {
+test("rail cards are draggable in both sort modes", async ({ page, daemon }) => {
   await page.goto(daemon.dashboardUrl);
   const { sessions, cleanup } = await launchTitled(page, daemon, ["order-e11-a", "order-e11-b"]);
   try {
@@ -394,8 +395,8 @@ test("rail cards are draggable only in Manual mode", async ({ page, daemon }) =>
 
     await railSortSelect(page).selectOption("attention");
     await expect(railSortSelect(page)).toHaveValue("attention");
-    await expect(railCard(page, "order-e11-a")).toHaveAttribute("draggable", "false");
-    await expect(railCard(page, "order-e11-b")).toHaveAttribute("draggable", "false");
+    await expect(railCard(page, "order-e11-a")).toHaveAttribute("draggable", "true");
+    await expect(railCard(page, "order-e11-b")).toHaveAttribute("draggable", "true");
 
     await railSortSelect(page).selectOption("manual");
     await expect(railCard(page, "order-e11-a")).toHaveAttribute("draggable", "true");

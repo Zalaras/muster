@@ -4,15 +4,13 @@
 // also shared by every feature controller that dispatches a card/mainhead/tile action.
 import { PREF_DEFAULTS, type RailActivity } from "../protocol/prefs";
 import type { Session, SessionRepo } from "../protocol/session";
+import { cacheWarmth, type Warmth } from "./cache";
 import { ageAgo, elapsedSeconds, formatAge, formatTimer } from "./format";
 import { basename } from "./paths";
 import { isBypassMode } from "./permission";
 
 export type NoteKind = "attention" | "failure" | "trust" | "no-signal" | "none";
 
-/** kb:adr/rail-live-card-offers-no-actions's card action-row contract: a live card offers
- * no action button; an ended card offers Resume then Remove, in that order — the exact
- * button label text a test locator matches. Stop lives on the mainhead and tile footer. */
 export type CardAction = "Stop" | "Resume" | "Remove";
 
 /** The action a card/mainhead/tile dispatches when its Stop/Resume/Remove/pin control
@@ -56,7 +54,7 @@ export interface CardViewModel {
   noteKind: NoteKind;
   noteText: string | null;
   ended: boolean;
-  actions: readonly CardAction[];
+  warmth: Warmth;
   // The neutral bottom line while background work runs (`1 background task`), else null.
   backgroundLine: string | null;
   // kb:adr/rail-whole-card-drag-drop-decides-pin: drives the pin button's
@@ -438,6 +436,11 @@ export function backgroundLine(session: Session): string | null {
   return n === 1 ? "1 background task" : `${n} background tasks`;
 }
 
+export function cardTimerText(session: Session, now: Date): string {
+  if (!session.alive && session.endedAt) return `ended ${formatAge(session.endedAt, now)}`;
+  return formatTimer(session.stateSince, now);
+}
+
 export function buildCardViewModel(
   session: Session,
   now: Date,
@@ -465,14 +468,7 @@ export function buildCardViewModel(
   }
 
   const ended = !session.alive;
-  // An ended card's timer reads "ended <age>" from `endedAt`, not the running
-  // state timer — `stateSince` stopped advancing the instant reconcile/End froze `state`.
-  // `session.endedAt` is only ever null while `alive:true` (kb:anchor/state.liveness's paired
-  // invariant), so the fallback below is defensive-only and never observed in practice.
-  const timer =
-    ended && session.endedAt
-      ? `ended ${formatAge(session.endedAt, now)}`
-      : formatTimer(session.stateSince, now);
+  const timer = cardTimerText(session, now);
 
   return {
     id: session.id,
@@ -490,7 +486,7 @@ export function buildCardViewModel(
     noteKind,
     noteText,
     ended,
-    actions: ended ? ["Resume", "Remove"] : [],
+    warmth: cacheWarmth(session.cache, now),
     backgroundLine: backgroundLine(session),
     pinned: session.pinned,
     unread: session.unread,

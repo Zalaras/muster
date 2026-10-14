@@ -5,7 +5,6 @@
 // `render/railsections.ts` and owns the cards' own drag and click.
 import type { App, RenderFrame } from "../app";
 import { sendPrefsPatch } from "../api/prefs";
-import { putSessionOrder, putSessionsGroup } from "../api/sessions";
 import { requireElement, requireElements } from "../dom";
 import { installDragReorder } from "../render/dragreorder";
 import type { FocusedControl } from "../render/focuskeep";
@@ -15,8 +14,8 @@ import {
   type NameEditor,
   type RailSectionHandlers,
 } from "../render/railsections";
-import { renderRailDensityControl } from "../render/sessions";
-import { moveCard } from "../sessions/railorder";
+import { type CardMenuRequest, renderRailDensityControl } from "../render/sessions";
+import { type DropPlan, type DropTarget, planDrop } from "../sessions/railorder";
 import {
   filterHides,
   shownCount,
@@ -34,6 +33,7 @@ import { railCountText } from "./groupscopy";
 export interface RailDeps {
   actions: { dispatch(action: SessionAction, id: number): void };
   surfaces: { focusSelected(id: number): void };
+  railMenu: { open(request: CardMenuRequest): void };
   groups: {
     sections(sessions: readonly Session[], sort?: RailSort): Section[];
     filter(): RailFilter;
@@ -42,6 +42,8 @@ export interface RailDeps {
     editing(): NameEditor | null;
     readonly sectionHandlers: RailSectionHandlers;
     toggleSelected(id: number): void;
+    moveSessions(ids: readonly number[], groupId: number | null): void;
+    reorderSection(ids: readonly number[], pinnedCount: number, groupId: number | null): void;
     renderChrome(frame: RenderFrame): void;
   };
 }
@@ -114,26 +116,40 @@ export function initRail(app: App, deps: RailDeps): void {
       );
   }
 
-  // A card drags onto another card (its section, its pin side) or onto a section's header or body
-  // (the end of that section). Manual mode only: attention-mode and select-mode cards are
-  // `draggable="false"` and never start a drag.
+  function carriedBy(draggedId: number): ReadonlySet<number> {
+    const selected = deps.groups.selectedIds();
+    return deps.groups.selecting() && selected.has(draggedId) ? selected : new Set([draggedId]);
+  }
+
+  function drop(
+    draggedId: number,
+    target: DropTarget,
+    focusedBeforeDrag: FocusedControl | null,
+  ): void {
+    if (app.state.connection !== "connected") return;
+    const plan: DropPlan | null = planDrop(
+      manualOrder(),
+      app.state.railSort,
+      carriedBy(draggedId),
+      draggedId,
+      target,
+    );
+    if (!plan) return;
+    pendingRailFocus = focusedBeforeDrag;
+    if (plan.kind === "group") deps.groups.moveSessions(plan.ids, plan.groupId);
+    else deps.groups.reorderSection(plan.ids, plan.pinnedCount, plan.groupId);
+  }
+
   installDragReorder(sessionsEl, {
     itemSelector: "article.card",
     dropZoneSelector: ".ghead, .gbody",
     zoneKeyAttribute: "groupId",
-    onMove: (draggedId, targetId, focusedBeforeDrag) => {
-      const move = moveCard(manualOrder(), draggedId, targetId);
-      if (!move) return;
-      pendingRailFocus = focusedBeforeDrag;
-      void putSessionOrder(move.ids, move.pinnedCount, move.groupId);
-    },
+    onMove: (draggedId, targetId, focusedBeforeDrag) =>
+      drop(draggedId, { card: targetId }, focusedBeforeDrag),
     onDropZone: (draggedId, zoneKey, focusedBeforeDrag) => {
-      const target = zoneKey === UNGROUPED_KEY ? null : Number(zoneKey);
-      if (Number.isNaN(target)) return;
-      const from = manualOrder().find((c) => c.id === draggedId);
-      if (!from || from.groupId === target) return;
-      pendingRailFocus = focusedBeforeDrag;
-      void putSessionsGroup([draggedId], target);
+      const section = zoneKey === UNGROUPED_KEY ? null : Number(zoneKey);
+      if (Number.isNaN(section)) return;
+      drop(draggedId, { section }, focusedBeforeDrag);
     },
   });
 
@@ -145,12 +161,13 @@ export function initRail(app: App, deps: RailDeps): void {
     const sections = deps.groups.sections(frame.sessions);
     const filter = deps.groups.filter();
     const selecting = deps.groups.selecting();
+    const selectedIds = deps.groups.selectedIds();
     railSections.render({
       sections,
       filter,
       editing: deps.groups.editing(),
       selecting,
-      selectedIds: deps.groups.selectedIds(),
+      selectedIds,
       empty: frame.sessions.length === 0,
       now: frame.now,
       onToggleCard: deps.groups.toggleSelected,
@@ -170,8 +187,9 @@ export function initRail(app: App, deps: RailDeps): void {
           if (source === "pointer") deps.surfaces.focusSelected(id);
         },
         onAction: deps.actions.dispatch,
+        onMenu: deps.railMenu.open,
         connected: frame.connected,
-        draggable: app.state.railSort === "manual" && !selecting,
+        draggable: (id) => !selecting || selectedIds.has(id),
         pendingFocus: pendingRailFocus,
         currentId: app.state.focusedId,
         railActivity: app.state.railActivity,

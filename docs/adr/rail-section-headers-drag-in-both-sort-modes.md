@@ -1,7 +1,7 @@
 ---
 id: rail-section-headers-drag-in-both-sort-modes
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-05
 summary: Section headers drag to reorder sections in both sort modes because section order is user-owned in both; cards keep dragging in manual mode only.
 features: [rail, groups]

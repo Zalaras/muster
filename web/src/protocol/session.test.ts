@@ -31,6 +31,7 @@ const validSession = {
   unread: false,
   lastPrompt: null,
   groupId: null,
+  cache: { expiresAt: "2026-08-22T01:00:00Z", ttlSeconds: 3600 },
 };
 // The measured "no data yet" shape (docs/history/spikes/canary-fields.md): a session that has just
 // been launched — no Claude session id bound yet, no repo/model/attention/failure known,
@@ -64,6 +65,7 @@ const freshLaunchSession = {
   unread: false,
   lastPrompt: null,
   groupId: null,
+  cache: null,
 };
 describe("parseSession — full kb:anchor/ws.session shape", () => {
   it("parses a fully-populated session", () => {
@@ -470,5 +472,32 @@ describe("parseSession — groupId (plan groups kb:anchor/ws.session)", () => {
     ["undefined", undefined],
   ])("rejects a groupId that is %s", (_label, groupId) => {
     expect(parseSession({ ...validSession, groupId })).toBeNull();
+  });
+});
+
+describe("parseSession — cache (prompt-cache warmth)", () => {
+  const cache = { expiresAt: "2026-08-22T01:00:00Z", ttlSeconds: 300 };
+
+  it("parses a populated cache and null", () => {
+    expect(parseSession({ ...validSession, cache })?.cache).toEqual(cache);
+    expect(parseSession({ ...validSession, cache: null })?.cache).toBeNull();
+  });
+
+  it("rejects a session with the cache key missing (required)", () => {
+    const { cache: _omitted, ...without } = validSession;
+    expect(parseSession(without)).toBeNull();
+  });
+
+  it.each([
+    ["ttlSeconds 0", { expiresAt: cache.expiresAt, ttlSeconds: 0 }],
+    ["negative ttlSeconds", { expiresAt: cache.expiresAt, ttlSeconds: -5 }],
+    ["fractional ttlSeconds", { expiresAt: cache.expiresAt, ttlSeconds: 1.5 }],
+    ["string ttlSeconds", { expiresAt: cache.expiresAt, ttlSeconds: "300" }],
+    ["unparseable expiresAt", { expiresAt: "soon", ttlSeconds: 300 }],
+    ["numeric expiresAt", { expiresAt: 1790000000, ttlSeconds: 300 }],
+    ["missing expiresAt", { ttlSeconds: 300 }],
+    ["a string", "warm"],
+  ])("rejects a malformed cache: %s", (_name, bad) => {
+    expect(parseSession({ ...validSession, cache: bad })).toBeNull();
   });
 });

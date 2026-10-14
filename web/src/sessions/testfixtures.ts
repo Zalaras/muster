@@ -32,6 +32,7 @@ export function makeSession(overrides: Partial<Session> & { id: number }): Sessi
     unread: false,
     lastPrompt: null,
     groupId: null,
+    cache: null,
     ...overrides,
   };
 }

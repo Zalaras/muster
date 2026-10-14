@@ -1,7 +1,7 @@
 ---
 id: rail-select-mode-disables-card-drag
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-05
 summary: While select mode is on, rail cards are not draggable and the pin control is hidden; moves go through the selection bar.
 features: [rail, groups]

@@ -72,6 +72,20 @@ func contextToRow(c *Context) (usedPct *float64, totalInputTokens, windowSize *i
 	return &c.UsedPct, &c.TotalInputTokens, &c.WindowSize
 }
 
+func cacheFromRow(row store.SessionRow) *Cache {
+	if row.CacheExpiresAt == nil || row.CacheTTLSeconds == nil {
+		return nil
+	}
+	return &Cache{ExpiresAt: *row.CacheExpiresAt, TTLSeconds: *row.CacheTTLSeconds}
+}
+
+func cacheToRow(c *Cache) (expiresAt *time.Time, ttlSeconds *int64) {
+	if c == nil {
+		return nil, nil
+	}
+	return &c.ExpiresAt, &c.TTLSeconds
+}
+
 // attentionFromRow builds *Attention from the row's reason/since columns, or nil when
 // reason is absent — Since defaults to the zero time when the row predates that column
 // ever being written for this reason.
@@ -154,6 +168,7 @@ func rowToSession(row store.SessionRow) *Session {
 		LastSnapshotAt:               derefOrZero(row.LastSnapshotAt),
 		Model:                        modelFromRow(row),
 		Context:                      contextFromRow(row),
+		Cache:                        cacheFromRow(row),
 		Attention:                    attentionFromRow(row),
 		Failure:                      failureFromRow(row),
 	}
@@ -205,6 +220,7 @@ func sessionToRow(s *Session) store.SessionRow {
 	}
 	row.Model, row.ModelDisplayName = modelToRow(s.Model)
 	row.ContextUsedPct, row.ContextTotalInputTokens, row.ContextWindowSize = contextToRow(s.Context)
+	row.CacheExpiresAt, row.CacheTTLSeconds = cacheToRow(s.Cache)
 	row.AttentionReason, row.AttentionSince = attentionToRow(s.Attention)
 	row.FailureError, row.FailureMessage = failureToRow(s.Failure)
 	return row

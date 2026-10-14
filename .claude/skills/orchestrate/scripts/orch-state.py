@@ -11,6 +11,7 @@ Usage (run from the project root):
   orch-state.py <plan> retry <step>                  bump retry_counts[<step>]
   orch-state.py <plan> status <in-progress|blocked|completed> [--step STEP]
                                                      completed is refused unless review.md says **Verdict**: approved
+                                                     and gates.sh's last full run on this tree had 0 failed
   orch-state.py <plan> archive <file>                rename plans/<plan>/<file> to <stem>.cycle<N><ext> before a
                                                      re-spawn overwrites it (N = existing archives + 1)
   orch-state.py <plan> merge-review [--gates-failed N]
@@ -33,7 +34,7 @@ and the next `finish`/`done` closes it, so a re-spawned step keeps every attempt
 `step_started_at`/`step_finished_at` hold only the last one (ui-text-and-focus: authoring's
 ~19 min and web-impl's ~44 min first pass were overwritten by their fix re-spawns).
 """
-import argparse, datetime, json, pathlib, re, subprocess, sys
+import argparse, datetime, json, os, pathlib, re, subprocess, sys
 
 STEPS = ["e2e-specs", "daemon-impl", "web-impl", "daemon-tests", "web-tests",
          "e2e-validate", "review", "doc-reconcile"]
@@ -238,6 +239,22 @@ def approved(plan_dir):
     r = plan_dir / "review.md"
     return r.exists() and "**Verdict**: approved" in r.read_text()
 
+def gates_green(plan):
+    """None when gates.sh's last full run had 0 failures on this tree outside plans/, else why not.
+    Why (rail-card-organise retro, 2026-10-14): the run was stamped completed over a red Final
+    Validation, and the cleanup then deleted the logs that would have named the failure."""
+    gates = pathlib.Path(__file__).with_name("gates.sh")
+    fp = subprocess.run(["bash", str(gates), plan, "--code-fingerprint"], capture_output=True, text=True).stdout.strip()
+    last = pathlib.Path(os.environ.get("TMPDIR", "/tmp")) / f"muster-gates-last-{plan}.tsv"
+    if not last.exists():
+        return f"no full gates.sh run recorded ({last})"
+    got, fails, _ = (last.read_text().strip().split("\t") + ["", "", ""])[:3]
+    if got != fp:
+        return "the tree outside plans/ changed since the last full gates.sh run — run it again"
+    if fails != "0":
+        return f"the last full gates.sh run had {fails} failed line(s)"
+    return None
+
 def unmarked_authoring_rows(plan_dir):
     """Rows of test-specs.md's ## Tests table carrying neither authoring status, while the file is
     in authoring mode. Why (frontmatter retro, 2026-09-23): "mark each row" had been reworded twice
@@ -309,6 +326,8 @@ def main():
                 sys.exit("done needs --next STEP (use 'completed' after review)")
             if (a.arg == "review" or a.next == "completed") and not approved(path.parent):
                 sys.exit("review.md does not say '**Verdict**: approved' — the pipeline is not completed")
+            if a.next == "completed" and (why := gates_green(a.plan)):
+                sys.exit(f"{why} — the pipeline is not completed")
             if a.arg == "e2e-specs" and (rows := unmarked_authoring_rows(path.parent)):
                 sys.exit("test-specs.md Tests rows marked neither ran-green-at-authoring nor collection-only "
                          "— send e2e-specs back:\n  " + "\n  ".join(rows))
@@ -349,6 +368,8 @@ def main():
                 sys.exit("status must be in-progress|blocked|completed")
             if a.arg == "completed" and not approved(path.parent):
                 sys.exit("review.md does not say '**Verdict**: approved' — the pipeline is not completed")
+            if a.arg == "completed" and (why := gates_green(a.plan)):
+                sys.exit(f"{why} — the pipeline is not completed")
             s["status"] = a.arg
             if a.step:
                 s["current_step"] = a.step

@@ -262,10 +262,11 @@ test("the mainhead's End button keeps focus and node identity across a render ti
   }
 });
 
-// The nested-button half of Major 5 and Major 1/2, on the surface that still has nested
-// buttons: an ended card's Remove. Focus, outlive a tick with node identity, then Enter and
+// The nested-control half of Major 5 and Major 1/2, on the surface that replaced the ended
+// card's Remove button (plan rail-card-organise REQ-6, REQ-9): its menu's Remove… item. Focus
+// the card, open the menu with a real key, outlive a tick with node identity, then Enter and
 // Space each as their own action.
-test("an ended card's Remove button keeps focus and node identity across a render tick and activates via keyboard Enter and Space (REQ-7, REQ-11, Major 1, Major 5)", async ({
+test("an ended card's Remove… menu item keeps focus and node identity across a render tick and activates via keyboard Enter and Space (REQ-7, REQ-11, Major 1, Major 5)", async ({
   page,
   request,
 }) => {
@@ -274,20 +275,26 @@ test("an ended card's Remove button keeps focus and node identity across a rende
     await page.goto(sharedDaemon().dashboardUrl);
     await launchEndedSession(page, request, dir, "kbd-ended-remove");
     const card = sessionCard(page, "kbd-ended-remove");
-    const removeBtn = card.getByRole("button", { name: "Remove" });
+    const removeItem = page
+      .getByRole("menu")
+      .getByRole("menuitem", { name: "Remove…", exact: true });
     const dialog = page.getByRole("dialog", { name: "Remove session?" });
 
-    await removeBtn.focus();
-    await expect(removeBtn).toBeFocused();
-    await removeBtn.evaluate((el) => {
-      (el as HTMLElement & { __e2eTag?: string }).__e2eTag = "original-remove-btn";
+    await card.focus();
+    await expect(card).toBeFocused();
+    await page.keyboard.press("Shift+F10");
+    await expect(page.getByRole("menu")).toBeVisible();
+    await page.keyboard.press("ArrowDown");
+    await expect(removeItem).toBeFocused();
+    await removeItem.evaluate((el) => {
+      (el as HTMLElement & { __e2eTag?: string }).__e2eTag = "original-remove-item";
     });
     // A stays-unchanged hold over one render tick, as above.
     await settleFor(page, 1_400);
-    await expect(removeBtn).toBeFocused();
+    await expect(removeItem).toBeFocused();
     expect(
-      await removeBtn.evaluate(
-        (el) => (el as HTMLElement & { __e2eTag?: string }).__e2eTag === "original-remove-btn",
+      await removeItem.evaluate(
+        (el) => (el as HTMLElement & { __e2eTag?: string }).__e2eTag === "original-remove-item",
       ),
     ).toBe(true);
 
@@ -296,8 +303,11 @@ test("an ended card's Remove button keeps focus and node identity across a rende
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toBeHidden();
 
-    await removeBtn.focus();
-    await expect(removeBtn).toBeFocused();
+    await card.focus();
+    await expect(card).toBeFocused();
+    await page.keyboard.press("ContextMenu");
+    await page.keyboard.press("ArrowDown");
+    await expect(removeItem).toBeFocused();
     await page.keyboard.press("Space");
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Cancel" }).click();
@@ -307,11 +317,11 @@ test("an ended card's Remove button keeps focus and node identity across a rende
   }
 });
 
-// review m4-reconcile cycle-3 Minor 2/3: `toBeVisible()` cannot see a revealed row, because
-// Playwright treats `opacity: 0` as visible, so this reads the computed style at rest and
-// under hover and `:focus-within`. A live card's row no longer exists to reveal (REQ-7,
-// asserted in E7); an ended card keeps its hover/focus reveal, which this pins.
-test("an ended rail card's action row sits at opacity 0 until hover or focus-within reveals it (REQ-7, REQ-11, Minor 2/3)", async ({
+// review m4-reconcile cycle-3 Minor 2/3 pinned the ended card's hover/focus-within reveal of its
+// action row by computed opacity. Plan rail-card-organise REQ-6 removes the row (Stop, Resume and
+// Remove live in the right-click menu), so the same surface is now asserted to have nothing to
+// reveal: no row element and no action button at rest, under hover, and with the card focused.
+test("an ended rail card has no action row and no action button at rest, on hover or with focus (REQ-7, REQ-11, Minor 2/3, plan rail-card-organise REQ-6)", async ({
   page,
   request,
 }) => {
@@ -325,9 +335,10 @@ test("an ended rail card's action row sits at opacity 0 until hover or focus-wit
     const card = sessionCard(page, "hover-reveal-acts-row");
     await expect(card).toBeVisible();
     const actsRow = card.locator(".acts-row");
+    const anyAction = card.getByRole("button", { name: /^(Stop|End|Resume|Remove)/ });
 
-    // An ended card that is the current one shows its row too (`.card.current`), so make a
-    // different, live card current first: only hover and focus-within may reveal this one.
+    // An ended card that is the current one used to show its row too, so make a different, live
+    // card current first: nothing about "current" may explain a missing row.
     const other = await launchSession(page, sharedDaemon(), {
       directory: otherDir.path,
       title: "hover-reveal-other",
@@ -342,18 +353,20 @@ test("an ended rail card's action row sits at opacity 0 until hover or focus-wit
     await expect(currentRailCard(page)).toContainText("hover-reveal-other");
     await page.mouse.move(0, 0);
 
-    await expect(actsRow).toHaveCSS("opacity", "0");
+    await expect(actsRow).toHaveCount(0);
+    await expect(anyAction).toHaveCount(0);
 
     await card.hover();
-    await expect(actsRow).toHaveCSS("opacity", "1");
+    await expect(actsRow).toHaveCount(0);
+    await expect(anyAction).toHaveCount(0);
 
-    // Move the pointer well away so hover no longer explains any visibility, confirming the
-    // row drops back before checking focus independently.
     await page.mouse.move(0, 0);
-    await expect(actsRow).toHaveCSS("opacity", "0");
-
-    await card.getByRole("button", { name: "Remove" }).focus();
-    await expect(actsRow).toHaveCSS("opacity", "1");
+    await card.focus();
+    await expect(card).toBeFocused();
+    await expect(actsRow).toHaveCount(0);
+    await expect(anyAction).toHaveCount(0);
+    // The pin control is the one control the card keeps.
+    await expect(pinButton(card)).toBeVisible();
   } finally {
     await Promise.all([cleanup(), otherDir.cleanup()]);
   }
@@ -695,9 +708,10 @@ test("a live strip card in Tiles has no End button (E8, REQ-7, INV-D)", async ({
   }
 });
 
-// E9 (REQ-7): ending from the mainhead still works and leaves an ended card offering Resume
-// then Remove; with a second live session, only the focused one ends.
-test("ending from the mainhead ends only that session, and its card then offers Resume and Remove in that order (E9, REQ-7)", async ({
+// E9 (REQ-7): ending from the mainhead still works and leaves an ended card whose menu (plan
+// rail-card-organise REQ-2: the card has no buttons) offers Resume then Remove…; with a second
+// live session, only the focused one ends.
+test("ending from the mainhead ends only that session, and its card's menu then offers Resume and Remove… in that order (E9, REQ-7)", async ({
   page,
   request,
 }) => {
@@ -732,10 +746,15 @@ test("ending from the mainhead ends only that session, and its card then offers 
     await expect(dialog).toBeHidden();
     await expect(cardA).toHaveClass(/ended/, { timeout: 15_000 });
 
-    await expect(cardA.locator(".acts-row button")).toHaveText(["Resume", "Remove"]);
-    await expect(cardA.getByRole("button", { name: "Resume" })).toBeEnabled();
-    await expect(cardA.getByRole("button", { name: "Remove" })).toBeEnabled();
-    await expect(cardA.getByRole("button", { name: "Stop" })).toHaveCount(0);
+    await expect(cardA.getByRole("button", { name: /^(Stop|End|Resume|Remove)/ })).toHaveCount(0);
+    await cardA.click({ button: "right" });
+    const menuItems = page.getByRole("menu").getByRole("menuitem");
+    await expect(menuItems.nth(0)).toHaveText("Resume");
+    await expect(menuItems.nth(1)).toHaveText("Remove…");
+    await expect(menuItems.nth(0)).toBeEnabled();
+    await expect(menuItems.nth(1)).toBeEnabled();
+    await expect(page.getByRole("menuitem", { name: "Stop…", exact: true })).toHaveCount(0);
+    await page.keyboard.press("Escape");
 
     const state = await getState(page, sharedDaemon());
     expect(findSession(state, sessionA.id).alive).toBe(false);

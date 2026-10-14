@@ -35,6 +35,7 @@ function makeSession(id: number): Session {
     unread: false,
     lastPrompt: null,
     groupId: null,
+    cache: null,
   };
 }
 

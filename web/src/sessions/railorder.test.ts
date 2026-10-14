@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moveCard, type RailOrderItem } from "./railorder";
+import { moveCard, planDrop, type RailOrderItem } from "./railorder";
 
 // A card's section is its third entry; absent is Ungrouped (null), the pre-groups rail.
 function items(
@@ -218,4 +218,121 @@ describe("moveCard — never mutates its input (W9)", () => {
     moveCard(ordered, 2, 1);
     expect(item2?.pinned).toBe(false);
   });
+});
+
+describe("moveCard — carried set (REQ-16)", () => {
+  it("lands the carried cards contiguously at the drop position in display order", () => {
+    const ordered = items([
+      [1, false],
+      [2, false],
+      [3, false],
+      [4, false],
+      [5, false],
+    ]);
+    expect(moveCard(ordered, 4, 1, new Set([4, 2]))).toEqual({
+      ids: [2, 4, 1, 3, 5],
+      pinnedCount: 0,
+      groupId: null,
+    });
+  });
+
+  it("carried cards from another section join the target's and take its pin", () => {
+    const ordered = items([
+      [1, true, 3],
+      [2, false, 3],
+      [3, false, null],
+      [4, true, null],
+    ]);
+    const result = moveCard(ordered, 3, 2, new Set([3, 4]));
+    expect(result).toEqual({ ids: [1, 3, 4, 2], pinnedCount: 1, groupId: 3 });
+  });
+
+  it("a drop onto a carried card is nothing", () => {
+    const ordered = items([
+      [1, false],
+      [2, false],
+      [3, false],
+    ]);
+    expect(moveCard(ordered, 1, 3, new Set([1, 3]))).toBeNull();
+  });
+});
+
+describe("planDrop (REQ-12–14, REQ-16–18, W6)", () => {
+  const ordered = items([
+    [1, true, 3],
+    [2, false, 3],
+    [3, false, 5],
+    [4, false, null],
+    [5, false, null],
+  ]);
+  const one = (id: number) => new Set([id]);
+
+  it.each(["manual", "attention"] as const)(
+    "a header drop is one group move in %s order",
+    (sort) => {
+      expect(planDrop(ordered, sort, one(4), 4, { section: 3 })).toEqual({
+        kind: "group",
+        ids: [4],
+        groupId: 3,
+      });
+    },
+  );
+
+  it("a drop on Ungrouped's header leaves the group", () => {
+    expect(planDrop(ordered, "manual", one(2), 2, { section: null })).toEqual({
+      kind: "group",
+      ids: [2],
+      groupId: null,
+    });
+  });
+
+  it("a header drop into the card's own section changes nothing", () => {
+    expect(planDrop(ordered, "manual", one(2), 2, { section: 3 })).toBeNull();
+  });
+
+  it("a selection drop on a section moves every carried card not already there, in display order", () => {
+    expect(planDrop(ordered, "manual", new Set([5, 1, 3]), 5, { section: 3 })).toEqual({
+      kind: "group",
+      ids: [3, 5],
+      groupId: 3,
+    });
+  });
+
+  it("attention order: a drop among another section's cards is a group-only move", () => {
+    expect(planDrop(ordered, "attention", one(4), 4, { card: 2 })).toEqual({
+      kind: "group",
+      ids: [4],
+      groupId: 3,
+    });
+  });
+
+  it("attention order: a drop inside the card's own section sends nothing", () => {
+    expect(planDrop(ordered, "attention", one(1), 1, { card: 2 })).toBeNull();
+  });
+
+  it("manual order: a drop among cards is one order request with groupId", () => {
+    expect(planDrop(ordered, "manual", one(4), 4, { card: 2 })).toEqual({
+      kind: "order",
+      ids: [1, 4, 2],
+      pinnedCount: 1,
+      groupId: 3,
+    });
+  });
+
+  it("manual order: a selection lands contiguous at the drop position", () => {
+    expect(planDrop(ordered, "manual", new Set([4, 5]), 5, { card: 2 })).toEqual({
+      kind: "order",
+      ids: [1, 4, 5, 2],
+      pinnedCount: 1,
+      groupId: 3,
+    });
+  });
+
+  it.each(["manual", "attention"] as const)(
+    "a drop onto a carried or unknown card is nothing (%s)",
+    (sort) => {
+      expect(planDrop(ordered, sort, new Set([4, 5]), 4, { card: 5 })).toBeNull();
+      expect(planDrop(ordered, sort, one(4), 4, { card: 99 })).toBeNull();
+    },
+  );
 });

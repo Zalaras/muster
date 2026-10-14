@@ -213,7 +213,7 @@ func TestSessionWire_JSONShapeHasNoUnexpectedNulls(t *testing.T) {
 
 	for _, field := range []string{
 		"id", "title", "state", "stateSince", "alive", "endedAt", "attention", "failure",
-		"directory", "repo", "model", "permissionMode", "context", "lastActivity",
+		"directory", "repo", "model", "permissionMode", "context", "cache", "lastActivity",
 		"claudeSessionId", "tmuxTarget", "firstLaunchHere", "createdAt", "pinned", "railPos",
 		"claudeLocation",
 	} {
@@ -351,4 +351,49 @@ func TestToWireSession_RepoFollowsTheRefreshedBranch(t *testing.T) {
 
 	s.Branch = nil
 	assert.Nil(t, toWireSession(s).Repo, "a detached HEAD reads as repo null")
+}
+
+// TestToWireSession_CacheKeyIsAlwaysPresent is D8: every Session object carries the
+// cache key, JSON null when warmth is unknown (including a dead session), otherwise
+// {expiresAt, ttlSeconds} with expiresAt RFC3339 UTC whatever zone the stored time is in and
+// ttlSeconds an integer.
+func TestToWireSession_CacheKeyIsAlwaysPresent(t *testing.T) {
+	expiry := time.Unix(1790840879, 0)
+	cases := []struct {
+		name        string
+		mutate      func(s *session.Session)
+		wantNull    bool
+		wantExpires string
+		wantTTL     float64
+	}{
+		{name: "unknown on a fresh session", mutate: func(*session.Session) {}, wantNull: true},
+		{name: "unknown on a dead session", mutate: func(s *session.Session) { s.Alive = false }, wantNull: true},
+		{name: "one hour", mutate: func(s *session.Session) { s.Cache = &session.Cache{ExpiresAt: expiry.UTC(), TTLSeconds: 3600} }, wantExpires: "2026-10-01T07:47:59Z", wantTTL: 3600},
+		{name: "five minutes on a dead session", mutate: func(s *session.Session) {
+			s.Alive = false
+			s.Cache = &session.Cache{ExpiresAt: expiry.UTC(), TTLSeconds: 300}
+		}, wantExpires: "2026-10-01T07:47:59Z", wantTTL: 300},
+		{name: "a non-UTC stored time is rendered in UTC", mutate: func(s *session.Session) {
+			s.Cache = &session.Cache{ExpiresAt: expiry.In(time.FixedZone("plus2", 2*3600)), TTLSeconds: 3600}
+		}, wantExpires: "2026-10-01T07:47:59Z", wantTTL: 3600},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := minimalSession()
+			tc.mutate(s)
+
+			got := wireJSON(t, s)
+
+			require.Contains(t, got, "cache", "the key is present even when unknown")
+			if tc.wantNull {
+				assert.Nil(t, got["cache"])
+				return
+			}
+			obj, ok := got["cache"].(map[string]any)
+			require.True(t, ok, "cache is an object, not %T", got["cache"])
+			assert.Equal(t, tc.wantExpires, obj["expiresAt"])
+			assert.Equal(t, tc.wantTTL, obj["ttlSeconds"])
+			assert.Len(t, obj, 2, "exactly expiresAt and ttlSeconds")
+		})
+	}
 }

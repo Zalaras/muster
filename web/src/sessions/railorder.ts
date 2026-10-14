@@ -14,6 +14,7 @@
 // merges the dragged entry into the target's block. `pinnedCount` is therefore always the size of a
 // genuine prefix of the resulting `ids`, which is exactly the shape `PUT /api/sessions/order`
 // (kb:anchor/sessions.order) expects.
+import type { RailSort } from "../protocol/prefs";
 import { insertAtDragTarget } from "./reorder";
 
 export interface RailOrderItem {
@@ -41,28 +42,67 @@ export interface MoveCardResult {
  * way the dragged entry takes on the target's `pinned` value at the drop, so the result stays
  * exactly as contiguous: it extends the target's block by one at the exact seam it was inserted,
  * never straddling it.
+ *
+ * `carried` is every card the drag moves (a selection drag lists several, the dragged one among
+ * them; default just `draggedId`). The others ride with the dragged card: the whole set lands
+ * contiguously where the dragged card would land alone, in the cards' current display order, all
+ * taking the target's `pinned`. A drop onto a carried card is a no-op.
  */
 export function moveCard(
   ordered: readonly RailOrderItem[],
   draggedId: number,
   targetId: number,
+  carried: ReadonlySet<number> = new Set([draggedId]),
 ): MoveCardResult | null {
   const target = ordered.find((s) => s.id === targetId);
   const dragged = ordered.find((s) => s.id === draggedId);
-  if (!target || !dragged || draggedId === targetId) return null;
+  if (!target || !dragged || carried.has(targetId)) return null;
 
-  const section = ordered.filter((s) => s.groupId === target.groupId);
+  const riders = new Set(carried);
+  riders.delete(draggedId);
+  const moving = ordered.filter((s) => carried.has(s.id));
+  const section = ordered.filter((s) => s.groupId === target.groupId && !riders.has(s.id));
   const targetIndex = section.findIndex((s) => s.id === targetId);
   const reordered =
     dragged.groupId === target.groupId
       ? insertAtDragTarget(section, (s) => s.id, draggedId, targetId)
       : [...section.slice(0, targetIndex), dragged, ...section.slice(targetIndex)];
   if (!reordered) return null;
-
-  const pinnedCount = reordered.reduce((count, item) => {
-    const effectivePinned = item.id === draggedId ? target.pinned : item.pinned;
+  const landed = reordered.flatMap((s) => (s.id === draggedId ? moving : [s]));
+  const pinnedCount = landed.reduce((count, item) => {
+    const effectivePinned = carried.has(item.id) ? target.pinned : item.pinned;
     return effectivePinned ? count + 1 : count;
   }, 0);
 
-  return { ids: reordered.map((s) => s.id), pinnedCount, groupId: target.groupId };
+  return { ids: landed.map((s) => s.id), pinnedCount, groupId: target.groupId };
+}
+
+export type DropTarget = { card: number } | { section: number | null };
+
+export type DropPlan =
+  | { kind: "group"; ids: number[]; groupId: number | null }
+  | { kind: "order"; ids: number[]; pinnedCount: number; groupId: number | null };
+
+function groupMove(
+  ordered: readonly RailOrderItem[],
+  carried: ReadonlySet<number>,
+  groupId: number | null,
+): DropPlan | null {
+  const ids = ordered.filter((s) => carried.has(s.id) && s.groupId !== groupId).map((s) => s.id);
+  return ids.length === 0 ? null : { kind: "group", ids, groupId };
+}
+
+export function planDrop(
+  ordered: readonly RailOrderItem[],
+  sort: RailSort,
+  carried: ReadonlySet<number>,
+  draggedId: number,
+  target: DropTarget,
+): DropPlan | null {
+  if ("section" in target) return groupMove(ordered, carried, target.section);
+  const onto = ordered.find((s) => s.id === target.card);
+  if (!onto || carried.has(onto.id)) return null;
+  if (sort === "attention") return groupMove(ordered, carried, onto.groupId);
+  const move = moveCard(ordered, draggedId, onto.id, carried);
+  return move ? { kind: "order", ...move } : null;
 }

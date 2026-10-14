@@ -8,7 +8,8 @@
 import type { Group, UngroupedLayout } from "../protocol/groups";
 import type { RailSort } from "../protocol/prefs";
 import type { Session, SessionState } from "../protocol/session";
-import { displayTitle, stateBadgeText } from "./card";
+import { cacheWarmth, groupWarmthHover, latestEntered, waitingMembers, type Warmth } from "./cache";
+import { cardTimerText, displayTitle, stateBadgeText } from "./card";
 import { insertAtDragTarget } from "./reorder";
 import { orderRail } from "./sort";
 
@@ -280,23 +281,26 @@ export function summaryTitle(state: SummaryState, n: number): string {
   return `${n} ${summaryStateWord(state)}`;
 }
 
+export interface PopoverSessionModel {
+  title: string;
+  timer: string;
+  warmth: Warmth;
+}
+
 export interface PopoverRowModel {
   state: SummaryState;
   word: string;
   n: number;
-  titles: string[];
+  sessions: PopoverSessionModel[];
 }
 
-/** What a header's hover popover lists: the group's name and `n sessions`, then one row per
- * state present with that state's session titles. An empty group has no rows (the popover says
- * `empty`). */
 export interface PopoverModel {
   name: string;
   sessions: string;
   rows: PopoverRowModel[];
 }
 
-export function popoverModel(section: Section): PopoverModel {
+export function popoverModel(section: Section, now: Date): PopoverModel {
   return {
     name: section.name,
     sessions: sessionsPhrase(section.cards.length),
@@ -304,8 +308,29 @@ export function popoverModel(section: Section): PopoverModel {
       state: row.state,
       word: summaryStateWord(row.state),
       n: row.cards.length,
-      titles: row.cards.map(displayTitle),
+      sessions: row.cards.map((card) => ({
+        title: displayTitle(card),
+        timer: cardTimerText(card, now),
+        warmth: cacheWarmth(card.cache, now),
+      })),
     })),
+  };
+}
+
+export interface HeaderTimer {
+  text: string;
+  warmth: Warmth;
+  hover: string;
+}
+
+export function headerTimer(section: Section, now: Date): HeaderTimer | null {
+  const waiting = waitingMembers(section.cards);
+  const picked = latestEntered(waiting);
+  if (picked === null) return null;
+  return {
+    text: cardTimerText(picked, now),
+    warmth: cacheWarmth(picked.cache, now),
+    hover: groupWarmthHover(waiting, now),
   };
 }
 

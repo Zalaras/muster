@@ -1,7 +1,7 @@
 ---
 id: rail-live-card-offers-no-actions
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-01
 summary: A live rail or strip card offers no action button; End stays in the Focus mainhead and tile footers and returns to the card via a right-click menu.
 features: [rail, actions]

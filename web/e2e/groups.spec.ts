@@ -1162,7 +1162,7 @@ test("dropping a grouped card on the Ungrouped header leaves its group (REQ-9, E
   }
 });
 
-test("cards are not draggable in attention sort but a header still drags (REQ-25, E10)", async ({
+test("cards and headers are both draggable in attention sort (REQ-25, E10, plan rail-card-organise REQ-12, REQ-19)", async ({
   page,
   daemon,
 }) => {
@@ -1175,7 +1175,7 @@ test("cards are not draggable in attention sort but a header still drags (REQ-25
     const groupB = await createGroupViaApi(page, daemon, "Second", [b1.id]);
     await railSortSelect(page).selectOption("attention");
     await expect(railSortSelect(page)).toHaveValue("attention");
-    await expect(railCard(page, "r25-a1")).toHaveAttribute("draggable", "false");
+    await expect(railCard(page, "r25-a1")).toHaveAttribute("draggable", "true");
     await expect(groupHead(page, groupA.id)).toHaveAttribute("draggable", "true");
     await expect(groupHead(page, groupB.id)).toHaveAttribute("draggable", "true");
   } finally {

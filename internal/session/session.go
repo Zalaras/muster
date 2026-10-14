@@ -88,6 +88,11 @@ type Context struct {
 	WindowSize       int64
 }
 
+type Cache struct {
+	ExpiresAt  time.Time
+	TTLSeconds int64
+}
+
 // Session is one row of the kb:anchor/state state machine, held in memory and persisted on every
 // mutation. Guard fields (currentPromptID/closedPromptIDs) are in-memory only — a
 // daemon restart resets them.
@@ -107,6 +112,7 @@ type Session struct {
 	PermissionModeSource string // "seed" | "hook"
 	Model                *Model
 	Context              *Context
+	Cache                *Cache
 	Compactions          int
 	Attention            *Attention
 	Failure              *Failure

@@ -1,5 +1,6 @@
 // The one placement routine for a panel appended to `document.body` beside an anchor: below the
-// anchor when it fits, above when it does not, and kept inside the viewport. Shared by the menu
+// anchor when it fits, above when it does not, and kept inside the viewport (or, for a right-click,
+// at the pointer). Shared by the menu
 // (`menu.ts`) and the group popover (`grouppopover.ts`); a caller whose panel is wider than the
 // room to the anchor's right asks for `alignRight`, and the left edge is clamped either way.
 
@@ -28,5 +29,12 @@ export function placeAnchored(
   const top =
     below + height > window.innerHeight - EDGE_GAP ? box.top - ANCHOR_GAP - height : below;
   panel.style.left = `${Math.max(EDGE_GAP, Math.min(left, window.innerWidth - width - EDGE_GAP))}px`;
+  panel.style.top = `${Math.max(EDGE_GAP, top)}px`;
+}
+
+export function placeAtPoint(panel: HTMLElement, point: { x: number; y: number }): void {
+  const left = Math.min(point.x, window.innerWidth - panel.offsetWidth - EDGE_GAP);
+  const top = Math.min(point.y, window.innerHeight - panel.offsetHeight - EDGE_GAP);
+  panel.style.left = `${Math.max(EDGE_GAP, left)}px`;
   panel.style.top = `${Math.max(EDGE_GAP, top)}px`;
 }

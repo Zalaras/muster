@@ -579,7 +579,7 @@ test("a live rail card offers no End button, and the mainhead's End opens the co
   }
 });
 
-test("clicking Resume or Remove on an ended card never selects the session or moves focus into a terminal (REQ-5, INV-3)", async ({
+test("choosing Resume or Remove… from an ended card's menu never selects the session or moves focus into a terminal (REQ-5, INV-3, plan rail-card-organise REQ-4)", async ({
   page,
   daemon,
   request,
@@ -594,9 +594,9 @@ test("clicking Resume or Remove on an ended card never selects the session or mo
     });
     await expect(terminalRegion(page, "focus-inv3-dead-a")).toBeVisible();
 
-    // Give B a claudeSessionId (via a real SessionStart) so its Resume button is enabled
-    // (sessions/card.ts: Resume is disabled while `claudeSessionId` is null), then end it
-    // so the card's `.acts-row` switches to the ended pair (REQ-11: Resume + Remove).
+    // Give B a claudeSessionId (via a real SessionStart) so its menu offers Resume (plan
+    // rail-card-organise REQ-3: absent while `claudeSessionId` is null), then end it so the
+    // card's menu switches to the ended pair (Resume + Remove…).
     await request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart("claude-inv3-dead-b", await envelopeOpts(sessionB, daemon)),
     });
@@ -604,12 +604,15 @@ test("clicking Resume or Remove on an ended card never selects the session or mo
     expect(endRes.status()).toBe(200);
 
     const cardB = railCard(page, "focus-inv3-dead-b");
-    const removeBtn = cardB.getByRole("button", { name: "Remove" });
-    const resumeBtn = cardB.getByRole("button", { name: "Resume" });
-    await expect(removeBtn).toBeVisible({ timeout: 15_000 });
-    await expect(resumeBtn).toBeVisible();
+    await expect(cardB).toHaveClass(/ended/, { timeout: 15_000 });
+    const menu = page.getByRole("menu");
+    const removeItem = menu.getByRole("menuitem", { name: "Remove…", exact: true });
+    const resumeItem = menu.getByRole("menuitem", { name: "Resume", exact: true });
 
-    await removeBtn.click();
+    await cardB.click({ button: "right" });
+    await expect(removeItem).toBeVisible();
+    await expect(resumeItem).toBeVisible();
+    await removeItem.click();
     const removeDialog = page.getByRole("dialog", { name: "Remove session?" });
     await expect(removeDialog).toBeVisible();
     await expect(page.locator("#mainhead .name")).toHaveText("focus-inv3-dead-a");
@@ -617,9 +620,11 @@ test("clicking Resume or Remove on an ended card never selects the session or mo
     await removeDialog.getByRole("button", { name: "Cancel" }).click();
     await expect(removeDialog).toBeHidden();
 
-    // Resume has no confirm dialog (User Flow 3) — its `stopPropagation()` still runs
-    // synchronously in the same click, strictly before the async relaunch even starts.
-    await resumeBtn.click();
+    // Resume has no confirm dialog (User Flow 3) — the choice's own handling runs synchronously
+    // in the same click, strictly before the async relaunch even starts.
+    await cardB.click({ button: "right" });
+    await expect(resumeItem).toBeVisible();
+    await resumeItem.click();
     await expect(page.locator("#mainhead .name")).toHaveText("focus-inv3-dead-a");
     expect(await activeElementInsideAnyTerminal(page)).toBe(false);
   } finally {
@@ -649,7 +654,7 @@ test("clicking an ended session's card shows the dead surface and leaves keyboar
     expect(endRes.status()).toBe(200);
 
     const cardB = railCard(page, "focus-e5-b");
-    await expect(cardB.getByRole("button", { name: "Resume" })).toBeVisible({ timeout: 15_000 });
+    await expect(cardB).toHaveClass(/ended/, { timeout: 15_000 });
 
     await cardB.click();
 

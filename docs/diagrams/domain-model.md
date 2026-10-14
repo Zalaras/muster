@@ -2,7 +2,7 @@
 id: domain-model
 type: diagram
 status: active
-date: 2026-10-05
+date: 2026-10-14
 kind: domain
 summary: The logical model in plain terms — a Session, its Group, its Repo, Terminals, Tabs, Events, Context Usage and plan, beside Account Usage and User Settings.
 features: []
@@ -83,6 +83,11 @@ classDiagram
         tokens, window
         compactions
     }
+    class CacheWarmth["Cache Warmth"] {
+        identity: its Session
+        expires_at
+        ttl_seconds
+    }
     class AccountUsage["Account Usage"] {
         identity: the one account
         five_hour_bucket
@@ -109,6 +114,7 @@ classDiagram
     Session "1" *-- "1..2" Terminal : runs in
     Session "1" *-- "*" Event : receives, in sequence
     Session "1" *-- "1" ContextUsage : reports
+    Session "1" --> "0..1" CacheWarmth : cache
     Session "1" --> "0..1" ClaudesSessionPlan : writes in plan mode
     Session "1" *-- "3" Tab : is looked at through
     Tab "1" --> "0..1" Terminal : attaches to

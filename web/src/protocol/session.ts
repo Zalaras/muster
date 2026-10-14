@@ -74,6 +74,11 @@ export function isPermissionMode(value: unknown): value is PermissionMode {
   return (PERMISSION_MODES as readonly unknown[]).includes(value);
 }
 
+export interface SessionCache {
+  expiresAt: string;
+  ttlSeconds: number;
+}
+
 export interface SessionContext {
   usedPct: number | null;
   totalInputTokens: number | null;
@@ -113,6 +118,7 @@ export interface Session {
   model: SessionModelInfo | null;
   permissionMode: PermissionModeInfo;
   context: SessionContext;
+  cache: SessionCache | null;
   lastActivity: string | null;
   // kb:anchor/ws.session: background tasks (subagents, backgrounded shells) the latest Stop
   // reported running. Display-only; the UI hides it for a dead session.
@@ -242,6 +248,16 @@ function parseContext(value: unknown): SessionContext | null {
   return { usedPct, totalInputTokens, windowSize, compactions };
 }
 
+function parseCache(value: unknown): SessionCache | null {
+  if (!isRecord(value)) return null;
+  const expiresAt = value["expiresAt"];
+  const ttlSeconds = value["ttlSeconds"];
+  if (typeof expiresAt !== "string" || Number.isNaN(Date.parse(expiresAt))) return null;
+  if (typeof ttlSeconds !== "number" || !Number.isInteger(ttlSeconds) || ttlSeconds <= 0)
+    return null;
+  return { expiresAt, ttlSeconds };
+}
+
 function parseSessionPlan(value: unknown): SessionPlan | null {
   if (!isRecord(value)) return null;
   const path = value["path"];
@@ -322,6 +338,9 @@ export function parseSession(value: unknown): Session | null {
   const context = parseContext(value["context"]);
   if (!context) return null;
 
+  const cache = parseNullable(value["cache"], parseCache);
+  if (cache === undefined) return null;
+
   if (lastActivity !== null && typeof lastActivity !== "string") return null;
   // Range-checked, unlike compactions/railPos: kb:anchor/ws.session types this "integer >= 0", so a bad count is a wire error, not a value to render.
   if (
@@ -361,6 +380,7 @@ export function parseSession(value: unknown): Session | null {
     model,
     permissionMode,
     context,
+    cache,
     lastActivity,
     backgroundTasks,
     claudeSessionId,

@@ -1632,44 +1632,18 @@ body {
   display: none;
 }
 
-/* ── card/tile/strip action rows (REQ-11/REQ-12, m4-reconcile) ──────────────────────── */
+/* ── action rows ────────────────────────────────────────────────────────────────────── */
 
-/* review m4-reconcile cycle-2 Minor 4 (carried from cycle-1 Minor 12): the reference
- * mockup (opt-c-both.html:277) annotates this row "shown on hover / on the focused
- * card" — always-on changes the rail's visual density from the reference render and
- * puts a destructive action one click from every card. Dimming via `opacity` rather
- * than `display`/`visibility` keeps the row present and actionable in the DOM at all
- * times (Testable UI Elements requires Stop/Resume/Remove to be locatable without
- * simulating hover — Playwright's actionability model doesn't treat `opacity: 0` as
- * hidden, confirmed by re-running the full E2E suite unchanged against this rule).
- * `:focus-within` on `.card` covers both "the card itself has focus" and "a button
- * inside it has focus" in one rule, matching the mockup's "or on the focused card".
- *
- * review m4-reconcile cycle-3 Critical 1: `.acts-row` is not a card-only class — the
- * dead surface's cap (`.endcap .pill .acts-row`, `#dead-surface` and the cloned tile
- * `.dead-surface`, neither ever inside a `.card`) reuses it too, and the hover-reveal
- * used to be written on the bare class, so it applied everywhere including surfaces
- * that are never hovered/focused-within a `.card`, leaving the cap's Resume button
- * permanently at opacity 0. The hide/reveal opacity now lives only on `.card
- * .acts-row`; every other `.acts-row` (the dead-surface cap) keeps the base rule's
- * implicit opacity: 1 and stays visible unconditionally, matching the cap's own
- * intent — it's not a hover affordance, it's the one recovery action on a dead
- * surface. */
+/* The dead surface's cap (`.endcap .pill .acts-row`, `#dead-surface` and the cloned tile
+ * `.dead-surface`) is the one place an `.acts-row` remains: a rail or strip card carries no
+ * action row, its actions are the right-click menu's (kb:adr/rail-card-right-click-menu-holds-session-actions).
+ * Nothing here is a hover affordance — the cap's Resume is the one recovery action on a dead
+ * surface and stays visible unconditionally
+ * (kb:lesson/shared-class-css-hid-resume-button). */
 .acts-row {
   display: flex;
   gap: 6px;
   margin-top: 8px;
-  transition: opacity 120ms ease;
-}
-
-.card .acts-row {
-  opacity: 0;
-}
-
-.card:hover .acts-row,
-.card:focus-within .acts-row,
-.card.current .acts-row {
-  opacity: 1;
 }
 
 .acts-row[hidden] {
@@ -2289,6 +2263,28 @@ body {
   flex: none;
 }
 
+/* Prompt-cache warmth (kb:adr/rail-timer-tinted-wherever-cache-warmth-known): a timer whose cache
+ * is known fades in a straight line from the foreground to its usual grey over the cache's
+ * lifetime (`--warmth` is the remaining share, written per timer by render/warmth.ts), is dotted
+ * underlined in the last 15%, and is the usual grey once cold or while unknown. Foreground to
+ * grey, never a state colour (design-system §3), so the Light theme fades dark to grey. */
+.card .timer[data-cache="warm"],
+.card .timer[data-cache="cooling"],
+.gsum .gt[data-cache="warm"],
+.gsum .gt[data-cache="cooling"],
+.pop .pl .tt[data-cache="warm"],
+.pop .pl .tt[data-cache="cooling"] {
+  color: color-mix(in oklab, var(--fg) var(--warmth), var(--fg-dim));
+}
+
+.card .timer[data-cache="cooling"],
+.gsum .gt[data-cache="cooling"],
+.pop .pl .tt[data-cache="cooling"] {
+  text-decoration: underline dotted;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
 .r2 {
   font-family: var(--mono);
   font-size: var(--fs-xs);
@@ -2634,11 +2630,10 @@ body[data-rail-density="expanded"] .activity[hidden] {
 
 /* ── pin control (plan order-sidebar REQ-8/REQ-9/REQ-17) ─────────────────────────────── */
 
-/* Same hover/focus-within reveal rule as `.card .acts-row` (design-system §5) — scoped to
- * `.card .pin` specifically, not the bare `.pin` class, for the same reason `.acts-row`'s
- * own reveal rule is scoped (review m4-reconcile cycle-3 Critical 1): a class shared by
- * more than one surface must never carry a hover-only rule that assumes it is always
- * inside a hoverable `.card`. */
+/* Revealed on hover and focus-within (design-system §5) — scoped to `.card .pin` specifically,
+ * not the bare `.pin` class: a class shared by more than one surface must never carry a
+ * hover-only rule that assumes it is always inside a hoverable `.card`
+ * (kb:lesson/shared-class-css-hid-resume-button). */
 .card .pin {
   appearance: none;
   border: none;
@@ -3906,6 +3901,11 @@ fieldset.seg legend {
   color: var(--fg-muted);
 }
 
+.gsum .gt {
+  margin-left: 2px;
+  color: var(--fg-dim);
+}
+
 .gsum .st {
   display: inline-flex;
   align-items: center;
@@ -4238,6 +4238,27 @@ fieldset.seg legend {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--fg-muted);
+}
+
+.pop .pl {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-right: 12px;
+}
+
+.pop .pl .pt {
+  flex: 1;
+  min-width: 0;
+  padding-right: 0;
+}
+
+.pop .pl .tt {
+  flex: none;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-dim);
 }
 
 /* Delete group…: three choices, each a radio with its hint beneath. */

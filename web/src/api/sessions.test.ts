@@ -41,6 +41,7 @@ const validSession: Session = {
   unread: false,
   lastPrompt: null,
   groupId: null,
+  cache: null,
 };
 
 const endedSession: Session = { ...validSession, alive: false, endedAt: "2026-08-22T00:05:00Z" };

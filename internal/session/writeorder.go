@@ -225,12 +225,13 @@ func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Sess
 		restoreIfUnchanged(&cur.StateSince, post.StateSince, last.StateSince)
 		restoreIfUnchanged(&cur.PermissionMode, post.PermissionMode, last.PermissionMode)
 		restoreIfUnchanged(&cur.PermissionModeSource, post.PermissionModeSource, last.PermissionModeSource)
-		// Model/Context/Attention/Failure compare by pointer identity: a real change
+		// Model/Context/Cache/Attention/Failure compare by pointer identity: a real change
 		// always allocates a fresh pointer rather than writing through the old one
 		// (applyBind's doc, machine.go; Session.Clone's own contract), so pointer
 		// equality is exactly "unchanged since post".
 		restoreIfUnchanged(&cur.Model, post.Model, last.Model)
 		restoreIfUnchanged(&cur.Context, post.Context, last.Context)
+		restoreIfUnchanged(&cur.Cache, post.Cache, last.Cache)
 		restoreIfUnchanged(&cur.Compactions, post.Compactions, last.Compactions)
 		restoreIfUnchanged(&cur.Attention, post.Attention, last.Attention)
 		restoreIfUnchanged(&cur.Failure, post.Failure, last.Failure)
@@ -275,7 +276,7 @@ func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Sess
 var restoredSessionFields = []string{
 	"TmuxTarget", "TmuxPane", "Branch", "IsWorktree", "ClaudeDir", "ClaudeLocation", "repoEpoch",
 	"ClaudeSessionID", "Title", "State", "StateSince",
-	"PermissionMode", "PermissionModeSource", "Model", "Context", "Compactions",
+	"PermissionMode", "PermissionModeSource", "Model", "Context", "Cache", "Compactions",
 	"Attention", "Failure", "LastActivity", "Alive", "EndedAt", "LastSnapshot",
 	"LastSnapshotAt", "Pinned", "RailPos", "GroupID", "TitleOverride", "TranscriptPath",
 	"PlanPath", "PlanExists", "Unread", "LastPrompt", "BackgroundTasks", "AttentionAgent",

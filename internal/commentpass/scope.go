@@ -32,6 +32,8 @@ func DropInScope(rel string) bool {
 		return strings.HasSuffix(rel, ".test.ts") || isCSS(rel)
 	case strings.HasPrefix(rel, "web/e2e/"):
 		return strings.HasSuffix(rel, ".ts") && !strings.HasSuffix(rel, ".d.ts")
+	case strings.HasPrefix(rel, "test/"):
+		return isGo(rel)
 	}
 	return false
 }

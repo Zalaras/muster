@@ -56,6 +56,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     unread: false,
     lastPrompt: null,
     groupId: null,
+    cache: null,
     ...overrides,
   };
 }
@@ -581,18 +582,25 @@ describe("buildCardViewModel — ended (alive:false, REQ-18 degraded state)", ()
   });
 });
 
-describe("buildCardViewModel — actions (W1: live -> none; ended -> Resume, Remove)", () => {
-  it("offers no action for a live session", () => {
-    const vm = buildCardViewModel(makeSession({ id: 1, alive: true }), NOW);
-    expect(vm.actions).toEqual([]);
+describe("buildCardViewModel — warmth (W3, INV-2: unknown iff cache is null)", () => {
+  const cache = { expiresAt: "2026-08-22T00:30:00Z", ttlSeconds: 3600 };
+  const states = ["started", "planning", "working", "idle", "needs_input", "failed"] as const;
+  const cases = states.flatMap((state) => [true, false].map((alive) => ({ state, alive })));
+
+  it.each(cases)("null cache is unknown (state $state, alive $alive)", ({ state, alive }) => {
+    const vm = buildCardViewModel(makeSession({ id: 1, state, alive, cache: null }), NOW);
+    expect(vm.warmth).toEqual({ state: "unknown", fraction: 0, hover: "cache unknown" });
   });
 
-  it("offers Resume then Remove, in that order, for an ended session", () => {
-    const vm = buildCardViewModel(
-      makeSession({ id: 1, alive: false, endedAt: "2026-08-22T00:00:00Z" }),
-      NOW,
-    );
-    expect(vm.actions).toEqual(["Resume", "Remove"]);
+  it.each(cases)("a cache is never unknown (state $state, alive $alive)", ({ state, alive }) => {
+    const vm = buildCardViewModel(makeSession({ id: 1, state, alive, cache }), NOW);
+    expect(vm.warmth.state).not.toBe("unknown");
+  });
+
+  it("an ended session with an expired cache is cold", () => {
+    const expired = { expiresAt: "2026-08-22T00:00:05Z", ttlSeconds: 300 };
+    const vm = buildCardViewModel(makeSession({ id: 1, alive: false, cache: expired }), NOW);
+    expect(vm.warmth.state).toBe("cold");
   });
 });
 

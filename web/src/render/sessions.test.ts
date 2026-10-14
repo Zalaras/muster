@@ -56,7 +56,11 @@ class FakeDomNode {
   // directly (not via `setAttribute`, matching real HTMLElement.title) — not read by any
   // pre-existing test in this file, so it was never needed on the shim until now.
   title = "";
-  readonly style: Record<string, string> = {};
+  readonly styleProps = new Map<string, string>();
+  readonly style = {
+    setProperty: (name: string, value: string) => this.styleProps.set(name, value),
+    removeProperty: (name: string) => this.styleProps.delete(name),
+  };
   readonly dataset: Record<string, string | undefined> = {};
   private readonly attrs: Record<string, string> = {};
   parent: FakeDomNode | null = null;
@@ -134,8 +138,11 @@ class FakeDomNode {
     // capture/restore tests below exercise the restore branch for real (cycle-4 Minor 1
     // found two of them vacuous: with no blur on detach, the branch never ran and a
     // no-op `focus()` still passed).
-    const doc = (globalThis as unknown as { document: { activeElement: FakeDomNode | null } })
-      .document;
+    const doc = (
+      globalThis as unknown as {
+        document: { activeElement: FakeDomNode | null };
+      }
+    ).document;
     if (doc.activeElement && (doc.activeElement === this || this.contains(doc.activeElement))) {
       doc.activeElement = null;
     }
@@ -216,7 +223,9 @@ class FakeDomNode {
 
   focus(): void {
     (
-      globalThis as unknown as { document: { activeElement: FakeDomNode | null } }
+      globalThis as unknown as {
+        document: { activeElement: FakeDomNode | null };
+      }
     ).document.activeElement = this;
   }
 
@@ -303,9 +312,6 @@ function buildCardTemplateFragment(): FakeDomNode {
   const note = new FakeDomNode("div");
   note.className = "note";
   note.hidden = true;
-  const actsRow = new FakeDomNode("div");
-  actsRow.className = "acts-row";
-  actsRow.hidden = true;
   const bgTasks = new FakeDomNode("div");
   bgTasks.className = "bg-tasks";
   bgTasks.hidden = true;
@@ -317,7 +323,6 @@ function buildCardTemplateFragment(): FakeDomNode {
   cardIn.appendChild(activityYou);
   cardIn.appendChild(activityClaude);
   cardIn.appendChild(note);
-  cardIn.appendChild(actsRow);
   cardIn.appendChild(bgTasks);
   card.appendChild(stripe);
   card.appendChild(cardIn);
@@ -352,7 +357,12 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     claudeLocation: null,
     model: null,
     permissionMode: { value: "default", source: "seed" },
-    context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
+    context: {
+      usedPct: null,
+      totalInputTokens: null,
+      windowSize: null,
+      compactions: 0,
+    },
     lastActivity: null,
     backgroundTasks: 0,
     claudeSessionId: "claude-sess",
@@ -364,6 +374,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     unread: false,
     lastPrompt: null,
     groupId: null,
+    cache: null,
     ...overrides,
   };
 }
@@ -377,7 +388,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
 function baseOptions(overrides: Partial<CardListOptions> = {}): CardListOptions {
   return {
     connected: true,
-    draggable: false,
+    draggable: () => false,
     currentId: null,
     railActivity: "turn",
     // `CardOptions.onClick`/`onAction` are required — no test in this file asserts on
@@ -385,6 +396,7 @@ function baseOptions(overrides: Partial<CardListOptions> = {}): CardListOptions 
     // callers), so a no-op default is enough for every case here.
     onClick: () => {},
     onAction: () => {},
+    onMenu: () => {},
     ...overrides,
   };
 }
@@ -396,7 +408,10 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
   };
 
   beforeEach(() => {
-    fakeDocument = { activeElement: null, createElement: (tag: string) => new FakeDomNode(tag) };
+    fakeDocument = {
+      activeElement: null,
+      createElement: (tag: string) => new FakeDomNode(tag),
+    };
     vi.stubGlobal("HTMLElement", FakeDomNode);
     vi.stubGlobal("HTMLButtonElement", FakeDomNode);
     vi.stubGlobal("document", fakeDocument);
@@ -518,7 +533,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
   // logical identity before the reorder loop and re-focuses the same logical target
   // afterwards if the move blurred it.
   describe("focus capture/restore across a reorder (Fix Attempt 3)", () => {
-    // A live card offers no action button (W1), so the focusable action button is an ended card's.
+    // No card carries a Stop/Resume/Remove button (REQ-6); the pin control is the card's focusable button.
     const endedSession = (id: number) =>
       makeSession({ id, alive: false, endedAt: "2026-08-27T00:00:00Z" });
 
@@ -531,7 +546,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
         fakeTemplate(),
         baseOptions(),
       );
-      const endBtn = el.children[1]?.querySelector('[data-action="resume"]');
+      const endBtn = el.children[1]?.querySelector('[data-action="pin"]');
       endBtn?.focus();
       expect(fakeDocument.activeElement).toBe(endBtn);
       // Move card 2 ahead of card 1 with a raw insertBefore, bypassing reconcileCards.
@@ -548,7 +563,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
         fakeTemplate(),
         baseOptions(),
       );
-      const endBtn = el.children[1]?.querySelector('[data-action="resume"]') as FakeDomNode;
+      const endBtn = el.children[1]?.querySelector('[data-action="pin"]') as FakeDomNode;
       endBtn.focus();
       const realFocus = endBtn.focus.bind(endBtn);
       endBtn.focus = () => {};
@@ -572,7 +587,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
         fakeTemplate(),
         baseOptions(),
       );
-      const endBtn = el.children[1]?.querySelector('[data-action="resume"]');
+      const endBtn = el.children[1]?.querySelector('[data-action="pin"]');
       expect(endBtn).toBeTruthy();
       endBtn?.focus();
       expect(fakeDocument.activeElement).toBe(endBtn);
@@ -588,7 +603,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
 
       const activeAfter = fakeDocument.activeElement;
       expect(activeAfter).not.toBeNull();
-      expect(activeAfter?.dataset["action"]).toBe("resume");
+      expect(activeAfter?.dataset["action"]).toBe("pin");
       expect(activeAfter?.dataset["id"]).toBe("2");
     });
 
@@ -1025,17 +1040,41 @@ describe("reconcileCards — draggable attribute (plan order-sidebar REQ-10/W15/
     expect(el.children[0]?.getAttribute("draggable")).toBe("false");
   });
 
-  it('sets draggable="true" on every card when the caller passes draggable:true (manual-mode rail)', () => {
+  it('sets draggable="true" on every card when the predicate answers true (manual-mode rail)', () => {
     const el = container();
     reconcileCards(
       el as unknown as HTMLElement,
       [makeSession({ id: 1 }), makeSession({ id: 2 })],
       NOW,
       fakeTemplate(),
-      baseOptions({ draggable: true }),
+      baseOptions({ draggable: () => true }),
     );
     expect(el.children[0]?.getAttribute("draggable")).toBe("true");
     expect(el.children[1]?.getAttribute("draggable")).toBe("true");
+  });
+
+  it("writes the draggable attribute per card from the predicate's answer for that card's id (select mode)", () => {
+    const el = container();
+    const sessions = [makeSession({ id: 1 }), makeSession({ id: 2 })];
+    reconcileCards(
+      el as unknown as HTMLElement,
+      sessions,
+      NOW,
+      fakeTemplate(),
+      baseOptions({ draggable: (id) => id === 2 }),
+    );
+    expect(el.children[0]?.getAttribute("draggable")).toBe("false");
+    expect(el.children[1]?.getAttribute("draggable")).toBe("true");
+
+    reconcileCards(
+      el as unknown as HTMLElement,
+      sessions,
+      NOW,
+      fakeTemplate(),
+      baseOptions({ draggable: (id) => id === 1 }),
+    );
+    expect(el.children[0]?.getAttribute("draggable")).toBe("true");
+    expect(el.children[1]?.getAttribute("draggable")).toBe("false");
   });
 
   it('explicitly sets draggable="false" (not just an absent attribute) when the caller passes draggable:false (attention-mode rail / strip)', () => {
@@ -1057,7 +1096,7 @@ describe("reconcileCards — draggable attribute (plan order-sidebar REQ-10/W15/
       [makeSession({ id: 1 })],
       NOW,
       fakeTemplate(),
-      baseOptions({ draggable: true }),
+      baseOptions({ draggable: () => true }),
     );
     expect(el.children[0]?.getAttribute("draggable")).toBe("true");
 

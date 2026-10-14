@@ -448,6 +448,35 @@ func TestStatusLineFields(t *testing.T) {
 	}
 }
 
+func TestPromptCacheExpiryIsStopPlusTTL(t *testing.T) {
+	f := harness(t)
+	stopAt := f.interactive.stopAt
+	require.False(t, stopAt.IsZero(), "run D recorded no Stop time")
+
+	var after, withKey int
+	for _, c := range f.statusPostsFor(sessionInteract, f.preClearClaudeID()) {
+		if c.at.Before(stopAt) {
+			continue
+		}
+		after++
+		if _, ok := c.payload["prompt_cache"]; ok {
+			withKey++
+		}
+		cache := claudecode.InterpretStatus(c.ev.Payload).Cache
+		if cache == nil {
+			continue
+		}
+		ttl := time.Duration(cache.TTLSeconds) * time.Second
+		assert.Positive(t, cache.TTLSeconds, "the interpreter accepted a ttl")
+		assert.InDelta(t, stopAt.Add(ttl).Unix(), cache.ExpiresAt.Unix(), 15,
+			"expires_at must be the turn's Stop plus the ttl (%s) within 15 s; Stop %s, expires_at %s",
+			ttl, stopAt.UTC().Format(time.RFC3339), cache.ExpiresAt.UTC().Format(time.RFC3339))
+		t.Logf("prompt_cache ttl %s, expires_at %s after Stop", ttl, cache.ExpiresAt.Sub(stopAt).Round(time.Second))
+		return
+	}
+	t.Fatalf("no pre-/clear status post at or after Stop carried a prompt_cache the interpreter accepts (%d posts after Stop, %d with the key)", after, withKey)
+}
+
 // TestUnknownVersusZero guards kb:fact/unknown-before-first-response. Before a session's first API response the
 // whole rate_limits key is absent (not empty, not null), and the context percentages are
 // null with total_input_tokens 0. A null is not "0% used": the UI must render "unknown".

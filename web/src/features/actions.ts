@@ -64,6 +64,7 @@ export interface ActionsHandle {
    * action-error line, and the resulting upserts and removals reach the rail by their own
    * broadcasts. */
   dispatchMany(action: "end" | "remove", ids: readonly number[], origin: BatchOrigin): void;
+  inFlight(id: number): boolean;
   /** The one writer of `#action-error`: another controller's failed daemon call (a group move, a
    * rename) shows its message here, and its next success clears it. `null` clears. */
   showError(message: string | null): void;
@@ -82,6 +83,14 @@ export function initActions(app: App): ActionsHandle {
   const deadPaneCache = new Map<number, PaneState>();
   const previousAlive = new Map<number, boolean>();
   const actionErrorEl = requireElement<HTMLElement>("#action-error");
+  const inFlight = new Set<number>();
+
+  function track<T>(ids: readonly number[], request: Promise<T>): Promise<T> {
+    for (const id of ids) inFlight.add(id);
+    return request.finally(() => {
+      for (const id of ids) inFlight.delete(id);
+    });
+  }
 
   /** The one path that touches `#action-error` — a failed Stop/Resume/Remove
    * writes its message, the next successful one of the three clears it. */
@@ -155,7 +164,7 @@ export function initActions(app: App): ActionsHandle {
   }
 
   function doEnd(id: number): void {
-    void endSession(id).then((result) => {
+    void track([id], endSession(id)).then((result) => {
       if (!result.ok) {
         showActionError(result.error.message);
         return;
@@ -167,7 +176,7 @@ export function initActions(app: App): ActionsHandle {
   }
 
   async function doResume(id: number): Promise<void> {
-    const result = await resumeSession(id);
+    const result = await track([id], resumeSession(id));
     if (!result.ok) {
       showActionError(result.error.message);
       return;
@@ -178,7 +187,7 @@ export function initActions(app: App): ActionsHandle {
   }
 
   function doRemove(id: number): void {
-    void removeSession(id).then((result) => {
+    void track([id], removeSession(id)).then((result) => {
       if (!result.ok) {
         showActionError(result.error.message);
         return;
@@ -253,11 +262,11 @@ export function initActions(app: App): ActionsHandle {
     },
     {
       onConfirmEnd: (ids) => {
-        if (confirmingBatch) void endSessions(ids).then(settleBatch);
+        if (confirmingBatch) void track(ids, endSessions(ids)).then(settleBatch);
         else if (ids[0] !== undefined) doEnd(ids[0]);
       },
       onConfirmRemove: (ids) => {
-        if (confirmingBatch) void removeSessions(ids).then(settleBatch);
+        if (confirmingBatch) void track(ids, removeSessions(ids)).then(settleBatch);
         else if (ids[0] !== undefined) doRemove(ids[0]);
       },
     },
@@ -270,6 +279,7 @@ export function initActions(app: App): ActionsHandle {
   return {
     dispatch,
     dispatchMany,
+    inFlight: (id) => inFlight.has(id),
     showError: showActionError,
     isBlockingDialogOpen() {
       return Array.from(document.querySelectorAll<HTMLDialogElement>("dialog[open]")).some(

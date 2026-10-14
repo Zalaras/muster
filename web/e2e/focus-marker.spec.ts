@@ -215,7 +215,7 @@ test("a manual drag reorder follows the current session's id, never a stale DOM 
   }
 });
 
-test(".card.current renders on --bg-hover with an --edge ring and its acts-row visible without hovering (REQ-2)", async ({
+test(".card.current renders on --bg-hover with an --edge ring without hovering, and carries no action row (REQ-2, plan rail-card-organise REQ-6)", async ({
   page,
   daemon,
 }) => {
@@ -244,9 +244,10 @@ test(".card.current renders on --bg-hover with an --edge ring and its acts-row v
     // comparison holds regardless of the browser's own hex<->rgb normalization.
     expect(outline.color).toBe(edge);
 
-    const actsRow = card.locator(".acts-row");
-    const opacity = await actsRow.evaluate((el) => getComputedStyle(el).opacity);
-    expect(Number(opacity)).toBe(1);
+    // The row this once showed on the current card is gone from every card (Stop, Resume and
+    // Remove live in the right-click menu).
+    await expect(card.locator(".acts-row")).toHaveCount(0);
+    await expect(card.getByRole("button", { name: /^(Stop|End|Resume|Remove)/ })).toHaveCount(0);
   } finally {
     await cleanup();
   }

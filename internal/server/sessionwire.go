@@ -28,6 +28,7 @@ type sessionWire struct {
 	Model           *sessionWireModel         `json:"model"`
 	PermissionMode  sessionWirePermissionMode `json:"permissionMode"`
 	Context         sessionWireContext        `json:"context"`
+	Cache           *sessionWireCache         `json:"cache"`
 	LastActivity    *string                   `json:"lastActivity"`
 	ClaudeSessionID *string                   `json:"claudeSessionId"`
 	TmuxTarget      string                    `json:"tmuxTarget"`
@@ -91,6 +92,11 @@ type sessionWireContext struct {
 	TotalInputTokens *int64   `json:"totalInputTokens"`
 	WindowSize       *int64   `json:"windowSize"`
 	Compactions      int      `json:"compactions"`
+}
+
+type sessionWireCache struct {
+	ExpiresAt  string `json:"expiresAt"`
+	TTLSeconds int64  `json:"ttlSeconds"`
 }
 
 // sessionUpsertMessage is the WS `sessionUpsert` envelope (kb:anchor/ws.session-upsert).
@@ -174,6 +180,9 @@ func toWireSession(s *session.Session) sessionWire {
 		w.Context.UsedPct = &usedPct
 		w.Context.TotalInputTokens = &totalInputTokens
 		w.Context.WindowSize = &windowSize
+	}
+	if s.Cache != nil {
+		w.Cache = &sessionWireCache{ExpiresAt: wireTime(s.Cache.ExpiresAt), TTLSeconds: s.Cache.TTLSeconds}
 	}
 	if s.ClaudeSessionID != "" {
 		v := s.ClaudeSessionID

@@ -27,6 +27,7 @@ import { initSurfaces } from "./features/surfaces";
 import { initReader } from "./features/reader";
 import { initGroups } from "./features/groups";
 import { initRail } from "./features/rail";
+import { initRailMenu } from "./features/railmenu";
 import { initViews } from "./features/views";
 import { initRename } from "./features/rename";
 import { initTheme } from "./features/theme";
@@ -47,10 +48,12 @@ const updateRestart = initUpdateRestart(app);
 initIssue(app);
 const rename = initRename(app);
 const groups = initGroups(app, { actions });
+const railMenu = initRailMenu(app, { actions, groups });
 const tiles = initTiles(app, {
   actions,
   getSurfaces: () => surfaces,
   renameHandlers: rename.tileRenameHandlers,
+  railMenu,
   getReader: () => reader,
 });
 const focus = initFocus(app, {
@@ -63,7 +66,7 @@ const focus = initFocus(app, {
 });
 const surfaces = initSurfaces(app, { tilesLive: tiles.liveIds });
 const reader = initReader(app, { tilesLive: tiles.liveIds, surfaces });
-initRail(app, { actions, surfaces, groups });
+initRail(app, { actions, surfaces, groups, railMenu });
 // Render phase order (behaviour-bearing — see each phase's own controller for why its
 // position matters):
 //  1. actions  — dead-pane tracking (registered inside initActions)

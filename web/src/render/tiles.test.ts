@@ -133,6 +133,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     unread: false,
     lastPrompt: null,
     groupId: null,
+    cache: null,
     ...overrides,
   };
 }
@@ -405,6 +406,7 @@ describe("renderStrip — hides entirely when every session is live (plan edge c
     const el = fakeElement();
     renderStrip(el, [], new Date(), {} as unknown as HTMLTemplateElement, () => {}, {
       onAction: () => {},
+      onMenu: () => {},
       connected: true,
       railActivity: "turn",
     });

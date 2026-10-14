@@ -567,3 +567,90 @@ func TestSession_TurnStateColumnsDefaultAndRoundTrip(t *testing.T) {
 	assert.Zero(t, got.BackgroundTasks)
 	assert.Nil(t, got.AttentionAgent)
 }
+
+// TestSession_CacheColumnsRoundTripBothOrNeither covers D7's storage half and INV-1's
+// twin: a fresh row reads both cache columns unknown, a filled pair survives Update and
+// Get and the list path, and the pair travels back to unknown together.
+func TestSession_CacheColumnsRoundTripBothOrNeither(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	repoID := seedTestRepo(t, st)
+
+	row, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default"})
+	require.NoError(t, err)
+	assert.Nil(t, row.CacheExpiresAt, "a fresh row has no cache")
+	assert.Nil(t, row.CacheTTLSeconds)
+
+	expires := time.Unix(1790840879, 0).UTC()
+	ttl := int64(3600)
+	row.CacheExpiresAt, row.CacheTTLSeconds = &expires, &ttl
+	require.NoError(t, st.UpdateSession(ctx, row))
+
+	got, err := st.GetSession(ctx, row.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got.CacheExpiresAt)
+	require.NotNil(t, got.CacheTTLSeconds)
+	assert.True(t, expires.Equal(*got.CacheExpiresAt), "expiry read back as written: %s", got.CacheExpiresAt)
+	assert.Equal(t, int64(3600), *got.CacheTTLSeconds)
+
+	listed, err := st.ListSessions(ctx)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	require.NotNil(t, listed[0].CacheExpiresAt, "the list path scans the same columns")
+	require.NotNil(t, listed[0].CacheTTLSeconds)
+
+	row.CacheExpiresAt, row.CacheTTLSeconds = nil, nil
+	require.NoError(t, st.UpdateSession(ctx, row))
+	cleared, err := st.GetSession(ctx, row.ID)
+	require.NoError(t, err)
+	assert.Nil(t, cleared.CacheExpiresAt)
+	assert.Nil(t, cleared.CacheTTLSeconds)
+}
+
+// TestScanSession_CorruptCacheReadsUnknownNotHalf covers INV-1 against a stored row the
+// code did not write: a corrupt expiry, or a lifetime with no expiry, reads back with
+// both fields nil, never half a cache, and never fails the row or a sibling.
+func TestScanSession_CorruptCacheReadsUnknownNotHalf(t *testing.T) {
+	tests := []struct {
+		name    string
+		expires any
+		ttl     any
+	}{
+		{"corrupt expiry with a lifetime", "not-a-time", 3600},
+		{"lifetime with no expiry", nil, 3600},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := openTestStore(t)
+			ctx := context.Background()
+			repoID := seedTestRepo(t, st)
+			bad, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/bad", PermissionMode: "default", FirstLaunchHere: true})
+			require.NoError(t, err)
+			good, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/good", PermissionMode: "default", FirstLaunchHere: true})
+			require.NoError(t, err)
+			expires := time.Unix(1790840879, 0).UTC()
+			ttl := int64(300)
+			good.CacheExpiresAt, good.CacheTTLSeconds = &expires, &ttl
+			require.NoError(t, st.UpdateSession(ctx, good))
+			_, err = st.db.ExecContext(ctx, `UPDATE session SET cache_expires_at = ?, cache_ttl_seconds = ? WHERE id = ?`, tt.expires, tt.ttl, bad.ID)
+			require.NoError(t, err)
+
+			got, err := st.GetSession(ctx, bad.ID)
+			require.NoError(t, err, "a corrupt cache column must not fail the row")
+			assert.Nil(t, got.CacheExpiresAt, "INV-1: never half a cache")
+			assert.Nil(t, got.CacheTTLSeconds, "INV-1: never half a cache")
+
+			rows, err := st.ListSessions(ctx)
+			require.NoError(t, err, "a corrupt row must not fail the whole list")
+			byID := map[int64]SessionRow{}
+			for _, r := range rows {
+				byID[r.ID] = r
+			}
+			require.Contains(t, byID, bad.ID)
+			require.Contains(t, byID, good.ID)
+			assert.Nil(t, byID[bad.ID].CacheTTLSeconds)
+			require.NotNil(t, byID[good.ID].CacheExpiresAt, "the sibling's cache is unaffected")
+			assert.Equal(t, int64(300), *byID[good.ID].CacheTTLSeconds)
+		})
+	}
+}

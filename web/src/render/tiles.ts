@@ -16,7 +16,7 @@ import {
 } from "../sessions/card";
 import { requireElement } from "../dom";
 import { renderContextRow } from "./context";
-import { reconcileCards, type CardListOptions } from "./sessions";
+import { type CardListOptions, type CardMenuRequest, reconcileCards } from "./sessions";
 import { buildActionButton } from "./actionbutton";
 import { attachRenameEditor, type RenameEditorController } from "./rename";
 import type { TitleCommand } from "../sessions/rename";
@@ -203,6 +203,7 @@ export function renderTileGeometry(
  * this function's own job to fill in, not the caller's. */
 export interface StripOptions {
   onAction: (action: SessionAction, id: number) => void;
+  onMenu: (request: CardMenuRequest) => void;
   connected: boolean;
   railActivity: RailActivity;
 }
@@ -232,11 +233,12 @@ export function renderStrip(
   const cardOptions: CardListOptions = {
     onClick: onPromote,
     onAction: options.onAction,
+    onMenu: options.onMenu,
     connected: options.connected,
     // A strip card is never draggable, regardless of the
     // rail's current sort mode — the strip is a promote surface, not a manual-order drop
     // target.
-    draggable: false,
+    draggable: () => false,
     // Always `null` — a strip card is never "the session the Focus pane is
     // showing" (kb:adr/rail-current-marker-means-shown-in-focus), so it can never carry
     // the marker.

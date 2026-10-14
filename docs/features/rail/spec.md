@@ -7,10 +7,10 @@ summary: Rail cards, attention versus manual order, pin, drag reorder, session c
 features: [rail]
 tags: [ux]
 go: [internal/server/rail*.go, internal/session/railorder*.go]
-web: [web/src/features/rail.ts, web/src/render/sessions*.ts, web/src/sessions/testfixtures*.ts, web/src/render/repolines*.ts, web/src/render/actionbutton*.ts, web/src/render/dragreorder*.ts, web/src/render/keyedreorder*.ts, web/src/sessions/card*.ts, web/src/sessions/railorder*.ts, web/src/sessions/reorder*.ts, web/src/sessions/format*.ts, web/src/sessions/paths*.ts, web/src/sessions/sort*.ts, web/src/dragmime*.ts]
-e2e: [web/e2e/rail-order.spec.ts, web/e2e/rail-cards.spec.ts, web/e2e/rail-unread.spec.ts, web/e2e/rail-layout.spec.ts, web/e2e/rail-activity.spec.ts, web/e2e/helpers/railorder.ts, web/e2e/helpers/railcards.ts]
+web: [web/src/features/rail.ts, web/src/render/sessions*.ts, web/src/sessions/testfixtures*.ts, web/src/render/repolines*.ts, web/src/render/actionbutton*.ts, web/src/render/dragreorder*.ts, web/src/render/keyedreorder*.ts, web/src/sessions/card*.ts, web/src/sessions/railorder*.ts, web/src/sessions/reorder*.ts, web/src/sessions/format*.ts, web/src/sessions/paths*.ts, web/src/sessions/sort*.ts, web/src/dragmime*.ts, web/src/features/railmenu*.ts]
+e2e: [web/e2e/rail-order.spec.ts, web/e2e/rail-cards.spec.ts, web/e2e/rail-unread.spec.ts, web/e2e/rail-layout.spec.ts, web/e2e/rail-activity.spec.ts, web/e2e/helpers/railorder.ts, web/e2e/helpers/railcards.ts, web/e2e/rail-menu.spec.ts, web/e2e/helpers/rail-menu.ts, web/e2e/rail-drag-groups.spec.ts]
 protocol: [sessions.pin, sessions.order]
-refs: [kb:adr/rail-user-owned-manual-order-default, kb:adr/rail-attention-order-your-turn-before-active, kb:adr/rail-order-daemon-owned-per-session-fields, kb:adr/rail-whole-card-drag-drop-decides-pin, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/focus-rail-click-focuses-terminal, kb:adr/usage-context-gauge-shows-tokens-and-compactions, kb:adr/drop-reorder-drag-mime-custom-type, kb:adr/rail-card-title-leads-and-density-ramp-corrected, kb:adr/rail-activity-line-turn-aware-default-with-pref, kb:adr/rail-unread-inferred-from-live-terminal-client, kb:adr/rail-unread-marker-neutral-dot, kb:adr/rail-card-title-foreground-token, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/rail-live-card-offers-no-actions, docs/design/ux-flows.md, docs/design/design-system.md, kb:adr/rail-pin-invariant-scoped-per-section]
+refs: [kb:adr/rail-user-owned-manual-order-default, kb:adr/rail-attention-order-your-turn-before-active, kb:adr/rail-order-daemon-owned-per-session-fields, kb:adr/rail-whole-card-drag-drop-decides-pin, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/focus-rail-click-focuses-terminal, kb:adr/usage-context-gauge-shows-tokens-and-compactions, kb:adr/drop-reorder-drag-mime-custom-type, kb:adr/rail-card-title-leads-and-density-ramp-corrected, kb:adr/rail-activity-line-turn-aware-default-with-pref, kb:adr/rail-unread-inferred-from-live-terminal-client, kb:adr/rail-unread-marker-neutral-dot, kb:adr/rail-card-title-foreground-token, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/rail-card-right-click-menu-holds-session-actions, kb:adr/rail-cards-drag-in-both-sort-modes-selection-together, kb:adr/rail-timer-tinted-wherever-cache-warmth-known, docs/design/ux-flows.md, docs/design/design-system.md, kb:adr/rail-pin-invariant-scoped-per-section]
 ---
 The rail is the session list in the Focus view; the Tiles strip is the same list laid on
 its side (kb:spec/tiles). Every session has a card.
@@ -34,8 +34,12 @@ A reason line still follows: the attention reason for `needs_input`, the raw err
 first-launch or no-signal note for `started` (docs/design/ux-flows.md "Rail card",
 "Degraded and honest states"). Unknown context renders the word unknown, never an empty
 gauge. While background work runs, `1 background task` (or `<n> background tasks`) is the card's last
-line. A live card offers no action button (kb:adr/rail-live-card-offers-no-actions); a dead card greys out and
-offers Resume and Remove in its hover-revealed action row (kb:spec/actions). Cards render a static state summary, never a live terminal.
+line. A dead card greys out. No card renders a Stop, Resume or Remove button: a right-click, the
+context-menu key or Shift+F10 opens the session's menu, Stop or Resume and Remove, then Move to and
+Pin or Unpin (kb:spec/actions, kb:adr/rail-card-right-click-menu-holds-session-actions). Where cache warmth
+is known the timer fades from the foreground to grey over the cache's lifetime, is underlined in its
+last 15% and names the warmth on hover (kb:spec/usage, kb:adr/rail-timer-tinted-wherever-cache-warmth-known).
+Cards render a static state summary, never a live terminal.
 
 An idle session that finished a turn while no window had its terminal open is unread until
 one attaches — the daemon infers this from its terminal registry
@@ -70,9 +74,10 @@ mode. Sorting is client-side over the `pinned` and `railPos` fields; the daemon 
 and broadcasts them as ordinary session upserts and never orders for display
 (kb:adr/rail-order-daemon-owned-per-session-fields).
 
-Cards drag by the whole card with insert-and-shift semantics; the drop position decides pin
-state, and a pin control lifts a card into the pinned block
-(kb:adr/rail-whole-card-drag-drop-decides-pin). A drop commits through
+Cards drag by the whole card in both sort modes (kb:spec/groups,
+kb:adr/rail-cards-drag-in-both-sort-modes-selection-together). In manual mode the drop is
+insert-and-shift and its position decides pin state, and a pin control lifts a card into the pinned
+block (kb:adr/rail-whole-card-drag-drop-decides-pin). That drop commits through
 `kb:anchor/sessions.order` in one atomic call; the pin control uses `kb:anchor/sessions.pin`.
 Reorder drags carry a Muster-specific MIME type so the terminal drop target and the document
 guard can tell them from dragged files (kb:adr/drop-reorder-drag-mime-custom-type). The

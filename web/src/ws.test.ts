@@ -111,6 +111,7 @@ const session: Session = {
   unread: false,
   lastPrompt: null,
   groupId: null,
+  cache: null,
 };
 
 describe("backoffDelay", () => {

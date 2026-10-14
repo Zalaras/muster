@@ -10,7 +10,7 @@ go: [test/canary/**, tools/versions/**, internal/claudecode/version*.go, interna
 web: []
 e2e: []
 protocol: [ws.hello]
-refs: [kb:adr/canary-api-failures-induced-in-process, kb:adr/canary-interrupt-run-preallows-bash, kb:adr/canary-hook-await-measured-by-held-ingest-response, kb:adr/canary-verified-range-observed-not-pinned, kb:adr/canary-claude-auto-updater-left-on, kb:adr/canary-drives-installed-claude-through-production-chain, kb:adr/canary-permission-mode-sweep-on-unauthenticated-path, kb:adr/canary-resume-run-through-production-argv, kb:adr/canary-live-tier-fails-never-skips, kb:adr/canary-static-tier-asserts-bundle-strings, kb:adr/canary-skips-on-ceiling-bump-extends-record, kb:adr/canary-interactive-dialog-rows-accepted-residual, kb:adr/canary-version-gated-adapters-not-built, kb:adr/connection-installed-claude-classified-never-refused, kb:adr/process-interface-probe-rig-in-repo, kb:fact/status-version-matches-installed, kb:fact/headless-fires-full-hook-sequence, docs/claude-code-versions.md]
+refs: [kb:adr/canary-api-failures-induced-in-process, kb:adr/canary-interrupt-run-preallows-bash, kb:adr/canary-hook-await-measured-by-held-ingest-response, kb:adr/canary-verified-range-observed-not-pinned, kb:adr/canary-claude-auto-updater-left-on, kb:adr/canary-drives-installed-claude-through-production-chain, kb:adr/canary-permission-mode-sweep-on-unauthenticated-path, kb:adr/canary-resume-run-through-production-argv, kb:adr/canary-live-tier-fails-never-skips, kb:adr/canary-static-tier-asserts-bundle-strings, kb:adr/canary-skips-on-ceiling-bump-extends-record, kb:adr/canary-interactive-dialog-rows-accepted-residual, kb:adr/canary-version-gated-adapters-not-built, kb:adr/connection-installed-claude-classified-never-refused, kb:adr/process-interface-probe-rig-in-repo, kb:fact/status-version-matches-installed, kb:fact/prompt-cache-status-shape, kb:fact/headless-fires-full-hook-sequence, docs/claude-code-versions.md]
 ---
 Muster depends on Claude Code's hook payloads, status-line JSON and CLI flags, none of which
 are documented or stable. The canary is how that dependency is kept honest.
@@ -36,6 +36,8 @@ kb:adr/canary-resume-run-through-production-argv); a live tier that runs the pro
 Keychain, usage and theme readers and fails rather than skips when a credential is missing
 (kb:adr/canary-live-tier-fails-never-skips); and a static tier that scans the installed
 bundle for interface strings Muster cannot drive (kb:adr/canary-static-tier-asserts-bundle-strings).
+After the first turn the harness tier asserts that the status line's `prompt_cache` carries a `ttl`
+Muster can read and an `expires_at` of the turn's end plus that TTL (kb:fact/prompt-cache-status-shape).
 The interactive run's idle wait doubles as a zero-token keystroke tier — the status line's
 tick cadence, Shift+Tab firing no hook, and `/clear` minting a new session id in the same pane
 (kb:adr/canary-run-d-holds-two-claude-sessions, kb:adr/canary-refresh-interval-key-canary-only).

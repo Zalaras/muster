@@ -443,6 +443,7 @@ func TestDrop_ReachesTestFilesE2EHelpersAndStylesheets(t *testing.T) {
 	p, _, root := newFixture(t)
 	files := map[string]string{
 		"internal/a/a_test.go":      "package a\n\n// stale go test note\nfunc helper() {}\n",
+		"test/canary/c_test.go":     "package canary\n\n// stale canary note\nfunc helper() {}\n",
 		"web/src/app.test.ts":       "// stale unit test note\nexport const u = 1;\n",
 		"web/e2e/helpers/header.ts": "/**\n * stale helper note\n */\nexport const h = 1;\n",
 		"web/src/style.css":         ".a {\n  /* stale style note */\n  background: url(https://x.test/a.png);\n  content: \"/* not a comment */\";\n}\n",
@@ -459,6 +460,7 @@ func TestDrop_ReachesTestFilesE2EHelpersAndStylesheets(t *testing.T) {
 	}
 	refs := []string{
 		"internal/a/a_test.go:3",
+		"test/canary/c_test.go:3",
 		"web/src/app.test.ts:1",
 		"web/e2e/helpers/header.ts:2",
 		"web/src/style.css:" + strconv.Itoa(lineOf(t, files["web/src/style.css"], "stale style note")),

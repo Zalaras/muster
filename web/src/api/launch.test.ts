@@ -40,6 +40,7 @@ const validSession: Session = {
   unread: false,
   lastPrompt: null,
   groupId: null,
+  cache: null,
 };
 
 describe("launch — launchSession (POST /api/sessions)", () => {

@@ -239,3 +239,41 @@ func TestIngestStatusLine_UnroutedPostFeedsNothing(t *testing.T) {
 	assert.Nil(t, eventSessionID(t, srv, claudeID), "an unrouted status post must persist with a NULL session_id, never a guessed one")
 	assert.Equal(t, 0, countUsageSampleRows(t, srv), "REQ-6: an untrusted envelope's account data must never reach the aggregator")
 }
+
+// TestIngestStatusLine_PromptCacheIsAdoptedAndKeptThroughIngest is REQ-21/D2 through the
+// real ingest path: a routed status post carrying prompt_cache lands on the session, and a
+// later routed post without one leaves it as it was (absent means unknown for that post,
+// never cold).
+func TestIngestStatusLine_PromptCacheIsAdoptedAndKeptThroughIngest(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	srv.Start()
+	t.Cleanup(func() { srv.Shutdown(context.Background()) })
+	sess := seedLiveSession(t, srv)
+
+	withCache := claudecodetest.EnvelopedStatusLineFull("claude-status-cache", claudecodetest.StatusLineFullOpts{
+		MusterSession: int(sess.ID), TmuxPane: "%1",
+		PromptCache: &claudecodetest.PromptCacheOpts{ExpiresAt: 1790840879, TTL: "5m"},
+	})
+	require.Equal(t, 200, postIngest(t, srv, "/ingest/"+testIngestToken+"/status", withCache).Code)
+	require.Eventually(t, func() bool {
+		got, ok := srv.manager.Get(sess.ID)
+		return ok && got.Cache != nil
+	}, 2*time.Second, 10*time.Millisecond, "the post's prompt_cache must reach the session")
+
+	got, _ := srv.manager.Get(sess.ID)
+	assert.True(t, time.Unix(1790840879, 0).Equal(got.Cache.ExpiresAt))
+	assert.Equal(t, int64(300), got.Cache.TTLSeconds)
+
+	without := claudecodetest.EnvelopedStatusLineFull("claude-status-cache", claudecodetest.StatusLineFullOpts{
+		MusterSession: int(sess.ID), TmuxPane: "%1", FiveHourPct: 70,
+	})
+	require.Equal(t, 200, postIngest(t, srv, "/ingest/"+testIngestToken+"/status", without).Code)
+	require.Eventually(t, func() bool {
+		snap := srv.usage.aggregator.Current()
+		return snap.FiveHour != nil && snap.FiveHour.UsedPct == 70
+	}, 2*time.Second, 10*time.Millisecond, "the second post must be fully processed before the cache is read")
+
+	kept, _ := srv.manager.Get(sess.ID)
+	require.NotNil(t, kept.Cache, "a post without prompt_cache leaves the last-known value")
+	assert.Equal(t, int64(300), kept.Cache.TTLSeconds)
+}

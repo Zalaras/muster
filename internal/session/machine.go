@@ -161,6 +161,7 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 		// (kb:adr/usage-context-gauge-shows-tokens-and-compactions) — the next status
 		// post of the new conversation refills it.
 		sess.Context = nil
+		sess.Cache = nil
 		// A fresh conversation has no prompt yet either — kb:anchor/ws.session:
 		// "null until a first prompt and again after /clear".
 		sess.LastPrompt = nil

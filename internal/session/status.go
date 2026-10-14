@@ -3,7 +3,7 @@ package session
 import "github.com/Zalaras/muster/internal/claudecode"
 
 // applyStatusUpdate mutates sess per kb:anchor/ws.session's value semantics: title, model,
-// and context refresh from a routed status-line post, plus the directory Claude reports
+// context and prompt-cache warmth refresh from a routed status-line post, plus the directory Claude reports
 // (ClaudeDir), each adopted only when update carried it and only when it actually differs
 // from the current value. Returns whether
 // anything changed, so the caller only persists+broadcasts on a real change — status
@@ -13,7 +13,7 @@ import "github.com/Zalaras/muster/internal/claudecode"
 // compactions/permissionMode/titleOverride: there is no code path here that touches them
 // — Title always means Claude's last-known name, never the user's override, and callers
 // needing the display-title (wire "title") distinction compare Session.DisplayTitle()
-// themselves (Manager.ApplyStatus's persist-vs-broadcast split). Attention/Failure/Model/Context are treated as immutable
+// themselves (Manager.ApplyStatus's persist-vs-broadcast split). Attention/Failure/Model/Context/Cache are treated as immutable
 // snapshots elsewhere (Session.Clone's doc comment), so a changed field is always
 // replaced with a fresh pointer, never mutated in place.
 func applyStatusUpdate(sess *Session, update claudecode.StatusUpdate) bool {
@@ -42,9 +42,24 @@ func applyStatusUpdate(sess *Session, update claudecode.StatusUpdate) bool {
 		}
 	}
 
+	if adoptCache(sess, update.Cache) {
+		changed = true
+	}
+
 	if adoptClaudeDir(sess, update.Cwd) {
 		changed = true
 	}
 
 	return changed
+}
+
+func adoptCache(sess *Session, reading *claudecode.StatusCache) bool {
+	if reading == nil {
+		return false
+	}
+	if sess.Cache != nil && sess.Cache.ExpiresAt.Equal(reading.ExpiresAt) && sess.Cache.TTLSeconds == reading.TTLSeconds {
+		return false
+	}
+	sess.Cache = &Cache{ExpiresAt: reading.ExpiresAt, TTLSeconds: reading.TTLSeconds}
+	return true
 }

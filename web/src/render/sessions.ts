@@ -4,9 +4,7 @@ import type { RailActivity, RailDensity } from "../protocol/prefs";
 import type { Session } from "../protocol/session";
 import {
   buildCardViewModel,
-  actionEnabled,
   unreadLabel,
-  type CardAction,
   type CardViewModel,
   type SessionAction,
 } from "../sessions/card";
@@ -15,7 +13,13 @@ import { renderContextRow } from "./context";
 import { renderRepoLines } from "./repolines";
 import { captureFocusedControl, type FocusedControl } from "./focuskeep";
 import { reconcileKeyedOrder, type KeyedReorderEntry } from "./keyedreorder";
-import { buildActionButton } from "./actionbutton";
+import { applyWarmth } from "./warmth";
+
+export interface CardMenuRequest {
+  id: number;
+  card: HTMLElement;
+  at: { x: number; y: number };
+}
 
 /** The card/rail options every render function in this module needs,
  * travelling as one named object rather than a positional tail of booleans and
@@ -28,22 +32,16 @@ export interface CardOptions {
   onClick: (id: number, source: "pointer" | "keyboard") => void;
   // Required, not optional: every real caller (features/rail.ts, features/tiles.ts) passes
   // `deps.actions.dispatch` straight through — there is no card/strip render path that
-  // legitimately has no action handler.
+  // legitimately has no action handler. A card's only action control is its pin.
   onAction: (action: SessionAction, id: number) => void;
+  onMenu: (request: CardMenuRequest) => void;
   connected: boolean;
-  /** Manual-mode rail cards are draggable (kb:adr/rail-user-owned-manual-order-default);
-   * attention-mode rail cards and every
-   * strip card are not — the caller decides which, per its own context. */
-  draggable: boolean;
+  draggable: (id: number) => boolean;
   /** The id of the session the Focus pane is showing
    * (kb:adr/rail-current-marker-means-shown-in-focus) — the rail passes
    * `focusedId`; the strip always passes `null` (a strip card is never "current"). */
   currentId: number | null;
   railActivity: RailActivity;
-  /** Select mode (kb:adr/rail-select-mode-disables-card-drag): a checkbox per card, the card
-   * carrying `.selected` while its id is in `selectedIds`. Absent outside select mode and on
-   * every strip card — the checkbox is then removed, never hidden. The caller also passes
-   * `draggable: false` while selecting. */
   selection?: CardSelection | undefined;
 }
 
@@ -78,50 +76,6 @@ interface CardRenderOptions extends CardOptions {
   pinnedLast: boolean;
 }
 
-/** Reconciles one card's `.acts-row` in place: when the label sequence is unchanged
- * (the common case — a live card stays empty, an ended card stays Resume+Remove, on
- * every 1s tick) only each existing button's `disabled` state is refreshed, so the exact
- * button node a keyboard user has focused survives the tick — an unconditional
- * `replaceChildren` every render would destroy and rebuild every action button once a
- * second and drop focus to `<body>` with no automatic re-focus. The label sequence only
- * changes on a genuine live/ended transition, which legitimately does need a rebuilt row
- * (Resume/Remove didn't exist a moment ago). */
-function reconcileActsRow(
-  actsRow: HTMLElement,
-  actions: readonly CardAction[],
-  id: number,
-  claudeSessionId: string | null,
-  connected: boolean,
-  onAction: (action: SessionAction, id: number) => void,
-): void {
-  const existing = Array.from(actsRow.children).filter(
-    (child): child is HTMLButtonElement => child instanceof HTMLButtonElement,
-  );
-  const sameShape =
-    existing.length === actions.length &&
-    existing.every((btn, i) => btn.textContent === actions[i]);
-
-  if (sameShape) {
-    existing.forEach((btn, i) => {
-      const label = actions[i];
-      if (label === undefined) return;
-      btn.disabled = !actionEnabled(label, claudeSessionId, connected);
-    });
-    return;
-  }
-
-  actsRow.replaceChildren(
-    ...actions.map((label) => {
-      return buildActionButton(
-        label,
-        id,
-        actionEnabled(label, claudeSessionId, connected),
-        onAction,
-      );
-    }),
-  );
-}
-
 /** The card's repo block (`.r2`) and, while Claude is in another checkout, the `↳` block
  * (`.r2c`) that follows it. `.r2`'s hover is the one-line `<repo> / <branch>` the two split
  * lines no longer show together; `.r2c`'s is where Claude is. */
@@ -151,7 +105,10 @@ function applyCardText(card: HTMLElement, vm: CardViewModel, session: Session): 
   requireElement<HTMLElement>(".chip-danger", card).hidden = !vm.bypassChip;
 
   requireElement<HTMLElement>(".badge", card).textContent = vm.badge;
-  requireElement<HTMLElement>(".timer", card).textContent = vm.timer;
+  const timer = requireElement<HTMLElement>(".timer", card);
+  timer.textContent = vm.timer;
+  timer.title = vm.warmth.hover;
+  applyWarmth(timer, vm.warmth);
 
   applyRepoBlocks(card, vm);
 
@@ -269,7 +226,7 @@ function updateSessionCardContent(
   // incoming sessions.
   card.dataset["sessionId"] = String(session.id);
   // Explicit "false" (not just an absent attribute) so a locator can assert either state.
-  card.setAttribute("draggable", options.draggable ? "true" : "false");
+  card.setAttribute("draggable", options.draggable(session.id) ? "true" : "false");
   // The marker means "the session the Focus pane is showing" (kb:adr/rail-current-marker-means-shown-in-focus);
   // a strip card's
   // `currentId` is always null (renderStrip below), so it never matches and the attribute
@@ -279,33 +236,22 @@ function updateSessionCardContent(
 
   applyCardText(card, vm, session);
 
-  // No buttons on a live card, Resume+Remove on an ended one — `vm.actions` already
-  // carries the exact label set and order (sessions/card.ts). Resume additionally needs
-  // a claudeSessionId to ever be enabled (`actionEnabled`, same rule as the mainhead).
-  const actsRow = requireElement<HTMLElement>(".acts-row", card);
-  actsRow.hidden = vm.actions.length === 0;
-  reconcileActsRow(
-    actsRow,
-    vm.actions,
-    session.id,
-    session.claudeSessionId,
-    options.connected,
-    options.onAction,
-  );
-
   // The pin button's aria-label/aria-pressed/title follow `pinned` on
-  // every pass. `data-action`/`data-id` (not the `.acts-row` buttons' own convention,
-  // since this button lives in `.r0` rather than an acts row) let it participate in the
-  // existing `captureFocusedControl`/`restoreFocusedControl` contract unchanged
+  // every pass. `data-action`/`data-id` let it participate in the existing
+  // `captureFocusedControl`/`restoreFocusedControl` contract unchanged
   // (render/focuskeep.ts: "an action button (data-action + data-id)") — its focus
   // survival needs no new code path, just this button carrying the same two attributes
-  // `buildActionButton` already sets.
+  // `buildActionButton` sets.
   const pinBtn = requireElement<HTMLButtonElement>(".pin", card);
   pinBtn.setAttribute("aria-label", vm.pinned ? "Unpin" : "Pin");
   pinBtn.setAttribute("aria-pressed", vm.pinned ? "true" : "false");
   pinBtn.title = vm.pinned ? "Unpin" : "Pin to top";
   pinBtn.dataset["action"] = "pin";
   pinBtn.dataset["id"] = String(session.id);
+}
+
+function isMenuKey(event: KeyboardEvent): boolean {
+  return event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey);
 }
 
 /** Builds one session card element (rail card in Focus, or — reusing this exact markup —
@@ -343,17 +289,21 @@ function buildSessionCardElement(
   // keyboard-activation branch below reports itself as "keyboard" so that callback can
   // decline to do so and leave focus on the card.
   card.addEventListener("click", () => onClick(session.id, "pointer"));
+  card.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    options.onMenu({ id: session.id, card, at: { x: event.clientX, y: event.clientY } });
+  });
   card.addEventListener("keydown", (event) => {
-    // This listener is on `.card`, but the acts row nests real
-    // `<button>`s inside it (.acts-row) whose own keydown (Enter/Space) bubbles up
-    // here. Without this guard, `event.preventDefault()` below ran for every bubbled
-    // keydown regardless of origin and cancelled the button's own Enter/Space
-    // activation — verified live (focused card's Stop button, Enter key,
-    // `endDialogOpen` stayed false and focus dropped to BODY). Only handle the key when
-    // the card itself is the target, i.e. it wasn't a nested control that already owns
-    // the key.
+    // This listener is on `.card`, but the pin button nests inside it and its own keydown
+    // (Enter/Space) bubbles up here. Without this guard, `event.preventDefault()` below would
+    // cancel the button's own activation. Only handle the key when the card itself is the
+    // target, i.e. it wasn't a nested control that already owns the key.
     if (event.target !== card) return;
-    if (event.key === "Enter" || event.key === " ") {
+    if (isMenuKey(event)) {
+      event.preventDefault();
+      const box = card.getBoundingClientRect();
+      options.onMenu({ id: session.id, card, at: { x: box.left + 16, y: box.bottom + 4 } });
+    } else if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       onClick(session.id, "keyboard");
     }
@@ -410,8 +360,7 @@ export function reconcileCards(
   const existingById = indexCardsBySessionId(container);
   const adopt = options.adopt;
 
-  // A content update below (e.g. a genuine
-  // live/ended transition rebuilding `.acts-row`) or the reorder itself can blur a
+  // A card moving between sections or the reorder itself can blur a
   // focused card or action button (see render/focuskeep.ts / render/keyedreorder.ts for
   // the measured mechanism) — captured up front, before either runs, preferring a
   // caller-supplied pre-blur snapshot (`options.pendingFocus`'s doc comment) when one was

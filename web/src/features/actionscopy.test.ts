@@ -34,6 +34,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     unread: false,
     lastPrompt: null,
     groupId: null,
+    cache: null,
     ...overrides,
   };
 }

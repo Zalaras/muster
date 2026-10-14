@@ -1,0 +1,148 @@
+{
+  "plan_name": "rail-card-organise",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 2,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "daemon-impl",
+    "daemon-tests",
+    "web-impl",
+    "web-tests",
+    "e2e-validate",
+    "doc-reconcile",
+    "review"
+  ],
+  "step_started_at": {
+    "e2e-specs": "2026-10-14T16:07:11Z",
+    "daemon-impl": "2026-10-14T18:09:51Z",
+    "web-impl": "2026-10-14T18:09:51Z",
+    "daemon-tests": "2026-10-14T16:42:44Z",
+    "web-tests": "2026-10-14T18:39:03Z",
+    "e2e-validate": "2026-10-14T17:09:23Z",
+    "review": "2026-10-14T20:34:25Z",
+    "doc-reconcile": "2026-10-14T20:50:29Z"
+  },
+  "step_finished_at": {
+    "e2e-specs": "2026-10-14T16:29:25Z",
+    "daemon-impl": "2026-10-14T18:38:28Z",
+    "daemon-tests": "2026-10-14T16:59:08Z",
+    "web-impl": "2026-10-14T18:38:28Z",
+    "web-tests": "2026-10-14T18:40:22Z",
+    "e2e-validate": "2026-10-14T17:43:38Z",
+    "review": "2026-10-14T21:18:28Z",
+    "doc-reconcile": "2026-10-14T20:53:15Z"
+  },
+  "step_attempts": {
+    "e2e-specs": [
+      {
+        "start": "2026-10-14T16:07:11Z",
+        "finish": "2026-10-14T16:29:25Z"
+      }
+    ],
+    "daemon-impl": [
+      {
+        "start": "2026-10-14T16:30:11Z",
+        "finish": "2026-10-14T16:42:25Z"
+      },
+      {
+        "start": "2026-10-14T18:09:51Z",
+        "finish": "2026-10-14T18:38:28Z"
+      }
+    ],
+    "web-impl": [
+      {
+        "start": "2026-10-14T16:30:11Z",
+        "finish": "2026-10-14T17:02:00Z"
+      },
+      {
+        "start": "2026-10-14T18:09:51Z",
+        "finish": "2026-10-14T18:38:28Z"
+      }
+    ],
+    "daemon-tests": [
+      {
+        "start": "2026-10-14T16:42:44Z",
+        "finish": "2026-10-14T16:59:02Z"
+      }
+    ],
+    "web-tests": [
+      {
+        "start": "2026-10-14T17:04:51Z",
+        "finish": "2026-10-14T17:09:05Z"
+      },
+      {
+        "start": "2026-10-14T18:39:03Z",
+        "finish": "2026-10-14T18:40:22Z"
+      }
+    ],
+    "e2e-validate": [
+      {
+        "start": "2026-10-14T17:09:23Z",
+        "finish": "2026-10-14T17:43:38Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-10-14T17:43:38Z",
+        "finish": "2026-10-14T18:09:05Z"
+      },
+      {
+        "start": "2026-10-14T18:52:38Z",
+        "finish": "2026-10-14T19:18:53Z"
+      },
+      {
+        "start": "2026-10-14T20:34:25Z",
+        "finish": "2026-10-14T20:50:02Z"
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-10-14T20:50:29Z",
+        "finish": "2026-10-14T20:53:15Z"
+      }
+    ]
+  },
+  "started_at": "2026-10-14T16:06:44Z",
+  "updated_at": "2026-10-14T21:18:28Z",
+  "review_parts": {
+    "1": [
+      "code",
+      "browser",
+      "maintainability"
+    ],
+    "2": [
+      "code",
+      "browser",
+      "maintainability"
+    ],
+    "3": [
+      "code"
+    ]
+  },
+  "review_verdicts": {
+    "1": "needs-changes",
+    "2": "needs-changes",
+    "3": "approved"
+  },
+  "review_commits": {
+    "1": "ba9342673c2287d446bf45ad970cb57d1f743a47",
+    "2": "a30c6b1863aad26e6d0c125a945d7fe9d5c7bd4a",
+    "3": "c1333e15f359f3768957f43a6746934e84680f6a"
+  },
+  "review_cycle": 3,
+  "closes_issues": [
+    56,
+    77,
+    84
+  ]
+}

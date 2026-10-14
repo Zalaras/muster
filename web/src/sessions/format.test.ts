@@ -9,6 +9,8 @@ import {
   formatTimer,
   formatTokens,
   GAUGE_WARN_THRESHOLD,
+  remainingSeconds,
+  remainingText,
 } from "./format";
 
 describe("elapsedSeconds", () => {
@@ -233,7 +235,9 @@ describe("formatResets (W2/REQ-4): same local day -> '(HH:MM)', else '(HH:MM Ddd
   it("uses the weekday of the reset day, not of now", () => {
     const now = new Date(localIso(2026, 7, 23, 9, 15));
     const resetsAt = localIso(2026, 7, 25, 6, 0);
-    const weekday = new Date(resetsAt).toLocaleDateString(undefined, { weekday: "short" });
+    const weekday = new Date(resetsAt).toLocaleDateString(undefined, {
+      weekday: "short",
+    });
     expect(formatResets(resetsAt, now)).toBe(`(06:00 ${weekday})`);
   });
 
@@ -272,5 +276,30 @@ describe("formatResetsTitle (REQ-12): the full local date and the same HH:MM as 
       expect(clock).toBeDefined();
       expect(formatResetsTitle(resetsAt)).toContain(clock as string);
     }
+  });
+});
+
+describe("remainingText", () => {
+  it.each([
+    [59.2, "1m"],
+    [59, "59s"],
+    [60, "1m"],
+    [60.5, "2m"],
+    [61, "2m"],
+    [120, "2m"],
+  ])("%s seconds reads %s", (seconds, text) => {
+    expect(remainingText(seconds)).toBe(text);
+  });
+});
+
+describe("remainingSeconds: the unclamped countdown mirror of elapsedSeconds", () => {
+  const now = new Date("2026-01-01T00:00:00Z");
+  it.each([
+    ["2026-01-01T00:05:00Z", 300],
+    ["2026-01-01T00:00:00Z", 0],
+    ["2025-12-31T23:59:30Z", -30],
+    ["2026-01-01T00:00:00.500Z", 0.5],
+  ])("until %s is %s seconds", (iso, seconds) => {
+    expect(remainingSeconds(iso, now)).toBe(seconds);
   });
 });

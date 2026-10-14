@@ -14,6 +14,7 @@ import {
   groupOf,
   groupsInRailOrder,
   headerCheckboxLabel,
+  headerTimer,
   moveSection,
   NEW_GROUP_CHOICE,
   NO_GROUP_CHOICE,
@@ -36,6 +37,10 @@ import {
   visibleCards,
 } from "./sections";
 import { makeSession } from "./testfixtures";
+
+const NOW = new Date("2026-08-22T00:00:10Z");
+const TIMER = "00:10";
+const UNKNOWN = { state: "unknown", fraction: 0, hover: "cache unknown" };
 
 const group = (id: number, pos: number, over: Partial<Group> = {}): Group => ({
   id,
@@ -669,25 +674,39 @@ describe("popoverModel (REQ-16)", () => {
         makeSession({ id: 2, title: "bump deps", state: "working" }),
         makeSession({ id: 3, title: "old one", state: "working", alive: false }),
       ]),
+      NOW,
     );
     expect(model).toEqual({
       name: "PR reviews",
       sessions: "3 sessions",
       rows: [
-        { state: "working", word: "working", n: 2, titles: ["fix flake", "bump deps"] },
-        { state: "ended", word: "ended", n: 1, titles: ["old one"] },
+        {
+          state: "working",
+          word: "working",
+          n: 2,
+          sessions: [
+            { title: "fix flake", timer: TIMER, warmth: UNKNOWN },
+            { title: "bump deps", timer: TIMER, warmth: UNKNOWN },
+          ],
+        },
+        {
+          state: "ended",
+          word: "ended",
+          n: 1,
+          sessions: [{ title: "old one", timer: TIMER, warmth: UNKNOWN }],
+        },
       ],
     });
   });
 
   it("an untitled session reads `untitled`, the one fallback every surface shares", () => {
-    const model = popoverModel(section([makeSession({ id: 1, title: null })]));
-    expect(model.rows[0]?.titles).toEqual(["untitled"]);
+    const model = popoverModel(section([makeSession({ id: 1, title: null })]), NOW);
+    expect(model.rows[0]?.sessions.map((r) => r.title)).toEqual(["untitled"]);
     expect(model.sessions).toBe("1 session");
   });
 
   it("an empty group has no rows, and says `0 sessions`", () => {
-    expect(popoverModel(section([]))).toEqual({
+    expect(popoverModel(section([]), NOW)).toEqual({
       name: "PR reviews",
       sessions: "0 sessions",
       rows: [],
@@ -775,5 +794,101 @@ describe("shared choice labels", () => {
   it("word the no-group and new-group choices the menus and the launch select both show", () => {
     expect(NO_GROUP_CHOICE).toBe("No group");
     expect(NEW_GROUP_CHOICE).toBe("New group…");
+  });
+});
+
+describe("popoverModel — row warmth (REQ-31)", () => {
+  it("carries each session's timer and warmth, unknown where cache is null", () => {
+    const cache = { expiresAt: "2026-08-22T00:30:00Z", ttlSeconds: 3600 };
+    const model = popoverModel(
+      {
+        id: 3,
+        key: "3",
+        name: "g",
+        pos: 0,
+        collapsed: false,
+        headed: true,
+        cards: [
+          makeSession({ id: 1, title: "warm", cache }),
+          makeSession({ id: 2, title: "plain", cache: null }),
+        ],
+      },
+      NOW,
+    );
+    const rows = model.rows[0]?.sessions;
+    expect(rows?.[0]?.warmth.state).toBe("warm");
+    expect(rows?.[1]?.warmth).toEqual(UNKNOWN);
+  });
+});
+
+describe("headerTimer (REQ-29/30, W4)", () => {
+  const section = (cards: Session[]): Section => ({
+    id: 3,
+    key: "3",
+    name: "g",
+    pos: 0,
+    collapsed: false,
+    headed: true,
+    cards,
+  });
+  const warm = { expiresAt: "2026-08-22T00:30:00Z", ttlSeconds: 3600 };
+  const cold = { expiresAt: "2026-08-22T00:00:05Z", ttlSeconds: 3600 };
+
+  it.each(["working", "started", "planning"] as const)("ignores a %s member", (state) => {
+    expect(headerTimer(section([makeSession({ id: 1, state, cache: warm })]), NOW)).toBeNull();
+  });
+
+  it("ignores an ended member even when its state was idle", () => {
+    const ended = makeSession({ id: 1, state: "idle", alive: false, cache: warm });
+    expect(headerTimer(section([ended]), NOW)).toBeNull();
+  });
+
+  it("an empty section has none", () => {
+    expect(headerTimer(section([]), NOW)).toBeNull();
+  });
+
+  it.each(["idle", "needs_input", "failed"] as const)("picks a %s member", (state) => {
+    expect(headerTimer(section([makeSession({ id: 1, state, cache: warm })]), NOW)).not.toBeNull();
+  });
+
+  it("picks the waiting member with the latest stateSince and tints by its warmth", () => {
+    const result = headerTimer(
+      section([
+        makeSession({ id: 1, stateSince: "2026-08-22T00:00:01Z", cache: cold }),
+        makeSession({ id: 2, stateSince: "2026-08-22T00:00:08Z", cache: warm }),
+        makeSession({
+          id: 3,
+          state: "working",
+          stateSince: "2026-08-22T00:00:09Z",
+          cache: cold,
+        }),
+      ]),
+      NOW,
+    );
+    expect(result?.text).toBe("00:02");
+    expect(result?.warmth.state).toBe("warm");
+    expect(result?.hover).toBe("1 of 2 warm · next cold in 30m");
+  });
+
+  it("every waiting member unknown reads cache unknown and the picked warmth is unknown", () => {
+    const result = headerTimer(section([makeSession({ id: 1, cache: null })]), NOW);
+    expect(result?.hover).toBe("cache unknown");
+    expect(result?.warmth).toEqual(UNKNOWN);
+  });
+
+  it("all known members cold reads all k cold", () => {
+    const result = headerTimer(
+      section([makeSession({ id: 1, cache: cold }), makeSession({ id: 2, cache: cold })]),
+      NOW,
+    );
+    expect(result?.hover).toBe("all 2 cold");
+  });
+
+  it("counts only known-warmth members in k", () => {
+    const result = headerTimer(
+      section([makeSession({ id: 1, cache: warm }), makeSession({ id: 2, cache: null })]),
+      NOW,
+    );
+    expect(result?.hover).toBe("1 of 1 warm · next cold in 30m");
   });
 });

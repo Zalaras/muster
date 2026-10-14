@@ -97,15 +97,15 @@ test("in attention sort Select shows a checkbox per card and per header and the 
   }
 });
 
-test("in manual sort a card in select mode has draggable false and the pin control hidden, and a drag moves nothing (REQ-12, REQ-24, E12)", async ({
+test("in manual sort a selected card in select mode is draggable and an unselected one is not, the pin control is hidden, and dragging an unselected card moves nothing (REQ-12, REQ-24, E12, plan rail-card-organise REQ-15)", async ({
   page,
   daemon,
 }) => {
   await page.goto(daemon.dashboardUrl);
   const { sessions, cleanup } = await launchTitled(page, daemon, ["e12m-a1", "e12m-b1", "e12m-u1"]);
   try {
-    const [a1, b1] = sessions;
-    if (!a1 || !b1) throw new Error("expected 3 sessions");
+    const [a1, b1, u1] = sessions;
+    if (!a1 || !b1 || !u1) throw new Error("expected 3 sessions");
     await createGroupViaApi(page, daemon, "Source", [a1.id]);
     const groupB = await createGroupViaApi(page, daemon, "Sink", [b1.id]);
     await expect(railSortSelect(page)).toHaveValue("manual");
@@ -114,23 +114,29 @@ test("in manual sort a card in select mode has draggable false and the pin contr
 
     await selectToggle(page).click();
     await cardCheckbox(page, "e12m-u1").check();
-    await expect(railCard(page, "e12m-u1")).toHaveAttribute("draggable", "false");
+    // Only the selected card drags now; every other card is not draggable.
+    await expect(railCard(page, "e12m-u1")).toHaveAttribute("draggable", "true");
     await expect(railCard(page, "e12m-a1")).toHaveAttribute("draggable", "false");
+    await expect(railCard(page, "e12m-b1")).toHaveAttribute("draggable", "false");
     await expect(pinButton(railCard(page, "e12m-u1"))).toBeHidden();
 
     const before = await railOrderIds(page);
     const net = trackMutations(page);
-    await railCard(page, "e12m-u1").dragTo(groupHead(page, groupB.id));
+    await railCard(page, "e12m-a1").dragTo(groupHead(page, groupB.id));
     await railCard(page, "e12m-a1").dragTo(railCard(page, "e12m-b1"));
     await settleFor(page, 800);
     expect(net.requests()).toEqual([]);
     expect(await railOrderIds(page)).toEqual(before);
+    expect(
+      (await getGroupsState(page, daemon)).sessions.find((s) => s.title === "e12m-a1")?.groupId,
+    ).not.toBeNull();
     expect(
       (await getGroupsState(page, daemon)).sessions.find((s) => s.title === "e12m-u1")?.groupId,
     ).toBeNull();
 
     await barButton(page, "Done").click();
     await expect(railCard(page, "e12m-u1")).toHaveAttribute("draggable", "true");
+    await expect(railCard(page, "e12m-a1")).toHaveAttribute("draggable", "true");
     await expect(pinButton(railCard(page, "e12m-u1"))).toBeVisible();
   } finally {
     await cleanup();

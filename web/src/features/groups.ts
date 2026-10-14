@@ -21,7 +21,7 @@ import {
   updateGroup,
 } from "../api/groups";
 import type { ApiResult } from "../api/http";
-import { putSessionsGroup } from "../api/sessions";
+import { putSessionOrder, putSessionsGroup } from "../api/sessions";
 import type { App, RenderFrame } from "../app";
 import { requireElement, requireElements } from "../dom";
 import { installDragReorder } from "../render/dragreorder";
@@ -74,6 +74,9 @@ export interface GroupsHandle {
   newGroup(): void;
   /** The Focus header's control: the Move to menu for `session`, `No group` in place of Ungrouped. */
   openMoveMenu(opener: HTMLElement, session: Session): void;
+  moveToEntries(session: Session, disabled: boolean): MenuEntry[];
+  moveSessions(ids: readonly number[], groupId: number | null): void;
+  reorderSection(ids: readonly number[], pinnedCount: number, groupId: number | null): void;
   /** `sessionId` is about to be focused: the filter resets to All if it hides that session's
    * section, and `expand` unfolds the section if it is collapsed. The caller renders. */
   reveal(sessionId: number, expand: boolean): void;
@@ -372,25 +375,36 @@ export function initGroups(app: App, deps: GroupsDeps): GroupsHandle {
     ]);
   });
 
+  function moveSessions(ids: readonly number[], groupId: number | null): void {
+    void putSessionsGroup(ids, groupId).then(settle);
+  }
+
+  function reorderSection(
+    ids: readonly number[],
+    pinnedCount: number,
+    groupId: number | null,
+  ): void {
+    void putSessionOrder(ids, pinnedCount, groupId).then(settle);
+  }
+
   /** Move to: every group (ticked when all of `sessions` share it), New group…, and the
    * no-group entry under the caller's own name for it. */
-  function openMoveMenuFor(
-    opener: HTMLElement,
+  function moveToEntries(
     sessions: readonly Session[],
     noGroupLabel: string,
-  ): void {
+    disabled: boolean,
+  ): MenuEntry[] {
     const ids = sessions.map((s) => s.id);
     const common = commonGroupId(sessions, app.state.groups);
-    const move = (groupId: number | null) => (): void => {
-      void putSessionsGroup(ids, groupId).then(settle);
-    };
-    menu.open(opener, [
+    const move = (groupId: number | null) => (): void => moveSessions(ids, groupId);
+    return [
       { kind: "header", label: MENU_LABELS.moveTo },
       ...groupsInRailOrder(app.state.groups).map(
         (g): MenuEntry => ({
           kind: "item",
           label: g.name,
           current: common === g.id,
+          disabled,
           onSelect: move(g.id),
         }),
       ),
@@ -398,11 +412,26 @@ export function initGroups(app: App, deps: GroupsDeps): GroupsHandle {
         kind: "item",
         label: MENU_LABELS.newGroup,
         current: false,
+        disabled,
         onSelect: () => dialogs.promptNewGroupFrom(ids),
       },
       { kind: "separator" },
-      { kind: "item", label: noGroupLabel, current: common === null, onSelect: move(null) },
-    ]);
+      {
+        kind: "item",
+        label: noGroupLabel,
+        current: common === null,
+        disabled,
+        onSelect: move(null),
+      },
+    ];
+  }
+
+  function openMoveMenuFor(
+    opener: HTMLElement,
+    sessions: readonly Session[],
+    noGroupLabel: string,
+  ): void {
+    menu.open(opener, moveToEntries(sessions, noGroupLabel, false));
   }
 
   // ── section headers: what the rail's rows call back into ───────────────────────────────────
@@ -450,6 +479,9 @@ export function initGroups(app: App, deps: GroupsDeps): GroupsHandle {
     toggleSelected: select.toggle,
     newGroup,
     openMoveMenu: (opener, session) => openMoveMenuFor(opener, [session], MENU_LABELS.noGroup),
+    moveToEntries: (session, disabled) => moveToEntries([session], MENU_LABELS.noGroup, disabled),
+    moveSessions,
+    reorderSection,
     reveal(sessionId, expand) {
       const all = sectionsNow();
       filter = filterForFocus(all, filter, sessionId);

@@ -29,6 +29,7 @@ import {
   type TileRenameHandlers,
 } from "../render/tiles";
 import { installDragReorder } from "../render/dragreorder";
+import type { CardMenuRequest } from "../render/sessions";
 import { captureFocusedControl, type FocusedControl } from "../render/focuskeep";
 import { reconcileKeyedOrder, type KeyedReorderEntry } from "../render/keyedreorder";
 import { mountSlotRoot } from "../render/slotmount";
@@ -60,6 +61,7 @@ export interface TilesDeps {
     activityFor(id: number): ShellActivityIndicator;
   };
   renameHandlers: TileRenameHandlers;
+  railMenu: { open(request: CardMenuRequest): void };
   /** `reader` is constructed after `tiles` (main.ts's init
    * order), so this is a thunk like `getSurfaces` above — invoked only from `renderView`. */
   getReader(): { rootFor(id: number): HTMLElement | null };
@@ -318,6 +320,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
 
     renderStrip(tilesStripEl, stripSessions, now, sessionCardTemplate, promoteSession, {
       onAction: deps.actions.dispatch,
+      onMenu: deps.railMenu.open,
       connected,
       railActivity: app.state.railActivity,
     });

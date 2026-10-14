@@ -490,6 +490,12 @@ type StatusLineFullOpts struct {
 	FiveHourResetsAt int64
 	SevenDayPct      float64
 	SevenDayResetsAt int64
+	PromptCache      *PromptCacheOpts
+}
+
+type PromptCacheOpts struct {
+	ExpiresAt int64
+	TTL       string
 }
 
 // farFutureResetsAt is a fixed, non-wall-clock-dependent Unix epoch second
@@ -571,6 +577,12 @@ func statusLineFullPayload(sessionID string, opts StatusLineFullOpts) map[string
 	}
 	if opts.SessionName != "" {
 		payload["session_name"] = opts.SessionName
+	}
+	if opts.PromptCache != nil {
+		payload["prompt_cache"] = map[string]any{
+			"warm": true, "ttl": opts.PromptCache.TTL, "expires_at": opts.PromptCache.ExpiresAt,
+			"caching_observed": true, "requests": 3,
+		}
 	}
 	return payload
 }

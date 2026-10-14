@@ -8,6 +8,7 @@
 #   --checks-only    run only the plan's ```checks block
 #   --baseline-only  run only the baseline gates
 #   --fresh          ignore the result ledger and re-run every gate for real
+#   --code-fingerprint  print the tree fingerprint outside plans/ that a full run records, and exit
 #   --wave N         the gate for one fix wave: that wave's build/test/e2e commands for the
 #                    side(s) the branch touched, plus every authored check the wave can reach
 #                    (wave 1 skips the test and e2e suites, wave 2 skips e2e, wave 3 runs all).
@@ -47,6 +48,13 @@ ORIG_ARGS=("$@")   # for the re-exec under the gate lock below
 PLAN="${1:-}"
 [[ -n "$PLAN" ]] || { echo "usage: gates.sh <plan> [--no-e2e] [--checks-only] [--baseline-only] [--fresh]" >&2; exit 2; }
 shift
+# The tree outside plans/, for orch-state.py's completion refusal: a full run records its fail
+# count against it (LAST, below), and committing the state or review files does not move it.
+code_fingerprint() {
+  { git ls-files -s -- ':!plans'; git diff HEAD -- ':!plans'
+    git ls-files --others --exclude-standard -- ':!plans' | while IFS= read -r f; do shasum -a 256 "$f"; done
+  } 2>/dev/null | shasum -a 256 | cut -d' ' -f1
+}
 RUN_E2E=1; RUN_BASELINE=1; RUN_CHECKS=1; RUN_FRESH=0; WAVE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -56,6 +64,7 @@ while [[ $# -gt 0 ]]; do
     --fresh) RUN_FRESH=1 ;;
     --wave) shift; WAVE="${1:-}" ;;
     --wave=*) WAVE="${1#*=}" ;;
+    --code-fingerprint) code_fingerprint; exit 0 ;;
     *) echo "unknown flag: $1" >&2; exit 2 ;;
   esac
   shift
@@ -349,6 +358,9 @@ fi
 echo
 WARNS=0; for r in "${RESULTS[@]}"; do [[ "$r" == WARN* ]] && WARNS=$((WARNS+1)); done
 echo "== summary: $((${#RESULTS[@]})) lines, $FAILS failed, $WARNS warn-only; logs in $LOG_DIR"
+if (( RUN_BASELINE && RUN_CHECKS )) && [[ -z "$WAVE" ]]; then
+  printf '%s\t%s\t%s\n' "$(code_fingerprint)" "$FAILS" "$NOW" > "${TMPDIR:-/tmp}/muster-gates-last-$PLAN.tsv"
+fi
 if (( FAILS )); then
   for r in "${RESULTS[@]}"; do [[ "$r" == FAIL* ]] && echo "  $r"; done
   exit 1

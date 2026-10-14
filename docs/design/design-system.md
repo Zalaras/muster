@@ -210,14 +210,14 @@ compact clamps the title and note to one line and drops the activity line, expan
 activity line run to as many lines as it needs. The gauge track renders in all three
 (kb:adr/rail-card-title-leads-and-density-ramp-corrected).
 The card whose session the Focus pane is currently showing carries **`current`**
-(plan `ui-text-and-focus`, REQ-1/REQ-2) — `--bg-hover` ground, a 1px inset `--edge` ring, its
-action row shown unconditionally (same reveal as hover/focus-within) — a neutral treatment,
+(plan `ui-text-and-focus`, REQ-1/REQ-2) — `--bg-hover` ground and a 1px inset `--edge` ring — a neutral treatment,
 no state colour, since state colours are already spoken for (§3). The strip (Tiles' snapshot
 copy of the rail card) never carries it — nothing in Tiles is "the session the Focus pane
 shows". The rail card's title is plain text, not a rename trigger — renaming happens from
 the Focus mainhead's heading or a tile's header in Tiles (REQ-13), one shared editor for
 both. In **select mode** (plan `groups`) every card gains a leading checkbox in the stripe
-column's gutter (`Select <title>`), loses `draggable` and hides its pin; a selected card
+column's gutter (`Select <title>`) and hides its pin; only a selected card stays draggable, and
+dragging it carries the whole selection (kb:adr/rail-cards-drag-in-both-sort-modes-selection-together); a selected card
 carries `.selected` — a neutral `--fg` stripe on `--bg-hover` ground, never a state colour (§3).
 
 **Section header** (`.ghead`, plan `groups`; reference `mockups/groups/a-sections-select-mode.html`) —
@@ -297,13 +297,16 @@ never `--amber` or `--rose`, because an available update is information, not a s
 (§3). Reference: the Settings modal in `mockups/a-instrument.html`.
 
 **Menu** (`render/menu.ts`, plan `groups`; kb:adr/web-menu-component-single-builder) — a
-`role="menu"` panel of `role="menuitem"` buttons anchored below its opener: `--bg-raised`
+`role="menu"` panel of `role="menuitem"` buttons anchored below its opener, or opened at the
+pointer for a card's right-click menu: `--bg-raised`
 ground, 1px `--line-control` border, sans `--fs-sm`, items `--fg` with `--bg-hover` on hover
 and focus, a danger item in `--danger`, separators `--line`, an uppercase mono `--fs-2xs`
-header row, a right-aligned mono chord hint. The opener carries `aria-haspopup="menu"` and
-`aria-expanded`; Escape, an outside pointerdown and a choice close it and return focus to the
-opener; arrow keys move focus. One builder serves the rail `⋯`, the header `⋯`, Move to and
-the mainhead group control.
+header row, a right-aligned mono chord hint. A button opener carries `aria-haspopup="menu"` and
+`aria-expanded`; a card's menu (right-click, the context-menu key or Shift+F10) is named
+`Actions for <title>` and its card carries neither. Escape, an outside pointerdown and a choice
+close it and return focus to the opener or card; arrow keys move focus. One builder serves the
+rail `⋯`, the header `⋯`, Move to, the mainhead group control and the card menu
+(kb:adr/rail-card-right-click-menu-holds-session-actions).
 
 **Popover** (`render/grouppopover.ts`) — a `role="tooltip"` panel below a section header after
 ~350 ms of hover or on the caret taking focus: `--bg-raised`, 1px `--edge` border,

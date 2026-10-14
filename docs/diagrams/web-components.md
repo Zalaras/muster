@@ -2,7 +2,7 @@
 id: web-components
 type: diagram
 status: active
-date: 2026-10-05
+date: 2026-10-14
 kind: component
 summary: The dashboard's modules by directory — two Vite entries over one app seam, features above render, derivation below, protocol at the bottom.
 features: []
@@ -46,13 +46,13 @@ C4Component
 
     Container_Boundary(dashboard, "Dashboard") {
         Boundary(ctl, "Entries and controllers") {
-            Component(main, "main.ts", "entry", "Dashboard composition root: inits 18 controllers, owns render order")
-            Component(features, "features/", "34 modules", "18 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload), 4 sub-controllers handed their elements by their owner (launch: launchresume, launchgroup; groups: groupsselect, groupsdialogs), plus 12 DOM-free helpers each owned by one controller")
+            Component(main, "main.ts", "entry", "Dashboard composition root: inits 19 controllers, owns render order")
+            Component(features, "features/", "36 modules", "19 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload), 4 sub-controllers handed their elements by their owner (launch: launchresume, launchgroup; groups: groupsselect, groupsdialogs), plus 13 DOM-free helpers each owned by one controller")
             Component(doc, "doc.ts", "entry", "Pop-out reader composition root")
             Component(wsapp, "wsapp.ts", "mapping", "The WS-to-app mapping both entries register, then layer their own handlers on top of")
         }
         Boundary(rnd, "Render and seam") {
-            Component(render, "render/", "37 modules", "DOM only — view-model in, DOM out; one menu builder serves every menu")
+            Component(render, "render/", "38 modules", "DOM only — view-model in, DOM out; one menu builder serves every menu")
             Component(app, "app.ts", "seam", "Session store, shared state (incl. ConnectionStatus), typed event bus, render phases")
         }
         Boundary(leaves, "Leaves") {
@@ -62,7 +62,7 @@ C4Component
             Component(terminal, "terminal/", "8 modules", "xterm.js surfaces, the per-terminal socket to musterd, shell key translation, drop wiring and the shell activity reducer")
             Component(dom, "dom.ts", "helpers", "Element lookup")
             Component(reader, "reader/", "10 modules", "Markdown render, nav tree, per-session memory")
-            Component(sessions, "sessions/", "14 modules", "Pure derivation — view-models, sort, rail sections, tile math, formatters, a path basename")
+            Component(sessions, "sessions/", "15 modules", "Pure derivation — view-models, sort, rail sections, tile math, formatters, a path basename")
             Component(theme, "theme.ts", "registry", "Theme choice; first-paint hint")
             Component(shortcuts, "shortcuts.ts", "pure", "Keyboard chord table")
             Component(storage, "storage.ts", "seam", "The one localStorage/sessionStorage read/write-JSON seam")

@@ -1,0 +1,449 @@
+{
+  "plan": "rail-card-organise",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-14T17:44:12Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 22,
+        "keep": 8,
+        "drop": 14
+      },
+      "keeps": [
+        {
+          "key": "internal/session/status.go:56bceb2ae212e8c9",
+          "path": "internal/session/status.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func applyStatusUpdate(sess *Session, update claudecode.StatusUpdate) bool {",
+            "line": 5
+          },
+          "lines": [
+            "// applyStatusUpdate mutates sess per kb:anchor/ws.session's value semantics: title, model,",
+            "// context and prompt-cache warmth refresh from a routed status-line post, plus the directory Claude reports",
+            "// (ClaudeDir), each adopted only when update carried it and only when it actually differs",
+            "// from the current value. Returns whether",
+            "// anything changed, so the caller only persists+broadcasts on a real change — status",
+            "// posts fire on every tool use, so a naive always-broadcast would spam sessionUpsert.",
+            "//",
+            "// This function's switch never reaches state/stateSince/attention/failure/alive/",
+            "// compactions/permissionMode/titleOverride: there is no code path here that touches them",
+            "// — Title always means Claude's last-known name, never the user's override, and callers",
+            "// needing the display-title (wire \"title\") distinction compare Session.DisplayTitle()",
+            "// themselves (Manager.ApplyStatus's persist-vs-broadcast split). Attention/Failure/Model/Context/Cache are treated as immutable",
+            "// snapshots elsewhere (Session.Clone's doc comment), so a changed field is always",
+            "// replaced with a fresh pointer, never mutated in place."
+          ],
+          "reason": "Edited on `main`; still true: `func applyStatusUpdate` adopts title, model, context, cache and ClaudeDir only when they differ and returns whether anything changed."
+        },
+        {
+          "key": "internal/session/writeorder.go:4c0b289643d3c348",
+          "path": "internal/session/writeorder.go",
+          "anchor": {
+            "kind": "above",
+            "text": "restoreIfUnchanged(\u0026cur.Model, post.Model, last.Model)",
+            "line": 228
+          },
+          "lines": [
+            "// Model/Context/Cache/Attention/Failure compare by pointer identity: a real change",
+            "// always allocates a fresh pointer rather than writing through the old one",
+            "// (applyBind's doc, machine.go; Session.Clone's own contract), so pointer",
+            "// equality is exactly \"unchanged since post\"."
+          ],
+          "reason": "Edited on `main`; still true: `restoreIfUnchanged(\u0026cur.Cache, post.Cache, last.Cache)` compares pointer fields by identity like Model and Context."
+        },
+        {
+          "key": "web/src/render/anchored.ts:9e9564abfd04339c",
+          "path": "web/src/render/anchored.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "/** Minimum distance kept between the panel and every viewport edge. */",
+            "line": 1
+          },
+          "lines": [
+            "// The one placement routine for a panel appended to `document.body` beside an anchor: below the",
+            "// anchor when it fits, above when it does not, and kept inside the viewport (or, for a right-click,",
+            "// at the pointer). Shared by the menu",
+            "// (`menu.ts`) and the group popover (`grouppopover.ts`); a caller whose panel is wider than the",
+            "// room to the anchor's right asks for `alignRight`, and the left edge is clamped either way."
+          ],
+          "reason": "Edited on `main`; still true: `placeAnchored` places below or above the anchor within the viewport and `placeAtPoint` handles the right-click case."
+        },
+        {
+          "key": "web/src/render/sessions.ts:7864df0fd36c66af",
+          "path": "web/src/render/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "onAction: (action: SessionAction, id: number) =\u003e void;",
+            "line": 33
+          },
+          "lines": [
+            "// Required, not optional: every real caller (features/rail.ts, features/tiles.ts) passes",
+            "// `deps.actions.dispatch` straight through — there is no card/strip render path that",
+            "// legitimately has no action handler. A card's only action control is its pin."
+          ],
+          "reason": "Edited on `main`; still true: `onAction` is required and the card's only action control is the pin button wired in `buildSessionCardElement`."
+        },
+        {
+          "key": "web/src/render/sessions.ts:6629215d307678ac",
+          "path": "web/src/render/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "const pinBtn = requireElement\u003cHTMLButtonElement\u003e(\".pin\", card);",
+            "line": 236
+          },
+          "lines": [
+            "// The pin button's aria-label/aria-pressed/title follow `pinned` on",
+            "// every pass. `data-action`/`data-id` let it participate in the existing",
+            "// `captureFocusedControl`/`restoreFocusedControl` contract unchanged",
+            "// (render/focuskeep.ts: \"an action button (data-action + data-id)\") — its focus",
+            "// survival needs no new code path, just this button carrying the same two attributes",
+            "// `buildActionButton` sets."
+          ],
+          "reason": "Edited on `main`; still true: `pinBtn` carries `data-action`/`data-id` and aria attributes following `vm.pinned`."
+        },
+        {
+          "key": "web/src/render/sessions.ts:3ff908c6aba9fc2c",
+          "path": "web/src/render/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "if (event.target !== card) return;",
+            "line": 288
+          },
+          "lines": [
+            "// This listener is on `.card`, but the pin button nests inside it and its own keydown",
+            "// (Enter/Space) bubbles up here. Without this guard, `event.preventDefault()` below would",
+            "// cancel the button's own activation. Only handle the key when the card itself is the",
+            "// target, i.e. it wasn't a nested control that already owns the key."
+          ],
+          "reason": "Without it a reader would drop the target check and let a nested pin button's Enter/Space bubble up; that cancels the button's activation via `event.preventDefault()` at `if (event.target !== card) return;`."
+        },
+        {
+          "key": "web/src/render/sessions.ts:fc6c9c49f6b3dc01",
+          "path": "web/src/render/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "const focused = options.pendingFocus ?? captureFocusedControl(container);",
+            "line": 350
+          },
+          "lines": [
+            "// A card moving between sections or the reorder itself can blur a",
+            "// focused card or action button (see render/focuskeep.ts / render/keyedreorder.ts for",
+            "// the measured mechanism) — captured up front, before either runs, preferring a",
+            "// caller-supplied pre-blur snapshot (`options.pendingFocus`'s doc comment) when one was",
+            "// handed in."
+          ],
+          "reason": "Edited on `main`; still true: `const focused = options.pendingFocus ?? captureFocusedControl(container);` captures focus before cards move or reorder."
+        },
+        {
+          "key": "web/src/sessions/railorder.ts:40c826472d1b15c9",
+          "path": "web/src/sessions/railorder.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function moveCard(",
+            "line": 35
+          },
+          "lines": [
+            "/**",
+            "* Drops `draggedId` onto `targetId` and returns the target section's new order, or `null` for a",
+            "* self-drop or when either id is absent (both are no-ops the caller should ignore, not a",
+            "* reorder). Never mutates `ordered`.",
+            "*",
+            "* Within one section it is `insertAtDragTarget`'s insert-and-shift. From another section the",
+            "* dragged card is not in the list yet, so it is inserted immediately before the target. Either",
+            "* way the dragged entry takes on the target's `pinned` value at the drop, so the result stays",
+            "* exactly as contiguous: it extends the target's block by one at the exact seam it was inserted,",
+            "* never straddling it.",
+            "*",
+            "* `carried` is every card the drag moves (a selection drag lists several, the dragged one among",
+            "* them; default just `draggedId`). The others ride with the dragged card: the whole set lands",
+            "* contiguously where the dragged card would land alone, in the cards' current display order, all",
+            "* taking the target's `pinned`. A drop onto a carried card is a no-op.",
+            "*/"
+          ],
+          "reason": "Edited on `main`; still true: `moveCard` returns the target section's new order, with `carried` riding with the dragged card and taking the target's pinned value."
+        }
+      ],
+      "drops": [
+        {
+          "key": "web/src/features/actions.ts:240015e70ea638ed",
+          "path": "web/src/features/actions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "inFlight(id: number): boolean;",
+            "line": 67
+          },
+          "lines": [
+            "/** Whether a Stop, Resume or Remove of `id` is awaiting the daemon's answer; the card menu",
+            "* disables its items for such a session. */"
+          ]
+        },
+        {
+          "key": "web/src/features/groups.ts:2e754b88ad25737f",
+          "path": "web/src/features/groups.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "moveToEntries(session: Session, disabled: boolean): MenuEntry[];",
+            "line": 77
+          },
+          "lines": [
+            "/** Move to's entries for one session, for a menu that lists them among its own (the card",
+            "* menu): every one disabled while `disabled`. */"
+          ]
+        },
+        {
+          "key": "web/src/features/groups.ts:27819344ae43f327",
+          "path": "web/src/features/groups.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "moveSessions(ids: readonly number[], groupId: number | null): void;",
+            "line": 78
+          },
+          "lines": [
+            "/** Moves `ids` to the end of a group (`null` = Ungrouped), the pin flag kept; a refusal shows in",
+            "* the action-error line. The one path a Move to choice and an attention-order drop both take. */"
+          ]
+        },
+        {
+          "key": "web/src/features/groups.ts:79116fe7154ddea0",
+          "path": "web/src/features/groups.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "reorderSection(ids: readonly number[], pinnedCount: number, groupId: number | null): void;",
+            "line": 79
+          },
+          "lines": [
+            "/** A manual-order drop among a section's cards: `PUT /api/sessions/order` with its group. */"
+          ]
+        },
+        {
+          "key": "web/src/render/anchored.ts:86fd7bcc8169330e",
+          "path": "web/src/render/anchored.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function placeAtPoint(panel: HTMLElement, point: { x: number; y: number }): void {",
+            "line": 29
+          },
+          "lines": [
+            "/** Places `panel` with its corner at a viewport point (a right-click), shifted back inside the",
+            "* viewport when it would run past an edge. */"
+          ]
+        },
+        {
+          "key": "web/src/render/grouppopover.ts:5ca01f726e000043",
+          "path": "web/src/render/grouppopover.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function buildRow(row: PopoverModel[\"rows\"][number]): HTMLElement {",
+            "line": 25
+          },
+          "lines": [
+            "/** One state's row: its header line (dot, word, count), then each session in it as a `.pl` line —",
+            "* its title (`.pt`) and, beside it, its state timer tinted by cache warmth (no hover: the panel is",
+            "* itself a tooltip). */"
+          ]
+        },
+        {
+          "key": "web/src/render/menu.ts:2a4b20da94b9275a",
+          "path": "web/src/render/menu.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "at?: { x: number; y: number };",
+            "line": 29
+          },
+          "lines": [
+            "/** Opens at a viewport point (a right-click) rather than under the opener. The opener is then",
+            "* only where focus returns: it takes no `aria-expanded`, a second open replaces the menu",
+            "* instead of closing it, and a pointerdown on the opener counts as outside. */"
+          ]
+        },
+        {
+          "key": "web/src/render/menu.ts:db459e8f22692286",
+          "path": "web/src/render/menu.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "label?: string;",
+            "line": 30
+          },
+          "lines": [
+            "/** The panel's accessible name, taking the place of the first header's. */"
+          ]
+        },
+        {
+          "key": "web/src/render/sessions.ts:56a9337f5422cfaa",
+          "path": "web/src/render/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface CardMenuRequest {",
+            "line": 18
+          },
+          "lines": [
+            "/** A card asking for its menu: the card (where focus returns) and the viewport point the menu",
+            "* opens at — the pointer for a right-click, just under the card's top-left for the keyboard. */"
+          ]
+        },
+        {
+          "key": "web/src/render/sessions.ts:43fca6854bab300e",
+          "path": "web/src/render/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "draggable: boolean;",
+            "line": 36
+          },
+          "lines": [
+            "/** Rail cards are draggable in both sort orders outside select mode",
+            "* (kb:adr/rail-cards-drag-in-both-sort-modes-selection-together); every strip card is not —",
+            "* the caller decides, per its own context. In select mode the caller passes `false` and a",
+            "* card is draggable exactly while it is selected. */"
+          ]
+        },
+        {
+          "key": "web/src/render/sessions.ts:8387344179fbbefb",
+          "path": "web/src/render/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "selection?: CardSelection | undefined;",
+            "line": 42
+          },
+          "lines": [
+            "/** Select mode: a checkbox per card, the card carrying `.selected` while its id is in",
+            "* `selectedIds`. Absent outside select mode and on every strip card — the checkbox is then",
+            "* removed, never hidden. */"
+          ]
+        },
+        {
+          "key": "web/src/sessions/card.ts:81601a357f87b829",
+          "path": "web/src/sessions/card.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export type CardAction = \"Stop\" | \"Resume\" | \"Remove\";",
+            "line": 14
+          },
+          "lines": [
+            "/** The label of a Stop, Resume or Remove button — the exact text a test locator matches. The",
+            "* Focus mainhead, a tile footer and the dead surface carry them; a rail or strip card carries",
+            "* none (its right-click menu offers them). */"
+          ]
+        },
+        {
+          "key": "web/src/sessions/railorder.ts:b0a184bf495f10d8",
+          "path": "web/src/sessions/railorder.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function planDrop(",
+            "line": 79
+          },
+          "lines": [
+            "/**",
+            "* The request a drop makes, or `null` when it changes nothing. `ordered` is every card with its",
+            "* section (manual display order, so a multi-card drop lists the cards in the order they show).",
+            "* A header or body drop is a group-only move in both sort orders. A drop onto a card is a section",
+            "* reorder in manual order, and in attention order — where position is the sort's, not the",
+            "* developer's — a group-only move into that card's section, so a drop inside the cards' own section",
+            "* is nothing.",
+            "*/"
+          ]
+        },
+        {
+          "key": "web/src/sessions/sections.ts:67b31ab370d9476d",
+          "path": "web/src/sessions/sections.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface PopoverModel {",
+            "line": 297
+          },
+          "lines": [
+            "/** What a header's hover popover lists: the group's name and `n sessions`, then one row per",
+            "* state present with that state's sessions, each a title and its state timer. An empty group has",
+            "* no rows (the popover says `empty`). */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-10-14T18:53:01Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 3,
+        "keep": 0,
+        "drop": 3
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "web/src/render/sessions.ts:c7968db596e2066e",
+          "path": "web/src/render/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "draggable: (id: number) =\u003e boolean;",
+            "line": 39
+          },
+          "lines": [
+            "/** Whether this card's drag handle is live — the caller's whole answer, asked per id",
+            "* so a mode that drags only some cards (a selection) is decided where the mode lives. */"
+          ]
+        },
+        {
+          "key": "web/src/sessions/format.ts:f4f4a0744fe4d82e",
+          "path": "web/src/sessions/format.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function remainingSeconds(untilIso: string, now: Date): number {",
+            "line": 20
+          },
+          "lines": [
+            "/** Seconds from `now` until `untilIso` — the countdown mirror of `elapsedSeconds`, unclamped",
+            "* so a past instant reads negative and a caller can tell \"already cold\" from \"cold soon\". */"
+          ]
+        },
+        {
+          "key": "web/src/sessions/format.ts:dc1848d27a37164d",
+          "path": "web/src/sessions/format.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function remainingText(seconds: number): string {",
+            "line": 24
+          },
+          "lines": [
+            "/** A countdown in one bucket (\"45s\", \"3m\"), rounded up so it never reads earlier than the",
+            "* moment it names — the cache-warmth hovers' \"cold in …\". */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 3,
+      "at": "2026-10-14T21:25:10Z",
+      "by": "orchestrator",
+      "counts": {
+        "candidates": 1,
+        "keep": 0,
+        "drop": 1
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "test/canary/canary_test.go:ef522c83c0e28bb7",
+          "path": "test/canary/canary_test.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func TestPromptCacheExpiryIsStopPlusTTL(t *testing.T) {",
+            "line": 459
+          },
+          "lines": [
+            "// TestPromptCacheExpiryIsStopPlusTTL guards kb:fact/prompt-cache-status-shape (REQ-33): after",
+            "// run D's first turn a status post carries a prompt_cache that Muster's interpreter accepts,",
+            "// and its expires_at is that turn's Stop plus the interpreted ttl. The ttl is read through",
+            "// claudecode.InterpretStatus, never assumed to be an hour (kb:fact/haiku-main-cache-ttl-5m-on-2-1-299).",
+            "// The 15 s tolerance covers the measured spread: across 21 captured sessions the first post at or",
+            "// after a Stop had expires_at between 9.0 s before and 0.8 s before Stop plus the ttl. Only the",
+            "// pre-/clear session is read, and the first post carrying the key, so a later turn's request",
+            "// cannot move the expiry under the assertion."
+          ]
+        }
+      ]
+    }
+  ]
+}

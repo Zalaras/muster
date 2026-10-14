@@ -2,6 +2,8 @@ package claudecode
 
 import (
 	"encoding/json"
+	"math"
+	"strconv"
 	"time"
 )
 
@@ -9,14 +11,20 @@ import (
 // (docs/history/spikes/canary-fields.md § "Status-line payload" is the field inventory this
 // implements against — this is the only function in Muster that reads them).
 type statusPayload struct {
-	SessionName   *string           `json:"session_name"`
-	Model         *statusModel      `json:"model"`
-	ContextWindow *statusContext    `json:"context_window"`
-	RateLimits    *statusRateLimits `json:"rate_limits"`
+	SessionName   *string            `json:"session_name"`
+	Model         *statusModel       `json:"model"`
+	ContextWindow *statusContext     `json:"context_window"`
+	RateLimits    *statusRateLimits  `json:"rate_limits"`
+	PromptCache   *statusPromptCache `json:"prompt_cache"`
 	Workspace     *struct {
 		CurrentDir string `json:"current_dir"`
 	} `json:"workspace"`
 	Cwd string `json:"cwd"`
+}
+
+type statusPromptCache struct {
+	ExpiresAt json.RawMessage `json:"expires_at"`
+	TTL       json.RawMessage `json:"ttl"`
 }
 
 type statusModel struct {
@@ -62,6 +70,11 @@ type StatusContext struct {
 	WindowSize       int64
 }
 
+type StatusCache struct {
+	ExpiresAt  time.Time
+	TTLSeconds int64
+}
+
 // StatusBucket is one neutral usage-limit readout (five-hour or seven-day) with the
 // wire's epoch reset time already converted to UTC (kb:fact/rate-limits-wire-shape).
 type StatusBucket struct {
@@ -89,6 +102,7 @@ type StatusUpdate struct {
 	Model   *StatusModel
 	Context *StatusContext
 	Account *StatusAccount
+	Cache   *StatusCache
 	// Cwd is the directory Claude reports working in (workspace.current_dir, else the
 	// top-level cwd); nil when neither is non-empty.
 	Cwd *string
@@ -127,6 +141,8 @@ func InterpretStatus(payload []byte) StatusUpdate {
 		}
 	}
 
+	out.Cache = interpretPromptCache(p.PromptCache)
+
 	// A sample is produced only when rate_limits is present, and only when the model
 	// object is present in the same payload — a sample is never recorded with a
 	// stale/last-known model.
@@ -154,4 +170,40 @@ func statusDir(p statusPayload) string {
 		return p.Workspace.CurrentDir
 	}
 	return p.Cwd
+}
+
+func interpretPromptCache(pc *statusPromptCache) *StatusCache {
+	if pc == nil {
+		return nil
+	}
+	expires, err := strconv.ParseInt(string(pc.ExpiresAt), 10, 64)
+	if err != nil {
+		return nil
+	}
+	var ttl string
+	if json.Unmarshal(pc.TTL, &ttl) != nil {
+		return nil
+	}
+	seconds, ok := parseCacheTTL(ttl)
+	if !ok {
+		return nil
+	}
+	return &StatusCache{ExpiresAt: time.Unix(expires, 0).UTC(), TTLSeconds: seconds}
+}
+
+var cacheTTLUnits = map[byte]int64{'s': 1, 'm': 60, 'h': 3600}
+
+func parseCacheTTL(ttl string) (int64, bool) {
+	if len(ttl) < 2 {
+		return 0, false
+	}
+	unit, ok := cacheTTLUnits[ttl[len(ttl)-1]]
+	if !ok {
+		return 0, false
+	}
+	n, err := strconv.ParseUint(ttl[:len(ttl)-1], 10, 63)
+	if err != nil || n == 0 || int64(n) > math.MaxInt64/unit {
+		return 0, false
+	}
+	return int64(n) * unit, true
 }

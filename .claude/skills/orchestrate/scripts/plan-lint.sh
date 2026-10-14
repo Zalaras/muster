@@ -239,5 +239,13 @@ if (( nfeat > 5 )); then
   echo "NOTE  **Features** names $nfeat features — a feature whose behaviour this plan leaves alone belongs under **Touches** (spec and contract only)"
 fi
 
+# 16. The tree passes check-kb at approval, bar the plan's own new files (check 12 notes those):
+#     rail-card-organise's planning facts sat above the version ceiling, red through two review cycles.
+while IFS= read -r l; do
+  [[ -z $l || $l == kb:* ]] && continue
+  [[ $l == *"owned by no feature"* ]] && grep -qF -- "${l%%:*}" "$P" && continue
+  note "check-kb: ${l:0:160}"
+done <<< "$(go tool kb check 2>&1)"
+
 if (( FAILS )); then echo "plan-lint: $FAILS failure(s) in $P"; exit 1; fi
 echo "plan-lint: $P clean"

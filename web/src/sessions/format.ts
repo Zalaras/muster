@@ -17,6 +17,15 @@ export function elapsedSeconds(sinceIso: string, now: Date): number {
   return Math.max(0, Math.floor((now.getTime() - since) / 1000));
 }
 
+export function remainingSeconds(untilIso: string, now: Date): number {
+  return (Date.parse(untilIso) - now.getTime()) / 1000;
+}
+
+export function remainingText(seconds: number): string {
+  const whole = Math.ceil(seconds);
+  return whole >= 60 ? `${Math.ceil(whole / 60)}m` : `${whole}s`;
+}
+
 /** The ticking rail-card timer. MM:SS under an hour, then `Nh`, then `Nd` — precision
  * that stops mattering past the first hour. */
 export function formatTimer(sinceIso: string, now: Date): string {

@@ -2,7 +2,7 @@
 id: prompt-cache-status-shape
 type: fact
 status: active
-date: 2026-10-13
+date: 2026-10-14
 summary: Status-line prompt_cache gives the main thread's cache — warm, ttl "1h", expires_at in epoch seconds a TTL after the last request; absent until a request.
 features: [usage]
 tags: [claude-code-format]
@@ -10,7 +10,7 @@ files: []
 tests: []
 refs: [test/rig/captures/capture-3.jsonl, test/rig/captures/capture-9.jsonl, test/rig/captures/capture-6.jsonl, kb:fact/status-line-keys, kb:fact/subagent-cache-ttl-5m, "#84"]
 verified: 2.1.259..2.1.296
-guard: none
+guard: TestPromptCacheExpiryIsStopPlusTTL
 ---
 ```json
 "prompt_cache": {

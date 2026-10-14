@@ -8,7 +8,7 @@
 // opens and discarded when it closes, so the 1s render tick never touches it, and the opener — a
 // control the caller reuses across passes — only has its `aria-expanded` written.
 
-import { placeAnchored } from "./anchored";
+import { placeAnchored, placeAtPoint } from "./anchored";
 
 export type MenuEntry =
   | {
@@ -25,9 +25,14 @@ export type MenuEntry =
   | { kind: "separator" }
   | { kind: "header"; label: string };
 
+export interface MenuOpenOptions {
+  at?: { x: number; y: number };
+  label?: string;
+}
+
 export interface Menu {
   /** Opens `entries` under `opener`, or closes the menu if `opener` already has it open. */
-  open(opener: HTMLElement, entries: readonly MenuEntry[]): void;
+  open(opener: HTMLElement, entries: readonly MenuEntry[], options?: MenuOpenOptions): void;
   /** Closes the open menu. `restoreFocus` returns focus to the opener (Escape, a choice); an
    * outside click or a status change leaves focus where the user put it. */
   close(restoreFocus?: boolean): void;
@@ -65,10 +70,12 @@ function buildItem(entry: Extract<MenuEntry, { kind: "item" }>, ticks: boolean):
 function buildPanel(
   entries: readonly MenuEntry[],
   onChoose: (entry: () => void) => void,
+  label: string | undefined,
 ): HTMLElement {
   const panel = document.createElement("div");
   panel.className = "menu";
   panel.setAttribute("role", "menu");
+  if (label !== undefined) panel.setAttribute("aria-label", label);
   const ticks = entries.some((e) => e.kind === "item" && e.current !== undefined);
   for (const entry of entries) {
     if (entry.kind === "separator") {
@@ -81,7 +88,7 @@ function buildPanel(
       header.className = "hdr";
       header.setAttribute("role", "presentation");
       header.textContent = entry.label;
-      panel.setAttribute("aria-label", entry.label);
+      if (label === undefined) panel.setAttribute("aria-label", entry.label);
       panel.append(header);
     } else {
       const item = buildItem(entry, ticks);
@@ -114,6 +121,7 @@ function onPanelKeydown(panel: HTMLElement, event: KeyboardEvent): void {
 interface OpenMenu {
   panel: HTMLElement;
   opener: HTMLElement;
+  atPoint: boolean;
   dispose: () => void;
 }
 
@@ -126,30 +134,44 @@ export function createMenu(): Menu {
     current = null;
     open.dispose();
     open.panel.remove();
-    open.opener.setAttribute("aria-expanded", "false");
+    if (!open.atPoint) open.opener.setAttribute("aria-expanded", "false");
     if (restoreFocus && open.opener.isConnected) open.opener.focus();
   }
 
-  function open(opener: HTMLElement, entries: readonly MenuEntry[]): void {
-    if (current?.opener === opener) {
+  function open(
+    opener: HTMLElement,
+    entries: readonly MenuEntry[],
+    options: MenuOpenOptions = {},
+  ): void {
+    const { at, label } = options;
+    if (at === undefined && current?.opener === opener) {
       close(true);
       return;
     }
     close();
     // Close first (focus back on the opener) and only then run the choice, so a choice that
     // moves focus on — Rename's field, a dialog — is not undone by the close.
-    const panel = buildPanel(entries, (choose) => {
-      close(true);
-      choose();
-    });
+    const panel = buildPanel(
+      entries,
+      (choose) => {
+        close(true);
+        choose();
+      },
+      label,
+    );
     document.body.append(panel);
-    placeAnchored(panel, opener, { alignRight: true });
-    opener.setAttribute("aria-haspopup", "menu");
-    opener.setAttribute("aria-expanded", "true");
+    if (at === undefined) {
+      placeAnchored(panel, opener, { alignRight: true });
+      opener.setAttribute("aria-haspopup", "menu");
+      opener.setAttribute("aria-expanded", "true");
+    } else {
+      placeAtPoint(panel, at);
+    }
 
     const onPointerDown = (event: PointerEvent): void => {
       const target = event.target;
-      if (target instanceof Node && (panel.contains(target) || opener.contains(target))) return;
+      if (!(target instanceof Node)) return;
+      if (panel.contains(target) || (at === undefined && opener.contains(target))) return;
       close();
     };
     const onKeydown = (event: KeyboardEvent): void => {
@@ -171,13 +193,20 @@ export function createMenu(): Menu {
     current = {
       panel,
       opener,
+      atPoint: at !== undefined,
       dispose: () => {
         document.removeEventListener("pointerdown", onPointerDown, true);
         window.removeEventListener("resize", onViewportChange);
         document.removeEventListener("scroll", onViewportChange, true);
       },
     };
-    enabledItems(panel)[0]?.focus();
+    const first = enabledItems(panel)[0];
+    if (first) {
+      first.focus();
+    } else {
+      panel.tabIndex = -1;
+      panel.focus();
+    }
   }
 
   return { open, close, isOpen: () => current !== null };
