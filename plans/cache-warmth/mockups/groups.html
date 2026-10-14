@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>#84 — cache warmth on the group header</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+.opt { width: 340px; }
+.rail { width: 340px; }
+.sub { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--edge); margin: 14px 0 4px; }
+
+/* A · time left in the popover */
+.pop .pt.w { display: flex; gap: 10px; }
+.pop .pt.w .t { overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.pop .pt.w .left { flex: none; font-family: var(--mono); font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; color: var(--fg-dim); }
+.pop .pt.w .left.cooling { color: var(--fg); }
+.pop .pt.w .left.cold { color: var(--disabled-fg); }
+
+/* B · cooling chip in the summary */
+.chip { flex: none; padding: 1px 5px; border: 1px solid var(--edge); color: var(--fg); font-family: var(--mono); font-size: var(--fs-2xs); letter-spacing: 0.02em; }
+
+/* C · cold sessions get a hollow dot */
+.gsum .dot.hollow { background: transparent; border: 1.5px solid var(--idle); }
+
+/* D · soonest-expiry bar along the header's bottom edge */
+.gbar { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
+.gbar i { position: absolute; inset: 0 auto 0 0; background: var(--fg); }
+.gbar.calm i { background: var(--fg-dim); }
+</style></head><body>
+<h1>#84 · Cache warmth on the group header</h1>
+<p class="lead">Each option shows two collapsed groups. <b>ledger</b> has five sessions: one working, one waiting on input (cache 52m left), and three idle: 41m left, 6m left, and cold. <b>muster</b> has three, all warm with 30m or more left. The header's hover popover is drawn open under <b>ledger</b>. Today's header is shown first for reference. "Cooling" means under 10 minutes left. No state colour is used for warmth.</p>
+
+<div class="opts" id="opts"></div>
+
+<script>
+const LEDGER = [
+  { st: 'needs_input', name: 'auth-jwt-rotation', left: 52 },
+  { st: 'working', name: 'payments-refactor', left: null },
+  { st: 'idle', name: 'flaky-e2e-hunt', left: 41 },
+  { st: 'idle', name: 'docs-reconcile-pass', left: 6 },
+  { st: 'idle', name: 'readme-tidy', left: 0 },
+];
+const ST = [['needs_input', 'needs input'], ['working', 'working'], ['idle', 'idle']];
+
+function sum(opt, members, chip) {
+  let h = `<span class="cnt">${members.length}</span>`;
+  for (const [st] of ST) {
+    const m = members.filter(x => x.st === st);
+    if (!m.length) continue;
+    if (opt === 'C' && st === 'idle') {
+      const warm = m.filter(x => x.left !== 0).length, cold = m.length - warm;
+      if (warm) h += `<span class="st" data-state="idle"><span class="dot"></span>${warm}</span>`;
+      if (cold) h += `<span class="st" data-state="idle"><span class="dot hollow"></span>${cold}</span>`;
+      continue;
+    }
+    h += `<span class="st" data-state="${st}"><span class="dot"></span>${m.length}</span>`;
+  }
+  return (opt === 'B' && chip ? `<span class="chip">${chip}</span>` : '') + h;
+}
+function head(opt, name, members, chip, bar) {
+  const b = opt === 'D' && bar ? `<div class="gbar ${bar.calm ? 'calm' : ''}"><i style="width:${bar.w}%"></i></div>` : '';
+  return `<div class="ghead collapsed"><span class="disc"></span><span class="gname">${name}</span><span class="gsum">${sum(opt, members, chip)}</span><span class="kebab">⋯</span>${b}</div>`;
+}
+function leftLabel(x) {
+  if (x.left === null) return '<span class="left">live</span>';
+  if (x.left === 0) return '<span class="left cold">cold</span>';
+  return `<span class="left ${x.left < 10 ? 'cooling' : ''}">${x.left}m</span>`;
+}
+function pop(opt) {
+  let h = `<div class="pop"><div class="ph">ledger<span>5 sessions</span></div>`;
+  for (const [st, word] of ST) {
+    const m = LEDGER.filter(x => x.st === st);
+    if (!m.length) continue;
+    h += `<div class="pr" data-state="${st}"><div class="prh"><i class="dot"></i><b>${word}</b><span>${m.length}</span></div>`;
+    for (const x of m) {
+      h += opt === 'A'
+        ? `<div class="pt w"><span class="t">${x.name}</span>${leftLabel(x)}</div>`
+        : `<div class="pt">${x.name}</div>`;
+    }
+    h += '</div>';
+  }
+  if (opt === 'B') h += `<div class="pt" style="padding-left:12px;margin-top:4px;color:var(--fg)">docs-reconcile-pass goes cold in 6m</div>`;
+  return h + '</div>';
+}
+const MUSTER = [{ st: 'idle', left: 48 }, { st: 'idle', left: 33 }, { st: 'working', left: null }];
+const OPTS = [
+  { k: 'today', h: 'Today (reference)', cap: '<b>Today:</b> count, then a dot and number per state; hover lists titles by state.' },
+  { k: 'A', h: 'A · Time left in the popover', cap:
+    '<b>Look:</b> the header is unchanged; hovering lists each session with its cache time left (white under 10m, grey when cold).<br>' +
+    '<span class="pro">+ no new clutter; reuses a hover you already make</span><br>' +
+    '<span class="con">− invisible until you think to hover</span>' },
+  { k: 'B', h: 'B · "Cooling" chip', cap:
+    '<b>Look:</b> a small outlined chip, "1 cooling", appears only while a member has under 10m left; the popover names which one.<br>' +
+    '<span class="pro">+ shows only when there is something to do; no hover needed</span><br>' +
+    '<span class="con">− one more item in a tight header; the 10m threshold is a judgement call</span>' },
+  { k: 'C', h: 'C · Hollow dots for cold', cap:
+    '<b>Look:</b> idle splits into a filled dot (warm) and a hollow dot (cold): ledger reads "idle 2 · cold 1".<br>' +
+    '<span class="pro">+ no new element</span><br>' +
+    '<span class="con">− overloads 7 px dots; shows cold but not "about to go cold"</span>' },
+  { k: 'D', h: 'D · Soonest-expiry bar', cap:
+    '<b>Look:</b> a 2 px bar on the header\'s bottom edge, its length the time left on the member that goes cold first (ledger: 6m of 60). Brighter once under 10m.<br>' +
+    '<span class="pro">+ visible collapsed, at a glance</span><br>' +
+    '<span class="con">− one bar for many sessions is ambiguous; may read as a loading bar</span>' },
+];
+document.getElementById('opts').innerHTML = OPTS.map(o =>
+  `<div class="opt"><h2>${o.h}</h2><div class="rail"><div class="railhead"><span>Attention ▾</span><span class="n">8</span></div>` +
+  head(o.k, 'ledger', LEDGER, '1 cooling', { w: 10 }) +
+  head(o.k, 'muster', MUSTER, null, { w: 55, calm: true }) +
+  `</div><div class="sub">hovering ledger</div>${pop(o.k)}<p class="cap">${o.cap}</p></div>`).join('');
+</script>
+</body></html>

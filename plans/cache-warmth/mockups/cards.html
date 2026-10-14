@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>#84 — cache warmth on the rail card</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+/* 1 · timer fade — strength, never a state colour */
+.o1 .warm .timer { color: var(--fg-muted); }
+.o1 .cooling .timer { color: var(--fg-dim); opacity: 0.6; text-decoration: underline dotted; text-underline-offset: 3px; }
+.o1 .cold .timer { color: var(--disabled-fg); }
+
+
+/* 2 · draining ring beside the timer */
+.ring { flex: none; align-self: center; width: 12px; height: 12px; margin-left: auto; }
+.ring + .timer { margin-left: 0; }
+.ring circle { fill: none; stroke-width: 2; }
+.ring .bg { stroke: var(--line-control); }
+.ring .fg { stroke: var(--fg-muted); transform: rotate(-90deg); transform-origin: 6px 6px; }
+.ring.cold .bg { stroke: var(--line-control); stroke-dasharray: 2 2; }
+
+/* 3 · countdown between turns */
+.o3 .timer .dir { color: var(--fg-dim); font-size: var(--fs-2xs); letter-spacing: 0.04em; }
+.o3 .cooling .timer { color: var(--fg); }
+.o3 .cold .timer { color: var(--disabled-fg); }
+
+/* 4 · draining bar along the card's bottom edge */
+.wbar { position: absolute; left: 3px; right: 0; bottom: -1px; height: 2px; background: transparent; }
+.wbar i { position: absolute; inset: 0 auto 0 0; background: var(--fg-muted); }
+.cooling .wbar i { background: var(--fg); }
+</style></head><body>
+<h1>#84 · Cache warmth on the rail card</h1>
+<p class="lead">The same six sessions in each rail. Grey labels on the left say what the cache is doing; they are not part of the design. Warmth comes from the status line's <code>prompt_cache.expires_at</code> (the last main-thread request + 1 h), so <i>left</i> = expiry − now. Working refreshes the cache all the time; the started card has had no reply yet, so its warmth is unknown. One card per option has its hover tip drawn open. No state colour is used for warmth anywhere (amber means Needs Input).</p>
+
+<div class="opts" id="opts"></div>
+
+<script>
+// left = minutes until expiry; idle = minutes in state. warmth: warm | cooling (<10m) | cold | live | unknown
+const S = [
+  { k: 'live',    lbl: 'working · always warm', cls: 's-work',    badge: 'working',     timer: '02:31', name: 'payments-refactor', repo: 'mdrostering / develop', ctx: 77, tok: '154k' },
+  { k: 'warm',    lbl: 'needs input · 52m left', cls: 's-blocked', badge: 'needs input', timer: '04:12', name: 'auth-jwt-rotation', repo: 'ledger-api / wt-auth', ctx: 19, tok: '38k', left: 52, note: 'needs your permission — 04:12' },
+  { k: 'warm',    lbl: 'idle 19m · 41m left',   cls: 's-idle unread', badge: 'idle',     timer: '19m',   name: 'flaky-e2e-hunt', repo: 'muster / feat-e2e', ctx: 42, tok: '84k', left: 41 },
+  { k: 'cooling', lbl: 'idle 54m · 6m left',    cls: 's-idle',    badge: 'idle',        timer: '54m',   name: 'docs-reconcile-pass', repo: 'muster / main', ctx: 31, tok: '62k', left: 6, tip: true },
+  { k: 'cold',    lbl: 'idle 3h · cold',        cls: 's-idle',    badge: 'idle',        timer: '3h',    name: 'readme-tidy', repo: 'muster / main', ctx: 12, tok: '24k', left: 0 },
+  { k: 'unknown', lbl: 'started · no reply yet', cls: 's-start',  badge: 'started',     timer: '00:08', name: 'spec-research', repo: 'ccc-spike / —', unk: true },
+];
+const recache = { 52: '38k', 41: '44k', 6: '41k', 0: '40k' };
+
+function tipText(s) {
+  if (s.k === 'cold') return '<b>cache cold</b> · next prompt re-sends ~' + recache[0];
+  return '<b>cache warm</b> · cold in ' + s.left + 'm · idle ' + s.timer;
+}
+function ring(s) {
+  if (s.k === 'live' || s.k === 'unknown') return '';
+  const c = 2 * Math.PI * 4.5, f = s.left / 60;
+  return `<svg class="ring ${s.k}" viewBox="0 0 12 12" aria-hidden="true"><circle class="bg" cx="6" cy="6" r="4.5"/>` +
+    (f > 0 ? `<circle class="fg" cx="6" cy="6" r="4.5" stroke-dasharray="${(c * f).toFixed(2)} ${c.toFixed(2)}"/>` : '') + '</svg>';
+}
+function timerFor(opt, s) {
+  if (opt !== 3 || s.k === 'live' || s.k === 'unknown' || s.cls === 's-blocked') return s.timer;
+  if (s.k === 'cold') return 'cold · ' + s.timer;
+  return s.left + 'm <span class="dir">left</span>';
+}
+function card(opt, s) {
+  const r3 = s.unk ? '<div class="r3 unk">context unknown</div>'
+    : `<div class="r3"><span class="ctx"><i style="width:${s.ctx}%"></i></span><span>${s.ctx}%</span><span class="tok">${s.tok}</span></div>`;
+  const pre = opt === 2 ? ring(s) : '';
+  const bar = opt === 4 && s.left !== undefined && s.left > 0 ? `<div class="wbar"><i style="width:${(s.left / 60 * 100).toFixed(0)}%"></i></div>` : '';
+  const showTip = s.tip && (opt === 1 || opt === 2 || opt === 4);
+  const tip3 = opt === 3 && s.tip ? '<div class="tip"><b>idle 54m</b> · cache cold in 6m</div>' : '';
+  return `<article class="card ${s.cls} ${s.k}"><span class="lbl">${s.lbl}</span><div class="stripe"></div><div class="card-in">
+    <div class="r1"><span class="name">${s.name}</span></div>
+    <div class="r0"><span class="badge">${s.badge}</span>${pre}<span class="timer">${timerFor(opt, s)}</span></div>
+    <div class="r2">${s.repo}</div>${r3}${s.note ? `<div class="note">${s.note}</div>` : ''}
+  </div>${bar}${showTip ? `<div class="tip">${tipText(s)}</div>` : ''}${tip3}</article>`;
+}
+const OPTS = [
+  { n: 1, h: '1 · Timer fade + hover', cap:
+    '<b>Look:</b> the timer is a touch brighter while warm, fades and gets a dotted underline in the last 10 min, drops to the disabled grey once cold. Hover says what it means.<br>' +
+    '<span class="pro">+ nothing added to the card; sits on the timer the issue names</span><br>' +
+    '<span class="con">− subtle; until learned, a dim timer reads as "nothing happening"</span>' },
+  { n: 2, h: '2 · Draining ring', cap:
+    '<b>Look:</b> a 12 px ring before the timer empties over the hour; dashed and empty once cold. No ring while working or before the first reply.<br>' +
+    '<span class="pro">+ readable without hover; clearly not a state colour</span><br>' +
+    '<span class="con">− new element; an hour-long drain barely moves minute to minute</span>' },
+  { n: 3, h: '3 · Countdown between turns', cap:
+    '<b>Look:</b> idle cards count the cache down ("41m left"), then read "cold · 3h". Working and needs-input keep today\'s count-up timer. Hover gives the idle time.<br>' +
+    '<span class="pro">+ answers "how long do I have" exactly; matches attention order</span><br>' +
+    '<span class="con">− one spot counts up or down by state; changes what an existing element means</span>' },
+  { n: 4, h: '4 · Draining bar on the card', cap:
+    '<b>Look:</b> a 2 px bar along the card\'s bottom edge, its length the time left; gone once cold.<br>' +
+    '<span class="pro">+ visible at a glance; shares a language with a group-header bar</span><br>' +
+    '<span class="con">− sits near the context gauge and reads as a second gauge; costs nothing in height but adds noise</span>' },
+];
+document.getElementById('opts').innerHTML = OPTS.map(o =>
+  `<div class="opt o${o.n}" style="width:384px"><h2>${o.h}</h2><div class="rail labelled"><div class="railhead"><span>Attention ▾</span><span class="n">6</span></div><div class="cards">` +
+  S.map(s => card(o.n, s)).join('') + `</div></div><p class="cap">${o.cap}</p></div>`).join('');
+</script>
+</body></html>

@@ -72,18 +72,43 @@ The refusal entry was filed 2026-09-26 by the developer from
 
 ### Together — rail card (#56, #77, #84)
 
+One `/orchestrate` run covers all of this group.
+
 - [ ] **Add right click for rail card** ([#56](https://github.com/Zalaras/muster/issues/56)) — a custom
-  right-click menu on a rail card carrying each of its actions, Stop among them: the card itself
-  shows no Stop button (plan `status-inconsistencies` removes it), so this menu is where Stop
-  returns to the card.
+  right-click menu on a rail card carrying each of its actions. The card shows no buttons of its
+  own: Stop is already gone from it, and Resume and Remove leave its hover row too, so the menu is
+  where all three live (Stop on a live session; Resume and Remove on an ended one). It also
+  carries the other actions that fit a single card: Move to (each group, New group…), Remove from
+  group, Pin/Unpin, Rename, and whatever else the card can already do somewhere else.
 
-- [ ] **cannot drag when multiple selected** ([#77](https://github.com/Zalaras/muster/issues/77)) — with
-  several sessions selected in the rail, they cannot be dragged into a group. A multi-selection
-  should drag into a group together.
+- [ ] **cannot drag when multiple selected** ([#77](https://github.com/Zalaras/muster/issues/77)) —
+  organising sessions into groups should be quick by drag, in both sort modes:
+  - With several sessions selected in the rail, dragging moves them into a group together.
+  - Attention order: a card that is not selected can still be dragged into or out of a group (onto
+    a group's cards or its title area); only its group changes, and its place in the section stays
+    the computed attention order.
+  - Manual order: dragging already reorders; a card dropped among a group's cards or on a group's
+    title area always ends up in that group, and one dropped among Ungrouped ends up in none.
 
-- [ ] **I want to be able to see my cache warmth** ([#84](https://github.com/Zalaras/muster/issues/84)) — a
-  rail card should show at a glance whether the session's prompt cache is still warm (a colour
-  or an icon), tied to the idle timer it already shows, since the cache stays warm only so long.
+- [ ] **I want to be able to see my cache warmth** ([#84](https://github.com/Zalaras/muster/issues/84)) —
+  a session's timer shows at a glance whether its prompt cache is still warm. Chosen design (mockup
+  `plans/cache-warmth/mockups/timer-tint.html`, the Recommended row):
+  - The timer of a session between turns (idle or needs input) fades in a straight line from
+    bright white right after a request to today's timer grey at expiry, over that session's own
+    cache lifetime, and stays grey once cold. No state colour is used.
+  - In the last 15% of the lifetime (about 9 minutes of an hour) the timer also gets a dotted
+    underline.
+  - Working and started timers stay as they are today.
+  - Hovering the timer gives one line: "cache warm · cold in 6m", "cache cold · ~24k to re-send",
+    "cache warm · refreshing" (working) or "cache unknown · no reply yet" (before the first reply,
+    or whenever the warmth is not known).
+  - A group header shows one extra timer after its state dots: the most recently active session
+    between turns, tinted and underlined the same way. Hovering it reads "3 of 4 warm · next cold
+    in 15m" or "all 2 cold". The header's popover gives each session its own tinted timer.
+
+- [ ] **Canary guards the prompt-cache status-line fields** — after the first turn, the canary
+  asserts that the status line carries `prompt_cache` with a `ttl` and that `expires_at` is about
+  the last request plus 3600 s, so `kb:fact/prompt-cache-status-shape` has a guard.
 
 ### On their own
 
