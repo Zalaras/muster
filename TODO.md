@@ -241,6 +241,13 @@ tick a sub-item as it lands, the parent when all have.
   nav / outline panel on the right, and minimise the rail the way the docs nav already
   collapses. Each panel keeps its width across reloads.
 
+Filed 2026-10-15 by the developer from the plans' proposed-backlog.md files.
+
+- [ ] **Review how menus behave while the daemon is down** — an open card right-click menu
+  closes at each reconnect attempt (about 2 s, 4 s and 8 s) while musterd is unreachable; the
+  other menus, popovers and dialogs may do the same. Decide how each should behave while the
+  daemon is down and make them consistent. From `plans/rail-card-organise/`.
+
 ## v1 Release
 
 The release itself: the Homebrew tap, then cutting v1.0.0 — last, once § Issues and § Pre-v1

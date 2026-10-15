@@ -16,5 +16,5 @@
 
 ## Decisions (the developer, 2026-10-14)
 
-- Card menu opened while the daemon is down closes on every reconnect attempt: deferred
+- Card menu opened while the daemon is down closes on every reconnect attempt: filed: TODO.md § Pre-v1, "Review how menus behave while the daemon is down" (2026-10-15)
 - `Resume…` carries an ellipsis but opens no dialog: already done: 4fe7d7b7 drops the ellipsis. Not filed.
