@@ -17,9 +17,12 @@ import (
 // compactions/permissionMode/titleOverride: there is no code path here that touches them
 // — Title always means Claude's last-known name, never the user's override, and callers
 // needing the display-title (wire "title") distinction compare Session.DisplayTitle()
-// themselves (Manager.ApplyStatus's persist-vs-broadcast split). Attention/Failure/Model/Context/Cache are treated as immutable
+// themselves (Manager.ApplyStatus's persist-vs-broadcast split). Attention/Failure/Model/Context are treated as immutable
 // snapshots elsewhere (Session.Clone's doc comment), so a changed field is always
-// replaced with a fresh pointer, never mutated in place.
+// replaced with a fresh pointer, never mutated in place. Cache is replaced the same way
+// when its wire lifetime changes, but a keep-alive post writes its held Requests and
+// ReportedExpiresAt in place: the broadcast check compares the pointer, and those two
+// fields are off the wire.
 func applyStatusUpdate(sess *Session, update claudecode.StatusUpdate) bool {
 	changed := false
 

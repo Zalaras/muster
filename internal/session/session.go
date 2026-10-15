@@ -223,7 +223,8 @@ const maxClosedPrompts = 8
 
 // Clone returns a value copy safe to hand outside the manager's lock (Attention,
 // Failure and Model are pointers to otherwise-immutable snapshots — callers must treat
-// them as read-only).
+// them as read-only). Cache is shared too: outside the lock read only its ExpiresAt and
+// TTLSeconds, since a keep-alive post rewrites Requests and ReportedExpiresAt in place.
 func (s *Session) Clone() *Session {
 	c := *s
 	return &c

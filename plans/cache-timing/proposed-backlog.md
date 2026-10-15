@@ -10,4 +10,4 @@ Proposed, not filed: the developer files what they want into `TODO.md`.
 
 ## Decisions (the developer, 2026-10-15)
 
-- Two session comments say the cache is never changed in place — deferred
+- Two session comments say the cache is never changed in place — already done: fixed by the developer's request, 2026-10-15 (docs(session) comment fix). Not filed.
