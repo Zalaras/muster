@@ -77,12 +77,6 @@ The refusal entry was filed 2026-09-26 by the developer from
 
 - [ ] **Tiles per group** — a Tiles view scoped to one group (the grid holds that group's live sessions, the strip the rest of it), reached from the group's ⋯ menu. The grid and strip ignore groups today. The tile footer's live (Stop) versus ended (age, Resume, Remove) row shapes, and the layout shift between them, are reworked here too, matching the Focus header's single Stop/Resume button (plan `title-crop-stop-resume-button` left the footer alone, 2026-10-13).
 
-- [ ] **Tool hooks surface `hook error` after a daemon update** ([#54](https://github.com/Zalaras/muster/issues/54)) — seen
-  again 2026-09-30 after plan `maintainability-regressions` closed it: `PreToolUse`/`PostToolUse`
-  report "Failed with non-blocking status code: No stderr output", seemingly only on the first
-  message of the first new session after musterd updates (not yet confirmed). No Muster hook
-  should ever report an error.
-
 - [ ] **Issue tag management** ([#43](https://github.com/Zalaras/muster/issues/43)) — define real GitHub labels, apply
   them to the open issues, and have the triage skill apply them per its assessment, seeded from
   that first run. Needs kb:adr/issue-daemon-creates-issues-only revisited first: triage

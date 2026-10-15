@@ -1729,6 +1729,14 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   another session, or from Docs to the Claude or Shell tab and back. It should keep what was
   expanded.
 
+- [x] **Tool hooks surface `hook error` after a daemon update** ([#54](https://github.com/Zalaras/muster/issues/54)) — seen
+  again 2026-09-30 after plan `maintainability-regressions` closed it: `PreToolUse`/`PostToolUse`
+  report "Failed with non-blocking status code: No stderr output", seemingly only on the first
+  message of the first new session after musterd updates (not yet confirmed). No Muster hook
+  should ever report an error.
+  ✅ closed 2026-10-15 (no change): the developer has not seen it since the 2026-09-30 sighting;
+  the issue was already closed by plan `maintainability-regressions` on 2026-09-26.
+
 ### Together — masthead indicators (#79, #80, #85) ✅ done 2026-10-12 (plan `masthead-indicators`, via `/orchestrate`; all three review parts approved in cycle 2)
 
 - [x] **Change deamon connection strong to icon** ([#79](https://github.com/Zalaras/muster/issues/79)) — the
