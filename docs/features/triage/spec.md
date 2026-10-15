@@ -42,7 +42,8 @@ One proposer per non-held issue summarises its artifact into a JSON proposal: a 
 two areas and any modifiers from the closed label lists, two sentences of at most 240 printable
 ASCII characters each saying what the report observes and what should happen instead, a
 verbatim quote of the error if one is named, and a section hint. `apply` validates every field
-— the ack, the lists, the shape of the free text, the quote's provenance in the sanitised body,
+— the ack, the lists (`needs-info` only on a restricted artifact: the developer's own report is
+always actionable), the shape of the free text, the quote's provenance in the sanitised body,
 and the tripwire over the summary — and renders one entry on every route
 (kb:adr/triage-every-entry-carries-the-header-safe-title): the title through `HeaderSafe`, the
 summary (prefixed "Summary of an unverified report:" when the issue was not the owner's clean

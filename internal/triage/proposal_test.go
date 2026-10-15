@@ -78,6 +78,23 @@ func TestValidateProposalRejects(t *testing.T) {
 	}
 }
 
+// needs-info is for an outside report that cannot be acted on yet; the developer's own
+// report never carries it, whatever the proposer made of a question in the body.
+func TestValidateProposalNeedsInfoOnlyOnRestricted(t *testing.T) {
+	reply := strings.Replace(goodReply(), `["perf"]`, `["needs-info"]`, 1)
+	restricted := testArtifact()
+	restricted.Route = PathRestricted
+	if _, err := ValidateProposal([]byte(reply), restricted); err != nil {
+		t.Fatalf("restricted: %v", err)
+	}
+	normal := testArtifact()
+	normal.Route = PathNormal
+	_, err := ValidateProposal([]byte(reply), normal)
+	if err == nil || !strings.Contains(err.Error(), "needs-info") {
+		t.Fatalf("normal: err = %v, want a needs-info rejection", err)
+	}
+}
+
 // The two summary fields are the only model prose that reaches TODO.md, so their shape is
 // the whole defence: short, printable ASCII, no structure, no link, nothing the pre-commit
 // hook would read as a header.

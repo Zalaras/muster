@@ -89,6 +89,13 @@ func ValidateProposal(raw []byte, a Artifact) (Proposal, error) {
 	if err := checkLabels(p); err != nil {
 		return Proposal{}, err
 	}
+	// needs-info marks an outside report that cannot be acted on yet (conventions § Issue
+	// labels). The developer's own report is always actionable — a question in it is a
+	// question for the developer, not missing information — so on the normal route the
+	// label is a proposer misreading and the proposal holds.
+	if a.Route == PathNormal && inSet("needs-info", p.Modifiers) {
+		return Proposal{}, fmt.Errorf("modifier needs-info is only for a restricted report; this artifact routes normal")
+	}
 	if !inSet(p.SectionHint, Sections) {
 		return Proposal{}, fmt.Errorf("section_hint %q is not in the allowed set", p.SectionHint)
 	}
