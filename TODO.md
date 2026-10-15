@@ -77,10 +77,11 @@ The refusal entry was filed 2026-09-26 by the developer from
 
 - [ ] **Tiles per group** — a Tiles view scoped to one group (the grid holds that group's live sessions, the strip the rest of it), reached from the group's ⋯ menu. The grid and strip ignore groups today. The tile footer's live (Stop) versus ended (age, Resume, Remove) row shapes, and the layout shift between them, are reworked here too, matching the Focus header's single Stop/Resume button (plan `title-crop-stop-resume-button` left the footer alone, 2026-10-13).
 
-- [ ] **Issue tag management** ([#43](https://github.com/Zalaras/muster/issues/43)) — define real GitHub labels, apply
-  them to the open issues, and have the triage skill apply them per its assessment, seeded from
-  that first run. Needs kb:adr/issue-daemon-creates-issues-only revisited first: triage
-  deliberately never labels, assigns or milestones.
+- [ ] **Issue tag management** ([#43](https://github.com/Zalaras/muster/issues/43)) — the label
+  scheme is defined (`docs/conventions.md` § Issue labels) and applied to every open issue by hand
+  (2026-10-15). What remains: have the triage skill apply labels per its assessment, from
+  validated enums. Needs the skill's "no labels" rule revisited first: triage deliberately never
+  labels, assigns or milestones.
 
 - [ ] **Renaming in Muster does not rename Claude session** ([#71](https://github.com/Zalaras/muster/issues/71)) —
   renaming a session in Muster leaves Claude Code's own session name unchanged. A rename should

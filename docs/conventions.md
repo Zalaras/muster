@@ -314,6 +314,33 @@ Dropping a proposal is a complete outcome. Dropping a *filed* entry that carries
 link is not — triage state is derived from the file, so the issue reappears as untriaged
 (kb:adr/triage-state-derived-from-todo).
 
+## Issue labels
+
+GitHub issues on `Zalaras/muster` carry labels on three axes, set 2026-10-15 (#43). An
+issue gets **exactly one kind**, normally **one area**, and **any modifiers** that apply.
+The axes exist so a program can apply them later from the triage proposer's validated
+enums; a model never writes a label name GitHub has not already defined.
+
+| Axis | Labels | Rule |
+|---|---|---|
+| Kind | `bug`, `enhancement`, `question`, `chore` | Exactly one. `question` is an open exploration, not yet a change; `chore` is repo or process work that ships nothing. |
+| Area | `rail`, `lifecycle`, `launch`, `focus`, `shell`, `tiles`, `masthead`, `documents`, `sessions`, `update`, `usage`, `settings`, `install`, `hooks`, `process` | The **surface the issue centres on** — the same rule `TODO.md` groups by — not the code that fixes it. Two when it genuinely straddles; none when the report is too vague to place. Add an area only when a new surface appears, never per feature spec. |
+| Modifier | `ux`, `perf`, `regression`, `claude-code`, `needs-info`, `security` | Any number. `claude-code` marks an issue that hinges on Claude Code's own behaviour or version and so needs a fact record or probe before a fix; `needs-info` is for an outside report that cannot be acted on yet. |
+| Resolution | `duplicate`, `invalid`, `wontfix` | GitHub's own; the only closes triage makes (kb:adr/triage-auto-close-never). |
+
+Areas are one colour (`#1d76db`), modifiers another (`#fbca04`), so the issue list reads
+by shape. Each label's description on GitHub is its definition; keep the two in step.
+
+**Priority is never a label.** `TODO.md` order is the ranking, and a label copy of it
+would drift — the same reason triage state is derived from the file rather than stored
+(kb:adr/triage-state-derived-from-todo). The stock `priority`, `Feature`,
+`documentation`, `good first issue`, `help wanted` and `accessibility` labels were
+retired for that reason or as duplicates of the axes above.
+
+Today labels are applied by hand. `/triage` applies none (its skill says so), and the
+daemon's involvement ends at creation (kb:adr/issue-daemon-creates-issues-only);
+teaching triage to label from validated enums is the open half of #43.
+
 ## Comments
 
 Default to none. Add one only when the *why* is non-obvious (hidden constraint, subtle
