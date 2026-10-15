@@ -281,11 +281,12 @@ author here. Worktrees share `.git/config` — a scratch identity set inside one
 real repo (CLAUDE.md § Hard rules).
 
 **Closing issues.** Issues on `Zalaras/muster` (filed from the dashboard's masthead `Issue`
-button) are triaged by hand into `TODO.md`; the commit that fixes one closes it with a
+button) are triaged into `TODO.md` by `/triage`, which files and labels them through a program
+(kb:adr/triage-labels-from-validated-names); the commit that fixes one closes it with a
 trailing `closes #N` in the summary line — e.g. `fix(launch): preflight tmux and name the
 remedy (closes #2)`; lowercase, and one `closes #N` per issue. The subject carries no
 `(plan <name>)` marker — the squash includes `plans/<name>/`, so the plan is recoverable
-from the commit's own file list (decision 2026-09-01). That is the only issue automation Muster has: the daemon creates
+from the commit's own file list (decision 2026-09-01). The daemon itself creates
 issues and never reads, labels, or syncs them (`kb:adr/issue-daemon-creates-issues-only`). `/land`
 composes that subject from the plan's `closes_issues`, so the reference is not left to whoever
 happens to run the merge; `/triage --audit` reports any issue still open whose entry is ticked (ticked entries live in
@@ -318,8 +319,8 @@ link is not — triage state is derived from the file, so the issue reappears as
 
 GitHub issues on `Zalaras/muster` carry labels on three axes, set 2026-10-15 (#43). An
 issue gets **exactly one kind**, normally **one area**, and **any modifiers** that apply.
-The axes exist so a program can apply them later from the triage proposer's validated
-enums; a model never writes a label name GitHub has not already defined.
+The axes exist so a program can apply them from the triage proposer's validated picks; a
+model never writes a label name GitHub has not already defined.
 
 | Axis | Labels | Rule |
 |---|---|---|
@@ -337,9 +338,11 @@ would drift — the same reason triage state is derived from the file rather tha
 `documentation`, `good first issue`, `help wanted` and `accessibility` labels were
 retired for that reason or as duplicates of the axes above.
 
-Today labels are applied by hand. `/triage` applies none (its skill says so), and the
-daemon's involvement ends at creation (kb:adr/issue-daemon-creates-issues-only);
-teaching triage to label from validated enums is the open half of #43.
+`/triage` applies them: the proposer picks from these lists and `tools/triage apply` runs
+`gh issue edit` with validated names only, after its commit
+(kb:adr/triage-labels-from-validated-names); `TestLabelNamesAppearInConventions` holds the Go
+lists to this table, so edit the table first. The daemon's involvement still ends at creation
+(kb:adr/issue-daemon-creates-issues-only).
 
 ## Comments
 

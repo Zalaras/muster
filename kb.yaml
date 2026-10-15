@@ -67,9 +67,10 @@ tree:
 
 # Files no citation scan, kb comment check or refs pass reads: frozen plans and history
 # record what was true when written, built output is not source, the e2e specs cite
-# illustrative paths in their titles.
+# illustrative paths in their titles, and the triage corpora are quoted issue bodies —
+# adversarial ones by design — not prose about this repository.
 citations:
-  exclude: ["plans/**", "docs/history/**", "docs/research/**", "web/dist/**", "dist/**", "**/node_modules/**", "web/e2e/**/*.spec.ts"]
+  exclude: ["plans/**", "docs/history/**", "docs/research/**", "web/dist/**", "dist/**", "**/node_modules/**", "web/e2e/**/*.spec.ts", "internal/triage/testdata/**"]
 
 # Source roots under which every .go and .ts file must be owned by a feature spec's globs.
 ownership: [internal, web/src, web/e2e]

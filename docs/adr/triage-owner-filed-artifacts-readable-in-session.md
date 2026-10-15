@@ -1,7 +1,7 @@
 ---
 id: triage-owner-filed-artifacts-readable-in-session
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-21
 summary: The session may read an OWNER-filed, unflagged issue's sanitised artifact — never the raw ticket, and OWNER rather than the wider trusted set.
 features: [triage]

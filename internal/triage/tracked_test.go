@@ -65,14 +65,14 @@ func TestApplySkipsArchivedIssue(t *testing.T) {
 	root, arts, props := applyFixture(t)
 	writeHistory(t, root)
 	arts[55] = Artifact{Number: 55, Nonce: "n55", Body: "again"}
-	props[55] = Proposal{Number: 55, Component: "daemon", Symptom: "hang", ErrorString: "again"}
+	props[55] = Proposal{Number: 55, Kind: "bug", Area: []string{"launch"}, Symptom: "It hangs again.", Expected: "It should not.", ErrorString: "again"}
 
 	g := &gitStub{hooksPath: ".githooks", staged: "TODO.md\n"}
 	decisions := []Decision{
 		{Number: 55, Section: "Issues"},
 		{Number: 77, Section: "Issues"},
 	}
-	subject, err := Apply(context.Background(), g.run, root, "Zalaras/muster", decisions, arts, props)
+	subject, _, err := Apply(context.Background(), g.run, root, "Zalaras/muster", decisions, arts, props)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}

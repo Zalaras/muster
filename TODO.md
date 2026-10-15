@@ -14,8 +14,9 @@ Done items are in `docs/history/todo-done.md` § "Issues".
 
 Issues filed from the dashboard's masthead `Issue` button land on
 [`Zalaras/muster`](https://github.com/Zalaras/muster/issues) and are triaged into this file by
-**`/triage`**: muster creates issues and does nothing else with them — no reading, no labels, no
-status sync (`SPEC.md` 2026-08-31 changelog, `plans/issue-capture/plan.md` §Overview). An issue
+**`/triage`**, which files each one here with a validated summary and applies its labels
+(kb:adr/triage-labels-from-validated-names); the daemon itself creates issues and does nothing
+else with them (kb:adr/issue-daemon-creates-issues-only). An issue
 counts as triaged iff its `issues/N` link appears in this file or in `docs/history/todo-done.md`
 (ticked entries move there), so **every entry in either file must keep its full markdown link** — a bare `#N` is a cross-reference and does not mark an issue triaged.
 Closing happens when the fix lands: `/land` puts `closes #N` in the squash subject
@@ -77,11 +78,10 @@ The refusal entry was filed 2026-09-26 by the developer from
 
 - [ ] **Tiles per group** — a Tiles view scoped to one group (the grid holds that group's live sessions, the strip the rest of it), reached from the group's ⋯ menu. The grid and strip ignore groups today. The tile footer's live (Stop) versus ended (age, Resume, Remove) row shapes, and the layout shift between them, are reworked here too, matching the Focus header's single Stop/Resume button (plan `title-crop-stop-resume-button` left the footer alone, 2026-10-13).
 
-- [ ] **Issue tag management** ([#43](https://github.com/Zalaras/muster/issues/43)) — the label
-  scheme is defined (`docs/conventions.md` § Issue labels) and applied to every open issue by hand
-  (2026-10-15). What remains: have the triage skill apply labels per its assessment, from
-  validated enums. Needs the skill's "no labels" rule revisited first: triage deliberately never
-  labels, assigns or milestones.
+- [ ] **Clean up `TODO.md`'s structure and how the backlog is worked** — which sections exist,
+  how entries group and rank, and what `/triage` appends where; for now every new entry files
+  under `## Issues` and is moved by hand. Filed 2026-10-15 by the developer during the triage
+  rework.
 
 - [ ] **Missing underline from mock ups for GitHub cache expiring soon** ([#92](https://github.com/Zalaras/muster/issues/92)) —
   a rail card's cache-warmth timer read "expiring" (under 5 minutes) and still read the same more

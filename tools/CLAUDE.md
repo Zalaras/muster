@@ -8,7 +8,7 @@
 - Generated files (`docs/INDEX.md`, `docs/features/*/INDEX.md`, `docs/features/*/contract.md`, `.claude/rules/*.md`, kb fragments) are never hand-edited; edit the record, regenerate.
 - Protocol citations are anchor ids from `docs/protocol-anchors.tsv`, never section numbers (kb:adr/knowledge-protocol-sections-addressed-by-anchor-ids).
 - The verified range is observed, not pinned: `bump` appends after a green canary and edits nothing inside the range (kb:adr/canary-verified-range-observed-not-pinned).
-- Nothing between GitHub and `TODO.md` is a model with tools; triage is a program and never closes an issue (kb:adr/triage-program-not-model-between-github-and-todo).
+- Triage is a program from fetch to commit and labels — a Read-only proposer summarises, nothing else models — and never closes an issue (kb:adr/triage-bounded-proposer-summary-reaches-the-backlog, kb:adr/triage-auto-close-never).
 - The comment pass never edits a directive comment (`go:`, `nolint`, `biome-ignore`, `@ts-`) or a test file, and `apply` reconstructs from `strip`'s snapshot, never re-inserts (kb:adr/process-comment-pass-owns-code-comments).
 
 **Exemplar**: `tools/versions/main.go` + `main_test.go` — subcommand dispatch with one test per refusal path; copy this shape for a new tool.
@@ -20,9 +20,9 @@
 - Every repo-specific value the knowledge tool reads — record dirs, roles, tags, budgets (a nested `CLAUDE.md` 400 words outside kb fragments, the root 150 lines), pack scoping, the version record, the agents directory — is `kb.yaml`; upgrade the tool with `go get -tool github.com/Zalaras/kb/cmd/kb@<version>`.
 
 <!-- kb:trailer -->
-<!-- kb:hash 09b10f5bb97d6848 -->
+<!-- kb:hash 2ed8a1b0c35a7c34 -->
 - **canary** — The verified Claude Code version range, canary tiers, and the fragments tools/versions regenerates. → `docs/features/canary/INDEX.md`
 - **comment-pass** — The orchestrator's comment pass — strip a plan branch's added comments, a Sonnet judge keeps the load-bearing few, a ledger the gates verify. → `docs/features/comment-pass/INDEX.md`
-- **triage** — GitHub issues into TODO.md through a program, and the pre-commit link guard. → `docs/features/triage/INDEX.md`
-- 6 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- **triage** — GitHub issues into TODO.md through a program, with a Read-only proposer's bounded summary and labels, and the pre-commit link guard. → `docs/features/triage/INDEX.md`
+- 7 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

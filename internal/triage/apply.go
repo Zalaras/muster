@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -13,8 +14,12 @@ import (
 // leave it for HistoryFile, which is read alongside it (ReadTracked) and never written.
 const TodoFile = "TODO.md"
 
-// Decision pairs an issue with the section the developer chose for it. The section choice stays
-// a human one: where an item ranks is a judgement, and the skill still asks.
+// DefaultSection is where a new entry lands unless a decision says otherwise. Ranking is the
+// developer's judgement and happens by hand afterwards; the run never stops to ask.
+const DefaultSection = "Issues"
+
+// Decision pairs an issue with the section it files into: DefaultSection, the run's
+// `--section`, or a per-issue override from a decisions file.
 type Decision struct {
 	Number  int
 	Section string
@@ -28,10 +33,11 @@ type Decision struct {
 //
 // The commit subject is built from integers and constants only, so an issue title cannot
 // reach it — which is what makes it impossible for a triage commit to carry a closing
-// keyword and close the very issues it just filed.
-func Apply(ctx context.Context, run RunFunc, root, repo string, decisions []Decision, arts map[int]Artifact, props map[int]Proposal) (string, error) {
+// keyword and close the very issues it just filed. It returns the subject and the issue
+// numbers actually filed, which [Label] takes next.
+func Apply(ctx context.Context, run RunFunc, root, repo string, decisions []Decision, arts map[int]Artifact, props map[int]Proposal) (string, []int, error) {
 	if err := requireHooks(ctx, run, root); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	path := filepath.Join(root, TodoFile)
 
@@ -39,26 +45,91 @@ func Apply(ctx context.Context, run RunFunc, root, repo string, decisions []Deci
 	// to hand the pass back rather than try to split the file.
 	out, stderr, err := run(ctx, "git", "-C", root, "status", "--porcelain", "--", TodoFile)
 	if err != nil {
-		return "", fmt.Errorf("git status: %w: %s", err, strings.TrimSpace(string(stderr)))
+		return "", nil, fmt.Errorf("git status: %w: %s", err, strings.TrimSpace(string(stderr)))
 	}
 	if strings.TrimSpace(string(out)) != "" {
-		return "", fmt.Errorf("%s already has uncommitted changes — commit or revert them first", TodoFile)
+		return "", nil, fmt.Errorf("%s already has uncommitted changes — commit or revert them first", TodoFile)
 	}
 
 	todo, tracked, err := ReadTracked(root)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	sort.Slice(decisions, func(i, j int) bool { return decisions[i].Number < decisions[j].Number })
 	todo, filed, err := spliceDecisions(todo, tracked, repo, decisions, arts, props)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if len(filed) == 0 {
-		return "", nil
+		return "", nil, nil
 	}
-	return commitTodo(ctx, run, root, path, todo, filed)
+	subject, err := commitTodo(ctx, run, root, path, todo, filed)
+	if err != nil {
+		return "", nil, err
+	}
+	return subject, filed, nil
+}
+
+// DryRun renders what Apply would file, section by section, and touches nothing: no write,
+// no git, no gh. Already-tracked issues are skipped exactly as Apply skips them.
+func DryRun(root, repo string, decisions []Decision, arts map[int]Artifact, props map[int]Proposal) (string, error) {
+	_, tracked, err := ReadTracked(root)
+	if err != nil {
+		return "", err
+	}
+	sort.Slice(decisions, func(i, j int) bool { return decisions[i].Number < decisions[j].Number })
+	var b strings.Builder
+	for _, d := range decisions {
+		a, ok := arts[d.Number]
+		if !ok {
+			return "", fmt.Errorf("no artifact for issue %d", d.Number)
+		}
+		p, ok := props[d.Number]
+		if !ok {
+			return "", fmt.Errorf("no validated proposal for issue %d", d.Number)
+		}
+		if HasIssue(tracked, d.Number) {
+			fmt.Fprintf(&b, "#%d is already in the backlog; it would be skipped.\n", d.Number)
+			continue
+		}
+		fmt.Fprintf(&b, "→ ## %s\n%s", d.Section, RenderEntry(a, p, repo))
+	}
+	return b.String(), nil
+}
+
+// Label applies each filed issue's validated labels through gh, after the commit exists.
+//
+// Names come from Proposal.Labels, every one already checked against the closed lists in
+// labels.go, so nothing a model wrote reaches the command line. Failures are collected and
+// reported, never fatal: the entry is filed and committed by now, and a label GitHub lacks
+// is a doc-drift problem to fix by hand, not a reason to lose the run.
+func Label(ctx context.Context, run RunFunc, repo string, filed []int, props map[int]Proposal) []error {
+	var errs []error
+	for _, n := range filed {
+		p, ok := props[n]
+		if !ok {
+			errs = append(errs, fmt.Errorf("issue %d: no validated proposal to label from", n))
+			continue
+		}
+		_, stderr, err := run(ctx, "gh", "issue", "edit", strconv.Itoa(n), "--repo", repo, "--add-label", strings.Join(p.Labels(), ","))
+		if err != nil {
+			errs = append(errs, fmt.Errorf("issue %d: gh issue edit: %w: %s", n, err, bounded(string(stderr))))
+		}
+	}
+	return errs
+}
+
+// bounded trims a subprocess's stderr for a report line: one line, at most 160 bytes.
+func bounded(s string) string {
+	s = strings.TrimSpace(s)
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		s = s[:i]
+	}
+	if len(s) > 160 {
+		s = s[:160] + "…"
+	}
+	return s
 }
 
 // spliceDecisions renders every not-yet-tracked decision into todo, returning the updated

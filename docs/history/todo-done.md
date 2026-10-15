@@ -2363,3 +2363,10 @@ One `/orchestrate` run covers all of this group.
   asserts that the status line carries `prompt_cache` with a `ttl` and that `expires_at` is about
   the last request plus 3600 s, so `kb:fact/prompt-cache-status-shape` has a guard.
   ✅ done 2026-10-14 (plan `rail-card-organise`): `TestPromptCacheExpiryIsStopPlusTTL` asserts `expires_at` is Stop plus the interpreted ttl, which is read and never assumed to be 3600 s (kb:fact/haiku-main-cache-ttl-5m-on-2-1-299). It ran green on 2.1.300 and guards kb:fact/prompt-cache-status-shape.
+
+### On their own — issue labels (#43) ✅ done 2026-10-15 (plan `triage-rework`, a plan and a commit)
+
+- [x] **Issue tag management** ([#43](https://github.com/Zalaras/muster/issues/43)) — the label
+  scheme is defined (`docs/conventions.md` § Issue labels), every open issue is labelled, and
+  `/triage` applies labels from validated names (plan `triage-rework`, 2026-10-15). Ticks when
+  that plan lands with `closes #43`.

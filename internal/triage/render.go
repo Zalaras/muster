@@ -3,6 +3,8 @@ package triage
 import (
 	"fmt"
 	"strings"
+	"time"
+	"unicode/utf8"
 )
 
 // IssueURL builds the only URL an entry ever carries, from the integer GitHub asserted.
@@ -14,6 +16,9 @@ func IssueURL(repo string, n int) string {
 // maxHeaderTitle caps the title inside an entry's bold span, in runes. The header line
 // already carries the full markdown link, and TODO.md is read in a terminal.
 const maxHeaderTitle = 90
+
+// wrapWidth is where the summary wraps, matching the hand-written entries around it.
+const wrapWidth = 100
 
 // headerTitleReplacer neutralises everything that must not reach an entry's header line.
 //
@@ -66,58 +71,128 @@ func HeaderSafe(s string) string {
 	return s
 }
 
-// RenderEntry produces the TODO.md entry for one issue, on the path its route names.
+// unverifiedPrefix opens the summary of every entry that did not take the normal path, so
+// a later reader knows the sentences after it describe an outside report nobody checked.
+const unverifiedPrefix = "Summary of an unverified report: "
+
+// RenderEntry produces the TODO.md entry for one issue — the same shape on every path:
 //
-// Both paths render from data the program holds: closed-set enums, an integer GitHub
-// asserted, one quoted substring already checked verbatim against the sanitised body, and —
-// on the normal path — the sanitised title. No model authors any part of an entry
-// (kb:adr/triage-program-not-model-between-github-and-todo).
+//   - [ ] **title** ([#N](url)) — symptom. Expected: expected.
+//     Reported error: "quote".                       (only when one was quoted)
+//     Filed <date> from musterd <v> / Claude Code <v>, <view> view, session <state>; k images attached.
+//     Labels: kind, area, modifiers.
+//
+// A restricted entry's summary opens with [unverifiedPrefix]. Everything rendered is data
+// the program validated: the sanitised title through [HeaderSafe], an integer GitHub
+// asserted, the proposer's bounded summary fields, one quoted substring checked verbatim
+// against the sanitised body, snapshot leaves the schema's checks admitted, and label names
+// from closed lists.
 //
 // The guarantee that matters is structural, not textual. Markdown survives sanitisation by
-// design, so a title or body can still contain a line reading "## Issues"; spliced in raw
-// that would forge a section heading and break the next run's scanner. Containing that is
-// this function's job: no continuation line it emits begins with a markdown structural
-// character at column 0, and every title passes through [HeaderSafe].
-// [CheckEntryShape] asserts the first; the pre-commit hook asserts the second.
+// design, so a title can still read "## Issues"; spliced in raw that would forge a section
+// heading and break the next run's scanner. Containing that is this function's job: no
+// continuation line it emits begins at column 0, the header stays on one line however long
+// the title, and the pre-commit hook asserts the header's shape.
 func RenderEntry(a Artifact, p Proposal, repo string) string {
-	if a.Route == PathNormal {
-		return renderNormal(a, p, repo)
-	}
-	return renderFactsOnly(a, p, repo)
-}
-
-// renderNormal carries the issue's own title, so a later session can act on the entry without
-// opening the ticket — which is the read this package exists to prevent, and which the
-// facts-only entry used to prescribe (kb:adr/triage-normal-path-carries-the-sanitised-title).
-//
-// It says nothing about the reporter being untrusted, because on this path they are not.
-func renderNormal(a Artifact, p Proposal, repo string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "- [ ] **%s** ([#%d](%s)) — %s: %s.\n",
-		HeaderSafe(a.Title), a.Number, IssueURL(repo, a.Number), p.Component, p.Symptom)
+	summary := sentence(p.Symptom) + " Expected: " + sentence(p.Expected)
+	if a.Route != PathNormal {
+		summary = unverifiedPrefix + summary
+	}
+	wrapLines(&b, fmt.Sprintf("- [ ] **%s** ([#%d](%s)) —", HeaderSafe(a.Title), a.Number, IssueURL(repo, a.Number)), summary)
 	if p.ErrorString != "" {
 		fmt.Fprintf(&b, "  Reported error: %q.\n", p.ErrorString)
 	}
+	if fl := factLine(a); fl != "" {
+		b.WriteString("  " + fl + "\n")
+	}
+	b.WriteString("  Labels: " + strings.Join(p.Labels(), ", ") + ".\n")
 	return b.String()
 }
 
-// renderFactsOnly is the entry for everything that is not a clean body from a trusted author:
-// enums, and one quoted substring found verbatim in the sanitised body.
-//
-// Its closing line names the safe way to get the detail. It used to name the ticket instead,
-// pointing the next session — holding Bash and Edit, with no sanitiser and no Read-only proposer
-// between it and the text — straight at the untrusted body.
-func renderFactsOnly(a Artifact, p Proposal, repo string) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "- [ ] **%s: %s** ([#%d](%s))\n", p.Component, p.Symptom, a.Number, IssueURL(repo, a.Number))
-	if p.ErrorString != "" {
-		fmt.Fprintf(&b, "  — reported error: %q. Entry generated from validated fields only\n", p.ErrorString)
-	} else {
-		b.WriteString("  — no error text was quoted. Entry generated from validated fields only\n")
+// sentence makes a summary field read as one: trimmed, ending in a full stop.
+func sentence(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" || strings.HasSuffix(s, ".") || strings.HasSuffix(s, "!") || strings.HasSuffix(s, "?") {
+		return s
 	}
-	b.WriteString("  (reporter not trusted; body withheld). For the detail, re-run tools/triage fetch and\n")
-	b.WriteString("  have a Read-only proposer summarise it — never open the issue in a session with tools.\n")
-	return b.String()
+	return s + "."
+}
+
+// wrapLines lays prefix and text out at wrapWidth. The prefix is never broken — it carries
+// the header the pre-commit hook matches on one line — and every continuation line is
+// indented by two spaces, which is what makes it part of this entry rather than a new block.
+func wrapLines(b *strings.Builder, prefix, text string) {
+	line := prefix
+	for _, w := range strings.Fields(text) {
+		if line != prefix && utf8.RuneCountInString(line)+1+utf8.RuneCountInString(w) > wrapWidth {
+			b.WriteString(line + "\n")
+			line = "  " + w
+			continue
+		}
+		line += " " + w
+	}
+	b.WriteString(line + "\n")
+}
+
+// factLine renders what the program knows about the report from validated data alone: the
+// filing date GitHub asserted, the versions and view and state the snapshot schema admitted
+// (each a checked token, so no structure can hide in one), and the number of images the
+// author attached. Every clause is optional; the line is omitted when nothing validated.
+func factLine(a Artifact) string {
+	var clauses []string
+	head := ""
+	if t, err := time.Parse(time.RFC3339, a.CreatedAt); err == nil {
+		head = "Filed " + t.UTC().Format("2006-01-02")
+	}
+	var versions []string
+	if v := a.snapshotValue("musterd.version"); v != "" {
+		versions = append(versions, "musterd "+v)
+	}
+	if v := a.snapshotValue("claudeCode.installed"); v != "" {
+		versions = append(versions, "Claude Code "+v)
+	}
+	switch {
+	case head != "" && len(versions) > 0:
+		head += " from " + strings.Join(versions, " / ")
+	case len(versions) > 0:
+		head = "From " + strings.Join(versions, " / ")
+	}
+	if head != "" {
+		clauses = append(clauses, head)
+	}
+	if v := a.snapshotValue("dashboard.view"); v != "" {
+		clauses = append(clauses, v+" view")
+	}
+	if v := a.snapshotValue("session.state"); v != "" {
+		clauses = append(clauses, "session "+v)
+	}
+	line := strings.Join(clauses, ", ")
+	if n := a.Flags.Images; n > 0 {
+		img := fmt.Sprintf("%d images attached", n)
+		if n == 1 {
+			img = "1 image attached"
+		}
+		if line == "" {
+			line = strings.ToUpper(img[:1]) + img[1:]
+		} else {
+			line += "; " + img
+		}
+	}
+	if line == "" {
+		return ""
+	}
+	return line + "."
+}
+
+// snapshotValue looks one validated leaf up by path.
+func (a Artifact) snapshotValue(path string) string {
+	for _, kv := range a.SnapshotFields {
+		if kv.Path == path {
+			return kv.Value
+		}
+	}
+	return ""
 }
 
 // structuralPrefixes are the characters that start a markdown block. One of them at

@@ -16,30 +16,30 @@ import (
 // The zero value must be the strict path. Asserted on the constant itself rather than through
 // a fixture: a fixture that happens to render the right shape proves nothing about which path
 // an unset Route names, and that is the property every Artifact literal in this package leans
-// on (kb:adr/triage-normal-path-carries-the-sanitised-title).
-func TestZeroPathIsFactsOnly(t *testing.T) {
+// on.
+func TestZeroPathIsRestricted(t *testing.T) {
 	var p Path
-	assert.Equal(t, PathFactsOnly, p, "the zero Path must be facts-only, never normal")
-	assert.Equal(t, "facts-only", p.String())
+	assert.Equal(t, PathRestricted, p, "the zero Path must be restricted, never normal")
+	assert.Equal(t, "restricted", p.String())
 
 	var a Artifact
-	assert.Equal(t, PathFactsOnly, a.Route, "an Artifact with no Route set must render facts-only")
+	assert.Equal(t, PathRestricted, a.Route, "an Artifact with no Route set must render restricted")
 }
 
 func TestPathString(t *testing.T) {
-	assert.Equal(t, "facts-only", PathFactsOnly.String())
+	assert.Equal(t, "restricted", PathRestricted.String())
 	assert.Equal(t, "normal", PathNormal.String())
 	assert.Equal(t, "held", PathHeld.String())
-	assert.Equal(t, "facts-only", Path(99).String(), "an unknown ordinal must degrade to the strict path")
+	assert.Equal(t, "restricted", Path(99).String(), "an unknown ordinal must degrade to the strict path")
 }
 
-// Readable needs both halves. A flagged owner issue is facts-only and a clean MEMBER issue is
-// somebody else's prose; neither may be opened in the main session
+// Readable needs both halves. A restricted owner issue and a clean MEMBER issue are both
+// shut; neither may be opened in the main session
 // (kb:adr/triage-owner-filed-artifacts-readable-in-session).
 func TestReadable(t *testing.T) {
 	assert.True(t, Readable("OWNER", PathNormal))
-	assert.False(t, Readable("MEMBER", PathNormal), "MEMBER earns the render path, never the read")
-	assert.False(t, Readable("OWNER", PathFactsOnly))
+	assert.False(t, Readable("MEMBER", PathNormal), "MEMBER is not the owner")
+	assert.False(t, Readable("OWNER", PathRestricted))
 	assert.False(t, Readable("OWNER", PathHeld))
 	assert.False(t, Readable("CONTRIBUTOR", PathNormal))
 	assert.False(t, Readable("", PathNormal))
@@ -98,7 +98,7 @@ func TestRenderNormalSurvivesHostileTitles(t *testing.T) {
 		t.Run(title[:min(len(title), 24)], func(t *testing.T) {
 			e := RenderEntry(
 				Artifact{Number: 45, Route: PathNormal, Title: title, AuthorAssociation: OwnerAssociation},
-				Proposal{Component: "dashboard", Symptom: "wrong-output"},
+				sampleProposal(),
 				"Zalaras/muster",
 			)
 			require.NoError(t, CheckEntryShape(e))
@@ -113,32 +113,100 @@ func TestRenderNormalSurvivesHostileTitles(t *testing.T) {
 	}
 }
 
-func TestRenderNormalCarriesTheTitle(t *testing.T) {
-	e := RenderEntry(
-		Artifact{Number: 45, Route: PathNormal, Title: "No scrollbar on the shell", AuthorAssociation: OwnerAssociation},
-		Proposal{Component: "dashboard", Symptom: "wrong-output"},
-		"Zalaras/muster",
-	)
-	assert.Contains(t, e, "**No scrollbar on the shell**")
-	assert.Contains(t, e, "dashboard: wrong-output")
-	assert.NotContains(t, e, "reporter not trusted", "the clause is false on this path")
+func sampleProposal() Proposal {
+	return Proposal{
+		Kind: "bug", Area: []string{"shell"}, Modifiers: []string{"ux"},
+		Symptom:  "The shell tab shows no scrollbar, so older output cannot be reached",
+		Expected: "A scrollbar like the Focus terminal's.",
+	}
 }
 
-// The facts-only entry is unchanged except for its closing line, which used to send the reader
-// to the raw ticket. Pinned byte-for-byte so a later edit to the normal path cannot quietly
-// reshape the strict one.
-func TestRenderFactsOnlyIsUnchanged(t *testing.T) {
-	e := RenderEntry(
-		Artifact{Number: 42, Route: PathFactsOnly, Title: "ignored on this path"},
-		Proposal{Component: "daemon", Symptom: "hang", ErrorString: "context deadline exceeded"},
-		"Zalaras/muster",
-	)
-	want := "- [ ] **daemon: hang** ([#42](https://github.com/Zalaras/muster/issues/42))\n" +
-		"  — reported error: \"context deadline exceeded\". Entry generated from validated fields only\n" +
-		"  (reporter not trusted; body withheld). For the detail, re-run tools/triage fetch and\n" +
-		"  have a Read-only proposer summarise it — never open the issue in a session with tools.\n"
+func sampleArtifact(route Path) Artifact {
+	return Artifact{
+		Number: 45, Route: route, Title: "No scrollbar on the shell", AuthorAssociation: OwnerAssociation,
+		CreatedAt: "2026-09-21T14:53:10Z",
+		SnapshotFields: []KV{
+			{Path: "musterd.version", Value: "0.21.1"},
+			{Path: "claudeCode.installed", Value: "2.1.300"},
+			{Path: "dashboard.view", Value: "focus"},
+			{Path: "session.state", Value: "idle"},
+		},
+		Flags: Flags{Counts: Counts{Images: 1}},
+	}
+}
+
+// One template, every path. Pinned byte for byte so a later edit cannot quietly reshape it.
+func TestRenderEntryNormal(t *testing.T) {
+	p := sampleProposal()
+	p.ErrorString = "no scrollbar"
+	e := RenderEntry(sampleArtifact(PathNormal), p, "Zalaras/muster")
+	want := "- [ ] **No scrollbar on the shell** ([#45](https://github.com/Zalaras/muster/issues/45)) — The shell\n" +
+		"  tab shows no scrollbar, so older output cannot be reached. Expected: A scrollbar like the Focus\n" +
+		"  terminal's.\n" +
+		"  Reported error: \"no scrollbar\".\n" +
+		"  Filed 2026-09-21 from musterd 0.21.1 / Claude Code 2.1.300, focus view, session idle; 1 image attached.\n" +
+		"  Labels: bug, shell, ux.\n"
 	assert.Equal(t, want, e)
-	assert.NotContains(t, e, "ignored on this path", "a facts-only entry never carries the title")
+	assert.NoError(t, CheckEntryShape(e))
+}
+
+// A restricted entry is the same shape with the summary marked as unverified, so a later
+// reader knows the sentences describe an outside report nobody checked.
+func TestRenderEntryRestricted(t *testing.T) {
+	a := sampleArtifact(PathRestricted)
+	a.AuthorAssociation = "NONE"
+	a.Flags.Images = 0
+	e := RenderEntry(a, sampleProposal(), "Zalaras/muster")
+	want := "- [ ] **No scrollbar on the shell** ([#45](https://github.com/Zalaras/muster/issues/45)) — Summary\n" +
+		"  of an unverified report: The shell tab shows no scrollbar, so older output cannot be reached.\n" +
+		"  Expected: A scrollbar like the Focus terminal's.\n" +
+		"  Filed 2026-09-21 from musterd 0.21.1 / Claude Code 2.1.300, focus view, session idle.\n" +
+		"  Labels: bug, shell, ux.\n"
+	assert.Equal(t, want, e)
+	assert.NotContains(t, e, "Reported error", "no quote, no line")
+}
+
+// The fact line is assembled from whatever validated; nothing invents a clause.
+func TestFactLine(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		a    Artifact
+		want string
+	}{
+		{"nothing known", Artifact{}, ""},
+		{"bad date is omitted", Artifact{CreatedAt: "yesterday"}, ""},
+		{"date alone", Artifact{CreatedAt: "2026-10-15T07:35:54Z"}, "Filed 2026-10-15."},
+		{"versions without a date", Artifact{SnapshotFields: []KV{{Path: "musterd.version", Value: "0.2.1"}}}, "From musterd 0.2.1."},
+		{"retired schema has no installed version", Artifact{CreatedAt: "2026-09-01T11:56:43Z", SnapshotFields: []KV{{Path: "musterd.version", Value: "0.2.1"}, {Path: "claudeCode.pinned", Value: "2.0.1"}}}, "Filed 2026-09-01 from musterd 0.2.1."},
+		{"images alone, plural", Artifact{Flags: Flags{Counts: Counts{Images: 3}}}, "3 images attached."},
+		{"everything", sampleArtifact(PathNormal), "Filed 2026-09-21 from musterd 0.21.1 / Claude Code 2.1.300, focus view, session idle; 1 image attached."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, factLine(tc.a))
+		})
+	}
+}
+
+// Long summaries wrap at the house width with every continuation indented, and the header
+// — title and link — stays on one line however long the title, because that is the line
+// the pre-commit hook matches.
+func TestRenderEntryWraps(t *testing.T) {
+	p := sampleProposal()
+	p.Symptom = strings.Repeat("word ", 47) + "end"
+	p.Expected = strings.Repeat("more ", 47) + "end"
+	a := sampleArtifact(PathRestricted)
+	a.Title = strings.Repeat("long title ", 12)
+	e := RenderEntry(a, p, "Zalaras/muster")
+	require.NoError(t, CheckEntryShape(e))
+	lines := strings.Split(strings.TrimRight(e, "\n"), "\n")
+	assert.NotNil(t, reHookHeader.FindStringSubmatch(lines[0]), "header split across lines:\n%s", lines[0])
+	for i, ln := range lines[1:] {
+		if strings.HasPrefix(ln, "  Filed ") || strings.HasPrefix(ln, "  Labels:") {
+			continue
+		}
+		assert.LessOrEqual(t, len([]rune(ln)), wrapWidth, "line %d is over the wrap width: %q", i+2, ln)
+	}
+	assert.Equal(t, 1, strings.Count(e, "Expected:"))
 }
 
 // The hook itself, not a translation of it. TestRenderNormalSurvivesHostileTitles asserts
@@ -151,11 +219,11 @@ func TestPreCommitHookAcceptsARenderedNormalEntry(t *testing.T) {
 		t.Skipf("hook not present: %v", serr)
 	}
 
-	entry := RenderEntry(
-		Artifact{Number: 45, Route: PathNormal, Title: "pipe | star * tick ` link ](x)", AuthorAssociation: OwnerAssociation},
-		Proposal{Component: "dashboard", Symptom: "wrong-output"},
-		"Zalaras/muster",
-	)
+	a := sampleArtifact(PathNormal)
+	a.Title = "pipe | star * tick ` link ](x)"
+	p := sampleProposal()
+	p.ErrorString = "no scrollbar"
+	entry := RenderEntry(a, p, "Zalaras/muster")
 
 	repo := t.TempDir()
 	git := func(args ...string) {
@@ -184,8 +252,8 @@ func TestWriteDispatchCarriesTitleOnlyWhenReadable(t *testing.T) {
 	arts := []Artifact{
 		{Number: 1, Nonce: "n1", Route: PathNormal, AuthorAssociation: "OWNER", Title: "owner filed this"},
 		{Number: 2, Nonce: "n2", Route: PathNormal, AuthorAssociation: "MEMBER", Title: "member filed this"},
-		{Number: 3, Nonce: "n3", Route: PathFactsOnly, AuthorAssociation: "OWNER", Title: "flagged body"},
-		{Number: 4, Nonce: "n4", Route: PathFactsOnly, AuthorAssociation: "NONE", Title: "stranger filed this"},
+		{Number: 3, Nonce: "n3", Route: PathRestricted, AuthorAssociation: "OWNER", Title: "flagged body"},
+		{Number: 4, Nonce: "n4", Route: PathRestricted, AuthorAssociation: "NONE", Title: "stranger filed this"},
 		{Number: 5, Nonce: "n5", Route: PathHeld, AuthorAssociation: "OWNER", Title: "tripwire hit"},
 	}
 	require.NoError(t, WriteDispatch(dir, arts))

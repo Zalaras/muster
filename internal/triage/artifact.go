@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -23,6 +24,16 @@ type Artifact struct {
 	Title             string // sanitised
 	Body              string // sanitised
 	SnapshotTable     string
+	SnapshotFields    []KV // validated leaves, for the entry's fact line
+}
+
+// reImgTag counts pasted screenshots: GitHub inserts a drag-dropped image as an <img> tag,
+// which Sanitize escapes and counts only as HTML. Counted on the raw body, before any
+// transform, and never routed on — a screenshot is how an honest UI report looks.
+var reImgTag = regexp.MustCompile(`(?i)<img[\s>/]`)
+
+func countImages(raw string) int {
+	return len(reImage.FindAllStringIndex(raw, -1)) + len(reImgTag.FindAllStringIndex(raw, -1))
 }
 
 // NewNonce mints the per-issue framing token. Random rather than derived, so an author
@@ -68,6 +79,7 @@ func Build(iss Issue, l Limits) (Artifact, error) {
 		} else {
 			a.Flags.SnapshotUnknownFields = snap.Dropped
 			a.SnapshotTable = RenderSnapshotTable(snap)
+			a.SnapshotFields = snap.Fields
 		}
 	} else if ambiguous {
 		a.Flags.SnapshotAmbiguous = true
@@ -83,12 +95,31 @@ func Build(iss Issue, l Limits) (Artifact, error) {
 	}
 	a.Title, a.Body = title, body
 	a.Flags.Counts = sumCounts(tc, bc)
+	a.Flags.Images = countImages(iss.Body)
 
-	if phrase, hit := Tripwire(title + "\n" + body); hit {
-		a.Flags.Tripwire = phrase
+	if family, hit := Tripwire(title + "\n" + body); hit {
+		a.Flags.Tripwire = family
 	}
 	a.Route = Route(a.AuthorAssociation, a.Flags)
 	return a, nil
+}
+
+// ApplyScore folds an optional classifier result into the flags and re-routes.
+//
+// A held issue is never touched: the classifier can add a signal, never remove one. A
+// failed scorer leaves the route exactly as it was and flags the failure so the report
+// says so, because a security layer that takes the run down is worse than one that is
+// skipped visibly.
+func (a *Artifact) ApplyScore(p float64, err error) {
+	if a.Route == PathHeld {
+		return
+	}
+	if err != nil {
+		a.Flags.ScorerFailed = true
+		return
+	}
+	a.Flags.Scored, a.Flags.Score = true, p
+	a.Route = Route(a.AuthorAssociation, a.Flags)
 }
 
 func sumCounts(a, b Counts) Counts {
@@ -98,6 +129,7 @@ func sumCounts(a, b Counts) Counts {
 		URLsDefanged:  a.URLsDefanged + b.URLsDefanged,
 		NonASCII:      a.NonASCII + b.NonASCII,
 		ZeroWidth:     a.ZeroWidth + b.ZeroWidth,
+		Images:        a.Images + b.Images,
 		Truncated:     a.Truncated || b.Truncated,
 	}
 }
@@ -193,10 +225,10 @@ const DispatchFile = "dispatch.json"
 
 // Dispatch is one row of DispatchFile.
 //
-// Title and Readable are populated together and only for an owner-filed, unflagged issue
-// ([Readable]). They are what lets the session build a ranking table from this file instead
-// of reaching for gh, which is how author text used to enter it unsanitised. Every other
-// row carries no title, so a facts-only body still reaches no session.
+// Title and Readable are populated together and only for an owner-filed issue on the normal
+// path ([Readable]). They are what lets the session build a ranking table from this file
+// instead of reaching for gh, which is how author text used to enter it unsanitised. Every
+// other row carries no title, so a restricted body still reaches no session.
 type Dispatch struct {
 	Number   int    `json:"number"`
 	Path     string `json:"path"`

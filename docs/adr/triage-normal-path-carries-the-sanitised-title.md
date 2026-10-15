@@ -1,13 +1,13 @@
 ---
 id: triage-normal-path-carries-the-sanitised-title
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-21
 summary: A trusted, unflagged issue renders with the sanitised title; it is the second attacker-derived field in the backlog and HeaderSafe is its guard.
 features: [triage]
 tags: [security, pipeline, user-decision]
 files: [internal/triage/render.go, internal/triage/route.go, internal/triage/proposal.go, .githooks/pre-commit]
-tests: [TestZeroPathIsFactsOnly, TestHeaderSafe, TestRenderNormalSurvivesHostileTitles, TestRenderFactsOnlyIsUnchanged, TestPreCommitHookAcceptsARenderedNormalEntry]
+tests: [TestZeroPathIsRestricted, TestHeaderSafe, TestRenderNormalSurvivesHostileTitles, TestRenderEntryRestricted, TestPreCommitHookAcceptsARenderedNormalEntry]
 refs: [kb:adr/triage-program-not-model-between-github-and-todo, kb:adr/triage-owner-filed-artifacts-readable-in-session, docs/history/design/triage-hardening.md]
 supersedes: []
 ---

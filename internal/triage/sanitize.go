@@ -29,14 +29,16 @@ func DefaultLimits() Limits {
 	return Limits{MaxInputBytes: 8 << 10, MaxOutputBytes: 32 << 10}
 }
 
-// Counts feeds routing. Every field is a count of something removed or rewritten, so a
-// non-zero total means the body was not plain prose.
+// Counts records what Sanitize had to do. Every field is a count of something removed or
+// rewritten; they are reported, never routed on (route.go) — except ZeroWidth, which is the
+// one count that is also a signal. Images is counted by Build on the raw body, not here.
 type Counts struct {
 	HTMLEscaped   int
 	LinksStripped int
 	URLsDefanged  int
 	NonASCII      int
 	ZeroWidth     int
+	Images        int
 	Truncated     bool
 }
 

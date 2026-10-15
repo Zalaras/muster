@@ -167,9 +167,10 @@ func TestBuildAdversarial(t *testing.T) {
 	if !strings.Contains(a.SnapshotTable, "0.2.1") {
 		t.Errorf("snapshot was not recovered:\n%s", a.SnapshotTable)
 	}
-	// The comment's phrase is still findable after escaping, so the tripwire holds it.
-	if a.Flags.Tripwire == "" {
-		t.Error("tripwire did not fire on a phrase hidden in an HTML comment")
+	// The comment's phrase is still findable after escaping, so the tripwire holds it, and
+	// the report names the family, never the phrase.
+	if a.Flags.Tripwire != "instruction_override" {
+		t.Errorf("tripwire = %q, want instruction_override for a phrase hidden in an HTML comment", a.Flags.Tripwire)
 	}
 	rendered := a.Render()
 	if !strings.Contains(rendered, "<<<MUSTER-TRIAGE-BODY "+a.Nonce+">>>") {
@@ -180,16 +181,16 @@ func TestBuildAdversarial(t *testing.T) {
 	}
 }
 
-// The same body with the phrase removed takes the facts-only path instead: an untrusted
-// author plus a body that needed intervention, but nothing worth a human's attention.
-func TestBuildFactsOnlyWithoutTripwire(t *testing.T) {
+// The same body with the phrase removed is restricted instead: an untrusted author, and
+// nothing worth a human's attention.
+func TestBuildRestrictedWithoutTripwire(t *testing.T) {
 	body := "The daemon fails. <!-- nothing to see -->\nSee [the fix](https://evil.example/x).\nZero\u200Bwidth here."
 	a, err := Build(Issue{Number: 43, Title: "it breaks", Body: body, AuthorAssociation: "NONE", UserLogin: "stranger"}, DefaultLimits())
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
-	if a.Route != PathFactsOnly {
-		t.Errorf("Route = %v (flags %v), want facts-only", a.Route, a.Flags.Strings())
+	if a.Route != PathRestricted {
+		t.Errorf("Route = %v (flags %v), want restricted", a.Route, a.Flags.Strings())
 	}
 	if strings.Contains(a.Body, "https://evil") || strings.Contains(a.Body, "<!--") {
 		t.Errorf("body was not sanitised:\n%s", a.Body)

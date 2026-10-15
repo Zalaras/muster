@@ -31,8 +31,8 @@ const todoFixture = `# Muster backlog
 // changes meaning with it.
 func testEntry(n int) string {
 	return RenderEntry(
-		Artifact{Number: n, Route: PathFactsOnly},
-		Proposal{Component: "daemon", Symptom: "hang", ErrorString: "context deadline exceeded"},
+		Artifact{Number: n, Route: PathRestricted},
+		Proposal{Kind: "bug", Area: []string{"launch"}, Symptom: "It hangs.", Expected: "It should not.", ErrorString: "context deadline exceeded"},
 		"Zalaras/muster",
 	)
 }
@@ -183,11 +183,11 @@ func TestCheckEntryShape(t *testing.T) {
 	}
 }
 
-// The rendered entry is built from enums, a validated integer and one checked quote, so
-// no attacker-derived byte can reach column 0 of a continuation line.
+// The rendered entry is built from validated fields, a validated integer and one checked
+// quote, so no attacker-derived byte can reach column 0 of a continuation line.
 func TestRenderEntryShapeHolds(t *testing.T) {
 	for _, quote := range []string{"", "context deadline exceeded", strings.Repeat("x", maxErrorString)} {
-		e := RenderEntry(Artifact{Number: 7, Route: PathFactsOnly}, Proposal{Component: "tmux", Symptom: "crash", ErrorString: quote}, "Zalaras/muster")
+		e := RenderEntry(Artifact{Number: 7, Route: PathRestricted}, Proposal{Kind: "bug", Area: []string{"shell"}, Symptom: "It crashes.", Expected: "It should not.", ErrorString: quote}, "Zalaras/muster")
 		if err := CheckEntryShape(e); err != nil {
 			t.Errorf("quote %q: %v\n%s", quote, err, e)
 		}

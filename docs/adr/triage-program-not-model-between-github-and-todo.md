@@ -1,7 +1,7 @@
 ---
 id: triage-program-not-model-between-github-and-todo
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-11
 summary: Nothing between GitHub and the backlog diff is a model with tools: a program fetches, sanitises, routes, splices and commits; a Read-only subagent summarises.
 features: [triage]
