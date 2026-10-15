@@ -48,7 +48,8 @@ The refusal entry was filed 2026-09-26 by the developer from
   musterd logged the model check failing for every model in the launch dialog:
   `model-catalog check failed; unchecked error="context deadline exceeded"` for `haiku`,
   `fable`, `sonnet` and `opus`. A launch should be ready promptly, and the model check should
-  complete.
+  complete. #89 logs a call to Claude Code being killed the same
+  way; the two may share a fix.
 
 - [ ] **A model refusal can move focus after the selection changed** — in one open dialog:
   submit model A (refused), change to B and submit, change back to A and click Title; B's
@@ -65,7 +66,8 @@ The refusal entry was filed 2026-09-26 by the developer from
 - [ ] **Getting error running claude --version** ([#89](https://github.com/Zalaras/muster/issues/89)) — musterd
   logged `could not determine claude code version error="running claude --version: signal:
   killed"`, and the dashboard showed the installed Claude Code version as unknown. The installed
-  version should always be read and shown.
+  version should always be read and shown. #81 logs the launch's model check timing out the
+  same way; the two may share a fix.
 
 - [ ] **Need a way to restart all claude session with latest Claude version** ([#88](https://github.com/Zalaras/muster/issues/88)) —
   after Claude Code updates, the developer wants to restart every session onto the new version
