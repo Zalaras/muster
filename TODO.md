@@ -38,20 +38,38 @@ group deliberately, and otherwise don't re-sort this list.
   gone after stopping musterd and killing tmux. They should come back on restart as resumable
   rows, even though Claude itself has quit.
 
-### Together — a launch request in flight (#81)
+### Together — launching a session (#81, #68)
 
 The refusal entry was filed 2026-09-26 by the developer from
 `plans/maintainability-regressions/proposed-backlog.md`.
+
+- [ ] **Taking long time to launch a new session** ([#81](https://github.com/Zalaras/muster/issues/81)) — a
+  newly launched session took a long time to come up, with six live sessions at the time, and
+  musterd logged the model check failing for every model in the launch dialog:
+  `model-catalog check failed; unchecked error="context deadline exceeded"` for `haiku`,
+  `fable`, `sonnet` and `opus`. A launch should be ready promptly, and the model check should
+  complete.
 
 - [ ] **A model refusal can move focus after the selection changed** — in one open dialog:
   submit model A (refused), change to B and submit, change back to A and click Title; B's
   refusal moves focus to the custom-model field. A refusal should move focus only while the
   refused model is still the selection. From `plans/maintainability-regressions/`.
 
-- [ ] **Taking long time to launch a new session** ([#81](https://github.com/Zalaras/muster/issues/81)) — a
-  newly launched session took a long time to come up (six live sessions at the time). The issue
-  has no description: the developer to say how long, and from which point to which. A launch
-  should be ready promptly.
+- [ ] **Add effort to launch options** ([#68](https://github.com/Zalaras/muster/issues/68)) — the
+  launch dialog should offer an effort level, and wherever the model shows, its effort should
+  follow in brackets — kept current when the effort changes, as the model is, and right on
+  resumed sessions.
+
+### Together — the installed Claude Code version (#89, #88)
+
+- [ ] **Getting error running claude --version** ([#89](https://github.com/Zalaras/muster/issues/89)) — musterd
+  logged `could not determine claude code version error="running claude --version: signal:
+  killed"`, and the dashboard showed the installed Claude Code version as unknown. The installed
+  version should always be read and shown.
+
+- [ ] **Need a way to restart all claude session with latest Claude version** ([#88](https://github.com/Zalaras/muster/issues/88)) —
+  after Claude Code updates, the developer wants to restart every session onto the new version
+  with each one resumed where it was, and also to restart just one session or just one group.
 
 ### On their own
 
@@ -63,60 +81,71 @@ The refusal entry was filed 2026-09-26 by the developer from
   message of the first new session after musterd updates (not yet confirmed). No Muster hook
   should ever report an error.
 
-- [ ] **Issue tag management** ([#43](https://github.com/Zalaras/muster/issues/43)) — define real GitHub labels and have the triage skill apply
-  them per its assessment. Needs kb:adr/issue-daemon-creates-issues-only revisited first:
-  triage deliberately never labels, assigns or milestones.
-
-- [ ] **Add effort to launch options** ([#68](https://github.com/Zalaras/muster/issues/68)) — the
-  launch dialog should offer an effort level, and wherever the model shows, its effort should
-  follow in brackets — kept current when the effort changes, as the model is, and right on
-  resumed sessions.
+- [ ] **Issue tag management** ([#43](https://github.com/Zalaras/muster/issues/43)) — define real GitHub labels, apply
+  them to the open issues, and have the triage skill apply them per its assessment, seeded from
+  that first run. Needs kb:adr/issue-daemon-creates-issues-only revisited first: triage
+  deliberately never labels, assigns or milestones.
 
 - [ ] **Renaming in Muster does not rename Claude session** ([#71](https://github.com/Zalaras/muster/issues/71)) —
   renaming a session in Muster leaves Claude Code's own session name unchanged. A rename should
   reach both.
 
-### From the maintainability cleanup (2026-09-24)
+- [ ] **Check the Focus view's first-attach terminal height** — the size note's reserved row
+  was restored; confirm the terminal is not a row short on first attach. From
+  `plans/maintainability-cleanup/`.
 
-Filed by the developer from the cleanup's proposed backlog (`plans/maintainability-cleanup/proposed-backlog.md`).
+- [ ] **A card shows alive for up to 5 s after Claude exits** when no terminal is attached. From
+  `plans/maintainability-cleanup/`.
 
-Fix:
+### Together — the ingest endpoint and dashboard sockets
+
+From `plans/maintainability-cleanup/`, filed by the developer 2026-09-24.
+
+- [ ] **Shutdown's `/ws` close code disagrees with the protocol** — musterd closes dashboard
+  sockets with 1000 at shutdown; `docs/protocol.md` says 1001.
+- [ ] **The ingest endpoint accepts hook bodies of any size.**
+- [ ] **Decide the owner of the ingest route and `MUSTER_SESSION`** — both are Muster names,
+  declared today in `internal/claudecode`.
+
+### Together — Update and restart
+
+Filed by the developer 2026-09-25/26 from the plans' proposed backlogs.
+
+- [ ] **The pop-out reader keeps the old dashboard after Update and restart** — dashboard
+  windows reload onto the new version; an open pop-out should too. From
+  `plans/settings-update-failures/`.
+- [ ] **The self-updater swaps in the new binary with its own temp-file-and-rename writer** —
+  it should use the daemon's shared atomic write (a fresh temp name, synced before the rename).
+  From `plans/maintainability-regressions/`.
+
+### Together — what code comments cite
+
+Filed by the developer 2026-09-24/25 from the plans' proposed backlogs.
+
+- [ ] **Code cites external docs** — Go and TS comments (and test names) carry `kb:` citations
+  to records under `docs/`; code should carry no citations to external docs. Reverses
+  `docs/conventions.md` § Comments, which asks for them — change it there first. From
+  `plans/settings-update-failures/`.
+- [ ] **Plan IDs remain in test-file comments** — about 370 lines; production code is clean.
+  From `plans/maintainability-cleanup/`.
+
+### Together — missing tests
+
+From `plans/maintainability-cleanup/`, filed by the developer 2026-09-24.
+
+- [ ] **No test covers the launch rollback after a failed record.**
+- [ ] **`internal/boundedwait` has no tests of its own.**
+
+### Together — the gate outside the developer's checkout
+
+From `plans/maintainability-cleanup/`, filed by the developer 2026-09-24. Releases nothing.
+`shell.spec.ts:47` is also one of the four specs in Pre-v1's shared-machine entry.
 
 - [ ] **`make check` fails in a fresh clone or worktree** — `check-kb` reports `refs` entries for
   `test/rig/captures/*.jsonl` that match no file; it passes only in the developer's checkout.
 - [ ] **Two E2E specs fail on a release-tag commit** — `shell.spec.ts:47` and
   `update.spec.ts:449` fail whenever HEAD is exactly a release tag (e.g. `main` right after a
   release).
-- [ ] **Shutdown's `/ws` close code disagrees with the protocol** — musterd closes dashboard
-  sockets with 1000 at shutdown; `docs/protocol.md` says 1001.
-- [ ] **The ingest endpoint accepts hook bodies of any size.**
-- [ ] **Check the Focus view's first-attach terminal height** — the size note's reserved row
-  was restored; confirm the terminal is not a row short on first attach.
-
-Refactor:
-
-- [ ] **Decide the owner of the ingest route and `MUSTER_SESSION`** — both are Muster names,
-  declared today in `internal/claudecode`.
-- [ ] **Plan IDs remain in test-file comments** — about 370 lines; production code is clean.
-- [ ] **No test covers the launch rollback after a failed record.**
-- [ ] **`internal/boundedwait` has no tests of its own.**
-- [ ] **The self-updater swaps in the new binary with its own temp-file-and-rename writer** —
-  it should use the daemon's shared atomic write (a fresh temp name, synced before the rename).
-  From `plans/maintainability-regressions/`.
-
-Quality of life:
-
-- [ ] **A card shows alive for up to 5 s after Claude exits** when no terminal is attached.
-
-### Filed 2026-09-25 by the developer from the plans' proposed-backlog.md files
-
-- [ ] **Code cites external docs** — Go and TS comments (and test names) carry `kb:` citations
-  to records under `docs/`; code should carry no citations to external docs. Reverses
-  `docs/conventions.md` § Comments, which asks for them — change it there first. From
-  `plans/settings-update-failures/`.
-- [ ] **The pop-out reader keeps the old dashboard after Update and restart** — dashboard
-  windows reload onto the new version; an open pop-out should too. From
-  `plans/settings-update-failures/`.
 
 ## Pre-v1
 
@@ -168,11 +197,9 @@ and the second is the one to re-measure if a Claude Code bump touches worktrees.
 
 - [ ] **Rail cards should carry a session summary, not a truncated last reply** ([#17](https://github.com/Zalaras/muster/issues/17))
   — "it would be nicer to have a summary of what's going on in the chat. Just a short sentence
-  or two". Today the card's one-liner is the closing `Stop` hook's `last_assistant_message`
-  truncated to 200 chars (`internal/claudecode/interpret.go:45`, `internal/session/machine.go`
-  `KindTurnClosed`), so it reads as a mid-thought fragment rather than an overview. A real
-  summary cannot come from a hook payload at all — it needs the transcript plus a summarizer,
-  i.e. a model call Muster does not currently make. Two things have to be settled before this
+  or two". Today the card shows Claude's last reply cut short, which reads as a
+  mid-thought fragment rather than an overview. A summary means a model call Muster does not
+  make today. Two things have to be settled before this
   can be planned: whether Muster may spend tokens summarizing (`kb:adr/nongoal-cost-tracking` rejects
   cost *tracking*, but spending is a new class of behaviour either way), and where a summary
   is cached and invalidated so it isn't recomputed every render. Wants a `/spec` pass.
@@ -363,11 +390,6 @@ New post-v1 ideas go here; re-rank when reached.
 
 - [ ] **Show rendered plan** ([#44](https://github.com/Zalaras/muster/issues/44)) — auto-open the document tab when Claude presents a plan. Likely
   only worth doing once the rendered view carries Accept/Reject and can swap back.
-
-- [ ] **Tiles view per group** — filed by the developer 2026-10-05 during the `groups` spec
-  interview. Rail groups (`plans/groups/spec.md`) leave the Tiles grid and strip flat; revisit
-  whether Tiles should instead show one group at a time (the grid as a group's sessions, the
-  strip as the rest), once groups have been used for a while.
 
 - [ ] **Explore offering Claude Code's dontAsk permission mode** ([#63](https://github.com/Zalaras/muster/issues/63)) —
   the launch dialog can't start a `dontAsk` session, though a resumed one can come back in that
