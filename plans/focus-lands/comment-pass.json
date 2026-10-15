@@ -1,0 +1,102 @@
+{
+  "plan": "focus-lands",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-15T05:58:54Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 5,
+        "keep": 1,
+        "drop": 4
+      },
+      "keeps": [
+        {
+          "key": "web/src/render/context.ts:1e1bb43125975674",
+          "path": "web/src/render/context.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function renderContextRow(",
+            "line": 8
+          },
+          "lines": [
+            "/** `baseClass` is the caller's own class name (`\"r3\"` for rail/strip cards, `\"ctxinfo\"`",
+            "* for tiles) — reset on every render so an `unk` modifier from a prior unknown render",
+            "* never lingers once real data arrives, and vice versa (e.g. after `/clear`, which resets",
+            "* the gauge without changing session identity — kb:adr/lifecycle-alive-flag-not-a-state).",
+            "*",
+            "* Honesty rule 1 (design-system §6.1): unknown context sets plain text and never builds",
+            "* a track element at all — a 0%-filled track would read as \"0% used\". Known context",
+            "* builds track + rounded percent + compact tokens (+ the compaction counter when positive)",
+            "* once, then updates those same nodes on every later pass: Chrome fires no `click` when the",
+            "* pressed element is replaced before the release, so a row rebuilt each render swallows a",
+            "* press on it. */"
+          ],
+          "reason": "Edited on `main`; still true: `const row = knownRowOf(el) ?? buildKnownRow(el);` builds once and updates the same nodes, and `el.className = baseClass` resets the class each render."
+        }
+      ],
+      "drops": [
+        {
+          "key": "web/src/app.ts:3f74f41db877fb0c",
+          "path": "web/src/app.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "surfaceSwitched: (id: number, kind: SurfaceKind) =\u003e void;",
+            "line": 85
+          },
+          "lines": [
+            "// Emitted by features/surfaces.ts once a session's `claude`/`shell`/`docs` switch has",
+            "// rendered (a shell's after its spawn resolves) — the moment the surface switched to takes",
+            "// keyboard focus, each listener doing so only while focus is still on the switch or the",
+            "// page body. Its listeners: surfaces.ts for the terminals, features/reader.ts for the",
+            "// docs body."
+          ]
+        },
+        {
+          "key": "web/src/render/context.ts:813abd1e6706677f",
+          "path": "web/src/render/context.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function knownRowOf(el: HTMLElement): KnownRow | null {",
+            "line": 38
+          },
+          "lines": [
+            "/** The nodes a previous known render built into `el`, or null when `el` holds anything else",
+            "* (empty, or the unknown text). */"
+          ]
+        },
+        {
+          "key": "web/src/render/surfaceseg.ts:9b14ab686b12b0bd",
+          "path": "web/src/render/surfaceseg.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function focusIsOnSwitchOrPage(active: Element | null): boolean {",
+            "line": 76
+          },
+          "lines": [
+            "/** Whether keyboard focus is somewhere a surface switch may move it from: a segment button",
+            "* (the control just pressed), or nowhere (`\u003cbody\u003e`). Any other element is a field the",
+            "* developer moved to meanwhile and is never taken from them. */"
+          ]
+        },
+        {
+          "key": "web/src/render/update.ts:692fdc9f1ac411b0",
+          "path": "web/src/render/update.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "checkEnabled: boolean;",
+            "line": 27
+          },
+          "lines": [
+            "/** Whether `Check now` is pressable —",
+            "* `update.canCheck` and no check of its own already in flight. Written as a real",
+            "* `disabled` only when `checkBusy` is false (an in-flight check is `aria-disabled`, so the",
+            "* button keeps keyboard focus). Independent of",
+            "* `prefs.updateCheck`/`updateEnabled` — a user-initiated check runs regardless of the",
+            "* daily-check toggle (kb:adr/update-check-pref-governs-automatic-checking-only). */"
+          ]
+        }
+      ]
+    }
+  ]
+}

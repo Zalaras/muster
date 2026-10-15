@@ -12,43 +12,76 @@ import { buildContextRowViewModel } from "../sessions/context";
  *
  * Honesty rule 1 (design-system §6.1): unknown context sets plain text and never builds
  * a track element at all — a 0%-filled track would read as "0% used". Known context
- * replaces `el`'s children with track + rounded percent + compact tokens + (when
- * positive) the compaction counter. */
+ * builds track + rounded percent + compact tokens (+ the compaction counter when positive)
+ * once, then updates those same nodes on every later pass: Chrome fires no `click` when the
+ * pressed element is replaced before the release, so a row rebuilt each render swallows a
+ * press on it. */
 export function renderContextRow(
   el: HTMLElement,
   context: SessionContext,
   baseClass: string,
 ): void {
   const vm = buildContextRowViewModel(context);
-  const suffix = vm.compactions > 0 ? ` ⟳${vm.compactions}` : "";
 
   if (!vm.known) {
     el.className = `${baseClass} unk`;
-    el.textContent = `ctx unknown${suffix}`;
+    el.textContent = `ctx unknown${vm.compactions > 0 ? ` ⟳${vm.compactions}` : ""}`;
     return;
   }
 
   el.className = baseClass;
+  const row = knownRowOf(el) ?? buildKnownRow(el);
+  row.track.className = vm.hot ? "ctx hot" : "ctx";
+  row.fill.style.width = `${vm.pct}%`;
+  setText(row.pct, `${vm.pct}%`);
+  setText(row.tok, vm.tokensText ?? "");
+  syncCompactCounter(el, row.compact, vm.compactions);
+}
 
+interface KnownRow {
+  track: HTMLElement;
+  fill: HTMLElement;
+  pct: HTMLElement;
+  tok: HTMLElement;
+  compact: HTMLElement | null;
+}
+
+function knownRowOf(el: HTMLElement): KnownRow | null {
+  const [track, pct, tok, compact] = Array.from(el.children);
+  const fill = track?.firstElementChild;
+  if (!(track instanceof HTMLElement) || !track.classList.contains("ctx")) return null;
+  if (!(fill instanceof HTMLElement) || !(pct instanceof HTMLElement)) return null;
+  if (!(tok instanceof HTMLElement)) return null;
+  return {
+    track,
+    fill,
+    pct,
+    tok,
+    compact: compact instanceof HTMLElement ? compact : null,
+  };
+}
+
+function buildKnownRow(el: HTMLElement): KnownRow {
   const track = document.createElement("span");
-  track.className = vm.hot ? "ctx hot" : "ctx";
   const fill = document.createElement("i");
-  fill.style.width = `${vm.pct}%`;
   track.appendChild(fill);
+  const pct = document.createElement("span");
+  const tok = document.createElement("span");
+  tok.className = "tok";
+  el.replaceChildren(track, pct, tok);
+  return { track, fill, pct, tok, compact: null };
+}
 
-  const pctEl = document.createElement("span");
-  pctEl.textContent = `${vm.pct}%`;
-
-  const tokEl = document.createElement("span");
-  tokEl.className = "tok";
-  tokEl.textContent = vm.tokensText ?? "";
-
-  const children: HTMLElement[] = [track, pctEl, tokEl];
-  if (vm.compactions > 0) {
-    const compactEl = document.createElement("span");
-    compactEl.className = "compact";
-    compactEl.textContent = `⟳${vm.compactions}`;
-    children.push(compactEl);
+function syncCompactCounter(el: HTMLElement, existing: HTMLElement | null, compactions: number) {
+  if (compactions <= 0) {
+    existing?.remove();
+    return;
   }
-  el.replaceChildren(...children);
+  const compactEl = existing ?? el.appendChild(document.createElement("span"));
+  compactEl.className = "compact";
+  setText(compactEl, `⟳${compactions}`);
+}
+
+function setText(el: HTMLElement, text: string): void {
+  if (el.textContent !== text) el.textContent = text;
 }

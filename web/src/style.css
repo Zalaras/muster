@@ -2717,7 +2717,7 @@ body[data-rail-density="expanded"] .activity[hidden] {
   cursor: pointer;
 }
 
-.btn:hover:not(:disabled) {
+.btn:hover:not(:disabled):not([aria-disabled="true"]) {
   color: var(--fg);
   border-color: var(--fg-muted);
 }
@@ -2868,7 +2868,7 @@ dialog.diagram-modal[open] {
 /* Ghost danger (design-system §5, decided 2026-09-02): fills on hover — --danger ground,
  * --danger-fg text — rather than colouring its own text, because no theme can hold both
  * "text on --bg-raised" and "white on --danger" at 4.5:1 with one token. */
-.btn.danger:hover:not(:disabled) {
+.btn.danger:hover:not(:disabled):not([aria-disabled="true"]) {
   color: var(--danger-fg);
   background: var(--danger);
   border-color: var(--danger-line);
@@ -2886,7 +2886,8 @@ dialog.diagram-modal[open] {
  * produce (`.btn.key`/`.btn.key-danger` both set colour+background at the same 0,2,0
  * specificity as `.btn:disabled`). Every `.btn` hover rule above is guarded
  * `:hover:not(:disabled)` so a disabled button never changes on hover. */
-.btn:disabled {
+.btn:disabled,
+.btn[aria-disabled="true"] {
   color: var(--disabled-fg);
   background: var(--disabled-bg);
   border-color: var(--disabled-line);

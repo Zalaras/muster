@@ -541,3 +541,175 @@ test("a status post at or above 60% renders the hot context track and the warn m
     await cleanup();
   }
 });
+
+// Plan focus-lands REQ-1 (#69), tile header half: `.ctxinfo` shares the rail card's builder,
+// so a known-to-known status line must leave its track, percent and token nodes in place.
+// The tag is a JS property on the live node, so it survives only if the node does.
+test("a status line that changes a tile's context percent updates the header context info in place, so its track is the same element (REQ-1, tile half)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "gauge-tile-in-place",
+    });
+    const claudeId = "claude-gauge-tile-in-place";
+    const opts = await envelopeOpts(session, daemon);
+
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, opts),
+    });
+    await request.post(daemon.ingestURL("status"), {
+      data: envelopedStatusLineFull(claudeId, {
+        ...opts,
+        contextUsedPct: 40,
+        totalInputTokens: 80000,
+      }),
+    });
+    await expect(sessionCard(page, "gauge-tile-in-place")).toBeVisible();
+
+    await page.getByRole("button", { name: "Tiles", exact: true }).click();
+    const tile = liveTile(page, "gauge-tile-in-place");
+    await expect(tile).toBeVisible();
+    const info = tileContextInfo(tile);
+    await expect(info).toContainText("40%");
+    await expect(info).toContainText("80k");
+
+    const tag = (sel: string) =>
+      info.locator(sel).evaluate((el) => {
+        (el as HTMLElement & { __kept?: boolean }).__kept = true;
+      });
+    await tag(".ctx");
+    await tag(".tok");
+
+    await request.post(daemon.ingestURL("status"), {
+      data: envelopedStatusLineFull(claudeId, {
+        ...opts,
+        contextUsedPct: 41,
+        totalInputTokens: 82000,
+      }),
+    });
+    await expect(info).toContainText("41%");
+    await expect(info).toContainText("82k");
+    await expect(info.locator(".ctx > i")).toHaveAttribute("style", /width:\s*41%/);
+
+    const kept = (sel: string) =>
+      info
+        .locator(sel)
+        .evaluate((el) => (el as HTMLElement & { __kept?: boolean }).__kept === true);
+    expect(await kept(".ctx")).toBe(true);
+    expect(await kept(".tok")).toBe(true);
+  } finally {
+    await cleanup();
+  }
+});
+
+// Plan focus-lands edge case 2: the compaction counter is added to and removed from a context
+// row that is otherwise updated in place. PreCompact is the measured hook (rawPreCompact) that
+// drives it; /clear is what removes it again, through an unknown render.
+test("a compaction counter appearing on a later render keeps the row correct on the rail card and the tile header, and a /clear then a fresh status line shows none (REQ-1, edge 2)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "gauge-compact-in-place",
+    });
+    const card = sessionCard(page, "gauge-compact-in-place");
+    const claudeId = "claude-gauge-compact-orig";
+    const opts = await envelopeOpts(session, daemon);
+
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, opts),
+    });
+    await request.post(daemon.ingestURL("status"), {
+      data: envelopedStatusLineFull(claudeId, {
+        ...opts,
+        contextUsedPct: 40,
+        totalInputTokens: 80000,
+      }),
+    });
+    const row = cardContextRow(card);
+    await expect(row).toContainText("40%");
+    await expect(row).not.toContainText("⟳");
+
+    await page.getByRole("button", { name: "Tiles", exact: true }).click();
+    const tile = liveTile(page, "gauge-compact-in-place");
+    const info = tileContextInfo(tile);
+    await expect(info).toContainText("40%");
+    await expect(info).not.toContainText("⟳");
+
+    for (const el of [row, info]) {
+      await el.locator(".ctx").evaluate((n) => {
+        (n as HTMLElement & { __kept?: boolean }).__kept = true;
+      });
+    }
+
+    await request.post(daemon.ingestURL("hook"), { data: rawPreCompact(claudeId, "p1") });
+    for (const el of [row, info]) {
+      await expect(el).toContainText("⟳1");
+      await expect(el).toContainText("40%");
+      await expect(el).toContainText("80k");
+      await expect(el.locator(".ctx > i")).toHaveAttribute("style", /width:\s*40%/);
+    }
+
+    // A status line after the counter appeared: percent moves, counter stays, track kept.
+    await request.post(daemon.ingestURL("status"), {
+      data: envelopedStatusLineFull(claudeId, {
+        ...opts,
+        contextUsedPct: 41,
+        totalInputTokens: 82000,
+      }),
+    });
+    for (const el of [row, info]) {
+      await expect(el).toContainText("41%");
+      await expect(el).toContainText("⟳1");
+      await expect(el.locator(".ctx > i")).toHaveAttribute("style", /width:\s*41%/);
+      expect(
+        await el
+          .locator(".ctx")
+          .evaluate((n) => (n as HTMLElement & { __kept?: boolean }).__kept === true),
+      ).toBe(true);
+    }
+
+    // /clear: unknown, then a fresh known status line carries no counter.
+    await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
+    await request.post(daemon.ingestURL("hook"), { data: rawStop(claudeId) });
+    await request.post(daemon.ingestURL("hook"), { data: rawSessionEnd(claudeId, "clear") });
+    const newClaudeId = "claude-gauge-compact-new";
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart(newClaudeId, { ...opts, source: "clear" }),
+    });
+    for (const el of [row, info]) {
+      await expect(el).toContainText(/ctx\s+unknown/i);
+      await expect(el).not.toContainText("⟳");
+      await expect(el.locator(".ctx")).toHaveCount(0);
+    }
+
+    await request.post(daemon.ingestURL("status"), {
+      data: envelopedStatusLineFull(newClaudeId, {
+        ...opts,
+        contextUsedPct: 12,
+        totalInputTokens: 24000,
+      }),
+    });
+    for (const el of [row, info]) {
+      await expect(el).toContainText("12%");
+      await expect(el).toContainText("24k");
+      await expect(el).not.toContainText("⟳");
+      await expect(el).not.toContainText(/unknown/i);
+      await expect(el.locator(".ctx")).toHaveCount(1);
+      await expect(el.locator(".ctx > i")).toHaveAttribute("style", /width:\s*12%/);
+    }
+  } finally {
+    await cleanup();
+  }
+});

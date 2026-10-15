@@ -24,10 +24,6 @@ export interface UpdateViewModel {
   badged: boolean;
   /** `aria-busy` on `#settings-update` while an apply phase is in flight. */
   busy: boolean;
-  /** `Check now`'s own `disabled` state —
-   * `update.canCheck` and no check of its own already in flight. Independent of
-   * `prefs.updateCheck`/`updateEnabled` — a user-initiated check runs regardless of the
-   * daily-check toggle (kb:adr/update-check-pref-governs-automatic-checking-only). */
   checkEnabled: boolean;
   /** Whether this window's own `Check now` request is in flight — `aria-busy` on the
    * button, same shape as `busy` above for the apply buttons. */
@@ -61,11 +57,13 @@ export function renderUpdateSection(elements: UpdateSectionElements, vm: UpdateV
   elements.applyBtn.disabled = !vm.updateEnabled;
   elements.restartBtn.disabled = !vm.restartEnabled;
   elements.restartBtn.textContent = vm.restartLabel;
-  elements.checkBtn.disabled = !vm.checkEnabled;
+  elements.checkBtn.disabled = !vm.checkEnabled && !vm.checkBusy;
   if (vm.checkBusy) {
     elements.checkBtn.setAttribute("aria-busy", "true");
+    elements.checkBtn.setAttribute("aria-disabled", "true");
   } else {
     elements.checkBtn.removeAttribute("aria-busy");
+    elements.checkBtn.removeAttribute("aria-disabled");
   }
   if (vm.busy) {
     elements.section.setAttribute("aria-busy", "true");

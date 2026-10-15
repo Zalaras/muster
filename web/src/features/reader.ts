@@ -35,6 +35,7 @@ import { buildTree, filterTree, flattenTree, type FlatTreeEntry } from "../reade
 import { visibleIds } from "../sessions/live";
 import { basename } from "../sessions/paths";
 import { renderDiagrams, rerenderDiagrams } from "../render/diagrams";
+import { focusIsOnSwitchOrPage } from "../render/surfaceseg";
 import {
   attachScrollSpy,
   buildReader,
@@ -190,6 +191,10 @@ class ReaderInstance {
       },
     );
     this.loadListing();
+  }
+
+  focusBody(): void {
+    this.refs.body.focus();
   }
 
   get root(): HTMLElement {
@@ -601,6 +606,11 @@ export function initReader(
   }
 
   app.onRender(renderFrame);
+
+  app.on("surfaceSwitched", (id, kind) => {
+    const instance = kind === "docs" ? instances.get(id) : undefined;
+    if (instance && focusIsOnSwitchOrPage(document.activeElement)) instance.focusBody();
+  });
 
   app.on("docChanged", (msg) => {
     instances.get(msg.id)?.handleDocChanged(msg);

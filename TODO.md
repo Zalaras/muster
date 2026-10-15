@@ -53,24 +53,11 @@ The refusal entry was filed 2026-09-26 by the developer from
   has no description: the developer to say how long, and from which point to which. A launch
   should be ready promptly.
 
-### Together — focus lands where the developer expects (#69, #76)
-
-- [ ] **Focus click bug** ([#69](https://github.com/Zalaras/muster/issues/69)) — after typing in a
-  session's terminal, clicking a rail card takes two clicks; sometimes also when only switching
-  between rail cards. One click should always select a card, whatever holds focus.
-
-- [ ] **Loss of focus swapping between tabs** ([#76](https://github.com/Zalaras/muster/issues/76)) — switching
-  a session between its Claude, Shell and Docs tabs leaves keyboard focus dangling in the UI. The
-  tab switched to should take focus.
-
-- [ ] **Switching a session to its shell leaves keyboard focus on the `shell` button** — typing
-  goes nowhere until the terminal is clicked. Same on `main` before the cleanup. From
-  `plans/maintainability-cleanup/`.
-
-- [ ] **Keyboard focus drops to the page body after Check now** — pressing Check now by
-  keyboard loses focus; it should stay on the button. From `plans/settings-update-failures/`.
-
 ### On their own
+
+- [ ] **A rail card re-inserted by a reorder while the pointer is pressed still drops that click**
+  (measured in research; the developer scoped #69 to the context row, 2026-10-14). From
+  `plans/focus-lands/` (its `## Out of scope`).
 
 - [ ] **Tiles per group** — a Tiles view scoped to one group (the grid holds that group's live sessions, the strip the rest of it), reached from the group's ⋯ menu. The grid and strip ignore groups today. The tile footer's live (Stop) versus ended (age, Resume, Remove) row shapes, and the layout shift between them, are reworked here too, matching the Focus header's single Stop/Resume button (plan `title-crop-stop-resume-button` left the footer alone, 2026-10-13).
 

@@ -1043,6 +1043,55 @@ test("Check now disables the button the instant it starts and shows its result t
   }
 });
 
+// Plan focus-lands REQ-3 (#76 sibling): a disabled button drops focus in Chrome, so an
+// in-flight check must leave Check now enabled to the browser (`aria-disabled`) and the
+// button focused from the press through the settle. Focus is placed with `.focus()` as
+// setup; the press itself is a real Enter key.
+test("pressing Check now by keyboard keeps focus on it through the check and after it settles (REQ-3, E4)", async ({
+  page,
+  startDaemon,
+}) => {
+  const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
+  try {
+    staged = await stageInstaller(OLD_VERSION);
+    // No tag ever published, so the held check settles as a failure with a status line.
+    const daemon = await startDaemon({
+      binary: staged.path,
+      updateBaseURL: fakeServer.baseURL,
+      updatePublicKeyFile: pubKeyPath,
+    });
+
+    await page.goto(daemon.dashboardUrl);
+    const dialog = await openSettingsDialog(page);
+    const checkBtn = updateCheckButton(dialog);
+    await expect(checkBtn).toBeEnabled();
+
+    const focusOnCheck = () =>
+      page.evaluate(() => document.activeElement?.id === "update-check-button");
+
+    await checkBtn.focus();
+    expect(await focusOnCheck()).toBe(true);
+
+    fakeServer.hold();
+    await page.keyboard.press("Enter");
+    await expect(checkBtn).toHaveAttribute("aria-busy", "true");
+    expect(await focusOnCheck()).toBe(true);
+
+    // One render tick (> 1 s) while the check is still held.
+    await settleFor(page, 1_500);
+    expect(await focusOnCheck()).toBe(true);
+
+    fakeServer.release();
+    await expect(updateStatusLine(dialog)).toHaveText(/fail/i);
+    await expect(checkBtn).not.toHaveAttribute("aria-busy", "true");
+    expect(await focusOnCheck()).toBe(true);
+  } finally {
+    if (staged) await staged.cleanup();
+    await cleanup();
+  }
+});
+
 // Plan settings-update-failures — E1 through E6 (#53 and the two sibling items).
 // REQ-4's recheck-on-every-check means E1/E2 below assert BOTH the initial remedy text
 // (REQ-1/REQ-2's exact composed sentence, not the old plan's loose install.sh-or-curl

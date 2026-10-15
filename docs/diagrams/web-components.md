@@ -26,7 +26,8 @@ graph is acyclic but no longer a single line down: `render/`, `terminal/`, `read
 `api/` all sit below `features/`, and `render/`/`terminal/`/`features/` each reach `api/`
 directly too. `app.ts` is the seam all of those reach for shared state (including
 `ConnectionStatus`, moved here off `render/masthead.ts` to cut a cycle), and it depends on
-nothing above `sessions/`/`protocol/`, so no loop closes back up.
+nothing above `sessions/`/`protocol/` but a type import of `terminal/`'s `SurfaceKind`, which
+imports nothing back, so no loop closes back up.
 
 This opens the Dashboard box of kb:diagram/containers; the daemon and `localStorage` stay on
 that diagram and the module descriptions say which module reaches them. Three modules talk to
@@ -107,6 +108,7 @@ C4Component
     Rel(theme, storage, "first-paint hint")
     Rel(features, storage, "restart handoff")
     Rel(app, sessions, "SessionStore")
+    Rel(app, terminal, "SurfaceKind type")
 
     UpdateRelStyle(main, app, $offsetY="-22")
     UpdateRelStyle(main, ws, $offsetX="70", $offsetY="-10")

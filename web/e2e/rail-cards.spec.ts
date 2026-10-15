@@ -8,6 +8,7 @@ import {
 } from "./helpers/fixtures";
 import {
   envelopedSessionStart,
+  envelopedStatusLineFull,
   rawNotification,
   rawStop,
   rawUserPromptSubmit,
@@ -26,6 +27,7 @@ import {
   sessionCard,
   stateBadge,
 } from "./helpers/session";
+import { cardContextRow } from "./helpers/gauges";
 import { liveTile, stripCard } from "./helpers/terminal";
 
 // Plan code-breakup's E2E split (plan.md UI Specifications → E2E split) moved these
@@ -763,5 +765,60 @@ test("ending from the mainhead ends only that session, and its card's menu then 
     expect(await sharedDaemon().tmuxPaneExists(sessionB.tmuxTarget)).toBe(true);
   } finally {
     await Promise.all([dirA.cleanup(), dirB.cleanup()]);
+  }
+});
+
+// Plan focus-lands REQ-1 (#69): a render pass must leave a known context row's elements
+// in place, because Chrome fires no click when the pressed element is replaced before the
+// release. The tag is a JS property on the live node, so it survives only if the node does.
+test("a status line that changes a card's context percent updates its context row in place, so the row's track is the same element (REQ-1, E1)", async ({
+  page,
+  request,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const session = await launchSession(page, sharedDaemon(), {
+      directory: dir,
+      title: "context-in-place",
+    });
+    const card = sessionCard(page, "context-in-place");
+    const claudeId = "claude-context-in-place";
+    const opts = await envelopeOpts(session, sharedDaemon());
+
+    await request.post(sharedDaemon().ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, opts),
+    });
+    await request.post(sharedDaemon().ingestURL("status"), {
+      data: envelopedStatusLineFull(claudeId, {
+        ...opts,
+        contextUsedPct: 40,
+        totalInputTokens: 80000,
+      }),
+    });
+    const row = cardContextRow(card);
+    await expect(row).toContainText("40%");
+
+    const track = row.locator(".ctx");
+    await track.evaluate((el) => {
+      (el as HTMLElement & { __kept?: boolean }).__kept = true;
+    });
+
+    await request.post(sharedDaemon().ingestURL("status"), {
+      data: envelopedStatusLineFull(claudeId, {
+        ...opts,
+        contextUsedPct: 41,
+        totalInputTokens: 82000,
+      }),
+    });
+    await expect(row).toContainText("41%");
+    await expect(row.locator(".ctx > i")).toHaveAttribute("style", /width:\s*41%/);
+
+    const kept = await track.evaluate(
+      (el) => (el as HTMLElement & { __kept?: boolean }).__kept === true,
+    );
+    expect(kept).toBe(true);
+  } finally {
+    await cleanup();
   }
 });

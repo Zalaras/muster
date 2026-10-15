@@ -72,6 +72,12 @@ three tmux-read gates — its foreground command, its alternate-screen flag, and
 tty's line discipline — and the shell segment shows a spinner while busy and a tick once
 work finishes (kb:adr/surfaces-shell-busy-from-tmux-process-state).
 
+Switching a session's surface from the Focus header or a tile footer, by pointer or keyboard,
+moves keyboard focus into the surface switched to: the terminal for claude and shell (the
+shell's once its spawn resolves), the reader's body for docs. It does not take focus back
+from somewhere the developer moved it meanwhile, and a claude switch on an ended session has
+no terminal to take it.
+
 ## Does not
 
 Surfaces never read terminal content as state, never open a live client for a rail card or

@@ -73,6 +73,10 @@ export function buildSurfaceSegment(onSelect: (kind: SurfaceKind) => void): Surf
   return { root, claudeBtn, shellBtn, docsBtn, shellActEl };
 }
 
+export function focusIsOnSwitchOrPage(active: Element | null): boolean {
+  return active === null || active === document.body || active.closest(".surfseg") !== null;
+}
+
 /** Every render pass: `aria-pressed` on all three segments, the activity indicator's
  * presence and `data-act` value, and `disabled` on all three while the WS is down
  * (States: "the segment buttons are disabled while the WS is down" — the same gate every

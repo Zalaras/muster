@@ -1774,6 +1774,27 @@ Filed 2026-10-12 by the developer from `plans/reader-expanded-persists/proposed-
   started in.
   ✅ done 2026-10-13 (plan `tmux-server-env-leak`): measured — a tmux server's global environment comes from the client that starts it and every pane inherits it, so a daemon started inside a managed pane did hand it on; `tmux.Client` now runs every tmux command without `MUSTER_SESSION`.
 
+### Together — focus lands where the developer expects (#69, #76) ✅ done 2026-10-14 (plan `focus-lands`, via `/fix`)
+
+- [x] **Focus click bug** ([#69](https://github.com/Zalaras/muster/issues/69)) — after typing in a
+  session's terminal, clicking a rail card takes two clicks; sometimes also when only switching
+  between rail cards. One click should always select a card, whatever holds focus.
+  ✅ done 2026-10-14 (plan `focus-lands`): a render pass no longer rebuilds the card's context row, whose replacement under a press made Chrome drop the click; the row updates in place, as the tile header's does.
+
+- [x] **Loss of focus swapping between tabs** ([#76](https://github.com/Zalaras/muster/issues/76)) — switching
+  a session between its Claude, Shell and Docs tabs leaves keyboard focus dangling in the UI. The
+  tab switched to should take focus.
+  ✅ done 2026-10-14 (plan `focus-lands`): a surface switch from the Focus header or a tile footer moves keyboard focus into the terminal, or the reader's body for docs.
+
+- [x] **Switching a session to its shell leaves keyboard focus on the `shell` button** — typing
+  goes nowhere until the terminal is clicked. Same on `main` before the cleanup. From
+  `plans/maintainability-cleanup/`.
+  ✅ done 2026-10-14 (plan `focus-lands`): the same fix as the tab entry above — focus moves into the shell terminal once it is up.
+
+- [x] **Keyboard focus drops to the page body after Check now** — pressing Check now by
+  keyboard loses focus; it should stay on the button. From `plans/settings-update-failures/`.
+  ✅ done 2026-10-14 (plan `focus-lands`): Check now stays focusable while its check runs (unavailable by `aria-disabled`), so focus stays on it.
+
 ## Post v1
 <!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 

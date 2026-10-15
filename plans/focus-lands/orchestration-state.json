@@ -1,0 +1,75 @@
+{
+  "plan_name": "focus-lands",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 0,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [],
+  "step_started_at": {
+    "web-impl": "2026-10-14T21:52:56Z",
+    "e2e-specs": "2026-10-15T05:42:00Z",
+    "review": "2026-10-15T06:12:24Z",
+    "doc-reconcile": "2026-10-15T06:27:17Z"
+  },
+  "step_finished_at": {
+    "web-impl": "2026-10-15T05:42:00Z",
+    "e2e-specs": "2026-10-15T05:58:29Z",
+    "doc-reconcile": "2026-10-15T06:28:26Z"
+  },
+  "step_attempts": {
+    "web-impl": [
+      {
+        "start": "2026-10-14T21:52:56Z",
+        "finish": "2026-10-15T05:42:00Z"
+      }
+    ],
+    "e2e-specs": [
+      {
+        "start": "2026-10-15T05:42:00Z",
+        "finish": "2026-10-15T05:58:29Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-10-15T06:12:19Z",
+        "finish": null
+      },
+      {
+        "start": "2026-10-15T06:12:24Z",
+        "finish": null
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-10-15T06:27:17Z",
+        "finish": "2026-10-15T06:28:26Z"
+      }
+    ]
+  },
+  "started_at": "2026-10-14T21:48:39Z",
+  "updated_at": "2026-10-15T06:41:29Z",
+  "review_parts": {
+    "1": [
+      "code",
+      "browser"
+    ]
+  },
+  "review_verdicts": {
+    "1": "approved"
+  },
+  "review_commits": {
+    "1": "b6dca18fc3e33555219ae7b2f6420565d5999885"
+  },
+  "closes_issues": [
+    69,
+    76
+  ]
+}

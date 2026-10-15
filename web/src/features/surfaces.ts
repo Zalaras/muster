@@ -13,6 +13,7 @@ import type { Session } from "../protocol/session";
 import { createShell } from "../api/sessions";
 import type { ApiErrorBody } from "../api/http";
 import { showDeadSurfaceNotice, type DeadSurfaceRefs } from "../render/dead";
+import { focusIsOnSwitchOrPage } from "../render/surfaceseg";
 import { visibleIds } from "../sessions/live";
 import { installTerminalDrop } from "../terminal/dropwire";
 import { TerminalSurface } from "../terminal/pane";
@@ -138,6 +139,7 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     if (kind === "claude" || kind === "docs") {
       surfaceSwitchState = selectSurface(surfaceSwitchState, id, kind);
       app.render();
+      app.emit("surfaceSwitched", id, kind);
       return;
     }
 
@@ -155,6 +157,7 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
       // (kb:adr/surfaces-snapshot-restored-tick-always-self-clears).
       activityState = clearOnSelect(activityState, id);
       app.render();
+      app.emit("surfaceSwitched", id, "shell");
     });
   }
 
@@ -233,6 +236,11 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
   // in place.
   app.on("themeChanged", () => {
     for (const surface of surfaces.values()) surface.applyTheme();
+  });
+
+  app.on("surfaceSwitched", (id, kind) => {
+    const surface = kind === "docs" ? undefined : surfaces.get(surfaceKey(id, kind));
+    if (surface && focusIsOnSwitchOrPage(document.activeElement)) surface.focus();
   });
 
   app.on("sessionRemoved", (id) => {

@@ -56,7 +56,7 @@ the daemon it reached runs that version (kb:adr/update-restart-reloads-dashboard
 
 **Dashboard.** The Settings dialog's Updates section shows running and available versions,
 the daily-check toggle, a Check now button, status text and the two apply buttons; once a
-check has completed, the available-version readout also carries how long ago it ran. The
+check has completed, the available-version readout also carries how long ago it ran. Check now keeps keyboard focus through a check: while one is in flight it is `aria-disabled` and `aria-busy` and ignores a press, and it is disabled outright only when the daemon cannot check. The
 Settings button wears a dot while a newer release is available and not yet swapped in. All
 release knowledge lives in one package (kb:adr/update-release-knowledge-in-selfupdate-package).
 

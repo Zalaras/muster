@@ -18,6 +18,7 @@ import type { ClaudeFamily } from "./protocol/theme";
 import type { UpdateInfo } from "./protocol/update";
 import type { Usage } from "./protocol/usage";
 import { SessionStore } from "./sessions/store";
+import type { SurfaceKind } from "./terminal/surfaceswitch";
 
 /** The three-way WS connection state — `features/connection.ts`'s domain vocabulary,
  * used widely enough (this module, the reader, the pop-out) that it lives on the seam
@@ -81,6 +82,7 @@ export interface AppEvents {
   // and features/reader.ts's diagram instances react to, replacing a `deps.surfaces`
   // callback on one side and a per-instance `MutationObserver` on the other.
   themeChanged: () => void;
+  surfaceSwitched: (id: number, kind: SurfaceKind) => void;
 }
 
 export interface App {

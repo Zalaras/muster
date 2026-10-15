@@ -8,6 +8,8 @@ import {
 } from "./helpers/payloads";
 import { railCard } from "./helpers/railorder";
 import {
+  mainheadRenameButton,
+  mainheadRenameField,
   envelopeOpts,
   findSession,
   getState,
@@ -26,6 +28,7 @@ import {
 } from "./helpers/shell";
 import { shellActivityIndicator } from "./helpers/shellinput";
 import { queryEvents } from "./helpers/db";
+import { readerRegion, renderedBody } from "./helpers/reader";
 import { dropFiles, dropNotice, liveTile, liveTileById, terminalRegion } from "./helpers/terminal";
 
 // Plan plain-terminal-session — REQ-1 through REQ-13, INV-1 through INV-6.
@@ -792,3 +795,168 @@ test("a tile footer renders the same segment as the mainhead, scoped per session
 // pip and that token entirely (kb:adr/theme-shell-pip-retired-for-activity-indicator
 // supersedes kb:adr/theme-shell-pip-own-token). shell-activity.spec.ts covers its
 // replacement, the busy/done indicator.
+
+// Plan focus-lands REQ-2 (#76): switching a surface moves keyboard focus into the surface
+// switched to. Each oracle reads `document.activeElement` inside the surface's own region,
+// never xterm's inner DOM, and polls because a shell surface mounts after its spawn
+// resolves. Setup moves focus with `.focus()` only to start a keyboard sequence; the
+// switch itself is a real click or a real Enter key.
+test("switching the Focus header to shell, docs and back to claude moves keyboard focus into each surface (REQ-2, E2)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, {
+      directory: dir,
+      title: "plain-shell-focus-lands",
+    });
+    const title = "plain-shell-focus-lands";
+    await expect(terminalRegion(page, title)).toContainText("MUSTER-STUB-READY", {
+      timeout: 15_000,
+    });
+
+    const claudeBtn = mainheadSurfaceButton(page, "claude");
+    const shellBtn = mainheadSurfaceButton(page, "shell");
+    const docsBtn = mainheadSurfaceButton(page, "docs");
+
+    const focusInShell = () =>
+      shellSurfaceRegion(page, title).evaluate((el) => el.contains(document.activeElement));
+    const focusInClaude = () =>
+      terminalRegion(page, title).evaluate((el) => el.contains(document.activeElement));
+    const focusIsReaderBody = () =>
+      renderedBody(readerRegion(page, title)).evaluate((el) => document.activeElement === el);
+
+    // Pointer.
+    await shellBtn.click();
+    await expect(shellSurfaceRegion(page, title)).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect.poll(focusInShell).toBe(true);
+
+    await docsBtn.click();
+    await expect(readerRegion(page, title)).toBeVisible({ timeout: 15_000 });
+    await expect.poll(focusIsReaderBody).toBe(true);
+
+    await claudeBtn.click();
+    await expect(terminalRegion(page, title)).toBeVisible({ timeout: 15_000 });
+    await expect.poll(focusInClaude).toBe(true);
+
+    // Keyboard: Enter on a focused segment. The shell is already running here, so Enter
+    // on `shell` re-selects it through the same spawn call.
+    await shellBtn.focus();
+    await page.keyboard.press("Enter");
+    await expect(shellSurfaceRegion(page, title)).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect.poll(focusInShell).toBe(true);
+
+    await docsBtn.focus();
+    await page.keyboard.press("Enter");
+    await expect(readerRegion(page, title)).toBeVisible({ timeout: 15_000 });
+    await expect.poll(focusIsReaderBody).toBe(true);
+
+    await claudeBtn.focus();
+    await page.keyboard.press("Enter");
+    await expect(terminalRegion(page, title)).toBeVisible({ timeout: 15_000 });
+    await expect.poll(focusInClaude).toBe(true);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("switching a tile's footer to shell moves keyboard focus into that tile's shell terminal (REQ-2, E3)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "plain-shell-tile-focus",
+    });
+
+    await page.keyboard.press("Meta+Backslash");
+    const tile = liveTileById(page, session.id);
+    await expect(tile).toBeVisible();
+
+    await tileSurfaceButton(page, session.id, "shell").click();
+    const tileShell = tile.locator('[aria-label="Shell: plain-shell-tile-focus"]');
+    await expect(tileShell).toBeVisible({ timeout: 15_000 });
+    await expect
+      .poll(() => tileShell.evaluate((el) => el.contains(document.activeElement)))
+      .toBe(true);
+  } finally {
+    await cleanup();
+  }
+});
+
+// Plan focus-lands R1 / edge case 5: a shell spawn that resolves after the developer moved
+// focus into a field must not steal it. The shell-create POST is held so the order is
+// deterministic: click `shell`, click the title to rename (a real pointer press puts focus
+// in the rename field), then release the spawn.
+test("a shell spawn that resolves after focus moved into the rename field leaves focus in that field (R1, edge 5)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "plain-shell-no-steal",
+    });
+    const title = "plain-shell-no-steal";
+    await expect(terminalRegion(page, title)).toContainText("MUSTER-STUB-READY", {
+      timeout: 15_000,
+    });
+
+    let releaseSpawn: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      releaseSpawn = resolve;
+    });
+    let spawnHeld = false;
+    await page.route(`**/api/sessions/${session.id}/shell`, async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.continue();
+        return;
+      }
+      spawnHeld = true;
+      await gate;
+      await route.continue();
+    });
+
+    await mainheadSurfaceButton(page, "shell").click();
+    await expect.poll(() => spawnHeld).toBe(true);
+    await expect(shellSurfaceRegion(page, title)).toHaveCount(0);
+
+    await mainheadRenameButton(page).click();
+    const field = mainheadRenameField(page);
+    await expect(field).toBeFocused();
+    await field.evaluate((el) => {
+      (el as HTMLElement & { __kept?: boolean }).__kept = true;
+    });
+
+    releaseSpawn();
+    await expect(shellSurfaceRegion(page, title)).toBeVisible({ timeout: 15_000 });
+    await expect(mainheadSurfaceButton(page, "shell")).toHaveAttribute("aria-pressed", "true");
+
+    // Held across a render tick (> 1 s), still the same field with focus in it.
+    await settleFor(page, 1_500);
+    await expect(field).toBeFocused();
+    expect(
+      await field.evaluate(
+        (el) =>
+          document.activeElement === el &&
+          (el as HTMLElement & { __kept?: boolean }).__kept === true,
+      ),
+    ).toBe(true);
+    expect(
+      await shellSurfaceRegion(page, title).evaluate((el) => el.contains(document.activeElement)),
+    ).toBe(false);
+  } finally {
+    await cleanup();
+  }
+});

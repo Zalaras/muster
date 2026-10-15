@@ -322,7 +322,9 @@ visually hidden inside their labels, the checked segment taking `--bg-hover` gro
 `--fg` text, focus-visible an amber 1px inset outline. Used by the Focus/Tiles view switcher,
 the launch form's Model and Start-in rows, and the Settings dialog's theme picker. A
 **disabled segment** (its radio `disabled`) takes `--disabled-fg` text, the `.btn:disabled`
-family.
+family. The reader's body, focused by a keyboard switch to docs, keeps Chrome's default
+focus ring — amber at pane scale would read as a Needs-Input border
+(kb:adr/reader-body-keyboard-focus-keeps-ua-ring).
 
 **Invalid field** — the standard form-validation idiom, used where a value is known to be
 wrong but stays selected (the launch form's Model row, plan `maintainability-regressions`):
