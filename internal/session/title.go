@@ -23,6 +23,9 @@ func (m *Manager) SetTitle(ctx context.Context, id int64, title *string) (bool, 
 	beforeDisplay := sess.DisplayTitle()
 	beforeOverride := sess.TitleOverride
 	sess.TitleOverride = title
+	if !stringPtrEqual(beforeOverride, title) {
+		sess.rearmTitleDelivery()
+	}
 
 	if stringPtrEqual(beforeDisplay, sess.DisplayTitle()) && stringPtrEqual(beforeOverride, sess.TitleOverride) {
 		m.mu.Unlock()

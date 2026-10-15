@@ -17,9 +17,6 @@ import (
 	"github.com/Zalaras/muster/internal/usage"
 )
 
-// ingestJob is a raw, not-yet-parsed ingest post. Parsing happens in the worker, not the
-// handler, so the handler can enqueue-and-200 with no DB or Claude-Code-format work on
-// the request path (kb:adr/ingest-seq-assigned-at-ingest).
 type ingestJob struct {
 	kind claudecode.Kind
 	body []byte
@@ -211,45 +208,68 @@ func (q *ingestQueue) processStatus(ctx context.Context, sessionID int64, payloa
 	}
 }
 
-// resolveSessionID determines which Muster session (if any) ev routes to. An envelope's
-// musterSession field is authoritative when present, known, and its tmuxPane
-// corroborates the session's recorded pane (kb:adr/ingest-envelope-pane-must-corroborate):
-// route iff the session exists && (stored pane == "" — the spawn-to-record window, "cannot
-// corroborate" — || (ev.TmuxPane present && *ev.TmuxPane == stored)). Otherwise it falls
-// back to the existing claude-session-id binding. An unresolved event is logged (never
-// the payload) and persists with a NULL event.session_id.
 func (q *ingestQueue) resolveSessionID(kind claudecode.Kind, ev claudecode.Event) *int64 {
+	id, logMiss := q.route(kind, ev)
+	if logMiss != nil {
+		logMiss()
+	}
+	return id
+}
+
+func (q *ingestQueue) route(kind claudecode.Kind, ev claudecode.Event) (id *int64, logMiss func()) {
 	if q.manager == nil {
-		return nil
+		return nil, nil
 	}
 	if ev.MusterSession != nil {
 		id := *ev.MusterSession
 		stored, ok := q.manager.PaneOf(id)
 		if !ok {
-			q.log.Info().Str("kind", string(kind)).Int64("muster_session", id).
-				Msg("ingest envelope named an unknown muster session; persisting unrouted")
-			return nil
+			return nil, func() {
+				q.log.Info().Str("kind", string(kind)).Int64("muster_session", id).
+					Msg("ingest envelope named an unknown muster session; persisting unrouted")
+			}
 		}
 		if stored == "" {
-			return &id
+			return &id, nil
 		}
 		envPane := ""
 		if ev.TmuxPane != nil {
 			envPane = *ev.TmuxPane
 		}
 		if envPane != "" && envPane == stored {
-			return &id
+			return &id, nil
 		}
-		q.log.Info().Str("kind", string(kind)).Int64("muster_session", id).
-			Str("stored_pane", stored).Str("envelope_pane", envPane).
-			Msg("ingest envelope's pane did not corroborate the session's recorded pane; persisting unrouted")
-		return nil
+		return nil, func() {
+			q.log.Info().Str("kind", string(kind)).Int64("muster_session", id).
+				Str("stored_pane", stored).Str("envelope_pane", envPane).
+				Msg("ingest envelope's pane did not corroborate the session's recorded pane; persisting unrouted")
+		}
 	}
 	if id, ok := q.manager.Resolve(ev.SessionID); ok {
-		return &id
+		return &id, nil
 	}
-	q.log.Info().Str("kind", string(kind)).Msg("ingest event has no bound muster session; persisting unrouted")
-	return nil
+	return nil, func() {
+		q.log.Info().Str("kind", string(kind)).Msg("ingest event has no bound muster session; persisting unrouted")
+	}
+}
+
+func (q *ingestQueue) replyFor(job ingestJob) []byte {
+	if job.kind != claudecode.KindHook || q.manager == nil {
+		return nil
+	}
+	ev, err := claudecode.ParseIngestBody(job.body, job.kind)
+	if err != nil || !claudecode.IsPromptSubmit(ev.Type) {
+		return nil
+	}
+	id, _ := q.route(job.kind, ev)
+	if id == nil {
+		return nil
+	}
+	title, ok := q.manager.TakeTitleToSend(*id)
+	if !ok {
+		return nil
+	}
+	return claudecode.PromptTitleReply(title)
 }
 
 // ingestFeature owns the two token-path ingest endpoints. Its routes are mounted
@@ -288,7 +308,8 @@ func (f *ingestFeature) handleIngestStatus(w http.ResponseWriter, r *http.Reques
 
 // handleIngest is shared by both ingest endpoints (kb:adr/ingest-seq-assigned-at-ingest):
 // check the token (404 on mismatch — no oracle for guessing), enqueue the raw body,
-// return 200 immediately. No DB work happens on this path.
+// return 200 immediately — empty, except a routed prompt-submit hook carrying a rename
+// still to send (replyFor). No DB work happens on this path.
 func (f *ingestFeature) handleIngest(w http.ResponseWriter, r *http.Request, kind claudecode.Kind) {
 	token := r.PathValue("token")
 	if !tokensEqual(token, f.token) {
@@ -304,6 +325,12 @@ func (f *ingestFeature) handleIngest(w http.ResponseWriter, r *http.Request, kin
 		return
 	}
 
-	f.queue.enqueue(ingestJob{kind: kind, body: body})
+	job := ingestJob{kind: kind, body: body}
+	f.queue.enqueue(job)
+	reply := f.queue.replyFor(job)
+	if reply != nil {
+		w.Header().Set("Content-Type", "application/json")
+	}
 	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(reply)
 }

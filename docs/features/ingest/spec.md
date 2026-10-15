@@ -6,7 +6,7 @@ date: 2026-09-12
 summary: Hook and status-line ingest endpoints, the envelope that binds an event to a Muster session, seq assigned at ingest.
 features: [ingest]
 tags: [envelope, claude-code-format]
-go: [internal/server/ingest*.go, internal/claudecode/ingest*.go, internal/claudecode/interpret*.go, internal/claudecode/settings*.go, internal/claudecode/doc.go, internal/claudecode/claudecodetest/**]
+go: [internal/server/ingest*.go, internal/claudecode/ingest*.go, internal/claudecode/interpret*.go, internal/claudecode/settings*.go, internal/server/settings_shell_reply_test.go, internal/claudecode/doc.go, internal/claudecode/claudecodetest/**]
 web: []
 e2e: [web/e2e/ingest.spec.ts, web/e2e/ingest-envelope.spec.ts, web/e2e/subagent-status.spec.ts, web/e2e/helpers/payloads.ts]
 protocol: [ingest, ingest.transport, ingest.envelope]
@@ -46,8 +46,13 @@ Entries are permanent once written (kb:adr/ingest-hook-entries-permanent). Hook 
 are short, never five seconds. A separate ingest token sits in the URL path; a bad token is a
 404 (kb:adr/ingest-separate-token-in-url-path).
 
-The handler returns `200` with an empty body at once and enqueues the raw body; a single
-worker parses it, assigns a monotonic per-session `seq`, appends it to the `event` table and
+The handler enqueues the raw body and answers `200` at once with an empty body, except a
+routed `UserPromptSubmit` carrying a not-yet-sent rename, whose body is
+`{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"…"}}`
+(kb:adr/rename-pushed-to-claude-once); the hook wrapper, not the status-line one, prints a 2xx
+body to stdout. Its only request-path work is an in-memory parse of each hook body and a
+session-state read-and-mark that builds that reply; persistence, `seq` and state transitions
+stay in the single worker, which parses, assigns a monotonic per-session `seq`, appends it to the `event` table and
 feeds the state machine in that order (kb:adr/ingest-seq-assigned-at-ingest). Malformed JSON
 and bodies without a `session_id` are dropped with a log line and still answered `200`.
 Delivery is best-effort and unordered (kb:fact/hook-delivery-best-effort); nothing is
@@ -76,8 +81,8 @@ sequenceDiagram
     W->>H: POST /ingest/{token}/hook with the envelope
     H->>H: compare token, 404 on mismatch
     H->>Q: enqueue the raw body
-    H-->>W: 200, empty body
-    Note over H,Q: no parsing, no DB work on the request path,<br/>and a full queue drops and counts, never backpressures
+    H-->>W: 200, empty body (or a routed UserPromptSubmit's rename reply)
+    Note over H,Q: no DB work on the request path, only the prompt-reply parse,<br/>and a full queue drops and counts, never backpressures
 
     Q->>A: ParseIngestBody
     A-->>Q: Event, or a drop on bad JSON / no session_id

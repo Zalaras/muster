@@ -1,7 +1,7 @@
 ---
 id: rename-pushed-to-claude-via-prompt-hook
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-05
 summary: A rename reaches Claude Code via the UserPromptSubmit hook's sessionTitle and --name on resume; it warns on a name a live session holds and reads Claude's back.
 features: [rename, ingest, launch]

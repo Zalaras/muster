@@ -6,11 +6,11 @@ date: 2026-09-12
 summary: Muster-owned session title override, inline rename in the mainhead and tiles.
 features: [rename]
 tags: [ux]
-go: [internal/server/rename*.go, internal/server/title_test.go, internal/session/title*.go]
+go: [internal/server/rename*.go, internal/server/title_test.go, internal/session/title*.go, internal/claudecode/promptreply*.go]
 web: [web/src/features/rename.ts, web/src/render/rename.ts, web/src/sessions/rename*.ts]
 e2e: [web/e2e/rename.spec.ts]
 protocol: [sessions.title]
-refs: [kb:adr/rename-title-from-status-line-session-name, kb:adr/rename-muster-owned-title-override-wins, kb:adr/views-active-segment-click-commits-rename, kb:fact/name-flag-reaches-title, kb:fact/status-session-name-source]
+refs: [kb:adr/rename-title-from-status-line-session-name, kb:adr/rename-muster-owned-title-override-wins, kb:adr/views-active-segment-click-commits-rename, kb:adr/rename-pushed-to-claude-once, kb:adr/rename-claude-change-after-delivery-clears-override, kb:fact/session-name-uniqueness-flagged, kb:fact/name-flag-reaches-title, kb:fact/status-session-name-source]
 ---
 A session's displayed title has two sources. Claude Code's own name is read from the status
 line's `session_name`, which reflects the launch `--name`, a `/rename` in the session and
@@ -22,10 +22,19 @@ kb:fact/name-flag-reaches-title). The launch form's title reaches Claude Code un
 A rename from the dashboard is Muster-owned: it sets a nullable `titleOverride` on the
 session row, and the wire `title` is the override when set, else Claude's last-known name,
 else null (kb:adr/rename-muster-owned-title-override-wins, `kb:anchor/sessions.title`).
-Status posts keep refreshing Claude's name into its own column but never read or write the
-override; while an override is set, a post that changes only Claude's name broadcasts
-nothing. Clearing the override with an empty rename falls back to Claude's name. The
-override survives rebinds, resume and reconcile, and a dead session can be renamed.
+Clearing the override with an empty rename falls back to Claude's name. The override
+survives rebinds, resume and reconcile, and a dead session can be renamed.
+
+The override reaches Claude Code's own name once: as the next prompt's hook reply
+(`sessionTitle`), or as `--name` when the session is resumed first
+(kb:adr/rename-pushed-to-claude-once). A second prompt never re-sends the same name, and a
+name Claude Code suffixes (kb:fact/session-name-uniqueness-flagged) stays suffixed. Until the
+override has reached Claude Code, status posts keep refreshing Claude's name into its own
+column without touching the override, and a post that changes only Claude's name broadcasts
+nothing. Once it has, the last rename wins: a later different name from Claude Code (a
+`/rename`, or a suffix) clears the override, persists and broadcasts one `sessionUpsert`,
+and the dashboard shows Claude Code's name
+(kb:adr/rename-claude-change-after-delivery-clears-override).
 
 The editor is inline: the Focus mainhead's name and each tile's header open an editor on
 activation. Enter commits, Escape cancels, and the trimmed value must be one to one hundred
@@ -34,5 +43,4 @@ upsert drives the redraw, never the locally typed text. Switching views cancels 
 rename; clicking the already-active view segment commits it instead
 (kb:adr/views-active-segment-click-commits-rename).
 
-Rename does not change Claude Code's own session name and does not touch the rail order
-or any state-machine field.
+Rename does not touch the rail order or any state-machine field.

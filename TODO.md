@@ -89,10 +89,6 @@ The refusal entry was filed 2026-09-26 by the developer from
   cache lifetime never appeared. The timer should track the real cache lifetime, and the underline
   should appear in its last 15% as the `rail-card-organise` mockups show.
 
-- [ ] **Renaming in Muster does not rename Claude session** ([#71](https://github.com/Zalaras/muster/issues/71)) —
-  renaming a session in Muster leaves Claude Code's own session name unchanged. A rename should
-  reach both.
-
 - [ ] **Check the Focus view's first-attach terminal height** — the size note's reserved row
   was restored; confirm the terminal is not a row short on first attach. From
   `plans/maintainability-cleanup/`.

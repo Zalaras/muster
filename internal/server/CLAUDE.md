@@ -4,7 +4,7 @@
 
 **Invariants** (violations are review-Critical):
 - A handler is a method on its feature type, mounted via `mount(mux, guard)`, never on `*Server` (kb:adr/process-composition-roots-registration-only) — except `/healthz`, `GET /auth`, `GET /api/state` and `GET /ws`: they predate any feature (auth) or need every registered feature's `contribute` (`currentSnapshot`), which only the root can loop, so they stay core routes in `routes()`.
-- Ingest enqueues and returns 200 immediately; parsing and state happen in the single worker (kb:adr/ingest-seq-assigned-at-ingest). A full queue drops and counts, never blocks.
+- Ingest enqueues and answers at once; the only request-path work is an in-memory parse plus a session-state read to build a `UserPromptSubmit` rename reply (kb:adr/rename-pushed-to-claude-once). Persistence and state transitions stay in the single worker (kb:adr/ingest-seq-assigned-at-ingest). A full queue drops and counts, never blocks.
 - Raw hook and status posts never bind or rebind a session; only the envelope does (kb:adr/ingest-envelope-authoritative-binding).
 - Wire shapes follow `docs/protocol.md`; a route comment cites its anchor as `kb:anchor/<area>.<name>`.
 - No Claude-Code-format knowledge; call `internal/claudecode`. Hook payloads are never logged.

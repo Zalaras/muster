@@ -142,11 +142,9 @@ type Session struct {
 	// restoreChangedFields can compare it by identity.
 	GroupID *int64
 
-	// TitleOverride (kb:adr/rename-muster-owned-title-override-wins): the user's rename
-	// via PUT .../title, nil = none. Display-only, wins over Title in DisplayTitle() —
-	// never read by the state machine or the status path; mutated only by
-	// Manager.SetTitle.
 	TitleOverride *string
+
+	titleDelivery titleDelivery
 
 	// TranscriptPath/PlanPath/PlanExists (kb:spec/reader): the latest transcript path a
 	// routed hook named, and the plan derived from it via claudecode.LocatePlanFile.

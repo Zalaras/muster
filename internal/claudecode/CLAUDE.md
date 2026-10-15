@@ -1,6 +1,6 @@
 # internal/claudecode — the Claude Code adapter boundary
 
-**Owns**: every Claude-Code-format fact: hook payload keys, status-line JSON, `settings.local.json`'s path and entries, CLI argv, version pinning, the theme config file, the Keychain token and the OAuth usage API; also the wrapper-script contract layered on top of that format (the ingest URL path shape, `MusterSessionEnvVar`) — a caller assembles a hook command from these before anything else about it is Claude-Code-specific, so the owner has to be findable in one place rather than reconstructed at each call site. Output is neutral domain values (`StateInput`, `StatusUpdate`, `LaunchParams`). No session state, HTTP or tmux here. **Features**: ingest, canary, launch, reader, theme, usage.
+**Owns**: every Claude-Code-format fact: hook payload keys, status-line JSON, `settings.local.json`'s path and entries, CLI argv, version pinning, the theme config file, the Keychain token and the OAuth usage API; also the wrapper-script contract layered on top of that format (the ingest URL path shape, `MusterSessionEnvVar`) — a caller assembles a hook command from these before anything else about it is Claude-Code-specific, so the owner has to be findable in one place rather than reconstructed at each call site. Output is neutral domain values (`StateInput`, `StatusUpdate`, `LaunchParams`). No session state, HTTP or tmux here. **Features**: ingest, canary, launch, reader, rename, theme, usage.
 
 **Invariants** (violations are review-Critical):
 - A Claude Code payload key or event name appears in this package and nowhere else; other packages' tests build wire bodies through `claudecodetest` (kb:adr/ingest-wire-shaped-fixtures-via-claudecodetest).
@@ -20,13 +20,14 @@
 - A measured shape beats the official docs; record a new one as a fact before coding against it.
 
 <!-- kb:trailer -->
-<!-- kb:hash ab23d20eade15e6d -->
+<!-- kb:hash 817426248c6f7403 -->
 - **canary** — The verified Claude Code version range, canary tiers, and the fragments tools/versions regenerates. → `docs/features/canary/INDEX.md`
 - **ingest** — Hook and status-line ingest endpoints, the envelope that binds an event to a Muster session, seq assigned at ingest. → `docs/features/ingest/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
 - **past-sessions** — The launch dialog's Resume tab — a directory's Claude Code sessions listed from transcripts, the running-session guard, resume in the original mode. → `docs/features/past-sessions/INDEX.md`
 - **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`
+- **rename** — Muster-owned session title override, inline rename in the mainhead and tiles. → `docs/features/rename/INDEX.md`
 - **theme** — Muster theme preference and the Claude theme family poll. → `docs/features/theme/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 99 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 100 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

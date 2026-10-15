@@ -731,26 +731,53 @@ func TestWriteEnvelopeScript_EarlyExitIsTheFirstNonCommentLine(t *testing.T) {
 	}
 }
 
-// TestWriteEnvelopeScript_NeverWritesToStdoutOrStderr covers D29/REQ-7 statically, by
-// reading the generated template: no echo/printf, curl is silenced and discards its
-// body, and the script ends in an unconditional exit 0. The real behaviour end to end
-// (including the daemon-unreachable and MUSTER_SESSION-unset cases) is exercised by
-// internal/server/settings_shell_test.go's shell round trip.
-func TestWriteEnvelopeScript_NeverWritesToStdoutOrStderr(t *testing.T) {
+// TestWriteEnvelopeScript_StdoutOnlyOnA2xxHookReply covers D29/REQ-7 and
+// rename-claude-session REQ-5 statically, by reading the generated templates: neither
+// script uses echo; the status-line script (its stdout is the status-line text) never
+// prints and keeps discarding curl's body; the hook script prints the daemon's body only
+// inside a 2xx case arm; curl is silenced in both and both end in an unconditional exit 0.
+// The real behaviour end to end (a 2xx body, a non-2xx, a timeout, the daemon unreachable
+// and MUSTER_SESSION unset) is exercised by internal/server's shell round trips.
+func TestWriteEnvelopeScript_StdoutOnlyOnA2xxHookReply(t *testing.T) {
 	dir := t.TempDir()
-	hookScript, _, _, err := WriteWrapperScripts(dir, "http://127.0.0.1:8765", "tok123")
+	hookScript, statusLineScript, _, err := WriteWrapperScripts(dir, "http://127.0.0.1:8765", "tok123")
 	require.NoError(t, err)
 
-	b, err := os.ReadFile(hookScript)
-	require.NoError(t, err)
-	text := string(b)
+	read := func(path string) (string, []string) {
+		b, err := os.ReadFile(path)
+		require.NoError(t, err)
+		text := string(b)
+		return text, strings.Split(strings.TrimRight(text, "\n"), "\n")
+	}
 
-	assert.NotContains(t, text, "echo ")
-	assert.NotContains(t, text, "printf ")
-	assert.Contains(t, text, "--silent")
-	assert.Contains(t, text, "--output /dev/null")
-	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
-	assert.Equal(t, "exit 0", lines[len(lines)-1], "the script must end in an unconditional exit 0")
+	tests := []struct {
+		name        string
+		path        string
+		wantPrintf  bool
+		wantDiscard bool
+	}{
+		{name: "hook.sh echoes a 2xx body", path: hookScript, wantPrintf: true, wantDiscard: false},
+		{name: "status-line.sh discards the body", path: statusLineScript, wantPrintf: false, wantDiscard: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			text, lines := read(tt.path)
+
+			assert.NotContains(t, text, "echo ")
+			assert.Contains(t, text, "--silent")
+			assert.Equal(t, tt.wantPrintf, strings.Contains(text, "printf "))
+			assert.Equal(t, tt.wantDiscard, strings.Contains(text, "--output /dev/null"))
+			assert.Equal(t, "exit 0", lines[len(lines)-1], "the script must end in an unconditional exit 0")
+		})
+	}
+
+	t.Run("hook.sh prints only under a 2xx status match", func(t *testing.T) {
+		text, _ := read(hookScript)
+
+		assert.Equal(t, 1, strings.Count(text, "printf "), "exactly one place may write to stdout")
+		require.Contains(t, text, "2??)", "the printf must sit inside a case arm matching a 2xx status")
+		assert.Less(t, strings.Index(text, "2??)"), strings.Index(text, "printf "))
+	})
 }
 
 // --- writeScriptAtomically (REQ-11/REQ-12/INV-5: atomic replace, skip when unchanged) ---

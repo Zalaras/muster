@@ -164,7 +164,10 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	beforeCache := sess.Cache
 	beforeDir := sess.ClaudeDir
 
-	if !applyStatusUpdate(sess, update) {
+	prevTitle := sess.Title
+	changed := applyStatusUpdate(sess, update)
+	cleared := update.Title != nil && sess.observeClaudeTitle(prevTitle)
+	if !changed && !cleared {
 		snapshot := sess.Clone()
 		m.mu.Unlock()
 		return snapshot, nil

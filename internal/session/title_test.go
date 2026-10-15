@@ -181,7 +181,10 @@ func TestTitleOverride_INV1_SurvivesEverySourceState(t *testing.T) {
 // no path to TitleOverride at all — a status post carrying a session_name (or not) leaves
 // it bit-identical from every one of the six displayed states, plus a dead session. Reuses
 // status_test.go's baselineForState/fullStatusUpdate helpers (same package), extended with
-// an override, so this doesn't duplicate that file's own state coverage.
+// an override, so this doesn't duplicate that file's own state coverage. Still true of
+// applyStatusUpdate itself after rename-claude-session: the REQ-7 clear of a *delivered*
+// override lives one level up in Manager.ApplyStatus, covered by
+// TestApplyStatus_TitleOverrideDelivery.
 func TestApplyStatusUpdate_NeverTouchesTitleOverride(t *testing.T) {
 	states := []State{StateStarted, StatePlanning, StateWorking, StateNeedsInput, StateFailed, StateIdle}
 	const overrideStr = "Never Touched"

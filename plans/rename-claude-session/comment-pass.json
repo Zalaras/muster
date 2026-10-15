@@ -1,0 +1,237 @@
+{
+  "plan": "rename-claude-session",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-15T08:40:42Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 10,
+        "keep": 1,
+        "drop": 9
+      },
+      "keeps": [
+        {
+          "key": "internal/server/ingest.go:32894bf204724be6",
+          "path": "internal/server/ingest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *ingestFeature) handleIngest(w http.ResponseWriter, r *http.Request, kind claudecode.Kind) {",
+            "line": 312
+          },
+          "lines": [
+            "// handleIngest is shared by both ingest endpoints (kb:adr/ingest-seq-assigned-at-ingest):",
+            "// check the token (404 on mismatch — no oracle for guessing), enqueue the raw body,",
+            "// return 200 immediately — empty, except a routed prompt-submit hook carrying a rename",
+            "// still to send (replyFor). No DB work happens on this path."
+          ],
+          "reason": "Edited on `main`; still true: `handleIngest` checks the token with 404, enqueues the raw body and returns 200 with `reply` only for a routed prompt-submit, doing no DB work."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/claudecode/launch.go:8907ddce1e1366a5",
+          "path": "internal/claudecode/launch.go",
+          "anchor": {
+            "kind": "above",
+            "text": "ResumeSessionID string",
+            "line": 41
+          },
+          "lines": [
+            "// ResumeSessionID is non-empty for a resume relaunch (kb:anchor/sessions.resume):",
+            "// emits `--resume \u003cid\u003e` — the only place the `--resume` flag string may appear. A",
+            "// resume's Title is the not-yet-sent title override, if any",
+            "// (kb:adr/rename-pushed-to-claude-once)."
+          ]
+        },
+        {
+          "key": "internal/claudecode/promptreply.go:e3b29cbabdc10916",
+          "path": "internal/claudecode/promptreply.go",
+          "anchor": {
+            "kind": "on",
+            "text": "panic(err)",
+            "line": 26
+          },
+          "lines": [
+            "// unreachable: two strings"
+          ]
+        },
+        {
+          "key": "internal/server/ingest.go:fdf9ef7bc0f7ce99",
+          "path": "internal/server/ingest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (q *ingestQueue) resolveSessionID(kind claudecode.Kind, ev claudecode.Event) *int64 {",
+            "line": 214
+          },
+          "lines": [
+            "// resolveSessionID determines which Muster session (if any) ev routes to, logging a",
+            "// miss (never the payload) — see route."
+          ]
+        },
+        {
+          "key": "internal/server/ingest.go:3da34a85ff74851f",
+          "path": "internal/server/ingest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (q *ingestQueue) route(kind claudecode.Kind, ev claudecode.Event) (id *int64, logMiss func()) {",
+            "line": 222
+          },
+          "lines": [
+            "// route decides which Muster session (if any) ev routes to. An envelope's musterSession",
+            "// field is authoritative when present, known, and its tmuxPane corroborates the session's",
+            "// recorded pane (kb:adr/ingest-envelope-pane-must-corroborate): route iff the session",
+            "// exists \u0026\u0026 (stored pane == \"\" — the spawn-to-record window, \"cannot corroborate\" — ||",
+            "// (ev.TmuxPane present \u0026\u0026 *ev.TmuxPane == stored)). Otherwise it falls back to the",
+            "// existing claude-session-id binding. An unresolved event persists with a NULL",
+            "// event.session_id; logMiss, non-nil exactly then, logs why, so the two callers (the",
+            "// worker and the handler's reply) can route without logging a miss twice."
+          ]
+        },
+        {
+          "key": "internal/server/ingest.go:5420c1a88240b236",
+          "path": "internal/server/ingest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (q *ingestQueue) replyFor(job ingestJob) []byte {",
+            "line": 259
+          },
+          "lines": [
+            "// replyFor builds the answer to a hook post: the rename reply when it is a routed",
+            "// prompt-submit hook and its session has a title override still to send, else nil — the",
+            "// empty body every other post gets. Reads only in-memory state",
+            "// (kb:adr/ingest-seq-assigned-at-ingest), never the DB or the queue."
+          ]
+        },
+        {
+          "key": "internal/session/titledelivery.go:1f56ec5fb0de3416",
+          "path": "internal/session/titledelivery.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type titleDelivery struct {",
+            "line": 3
+          },
+          "lines": [
+            "// titleDelivery is the in-memory record of a title override reaching Claude Code",
+            "// (kb:adr/rename-pushed-to-claude-once, kb:adr/rename-claude-change-after-delivery-clears-override):",
+            "// value is the override that was sent or found already equal to Claude's name, before is",
+            "// Claude's name just ahead of that. Never persisted, never on the wire; written only",
+            "// under Manager.mu, by SetTitle, ApplyStatus, TakeTitleToSend and MarkTitleSent."
+          ]
+        },
+        {
+          "key": "internal/session/titledelivery.go:c761cc811d35ba2d",
+          "path": "internal/session/titledelivery.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) TakeTitleToSend(id int64) (string, bool) {",
+            "line": 61
+          },
+          "lines": [
+            "// TakeTitleToSend returns id's title override when it still has to reach Claude Code and",
+            "// records it as sent. The ingest handler calls it on the request path, so it reads only",
+            "// in-memory state."
+          ]
+        },
+        {
+          "key": "internal/session/titledelivery.go:4a30c58bba7482e4",
+          "path": "internal/session/titledelivery.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) PendingTitle(id int64) (string, bool) {",
+            "line": 71
+          },
+          "lines": [
+            "// PendingTitle returns id's title override when it still has to reach Claude Code,",
+            "// without recording a send."
+          ]
+        },
+        {
+          "key": "internal/session/titledelivery.go:6b469497d4b4ee02",
+          "path": "internal/session/titledelivery.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) MarkTitleSent(id int64, title string) {",
+            "line": 81
+          },
+          "lines": [
+            "// MarkTitleSent records that title, the override PendingTitle returned, reached Claude",
+            "// Code as a resume's --name. An override renamed since keeps its own send."
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-10-15T09:15:00Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 2,
+        "keep": 0,
+        "drop": 2
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "internal/claudecode/claudecodetest/promptreply.go:3bd5615b87aae7e8",
+          "path": "internal/claudecode/claudecodetest/promptreply.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func PromptReplyTitle(body []byte) (title string, ok bool) {",
+            "line": 5
+          },
+          "lines": [
+            "// PromptReplyTitle decodes the reply a UserPromptSubmit hook prints to Claude Code and",
+            "// returns the session title it carries. ok is false when body is not JSON, is not a",
+            "// UserPromptSubmit reply, or has no hookSpecificOutput. It keeps the reply's key",
+            "// spellings behind this package so tests elsewhere assert on the title, not the wire",
+            "// (kb:adr/ingest-wire-shaped-fixtures-via-claudecodetest)."
+          ]
+        },
+        {
+          "key": "internal/server/ingest.go:d847c8e2b588c7ca",
+          "path": "internal/server/ingest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type ingestJob struct {",
+            "line": 20
+          },
+          "lines": [
+            "// ingestJob is a raw ingest post. The worker does the persisting and the state transitions;",
+            "// the handler only enqueues and, to build a rename reply, parses the body in memory and",
+            "// reads session state, with no DB work on the request path (kb:adr/ingest-seq-assigned-at-ingest,",
+            "// kb:adr/rename-pushed-to-claude-once)."
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-10-15T09:27:46Z",
+      "by": "orchestrator",
+      "counts": {
+        "candidates": 1,
+        "keep": 0,
+        "drop": 1
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "internal/session/session.go:8bbc0efbc9599909",
+          "path": "internal/session/session.go",
+          "anchor": {
+            "kind": "above",
+            "text": "TitleOverride *string",
+            "line": 149
+          },
+          "lines": [
+            "// TitleOverride (kb:adr/rename-muster-owned-title-override-wins): the user's rename",
+            "// via PUT .../title, nil = none. Display-only, wins over Title in DisplayTitle() —",
+            "// never read by the state machine or the status path; mutated only by",
+            "// Manager.SetTitle."
+          ]
+        }
+      ]
+    }
+  ]
+}

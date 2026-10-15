@@ -335,8 +335,9 @@ live sessions too; the UI asks only for `alive:false` ones.
 ### `POST /api/sessions/{id}/resume`
 
 No body. Rewrites the directory's `.claude/settings.local.json` (`kb:anchor/ingest.envelope`), then spawns
-`claude --resume <claudeSessionId> --model <model.id> [--permission-mode <latched>]` in a
-new tmux session named `muster-<id>` with the same
+`claude --model <model.id> --resume <claudeSessionId> [--name <titleOverride>] [--permission-mode <latched>]` in a
+new tmux session named `muster-<id>` (`--name` only when the override is set, not yet sent and differs
+from Claude Code's last-known name) with the same
 pane environment as a launch. The row keeps its Muster `id`; `tmuxTarget`/`tmuxPane` are
 the new pane's, `alive:true`, `endedAt:null`, the snapshot is cleared, and a
 `sessionUpsert` is broadcast. `state` is **unchanged** until the enveloped
@@ -806,8 +807,12 @@ session can be renamed — display-only field).
 
 Precedence (`kb:anchor/ws.session`): the wire `title` is `titleOverride` when non-null, else Claude's last-known
 `session_name`, else `null`. Status posts keep refreshing Claude's name into the daemon's own
-column but never read or write the override; while an override is set, a post that changes only
-Claude's name persists and broadcasts nothing (the wire object is unchanged). The launch form's
+column. Until the override has reached Claude Code, a post that changes only Claude's name
+persists and broadcasts nothing (the wire object is unchanged); once it has, a different name
+from Claude Code clears the override and persists and broadcasts one `sessionUpsert`
+(kb:adr/rename-claude-change-after-delivery-clears-override). The override reaches Claude Code
+once (kb:adr/rename-pushed-to-claude-once): in the next routed `UserPromptSubmit`'s reply
+(`kb:anchor/ingest`), or as `--name` on `kb:anchor/sessions.resume`. The launch form's
 title still reaches Claude Code as `--name` and is *not* an override.
 
 **Errors** (envelope per `kb:anchor/transport`):
@@ -1015,7 +1020,10 @@ elsewhere). No errors beyond auth.
 - One hook URL for **all** events (`hook_event_name` is in every payload), reached only
   from the generated wrapper script — Muster writes **no** `allowedHttpHookUrls` and no
   `type:"http"` entries.
-- **Return `200` with empty body immediately; process asynchronously.** A slow receiver
+- **Return `200` immediately; process asynchronously.** The body is empty, except a routed
+  `UserPromptSubmit` carrying a not-yet-sent rename, whose body is
+  `{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"…"}}`; the hook
+  wrapper (`hook.sh`, not `status-line.sh`) prints a 2xx body to stdout. A slow receiver
   taxes every turn by its timeout, additively per hook (`kb:spec/ingest`). Hook timeouts Muster
   configures are 1–2 s, never 5. Malformed JSON is still `200` (logged, dropped) — there
   is no value in making Claude Code retry, and 4xx/5xx behaviour is not ours to lean on.
@@ -1184,7 +1192,8 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
   "title": "flaky-e2e-hunt",        // DISPLAY title: titleOverride when non-null, else the
                                     //   last-known status-line session_name (launch --name until then), else null
   "titleOverride": null,            // string | null — the user's rename via PUT /api/sessions/{id}/title (kb:anchor/sessions.title); null = none.
-                                    //   Never touched by status posts, rebinds, resume or reconcile. INV: title == titleOverride
+                                    //   Never touched by rebinds, resume or reconcile; a status post clears it once it has reached
+                                    //   Claude Code and Claude Code reports a different name. INV: title == titleOverride
                                     //   whenever titleOverride is non-null.
   "state": "working",                // "started"|"planning"|"working"|"needs_input"|"failed"|"idle"
   "stateSince": "2026-08-20T09:15:00Z",

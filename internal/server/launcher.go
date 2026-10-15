@@ -532,12 +532,17 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 	if sess.Model != nil {
 		model = sess.Model.ID
 	}
+	pendingTitle, _ := l.manager.PendingTitle(id)
 	argv := claudecode.BuildArgv(l.claudeBin, claudecode.LaunchParams{
 		Model:           model,
+		Title:           pendingTitle,
 		PermissionMode:  string(sess.PermissionMode),
 		ResumeSessionID: sess.ClaudeSessionID,
 	})
 	target, pane, err := l.spawnSession(ctx, id, sess.Directory, buildLaunchEnv(id), argv)
+	if err == nil && pendingTitle != "" {
+		l.manager.MarkTitleSent(id, pendingTitle)
+	}
 	if err != nil {
 		if errors.Is(err, tmux.ErrSessionExists) {
 			// Resume cannot renumber a session (the id is the row's) — a live

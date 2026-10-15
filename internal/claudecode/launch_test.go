@@ -92,13 +92,27 @@ func TestBuildArgv(t *testing.T) {
 			want:   []string{"claude", "--model", "sonnet", "--permission-mode", "default"},
 		},
 		{
-			// D13/REQ-7: a resume relaunch emits --resume <id> and omits --name, even when
-			// a Title was also set — --name is meaningless for a resumed session (the
-			// tmux/pane title comes from the original launch, not a resume). REQ-4/INV-3:
-			// --permission-mode is still explicit on a resume.
-			name:   "ResumeSessionID emits --resume and omits --name even when Title is also set",
-			params: LaunchParams{Model: "sonnet", Title: "Should Be Omitted", PermissionMode: "default", ResumeSessionID: "abc-123"},
+			// REQ-6 (kb:adr/rename-pushed-to-claude-once): a resume relaunch carries the
+			// not-yet-sent title override as --name beside --resume, between --resume and
+			// --permission-mode (--permission-mode stays explicit on a resume, REQ-4/INV-3).
+			name:   "ResumeSessionID with a Title emits --resume then --name",
+			params: LaunchParams{Model: "sonnet", Title: "Renamed In Muster", PermissionMode: "default", ResumeSessionID: "abc-123"},
+			want:   []string{"claude", "--model", "sonnet", "--resume", "abc-123", "--name", "Renamed In Muster", "--permission-mode", "default"},
+		},
+		{
+			name:   "ResumeSessionID with an empty Title emits no --name",
+			params: LaunchParams{Model: "sonnet", Title: "", PermissionMode: "default", ResumeSessionID: "abc-123"},
 			want:   []string{"claude", "--model", "sonnet", "--resume", "abc-123", "--permission-mode", "default"},
+		},
+		{
+			name:   "ResumeSessionID with a Title and no model keeps --resume, --name and --permission-mode only",
+			params: LaunchParams{Title: "T", PermissionMode: "plan", ResumeSessionID: "abc-123"},
+			want:   []string{"claude", "--resume", "abc-123", "--name", "T", "--permission-mode", "plan"},
+		},
+		{
+			name:   "a Title holding a space reaches argv as one element",
+			params: LaunchParams{Model: "sonnet", Title: "two words", PermissionMode: "default", ResumeSessionID: "abc-123"},
+			want:   []string{"claude", "--model", "sonnet", "--resume", "abc-123", "--name", "two words", "--permission-mode", "default"},
 		},
 		{
 			name:   "ResumeSessionID combines with a non-default permission mode",

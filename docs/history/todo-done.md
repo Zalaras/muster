@@ -1724,6 +1724,10 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
 
 ### On their own
 
+- [x] **Renaming in Muster does not rename Claude session** ([#71](https://github.com/Zalaras/muster/issues/71)) ✅ done 2026-10-15 (plan `rename-claude-session`, via `/fix`) —
+  renaming a session in Muster leaves Claude Code's own session name unchanged. A rename should
+  reach both.
+
 - [x] **File explorer for docs resets expanded on tab swap** ✅ done 2026-10-12 (plan `reader-expanded-persists`, via `/fix`) ([#82](https://github.com/Zalaras/muster/issues/82)) — the
   docs reader's file explorer collapses its expanded folders when the developer switches to
   another session, or from Docs to the Claude or Shell tab and back. It should keep what was

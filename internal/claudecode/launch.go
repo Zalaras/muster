@@ -38,9 +38,6 @@ type LaunchParams struct {
 	Title          string // optional; empty omits --name
 	PermissionMode string // any non-empty value is sent verbatim via --permission-mode, whether or not it's in PermissionModes (kb:adr/launch-resume-passes-any-recorded-mode); empty omits the flag
 
-	// ResumeSessionID is non-empty for a resume relaunch (kb:anchor/sessions.resume):
-	// emits `--resume <id>` and omits `--name` — the only place the `--resume` flag
-	// string may appear.
 	ResumeSessionID string
 }
 
@@ -63,7 +60,8 @@ func BuildArgv(binary string, p LaunchParams) []string {
 	}
 	if p.ResumeSessionID != "" {
 		args = append(args, "--resume", p.ResumeSessionID)
-	} else if p.Title != "" {
+	}
+	if p.Title != "" {
 		args = append(args, "--name", p.Title)
 	}
 	if p.PermissionMode != "" {
