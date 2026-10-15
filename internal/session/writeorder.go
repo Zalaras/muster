@@ -232,6 +232,9 @@ func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Sess
 		restoreIfUnchanged(&cur.Model, post.Model, last.Model)
 		restoreIfUnchanged(&cur.Context, post.Context, last.Context)
 		restoreIfUnchanged(&cur.Cache, post.Cache, last.Cache)
+		restoreIfUnchanged(&cur.Effort, post.Effort, last.Effort)
+		restoreIfUnchanged(&cur.EffortWarning, post.EffortWarning, last.EffortWarning)
+		restoreIfUnchanged(&cur.effortRequested, post.effortRequested, last.effortRequested)
 		restoreIfUnchanged(&cur.Compactions, post.Compactions, last.Compactions)
 		restoreIfUnchanged(&cur.Attention, post.Attention, last.Attention)
 		restoreIfUnchanged(&cur.Failure, post.Failure, last.Failure)
@@ -277,7 +280,7 @@ func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Sess
 var restoredSessionFields = []string{
 	"TmuxTarget", "TmuxPane", "Branch", "IsWorktree", "ClaudeDir", "ClaudeLocation", "repoEpoch",
 	"ClaudeSessionID", "Title", "State", "StateSince",
-	"PermissionMode", "PermissionModeSource", "Model", "Context", "Cache", "Compactions",
+	"PermissionMode", "PermissionModeSource", "Model", "Context", "Cache", "Effort", "EffortWarning", "effortRequested", "Compactions",
 	"Attention", "Failure", "LastActivity", "Alive", "EndedAt", "LastSnapshot",
 	"LastSnapshotAt", "Pinned", "RailPos", "GroupID", "TitleOverride", "titleDelivery", "TranscriptPath",
 	"PlanPath", "PlanExists", "Unread", "LastPrompt", "BackgroundTasks", "AttentionAgent",

@@ -31,6 +31,8 @@ const validSession = {
   unread: false,
   lastPrompt: null,
   groupId: null,
+  effort: { level: "high" },
+  effortWarning: null,
   cache: { expiresAt: "2026-08-22T01:00:00Z", ttlSeconds: 3600 },
 };
 // The measured "no data yet" shape (docs/history/spikes/canary-fields.md): a session that has just
@@ -65,6 +67,8 @@ const freshLaunchSession = {
   unread: false,
   lastPrompt: null,
   groupId: null,
+  effort: { level: "high" },
+  effortWarning: null,
   cache: null,
 };
 describe("parseSession — full kb:anchor/ws.session shape", () => {
@@ -472,6 +476,57 @@ describe("parseSession — groupId (plan groups kb:anchor/ws.session)", () => {
     ["undefined", undefined],
   ])("rejects a groupId that is %s", (_label, groupId) => {
     expect(parseSession({ ...validSession, groupId })).toBeNull();
+  });
+});
+
+// kb:anchor/ws.session `effort` / `effortWarning` (plan effort REQ-5, REQ-7): both required on
+// every wire Session. `effort: null` is the measured "never reported" state and decodes (a view
+// reads `(…)`); `effort.level: null` is a model with no effort setting; a wrong shape rejects.
+describe("parseSession — effort / effortWarning (plan effort)", () => {
+  it.each([
+    ["never reported", null],
+    ["a model with no effort setting", { level: null }],
+    ["a level", { level: "xhigh" }],
+    ["a level the dashboard has no name for (open string)", { level: "turbo" }],
+  ])("decodes effort %s and keeps it", (_label, effort) => {
+    const session = { ...validSession, effort };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it.each([
+    ["a bare string", "high"],
+    ["an array", ["high"]],
+    ["a numeric level", { level: 3 }],
+    ["a missing level key", {}],
+    ["undefined", undefined],
+  ])("rejects an effort that is %s", (_label, effort) => {
+    expect(parseSession({ ...validSession, effort })).toBeNull();
+  });
+
+  it.each([
+    ["a clamp to a lower level", { requested: "max", actual: "high", model: "Opus 4.5" }],
+    ["a model with no effort setting", { requested: "max", actual: null, model: "Haiku 4.5" }],
+    ["an unnamed model", { requested: "max", actual: "high", model: null }],
+  ])("decodes an effortWarning for %s", (_label, effortWarning) => {
+    const session = { ...validSession, effortWarning };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it.each([
+    ["a bare string", "max"],
+    ["a missing requested", { actual: "high", model: null }],
+    ["a numeric requested", { requested: 1, actual: "high", model: null }],
+    ["a missing actual key", { requested: "max", model: null }],
+    ["a numeric actual", { requested: "max", actual: 2, model: null }],
+    ["a numeric model", { requested: "max", actual: null, model: 5 }],
+    ["undefined", undefined],
+  ])("rejects an effortWarning that is %s", (_label, effortWarning) => {
+    expect(parseSession({ ...validSession, effortWarning })).toBeNull();
+  });
+
+  it.each(["effort", "effortWarning"])("rejects a session missing %s entirely", (key) => {
+    const { [key]: _omitted, ...rest } = validSession as Record<string, unknown>;
+    expect(parseSession(rest)).toBeNull();
   });
 });
 

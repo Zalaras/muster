@@ -57,11 +57,6 @@ The refusal entry was filed 2026-09-26 by the developer from
   refusal moves focus to the custom-model field. A refusal should move focus only while the
   refused model is still the selection. From `plans/maintainability-regressions/`.
 
-- [ ] **Add effort to launch options** ([#68](https://github.com/Zalaras/muster/issues/68)) — the
-  launch dialog should offer an effort level, and wherever the model shows, its effort should
-  follow in brackets — kept current when the effort changes, as the model is, and right on
-  resumed sessions.
-
 ### Together — the installed Claude Code version (#89, #88)
 
 - [ ] **Getting error running claude --version** ([#89](https://github.com/Zalaras/muster/issues/89)) — musterd
@@ -296,6 +291,24 @@ Filed 2026-10-15 by the developer from the plans' proposed-backlog.md files.
   closes at each reconnect attempt (about 2 s, 4 s and 8 s) while musterd is unreachable; the
   other menus, popovers and dialogs may do the same. Decide how each should behave while the
   daemon is down and make them consistent. From `plans/rail-card-organise/`.
+
+- [ ] **Focus lands nowhere after a keyboard Dismiss of the effort warning** — pressing Dismiss
+  on the Focus header's effort-mismatch strip with the keyboard hides the strip and leaves focus
+  on the page itself. Focus should land somewhere sensible in the header. From `plans/effort/`.
+
+- [ ] **"Could not reach musterd." stays after the daemon is back** — after an action fails while
+  musterd is down, the action-error line keeps that message once the connection returns, until
+  the next action replaces it. It should clear when the daemon is reachable again. From
+  `plans/effort/`.
+
+- [ ] **Launch dialog briefly shows the wrong effort** — for up to 1.5 s after the launch dialog
+  opens, Effort can read `default` before settling on the directory's remembered level. The
+  dialog should open showing the remembered level. From `plans/effort/`.
+
+- [ ] **Restructure TODO.md so its sections can be picked up as work** — the sections have grown
+  by origin and date rather than by what could be worked on together, so it is hard to pick a
+  coherent piece of work from the list. Regroup the sections so each one reads as a unit that
+  can be planned and picked up.
 
 ## v1 Release
 

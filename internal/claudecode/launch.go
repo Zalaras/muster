@@ -29,6 +29,20 @@ func ValidPermissionMode(s string) bool {
 	return slices.Contains(PermissionModes, s)
 }
 
+const (
+	EffortLow    = "low"
+	EffortMedium = "medium"
+	EffortHigh   = "high"
+	EffortXHigh  = "xhigh"
+	EffortMax    = "max"
+)
+
+var EffortLevels = []string{EffortLow, EffortMedium, EffortHigh, EffortXHigh, EffortMax}
+
+func ValidEffort(s string) bool {
+	return slices.Contains(EffortLevels, s)
+}
+
 // LaunchParams are the neutral inputs to building the `claude` CLI invocation
 // (kb:anchor/sessions.create). BuildArgv assembles argv from these values as given: it
 // never re-validates PermissionMode against PermissionModes (see BuildArgv's own doc),
@@ -37,6 +51,7 @@ type LaunchParams struct {
 	Model          string // optional; empty omits --model (a resume-from-list never names one — the transcript's own model already comes back)
 	Title          string // optional; empty omits --name
 	PermissionMode string // any non-empty value is sent verbatim via --permission-mode, whether or not it's in PermissionModes (kb:adr/launch-resume-passes-any-recorded-mode); empty omits the flag
+	Effort         string
 
 	ResumeSessionID string
 }
@@ -66,6 +81,9 @@ func BuildArgv(binary string, p LaunchParams) []string {
 	}
 	if p.PermissionMode != "" {
 		args = append(args, "--permission-mode", p.PermissionMode)
+	}
+	if p.Effort != "" {
+		args = append(args, "--effort", p.Effort)
 	}
 	return args
 }

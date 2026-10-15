@@ -50,7 +50,19 @@ type sessionWire struct {
 	LastPrompt *string `json:"lastPrompt"`
 	// BackgroundTasks (kb:anchor/ws.session, kb:adr/lifecycle-background-tasks-count-not-state):
 	// the running background work the latest Stop reported; required key, 0 when none.
-	BackgroundTasks int `json:"backgroundTasks"`
+	BackgroundTasks int                       `json:"backgroundTasks"`
+	Effort          *sessionWireEffort        `json:"effort"`
+	EffortWarning   *sessionWireEffortWarning `json:"effortWarning"`
+}
+
+type sessionWireEffort struct {
+	Level *string `json:"level"`
+}
+
+type sessionWireEffortWarning struct {
+	Requested string  `json:"requested"`
+	Actual    *string `json:"actual"`
+	Model     *string `json:"model"`
 }
 
 type sessionWireAttention struct {
@@ -183,6 +195,12 @@ func toWireSession(s *session.Session) sessionWire {
 	}
 	if s.Cache != nil {
 		w.Cache = &sessionWireCache{ExpiresAt: wireTime(s.Cache.ExpiresAt), TTLSeconds: s.Cache.TTLSeconds}
+	}
+	if s.Effort != nil {
+		w.Effort = &sessionWireEffort{Level: s.Effort.Level}
+	}
+	if s.EffortWarning != nil {
+		w.EffortWarning = &sessionWireEffortWarning{Requested: s.EffortWarning.Requested, Actual: s.EffortWarning.Actual, Model: s.EffortWarning.Model}
 	}
 	if s.ClaudeSessionID != "" {
 		v := s.ClaudeSessionID

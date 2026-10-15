@@ -73,6 +73,9 @@ export interface LaunchBody {
    * (kb:anchor/sessions.create) alongside the three already here. Plan
    * resume-and-dangerously-allow: `bypassPermissions` is a fifth. */
   permissionMode?: "default" | "plan" | "acceptEdits" | "auto" | "bypassPermissions";
+  /** Plan effort: `POST /api/sessions`'s optional `effort` (kb:anchor/sessions.create) — a level,
+   * or `null` for "default" (no `--effort`). Left out of the body when `undefined`. */
+  effort?: string | null;
 }
 
 /** The Session object shape per kb:anchor/ws.session, as returned by the launch/state endpoints. */
@@ -128,6 +131,16 @@ export interface SessionObject {
    * entries the latest `Stop` listed in `background_tasks`. Never null on the wire.
    */
   backgroundTasks: number;
+  /**
+   * Plan effort kb:anchor/ws.session (REQ-5): `null` until a status post (or a Resume-tab
+   * seed) reports; `{ level }` after, `{ level: null }` when the post carried no effort key.
+   */
+  effort: { level: string | null } | null;
+  /**
+   * Plan effort kb:anchor/ws.session (REQ-7): the launch-mismatch warning, or `null`.
+   * INV-E1: non-null implies `requested !== actual`.
+   */
+  effortWarning: { requested: string; actual: string | null; model: string | null } | null;
 }
 
 /**
@@ -161,6 +174,7 @@ export async function launchSession(
       title: body.title,
       model: body.model ?? "haiku",
       permissionMode: body.permissionMode ?? "default",
+      ...(body.effort !== undefined ? { effort: body.effort } : {}),
     },
   });
   if (res.status() !== 201) {

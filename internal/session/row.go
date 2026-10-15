@@ -101,6 +101,34 @@ func cacheHeldToRow(c *Cache) (requests *int64, reportedExpiresAt *time.Time) {
 	return c.Requests, reportedExpiresAt
 }
 
+func effortFromRow(row store.SessionRow) *Effort {
+	if !row.EffortKnown {
+		return nil
+	}
+	return &Effort{Level: row.EffortLevel}
+}
+
+func effortToRow(e *Effort) (known bool, level *string) {
+	if e == nil {
+		return false, nil
+	}
+	return true, e.Level
+}
+
+func effortWarningFromRow(row store.SessionRow) *EffortWarning {
+	if row.EffortWarningRequested == nil {
+		return nil
+	}
+	return &EffortWarning{Requested: *row.EffortWarningRequested, Actual: row.EffortWarningActual, Model: row.EffortWarningModel}
+}
+
+func effortWarningToRow(w *EffortWarning) (requested, actual, model *string) {
+	if w == nil {
+		return nil, nil, nil
+	}
+	return &w.Requested, w.Actual, w.Model
+}
+
 // attentionFromRow builds *Attention from the row's reason/since columns, or nil when
 // reason is absent — Since defaults to the zero time when the row predates that column
 // ever being written for this reason.
@@ -179,11 +207,14 @@ func rowToSession(row store.SessionRow) *Session {
 		TmuxPane:                     derefOrZero(row.TmuxPane),
 		ClaudeSessionID:              derefOrZero(row.ClaudeSessionID),
 		pendingResumeClaudeSessionID: derefOrZero(row.PendingResumeClaudeSessionID),
+		effortRequested:              derefOrZero(row.EffortRequested),
 		LastSnapshot:                 derefOrZero(row.LastSnapshot),
 		LastSnapshotAt:               derefOrZero(row.LastSnapshotAt),
 		Model:                        modelFromRow(row),
 		Context:                      contextFromRow(row),
 		Cache:                        cacheFromRow(row),
+		Effort:                       effortFromRow(row),
+		EffortWarning:                effortWarningFromRow(row),
 		Attention:                    attentionFromRow(row),
 		Failure:                      failureFromRow(row),
 	}
@@ -224,6 +255,7 @@ func sessionToRow(s *Session) store.SessionRow {
 		TmuxPane:                     ptrOrNil(s.TmuxPane),
 		ClaudeSessionID:              ptrOrNil(s.ClaudeSessionID),
 		PendingResumeClaudeSessionID: ptrOrNil(s.pendingResumeClaudeSessionID),
+		EffortRequested:              ptrOrNil(s.effortRequested),
 		LastSnapshot:                 ptrOrNil(s.LastSnapshot),
 	}
 	// LastSnapshotAt keeps its own IsZero() check rather than ptrOrNil's == comparison —
@@ -237,6 +269,8 @@ func sessionToRow(s *Session) store.SessionRow {
 	row.ContextUsedPct, row.ContextTotalInputTokens, row.ContextWindowSize = contextToRow(s.Context)
 	row.CacheExpiresAt, row.CacheTTLSeconds = cacheToRow(s.Cache)
 	row.CacheRequests, row.CacheReportedExpiresAt = cacheHeldToRow(s.Cache)
+	row.EffortKnown, row.EffortLevel = effortToRow(s.Effort)
+	row.EffortWarningRequested, row.EffortWarningActual, row.EffortWarningModel = effortWarningToRow(s.EffortWarning)
 	row.AttentionReason, row.AttentionSince = attentionToRow(s.Attention)
 	row.FailureError, row.FailureMessage = failureToRow(s.Failure)
 	return row

@@ -226,6 +226,7 @@ func New(cfg Config) *Server {
 	actions := register(s, newActionsFeature(s.manager, launcher, shells, terminals, s.reader, cfg.Logger))
 	register(s, newRailFeature(s.manager, cfg.Logger))
 	register(s, newRenameFeature(s.manager, cfg.Logger))
+	register(s, newEffortFeature(s.manager, cfg.Logger))
 	register(s, newGroupsFeature(s.manager, actions.teardownRemoved, cfg.Logger))
 	s.terminal = register(s, newTerminalFeature(terminals, s.manager, attach, cfg.Logger))
 	register(s, newShellFeature(shells, terminals, s.manager, attach, shellScroll, cfg.Logger))

@@ -237,6 +237,7 @@ func (m *Manager) RepairOwnedSession(ctx context.Context, id int64) (*Session, e
 	sess.EndedAt = nil
 	sess.TmuxTarget = target
 	sess.TmuxPane = pane
+	sess.effortRequested = ""
 	post := sess.Clone()
 
 	snapshot, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true)

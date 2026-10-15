@@ -74,3 +74,7 @@ func PermissionModeTranscriptLine(mode string) string {
 func AssistantModelLine(model string) string {
 	return marshal(map[string]any{"type": "assistant", "message": map[string]any{"model": model}})
 }
+
+func AssistantEffortLine(model, effort string) string {
+	return marshal(map[string]any{"type": "assistant", "effort": effort, "message": map[string]any{"model": model}})
+}

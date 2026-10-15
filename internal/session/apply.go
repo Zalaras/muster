@@ -162,6 +162,8 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	beforeModel := sess.Model
 	beforeContext := sess.Context
 	beforeCache := sess.Cache
+	beforeEffort := sess.Effort
+	beforeWarning := sess.EffortWarning
 	beforeDir := sess.ClaudeDir
 
 	prevTitle := sess.Title
@@ -178,7 +180,8 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	// broadcast — the wire object (DisplayTitle()/model/context) is unchanged, and
 	// kb:anchor/ws.session's no-no-op-upserts rule stands
 	// (kb:adr/rename-muster-owned-title-override-wins).
-	broadcast := !stringPtrEqual(beforeDisplay, sess.DisplayTitle()) || beforeModel != sess.Model || beforeContext != sess.Context || beforeCache != sess.Cache
+	broadcast := !stringPtrEqual(beforeDisplay, sess.DisplayTitle()) || beforeModel != sess.Model || beforeContext != sess.Context || beforeCache != sess.Cache ||
+		beforeEffort != sess.Effort || beforeWarning != sess.EffortWarning
 
 	// A ClaudeDir-only change persists without broadcasting for the same reason: the wire
 	// object stays as it was until the repo poll derives claudeLocation from it.

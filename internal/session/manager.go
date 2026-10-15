@@ -340,6 +340,9 @@ type CreateParams struct {
 	// MaxSessionID probe of the tmux socket, passed straight through to
 	// store.InsertSessionParams.MinID (kb:adr/lifecycle-session-ids-monotonic-never-reused).
 	MinID int64
+
+	EffortRequested string
+	EffortSeed      string
 }
 
 // CreateSession inserts the session row (tmuxTarget still a placeholder — the launcher
@@ -394,6 +397,8 @@ func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, 
 		RailPos:                      railPos,
 		GroupID:                      p.GroupID,
 		MinID:                        p.MinID,
+		EffortRequested:              ptrOrNil(p.EffortRequested),
+		EffortSeed:                   ptrOrNil(p.EffortSeed),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("creating session: %w", err)

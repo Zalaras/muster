@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" data-theme="instrument"><head><meta charset="utf-8">
+<title>effort — mockups</title>
+<link rel="stylesheet" href="../../../web/src/style.css">
+<link rel="stylesheet" href="mockup.css">
+<style>
+.opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 18px 0; }
+.opt { background: var(--bg-raised); border: 1px solid var(--line-control); padding: 14px 16px; }
+.opt h3 { margin: 0 0 6px; font-size: var(--fs-md); }
+.opt h3 a { color: var(--fg); }
+.opt p { margin: 0 0 6px; color: var(--fg-muted); font-size: var(--fs-sm); }
+</style>
+</head><body><div class="frame">
+<h1>effort — the launch control, the header and the mismatch toast, three ways</h1>
+<div class="sub">plan mockups · 2026-10-15 · built on the shipped web/src/style.css, #launch-dialog and #mainhead markup</div>
+
+<p>#68: choose an effort at launch, and see the effort a session runs at in brackets after the
+model in the Focus header. If the session comes up at a different level than the one asked for
+(the model clamps it, or has no effort at all), a dismissable notice says so under the header.
+Each page shows the same three things: the New form, the header in its normal states, and the
+header with the mismatch notice. The parts are independent: you can mix, say, A's control with
+C's notice.</p>
+
+<div class="opts">
+  <div class="opt"><h3><a href="opt-a-segmented.html">A — another segmented row</a></h3>
+    <p>Effort is a sixth-segment row under Model, styled exactly like Model and Start in.</p>
+    <p><b>Chosen 2026-10-15</b>, with the notice as a yellow warning strip (a new warning token, not amber or the danger banner); the effort in the header is tinted the same until Dismiss.</p>
+    <p>Notice: a full-width strip under the header, Dismiss button on the right.</p></div>
+  <div class="opt"><h3><a href="opt-b-select.html">B — a select beside Model</a></h3>
+    <p>Effort is a compact dropdown on the Model row, so the form grows by no row.</p>
+    <p>Notice: a small toast card at the header's bottom-right, over the terminal, closed with ✕.</p></div>
+  <div class="opt"><h3><a href="opt-c-meter.html">C — a stepped meter</a></h3>
+    <p>Effort is a Faster → Smarter meter echoing Claude Code's own <code>/effort</code> slider, with a Default checkbox.</p>
+    <p>Notice: a second row inside the header itself, with a "dismiss" link.</p></div>
+</div>
+</div></body></html>

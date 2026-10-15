@@ -1,5 +1,5 @@
 // kb:anchor/sessions.reader / kb:anchor/sessions.reader-file.
-import { isRecord, parseListOf, parseNullable } from "../protocol/decode";
+import { isNullableString, isRecord, parseListOf, parseNullable } from "../protocol/decode";
 import { requestJson, requestText, type ApiResult } from "./http";
 
 export interface ReaderPlan {
@@ -35,7 +35,7 @@ function parseReaderPlan(value: unknown): ReaderPlan | null {
   const writtenAt = value["writtenAt"];
   if (typeof path !== "string") return null;
   if (typeof exists !== "boolean") return null;
-  if (writtenAt !== null && typeof writtenAt !== "string") return null;
+  if (!isNullableString(writtenAt)) return null;
   return { path, exists, writtenAt };
 }
 
@@ -44,7 +44,7 @@ function parseReaderFileEntry(value: unknown): ReaderFileEntry | null {
   const path = value["path"];
   const writtenAt = value["writtenAt"];
   if (typeof path !== "string") return null;
-  if (writtenAt !== null && typeof writtenAt !== "string") return null;
+  if (!isNullableString(writtenAt)) return null;
   return { path, writtenAt };
 }
 

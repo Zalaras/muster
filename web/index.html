@@ -114,6 +114,11 @@
               <button type="button" class="btn danger" data-action="remove">Remove</button>
             </div>
           </div>
+          <div id="effort-strip" class="effort-strip" role="status" hidden>
+            <span class="glyph" aria-hidden="true">⚠</span>
+            <span class="sentence"></span>
+            <button type="button" class="btn sm dismiss">Dismiss</button>
+          </div>
           <div id="main-terminal-slot" class="terminal-slot" hidden></div>
           <div id="dead-surface" class="dead-surface" hidden>
             <div class="endbar"></div>
@@ -204,6 +209,18 @@
 
           <label class="lab" for="custom-model-input" id="custom-model-row" hidden>Custom model</label>
           <input id="custom-model-input" type="text" autocomplete="off" hidden />
+
+          <fieldset class="seg">
+            <legend>Effort</legend>
+            <div class="seg-track" role="radiogroup" aria-label="Effort">
+              <label><input type="radio" name="effort" value="" checked />default</label>
+              <label><input type="radio" name="effort" value="low" />low</label>
+              <label><input type="radio" name="effort" value="medium" />medium</label>
+              <label><input type="radio" name="effort" value="high" />high</label>
+              <label><input type="radio" name="effort" value="xhigh" />xhigh</label>
+              <label><input type="radio" name="effort" value="max" />max</label>
+            </div>
+          </fieldset>
 
           <fieldset class="seg">
             <legend>Start in</legend>

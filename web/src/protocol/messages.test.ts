@@ -68,6 +68,8 @@ const validSession = {
   unread: false,
   lastPrompt: null,
   groupId: null,
+  effort: { level: "high" },
+  effortWarning: null,
   cache: { expiresAt: "2026-08-22T01:00:00Z", ttlSeconds: 3600 },
 };
 // The measured "no data yet" shape (docs/history/spikes/canary-fields.md): a session that has just
@@ -102,6 +104,8 @@ const freshLaunchSession = {
   unread: false,
   lastPrompt: null,
   groupId: null,
+  effort: null,
+  effortWarning: null,
   cache: null,
 };
 describe("parseMessage — snapshot", () => {

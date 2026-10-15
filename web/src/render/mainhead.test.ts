@@ -25,20 +25,41 @@ import { DEFAULT_SURFACE_STATE } from "../terminal/surfaceswitch";
 import { renderMainhead, type MainheadElements } from "./mainhead";
 import type { SurfaceSegmentRefs } from "./surfaceseg";
 
+function textNode(text: string): FakeNode {
+  const node = new FakeNode();
+  node.nodeType = 3;
+  node.nodeValue = text;
+  node.textWrites = 0;
+  return node;
+}
+
 /** A class-addressable tree node: enough of Element for `renderMeta` and `renderRepoLines`
  * (`querySelector` by one class, `append`, `remove`, `hidden`, `title`, `textContent`). */
 class FakeNode {
   className = "";
-  textContent = "";
   hidden = false;
   title = "";
   parent: FakeNode | null = null;
   readonly kids: FakeNode[] = [];
+  /** 3 for a text node (`Node.TEXT_NODE`, stubbed below), 1 for an element. */
+  nodeType = 1;
+  private own = "";
+  /** Counts every write to this node's text, so a test can assert "no DOM write". */
+  textWrites = 0;
   // `fitMainheadMeta` measures layout, which this environment has none of: a null
   // `offsetParent` is a node not laid out, so it only clears `--loc-cap` and returns. Its
   // trim is asserted against real layout in web/e2e/card-location.spec.ts.
   readonly offsetParent = null;
   readonly props = new Map<string, string>();
+  readonly dataset: Record<string, string> = {};
+  tag = "";
+  readonly classes = new Set<string>();
+  readonly classList = {
+    toggle: (name: string, force: boolean) => {
+      if (force) this.classes.add(name);
+      else this.classes.delete(name);
+    },
+  };
   readonly style = {
     setProperty: (name: string, value: string) => this.props.set(name, value),
     removeProperty: (name: string) => this.props.delete(name),
@@ -49,9 +70,50 @@ class FakeNode {
     for (const kid of kids) this.append(kid);
   }
 
+  /** As the real DOM: a node's `textContent` is the concatenation of its descendants' text
+   * (a text node's own); writing it on an element replaces all its children with one text. */
+  get textContent(): string {
+    if (this.nodeType === 3 || this.kids.length === 0) return this.own;
+    return this.kids.map((kid) => kid.textContent).join("");
+  }
+
+  set textContent(text: string) {
+    this.textWrites++;
+    for (const kid of this.kids) kid.parent = null;
+    this.kids.length = 0;
+    this.own = text;
+  }
+
+  get nodeValue(): string | null {
+    return this.nodeType === 3 ? this.own : null;
+  }
+
+  set nodeValue(text: string | null) {
+    this.textWrites++;
+    this.own = text ?? "";
+  }
+
+  get firstChild(): FakeNode | null {
+    return this.kids[0] ?? null;
+  }
+
   append(kid: FakeNode): void {
     kid.parent = this;
     this.kids.push(kid);
+  }
+
+  /** `renderModel` / `renderEffortStrip` rebuild a slot with strings and nodes: strings read
+   * as text, nodes keep their own text, and `textContent` is the concatenation, as in the
+   * real DOM. */
+  replaceChildren(...nodes: (FakeNode | string)[]): void {
+    for (const kid of this.kids) kid.parent = null;
+    this.kids.length = 0;
+    this.own = "";
+    for (const node of nodes) {
+      const kid = typeof node === "string" ? textNode(node) : node;
+      kid.parent = this;
+      this.kids.push(kid);
+    }
   }
 
   remove(): void {
@@ -201,6 +263,7 @@ function fakeMainheadElements(): MainheadElements & {
     root: fakeMainheadRoot(),
     nameEl,
     metaEl: fakeMeta() as unknown as HTMLElement,
+    effortStrip: new FakeNode("effort-strip", new FakeNode("sentence")) as unknown as HTMLElement,
     stopResumeBtn: fakeButton(),
     removeBtn: fakeButton(),
     renameBtn,
@@ -209,6 +272,22 @@ function fakeMainheadElements(): MainheadElements & {
     attached: nameEl.attached,
   };
 }
+
+// renderModel and renderRepoLines create nodes on first need; the stub serves every describe.
+beforeEach(() => {
+  vi.stubGlobal("document", {
+    createElement: (tag: string) => {
+      const node = new FakeNode(tag === "span" ? "" : tag);
+      node.tag = tag;
+      return node;
+    },
+    createTextNode: textNode,
+  });
+  vi.stubGlobal("Node", { TEXT_NODE: 3 });
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const NOW = new Date("2026-08-22T00:00:10Z");
 
@@ -240,6 +319,8 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     unread: false,
     lastPrompt: null,
     groupId: null,
+    effort: null,
+    effortWarning: null,
     cache: null,
     ...overrides,
   };
@@ -381,15 +462,6 @@ describe("renderMainhead — group control", () => {
 // (REQ-13, REQ-14, REQ-17). `document.createElement` is stubbed because `renderRepoLines`
 // creates the `.rb` branch line on first need.
 describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
-  beforeEach(() => {
-    vi.stubGlobal("document", {
-      createElement: (tag: string) => new FakeNode(tag),
-    });
-  });
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   type Slots = {
     meta: FakeNode;
     loc: FakeNode;
@@ -399,6 +471,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
     locSeps: FakeNode[];
     model: FakeNode;
     endedAt: FakeNode;
+    strip: FakeNode;
   };
   function slots(elements: MainheadElements): Slots {
     const meta = elements.metaEl as unknown as FakeNode;
@@ -411,6 +484,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
       locSeps: loc.kids.filter((k) => k.className === "sep"),
       model: meta.querySelector(".model") as FakeNode,
       endedAt: meta.querySelector(".ended-at") as FakeNode,
+      strip: elements.effortStrip as unknown as FakeNode,
     };
   }
   const lines = (host: FakeNode) => host.kids.filter((k) => /\b(rf|rb)\b/.test(k.className));
@@ -508,15 +582,202 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
   });
 
   it("the model slot reads `unknown` for a null model and the display name otherwise (W4)", () => {
-    expect(render(makeSession({ id: 1, model: null })).s.model.textContent).toBe("unknown");
+    const bare = { effort: { level: null } } as const;
+    expect(render(makeSession({ id: 1, model: null, ...bare })).s.model.textContent).toBe(
+      "unknown",
+    );
     expect(
       render(
         makeSession({
           id: 1,
           model: { id: "claude-opus-4-1", displayName: "opus" },
+          ...bare,
         }),
       ).s.model.textContent,
     ).toBe("opus");
+  });
+
+  // REQ-6 / REQ-8: the effort readout sits in a `.eff` child of `.model`; it is absent (not
+  // hidden) when there are no brackets, and `warn` while a warning is set.
+  describe("the effort readout in `.model`", () => {
+    const opus = { id: "claude-opus-4-5", displayName: "Opus 4.5" };
+    const cases: {
+      name: string;
+      session: Partial<Session>;
+      text: string;
+      eff: string | null;
+      cls?: string;
+      holds: boolean;
+    }[] = [
+      {
+        name: "a level reads in brackets after the model",
+        session: { effort: { level: "high" } },
+        text: "Opus 4.5 (high)",
+        eff: " (high)",
+        cls: "eff",
+        holds: false,
+      },
+      {
+        name: "an alive session with no report yet reads `(…)`",
+        session: { effort: null },
+        text: "Opus 4.5 (…)",
+        eff: " (…)",
+        cls: "eff",
+        holds: false,
+      },
+      {
+        name: "a model with no effort setting reads no brackets and no `.eff` node",
+        session: { effort: { level: null } },
+        text: "Opus 4.5",
+        eff: null,
+        holds: false,
+      },
+      {
+        name: "a dead session that never reported reads no brackets but holds the width",
+        session: { effort: null, alive: false, endedAt: "2026-08-22T00:00:00Z" },
+        text: "Opus 4.5",
+        eff: null,
+        holds: true,
+      },
+      {
+        name: "a set warning marks the readout `warn`",
+        session: {
+          effort: { level: "high" },
+          effortWarning: { requested: "max", actual: "high", model: "Opus 4.5" },
+        },
+        text: "Opus 4.5 (high)",
+        eff: " (high)",
+        cls: "eff warn",
+        holds: false,
+      },
+    ];
+    it.each(cases)("$name", ({ session, text, eff, cls, holds }) => {
+      const { s } = render(makeSession({ id: 1, model: opus, ...session }));
+      expect(s.model.textContent).toBe(text);
+      const node = s.model.querySelector(".eff");
+      if (eff === null) {
+        expect(node).toBeNull();
+      } else {
+        expect(node?.textContent).toBe(eff);
+        expect(node?.className).toBe(cls);
+      }
+      expect(s.model.classes.has("holds-eff")).toBe(holds);
+    });
+
+    // Browser Major 1: a pass with nothing changed leaves the nodes alone, and a change
+    // touches only the text or class that differs.
+    describe("across render passes", () => {
+      const pass = (elements: MainheadElements, session: Session) =>
+        renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "g");
+      const warned = { requested: "max", actual: "high", model: "Opus 4.5" };
+      const warnedSession = (extra: Partial<Session> = {}) =>
+        makeSession({
+          id: 1,
+          model: opus,
+          effort: { level: "high" },
+          effortWarning: warned,
+          ...extra,
+        });
+
+      it("keeps the text node and `.eff` element and writes nothing when unchanged", () => {
+        const elements = fakeMainheadElements();
+        const model = slots(elements).model;
+        pass(elements, warnedSession());
+        const text = model.firstChild;
+        const eff = model.querySelector(".eff");
+        expect(text?.nodeType).toBe(3);
+        expect(eff).not.toBeNull();
+        if (!text || !eff) return;
+        const writes = [text.textWrites, eff.textWrites];
+        pass(elements, warnedSession());
+        pass(elements, warnedSession());
+        expect(model.firstChild).toBe(text);
+        expect(model.querySelector(".eff")).toBe(eff);
+        expect(model.kids).toHaveLength(2);
+        expect([text.textWrites, eff.textWrites]).toEqual(writes);
+        expect(eff.className).toBe("eff warn");
+      });
+
+      it("rewrites only the brackets text when the level changes", () => {
+        const elements = fakeMainheadElements();
+        const model = slots(elements).model;
+        pass(elements, warnedSession());
+        const text = model.firstChild;
+        const eff = model.querySelector(".eff");
+        const textWrites = text?.textWrites;
+        pass(elements, warnedSession({ effort: { level: "max" } }));
+        expect(model.firstChild).toBe(text);
+        expect(model.querySelector(".eff")).toBe(eff);
+        expect(text?.textWrites).toBe(textWrites);
+        expect(eff?.textContent).toBe(" (max)");
+        expect(model.textContent).toBe("Opus 4.5 (max)");
+      });
+
+      it("flips only the class when the warning clears", () => {
+        const elements = fakeMainheadElements();
+        const model = slots(elements).model;
+        pass(elements, warnedSession());
+        const eff = model.querySelector(".eff");
+        const writes = eff?.textWrites;
+        pass(elements, warnedSession({ effortWarning: null }));
+        expect(model.querySelector(".eff")).toBe(eff);
+        expect(eff?.className).toBe("eff");
+        expect(eff?.textWrites).toBe(writes);
+      });
+
+      it("rewrites only the model name's text node when the model changes", () => {
+        const elements = fakeMainheadElements();
+        const model = slots(elements).model;
+        pass(elements, warnedSession());
+        const text = model.firstChild;
+        const eff = model.querySelector(".eff");
+        pass(
+          elements,
+          warnedSession({ model: { id: "claude-sonnet-5", displayName: "Sonnet 5" } }),
+        );
+        expect(model.firstChild).toBe(text);
+        expect(model.querySelector(".eff")).toBe(eff);
+        expect(model.textContent).toBe("Sonnet 5 (high)");
+      });
+    });
+
+    it("drops a stale `.eff` node when the brackets go away on the next pass", () => {
+      const elements = fakeMainheadElements();
+      const pass = (session: Session) =>
+        renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "g");
+      pass(makeSession({ id: 1, model: opus, effort: { level: "high" } }));
+      expect(slots(elements).model.querySelector(".eff")).not.toBeNull();
+      pass(makeSession({ id: 1, model: opus, effort: { level: null } }));
+      expect(slots(elements).model.querySelector(".eff")).toBeNull();
+    });
+  });
+
+  // REQ-8: the strip shows only while a warning is set, worded from the warning.
+  describe("the effort strip", () => {
+    const warning = { requested: "max", actual: "high", model: "Opus 4.5" };
+    it("is hidden with no warning and shown with the sentence while one is set", () => {
+      const none = render(makeSession({ id: 1 })).s.strip;
+      expect(none.hidden).toBe(true);
+      const set = render(makeSession({ id: 1, effortWarning: warning })).s.strip;
+      expect(set.hidden).toBe(false);
+      expect(set.querySelector(".sentence")?.textContent).toBe(
+        "Asked for max \u2014 Opus 4.5 started at high.",
+      );
+    });
+
+    it("hides again when the warning clears, and on the no-session pass", () => {
+      const elements = fakeMainheadElements();
+      const strip = elements.effortStrip as unknown as FakeNode;
+      const pass = (session: Session | null) =>
+        renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "g");
+      pass(makeSession({ id: 1, effortWarning: warning }));
+      expect(strip.hidden).toBe(false);
+      pass(makeSession({ id: 1 }));
+      expect(strip.hidden).toBe(true);
+      pass(makeSession({ id: 1, effortWarning: warning }));
+      pass(null);
+      expect(strip.hidden).toBe(true);
+    });
   });
 
   it("the ended slot shows only for a dead session with an end time", () => {

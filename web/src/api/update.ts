@@ -1,6 +1,6 @@
 // Release check, apply, and the shells a restart would affect.
 import { parseUpdateInfo, type UpdateInfo } from "../protocol/update";
-import { isRecord, parseListOf } from "../protocol/decode";
+import { isNullableString, isRecord, parseListOf } from "../protocol/decode";
 import { requestEmpty, requestJson, type ApiResult } from "./http";
 
 /** `POST /api/update/apply` (kb:anchor/update.apply). `restart` optional, default false.
@@ -40,7 +40,7 @@ function parseRestartImpactShell(value: unknown): RestartImpactShell | null {
   const sessionId = value["sessionId"];
   const title = value["title"];
   if (typeof sessionId !== "number") return null;
-  if (title !== null && typeof title !== "string") return null;
+  if (!isNullableString(title)) return null;
   return { sessionId, title };
 }
 

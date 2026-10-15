@@ -71,6 +71,10 @@
   --health-ok: #7bc47f;
   --health-pending: #e3c64a;
   --health-down: #ee6a32;
+  --warn: #e8cf5a;
+  --warn-bg: #4a4116;
+  --warn-line: #8a7526;
+  --warn-fg: #fbefb8;
 }
 
 /* Dark — conventional web-style dark (neutral greys, editor/GitHub sense) */
@@ -115,6 +119,10 @@
   --health-ok: #6cc07a;
   --health-pending: #e3c64a;
   --health-down: #ee6a32;
+  --warn: #e3cd57;
+  --warn-bg: #403a1a;
+  --warn-line: #7d6f2a;
+  --warn-fg: #f6ecc0;
 }
 
 /* Light — standard light */
@@ -159,6 +167,10 @@
   --health-ok: #1f7a3a;
   --health-pending: #8a6d00;
   --health-down: #c2410c;
+  --warn: #615300;
+  --warn-bg: #fbf1c2;
+  --warn-line: #d4bd5c;
+  --warn-fg: #5a4a00;
 }
 
 /* Terminal ground follows Claude Code's own theme family, never the Muster theme
@@ -884,6 +896,61 @@ body {
   grid-area: 1 / 2 / span 2;
   font-size: inherit;
   color: inherit;
+}
+
+.mainhead .meta .model .eff.warn {
+  color: var(--warn);
+}
+
+.mainhead .meta .model.holds-eff::after {
+  content: " (…)";
+  visibility: hidden;
+}
+
+.effort-strip {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 7px 14px;
+  background: var(--warn-bg);
+  border-bottom: 1px solid var(--warn-line);
+  box-shadow: inset 3px 0 0 var(--warn);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--warn-fg);
+}
+
+.effort-strip[hidden] {
+  display: none;
+}
+
+.effort-strip .glyph {
+  flex: none;
+  color: var(--warn);
+}
+
+.effort-strip .sentence {
+  flex: 1 1 16ch;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.effort-strip b {
+  font-weight: 600;
+}
+
+.effort-strip .dismiss {
+  flex: none;
+  margin-left: auto;
+  color: var(--warn-fg);
+  border-color: var(--warn-line);
+}
+
+.effort-strip .btn.dismiss:hover:not(:disabled) {
+  color: var(--warn-fg);
+  border-color: var(--warn-fg);
 }
 
 /* The right-aligned cluster (kb:adr/focus-surface-switch-pinned-with-actions): its position

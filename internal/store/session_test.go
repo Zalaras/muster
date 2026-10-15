@@ -232,6 +232,12 @@ func TestUpdateSession_RoundTripsEveryField(t *testing.T) {
 	row.PendingResumeClaudeSessionID = &pendingResume
 	claudeDir := "/private/tmp/proj/.claude/worktrees/probewt"
 	row.ClaudeDir = &claudeDir
+	row.EffortKnown = true
+	row.EffortLevel = ptr("high")
+	row.EffortRequested = ptr("max")
+	row.EffortWarningRequested = ptr("max")
+	row.EffortWarningActual = ptr("high")
+	row.EffortWarningModel = ptr("Opus 4.5")
 
 	require.NoError(t, st.UpdateSession(ctx, row))
 
@@ -281,6 +287,12 @@ func TestUpdateSession_RoundTripsEveryField(t *testing.T) {
 	assert.False(t, got.FirstLaunchHere)
 	require.NotNil(t, got.ClaudeDir)
 	assert.Equal(t, claudeDir, *got.ClaudeDir)
+	assert.True(t, got.EffortKnown)
+	assert.Equal(t, ptr("high"), got.EffortLevel)
+	assert.Equal(t, ptr("max"), got.EffortRequested)
+	assert.Equal(t, ptr("max"), got.EffortWarningRequested)
+	assert.Equal(t, ptr("high"), got.EffortWarningActual)
+	assert.Equal(t, ptr("Opus 4.5"), got.EffortWarningModel)
 
 	// REQ-7: launch and resume clear the column back to NULL, not to an empty string.
 	row.ClaudeDir = nil

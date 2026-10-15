@@ -79,6 +79,7 @@ type createSessionRequest struct {
 	Title           string          `json:"title"`
 	Model           string          `json:"model"`
 	PermissionMode  string          `json:"permissionMode"`
+	Effort          *string         `json:"effort"`
 	ResumeSessionID *string         `json:"resumeSessionId"`
 	GroupID         json.RawMessage `json:"groupId"`
 	NewGroup        *string         `json:"newGroup"`
@@ -181,7 +182,7 @@ func validateLaunchDirectory(dir string) error {
 // validateLaunchRequest is Launch's pure prefix: it reads req alone, touches no launcher
 // state and runs before anything has been written, so a rejection here needs no rollback.
 // Check order is load-bearing — it decides which single error a request invalid in
-// several fields at once reports — so keep it as directory, model, permissionMode.
+// several fields at once reports — so keep it as directory, model, permissionMode, effort.
 func validateLaunchRequest(req createSessionRequest) *launchError {
 	if err := validateLaunchDirectory(req.Directory); err != nil {
 		return invalidRequest(err.Error())
@@ -193,6 +194,9 @@ func validateLaunchRequest(req createSessionRequest) *launchError {
 		// Built from claudecode.PermissionModes — the one owner of the set — rather than
 		// spelling its members again here.
 		return invalidRequest("permissionMode must be one of " + strings.Join(claudecode.PermissionModes, ", "))
+	}
+	if req.Effort != nil && !claudecode.ValidEffort(*req.Effort) {
+		return invalidRequest("effort must be one of " + strings.Join(claudecode.EffortLevels, ", "))
 	}
 	return nil
 }
@@ -299,12 +303,18 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 
 	isGit, branch, isWorktree := repoContext(ctx, dir)
 
+	var effort string
+	if req.Effort != nil {
+		effort = *req.Effort
+	}
+
 	repo, created, err := l.store.UpsertRepo(ctx, store.UpsertRepoParams{
 		Path:           dir,
 		Name:           filepath.Base(dir),
 		IsGit:          isGit,
 		Model:          req.Model,
 		PermissionMode: req.PermissionMode,
+		Effort:         req.Effort,
 	})
 	if err != nil {
 		l.log.Error().Err(err).Str("directory", dir).Msg("recording repo failed")
@@ -327,6 +337,7 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 		Model:          req.Model,
 		Title:          req.Title,
 		PermissionMode: req.PermissionMode,
+		Effort:         effort,
 	})
 
 	return l.createAndSpawn(ctx, dir, argv, grp, session.CreateParams{
@@ -338,6 +349,7 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 		PermissionMode:  session.PermissionMode(req.PermissionMode),
 		Model:           req.Model,
 		FirstLaunchHere: created,
+		EffortRequested: effort,
 	})
 }
 
@@ -537,6 +549,7 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 		Model:           model,
 		Title:           pendingTitle,
 		PermissionMode:  string(sess.PermissionMode),
+		Effort:          sess.EffortLevel(),
 		ResumeSessionID: sess.ClaudeSessionID,
 	})
 	target, pane, err := l.spawnSession(ctx, id, sess.Directory, buildLaunchEnv(id), argv)

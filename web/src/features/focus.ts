@@ -67,6 +67,7 @@ export interface FocusDeps {
     reveal(sessionId: number, expand: boolean): void;
     openMoveMenu(opener: HTMLElement, session: Session): void;
   };
+  effort: { dismiss(id: number): void };
 }
 
 export interface FocusHandle {
@@ -115,6 +116,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     renameBtn: requireElement<HTMLButtonElement>("#mainhead button.rename"),
     groupBtn: requireElement<HTMLButtonElement>("#mainhead .ingroup"),
     surfaceSegment: mainheadSurfaceSegment,
+    effortStrip: requireElement<HTMLElement>("#effort-strip"),
   };
 
   // Attached here, directly, the same way `render/tiles.ts`'s `buildTile` attaches each
@@ -154,6 +156,12 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     const session = app.store.values().find((s) => s.id === app.state.focusedId);
     if (session) deps.groups.openMoveMenu(mainheadElements.groupBtn, session);
   });
+  requireElement<HTMLButtonElement>(".dismiss", mainheadElements.effortStrip).addEventListener(
+    "click",
+    () => {
+      if (app.state.focusedId !== null) deps.effort.dismiss(app.state.focusedId);
+    },
+  );
   // The Focus dead surface's own cap carries a Resume button too.
   deadSurfaceRefs.resumeBtn.addEventListener("click", () => {
     if (app.state.focusedId !== null) deps.actions.dispatch("resume", app.state.focusedId);

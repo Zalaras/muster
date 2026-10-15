@@ -7,10 +7,10 @@ summary: --effort takes low..max case-insensitively; an unknown value warns on s
 features: [launch]
 tags: [claude-code-format]
 files: [internal/claudecode/launch.go]
-tests: []
+tests: [TestInstalledBinaryCarriesInterfaceStrings]
 refs: [test/rig/captures/capture-3.jsonl, kb:fact/effort-levels-per-model]
 verified: 2.1.300..2.1.300
-guard: none
+guard: TestInstalledBinaryCarriesInterfaceStrings
 ---
 `claude --help` lists `--effort <level>` as `low, medium, high, xhigh, max`. The `/effort`
 command offers more (`auto`, `ultracode [on|off]`); the flag treats them differently:

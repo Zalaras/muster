@@ -20,7 +20,12 @@ type statusPayload struct {
 	Workspace     *struct {
 		CurrentDir string `json:"current_dir"`
 	} `json:"workspace"`
-	Cwd string `json:"cwd"`
+	Cwd    string        `json:"cwd"`
+	Effort *statusEffort `json:"effort"`
+}
+
+type statusEffort struct {
+	Level *string `json:"level"`
 }
 
 type statusPromptCache struct {
@@ -105,10 +110,10 @@ type StatusAccount struct {
 	Model    StatusModel
 }
 
-// StatusUpdate is the neutral result of interpreting one status-line payload:
-// optional title, optional model, optional context, optional account usage sample.
-// Every field is nil when the payload didn't carry it — callers apply only what's
-// present, never inventing a zero value.
+type StatusEffort struct {
+	Level *string
+}
+
 type StatusUpdate struct {
 	Title   *string
 	Model   *StatusModel
@@ -117,7 +122,8 @@ type StatusUpdate struct {
 	Cache   *StatusCache
 	// Cwd is the directory Claude reports working in (workspace.current_dir, else the
 	// top-level cwd); nil when neither is non-empty.
-	Cwd *string
+	Cwd    *string
+	Effort *StatusEffort
 }
 
 // InterpretStatus derives the neutral StatusUpdate for one status-line payload. It is a
@@ -154,6 +160,7 @@ func InterpretStatus(payload []byte) StatusUpdate {
 	}
 
 	out.Cache = interpretPromptCache(p.PromptCache)
+	out.Effort = interpretEffort(p.Effort)
 
 	// A sample is produced only when rate_limits is present, and only when the model
 	// object is present in the same payload — a sample is never recorded with a
@@ -182,6 +189,14 @@ func statusDir(p statusPayload) string {
 		return p.Workspace.CurrentDir
 	}
 	return p.Cwd
+}
+
+func interpretEffort(e *statusEffort) *StatusEffort {
+	if e == nil || e.Level == nil || *e.Level == "" {
+		return &StatusEffort{}
+	}
+	level := *e.Level
+	return &StatusEffort{Level: &level}
 }
 
 func interpretPromptCache(pc *statusPromptCache) *StatusCache {

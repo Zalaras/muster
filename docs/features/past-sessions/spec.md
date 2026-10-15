@@ -46,7 +46,9 @@ processes sharing one conversation.
 
 Resuming a row always creates a new Muster session, never reuses a dead one that shares the id
 (kb:adr/launch-resume-one-alive-row-per-claude-session), running `claude --resume <id>
---permission-mode <mode>` with no `--model` and no `--name`. `<mode>` is the transcript's last
+--permission-mode <mode>` plus `--effort <level>` when the transcript's last assistant line recorded one
+(kb:fact/resume-does-not-restore-effort), with no `--model` and no `--name`, and the row starts showing that
+level. `<mode>` is the transcript's last
 recorded permission mode, verbatim — including one the launch form never offers, such as
 `dontAsk` — or `default` when none was recorded (kb:adr/launch-resume-in-original-mode-else-default,
 kb:adr/launch-resume-passes-any-recorded-mode, kb:fact/resume-restores-model-and-mode-except-plan).
@@ -86,7 +88,7 @@ sequenceDiagram
     else found
         S->>S: TouchRepo, MergeSettings, CreateSession (started, seeds)
         S->>T: new-session, MUSTER_SESSION in pane env
-        T->>CC: claude --resume id --permission-mode mode
+        T->>CC: claude --resume id --permission-mode mode [--effort level]
         S-->>UI: 201, broadcast sessionUpsert
         CC->>I: SessionStart{source:"resume", same id}
         I-->>UI: bound, idle

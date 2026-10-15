@@ -215,10 +215,12 @@ func TestSessionWire_JSONShapeHasNoUnexpectedNulls(t *testing.T) {
 		"id", "title", "state", "stateSince", "alive", "endedAt", "attention", "failure",
 		"directory", "repo", "model", "permissionMode", "context", "cache", "lastActivity",
 		"claudeSessionId", "tmuxTarget", "firstLaunchHere", "createdAt", "pinned", "railPos",
-		"claudeLocation",
+		"claudeLocation", "effort", "effortWarning",
 	} {
 		assert.Contains(t, got, field)
 	}
+	assert.Nil(t, got["effort"], "REQ-5: effort is a required key, null before any report")
+	assert.Nil(t, got["effortWarning"], "REQ-7: effortWarning is a required key, null with no warning")
 
 	permMode, ok := got["permissionMode"].(map[string]any)
 	require.True(t, ok)

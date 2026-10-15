@@ -24,7 +24,7 @@ the JSON the wrapper scripts post; everything Claude-Code-shaped is parsed insid
 | Session lifecycle | `SessionStart`, `Stop`, `StopFailure`, `SessionEnd`, `Notification` (`permission_prompt`, `idle_prompt`), `PermissionRequest`, `PreCompact`, `SubagentStop`; `PreToolUse`, `PostToolUse` and `PostToolBatch` as turn activity (kb:fact/hook-payload-fields) |
 | Permission mode | `permission_mode` from the hook events that carry it, latched forward (kb:fact/permission-mode-presence-split); absent from the status line (kb:fact/status-line-keys) |
 | Failed and its reason | `StopFailure` with its typed `error` (kb:fact/stopfailure-error-taxonomy) |
-| Context, model, title, account usage | the status-line payload, posted by the status-line script |
+| Context, model, effort, title, account usage | the status-line payload, posted by the status-line script; effort is read from `effort.level` on every routed post (kb:fact/effort-changes-mid-session) |
 | Claude's working directory | `cwd` on every main-agent hook and the status line's `workspace.current_dir`, read in `internal/claudecode` alone; `CwdChanged` stays unregistered (kb:adr/ingest-claude-cwd-read-in-interpret-only) |
 | Terminal content | never ingest; the PTY bridge (kb:spec/surfaces) |
 

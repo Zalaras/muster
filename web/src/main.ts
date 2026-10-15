@@ -22,6 +22,7 @@ import { initUpdate } from "./features/update";
 import { initUpdateRestart } from "./features/updaterestart";
 import { initIssue } from "./features/issue";
 import { initTiles } from "./features/tiles";
+import { initEffort } from "./features/effort";
 import { initFocus } from "./features/focus";
 import { initSurfaces } from "./features/surfaces";
 import { initReader } from "./features/reader";
@@ -56,6 +57,7 @@ const tiles = initTiles(app, {
   railMenu,
   getReader: () => reader,
 });
+const effort = initEffort({ actions });
 const focus = initFocus(app, {
   actions,
   getSurfaces: () => surfaces,
@@ -63,6 +65,7 @@ const focus = initFocus(app, {
   getReader: () => reader,
   renameHandlers: rename.mainheadRenameHandlers,
   groups,
+  effort,
 });
 const surfaces = initSurfaces(app, { tilesLive: tiles.liveIds });
 const reader = initReader(app, { tilesLive: tiles.liveIds, surfaces });

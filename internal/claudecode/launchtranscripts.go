@@ -83,6 +83,7 @@ type PastSession struct {
 	LastActiveAt    time.Time
 	PermissionMode  *string // the last permission-mode line, verbatim; nil when none recorded
 	Model           *string // the last assistant line's model; nil when none recorded
+	Effort          *string
 }
 
 // PastSessions returns every Claude Code session recorded for dir (resolved for symlinks,
@@ -158,6 +159,7 @@ type transcriptScan struct {
 	lastPrompt     string
 	permissionMode string
 	model          string
+	effort         string
 	cwd            string
 }
 
@@ -172,6 +174,7 @@ type transcriptLine struct {
 	AiTitle        string `json:"aiTitle"`
 	LastPrompt     string `json:"lastPrompt"`
 	PermissionMode string `json:"permissionMode"`
+	Effort         string `json:"effort"`
 	Message        struct {
 		Model string `json:"model"`
 	} `json:"message"`
@@ -206,6 +209,7 @@ func (s *transcriptScan) apply(rawLine []byte) {
 		if line.Message.Model != "" {
 			s.model = line.Message.Model
 		}
+		s.effort = line.Effort
 	}
 }
 
@@ -249,6 +253,9 @@ func (s *transcriptScan) toPastSession(claudeSessionID string, lastActiveAt time
 	}
 	if s.model != "" {
 		p.Model = &s.model
+	}
+	if s.effort != "" {
+		p.Effort = &s.effort
 	}
 	return p
 }

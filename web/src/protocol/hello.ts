@@ -3,7 +3,7 @@
 // owning one wire concept's type and parser; `decode.ts` holds the primitives every one
 // of them shares.
 
-import { isRecord } from "./decode";
+import { isNullableString, isRecord } from "./decode";
 
 export const PROTOCOL_VERSION = 2;
 
@@ -36,7 +36,7 @@ function parseClaudeCode(value: unknown): ClaudeCodeInfo | null {
   const floor = value["floor"];
   const verified = value["verified"];
   const status = value["status"];
-  if (installed !== null && typeof installed !== "string") return null;
+  if (!isNullableString(installed)) return null;
   if (typeof floor !== "string") return null;
   if (typeof verified !== "string") return null;
   if (!isClaudeCodeStatus(status)) return null;

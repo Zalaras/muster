@@ -23,7 +23,14 @@ import type { App } from "../app";
 import { launchPrimaryFace, permissionModeToCheck } from "../sessions/permission";
 import { checkRadioValue, requireElement, requireElements } from "../dom";
 import { renderActionError } from "../render/actionerror";
-import { isPermissionMode, type PermissionMode, type Session } from "../protocol/session";
+import {
+  isEffortLevel,
+  isPermissionMode,
+  type EffortLevel,
+  type PermissionMode,
+  type Session,
+} from "../protocol/session";
+import { DEFAULT_EFFORT } from "../sessions/effort";
 import { renderCrumbs } from "../render/crumbs";
 import {
   renderBrowseListing,
@@ -68,6 +75,7 @@ export interface LaunchModalElements {
   /** The invalid-field message, shared by the whole Model row — not owned by either
    * control (`kb:adr/launch-unrecognized-model-marked-blocks-launch`). */
   modelError: HTMLElement;
+  effortRadios: HTMLInputElement[];
   permissionModeRadios: HTMLInputElement[];
   /** Shown iff the New tab's checked mode is `bypassPermissions`
    * (kb:adr/launch-bypass-offered-with-danger-guardrails). */
@@ -136,7 +144,7 @@ function initLaunchModal(
   // only from a real `change`/`input` DOM event below — never by this module's own
   // `setModel`/`setPermissionMode` calls, which assign `.checked`/`.value` directly and so
   // dispatch nothing.
-  let touched: Touched = { model: false, mode: false };
+  let touched: Touched = { model: false, mode: false, effort: false };
   // Whether the error currently shown in `#launch-error` is the "repos unavailable"
   // kind. That error has no fix-it action in this dialog (nothing re-fetches repos
   // mid-open), so it must survive the browse-root fallback `initOpen()` issues right
@@ -245,6 +253,15 @@ function initLaunchModal(
     checkRadioValue(elements.permissionModeRadios, permissionModeToCheck(value));
   }
 
+  function setEffort(value: string): void {
+    checkRadioValue(elements.effortRadios, value);
+  }
+
+  function selectedEffort(): EffortLevel | null {
+    const value = checkedValue(elements.effortRadios);
+    return isEffortLevel(value) ? value : null;
+  }
+
   function selectedModel(): string {
     if (checkedValue(elements.modelRadios) === "other") {
       return elements.customModelInput.value.trim();
@@ -282,7 +299,7 @@ function initLaunchModal(
   }
 
   /** A clicked Recent navigates, then, unlike the initial restore, always restores its
-   * directory's model and mode, touched or not — `repoRestore` is the one owner of what
+   * directory's model, mode and effort, touched or not — `repoRestore` is the one owner of what
    * those values are. Model/mode apply only after the navigation succeeds, so a 404'd
    * recent leaves the form untouched. */
   function selectRecent(repo: Repo): void {
@@ -292,6 +309,7 @@ function initLaunchModal(
         const values = repoRestore(repo);
         applyModelRestore(values.model);
         setPermissionMode(values.mode);
+        setEffort(values.effort);
       }
     })();
   }
@@ -444,12 +462,13 @@ function initLaunchModal(
     elements.browseDirs.querySelector<HTMLButtonElement>("button.entry")?.focus();
   }
 
-  /** Applies whichever of `initialRestore`'s two fields survived the touched
+  /** Applies whichever of `initialRestore`'s three fields survived the touched
    * filter — a plain caller of the pure decision. */
   function applyInitialRestore(first: Repo): void {
     const restore = initialRestore(touched, first);
     if (restore.model !== undefined) applyModelRestore(restore.model);
     if (restore.mode !== undefined) setPermissionMode(restore.mode);
+    if (restore.effort !== undefined) setEffort(restore.effort);
   }
 
   /** The initial-open sequence: fetches the MRU list, then attempts the
@@ -491,7 +510,7 @@ function initLaunchModal(
     current = null;
     repos = [];
     reposLoaded = false;
-    touched = { model: false, mode: false };
+    touched = { model: false, mode: false, effort: false };
     modelVerdicts = resetVerdictStore(modelVerdicts);
     // Every open lands on New, regardless of how the dialog was last left.
     resume.reset();
@@ -503,6 +522,7 @@ function initLaunchModal(
     // `auto`) decides — one source of truth, same as every other caller of
     // `setPermissionMode`.
     setPermissionMode(null);
+    setEffort(DEFAULT_EFFORT);
     clearError();
     renderAll();
   }
@@ -529,6 +549,8 @@ function initLaunchModal(
     };
     const title = elements.titleInput.value.trim();
     if (title) body.title = title;
+    const effort = selectedEffort();
+    if (effort) body.effort = effort;
 
     // Captured before the `await`, exactly like `requestModelVerdicts` above: a refusal
     // that lands after the dialog was cancelled and reopened must merge into no store —
@@ -686,6 +708,11 @@ function initLaunchModal(
     // the previous text carried — no separate "clear" branch needed.
     updateModelRowState();
   });
+  for (const radio of elements.effortRadios) {
+    radio.addEventListener("change", () => {
+      touched.effort = true;
+    });
+  }
   for (const radio of elements.permissionModeRadios) {
     radio.addEventListener("change", () => {
       touched.mode = true;
@@ -743,6 +770,7 @@ export function initLaunch(app: App, deps: LaunchDeps): LaunchHandle {
     customModelRow: requireElement<HTMLElement>("#custom-model-row"),
     customModelInput: requireElement<HTMLInputElement>("#custom-model-input"),
     modelError: requireElement<HTMLElement>("#model-error"),
+    effortRadios: requireElements<HTMLInputElement>('input[name="effort"]'),
     permissionModeRadios: requireElements<HTMLInputElement>('input[name="permission-mode"]'),
     bypassWarning: requireElement<HTMLElement>("#bypass-warning"),
     launchError: requireElement<HTMLElement>("#launch-error"),

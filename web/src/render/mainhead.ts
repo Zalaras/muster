@@ -10,6 +10,7 @@ import {
 } from "../sessions/card";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import type { SessionSurfaceState } from "../terminal/surfaceswitch";
+import { renderEffortStrip } from "./effortstrip";
 import { renderRepoLines } from "./repolines";
 import { updateSurfaceSegment, type SurfaceSegmentRefs } from "./surfaceseg";
 
@@ -29,6 +30,7 @@ export interface MainheadElements {
   // (kb:adr/focus-group-control-hides-below-640px-container-width — the CSS hides it).
   groupBtn: HTMLButtonElement;
   surfaceSegment: SurfaceSegmentRefs;
+  effortStrip: HTMLElement;
 }
 
 /** Fills `.meta`'s static slots (index.html) in place — never rebuilt, since the hover
@@ -46,11 +48,39 @@ function renderMeta(metaEl: HTMLElement, meta: MainheadMeta): void {
   requireElement<HTMLElement>(".sep", loc).hidden = meta.claudeAt === null;
   if (meta.claudeAt) renderRepoLines(claudeAt, meta.claudeAt);
 
-  requireElement<HTMLElement>(".model", metaEl).textContent = meta.model;
+  renderModel(requireElement<HTMLElement>(".model", metaEl), meta);
 
   const endedAt = requireElement<HTMLElement>(".ended-at", metaEl);
   endedAt.hidden = meta.ended === null;
   requireElement<HTMLElement>(".ended", endedAt).textContent = meta.ended ?? "";
+}
+
+function renderModel(modelEl: HTMLElement, meta: MainheadMeta): void {
+  modelEl.classList.toggle("holds-eff", meta.effort.reservesBrackets);
+  writeModelText(modelEl, meta.model);
+  writeEffort(modelEl, meta.effort);
+}
+
+function writeModelText(modelEl: HTMLElement, model: string): void {
+  const first = modelEl.firstChild;
+  if (first && first.nodeType === Node.TEXT_NODE) {
+    if (first.nodeValue !== model) first.nodeValue = model;
+    return;
+  }
+  modelEl.replaceChildren(model);
+}
+
+function writeEffort(modelEl: HTMLElement, effort: MainheadMeta["effort"]): void {
+  const existing = modelEl.querySelector<HTMLElement>(".eff");
+  if (effort.brackets === null) {
+    existing?.remove();
+    return;
+  }
+  const eff = existing ?? document.createElement("span");
+  if (!existing) modelEl.append(eff);
+  const className = effort.warn ? "eff warn" : "eff";
+  if (eff.className !== className) eff.className = className;
+  if (eff.textContent !== effort.brackets) eff.textContent = effort.brackets;
 }
 
 export function fitMainheadMeta(metaEl: HTMLElement, root: HTMLElement): void {
@@ -130,6 +160,7 @@ export function renderMainhead(
 ): void {
   if (!session) {
     elements.root.hidden = true;
+    renderEffortStrip(elements.effortStrip, null);
     // Never `elements.nameEl.textContent = ""` here — that would permanently detach the
     // `button.rename` child `nameEl` must always keep: `features/focus.ts` captures that
     // button once via `requireElement` and `attachRenameEditor` finds it once at
@@ -154,7 +185,9 @@ export function renderMainhead(
   // rename button is disabled while the WS is disconnected"; features/rename.ts separately cancels
   // an open edit on disconnect).
   elements.renameBtn.disabled = !connected;
-  renderMeta(elements.metaEl, mainheadMeta(session, now));
+  const meta = mainheadMeta(session, now);
+  renderMeta(elements.metaEl, meta);
+  renderEffortStrip(elements.effortStrip, meta.effort.strip);
   // The danger `bypass` chip, shared markup/class with a rail card and a tile
   // header (sessions/card.ts's `bypassChip`) — looked up on `elements.root` rather than a
   // dedicated `MainheadElements` field, matching `render/tiles.ts`'s `updateTileChrome`

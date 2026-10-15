@@ -2,7 +2,7 @@
 // kb:anchor/ws.update) — one of the protocol/ concept modules, each owning one wire
 // concept's type and parser; `decode.ts` holds the primitives every one of them shares.
 
-import { isRecord } from "./decode";
+import { isNullableString, isRecord } from "./decode";
 
 // The daemon's startup classification of its own resolved executable path, constant for
 // the daemon's life.
@@ -69,8 +69,8 @@ function parseUpdateApply(value: unknown): UpdateApply | null {
   const version = value["version"];
   const error = value["error"];
   if (!isUpdateApplyPhase(phase)) return null;
-  if (version !== null && typeof version !== "string") return null;
-  if (error !== null && typeof error !== "string") return null;
+  if (!isNullableString(version)) return null;
+  if (!isNullableString(error)) return null;
   return { phase, version, error };
 }
 
@@ -90,11 +90,11 @@ export function parseUpdateInfo(value: unknown): UpdateInfo | null {
   const installed = value["installed"];
   if (typeof running !== "string") return null;
   if (!isUpdateInstallKind(install)) return null;
-  if (remedy !== null && typeof remedy !== "string") return null;
+  if (!isNullableString(remedy)) return null;
   if (typeof canCheck !== "boolean") return null;
-  if (available !== null && typeof available !== "string") return null;
-  if (checkedAt !== null && typeof checkedAt !== "string") return null;
-  if (installed !== null && typeof installed !== "string") return null;
+  if (!isNullableString(available)) return null;
+  if (!isNullableString(checkedAt)) return null;
+  if (!isNullableString(installed)) return null;
   const apply = parseUpdateApply(value["apply"]);
   if (!apply) return null;
   return { running, install, remedy, canCheck, available, checkedAt, installed, apply };

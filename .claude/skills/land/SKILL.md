@@ -42,6 +42,14 @@ Check all of these before touching anything. If any fails, stop and say exactly 
 
    Equal means merging would change nothing — already landed, so say "nothing to land" and stop.
    A squash of an empty range produces an empty commit, the worst outcome available here.
+5a. No migration version the branch adds is already on `main` — two files sharing a number
+   merge without conflict and `musterd` refuses to start. This prints nothing, or the plan
+   renumbers first:
+
+   ```bash
+   comm -12 <(git ls-tree --name-only main internal/store/migrations/ | grep -oE '/[0-9]+_' | sort) \
+            <(git diff --name-only --diff-filter=A main...plan/<plan> -- internal/store/migrations/ | grep -oE '/[0-9]+_' | sort)
+   ```
 6. The plan's worktree is there and idle: `make worktrees` lists `../muster-<plan>` on
    `plan/<plan>` (kb:adr/process-pipeline-runs-in-sibling-worktree), and no `claude` has it as
    its cwd (`lsof -a -d cwd -c claude -Fn` prints no `n<that path>` line) — end that session

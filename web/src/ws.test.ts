@@ -111,6 +111,8 @@ const session: Session = {
   unread: false,
   lastPrompt: null,
   groupId: null,
+  effort: null,
+  effortWarning: null,
   cache: null,
 };
 

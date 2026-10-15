@@ -228,6 +228,14 @@ export interface TranscriptFixtureOpts {
   customTitle?: string;
   /** `last-prompt` line's value. */
   lastPrompt?: string;
+  /**
+   * Plan effort (REQ-11): one `assistant` line per entry, in order, each carrying the top-level
+   * `"effort": "<level>"` that kb:fact/resume-does-not-restore-effort measured on every assistant
+   * line of a completed turn — `null` writes that line without the key. The LAST entry is the
+   * one a Resume-tab resume reads. Each line carries `message.model` when `model` is set. It
+   * replaces the single `assistant` line `model` alone writes; omit it for no effort recorded.
+   */
+  assistantEfforts?: readonly (string | null)[];
   /** `permission-mode` line's value. Omit for the "no permission-mode line recorded"
    * fixture (REQ-10's `default`-fallback path, edge case 16). */
   permissionMode?: string;
@@ -965,7 +973,18 @@ export class ScratchDaemon {
     const lines: Record<string, unknown>[] = [
       { type: "user", sessionId: claudeSessionId, cwd: resolvedDir },
     ];
-    if (opts.model !== undefined) {
+    if (opts.assistantEfforts !== undefined) {
+      for (const effort of opts.assistantEfforts) {
+        lines.push({
+          type: "assistant",
+          sessionId: claudeSessionId,
+          cwd: resolvedDir,
+          entrypoint: "cli",
+          message: opts.model !== undefined ? { model: opts.model } : {},
+          ...(effort !== null ? { effort } : {}),
+        });
+      }
+    } else if (opts.model !== undefined) {
       lines.push({
         type: "assistant",
         sessionId: claudeSessionId,

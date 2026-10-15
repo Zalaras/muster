@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en" data-theme="instrument"><head><meta charset="utf-8">
+<title>B — Effort as a select on the Model row</title>
+<link rel="stylesheet" href="../../../web/src/style.css">
+<link rel="stylesheet" href="mockup.css">
+</head><body><div class="frame">
+<h1>B — Effort as a select on the Model row</h1>
+<div class="sub">effort · option B · <span class="sw">&nbsp;dashed&nbsp;</span> = new</div>
+<p>Effort is a compact dropdown sitting at the end of the Model row, since it qualifies the model; the form keeps its height. The header shows the level dimmer than the model name, so the model still reads first. A launch mismatch shows a small toast card hanging off the header's bottom-right corner, over the top of the terminal, closed with ✕.</p>
+
+<h2 class="part">1 · Launch</h2>
+<div class="stage"><div><div class="stage-cap">New form</div>
+<dialog class="modal static" id="launch-dialog" open aria-labelledby="t">
+  <h2 id="t">New session
+    <span class="head-tabs" role="tablist"><button type="button" role="tab" aria-selected="true">New</button><button type="button" role="tab" aria-selected="false">Resume</button></span>
+    <span class="kbd" aria-hidden="true">⌥⌘N</span></h2>
+  <div class="picker-stub">picker — unchanged</div>
+  <form id="launch-form">
+    <div class="fields">
+      <label class="lab" for="ti">Title</label>
+      <input id="ti" type="text" placeholder="optional — Claude Code auto-generates" />
+      <div id="launch-group" class="group-field"><label class="lab" for="gs">Group</label>
+        <div class="group-row"><select id="gs"><option>No group</option></select></div></div>
+      <fieldset class="seg"><legend>Model</legend><div class="model-effort"><div class="seg-track" role="radiogroup" aria-label="Model"><label><input type="radio" name="model" value="sonnet" />sonnet</label><label><input type="radio" name="model" value="opus" checked />opus</label><label><input type="radio" name="model" value="haiku" />haiku</label><label><input type="radio" name="model" value="fable" />fable</label><label><input type="radio" name="model" value="other" />other…</label></div><label class="eff-pick sw">effort <select aria-label="Effort"><option>default</option><option>low</option><option>medium</option><option selected>high</option><option>xhigh</option><option>max</option></select></label></div></fieldset>
+      
+      <fieldset class="seg"><legend>Start in</legend>
+            <div class="seg-track" role="radiogroup" aria-label="Start in"><label><input type="radio" name="pm" value="default" />manual</label><label><input type="radio" name="pm" value="acceptEdits" />accept edits</label><label><input type="radio" name="pm" value="plan" />plan</label><label><input type="radio" name="pm" value="auto" checked />auto</label></div></fieldset>
+    </div>
+    <div class="modal-foot">
+      <span><span class="tlabel">Launch in </span><b>~/code/muster</b></span>
+      <button type="button" class="btn">Cancel</button>
+      <button type="button" class="btn key">Launch</button>
+    </div>
+  </form>
+</dialog></div></div>
+
+<h2 class="part">2 · Focus header — no mismatch</h2>
+<div class="stage">
+<div><div class="stage-cap">effort-capable model</div>
+<div class="focus-slice">
+  <div class="mainhead">
+    <div class="idrow">
+      <h2 class="name"><button type="button" class="rename">store-refactor</button></h2>
+      <span class="meta"><span class="loc"><span class="repo"><span class="rf">muster / main</span></span><span class="sep">·</span></span>
+        <span class="model">Opus 5.5<span class="eff dim sw"> (high)</span></span></span>
+    </div>
+    <div class="acts"><button type="button" class="btn">Stop</button><button type="button" class="btn danger">Remove</button></div>
+    
+  </div>
+  
+  <div class="fake-term"><span class="p">❯</span> refactor the session store
+  ⏺ Reading internal/session/store.go …</div>
+</div></div>
+<div><div class="stage-cap">model without effort — no brackets</div>
+<div class="focus-slice">
+  <div class="mainhead">
+    <div class="idrow">
+      <h2 class="name"><button type="button" class="rename">quick-fix</button></h2>
+      <span class="meta"><span class="loc"><span class="repo"><span class="rf">muster / main</span></span><span class="sep">·</span></span>
+        <span class="model">Haiku 4.5</span></span>
+    </div>
+    <div class="acts"><button type="button" class="btn">Stop</button><button type="button" class="btn danger">Remove</button></div>
+    
+  </div>
+  
+  <div class="fake-term"><span class="p">❯</span> refactor the session store
+  ⏺ Reading internal/session/store.go …</div>
+</div></div>
+</div>
+
+<h2 class="part">3 · Focus header — launch mismatch</h2>
+<div class="stage" style="padding-bottom:90px">
+<div><div class="stage-cap">clamped: asked max, got high</div>
+<div class="focus-slice">
+  <div class="mainhead">
+    <div class="idrow">
+      <h2 class="name"><button type="button" class="rename">store-refactor</button></h2>
+      <span class="meta"><span class="loc"><span class="repo"><span class="rf">muster / main</span></span><span class="sep">·</span></span>
+        <span class="model">Opus 4.5<span class="eff dim sw"> (high)</span></span></span>
+    </div>
+    <div class="acts"><button type="button" class="btn">Stop</button><button type="button" class="btn danger">Remove</button></div>
+    <div class="effort-toast sw" role="status"><span class="h">Effort differs from launch</span><button type="button" class="x" aria-label="Dismiss">✕</button><span>Asked for <b>max</b> — Opus 4.5 runs at most <b>high</b>, so it started at high.</span></div>
+  </div>
+  
+  <div class="fake-term"><span class="p">❯</span> refactor the session store
+  ⏺ Reading internal/session/store.go …</div>
+</div></div>
+</div>
+<div class="stage" style="padding-bottom:90px">
+<div><div class="stage-cap">no effort on this model</div>
+<div class="focus-slice">
+  <div class="mainhead">
+    <div class="idrow">
+      <h2 class="name"><button type="button" class="rename">quick-fix</button></h2>
+      <span class="meta"><span class="loc"><span class="repo"><span class="rf">muster / main</span></span><span class="sep">·</span></span>
+        <span class="model">Haiku 4.5</span></span>
+    </div>
+    <div class="acts"><button type="button" class="btn">Stop</button><button type="button" class="btn danger">Remove</button></div>
+    <div class="effort-toast sw" role="status"><span class="h">Effort differs from launch</span><button type="button" class="x" aria-label="Dismiss">✕</button><span>Asked for <b>high</b> — Haiku 4.5 has no effort setting, so it started without one.</span></div>
+  </div>
+  
+  <div class="fake-term"><span class="p">❯</span> refactor the session store
+  ⏺ Reading internal/session/store.go …</div>
+</div></div>
+</div>
+
+<ul class="notes"><li><b>+</b> No extra form row; model and effort read as one choice.</li><li><b>−</b> A select hides the options until opened, unlike every other launch choice.</li><li><b>+</b> The toast doesn't move the terminal. <b>−</b> It covers the first lines of output while it shows.</li></ul>
+<p class="demo-reset">demo<button type="button" class="btn sm" onclick="location.reload()">reset notices</button></p>
+<p><a href="index.html">← all three</a></p>
+<script>function dismiss(b){const fs=b.closest('.focus-slice');b.closest('.effort-strip').remove();fs.querySelectorAll('.eff.warn').forEach(e=>e.classList.remove('warn'));}</script>
+</div></body></html>

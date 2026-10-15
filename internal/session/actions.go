@@ -298,6 +298,7 @@ func (m *Manager) RecordResume(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	forgetHeldRequests(sess)
 	sess.LastSnapshot = ""
 	sess.LastSnapshotAt = time.Time{}
+	sess.effortRequested = ""
 	sess.clearClaudeLocation()
 	post := sess.Clone()
 

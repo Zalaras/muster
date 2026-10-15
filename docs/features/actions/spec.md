@@ -32,8 +32,10 @@ fixed-phrase `message`; the raw tmux or OS error goes to the daemon log only
 
 **Resume** (`kb:anchor/sessions.resume`) applies to a dead session with a bound Claude
 session id. The daemon rewrites the directory's project settings and relaunches `claude`
-with `--resume` in a fresh tmux session under the same Muster row; the title and rail
-position are kept, the pane target is the new one, and the state stays until the resume
+with `--resume` and the session's last-known effort as `--effort` (none when it never reported one;
+kb:fact/resume-does-not-restore-effort) in a fresh tmux session under the same Muster row; the title and rail
+position are kept, the header keeps the effort until the next report, a still-pending first-report effort
+check is cancelled so no later mismatch warning follows (a daemon restart keeps it), the pane target is the new one, and the state stays until the resume
 `SessionStart` lands it in `idle` (kb:adr/lifecycle-resume-rebinds-existing-session,
 kb:fact/resume-keeps-session-identity). Resume is refused while the session is alive, when
 no Claude session id is bound, when the directory no longer exists, or when another alive

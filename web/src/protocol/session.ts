@@ -2,7 +2,7 @@
 // the protocol/ concept modules, each owning one wire concept's type and parser;
 // `decode.ts` holds the primitives every one of them shares.
 
-import { asInteger, asNumber, isRecord, parseNullable } from "./decode";
+import { asInteger, asNumber, isNullableString, isRecord, parseNullable } from "./decode";
 
 export const SESSION_STATES = [
   "started",
@@ -72,6 +72,23 @@ export type PermissionMode = (typeof PERMISSION_MODES)[number];
 
 export function isPermissionMode(value: unknown): value is PermissionMode {
   return (PERMISSION_MODES as readonly unknown[]).includes(value);
+}
+
+export const EFFORT_LEVELS = ["low", "medium", "high", "xhigh", "max"] as const;
+export type EffortLevel = (typeof EFFORT_LEVELS)[number];
+
+export function isEffortLevel(value: unknown): value is EffortLevel {
+  return (EFFORT_LEVELS as readonly unknown[]).includes(value);
+}
+
+export interface SessionEffort {
+  level: string | null;
+}
+
+export interface EffortWarning {
+  requested: string;
+  actual: string | null;
+  model: string | null;
 }
 
 export interface SessionCache {
@@ -166,6 +183,8 @@ export interface Session {
   // tolerated — the rail renders that card in Ungrouped until the next `groups` message
   // (sessions/sections.ts).
   groupId: number | null;
+  effort: SessionEffort | null;
+  effortWarning: EffortWarning | null;
 }
 
 function isSessionState(value: unknown): value is SessionState {
@@ -199,7 +218,7 @@ function parseRepoInfo(value: unknown): SessionRepo | null {
   const branch = value["branch"];
   const isWorktree = value["isWorktree"];
   if (typeof name !== "string") return null;
-  if (branch !== null && typeof branch !== "string") return null;
+  if (!isNullableString(branch)) return null;
   if (typeof isWorktree !== "boolean") return null;
   return { name, branch, isWorktree };
 }
@@ -258,6 +277,24 @@ function parseCache(value: unknown): SessionCache | null {
   return { expiresAt, ttlSeconds };
 }
 
+function parseSessionEffort(value: unknown): SessionEffort | null {
+  if (!isRecord(value)) return null;
+  const level = value["level"];
+  if (!isNullableString(level)) return null;
+  return { level };
+}
+
+function parseEffortWarning(value: unknown): EffortWarning | null {
+  if (!isRecord(value)) return null;
+  const requested = value["requested"];
+  const actual = value["actual"];
+  const model = value["model"];
+  if (typeof requested !== "string") return null;
+  if (!isNullableString(actual)) return null;
+  if (!isNullableString(model)) return null;
+  return { requested, actual, model };
+}
+
 function parseSessionPlan(value: unknown): SessionPlan | null {
   if (!isRecord(value)) return null;
   const path = value["path"];
@@ -307,13 +344,15 @@ export function parseSession(value: unknown): Session | null {
   const unread = value["unread"];
   const lastPrompt = value["lastPrompt"];
   const groupId = value["groupId"];
+  const rawEffort = value["effort"];
+  const rawEffortWarning = value["effortWarning"];
 
   if (typeof id !== "number") return null;
-  if (title !== null && typeof title !== "string") return null;
+  if (!isNullableString(title)) return null;
   if (!isSessionState(state)) return null;
   if (typeof stateSince !== "string") return null;
   if (typeof alive !== "boolean") return null;
-  if (endedAt !== null && typeof endedAt !== "string") return null;
+  if (!isNullableString(endedAt)) return null;
 
   const attention = parseNullable(rawAttention, parseAttention);
   if (attention === undefined) return null;
@@ -341,7 +380,7 @@ export function parseSession(value: unknown): Session | null {
   const cache = parseNullable(value["cache"], parseCache);
   if (cache === undefined) return null;
 
-  if (lastActivity !== null && typeof lastActivity !== "string") return null;
+  if (!isNullableString(lastActivity)) return null;
   // Range-checked, unlike compactions/railPos: kb:anchor/ws.session types this "integer >= 0", so a bad count is a wire error, not a value to render.
   if (
     typeof backgroundTasks !== "number" ||
@@ -349,21 +388,26 @@ export function parseSession(value: unknown): Session | null {
     backgroundTasks < 0
   )
     return null;
-  if (claudeSessionId !== null && typeof claudeSessionId !== "string") return null;
+  if (!isNullableString(claudeSessionId)) return null;
   if (typeof tmuxTarget !== "string") return null;
   if (typeof firstLaunchHere !== "boolean") return null;
   if (typeof createdAt !== "string") return null;
   if (typeof pinned !== "boolean") return null;
   if (typeof railPos !== "number") return null;
-  if (titleOverride !== null && typeof titleOverride !== "string") return null;
+  if (!isNullableString(titleOverride)) return null;
 
   const plan = parseNullable(rawPlan, parseSessionPlan);
   if (plan === undefined) return null;
 
   if (typeof unread !== "boolean") return null;
-  if (lastPrompt !== null && typeof lastPrompt !== "string") return null;
+  if (!isNullableString(lastPrompt)) return null;
   const parsedGroupId = parseNullable(groupId, asInteger);
   if (parsedGroupId === undefined) return null;
+
+  const effort = parseNullable(rawEffort, parseSessionEffort);
+  if (effort === undefined) return null;
+  const effortWarning = parseNullable(rawEffortWarning, parseEffortWarning);
+  if (effortWarning === undefined) return null;
 
   return {
     id,
@@ -394,5 +438,7 @@ export function parseSession(value: unknown): Session | null {
     unread,
     lastPrompt,
     groupId: parsedGroupId,
+    effort,
+    effortWarning,
   };
 }

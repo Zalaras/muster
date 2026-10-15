@@ -32,7 +32,7 @@ sequenceDiagram
     participant I as ingest
 
     UI->>S: POST /api/sessions
-    S->>S: validateLaunchRequest — directory, model, permissionMode
+    S->>S: validateLaunchRequest — directory, model, permissionMode, effort
     S->>S: verdict(model) from the model catalog cache — normally a hit (previous diagram)
     alt unrecognized
         S-->>UI: 400 model_unrecognized — nothing written
@@ -43,7 +43,7 @@ sequenceDiagram
         S->>DB: UpsertRepo — MRU and per-directory defaults
         S->>A: MergeSettings into .claude/settings.local.json
         Note over S,A: before any row or tmux — invalid JSON fails the launch and names the file
-        S->>A: BuildArgv — model, --name, permission mode
+        S->>A: BuildArgv — model, --name, permission mode, --effort
         S->>T: MaxSessionID, to floor the id above any orphan
         opt newGroup
             S->>DB: CreateLaunchGroup — the rail_group row, held out of snapshots

@@ -88,6 +88,9 @@ func TestInstalledBinaryCarriesInterfaceStrings(t *testing.T) {
 	needles["PostModelSwitch hook event"] = "PostModelSwitch"
 	needles["model-switch requested_model field"] = "requested_model"
 	needles["status-line effort builder"] = "effort:{level:"
+	// The launch form's Effort row and both resumes pass --effort (kb:fact/effort-flag-values);
+	// internal/claudecode/launch.go's BuildArgv literal, mirrored for the same reason.
+	needles["--effort flag"] = "--effort"
 	needles["status-line worktree original_branch"] = "original_branch"
 	needles["status-line worktree original_cwd"] = "original_cwd"
 	needles["shell cwd reset message"] = "Shell cwd was reset to"

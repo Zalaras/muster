@@ -18,7 +18,8 @@
 - `rename.ts` compares the trimmed input against the daemon's precedence-resolved `title`; `titleOverride` only decides what empty means (kb:adr/rename-muster-owned-title-override-wins).
 
 <!-- kb:trailer -->
-<!-- kb:hash 46d270045e168e95 -->
+<!-- kb:hash fb63aa431bfca828 -->
+- **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
 - **groups** — Rail groups: sections, header summary and popover, select mode, filter, group create, rename, ungroup and delete, persistence. → `docs/features/groups/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`

@@ -704,7 +704,7 @@ test("a SessionStart naming a different model id shows the id, not the launch al
     await request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart("claude-loc-e8", { ...env, model: "claude-sonnet-5-5" }),
     });
-    await expect(mainheadModel(page)).toHaveText("claude-sonnet-5-5");
+    await expect(mainheadModel(page)).toHaveText("claude-sonnet-5-5 (…)");
     const bound = findSession(await getState(page, daemon), session.id);
     expect(bound.model).toEqual({ id: "claude-sonnet-5-5", displayName: "claude-sonnet-5-5" });
 
@@ -784,7 +784,7 @@ test("a resumed-from-list session with no recorded model reads unknown, then sho
     expect(session.model).toBeNull();
 
     await railCardByTitle(page, "loc-e9").click();
-    await expect(mainheadModel(page)).toHaveText("unknown");
+    await expect(mainheadModel(page)).toHaveText("unknown (…)");
 
     await request.post(daemon.ingestURL("hook"), {
       data: sessionStartResume("past-loc-e9", {
@@ -792,7 +792,7 @@ test("a resumed-from-list session with no recorded model reads unknown, then sho
         model: "claude-sonnet-5-5",
       }),
     });
-    await expect(mainheadModel(page)).toHaveText("claude-sonnet-5-5");
+    await expect(mainheadModel(page)).toHaveText("claude-sonnet-5-5 (…)");
     const bound = findSession(await getState(page, daemon), session.id);
     expect(bound.model).toEqual({ id: "claude-sonnet-5-5", displayName: "claude-sonnet-5-5" });
     expect(bound.model?.displayName).not.toBe("");
@@ -1120,7 +1120,7 @@ async function openFitSession(
   await railCardByTitle(page, LONG_TITLE).click();
   await expect(mainheadFolder(page)).toHaveText(`${repo.name} /`);
   await expect(mainheadBranch(page)).toHaveText(names.branch ?? "main");
-  await expect(mainheadModel(page)).toHaveText(FULL_MODEL_ID);
+  await expect(mainheadModel(page)).toHaveText(`${FULL_MODEL_ID} (…)`);
   return { daemon, session };
 }
 
@@ -1164,7 +1164,12 @@ async function assertFocusHeaderFits(
     await enterFitState(page, request, daemon, session, repo, names, state);
 
     await page.setViewportSize({ width, height: 800 });
-    await expect(mainheadModel(page)).toHaveText(FULL_MODEL_ID);
+    // Plan effort REQ-6: a bound session that has posted no status line reads `(…)` after its
+    // model while alive, and a dead one that never reported reads the model alone — the
+    // brackets are part of the model that never truncates.
+    await expect(mainheadModel(page)).toHaveText(
+      state === "ended" ? FULL_MODEL_ID : `${FULL_MODEL_ID} (…)`,
+    );
     await expect
       .poll(() => mainheadFitProblems(page), {
         message: `${state} header layout at ${width}px`,

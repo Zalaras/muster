@@ -4,6 +4,7 @@
 // not `render/`).
 import type { Repo } from "../api/launch";
 import type { PermissionMode } from "../protocol/session";
+import { effortToCheck, type EffortChoice } from "../sessions/effort";
 import { permissionModeToCheck } from "../sessions/permission";
 
 /** The one fallback a repo has no stored model to restore — also `resetForm`'s brand-new-
@@ -17,6 +18,7 @@ export const DEFAULT_MODEL = "sonnet";
 export interface Touched {
   model: boolean;
   mode: boolean;
+  effort: boolean;
 }
 
 /** The field(s) the initial restore should apply. A key is present only when its field is
@@ -25,15 +27,21 @@ export interface Touched {
 export interface Restore {
   model?: string;
   mode?: PermissionMode;
+  effort?: EffortChoice;
 }
 
 /** A repo's restore values, unfiltered by `touched` — the one owner of "what would this
  * repo's directory restore to". A clicked Recent (features/launch.ts) always applies
- * both; `initialRestore` below applies whichever survives the touched filter. */
-export function repoRestore(repo: Repo): { model: string; mode: PermissionMode } {
+ * all three; `initialRestore` below applies whichever survives the touched filter. */
+export function repoRestore(repo: Repo): {
+  model: string;
+  mode: PermissionMode;
+  effort: EffortChoice;
+} {
   return {
     model: repo.lastModel ?? DEFAULT_MODEL,
     mode: permissionModeToCheck(repo.lastPermissionMode),
+    effort: effortToCheck(repo.lastEffort),
   };
 }
 
@@ -43,5 +51,6 @@ export function initialRestore(touched: Touched, repo: Repo): Restore {
   const restore: Restore = {};
   if (!touched.model) restore.model = values.model;
   if (!touched.mode) restore.mode = values.mode;
+  if (!touched.effort) restore.effort = values.effort;
   return restore;
 }

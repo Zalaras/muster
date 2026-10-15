@@ -1722,6 +1722,13 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   second press sends a second launch. Launch should stay disabled until the first one answers.
   From `plans/maintainability-regressions/`.
 
+### Together — launching a session (#81, #68)
+
+- [x] **Add effort to launch options** ([#68](https://github.com/Zalaras/muster/issues/68)) ✅ done 2026-10-15 (plan `effort`, via `/orchestrate`; all three review parts approved in cycle 2) — the
+  launch dialog should offer an effort level, and wherever the model shows, its effort should
+  follow in brackets — kept current when the effort changes, as the model is, and right on
+  resumed sessions.
+
 ### On their own
 
 - [x] **Missing underline from mock ups for GitHub cache expiring soon** ([#92](https://github.com/Zalaras/muster/issues/92)) ✅ done 2026-10-15 (plan `cache-timing`, via `/fix`) —

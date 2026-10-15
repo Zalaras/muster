@@ -50,10 +50,9 @@ comes from the fixtures (fresh per test by default, no server reuse), `workers`/
 ## Patterns Beyond the Pack
 
 - Keep logic (protocol decoding, state derivation, formatting) in pure modules separate from DOM code, so the test agent can unit-test it with Vitest.
-- **Focusable controls inside the render tick are reused, never rebuilt.** `main.ts` re-renders
-  every second. A read-only readout may `replaceChildren` itself each pass, but a control holding
-  browser-only state — focus, an open popup, a caret, a scroll position — keeps its node across
-  passes and is rebuilt only when its option set genuinely changes. A reuse/memo cache's key covers
+- **Nodes inside the render tick are reused, never rebuilt.** `main.ts` re-renders every second; a
+  node is written only when its content changes, and a control holding browser-only state — focus,
+  an open popup, a caret, a scroll position — is rebuilt only when its option set genuinely changes. A reuse/memo cache's key covers
   **every input that shapes the built node's attributes** (per-option `disabled`, placeholder state,
   labels), not just visible text — list those inputs in `## Decisions` (kb:lesson/select-rebuilt-every-tick-passed-selectoption).
 - **Precedent check before anything new.** Before adding a helper, type or module — and before

@@ -38,6 +38,7 @@ defines the **roles**; it does not repeat the numbers.
 | `--amber-note` / `--rose-note` | the card note's copy (Needs-Input reason / Failed reason) |
 | `--amber-fg` | text on an amber fill (the one filled primary per surface) |
 | `--banner-bg` / `--banner-line` / `--banner-fg` | daemon-down banner (§6.7), the update-restart banner included — never `--rose`; the post-update `Updated to v…` confirmation uses the neutral `.banner.neutral` modifier instead (`--bg-raised` ground, `--fg-muted` text, `--line-control` border) — information, not an alarm |
+| `--warn` / `--warn-bg` / `--warn-line` / `--warn-fg` | the launch-mismatch warning (kb:adr/theme-warn-tokens-not-amber): the Focus header's effort-mismatch strip and the tint on the bracketed effort — not a state colour, never `--amber`; `--warn` stays in a 46–65° hue band disjoint from amber's |
 | `--danger` / `--danger-line` / `--danger-fg` | destructive actions (§3: rose is never delete) |
 | `--disabled-fg` / `--disabled-line` / `--disabled-bg` | every `.btn:disabled` (§5) — exempt from the contrast bar (inactive components) |
 | `--term-dark-bg`/`-fg`, `--term-light-bg`/`-fg` | the two terminal pairs every theme supplies |
@@ -122,6 +123,8 @@ Rules:
   never `--rose`.
 - Colour is never the only carrier: every state also has a **word** (the badge) and a
   **position** (sort order). A colour-blind read of the rail must still work.
+- A warning that is not a session state (the launch-mismatch strip and its effort tint) uses the
+  `--warn` family (§1), never `--amber`.
 - Exactly **one** primary action per surface may use a filled amber button. Everything else
   is a bordered ghost button.
 
@@ -189,6 +192,13 @@ completed. When the installed version falls outside the canary-verified range, a
 glyph follows the version text; it carries **no state colour** (§3) — it inherits the
 readout's own muted text colour — and its hover/`aria-label` text names whether Claude Code
 needs updating or is simply newer than anything verified yet.
+
+**Effort-mismatch strip** (`render/effortstrip.ts`, plan `effort`) — a full-width strip under the
+Focus mainhead in the `--warn` family (§1): `--warn-bg` ground, a 3px `--warn` inset edge,
+`--warn-fg` text. Its Dismiss is a ghost `.btn.sm` in `--warn-fg` on `--warn-line`, never
+disabled, so a Dismiss while the daemon is down fails visibly. A dead session that never reported
+an effort shows no brackets but keeps the width of ` (…)` reserved invisibly, so Stop and Resume
+never move the header.
 
 **Rail card** — 3px state stripe, then the title
 (`--fg` on every surface that hosts the card, kb:adr/rail-card-title-foreground-token)

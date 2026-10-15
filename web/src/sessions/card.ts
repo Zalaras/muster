@@ -5,6 +5,7 @@
 import { PREF_DEFAULTS, type RailActivity } from "../protocol/prefs";
 import type { Session, SessionRepo } from "../protocol/session";
 import { cacheWarmth, type Warmth } from "./cache";
+import { effortReadout, type EffortReadout } from "./effort";
 import { ageAgo, elapsedSeconds, formatAge, formatTimer } from "./format";
 import { basename } from "./paths";
 import { isBypassMode } from "./permission";
@@ -241,6 +242,7 @@ export interface MainheadMeta {
   claudeAt: RepoParts | null;
   hover: string;
   model: string;
+  effort: EffortReadout;
   // `ended <age>` while dead, else null.
   ended: string | null;
 }
@@ -254,6 +256,7 @@ export function mainheadMeta(session: Session, now: Date): MainheadMeta {
     // "unknown" rather than omitting the clause (design-system §6, "unknown data renders
     // the word unknown, never blank").
     model: session.model ? session.model.displayName : "unknown",
+    effort: effortReadout(session),
     ended: !session.alive && session.endedAt ? `ended ${ageAgo(session.endedAt, now)}` : null,
   };
 }

@@ -6,10 +6,10 @@ date: 2026-09-12
 summary: Focus view: mainhead, main slot, dead surface, default focus, focus marker.
 features: [focus]
 tags: [ux]
-go: []
-web: [web/src/features/focus.ts, web/src/render/mainhead*.ts, web/src/render/focus*.ts, web/src/render/slotmount*.ts]
-e2e: [web/e2e/focus-marker.spec.ts, web/e2e/sessions.spec.ts, web/e2e/focus-header.spec.ts, web/e2e/helpers/focus-header.ts]
-protocol: []
+go: [internal/server/effort*.go, internal/session/effort*.go, internal/store/effort*.go]
+web: [web/src/features/focus.ts, web/src/features/effort*.ts, web/src/render/effortstrip*.ts, web/src/sessions/effort*.ts, web/src/render/mainhead*.ts, web/src/render/focus*.ts, web/src/render/slotmount*.ts]
+e2e: [web/e2e/focus-marker.spec.ts, web/e2e/sessions.spec.ts, web/e2e/focus-header.spec.ts, web/e2e/helpers/focus-header.ts, web/e2e/effort-header.spec.ts, web/e2e/helpers/effort.ts]
+protocol: [sessions.effort-warning-dismiss]
 refs: [kb:adr/focus-rail-plus-one-live-pane, kb:adr/focus-rail-click-focuses-terminal, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/launch-opens-launched-session, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/launch-resume-null-model-reads-unknown, docs/design/ux-flows.md, kb:adr/focus-group-control-hides-below-640px-container-width, kb:adr/focus-header-readout-sized-by-text, kb:adr/focus-header-give-way-order-title-last, kb:adr/focus-surface-switch-pinned-with-actions, kb:adr/actions-mainhead-one-stop-resume-button, kb:adr/focus-model-never-truncates-name-blocks-give-way]
 ---
 Focus is the default view: the rail of static cards (kb:spec/rail) beside exactly one live
@@ -22,8 +22,11 @@ Above the pane sits the mainhead: the session name with its inline rename trigge
 permission mode is bypass (kb:adr/launch-bypass-offered-with-danger-guardrails), the session's group as
 a control that offers the groups, New group… and No group (kb:spec/groups), a meta line of
 the repo readout (folder over branch, each line as wide as its text, kb:adr/focus-header-readout-sized-by-text),
-a `↳` block while Claude works in another checkout, and the model — a resumed session with no recorded
-model reads `unknown`, as any null model does (kb:adr/launch-resume-null-model-reads-unknown). On a dead
+a `↳` block while Claude works in another checkout, and the model followed by its effort in brackets — a resumed session with no recorded
+model reads `unknown`, as any null model does (kb:adr/launch-resume-null-model-reads-unknown). The
+brackets read `(…)` until a new session's first status-line report and are absent when the model has no
+effort or a dead session never reported one (the header still reserves the width of ` (…)`, so Stop and
+Resume never move it); a resumed session shows the level it resumed at. On a dead
 session the ended age sits under the model, without a leading `·`, in a slot the header reserves whether
 or not it shows. A right-aligned cluster holds the `claude | shell | docs` surface switch
 (kb:spec/surfaces, kb:adr/focus-surface-switch-pinned-with-actions) and the actions: one Stop/Resume
@@ -46,6 +49,11 @@ stays above it (kb:adr/focus-group-control-hides-below-640px-container-width). T
 session's live surface; when the session is dead and the Claude surface is selected it shows
 the dead surface instead (kb:spec/actions). A size note under the pane states the pane's
 real geometry.
+
+A session launched at a level it did not come up at shows a warning strip under the mainhead, in the
+warning tokens, naming the requested and actual level, and tints the effort the same; Dismiss clears both
+for that session only, and until then the warning survives reloads, other windows and daemon restarts
+(kb:adr/focus-effort-mismatch-warning-persisted-per-session).
 
 The focused session defaults to the top of the rail's visible order (else its first card) when nothing is
 focused or the focused session vanished; a focus landing in a filtered-out section resets the

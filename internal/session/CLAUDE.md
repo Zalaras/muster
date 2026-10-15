@@ -23,8 +23,9 @@
 - Per-transition tests miss invariants; name each invariant and cross it from every source state (kb:lesson/invariant-missed-by-per-transition-tests).
 
 <!-- kb:trailer -->
-<!-- kb:hash 2175b48fe312567c -->
+<!-- kb:hash 23d59fddf4bca95a -->
 - **card-location** — The card's launch directory, its branch kept fresh by the repo poll, where Claude works when elsewhere, and the bind's model name. → `docs/features/card-location/INDEX.md`
+- **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`
 - **rail** — Rail cards, attention versus manual order, pin, drag reorder, session count. → `docs/features/rail/INDEX.md`
 - **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`

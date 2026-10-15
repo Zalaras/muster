@@ -203,6 +203,10 @@ type Session struct {
 	// persisted, never on the wire; guarded by Manager.mu like every other field.
 	repoEpoch uint64
 
+	Effort          *Effort
+	EffortWarning   *EffortWarning
+	effortRequested string
+
 	currentPromptID string
 	closedPromptIDs []string // bounded ring, most recent last, capped at maxClosedPrompts
 

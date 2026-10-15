@@ -18,8 +18,11 @@ type Repo struct {
 	LaunchCount        int
 	LastModel          *string
 	LastPermissionMode *string
+	LastEffort         *string
 	CreatedAt          time.Time
 }
+
+const repoColumns = `id, path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, last_effort, created_at`
 
 // UpsertRepoParams are the values a launch records on the repo row.
 type UpsertRepoParams struct {
@@ -28,6 +31,7 @@ type UpsertRepoParams struct {
 	IsGit          bool
 	Model          string
 	PermissionMode string
+	Effort         *string
 }
 
 // UpsertRepo creates the repo row for p.Path if absent (launch_count starts at 1) or
@@ -52,17 +56,18 @@ func (s *Store) UpsertRepo(ctx context.Context, p UpsertRepoParams) (Repo, bool,
 	now := encodeTime(time.Now())
 
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO repo (path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at)
-		VALUES (?, ?, ?, 0, ?, 1, ?, ?, ?)
+		INSERT INTO repo (path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, last_effort, created_at)
+		VALUES (?, ?, ?, 0, ?, 1, ?, ?, ?, ?)
 		ON CONFLICT(path) DO UPDATE SET
 			name = excluded.name,
 			is_git = excluded.is_git,
 			last_launched_at = excluded.last_launched_at,
 			launch_count = repo.launch_count + 1,
 			last_model = excluded.last_model,
-			last_permission_mode = excluded.last_permission_mode
-		RETURNING id, path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at
-	`, p.Path, p.Name, boolToInt(p.IsGit), now, p.Model, p.PermissionMode, now)
+			last_permission_mode = excluded.last_permission_mode,
+			last_effort = excluded.last_effort
+		RETURNING `+repoColumns+`
+	`, p.Path, p.Name, boolToInt(p.IsGit), now, p.Model, p.PermissionMode, p.Effort, now)
 
 	r, err := scanRepo(row)
 	if err != nil {
@@ -91,14 +96,14 @@ func (s *Store) TouchRepo(ctx context.Context, p TouchRepoParams) (Repo, bool, e
 	now := encodeTime(time.Now())
 
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO repo (path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at)
-		VALUES (?, ?, ?, 0, ?, 1, NULL, NULL, ?)
+		INSERT INTO repo (path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, last_effort, created_at)
+		VALUES (?, ?, ?, 0, ?, 1, NULL, NULL, NULL, ?)
 		ON CONFLICT(path) DO UPDATE SET
 			name = excluded.name,
 			is_git = excluded.is_git,
 			last_launched_at = excluded.last_launched_at,
 			launch_count = repo.launch_count + 1
-		RETURNING id, path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at
+		RETURNING `+repoColumns+`
 	`, p.Path, p.Name, boolToInt(p.IsGit), now, now)
 
 	r, err := scanRepo(row)
@@ -114,7 +119,7 @@ func (s *Store) TouchRepo(ctx context.Context, p TouchRepoParams) (Repo, bool, e
 // every repo.
 func (s *Store) GetRepo(ctx context.Context, id int64) (Repo, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at
+		SELECT `+repoColumns+`
 		FROM repo WHERE id = ?
 	`, id)
 	r, err := scanRepo(row)
@@ -128,7 +133,7 @@ func (s *Store) GetRepo(ctx context.Context, id int64) (Repo, error) {
 // (kb:anchor/repos.list), for the launch modal's MRU list.
 func (s *Store) ListRepos(ctx context.Context) ([]Repo, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at
+		SELECT `+repoColumns+`
 		FROM repo ORDER BY pinned DESC, last_launched_at DESC
 	`)
 	if err != nil {
@@ -162,7 +167,7 @@ func scanRepo(row rowScanner) (Repo, error) {
 		lastLaunchedAt string
 		createdAt      string
 	)
-	if err := row.Scan(&r.ID, &r.Path, &r.Name, &isGit, &pinned, &lastLaunchedAt, &r.LaunchCount, &r.LastModel, &r.LastPermissionMode, &createdAt); err != nil {
+	if err := row.Scan(&r.ID, &r.Path, &r.Name, &isGit, &pinned, &lastLaunchedAt, &r.LaunchCount, &r.LastModel, &r.LastPermissionMode, &r.LastEffort, &createdAt); err != nil {
 		return Repo{}, err
 	}
 	r.IsGit = isGit != 0

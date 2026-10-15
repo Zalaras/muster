@@ -1,0 +1,271 @@
+{
+  "plan": "effort",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-15T14:35:31Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 11,
+        "keep": 6,
+        "drop": 5
+      },
+      "keeps": [
+        {
+          "key": "internal/server/launcher.go:f10dff68da34cc25",
+          "path": "internal/server/launcher.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func validateLaunchRequest(req createSessionRequest) *launchError {",
+            "line": 182
+          },
+          "lines": [
+            "// validateLaunchRequest is Launch's pure prefix: it reads req alone, touches no launcher",
+            "// state and runs before anything has been written, so a rejection here needs no rollback.",
+            "// Check order is load-bearing — it decides which single error a request invalid in",
+            "// several fields at once reports — so keep it as directory, model, permissionMode, effort."
+          ],
+          "reason": "Edited on main; still true: validateLaunchRequest checks directory, model, permissionMode, then effort in that order, as the comment says."
+        },
+        {
+          "key": "internal/server/launcherpast.go:d042a4f0adb56f15",
+          "path": "internal/server/launcherpast.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func validateResumeRequest(req createSessionRequest) *launchError {",
+            "line": 12
+          },
+          "lines": [
+            "// validateResumeRequest is launchResume's pure prefix, the resume-from-list form's",
+            "// counterpart to validateLaunchRequest: directory rules first (shared with the ordinary",
+            "// form), then the combination checks the Protocol Contract's Errors section orders right",
+            "// after them — resumeSessionId empty, then resumeSessionId combined with title/model/",
+            "// permissionMode or effort. req.ResumeSessionID is never nil here — Launch only calls",
+            "// launchResume when it is set."
+          ],
+          "reason": "Edited on main; still true: validateResumeRequest checks directory, then empty resumeSessionId, then the title/model/permissionMode/effort combination, as the comment says."
+        },
+        {
+          "key": "internal/session/status.go:c33c6dbd987fc41b",
+          "path": "internal/session/status.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func applyStatusUpdate(sess *Session, update claudecode.StatusUpdate) bool {",
+            "line": 9
+          },
+          "lines": [
+            "// applyStatusUpdate mutates sess per kb:anchor/ws.session's value semantics: title, model,",
+            "// context, prompt-cache warmth and effort refresh from a routed status-line post, plus the",
+            "// directory Claude reports (ClaudeDir), each adopted only when update carried it and only",
+            "// when it actually differs from the current value. Returns whether",
+            "// anything changed, so the caller only persists+broadcasts on a real change — status",
+            "// posts fire on every tool use, so a naive always-broadcast would spam sessionUpsert.",
+            "//",
+            "// This function's switch never reaches state/stateSince/attention/failure/alive/",
+            "// compactions/permissionMode/titleOverride: there is no code path here that touches them",
+            "// — Title always means Claude's last-known name, never the user's override, and callers",
+            "// needing the display-title (wire \"title\") distinction compare Session.DisplayTitle()",
+            "// themselves (Manager.ApplyStatus's persist-vs-broadcast split). Attention/Failure/Model/Context/Cache are treated as immutable",
+            "// snapshots elsewhere (Session.Clone's doc comment), so a changed field is always",
+            "// replaced with a fresh pointer, never mutated in place."
+          ],
+          "reason": "Edited on main; still true: applyStatusUpdate adopts title, model, context, cache, directory and effort only when they differ, as the comment says."
+        },
+        {
+          "key": "web/src/features/launch.ts:198d6a137d0f97d2",
+          "path": "web/src/features/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function selectRecent(repo: Repo): void {",
+            "line": 301
+          },
+          "lines": [
+            "/** A clicked Recent navigates, then, unlike the initial restore, always restores its",
+            "* directory's model, mode and effort, touched or not — `repoRestore` is the one owner of what",
+            "* those values are. Model/mode apply only after the navigation succeeds, so a 404'd",
+            "* recent leaves the form untouched. */"
+          ],
+          "reason": "Edited on main; still true: selectRecent restores model, mode and effort after navigate returns ok."
+        },
+        {
+          "key": "web/src/features/launch.ts:fea326e02b383601",
+          "path": "web/src/features/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function applyInitialRestore(first: Repo): void {",
+            "line": 461
+          },
+          "lines": [
+            "/** Applies whichever of `initialRestore`'s three fields survived the touched",
+            "* filter — a plain caller of the pure decision. */"
+          ],
+          "reason": "Edited on main; still true: applyInitialRestore applies the model, mode and effort fields of initialRestore."
+        },
+        {
+          "key": "web/src/features/launchrestore.ts:cd9b4de8f9ae3eaa",
+          "path": "web/src/features/launchrestore.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function repoRestore(repo: Repo): {",
+            "line": 33
+          },
+          "lines": [
+            "/** A repo's restore values, unfiltered by `touched` — the one owner of \"what would this",
+            "* repo's directory restore to\". A clicked Recent (features/launch.ts) always applies",
+            "* all three; `initialRestore` below applies whichever survives the touched filter. */"
+          ],
+          "reason": "Edited on main; still true: repoRestore returns model, mode and effort unfiltered by touched."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/claudecode/claudecodetest/claudecodetest.go:d5476e3d40dc1fa8",
+          "path": "internal/claudecode/claudecodetest/claudecodetest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "EffortLevel string",
+            "line": 442
+          },
+          "lines": [
+            "// EffortLevel, when non-empty, adds the status line's effort{level} key; left empty the",
+            "// key is absent, the shape of a model with no effort setting."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/claudecodetest.go:b3bbb67d25b72b0b",
+          "path": "internal/claudecode/claudecodetest/claudecodetest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func addEffort(payload map[string]any, level string) {",
+            "line": 466
+          },
+          "lines": [
+            "// addEffort adds the status line's top-level effort{level} key for a non-empty level and",
+            "// leaves the payload without it otherwise (kb:fact/status-line-effort-key)."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/claudecodetest.go:6392ed13215f2f71",
+          "path": "internal/claudecode/claudecodetest/claudecodetest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "EffortLevel string",
+            "line": 502
+          },
+          "lines": [
+            "// EffortLevel, when non-empty, adds the status line's effort{level} key; left empty the",
+            "// key is absent."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/transcripts.go:9356739292302262",
+          "path": "internal/claudecode/claudecodetest/transcripts.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func AssistantEffortLine(model, effort string) string {",
+            "line": 78
+          },
+          "lines": [
+            "// AssistantEffortLine returns one assistant transcript line carrying the model and the",
+            "// top-level \"effort\" key every measured assistant line has (kb:fact/resume-does-not-restore-effort)."
+          ]
+        },
+        {
+          "key": "web/src/api/launch.ts:f2e115d298aef6a0",
+          "path": "web/src/api/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface ResumeListRequest extends LaunchGroup {",
+            "line": 53
+          },
+          "lines": [
+            "/** kb:anchor/sessions.create's resume-from-list request form: `resumeSessionId`",
+            "* combined with no `title`/`model`/`permissionMode`/`effort` — the daemon reads the transcript's",
+            "* own last mode, model and effort, so the dialog sends none of them. */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-10-15T15:38:59Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 3,
+        "keep": 0,
+        "drop": 3
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "web/src/features/effort.ts:ba92730976826afd",
+          "path": "web/src/features/effort.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "dismiss(id: number): void;",
+            "line": 8
+          },
+          "lines": [
+            "/** Clears session `id`'s effort warning; a failure's message goes to `#action-error`.",
+            "* `features/focus.ts` attaches the strip's Dismiss button to this, as it does every",
+            "* other Focus-pane control. */"
+          ]
+        },
+        {
+          "key": "web/src/features/focus.ts:31c3eec2667468c6",
+          "path": "web/src/features/focus.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "effort: { dismiss(id: number): void };",
+            "line": 70
+          },
+          "lines": [
+            "/** `effort` is constructed before `focus` (main.ts's init order), so this is a real value:",
+            "* the strip's Dismiss button is wired here with it, like Stop/Resume and Remove. */"
+          ]
+        },
+        {
+          "key": "web/src/render/mainhead.ts:0e5d2668cf3ae37e",
+          "path": "web/src/render/mainhead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function writeModelText(modelEl: HTMLElement, model: string): void {",
+            "line": 64
+          },
+          "lines": [
+            "/** The model name is `.model`'s first child, a text node kept across passes and written",
+            "* only when the name changed; the `.eff` readout after it is `writeEffort`'s. */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-10-15T16:11:07Z",
+      "by": "orchestrator",
+      "counts": {
+        "candidates": 1,
+        "keep": 0,
+        "drop": 1
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "internal/claudecode/status.go:61860939bcf2debc",
+          "path": "internal/claudecode/status.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type StatusUpdate struct {",
+            "line": 121
+          },
+          "lines": [
+            "// StatusUpdate is the neutral result of interpreting one status-line payload:",
+            "// optional title, optional model, optional context, optional account usage sample.",
+            "// Every field is nil when the payload didn't carry it — callers apply only what's",
+            "// present, never inventing a zero value."
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -7,7 +7,7 @@
 **Invariants** (violations are review-Critical):
 - Every displayed string comes from a pure view-model (`sessions.ts` reads `../sessions/card.ts`); a builder never composes a second copy of card text.
 - No `innerHTML` with interpolated data; build via `<template>` clones and `textContent`.
-- Focusable controls inside the render tick are reused, never rebuilt; a builder creates once and updates in place (kb:lesson/select-rebuilt-every-tick-passed-selectoption).
+- Nodes inside the render tick are reused, never rebuilt; a builder creates once and updates in place (kb:lesson/select-rebuilt-every-tick-passed-selectoption).
 - An unknown gauge renders the word "unknown" and no track (kb:adr/usage-unknown-renders-word-not-track).
 - Pointer and DnD listeners map events to session ids and call back; `features/` owns the reorder math (`dragreorder.ts`).
 

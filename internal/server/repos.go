@@ -21,6 +21,7 @@ type repoWire struct {
 	LaunchCount        int     `json:"launchCount"`
 	LastModel          *string `json:"lastModel"`
 	LastPermissionMode *string `json:"lastPermissionMode"`
+	LastEffort         *string `json:"lastEffort"`
 }
 
 // reposFeature owns GET /api/repos.
@@ -65,6 +66,7 @@ func (f *reposFeature) handleListRepos(w http.ResponseWriter, r *http.Request) {
 			LaunchCount:        repo.LaunchCount,
 			LastModel:          repo.LastModel,
 			LastPermissionMode: repo.LastPermissionMode,
+			LastEffort:         repo.LastEffort,
 		})
 	}
 

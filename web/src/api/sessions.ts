@@ -118,6 +118,10 @@ export async function putSessionsGroup(
   return requestEmpty("PUT", "/api/sessions/group", 204, { ids, groupId });
 }
 
+export async function dismissEffortWarning(id: number): Promise<ApiResult<null>> {
+  return requestEmpty("DELETE", `/api/sessions/${id}/effort-warning`, 204);
+}
+
 /** `POST /api/sessions/end` (kb:anchor/sessions.end-many): the batch Stop. Each id is stopped
  * under its own lock exactly as `endSession` does; `200` whatever the mix, the report says which
  * ids were `done`, `skipped` (unknown at its turn, or not alive) or `failed`. */

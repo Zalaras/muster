@@ -1,0 +1,102 @@
+/* Mockup-only styles. Every page links the shipped web/src/style.css first, so the dialog
+ * chrome, segmented controls, selects, buttons and the Focus header are the real ones; this
+ * file only adds the page frame and the NEW components each option introduces (marked "new:"). */
+
+body { overflow: auto; padding: 28px 36px 90px; line-height: 1.55; background: var(--bg); color: var(--fg); }
+.frame { max-width: 1100px; margin: 0 auto; }
+.frame > h1 { font-size: 21px; letter-spacing: -.02em; margin: 0 0 2px; }
+.frame > .sub { font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-dim);
+  letter-spacing: .1em; text-transform: uppercase; margin-bottom: 18px; }
+.frame > p, .notes li { color: var(--fg-muted); font-size: var(--fs-md); max-width: 840px; }
+.notes { padding-left: 20px; }
+.notes b, .frame > p b { color: var(--fg); }
+.frame code { font-family: var(--mono); font-size: .8em; color: var(--teal); }
+.frame h2.part { font-size: var(--fs-md); margin: 30px 0 4px; color: var(--fg); }
+.stage { display: flex; gap: 28px; align-items: flex-start; margin: 14px 0 22px; flex-wrap: wrap; }
+.stage-cap { font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-dim);
+  letter-spacing: .08em; text-transform: uppercase; margin: 0 0 6px; }
+.sw { outline: 2px dashed var(--amber); outline-offset: 2px; }
+
+/* The real dialog, shown statically instead of via showModal(); picker omitted. */
+dialog.modal.static { position: static; display: block; margin: 0; width: 640px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.45); }
+.picker-stub { height: 46px; border: 1px dashed var(--line-control); margin: 0 18px 4px;
+  display: flex; align-items: center; justify-content: center; font-family: var(--mono);
+  font-size: var(--fs-2xs); color: var(--fg-dim); letter-spacing: .08em; text-transform: uppercase; }
+
+/* A slice of the Focus view: the real .mainhead over a fake terminal. */
+.focus-slice { width: 880px; border: 1px solid var(--line-control); display: flex;
+  flex-direction: column; background: var(--well); position: relative; }
+.focus-slice .mainhead { position: relative; }
+.focus-slice .mainhead .acts { display: flex; gap: 6px; margin-left: auto; }
+.fake-term { height: 120px; padding: 10px 14px; font-family: var(--mono); font-size: var(--fs-sm);
+  color: var(--fg-muted); white-space: pre; }
+.fake-term .p { color: var(--fg); }
+
+/* ── new: effort, shown after the model ─────────────────────────────── */
+.model .eff { color: var(--fg); }
+.model .eff.dim { color: var(--fg-dim); }
+
+/* new (A): full-width strip under the header, neutral info tokens */
+.effort-strip { display: flex; align-items: center; gap: 12px; padding: 7px 14px;
+  background: var(--bg-raised); border-bottom: 1px solid var(--line-control);
+  font-family: var(--mono); font-size: var(--fs-sm); color: var(--fg-muted); }
+.effort-strip b { color: var(--fg); font-weight: 500; }
+.effort-strip .btn { margin-left: auto; }
+
+/* new (B): a compact toast card floating at the header's bottom-right edge */
+.effort-toast { position: absolute; right: 14px; top: calc(100% + 8px); z-index: 2; width: 360px;
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 10px 12px;
+  background: var(--bg-raised); border: 1px solid var(--line-control);
+  border-left: 3px solid var(--teal); box-shadow: 0 10px 30px rgba(0,0,0,.4);
+  font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-muted); }
+.effort-toast .h { color: var(--fg); font-size: var(--fs-sm); }
+.effort-toast .x { grid-row: 1 / span 2; grid-column: 2; align-self: start; background: transparent;
+  border: 0; color: var(--fg-dim); font-size: 15px; cursor: pointer; padding: 0 2px; line-height: 1; }
+.effort-toast .x:hover { color: var(--fg); }
+
+/* new (C): a notice row that is part of the header itself */
+.mainhead .effort-row { flex-basis: 100%; display: flex; align-items: center; gap: 10px;
+  margin-top: 2px; padding-top: 7px; border-top: 1px dashed var(--line-control);
+  font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-muted); }
+.mainhead .effort-row .glyph { color: var(--teal); }
+.mainhead .effort-row .link { margin-left: auto; background: transparent; border: 0; padding: 0;
+  font: inherit; color: var(--fg-dim); text-decoration: underline; cursor: pointer; }
+.mainhead .effort-row .link:hover { color: var(--fg); }
+
+/* new (B): effort select sharing the Model row */
+.model-effort { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.model-effort .eff-pick { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono);
+  font-size: var(--fs-xs); color: var(--fg-dim); text-transform: uppercase; letter-spacing: .06em; }
+.model-effort select { text-transform: none; letter-spacing: 0; }
+
+/* new (C): stepped effort meter in the launch form */
+.meter { display: flex; flex-direction: column; gap: 4px; justify-self: start; }
+.meter .ends { display: flex; justify-content: space-between; font-family: var(--mono);
+  font-size: var(--fs-2xs); color: var(--fg-dim); letter-spacing: .06em; text-transform: uppercase; }
+.meter .steps { display: inline-flex; gap: 3px; }
+.meter .steps label { position: relative; width: 62px; padding: 14px 0 4px; text-align: center; cursor: pointer;
+  font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-muted); }
+.meter .steps label::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 8px;
+  background: var(--well); border: 1px solid var(--edge); }
+.meter .steps label.on::before { background: var(--teal); border-color: var(--teal); }
+.meter .steps label.sel { color: var(--fg); }
+.meter .steps input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.meter .steps.off label::before { background: var(--well); border-color: var(--line-control); }
+.meter .steps.off label { color: var(--disabled-fg); }
+.meter .def { display: flex; gap: 8px; align-items: center; font-family: var(--mono);
+  font-size: var(--fs-xs); color: var(--fg-muted); margin-top: 2px; }
+
+/* new (A, revised 2026-10-15): a warning token family of its own. Not --amber (Needs-Input
+ * only) and not the banner or danger tokens (daemon down, destructive): a launch mismatch is
+ * a warning, so it gets a yellow outside amber's 25-45 degree band. Instrument values only. */
+:root { --warn: #e8cf5a; --warn-bg: #4a4116; --warn-line: #8a7526; --warn-fg: #fbefb8; }
+.effort-strip.warn { background: var(--warn-bg); border-bottom: 1px solid var(--warn-line);
+  box-shadow: inset 3px 0 0 var(--warn); color: var(--warn-fg); }
+.effort-strip.warn b { color: #fffbe6; }
+.effort-strip.warn .glyph { color: var(--warn); font-size: 14px; }
+.effort-strip.warn .btn { color: var(--warn-fg); border-color: var(--warn-line); background: transparent; }
+.effort-strip.warn .btn:hover { background: var(--warn-line); color: #fffbe6; }
+.mainhead .model .eff.warn { color: var(--warn); }
+.demo-reset { margin: 6px 0 0; font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-dim); }
+.demo-reset button { margin-left: 6px; }

@@ -19,7 +19,8 @@
 - Don't test SQLite's own constraint enforcement.
 
 <!-- kb:trailer -->
-<!-- kb:hash 3c72228d533f0bc6 -->
+<!-- kb:hash 69b3ce3488af9cc3 -->
+- **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
 - **groups** — Rail groups: sections, header summary and popover, select mode, filter, group create, rename, ungroup and delete, persistence. → `docs/features/groups/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`

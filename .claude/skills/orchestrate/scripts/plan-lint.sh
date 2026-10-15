@@ -97,6 +97,15 @@ while IFS= read -r l; do
   [[ -n "$l" ]] && note "error example without the {\"error\":{…}} envelope: ${l:0:100}"
 done < <(section 'Protocol Contract' | grep -E '^\{? *"code": *"' )
 
+# 6b. An error example reusing a code whose other protocol.md examples share one message copies
+# that message (effort: the plan wrote a 404's prose description as its wire string). NOTE, never
+# fails: some codes legitimately vary their message.
+while IFS=$'\t' read -r c m; do
+  known=$(grep -oE "\"code\": *\"$c\", *\"message\": *\"[^\"]*\"" docs/protocol.md 2>/dev/null | sed -E 's/.*"message": *"([^"]*)"/\1/' | grep -vxF -- "$m" | sort -u)
+  [[ -n "$known" && $(wc -l <<<"$known") -eq 1 ]] &&
+    echo "NOTE  error example's message for code $c is \"$m\"; every other protocol.md example carries \"$known\""
+done < <(section 'Protocol Contract' | grep -oE '"code": *"[a-z_]+", *"message": *"[^"]*"' | sed -E 's/"code": *"([a-z_]+)", *"message": *"([^"]*)"/\1\t\2/' | sort -u)
+
 # 7. Negative-grep checks dry-run clean against the plan itself (m0-skeleton) and are run against the tree
 #    so a pre-existing hit is assigned under Affected Files before anyone is spawned (new-ui-design-colors W4).
 while IFS= read -r l; do

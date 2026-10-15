@@ -47,6 +47,12 @@ Both sides are symlink-resolved. It is display-only, never read by the state mac
 null on a dead session. Launch and resume clear it, because Claude restarts in the launch
 directory.
 
+## Effort
+
+The session's effort is the status line's `effort.level` from each post, `{"level": null}` when the key
+is absent. No hook carries it, so a missed post leaves it stale until the next
+(kb:fact/effort-changes-mid-session).
+
 ## Model name
 
 A bind (`SessionStart`) naming a different model than the session holds sets its display name

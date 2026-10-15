@@ -126,6 +126,13 @@ type SessionRow struct {
 	// GroupID (kb:spec/rail) is the rail group the session belongs to, nil = the Ungrouped
 	// section. Display-only, never read by the state machine or the status path.
 	GroupID *int64
+
+	EffortKnown            bool
+	EffortLevel            *string
+	EffortRequested        *string
+	EffortWarningRequested *string
+	EffortWarningActual    *string
+	EffortWarningModel     *string
 }
 
 // InsertSessionParams seeds a new session row: state "started", the permission-mode
@@ -162,6 +169,9 @@ type InsertSessionParams struct {
 	// an id an orphaned "muster-<N>" tmux session already owns
 	// (kb:adr/lifecycle-session-ids-monotonic-never-reused).
 	MinID int64
+
+	EffortRequested *string
+	EffortSeed      *string
 }
 
 // InsertSession allocates the new row's id as
@@ -206,17 +216,20 @@ func (s *Store) InsertSession(ctx context.Context, p InsertSessionParams) (Sessi
 			title, state, state_since, permission_mode, permission_mode_source, model,
 			compactions, attention_reason, attention_since, failure_error, failure_message,
 			last_activity, alive, ended_at, first_launch_here, created_at, pinned, rail_pos,
-			unread, last_prompt, pending_resume_claude_session_id, group_id
+			unread, last_prompt, pending_resume_claude_session_id, group_id,
+			effort_known, effort_level, effort_requested
 		) VALUES (
 			?, '', NULL, NULL, ?, ?, ?, ?,
 			?, 'started', ?, ?, 'seed', ?,
 			0, NULL, NULL, NULL, NULL,
 			NULL, 1, NULL, ?, ?, 0, ?,
-			0, NULL, ?, ?
+			0, NULL, ?, ?,
+			?, ?, ?
 		)
 	`, id, p.RepoID, p.Directory, p.Branch, boolToInt(p.IsWorktree),
 		p.Title, now, p.PermissionMode, p.Model,
 		boolToInt(p.FirstLaunchHere), now, p.RailPos, p.PendingResumeClaudeSessionID, p.GroupID,
+		boolToInt(p.EffortSeed != nil), p.EffortSeed, p.EffortRequested,
 	); err != nil {
 		return SessionRow{}, fmt.Errorf("inserting session for %q: %w", p.Directory, err)
 	}
@@ -319,7 +332,9 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 			transcript_file = ?, plan_path = ?, plan_exists = ?, unread = ?, last_prompt = ?,
 			pending_resume_claude_session_id = ?, background_tasks = ?, attention_agent = ?, claude_dir = ?,
 			group_id = ?, cache_expires_at = ?, cache_ttl_seconds = ?, cache_requests = ?,
-			cache_reported_expires_at = ?
+			cache_reported_expires_at = ?,
+			effort_known = ?, effort_level = ?, effort_requested = ?,
+			effort_warning_requested = ?, effort_warning_actual = ?, effort_warning_model = ?
 		WHERE id = ?
 	`,
 		row.TmuxTarget, row.TmuxPane, row.ClaudeSessionID, row.Directory, row.Branch,
@@ -332,6 +347,8 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		row.TranscriptPath, row.PlanPath, boolToInt(row.PlanExists), boolToInt(row.Unread), row.LastPrompt,
 		row.PendingResumeClaudeSessionID, row.BackgroundTasks, row.AttentionAgent, row.ClaudeDir,
 		row.GroupID, cacheExpiresAt, row.CacheTTLSeconds, row.CacheRequests, cacheReportedExpiresAt,
+		boolToInt(row.EffortKnown), row.EffortLevel, row.EffortRequested,
+		row.EffortWarningRequested, row.EffortWarningActual, row.EffortWarningModel,
 		row.ID,
 	)
 	if err != nil {
@@ -349,7 +366,9 @@ const sessionColumns = `
 	last_snapshot, last_snapshot_at, pinned, rail_pos, title_override,
 	transcript_file, plan_path, plan_exists, unread, last_prompt,
 	pending_resume_claude_session_id, background_tasks, attention_agent, claude_dir, group_id,
-	cache_expires_at, cache_ttl_seconds, cache_requests, cache_reported_expires_at
+	cache_expires_at, cache_ttl_seconds, cache_requests, cache_reported_expires_at,
+	effort_known, effort_level, effort_requested,
+	effort_warning_requested, effort_warning_actual, effort_warning_model
 `
 
 func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
@@ -419,6 +438,7 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 		pinned                       int
 		planExists                   int
 		unread                       int
+		effortKnown                  int
 		stateSince, createdAt        string
 		attentionSince, endedAt      *string
 		lastSnapshotAt               *string
@@ -435,9 +455,12 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 		&r.TranscriptPath, &r.PlanPath, &planExists, &unread, &r.LastPrompt,
 		&r.PendingResumeClaudeSessionID, &r.BackgroundTasks, &r.AttentionAgent, &r.ClaudeDir, &r.GroupID,
 		&cacheExpiresAt, &r.CacheTTLSeconds, &r.CacheRequests, &cacheReportedExpiresAt,
+		&effortKnown, &r.EffortLevel, &r.EffortRequested,
+		&r.EffortWarningRequested, &r.EffortWarningActual, &r.EffortWarningModel,
 	); err != nil {
 		return SessionRow{}, err
 	}
+	r.EffortKnown = effortKnown != 0
 	r.IsWorktree = isWorktree != 0
 	r.Alive = alive != 0
 	r.FirstLaunchHere = firstHere != 0

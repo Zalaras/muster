@@ -2,7 +2,7 @@
 // kb:anchor/ws.usage) — one of the protocol/ concept modules, each owning one wire
 // concept's type and parser; `decode.ts` holds the primitives every one of them shares.
 
-import { isRecord, parseListOf, parseNullable } from "./decode";
+import { isNullableString, isRecord, parseListOf, parseNullable } from "./decode";
 
 export interface UsageBucket {
   usedPct: number;
@@ -80,7 +80,7 @@ export function parseUsage(value: unknown): Usage | null {
   if (sevenDay === undefined) return null;
   const sampledAt = value["sampledAt"];
   const source = value["source"];
-  if (sampledAt !== null && typeof sampledAt !== "string") return null;
+  if (!isNullableString(sampledAt)) return null;
   if (typeof source !== "string") return null;
 
   const usage: Usage = { fiveHour, sevenDay, sampledAt, source };
@@ -93,7 +93,7 @@ export function parseUsage(value: unknown): Usage | null {
   }
   if ("modelScopedAt" in value) {
     const rawModelScopedAt = value["modelScopedAt"];
-    if (rawModelScopedAt !== null && typeof rawModelScopedAt !== "string") return null;
+    if (!isNullableString(rawModelScopedAt)) return null;
     usage.modelScopedAt = rawModelScopedAt;
   }
   if ("modelScopedError" in value) {

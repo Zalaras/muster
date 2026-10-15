@@ -13,7 +13,7 @@ import (
 // counterpart to validateLaunchRequest: directory rules first (shared with the ordinary
 // form), then the combination checks the Protocol Contract's Errors section orders right
 // after them — resumeSessionId empty, then resumeSessionId combined with title/model/
-// permissionMode. req.ResumeSessionID is never nil here — Launch only calls
+// permissionMode or effort. req.ResumeSessionID is never nil here — Launch only calls
 // launchResume when it is set.
 func validateResumeRequest(req createSessionRequest) *launchError {
 	if err := validateLaunchDirectory(req.Directory); err != nil {
@@ -22,8 +22,8 @@ func validateResumeRequest(req createSessionRequest) *launchError {
 	if *req.ResumeSessionID == "" {
 		return invalidRequest("resumeSessionId must not be empty")
 	}
-	if req.Title != "" || req.Model != "" || req.PermissionMode != "" {
-		return invalidRequest("resumeSessionId cannot be combined with title, model or permissionMode")
+	if req.Title != "" || req.Model != "" || req.PermissionMode != "" || req.Effort != nil {
+		return invalidRequest("resumeSessionId cannot be combined with title, model, permissionMode or effort")
 	}
 	return nil
 }
@@ -114,8 +114,14 @@ func (l *sessionLauncher) launchResume(ctx context.Context, req createSessionReq
 		permMode = *found.PermissionMode
 	}
 
+	var effort string
+	if found.Effort != nil {
+		effort = *found.Effort
+	}
+
 	argv := claudecode.BuildArgv(l.claudeBin, claudecode.LaunchParams{
 		PermissionMode:  permMode,
+		Effort:          effort,
 		ResumeSessionID: claudeSessionID,
 	})
 
@@ -134,5 +140,6 @@ func (l *sessionLauncher) launchResume(ctx context.Context, req createSessionReq
 		Model:                 model,
 		FirstLaunchHere:       created,
 		ResumeClaudeSessionID: claudeSessionID,
+		EffortSeed:            effort,
 	})
 }

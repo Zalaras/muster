@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asInteger } from "./decode";
+import { asInteger, isNullableString } from "./decode";
 
 describe("asInteger (a wire id or count that must be a whole number)", () => {
   it.each([
@@ -26,5 +26,19 @@ describe("asInteger (a wire id or count that must be a whole number)", () => {
     ["an array", [3]],
   ])("%s is null", (_name, value) => {
     expect(asInteger(value)).toBeNull();
+  });
+});
+
+describe("isNullableString (an optional wire string: null or a string)", () => {
+  it.each([
+    ["a string", "x", true],
+    ["the empty string", "", true],
+    ["null", null, true],
+    ["undefined (absent)", undefined, false],
+    ["a number", 1, false],
+    ["an object", {}, false],
+    ["a boolean", false, false],
+  ])("%s -> %s", (_name, value, want) => {
+    expect(isNullableString(value)).toBe(want);
   });
 });

@@ -94,6 +94,7 @@ sits on the line before each `##`/`###` heading, and code and docs cite a sectio
 | `POST /api/issues` | File a held capture as a GitHub issue (`kb:anchor/issue.create`) |
 | `POST /api/sessions/{id}/locate` | Resolve a dropped file's bytes to its original on-disk path (`kb:anchor/sessions.locate`) |
 | `PUT /api/sessions/{id}/title` | Set or clear a session's title override (`kb:anchor/sessions.title`) |
+| `DELETE /api/sessions/{id}/effort-warning` | Dismiss a session's launch-mismatch effort warning (`kb:anchor/sessions.effort-warning-dismiss`) |
 | `POST /api/sessions/{id}/shell` | Ensure a plain shell is running for a session, spawning it if absent (`kb:anchor/sessions.shell`) |
 | `GET /api/sessions/{id}/reader` | List a session's readable markdown and its plan slot; runs the plan scan (`kb:anchor/sessions.reader`) |
 | `GET /api/sessions/{id}/reader/file` | Serve one confined markdown file as `text/markdown` (`kb:anchor/sessions.reader-file`) |
@@ -119,6 +120,11 @@ only client→server WS traffic in v1 is terminal input/resize on the terminal s
                                                        // default, which can be auto (kb:fact/permission-mode-no-flag-follows-configured-default).
                                                        // "bypassPermissions" (UI label "bypass") behind the dialog's guardrails
                                                        // (kb:adr/launch-bypass-offered-with-danger-guardrails); dontAsk is not offered.
+  "effort": "high"                                     // optional: "low" | "medium" | "high" | "xhigh" | "max" | null; absent or null = Claude Code decides
+                                                       // (no --effort, kb:adr/launch-effort-default-sends-no-flag). A level is passed as `--effort <level>`
+                                                       // (kb:fact/effort-flag-values) and recorded as the repo row's lastEffort (null for absent/null); the
+                                                       // session's effort starts null and its first status-line report is checked against it (effortWarning,
+                                                       // kb:anchor/ws.session).
 }
 // response: 201 + the Session object (kb:anchor/ws.session), state "started"
 ```
@@ -128,22 +134,25 @@ only client→server WS traffic in v1 is terminal input/resize on the terminal s
 ```jsonc
 { "directory": "/Users/bob/code/Projects/muster",       // required, absolute; the directory the list was read for
   "resumeSessionId": "3f2a…" }                          // required; a claudeSessionId from kb:anchor/pastsessions.list for this directory
-// title, model and permissionMode must be absent; no model pre-check runs
+// title, model and permissionMode must be absent, effort absent or null; no model pre-check runs
 // response: 201 + the Session object, state "started", broadcast before any hook, as for a launch
 ```
 
-It spawns `claude --resume <id> --permission-mode <mode>` with no `--model` and no `--name`:
+It spawns `claude --resume <id> --permission-mode <mode> [--effort <level>]` with no `--model` and no `--name`:
 `<mode>` is the transcript's last recorded permission mode, or `default` when it records none
-(kb:fact/resume-restores-model-and-mode-except-plan, kb:adr/launch-resume-in-original-mode-else-default).
+(kb:fact/resume-restores-model-and-mode-except-plan, kb:adr/launch-resume-in-original-mode-else-default);
+`<level>` is the top-level `effort` of the transcript's last `assistant` line, verbatim, and `--effort` is
+omitted when none is recorded (kb:fact/resume-does-not-restore-effort, kb:adr/launch-resume-passes-past-effort).
 The row is seeded from the listing: `title` is the past session's title (null without one),
 `model` is `{"id": <the transcript's last assistant model>, "displayName": <the same id>}` or null,
-`permissionMode` is `{"value": <mode passed>, "source": "seed"}`. `claudeSessionId` stays null
+`permissionMode` is `{"value": <mode passed>, "source": "seed"}`, `effort` is `{"level": <level passed>}` or null
+when none was passed, and `effortWarning` is null with no check pending. `claudeSessionId` stays null
 until the enveloped `SessionStart{source:"resume"}` binds it. The repo row's MRU position and
-launch count advance; its `lastModel`/`lastPermissionMode` are left as they were (a new repo row
-gets both null). Checked in the order directory → combination → existence → already open:
+launch count advance; its `lastModel`/`lastPermissionMode`/`lastEffort` are left as they were (a new repo row
+gets all three null). Checked in the order directory → combination → existence → already open:
 
-- `400 invalid_request` — `resumeSessionId` with `title`, `model` or `permissionMode`:
-  `{"error": {"code": "invalid_request", "message": "resumeSessionId cannot be combined with title, model or permissionMode"}}`;
+- `400 invalid_request` — `resumeSessionId` with `title`, `model`, `permissionMode` or a non-null `effort`:
+  `{"error": {"code": "invalid_request", "message": "resumeSessionId cannot be combined with title, model, permissionMode or effort"}}`;
   an empty one: `{"error": {"code": "invalid_request", "message": "resumeSessionId must not be empty"}}`
 - `404 unknown_claude_session` — no transcript for that id among the directory's past sessions:
   `{"error": {"code": "unknown_claude_session", "message": "no Claude Code session with that id in this directory"}}`
@@ -166,6 +175,8 @@ insert the session row and broadcast `sessionUpsert` **immediately** — before 
 arrives, because the first hook may be a long way off (trust prompt, ux-flows §1.4).
 Errors: `400 invalid_request` (missing/relative directory; empty/unknown
 `permissionMode` — message `permissionMode must be one of default, plan, acceptEdits, auto, bypassPermissions`;
+`effort` neither null nor one of the five levels, checked after `permissionMode` — e.g.
+`{"error": {"code": "invalid_request", "message": "effort must be one of low, medium, high, xhigh, max"}}`;
 empty `model`; directory that does not exist or is not a directory),
 `400 model_unrecognized` (the pre-check above — checked after every `invalid_request` rule, so
 a request invalid both ways reports `invalid_request`; message `Claude Code doesn't recognise the
@@ -249,10 +260,11 @@ cache, and concurrent lookups of one model share one run
    "isGit": true, "branch": "main",            // branch read at request time; null when !isGit
    "pinned": false, "lastLaunchedAt": "2026-08-20T08:01:00Z", "launchCount": 12,
    "lastModel": "opus",                        // model value of the last launch here; null before any
-   "lastPermissionMode": "acceptEdits" }]      // starting mode of the last launch here ("default" | "plan" | "acceptEdits" | "auto"); null likewise
+   "lastPermissionMode": "acceptEdits",        // starting mode of the last launch here ("default" | "plan" | "acceptEdits" | "auto"); null likewise
+   "lastEffort": "high" }]                     // effort of the last launch here; null before any and after a launch with Claude Code's default
 ```
 
-`lastModel`/`lastPermissionMode` are the per-directory launch defaults (ux-flows §1.2
+`lastModel`/`lastPermissionMode`/`lastEffort` are the per-directory launch defaults (ux-flows §1.2
 "Model and Start in default to whatever was used last, per directory").
 
 Browse… navigates via `GET /api/browse` (`kb:anchor/browse.get`). The earlier "native chooser" note here
@@ -335,12 +347,14 @@ live sessions too; the UI asks only for `alive:false` ones.
 ### `POST /api/sessions/{id}/resume`
 
 No body. Rewrites the directory's `.claude/settings.local.json` (`kb:anchor/ingest.envelope`), then spawns
-`claude --model <model.id> --resume <claudeSessionId> [--name <titleOverride>] [--permission-mode <latched>]` in a
+`claude --model <model.id> --resume <claudeSessionId> [--name <titleOverride>] [--permission-mode <latched>] [--effort <effort.level>]` in a
 new tmux session named `muster-<id>` (`--name` only when the override is set, not yet sent and differs
-from Claude Code's last-known name) with the same
+from Claude Code's last-known name; `--effort` only when `effort` and its `level` are non-null,
+kb:adr/launch-resume-passes-past-effort) with the same
 pane environment as a launch. The row keeps its Muster `id`; `tmuxTarget`/`tmuxPane` are
 the new pane's, `alive:true`, `endedAt:null`, the snapshot is cleared, and a
-`sessionUpsert` is broadcast. `state` is **unchanged** until the enveloped
+`sessionUpsert` is broadcast. `effort` and `effortWarning` are unchanged and no effort check becomes
+pending. `state` is **unchanged** until the enveloped
 `SessionStart(source:"resume", same session_id)` arrives and lands it in `idle` (`kb:anchor/state.transitions`).
 
 A resume cannot renumber — the name is the row's. If `muster-<id>` is **already live** on the
@@ -1009,6 +1023,16 @@ kills on restart (`kb:anchor/sessions.shell` / `kb:anchor/state.liveness`), whic
 them. Computed on request from tmux, never cached (shells have no wire representation
 elsewhere). No errors beyond auth.
 
+<!-- kb:anchor sessions.effort-warning-dismiss -->
+### `DELETE /api/sessions/{id}/effort-warning`
+
+**Auth**: UI cookie (401 `unauthorized` without it). No body.
+**Response 204:** no body. Clears the session's `effortWarning` (`kb:anchor/ws.session`), persists it, and
+broadcasts one `sessionUpsert`; a session whose warning is already null gets `204` and no broadcast. No
+other session is touched (kb:adr/focus-effort-mismatch-warning-persisted-per-session).
+**Errors:**
+- 404 `unknown_session`: `{"error": {"code": "unknown_session", "message": "unknown session id"}}`
+
 <!-- kb:anchor ingest -->
 ## HTTP endpoints — ingest (Claude Code → daemon)
 
@@ -1216,6 +1240,23 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
                                     //   same checkout as directory. Display-only — never read by the state machine.
   "model": { "id": "claude-opus-5", "displayName": "Opus 5" },  // launch value until a bind or the status line reports one; null if unknown;
                                     //   a bind naming a different id sets displayName to the id until the status line confirms it; never ""
+  "effort": { "level": "high" },    // required key. object | null (kb:adr/session-effort-tri-state-from-status-line).
+                                    //   null = no status post has reported since this session was LAUNCHED (a Resume-tab resume with no
+                                    //     recorded effort also starts null); the UI shows "(…)" while alive, nothing once dead;
+                                    //   { "level": string } = the status line's effort.level, verbatim (observed "low" | "medium" | "high" |
+                                    //     "xhigh" | "max" — an open string);
+                                    //   { "level": null } = the latest routed post carried no effort key: the model has no effort setting
+                                    //     (kb:fact/status-line-effort-key), never "unknown".
+                                    //   Set by every routed status post; kept by Stop, liveness death, /clear, a Resume-button resume and a
+                                    //   daemon restart; seeded by a Resume-tab resume (kb:anchor/sessions.create). Display-only.
+  "effortWarning": { "requested": "max", "actual": "high", "model": "Opus 4.5" },
+                                    //   required key. object | null — the launch-mismatch warning
+                                    //   (kb:adr/focus-effort-mismatch-warning-persisted-per-session). requested: string, the level the launch
+                                    //   passed as --effort; actual: string | null, the level the first report showed (null = no effort
+                                    //   setting); model: string | null, model.displayName after that post was applied.
+                                    //   INV: non-null ⇒ requested ≠ actual. Set only by the first effort report after a launch that carried
+                                    //   effort; cleared only by kb:anchor/sessions.effort-warning-dismiss (or Remove). Untouched by later posts,
+                                    //   /clear, Stop, both resumes, reconcile and a daemon restart.
   "permissionMode": { "value": "plan", "source": "hook" },       // source "seed" (launch flag) | "hook" (a payload carried it); ALWAYS last-known, never authoritative (kb:adr/launch-form-seeds-model-and-permission-mode). value is an open string; observed "default" | "plan" | "acceptEdits" | "auto" (2.1.259), "bypassPermissions" (2.1.283, kb:fact/bypass-permission-mode-on-wire)
   "context": { "usedPct": 42, "totalInputTokens": 84211,
                "windowSize": 200000, "compactions": 2 },          // usedPct/totalInputTokens/windowSize null before first API response → "ctx — unknown"
@@ -1336,7 +1377,7 @@ Value semantics (within the nullability rules above):
 - `backgroundTasks`: the count of `status:"running"` entries in the latest `Stop`'s background
   task list. Status posts never touch it.
 - `alive`/`endedAt`: live from the liveness poll (`kb:anchor/state.liveness`) alone.
-- Status posts change **only** title/model/context and Claude's recorded directory (surfaced as
+- Status posts change **only** title/model/context, `effort`/`effortWarning` and Claude's recorded directory (surfaced as
   `claudeLocation`), and only when a value actually changed
   (no no-op upserts) — never `state`/`stateSince`/`attention`/`failure`/`alive`/
   `permissionMode`/`compactions` (INV-1; `kb:anchor/state.transitions`'s "never a state source").

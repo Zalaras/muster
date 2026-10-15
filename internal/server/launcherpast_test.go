@@ -66,17 +66,17 @@ func TestValidateResumeRequest(t *testing.T) {
 		{
 			name:    "resumeSessionId combined with title",
 			req:     createSessionRequest{Directory: realDir, ResumeSessionID: strPtr("abc"), Title: "My Title"},
-			wantErr: "resumeSessionId cannot be combined with title, model or permissionMode",
+			wantErr: "resumeSessionId cannot be combined with title, model, permissionMode or effort",
 		},
 		{
 			name:    "resumeSessionId combined with model",
 			req:     createSessionRequest{Directory: realDir, ResumeSessionID: strPtr("abc"), Model: "sonnet"},
-			wantErr: "resumeSessionId cannot be combined with title, model or permissionMode",
+			wantErr: "resumeSessionId cannot be combined with title, model, permissionMode or effort",
 		},
 		{
 			name:    "resumeSessionId combined with permissionMode",
 			req:     createSessionRequest{Directory: realDir, ResumeSessionID: strPtr("abc"), PermissionMode: "default"},
-			wantErr: "resumeSessionId cannot be combined with title, model or permissionMode",
+			wantErr: "resumeSessionId cannot be combined with title, model, permissionMode or effort",
 		},
 		{
 			name: "a clean request is accepted",

@@ -104,6 +104,8 @@ export interface RepoObject {
   launchCount: number;
   lastModel: string | null;
   lastPermissionMode: string | null;
+  /** Plan effort kb:anchor/repos.list (REQ-4): the effort of the last launch here, or null. */
+  lastEffort: string | null;
 }
 
 /** `GET /api/repos` (kb:anchor/repos.list), using the page's already-authed cookie —

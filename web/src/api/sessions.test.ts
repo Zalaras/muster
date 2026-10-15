@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "../protocol/session";
 import {
   createShell,
+  dismissEffortWarning,
   endSession,
   endSessions,
   fetchPane,
@@ -41,6 +42,8 @@ const validSession: Session = {
   unread: false,
   lastPrompt: null,
   groupId: null,
+  effort: null,
+  effortWarning: null,
   cache: null,
 };
 
@@ -211,6 +214,38 @@ describe("sessions — removeSession (DELETE /api/sessions/{id}, kb:anchor/sessi
     const result = await removeSession(1);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+});
+
+describe("sessions — dismissEffortWarning (DELETE /api/sessions/{id}/effort-warning, plan effort REQ-9)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends DELETE to the session's effort-warning path and decodes a bare 204 as success", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(204));
+    expect(await dismissEffortWarning(7)).toEqual({ ok: true, value: null });
+    expect(fetchMock).toHaveBeenCalledWith("/api/sessions/7/effort-warning", {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+  });
+
+  it("decodes a 404 unknown_session envelope", async () => {
+    fetchMock.mockResolvedValue(
+      fakeStatusResponse(404, { error: { code: "unknown_session", message: "no such session" } }),
+    );
+    expect(await dismissEffortWarning(999)).toEqual({
+      ok: false,
+      error: { code: "unknown_session", message: "no such session" },
+    });
   });
 });
 

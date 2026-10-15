@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en" data-theme="instrument"><head><meta charset="utf-8">
+<title>C — Effort as a stepped meter</title>
+<link rel="stylesheet" href="../../../web/src/style.css">
+<link rel="stylesheet" href="mockup.css">
+</head><body><div class="frame">
+<h1>C — Effort as a stepped meter</h1>
+<div class="sub">effort · option C · <span class="sw">&nbsp;dashed&nbsp;</span> = new</div>
+<p>Effort is a five-step meter from faster to smarter, echoing Claude Code's own <code>/effort</code> slider; the steps fill up to the chosen level. Ticking <b>use Claude Code's default</b> greys the meter out and sends no flag. A launch mismatch adds a second row inside the header itself, under a dashed rule, with a quiet dismiss link.</p>
+
+<h2 class="part">1 · Launch</h2>
+<div class="stage"><div><div class="stage-cap">New form</div>
+<dialog class="modal static" id="launch-dialog" open aria-labelledby="t">
+  <h2 id="t">New session
+    <span class="head-tabs" role="tablist"><button type="button" role="tab" aria-selected="true">New</button><button type="button" role="tab" aria-selected="false">Resume</button></span>
+    <span class="kbd" aria-hidden="true">⌥⌘N</span></h2>
+  <div class="picker-stub">picker — unchanged</div>
+  <form id="launch-form">
+    <div class="fields">
+      <label class="lab" for="ti">Title</label>
+      <input id="ti" type="text" placeholder="optional — Claude Code auto-generates" />
+      <div id="launch-group" class="group-field"><label class="lab" for="gs">Group</label>
+        <div class="group-row"><select id="gs"><option>No group</option></select></div></div>
+      <fieldset class="seg"><legend>Model</legend>
+            <div class="seg-track" role="radiogroup" aria-label="Model"><label><input type="radio" name="model" value="sonnet" />sonnet</label><label><input type="radio" name="model" value="opus" checked />opus</label><label><input type="radio" name="model" value="haiku" />haiku</label><label><input type="radio" name="model" value="fable" />fable</label><label><input type="radio" name="model" value="other" />other…</label></div></fieldset>
+      <fieldset class="seg"><legend>Effort</legend>
+  <div class="meter sw"><div class="ends"><span>faster</span><span>smarter</span></div>
+  <div class="steps"><label class="on "><input type="radio" name="effc" value="low" />low</label><label class="on "><input type="radio" name="effc" value="medium" />medium</label><label class="on sel"><input type="radio" name="effc" value="high" checked />high</label><label class=""><input type="radio" name="effc" value="xhigh" />xhigh</label><label class=""><input type="radio" name="effc" value="max" />max</label></div>
+  <label class="def"><input type="checkbox" /> use Claude Code's default</label></div></fieldset>
+      <fieldset class="seg"><legend>Start in</legend>
+            <div class="seg-track" role="radiogroup" aria-label="Start in"><label><input type="radio" name="pm" value="default" />manual</label><label><input type="radio" name="pm" value="acceptEdits" />accept edits</label><label><input type="radio" name="pm" value="plan" />plan</label><label><input type="radio" name="pm" value="auto" checked />auto</label></div></fieldset>
+    </div>
+    <div class="modal-foot">
+      <span><span class="tlabel">Launch in </span><b>~/code/muster</b></span>
+      <button type="button" class="btn">Cancel</button>
+      <button type="button" class="btn key">Launch</button>
+    </div>
+  </form>
+</dialog></div></div>
+
+<h2 class="part">2 · Focus header — no mismatch</h2>
+<div class="stage">
+<div><div class="stage-cap">effort-capable model</div>
+<div class="focus-slice">
+  <div class="mainhead">
+    <div class="idrow">
+      <h2 class="name"><button type="button" class="rename">store-refactor</button></h2>
+      <span class="meta"><span class="loc"><span class="repo"><span class="rf">muster / main</span></span><span class="sep">·</span></span>
+        <span class="model">Opus 5.5<span class="eff sw"> (high)</span></span></span>
+    </div>
+    <div class="acts"><button type="button" class="btn">Stop</button><button type="button" class="btn danger">Remove</button></div>
+    
+  </div>
+  
+  <div class="fake-term"><span class="p">❯</span> refactor the session store
+  ⏺ Reading internal/session/store.go …</div>
+</div></div>
+<div><div class="stage-cap">model without effort — no brackets</div>
+<div class="focus-slice">
+  <div class="mainhead">
+    <div class="idrow">
+      <h2 class="name"><button type="button" class="rename">quick-fix</button></h2>
+      <span class="meta"><span class="loc"><span class="repo"><span class="rf">muster / main</span></span><span class="sep">·</span></span>
+        <span class="model">Haiku 4.5</span></span>
+    </div>
+    <div class="acts"><button type="button" class="btn">Stop</button><button type="button" class="btn danger">Remove</button></div>
+    
+  </div>
+  
+  <div class="fake-term"><span class="p">❯</span> refactor the session store
+  ⏺ Reading internal/session/store.go …</div>
+</div></div>
+</div>
+
+<h2 class="part">3 · Focus header — launch mismatch</h2>
+<div class="stage" style="padding-bottom:0px">
+<div><div class="stage-cap">clamped: asked max, got high</div>
+<div class="focus-slice">
+  <div class="mainhead">
+    <div class="idrow">
+      <h2 class="name"><button type="button" class="rename">store-refactor</button></h2>
+      <span class="meta"><span class="loc"><span class="repo"><span class="rf">muster / main</span></span><span class="sep">·</span></span>
+        <span class="model">Opus 4.5<span class="eff sw"> (high)</span></span></span>
+    </div>
+    <div class="acts"><button type="button" class="btn">Stop</button><button type="button" class="btn danger">Remove</button></div>
+    <div class="effort-row sw" role="status"><span class="glyph">◆</span><span>Asked for <b>max</b> — Opus 4.5 runs at most <b>high</b>, so it started at high.</span><button type="button" class="link">dismiss</button></div>
+  </div>
+  
+  <div class="fake-term"><span class="p">❯</span> refactor the session store
+  ⏺ Reading internal/session/store.go …</div>
+</div></div>
+</div>
+<div class="stage" style="padding-bottom:0px">
+<div><div class="stage-cap">no effort on this model</div>
+<div class="focus-slice">
+  <div class="mainhead">
+    <div class="idrow">
+      <h2 class="name"><button type="button" class="rename">quick-fix</button></h2>
+      <span class="meta"><span class="loc"><span class="repo"><span class="rf">muster / main</span></span><span class="sep">·</span></span>
+        <span class="model">Haiku 4.5</span></span>
+    </div>
+    <div class="acts"><button type="button" class="btn">Stop</button><button type="button" class="btn danger">Remove</button></div>
+    <div class="effort-row sw" role="status"><span class="glyph">◆</span><span>Asked for <b>high</b> — Haiku 4.5 has no effort setting, so it started without one.</span><button type="button" class="link">dismiss</button></div>
+  </div>
+  
+  <div class="fake-term"><span class="p">❯</span> refactor the session store
+  ⏺ Reading internal/session/store.go …</div>
+</div></div>
+</div>
+
+<ul class="notes"><li><b>+</b> The level reads as a scale, which it is; matches what Claude Code users already see.</li><li><b>−</b> A new control type in the form; Default lives in a checkbox rather than beside the levels.</li><li><b>+</b> The notice belongs to the header, so it clearly belongs to this session. <b>−</b> It makes the header taller.</li></ul>
+<p class="demo-reset">demo<button type="button" class="btn sm" onclick="location.reload()">reset notices</button></p>
+<p><a href="index.html">← all three</a></p>
+<script>function dismiss(b){const fs=b.closest('.focus-slice');b.closest('.effort-strip').remove();fs.querySelectorAll('.eff.warn').forEach(e=>e.classList.remove('warn'));}</script>
+</div></body></html>

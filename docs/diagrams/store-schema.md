@@ -2,16 +2,16 @@
 id: store-schema
 type: diagram
 status: active
-date: 2026-10-14
+date: 2026-10-15
 kind: er
-summary: Every SQLite table at its final shape after migrations 0001-0015, with the schema's two foreign keys.
+summary: Every SQLite table at its final shape after migrations 0001-0016, with the schema's two foreign keys.
 features: []
 tags: [store]
 files: [internal/store/migrations/*.sql, internal/store/*.go]
 tests: [TestMigrate_AppliesInitSchema, TestMigrate_CreatesSchemaMigrationsTableIfAbsent]
 refs: [kb:ref/data-model, kb:spec/rail, kb:adr/rail-groups-daemon-rows-whole-list-broadcast, kb:adr/rail-ungrouped-is-section-zero-on-the-wire, kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/ingest-envelope-binds-never-cwd, plans/_audit/diagrams-from-code.md]
 ---
-Final shape, with the additive `ALTER TABLE`s of 0003-0015 folded into `session`. Migrations are
+Final shape, with the additive `ALTER TABLE`s of 0003-0016 folded into `session`. Migrations are
 forward-only and purely additive: no migration has ever changed or dropped a column, and the one
 data statement is 0006's `rail_pos` backfill.
 
@@ -70,6 +70,7 @@ erDiagram
         INTEGER launch_count "NOT NULL DEFAULT 0"
         TEXT last_model "per-directory launch default"
         TEXT last_permission_mode "per-directory launch default"
+        TEXT last_effort "0016, per-directory launch default, NULL = default"
         TEXT created_at "NOT NULL"
     }
 
@@ -121,6 +122,12 @@ erDiagram
         INTEGER cache_ttl_seconds "0014, NULL iff cache_expires_at is NULL"
         INTEGER cache_requests "0015, last adopted prompt_cache.requests, NULL = none"
         TEXT cache_reported_expires_at "0015, RFC3339 UTC, last reported expiry, NULL = none"
+        INTEGER effort_known "0016, NOT NULL DEFAULT 0, 1 once reported or seeded"
+        TEXT effort_level "0016, NULL with effort_known = 1 = no effort setting"
+        TEXT effort_requested "0016, launch level while its first report is pending"
+        TEXT effort_warning_requested "0016, non-null iff the mismatch warning is set"
+        TEXT effort_warning_actual "0016, NULL = first report had no effort setting"
+        TEXT effort_warning_model "0016, model display name after the first report"
     }
 
     event {

@@ -40,6 +40,8 @@ const validSession: Session = {
   unread: false,
   lastPrompt: null,
   groupId: null,
+  effort: null,
+  effortWarning: null,
   cache: null,
 };
 
@@ -255,6 +257,7 @@ describe("launch — fetchRepos (GET /api/repos)", () => {
         launchCount: 3,
         lastModel: "opus",
         lastPermissionMode: "acceptEdits",
+        lastEffort: "high",
       },
       {
         id: 2,
@@ -267,6 +270,7 @@ describe("launch — fetchRepos (GET /api/repos)", () => {
         launchCount: 0,
         lastModel: null,
         lastPermissionMode: null,
+        lastEffort: null,
       },
     ];
     fetchMock.mockResolvedValue(fakeResponse(true, repos));
@@ -297,6 +301,7 @@ describe("launch — fetchRepos (GET /api/repos)", () => {
           launchCount: "oops",
           lastModel: null,
           lastPermissionMode: null,
+          lastEffort: null,
         },
       ]),
     );
@@ -320,11 +325,50 @@ describe("launch — fetchRepos (GET /api/repos)", () => {
         launchCount: 1,
         lastModel: "sonnet",
         lastPermissionMode: "auto",
+        lastEffort: null,
       },
     ];
     fetchMock.mockResolvedValue(fakeResponse(true, repos));
     const result = await fetchRepos();
     expect(result).toEqual({ ok: true, value: repos });
+  });
+});
+
+// Plan effort REQ-3/REQ-4: `lastEffort` is a required nullable string on every repo (the daemon
+// always sends the key); it stays an open string like lastModel.
+describe("launch — fetchRepos lastEffort (plan effort)", () => {
+  const repo = {
+    id: 1,
+    path: "/x",
+    name: "x",
+    isGit: true,
+    branch: null,
+    pinned: false,
+    lastLaunchedAt: "t",
+    launchCount: 1,
+    lastModel: null,
+    lastPermissionMode: null,
+  };
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each(["high", "max", null, "someFutureLevel"])("decodes lastEffort %p", async (lastEffort) => {
+    vi.mocked(fetch).mockResolvedValue(fakeResponse(true, [{ ...repo, lastEffort }]));
+    expect(await fetchRepos()).toEqual({ ok: true, value: [{ ...repo, lastEffort }] });
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["a number", 3],
+    ["an object", { level: "high" }],
+  ])("rejects the list when lastEffort is %s", async (_label, lastEffort) => {
+    vi.mocked(fetch).mockResolvedValue(fakeResponse(true, [{ ...repo, lastEffort }]));
+    expect((await fetchRepos()).ok).toBe(false);
   });
 });
 

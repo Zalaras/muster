@@ -13,62 +13,68 @@ const baseRepo: Repo = {
   launchCount: 3,
   lastModel: "opus",
   lastPermissionMode: "acceptEdits",
+  lastEffort: "high",
 };
 
-// W5, plan new-session-improvement, REQ-6a: initialRestore restores exactly the untouched
-// fields, for all four combinations of model-touched and mode-touched.
-describe("initialRestore (W5, REQ-6a)", () => {
-  it("restores both fields when neither has been touched", () => {
-    const touched: Touched = { model: false, mode: false };
-    expect(initialRestore(touched, baseRepo)).toStrictEqual({
-      model: "opus",
-      mode: "acceptEdits",
-    });
-  });
+// W5, plan new-session-improvement, REQ-6a (extended by plan effort REQ-2): initialRestore
+// restores exactly the untouched fields, for all eight combinations of touched model, mode and
+// effort. A touched field's key is absent (not undefined) so the caller leaves the form alone.
+describe("initialRestore (W5, REQ-6a; plan effort REQ-2)", () => {
+  const stored = { model: "opus", mode: "acceptEdits", effort: "high" } as const;
+  const bools = [false, true];
+  const combos: Touched[] = bools.flatMap((model) =>
+    bools.flatMap((mode) => bools.map((effort) => ({ model, mode, effort }))),
+  );
 
-  it("omits model but restores mode when only model was touched", () => {
-    const touched: Touched = { model: true, mode: false };
-    const restore = initialRestore(touched, baseRepo);
-    expect(restore).toStrictEqual({ mode: "acceptEdits" });
-    expect("model" in restore).toBe(false);
-  });
-
-  it("omits mode but restores model when only mode was touched", () => {
-    const touched: Touched = { model: false, mode: true };
-    const restore = initialRestore(touched, baseRepo);
-    expect(restore).toStrictEqual({ model: "opus" });
-    expect("mode" in restore).toBe(false);
-  });
-
-  it("restores neither field when both were touched", () => {
-    const touched: Touched = { model: true, mode: true };
-    const restore = initialRestore(touched, baseRepo);
-    expect(restore).toStrictEqual({});
-    expect("model" in restore).toBe(false);
-    expect("mode" in restore).toBe(false);
-  });
+  it.each(combos)(
+    "model touched $model, mode touched $mode, effort touched $effort",
+    (touched: Touched) => {
+      const restore = initialRestore(touched, baseRepo);
+      const expected: Record<string, string> = {};
+      if (!touched.model) expected["model"] = stored.model;
+      if (!touched.mode) expected["mode"] = stored.mode;
+      if (!touched.effort) expected["effort"] = stored.effort;
+      expect(restore).toStrictEqual(expected);
+      expect("model" in restore).toBe(!touched.model);
+      expect("mode" in restore).toBe(!touched.mode);
+      expect("effort" in restore).toBe(!touched.effort);
+    },
+  );
 
   it("falls back to sonnet for an untouched model when the repo has no lastModel", () => {
     const repo: Repo = { ...baseRepo, lastModel: null };
-    const touched: Touched = { model: false, mode: false };
+    const touched: Touched = { model: false, mode: false, effort: false };
     expect(initialRestore(touched, repo).model).toBe("sonnet");
   });
 
+  it.each([
+    ["no lastEffort", null],
+    ["a level the dialog has no radio for", "someFutureLevel"],
+    ["an empty string", ""],
+  ])(
+    "falls back to the default radio for an untouched effort when the repo has %s",
+    (_l, lastEffort) => {
+      const repo: Repo = { ...baseRepo, lastEffort };
+      const touched: Touched = { model: false, mode: false, effort: false };
+      expect(initialRestore(touched, repo).effort).toBe("");
+    },
+  );
+
   it("falls back to auto (via permissionModeToCheck) for an untouched mode when the repo has no lastPermissionMode", () => {
     const repo: Repo = { ...baseRepo, lastPermissionMode: null };
-    const touched: Touched = { model: false, mode: false };
+    const touched: Touched = { model: false, mode: false, effort: false };
     expect(initialRestore(touched, repo).mode).toBe("auto");
   });
 
   it("falls back to auto for an untouched mode the dialog has no radio for", () => {
     const repo: Repo = { ...baseRepo, lastPermissionMode: "someFutureMode" };
-    const touched: Touched = { model: false, mode: false };
+    const touched: Touched = { model: false, mode: false, effort: false };
     expect(initialRestore(touched, repo).mode).toBe("auto");
   });
 
   it("never falls back to sonnet or auto for a touched field, even with nothing to restore", () => {
-    const repo: Repo = { ...baseRepo, lastModel: null, lastPermissionMode: null };
-    const touched: Touched = { model: true, mode: true };
+    const repo: Repo = { ...baseRepo, lastModel: null, lastPermissionMode: null, lastEffort: null };
+    const touched: Touched = { model: true, mode: true, effort: true };
     expect(initialRestore(touched, repo)).toStrictEqual({});
   });
 });
@@ -79,8 +85,20 @@ describe("initialRestore (W5, REQ-6a)", () => {
 // applies it through the touched filter. Covering it directly here pins that contract
 // independently of initialRestore's filtering.
 describe("repoRestore (review-maintainability cycle 1 Minor 2)", () => {
-  it("returns the repo's stored model and mode unfiltered", () => {
-    expect(repoRestore(baseRepo)).toStrictEqual({ model: "opus", mode: "acceptEdits" });
+  it("returns the repo's stored model, mode and effort unfiltered", () => {
+    expect(repoRestore(baseRepo)).toStrictEqual({
+      model: "opus",
+      mode: "acceptEdits",
+      effort: "high",
+    });
+  });
+
+  it.each([
+    ["a stored level", "max", "max"],
+    ["no stored effort", null, ""],
+    ["a level with no radio", "someFutureLevel", ""],
+  ])("maps %s to the Effort radio value", (_label, lastEffort, radio) => {
+    expect(repoRestore({ ...baseRepo, lastEffort }).effort).toBe(radio);
   });
 
   it("falls back to DEFAULT_MODEL when the repo has no lastModel", () => {

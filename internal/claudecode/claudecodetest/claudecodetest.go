@@ -439,6 +439,7 @@ type StatusLinePreFirstResponseOpts struct {
 	TmuxPane string
 	// SessionName, when non-empty, adds the status line's session_name field.
 	SessionName string
+	EffortLevel string
 }
 
 // EnvelopedStatusLinePreFirstResponse returns an enveloped status-line body in the
@@ -458,7 +459,14 @@ func EnvelopedStatusLinePreFirstResponse(sessionID string, opts StatusLinePreFir
 	if opts.SessionName != "" {
 		payload["session_name"] = opts.SessionName
 	}
+	addEffort(payload, opts.EffortLevel)
 	return marshal(envelope(opts.MusterSession, opts.TmuxPane, payload))
+}
+
+func addEffort(payload map[string]any, level string) {
+	if level != "" {
+		payload["effort"] = map[string]any{"level": level}
+	}
 }
 
 // StatusLineFullOpts overrides EnvelopedStatusLineFull's defaults (musterSession 1, model
@@ -491,6 +499,7 @@ type StatusLineFullOpts struct {
 	SevenDayPct      float64
 	SevenDayResetsAt int64
 	PromptCache      *PromptCacheOpts
+	EffortLevel      string
 }
 
 type PromptCacheOpts struct {
@@ -584,6 +593,7 @@ func statusLineFullPayload(sessionID string, opts StatusLineFullOpts) map[string
 			"caching_observed": true, "requests": 3,
 		}
 	}
+	addEffort(payload, opts.EffortLevel)
 	return payload
 }
 

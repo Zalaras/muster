@@ -1,7 +1,12 @@
 // The launch dialog's daemon calls: create a session, list the MRU repo picker, browse
 // the filesystem for a directory to launch in, and check the model catalog.
-import { parseSession, type PermissionMode, type Session } from "../protocol/session";
-import { isRecord, parseListOf } from "../protocol/decode";
+import {
+  parseSession,
+  type EffortLevel,
+  type PermissionMode,
+  type Session,
+} from "../protocol/session";
+import { isNullableString, isRecord, parseListOf } from "../protocol/decode";
 import { requestJson, type ApiResult } from "./http";
 
 export interface Repo {
@@ -15,6 +20,7 @@ export interface Repo {
   launchCount: number;
   lastModel: string | null;
   lastPermissionMode: string | null;
+  lastEffort: string | null;
 }
 
 export interface BrowseEntry {
@@ -41,11 +47,9 @@ export interface LaunchRequest extends LaunchGroup {
   title?: string;
   model: string;
   permissionMode: PermissionMode;
+  effort?: EffortLevel;
 }
 
-/** kb:anchor/sessions.create's resume-from-list request form: `resumeSessionId`
- * combined with no `title`/`model`/`permissionMode` — the daemon reads the transcript's
- * own last mode and model, so the dialog sends neither. */
 export interface ResumeListRequest extends LaunchGroup {
   directory: string;
   resumeSessionId: string;
@@ -94,16 +98,18 @@ function parseRepo(value: unknown): Repo | null {
   const launchCount = value["launchCount"];
   const lastModel = value["lastModel"];
   const lastPermissionMode = value["lastPermissionMode"];
+  const lastEffort = value["lastEffort"];
   if (typeof id !== "number") return null;
   if (typeof path !== "string") return null;
   if (typeof name !== "string") return null;
   if (typeof isGit !== "boolean") return null;
-  if (branch !== null && typeof branch !== "string") return null;
+  if (!isNullableString(branch)) return null;
   if (typeof pinned !== "boolean") return null;
   if (typeof lastLaunchedAt !== "string") return null;
   if (typeof launchCount !== "number") return null;
-  if (lastModel !== null && typeof lastModel !== "string") return null;
-  if (lastPermissionMode !== null && typeof lastPermissionMode !== "string") return null;
+  if (!isNullableString(lastModel)) return null;
+  if (!isNullableString(lastPermissionMode)) return null;
+  if (!isNullableString(lastEffort)) return null;
   return {
     id,
     path,
@@ -115,6 +121,7 @@ function parseRepo(value: unknown): Repo | null {
     launchCount,
     lastModel,
     lastPermissionMode,
+    lastEffort,
   };
 }
 
@@ -142,10 +149,10 @@ function parsePastSession(value: unknown): PastSession | null {
   const permissionMode = value["permissionMode"];
   const openSessionId = value["openSessionId"];
   if (typeof claudeSessionId !== "string") return null;
-  if (title !== null && typeof title !== "string") return null;
-  if (lastPrompt !== null && typeof lastPrompt !== "string") return null;
+  if (!isNullableString(title)) return null;
+  if (!isNullableString(lastPrompt)) return null;
   if (typeof lastActiveAt !== "string") return null;
-  if (permissionMode !== null && typeof permissionMode !== "string") return null;
+  if (!isNullableString(permissionMode)) return null;
   if (openSessionId !== null && typeof openSessionId !== "number") return null;
   return { claudeSessionId, title, lastPrompt, lastActiveAt, permissionMode, openSessionId };
 }
@@ -165,7 +172,7 @@ function parseBrowseResult(value: unknown): BrowseResult | null {
   const path = value["path"];
   const parent = value["parent"];
   if (typeof path !== "string") return null;
-  if (parent !== null && typeof parent !== "string") return null;
+  if (!isNullableString(parent)) return null;
   const dirs = parseListOf(value["dirs"], parseBrowseEntry);
   if (!dirs) return null;
   return { path, parent, dirs };

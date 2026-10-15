@@ -71,6 +71,8 @@ func TestUnknownSessionEnvelope_ByteIdenticalAcrossMigratedCallSites(t *testing.
 			{"handlePaneSnapshot/malformed id", http.MethodGet, "/api/sessions/not-a-number/pane", ""},
 			{"handlePinSession/unknown", http.MethodPut, fmt.Sprintf("/api/sessions/%d/pin", missingID), `{"pinned":true}`},
 			{"handleSetTitle/unknown", http.MethodPut, fmt.Sprintf("/api/sessions/%d/title", missingID), `{"title":"x"}`},
+			{"handleDismissEffortWarning/unknown", http.MethodDelete, fmt.Sprintf("/api/sessions/%d/effort-warning", missingID), ""},
+			{"handleDismissEffortWarning/malformed id", http.MethodDelete, "/api/sessions/not-a-number/effort-warning", ""},
 		}
 
 		for _, tc := range cases {
