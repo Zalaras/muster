@@ -158,7 +158,7 @@ From `plans/maintainability-cleanup/`, filed by the developer 2026-09-24. Releas
   items, so results are cluttered. Expected: The markdown document view should offer its own search
   bar that searches only the document content.
   Filed 2026-10-15 from musterd 0.21.1 / Claude Code 2.1.300, focus view, session started.
-  Labels: enhancement, documents, ux, needs-info.
+  Labels: enhancement, documents, ux.
 
 - [ ] **I'd like to be able to add a note to my session** ([#95](https://github.com/Zalaras/muster/issues/95)) — The
   author wants to attach their own persistent note to a session, separate from titles and rail
@@ -173,7 +173,7 @@ From `plans/maintainability-cleanup/`, filed by the developer 2026-09-24. Releas
   background task still running should show WORKING rather than IDLE, unless an existing decision
   says otherwise.
   Filed 2026-10-15 from musterd 0.21.2 / Claude Code 2.1.300, focus view, session idle.
-  Labels: bug, lifecycle, needs-info.
+  Labels: bug, lifecycle.
 
 ## Pre-v1
 
