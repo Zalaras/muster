@@ -230,6 +230,9 @@ func (m *Manager) RepairOwnedSession(ctx context.Context, id int64) (*Session, e
 		return nil, ErrUnknownSession
 	}
 	prev := sess.Clone()
+	if !sess.Alive {
+		forgetHeldRequests(sess)
+	}
 	sess.Alive = true
 	sess.EndedAt = nil
 	sess.TmuxTarget = target
@@ -265,6 +268,7 @@ func (m *Manager) reviveOwnedSession(ctx context.Context, id int64, tmuxName str
 	prev := sess.Clone()
 	changed := false
 	if !sess.Alive {
+		forgetHeldRequests(sess)
 		sess.Alive = true
 		sess.EndedAt = nil
 		changed = true

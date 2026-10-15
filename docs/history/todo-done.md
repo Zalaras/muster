@@ -1724,6 +1724,12 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
 
 ### On their own
 
+- [x] **Missing underline from mock ups for GitHub cache expiring soon** ([#92](https://github.com/Zalaras/muster/issues/92)) ✅ done 2026-10-15 (plan `cache-timing`, via `/fix`) —
+  a rail card's cache-warmth timer read "expiring" (under 5 minutes) and still read the same more
+  than 30 minutes later, and the dotted underline the mockups show for the last stretch of the
+  cache lifetime never appeared. The timer should track the real cache lifetime, and the underline
+  should appear in its last 15% as the `rail-card-organise` mockups show.
+
 - [x] **Renaming in Muster does not rename Claude session** ([#71](https://github.com/Zalaras/muster/issues/71)) ✅ done 2026-10-15 (plan `rename-claude-session`, via `/fix`) —
   renaming a session in Muster leaves Claude Code's own session name unchanged. A rename should
   reach both.

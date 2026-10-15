@@ -1,7 +1,7 @@
 ---
 id: usage-cache-warmth-kept-until-clear-read-against-client-clock
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-14
 summary: The Session carries the prompt cache's expiry and lifetime, persisted and cleared only by /clear; the dashboard compares the expiry with its own clock.
 features: [usage, lifecycle]

@@ -48,8 +48,8 @@ func TestOpen_SecondOpenOnSamePathDoesNotReapplyMigrations(t *testing.T) {
 	// (markdown-viewing) + 0009_rail_cards (rail-card-improvements) + 0010_pending_resume
 	// (resume-followups) + 0011_turn_state (status-inconsistencies) + 0012_claude_dir
 	// (stale-dirs-models-branches) + 0013_groups (groups) + 0014_prompt_cache
-	// (rail-card-organise).
-	assert.Equal(t, 14, schemaMigrationsCount(t, st2.db))
+	// (rail-card-organise) + 0015_cache_keepalive (cache-timing).
+	assert.Equal(t, 15, schemaMigrationsCount(t, st2.db))
 }
 
 // TestOpen_RestrictsPermissionsOnDatabaseAndSidecars covers review cycle 2 Major 1: the

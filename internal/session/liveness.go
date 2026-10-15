@@ -210,6 +210,7 @@ func (m *Manager) markEnded(ctx context.Context, id int64) (*Session, error) {
 	sess.Alive = false
 	endedAt := time.Now().UTC()
 	sess.EndedAt = &endedAt
+	capCacheAtExit(sess)
 	// An ended row can never bind, so its hold must not outlive it into a revive.
 	sess.pendingResumeClaudeSessionID = ""
 	// claudeLocation is null on the wire for a dead session; ClaudeDir itself is kept until

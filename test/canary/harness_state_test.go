@@ -36,6 +36,7 @@ const (
 // TestLocalCommandOrphanIdlePrompt read it.
 type compactRun struct {
 	claudeSessionID string
+	stopAt          time.Time // when the first turn's Stop arrived
 	contextAt       time.Time // when /context was submitted
 	contextIdle     *capture  // the idle_prompt that followed /context
 	compactAt       time.Time // when /compact was submitted
@@ -57,7 +58,8 @@ type earlyInterruptRun struct {
 
 // runO takes one real turn so there is something to compact, runs the local /context command
 // and waits for the idle_prompt that follows it, then runs /compact and waits for the
-// SessionStart it ends with and the idle_prompt after that.
+// SessionStart it ends with and the idle_prompt after that. The status posts it captures through
+// that idle stretch carry the turn's keep-alive (TestPromptCacheKeepAliveMovesExpiry).
 func (f *fixture) runO(ctx context.Context) error {
 	argv := claudecode.BuildArgv(claudeBin, claudecode.LaunchParams{Model: haikuModel, PermissionMode: "default"})
 	target, started, _, err := f.startInteractive(ctx, compactTmuxID, sessionCompact, argv, nil)
@@ -79,6 +81,7 @@ func (f *fixture) runO(ctx context.Context) error {
 		f.compact.err = fmt.Errorf("no Stop within 90s of the prompt; hooks seen: %v", f.hookTypes(sessionCompact))
 		return nil
 	}
+	f.compact.stopAt = f.firstHook(sessionCompact, "Stop").at
 	f.settle(2 * time.Second)
 
 	f.compact.contextAt = time.Now()

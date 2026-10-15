@@ -295,6 +295,7 @@ func (m *Manager) RecordResume(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	sess.TmuxPane = tmuxPane
 	sess.Alive = true
 	sess.EndedAt = nil
+	forgetHeldRequests(sess)
 	sess.LastSnapshot = ""
 	sess.LastSnapshotAt = time.Time{}
 	sess.clearClaudeLocation()

@@ -1219,8 +1219,8 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
   "permissionMode": { "value": "plan", "source": "hook" },       // source "seed" (launch flag) | "hook" (a payload carried it); ALWAYS last-known, never authoritative (kb:adr/launch-form-seeds-model-and-permission-mode). value is an open string; observed "default" | "plan" | "acceptEdits" | "auto" (2.1.259), "bypassPermissions" (2.1.283, kb:fact/bypass-permission-mode-on-wire)
   "context": { "usedPct": 42, "totalInputTokens": 84211,
                "windowSize": 200000, "compactions": 2 },          // usedPct/totalInputTokens/windowSize null before first API response → "ctx — unknown"
-  "cache": { "expiresAt": "2026-08-20T10:15:00Z",            // ISO8601 UTC — the status line's prompt-cache expiry (Unix seconds) converted
-             "ttlSeconds": 3600 },                              // integer > 0 — the cache lifetime parsed from its ttl ("5m" → 300, "1h" → 3600)
+  "cache": { "expiresAt": "2026-08-20T10:15:00Z",            // ISO8601 UTC — the cache's predicted expiry (kb:adr/usage-cache-warmth-follows-keepalive-horizon)
+             "ttlSeconds": 3600 },                              // integer > 0 — the predicted lifetime: an hour plus the reported ttl for a ttl under an hour with a request count, else the ttl ("1h" → 3600)
                                     //   required key; object | null. null = unknown: before the session's first usable prompt cache,
                                     //   and after a /clear rebind until the next one. Display-only; the client compares it with its clock.
   "lastActivity": "Fixed the flaky retry; running the suite…",   // truncated last_assistant_message from the closing Stop; null until first Stop
@@ -1293,14 +1293,20 @@ Value semantics (within the nullability rules above):
   2026-08-20) names one: the same id changes nothing, a different id (or a null `model`)
   becomes `{id, displayName: id}`. Both then refresh from the status line's model object
   whenever it is present. `displayName` is never empty.
-- `cache`: adopted from a routed status post whose prompt cache carries an integer expiry and a
-  ttl of the form `<digits><s|m|h>` with a value > 0; both fields replace together. A post without
-  a prompt cache, or with either field missing or unparseable, changes nothing (absent means unknown
-  for that post, never cold — kb:fact/prompt-cache-status-shape). Kept by Stop, liveness death,
-  Resume, compaction and a daemon restart (it lives on the session row): a resume inside the TTL
-  reads the earlier cache (kb:fact/resume-reads-prior-prompt-cache). Cleared to null by a `/clear`
-  rebind. Display-only — never read by the state machine; the daemon never compares it with the
-  clock, the client does. A change alone is one `sessionUpsert`; an unchanged value is none.
+- `cache`: the cache's predicted lifetime, from a routed status post whose prompt cache carries an
+  integer expiry and a ttl of the form `<digits><s|m|h>` with a value > 0. With a ttl under an hour
+  and an integer `requests` count, a changed count (a new request, at `expires_at − ttl`) sets
+  `expiresAt` to that request plus an hour plus the ttl and `ttlSeconds` to an hour plus the ttl; an
+  unchanged count (a keep-alive) changes nothing; `warm: false` sets `expiresAt` to that post's
+  `expires_at` until the next request. A one-hour ttl, or no count, is carried as reported. A post
+  without a prompt cache, or with either field missing or unparseable, changes nothing (absent means
+  unknown for that post, never cold — kb:fact/prompt-cache-status-shape). When the session ends,
+  `expiresAt` drops to the last reported expiry if earlier. A resume, or adopting the pane of an ended
+  row, forgets the held count, so the new process's first post always re-anchors. Kept by Stop, Resume,
+  compaction and a daemon restart (it lives on the session row): a resume inside the TTL reads the
+  earlier cache (kb:fact/resume-reads-prior-prompt-cache). Cleared to null by a `/clear` rebind.
+  Display-only — never read by the state machine; the daemon never compares it with the clock, the
+  client does. A change alone is one `sessionUpsert`; an unchanged value is none.
 - `repo`: re-read from `directory` by the repo poll (start, every `-repo-poll`, and on a
   nudge when Claude's reported directory changes) while `alive`; a change is one
   `sessionUpsert`, an unchanged tick none.

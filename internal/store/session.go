@@ -71,8 +71,10 @@ type SessionRow struct {
 	ContextTotalInputTokens *int64
 	ContextWindowSize       *int64
 
-	CacheExpiresAt  *time.Time
-	CacheTTLSeconds *int64
+	CacheExpiresAt         *time.Time
+	CacheTTLSeconds        *int64
+	CacheRequests          *int64
+	CacheReportedExpiresAt *time.Time
 
 	// LastSnapshot/LastSnapshotAt (kb:anchor/sessions.pane): the last capture-pane text
 	// and when it was captured — always both-nil or both-non-nil. Display source only,
@@ -299,6 +301,12 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		cacheExpiresAt = &v
 	}
 
+	var cacheReportedExpiresAt *string
+	if row.CacheReportedExpiresAt != nil {
+		v := encodeTime(*row.CacheReportedExpiresAt)
+		cacheReportedExpiresAt = &v
+	}
+
 	_, err := s.db.ExecContext(ctx, `
 		UPDATE session SET
 			tmux_target = ?, tmux_pane = ?, claude_session_id = ?, directory = ?, branch = ?,
@@ -310,7 +318,8 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 			last_snapshot = ?, last_snapshot_at = ?, pinned = ?, rail_pos = ?, title_override = ?,
 			transcript_file = ?, plan_path = ?, plan_exists = ?, unread = ?, last_prompt = ?,
 			pending_resume_claude_session_id = ?, background_tasks = ?, attention_agent = ?, claude_dir = ?,
-			group_id = ?, cache_expires_at = ?, cache_ttl_seconds = ?
+			group_id = ?, cache_expires_at = ?, cache_ttl_seconds = ?, cache_requests = ?,
+			cache_reported_expires_at = ?
 		WHERE id = ?
 	`,
 		row.TmuxTarget, row.TmuxPane, row.ClaudeSessionID, row.Directory, row.Branch,
@@ -322,7 +331,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		row.LastSnapshot, lastSnapshotAt, boolToInt(row.Pinned), row.RailPos, row.TitleOverride,
 		row.TranscriptPath, row.PlanPath, boolToInt(row.PlanExists), boolToInt(row.Unread), row.LastPrompt,
 		row.PendingResumeClaudeSessionID, row.BackgroundTasks, row.AttentionAgent, row.ClaudeDir,
-		row.GroupID, cacheExpiresAt, row.CacheTTLSeconds,
+		row.GroupID, cacheExpiresAt, row.CacheTTLSeconds, row.CacheRequests, cacheReportedExpiresAt,
 		row.ID,
 	)
 	if err != nil {
@@ -340,7 +349,7 @@ const sessionColumns = `
 	last_snapshot, last_snapshot_at, pinned, rail_pos, title_override,
 	transcript_file, plan_path, plan_exists, unread, last_prompt,
 	pending_resume_claude_session_id, background_tasks, attention_agent, claude_dir, group_id,
-	cache_expires_at, cache_ttl_seconds
+	cache_expires_at, cache_ttl_seconds, cache_requests, cache_reported_expires_at
 `
 
 func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
@@ -414,6 +423,7 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 		attentionSince, endedAt      *string
 		lastSnapshotAt               *string
 		cacheExpiresAt               *string
+		cacheReportedExpiresAt       *string
 	)
 	if err := row.Scan(
 		&r.ID, &r.TmuxTarget, &r.TmuxPane, &r.ClaudeSessionID, &r.RepoID, &r.Directory, &r.Branch, &isWorktree,
@@ -424,7 +434,7 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 		&r.LastSnapshot, &lastSnapshotAt, &pinned, &r.RailPos, &r.TitleOverride,
 		&r.TranscriptPath, &r.PlanPath, &planExists, &unread, &r.LastPrompt,
 		&r.PendingResumeClaudeSessionID, &r.BackgroundTasks, &r.AttentionAgent, &r.ClaudeDir, &r.GroupID,
-		&cacheExpiresAt, &r.CacheTTLSeconds,
+		&cacheExpiresAt, &r.CacheTTLSeconds, &r.CacheRequests, &cacheReportedExpiresAt,
 	); err != nil {
 		return SessionRow{}, err
 	}
@@ -458,6 +468,11 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 	}
 	if r.CacheExpiresAt == nil {
 		r.CacheTTLSeconds = nil
+	}
+	if cacheReportedExpiresAt != nil {
+		if t, ok := s.decodeRowTimePtr("session", r.ID, "cache_reported_expires_at", *cacheReportedExpiresAt); ok {
+			r.CacheReportedExpiresAt = &t
+		}
 	}
 	return r, nil
 }

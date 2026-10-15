@@ -38,6 +38,9 @@ Keychain, usage and theme readers and fails rather than skips when a credential 
 bundle for interface strings Muster cannot drive (kb:adr/canary-static-tier-asserts-bundle-strings).
 After the first turn the harness tier asserts that the status line's `prompt_cache` carries a `ttl`
 Muster can read and an `expires_at` of the turn's end plus that TTL (kb:fact/prompt-cache-status-shape).
+Run O's status post at the `/compact` submission, over 30 s after the turn's Stop, guards the 5m
+keep-alive: same `requests`, `warm: true`, `expires_at` moved on (kb:fact/prompt-cache-5m-keepalive,
+TestPromptCacheKeepAliveMovesExpiry).
 The interactive run's idle wait doubles as a zero-token keystroke tier — the status line's
 tick cadence, Shift+Tab firing no hook, and `/clear` minting a new session id in the same pane
 (kb:adr/canary-run-d-holds-two-claude-sessions, kb:adr/canary-refresh-interval-key-canary-only).

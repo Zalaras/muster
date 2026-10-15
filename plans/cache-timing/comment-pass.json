@@ -1,0 +1,31 @@
+{
+  "plan": "cache-timing",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-15T13:22:01Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 1,
+        "keep": 0,
+        "drop": 1
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "internal/session/session.go:add376797acf49be",
+          "path": "internal/session/session.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type Cache struct {",
+            "line": 91
+          },
+          "lines": [
+            "// Requests and ReportedExpiresAt are held, never on the wire: ApplyStatus (the only writer)",
+            "// updates them in place under Manager.mu, so a keep-alive post needs no new pointer."
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -261,8 +261,8 @@ func TestIngestStatusLine_PromptCacheIsAdoptedAndKeptThroughIngest(t *testing.T)
 	}, 2*time.Second, 10*time.Millisecond, "the post's prompt_cache must reach the session")
 
 	got, _ := srv.manager.Get(sess.ID)
-	assert.True(t, time.Unix(1790840879, 0).Equal(got.Cache.ExpiresAt))
-	assert.Equal(t, int64(300), got.Cache.TTLSeconds)
+	assert.True(t, time.Unix(1790840879+3600, 0).Equal(got.Cache.ExpiresAt), "the fixture's 5m post carries requests, so the wire is the predicted lifetime: expires_at + 1h, got %s", got.Cache.ExpiresAt)
+	assert.Equal(t, int64(3900), got.Cache.TTLSeconds)
 
 	without := claudecodetest.EnvelopedStatusLineFull("claude-status-cache", claudecodetest.StatusLineFullOpts{
 		MusterSession: int(sess.ID), TmuxPane: "%1", FiveHourPct: 70,
@@ -275,5 +275,5 @@ func TestIngestStatusLine_PromptCacheIsAdoptedAndKeptThroughIngest(t *testing.T)
 
 	kept, _ := srv.manager.Get(sess.ID)
 	require.NotNil(t, kept.Cache, "a post without prompt_cache leaves the last-known value")
-	assert.Equal(t, int64(300), kept.Cache.TTLSeconds)
+	assert.Equal(t, int64(3900), kept.Cache.TTLSeconds)
 }

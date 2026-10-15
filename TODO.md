@@ -83,12 +83,6 @@ The refusal entry was filed 2026-09-26 by the developer from
   under `## Issues` and is moved by hand. Filed 2026-10-15 by the developer during the triage
   rework.
 
-- [ ] **Missing underline from mock ups for GitHub cache expiring soon** ([#92](https://github.com/Zalaras/muster/issues/92)) —
-  a rail card's cache-warmth timer read "expiring" (under 5 minutes) and still read the same more
-  than 30 minutes later, and the dotted underline the mockups show for the last stretch of the
-  cache lifetime never appeared. The timer should track the real cache lifetime, and the underline
-  should appear in its last 15% as the `rail-card-organise` mockups show.
-
 - [ ] **Check the Focus view's first-attach terminal height** — the size note's reserved row
   was restored; confirm the terminal is not a row short on first attach. From
   `plans/maintainability-cleanup/`.

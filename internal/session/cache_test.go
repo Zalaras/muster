@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -498,4 +499,39 @@ func TestPersistFailure_RollsBackCacheChanges(t *testing.T) {
 			assert.Len(t, rec.all(), broadcasts, "a failed persist never broadcasts")
 		})
 	}
+}
+
+func promptCachePost(expiresAt time.Time, requests int, warm bool) claudecode.StatusUpdate {
+	payload := fmt.Sprintf(`{"prompt_cache":{"warm":%t,"ttl":"5m","expires_at":%d,"caching_observed":true,"requests":%d,"hit_ratio":0.966,"misses":0}}`,
+		warm, expiresAt.Unix(), requests)
+	return claudecode.InterpretStatus([]byte(payload))
+}
+
+// TestCacheKeepAlive drives status adoption through the real status-line JSON: a 5m post
+// carrying a request count is predicted to stay warm an hour of keep-alives longer, a
+// keep-alive post (same count) changes nothing, and warm false drops the expiry to the
+// post's own reported time.
+func TestCacheKeepAlive(t *testing.T) {
+	sess := newTestSession()
+	request := time.Unix(1790840879, 0).UTC()
+
+	changed := applyStatusUpdate(sess, promptCachePost(request.Add(300*time.Second), 3, true))
+
+	assert.True(t, changed)
+	require.NotNil(t, sess.Cache)
+	assert.True(t, request.Add(3900*time.Second).Equal(sess.Cache.ExpiresAt), "expiresAt = request + 1h + ttl, got %s", sess.Cache.ExpiresAt)
+	assert.Equal(t, int64(3900), sess.Cache.TTLSeconds)
+	anchored := sess.Cache
+
+	changed = applyStatusUpdate(sess, promptCachePost(request.Add(330*time.Second), 3, true))
+
+	assert.False(t, changed, "a keep-alive post (same requests, warm) changes nothing")
+	assert.Same(t, anchored, sess.Cache)
+
+	changed = applyStatusUpdate(sess, promptCachePost(request.Add(330*time.Second), 3, false))
+
+	assert.True(t, changed)
+	require.NotNil(t, sess.Cache)
+	assert.True(t, request.Add(330*time.Second).Equal(sess.Cache.ExpiresAt), "warm false sets expiresAt to the post's expires_at, got %s", sess.Cache.ExpiresAt)
+	assert.Equal(t, int64(3900), sess.Cache.TTLSeconds)
 }

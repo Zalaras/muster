@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -25,6 +26,8 @@ type statusPayload struct {
 type statusPromptCache struct {
 	ExpiresAt json.RawMessage `json:"expires_at"`
 	TTL       json.RawMessage `json:"ttl"`
+	Warm      json.RawMessage `json:"warm"`
+	Requests  json.RawMessage `json:"requests"`
 }
 
 type statusModel struct {
@@ -73,7 +76,16 @@ type StatusContext struct {
 type StatusCache struct {
 	ExpiresAt  time.Time
 	TTLSeconds int64
+	Requests   *int64
+	Cold       bool
 }
+
+type CacheLifetime struct {
+	ExpiresAt  time.Time
+	TTLSeconds int64
+}
+
+const keepAliveHorizon = time.Hour
 
 // StatusBucket is one neutral usage-limit readout (five-hour or seven-day) with the
 // wire's epoch reset time already converted to UTC (kb:fact/rate-limits-wire-shape).
@@ -188,7 +200,46 @@ func interpretPromptCache(pc *statusPromptCache) *StatusCache {
 	if !ok {
 		return nil
 	}
-	return &StatusCache{ExpiresAt: time.Unix(expires, 0).UTC(), TTLSeconds: seconds}
+	return &StatusCache{
+		ExpiresAt:  time.Unix(expires, 0).UTC(),
+		TTLSeconds: seconds,
+		Requests:   parseCacheRequests(pc.Requests),
+		Cold:       strings.TrimSpace(string(pc.Warm)) == "false",
+	}
+}
+
+func parseCacheRequests(raw json.RawMessage) *int64 {
+	n, err := strconv.ParseInt(string(raw), 10, 64)
+	if err != nil {
+		return nil
+	}
+	return &n
+}
+
+func (c StatusCache) Lifetime(lastRequests *int64) (lifetime CacheLifetime, ok bool) {
+	reported := CacheLifetime{ExpiresAt: c.ExpiresAt, TTLSeconds: c.TTLSeconds}
+	if c.Requests == nil || c.TTLSeconds >= int64(keepAliveHorizon/time.Second) {
+		return reported, true
+	}
+	predicted := CacheLifetime{ExpiresAt: c.ExpiresAt, TTLSeconds: c.TTLSeconds + int64(keepAliveHorizon/time.Second)}
+	if c.Cold {
+		return predicted, true
+	}
+	if lastRequests != nil && *lastRequests == *c.Requests {
+		return CacheLifetime{}, false
+	}
+	ttl := time.Duration(c.TTLSeconds) * time.Second
+	if horizon := c.ExpiresAt.Add(-ttl).Add(keepAliveHorizon + ttl); horizon.After(predicted.ExpiresAt) {
+		predicted.ExpiresAt = horizon
+	}
+	return predicted, true
+}
+
+func CacheAtExit(predicted, lastReported time.Time) time.Time {
+	if lastReported.Before(predicted) {
+		return lastReported
+	}
+	return predicted
 }
 
 var cacheTTLUnits = map[byte]int64{'s': 1, 'm': 60, 'h': 3600}

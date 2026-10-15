@@ -654,3 +654,86 @@ func TestScanSession_CorruptCacheReadsUnknownNotHalf(t *testing.T) {
 		})
 	}
 }
+
+// TestSession_CacheKeepAliveColumnsRoundTrip: the last adopted request count and the last
+// reported expiry (migration 0015) start unknown, survive Update, Get and the list path next to
+// the cache pair, are independent of each other, and go back to unknown when cleared.
+func TestSession_CacheKeepAliveColumnsRoundTrip(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	repoID := seedTestRepo(t, st)
+	row, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default"})
+	require.NoError(t, err)
+	assert.Nil(t, row.CacheRequests, "a fresh row holds no request count")
+	assert.Nil(t, row.CacheReportedExpiresAt, "a fresh row holds no reported expiry")
+
+	expires := time.Unix(1790840879+3900, 0).UTC()
+	reported := time.Unix(1790840879+330, 0).UTC()
+	ttl, requests := int64(3900), int64(3)
+	tests := []struct {
+		name         string
+		requests     *int64
+		reported     *time.Time
+		wantRequests *int64
+		wantReported *time.Time
+	}{
+		{"both", &requests, &reported, &requests, &reported},
+		{"count only", &requests, nil, &requests, nil},
+		{"reported expiry only", nil, &reported, nil, &reported},
+		{"neither", nil, nil, nil, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			row.CacheExpiresAt, row.CacheTTLSeconds = &expires, &ttl
+			row.CacheRequests, row.CacheReportedExpiresAt = tt.requests, tt.reported
+			require.NoError(t, st.UpdateSession(ctx, row))
+
+			got, err := st.GetSession(ctx, row.ID)
+			require.NoError(t, err)
+			listed, err := st.ListSessions(ctx)
+			require.NoError(t, err)
+			require.Len(t, listed, 1)
+
+			for path, r := range map[string]SessionRow{"get": got, "list": listed[0]} {
+				assert.Equal(t, tt.wantRequests, r.CacheRequests, path)
+				if tt.wantReported == nil {
+					assert.Nil(t, r.CacheReportedExpiresAt, path)
+				} else {
+					require.NotNil(t, r.CacheReportedExpiresAt, path)
+					assert.True(t, tt.wantReported.Equal(*r.CacheReportedExpiresAt), "%s: reported expiry read back as written: %s", path, r.CacheReportedExpiresAt)
+				}
+				require.NotNil(t, r.CacheExpiresAt, path+": the cache pair is unaffected")
+				assert.True(t, expires.Equal(*r.CacheExpiresAt), path)
+			}
+		})
+	}
+}
+
+// TestScanSession_CorruptReportedExpiryReadsUnsetAndKeepsTheRow: a stored reported expiry the code
+// did not write reads back unset, without failing the row or the list, and without taking the
+// cache pair or the request count with it.
+func TestScanSession_CorruptReportedExpiryReadsUnsetAndKeepsTheRow(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	repoID := seedTestRepo(t, st)
+	bad, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/bad", PermissionMode: "default", FirstLaunchHere: true})
+	require.NoError(t, err)
+	expires := time.Unix(1790840879+3900, 0).UTC()
+	ttl, requests := int64(3900), int64(3)
+	bad.CacheExpiresAt, bad.CacheTTLSeconds, bad.CacheRequests = &expires, &ttl, &requests
+	require.NoError(t, st.UpdateSession(ctx, bad))
+	_, err = st.db.ExecContext(ctx, `UPDATE session SET cache_reported_expires_at = 'not-a-time' WHERE id = ?`, bad.ID)
+	require.NoError(t, err)
+
+	got, err := st.GetSession(ctx, bad.ID)
+
+	require.NoError(t, err, "a corrupt reported expiry must not fail the row")
+	assert.Nil(t, got.CacheReportedExpiresAt)
+	require.NotNil(t, got.CacheExpiresAt)
+	assert.True(t, expires.Equal(*got.CacheExpiresAt))
+	require.NotNil(t, got.CacheRequests)
+	assert.Equal(t, int64(3), *got.CacheRequests)
+	rows, err := st.ListSessions(ctx)
+	require.NoError(t, err)
+	assert.Len(t, rows, 1)
+}

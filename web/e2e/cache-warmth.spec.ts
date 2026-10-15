@@ -145,7 +145,7 @@ test("the tint is a straight line from the bright foreground to the timer's usua
   }
 });
 
-test("the underline starts at exactly 15% of the lifetime remaining, a 5-minute lifetime at 45 s, and the hover counts whole minutes up while a minute or more remains and seconds below it (REQ-25, REQ-27)", async ({
+test("the underline starts at exactly 15% of the lifetime remaining, a 5m-ttl post carrying requests (a 3900 s lifetime) at 585 s, and the hover counts whole minutes up while a minute or more remains and seconds below it (REQ-25, REQ-27)", async ({
   page,
   request,
   daemon,
@@ -165,26 +165,34 @@ test("the underline starts at exactly 15% of the lifetime remaining, a 5-minute 
     await postStatus(request, daemon, hour, "claude-bound-hour", WARM_1H(3600));
     const shortTimer = cardTimer(railCard(page, "bound-short"));
     const hourTimer = cardTimer(railCard(page, "bound-hour"));
+    // A 5m ttl post that carries `requests` is a keep-alive-regime post: the daemon predicts the
+    // lifetime as ttl + 1 h, so the wire is expires_at + 3600 s over 3900 s, not {expires_at, 300}.
     await expect
       .poll(() => wireCache(page, daemon, short.id))
-      .toEqual({ expiresAt: wireInstant(expiresIn(300)), ttlSeconds: 300 });
-    await expect(shortTimer).toHaveAttribute("title", "cache warm · cold in 5m");
+      .toEqual({ expiresAt: wireInstant(expiresIn(300 + 3600)), ttlSeconds: 3900 });
+    await expect(shortTimer).toHaveAttribute("title", "cache warm · cold in 65m");
 
-    // 46 s left of 300: above 15%, so warm and plain.
-    await useWarmthClock(page, 254);
+    // 586 s left of 3900: above 15% (585 s), so warm and plain; whole minutes while a minute or more remains.
+    await useWarmthClock(page, 3900 - 586);
     await expect(shortTimer).toHaveAttribute("data-cache", "warm");
-    await expect(shortTimer).toHaveAttribute("title", "cache warm · cold in 46s");
+    await expect(shortTimer).toHaveAttribute("title", "cache warm · cold in 10m");
     await expectUnderline(shortTimer, false);
-    // 45 s left: exactly 15%, so cooling and underlined.
-    await useWarmthClock(page, 255);
+    // 585 s left: exactly 15%, so cooling and underlined.
+    await useWarmthClock(page, 3900 - 585);
     await expect(shortTimer).toHaveAttribute("data-cache", "cooling");
-    await expect(shortTimer).toHaveAttribute("title", "cache warm · cold in 45s");
+    await expect(shortTimer).toHaveAttribute("title", "cache warm · cold in 10m");
     await expectUnderline(shortTimer, true);
-    await useWarmthClock(page, 299);
+    // Minute boundary on the predicted lifetime: 60 s reads 1m, 59 s reads 59s.
+    await useWarmthClock(page, 3900 - 60);
+    await expect(shortTimer).toHaveAttribute("title", "cache warm · cold in 1m");
+    await useWarmthClock(page, 3900 - 59);
+    await expect(shortTimer).toHaveAttribute("data-cache", "cooling");
+    await expect(shortTimer).toHaveAttribute("title", "cache warm · cold in 59s");
+    await useWarmthClock(page, 3899);
     await expect(shortTimer).toHaveAttribute("data-cache", "cooling");
     await expect(shortTimer).toHaveAttribute("title", "cache warm · cold in 1s");
     // Nothing left: cold.
-    await useWarmthClock(page, 300);
+    await useWarmthClock(page, 3900);
     await expect(shortTimer).toHaveAttribute("data-cache", "cold");
     await expect(shortTimer).toHaveAttribute("title", "cache cold");
     await expectUnderline(shortTimer, false);

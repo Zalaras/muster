@@ -30,13 +30,22 @@ treatment past a threshold. Context lives on the session row and survives a daem
 
 ## Prompt-cache warmth
 
-Each session also carries its prompt-cache warmth from the status line's `prompt_cache`
-(kb:fact/prompt-cache-status-shape): when it expires and its lifetime, which varies
-(kb:fact/haiku-main-cache-ttl-5m-on-2-1-299). It is unknown before the session's first reply and
-after `/clear`, and survives Stop, Resume and a daemon restart, since a resume inside the lifetime
-reads the same cache (kb:fact/resume-reads-prior-prompt-cache); a corrupt stored expiry reads as
-unknown. The dashboard reads the expiry against its own clock, so warmth keeps changing while a
-session sends nothing (kb:adr/usage-cache-warmth-kept-until-clear-read-against-client-clock).
+Each session also carries its prompt-cache warmth: when the cache is predicted to expire and its
+lifetime, from the status line's `prompt_cache` (kb:fact/prompt-cache-status-shape). The daemon
+predicts rather than echoes, because an idle session's keep-alives hold a 5m cache warm for about an
+hour (kb:adr/usage-cache-warmth-follows-keepalive-horizon, kb:fact/prompt-cache-5m-keepalive). With a
+ttl under an hour and a request count, a post whose count changed is a new request: expiry becomes
+that request (`expires_at` minus the ttl) plus an hour plus the ttl, and the lifetime an hour plus the
+ttl. A post with the same count is a keep-alive and changes nothing. A post saying `warm: false` sets
+expiry to its own `expires_at` until the next request (kb:fact/prompt-cache-outage-goes-cold-after-ttl).
+A one-hour ttl, or no count, is carried as reported. When the session ends, expiry drops to the last
+reported expiry if that is earlier. A resume, or adopting the pane of an ended row, forgets the held
+count, so the new process's first post always re-anchors. Warmth is unknown before the session's first
+reply and after `/clear`, and survives Stop, Resume, compaction and a daemon restart, since a resume
+inside the lifetime reads the same cache (kb:fact/resume-reads-prior-prompt-cache); a corrupt stored
+expiry reads as unknown. The dashboard reads the expiry against its own clock, so warmth keeps
+changing while a session sends nothing
+(kb:adr/usage-cache-warmth-kept-until-clear-read-against-client-clock).
 
 ## Account-level bars
 

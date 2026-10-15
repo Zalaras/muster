@@ -1,6 +1,10 @@
 package session
 
-import "github.com/Zalaras/muster/internal/claudecode"
+import (
+	"time"
+
+	"github.com/Zalaras/muster/internal/claudecode"
+)
 
 // applyStatusUpdate mutates sess per kb:anchor/ws.session's value semantics: title, model,
 // context and prompt-cache warmth refresh from a routed status-line post, plus the directory Claude reports
@@ -57,9 +61,51 @@ func adoptCache(sess *Session, reading *claudecode.StatusCache) bool {
 	if reading == nil {
 		return false
 	}
-	if sess.Cache != nil && sess.Cache.ExpiresAt.Equal(reading.ExpiresAt) && sess.Cache.TTLSeconds == reading.TTLSeconds {
-		return false
+	var lastRequests *int64
+	if sess.Cache != nil {
+		lastRequests = sess.Cache.Requests
 	}
-	sess.Cache = &Cache{ExpiresAt: reading.ExpiresAt, TTLSeconds: reading.TTLSeconds}
-	return true
+	requests := lastRequests
+	if reading.Requests != nil && (lastRequests == nil || *lastRequests != *reading.Requests) {
+		count := *reading.Requests
+		requests = &count
+	}
+
+	lifetime, adopt := reading.Lifetime(lastRequests)
+	if adopt && !cacheHasLifetime(sess.Cache, lifetime.ExpiresAt, lifetime.TTLSeconds) {
+		sess.Cache = &Cache{ExpiresAt: lifetime.ExpiresAt, TTLSeconds: lifetime.TTLSeconds, Requests: requests, ReportedExpiresAt: reading.ExpiresAt}
+		return true
+	}
+	if sess.Cache != nil {
+		sess.Cache.Requests = requests
+		sess.Cache.ReportedExpiresAt = reading.ExpiresAt
+	}
+	return false
+}
+
+func forgetHeldRequests(sess *Session) {
+	if sess.Cache == nil || sess.Cache.Requests == nil {
+		return
+	}
+	next := *sess.Cache
+	next.Requests = nil
+	sess.Cache = &next
+}
+
+func capCacheAtExit(sess *Session) {
+	held := sess.Cache
+	if held == nil || held.ReportedExpiresAt.IsZero() {
+		return
+	}
+	capped := claudecode.CacheAtExit(held.ExpiresAt, held.ReportedExpiresAt)
+	if cacheHasLifetime(held, capped, held.TTLSeconds) {
+		return
+	}
+	next := *held
+	next.ExpiresAt = capped
+	sess.Cache = &next
+}
+
+func cacheHasLifetime(c *Cache, expiresAt time.Time, ttlSeconds int64) bool {
+	return c != nil && c.ExpiresAt.Equal(expiresAt) && c.TTLSeconds == ttlSeconds
 }

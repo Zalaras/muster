@@ -89,8 +89,10 @@ type Context struct {
 }
 
 type Cache struct {
-	ExpiresAt  time.Time
-	TTLSeconds int64
+	ExpiresAt         time.Time
+	TTLSeconds        int64
+	Requests          *int64
+	ReportedExpiresAt time.Time
 }
 
 // Session is one row of the kb:anchor/state state machine, held in memory and persisted on every

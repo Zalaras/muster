@@ -1,0 +1,53 @@
+{
+  "plan_name": "cache-timing",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 0,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [],
+  "step_started_at": {
+    "review": "2026-10-15T13:58:36Z",
+    "doc-reconcile": "2026-10-15T14:07:00Z"
+  },
+  "step_finished_at": {
+    "doc-reconcile": "2026-10-15T14:08:56Z"
+  },
+  "step_attempts": {
+    "review": [
+      {
+        "start": "2026-10-15T13:58:36Z",
+        "finish": null
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-10-15T14:07:00Z",
+        "finish": "2026-10-15T14:08:56Z"
+      }
+    ]
+  },
+  "started_at": "2026-10-15T12:26:22Z",
+  "updated_at": "2026-10-15T14:20:30Z",
+  "review_parts": {
+    "1": [
+      "code"
+    ]
+  },
+  "review_verdicts": {
+    "1": "approved"
+  },
+  "review_commits": {
+    "1": "2296ac4fb89ea0a3fcc73a9d5ac707418100f86f"
+  },
+  "closes_issues": [
+    92
+  ]
+}

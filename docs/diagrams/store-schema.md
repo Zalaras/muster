@@ -4,14 +4,14 @@ type: diagram
 status: active
 date: 2026-10-14
 kind: er
-summary: Every SQLite table at its final shape after migrations 0001-0014, with the schema's two foreign keys.
+summary: Every SQLite table at its final shape after migrations 0001-0015, with the schema's two foreign keys.
 features: []
 tags: [store]
 files: [internal/store/migrations/*.sql, internal/store/*.go]
 tests: [TestMigrate_AppliesInitSchema, TestMigrate_CreatesSchemaMigrationsTableIfAbsent]
 refs: [kb:ref/data-model, kb:spec/rail, kb:adr/rail-groups-daemon-rows-whole-list-broadcast, kb:adr/rail-ungrouped-is-section-zero-on-the-wire, kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/ingest-envelope-binds-never-cwd, plans/_audit/diagrams-from-code.md]
 ---
-Final shape, with the additive `ALTER TABLE`s of 0003-0014 folded into `session`. Migrations are
+Final shape, with the additive `ALTER TABLE`s of 0003-0015 folded into `session`. Migrations are
 forward-only and purely additive: no migration has ever changed or dropped a column, and the one
 data statement is 0006's `rail_pos` backfill.
 
@@ -119,6 +119,8 @@ erDiagram
         INTEGER group_id FK "0013, REFERENCES rail_group(id) ON DELETE SET NULL, NULL = Ungrouped"
         TEXT cache_expires_at "0014, RFC3339 UTC, NULL = unknown"
         INTEGER cache_ttl_seconds "0014, NULL iff cache_expires_at is NULL"
+        INTEGER cache_requests "0015, last adopted prompt_cache.requests, NULL = none"
+        TEXT cache_reported_expires_at "0015, RFC3339 UTC, last reported expiry, NULL = none"
     }
 
     event {
