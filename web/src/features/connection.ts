@@ -40,6 +40,7 @@ export interface ConnectionHandle {
    * be superseded by an update-restart reload, not a real mismatch
    * (kb:adr/update-restart-reloads-dashboard). */
   showProtocolMismatch(): void;
+  claudeCodeChanged(claudeCode: ClaudeCodeInfo): void;
 }
 
 /** The DOM-free half of connection tracking: writes `app.state.connection` and holds
@@ -163,6 +164,9 @@ export function initConnection(app: App, deps: ConnectionDeps): ConnectionHandle
   return {
     connected(claudeCode) {
       state.connected();
+      renderClaudeVersion(claudeVersionEl, describeClaudeVersion(claudeCode));
+    },
+    claudeCodeChanged(claudeCode) {
       renderClaudeVersion(claudeVersionEl, describeClaudeVersion(claudeCode));
     },
     disconnected() {

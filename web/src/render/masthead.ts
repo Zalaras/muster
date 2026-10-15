@@ -305,6 +305,7 @@ export function renderUsageModelWeek(
 export interface ClaudeVersionDescription {
   text: string;
   warning: string | null;
+  hint?: string | null;
 }
 
 /** Rebuilds `#claude-version`'s children with `replaceChildren` (no innerHTML). No
@@ -315,7 +316,8 @@ export interface ClaudeVersionDescription {
  * control lives inside the readout — the glyph and its hover text are the whole
  * interface, `kb:adr/connection-installed-claude-classified-never-refused`. */
 export function renderClaudeVersion(el: HTMLElement, description: ClaudeVersionDescription): void {
-  const { text, warning } = description;
+  const { text, warning, hint } = description;
+  el.title = hint ?? "";
   if (warning === null) {
     el.replaceChildren(document.createTextNode(text));
     return;

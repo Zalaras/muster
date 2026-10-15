@@ -17,7 +17,7 @@ import {
   parseGroupsMessage,
   parseSnapshotGroups,
 } from "./groups";
-import { type Hello, parseHello } from "./hello";
+import { type ClaudeCodeMessage, type Hello, parseClaudeCodeMessage, parseHello } from "./hello";
 import { type Prefs, type PrefsMessage, parsePrefs, parsePrefsMessage } from "./prefs";
 import { type Session, parseSession } from "./session";
 import {
@@ -90,6 +90,7 @@ export type Message =
   | UsageMessage
   | SessionRemoved
   | ClaudeThemeMessage
+  | ClaudeCodeMessage
   | DocChanged
   | UpdateMessage
   | ShellActivityMessage
@@ -187,6 +188,8 @@ export function parseMessage(data: unknown): Message | null {
       return parseSessionRemoved(data);
     case "claudeTheme":
       return parseClaudeThemeMessage(data);
+    case "claudeCode":
+      return parseClaudeCodeMessage(data);
     case "update":
       return parseUpdateMessage(data);
     case "docChanged":

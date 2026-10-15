@@ -8,7 +8,7 @@
 // handlers. Message parsing lives in protocol/messages.ts and the protocol-version gate
 // in protocol/hello.ts; this module just wires the socket lifecycle to them.
 import type { Group, UngroupedLayout } from "./protocol/groups";
-import { type Hello, isSupportedProtocolVersion } from "./protocol/hello";
+import { type ClaudeCodeInfo, type Hello, isSupportedProtocolVersion } from "./protocol/hello";
 import { type DocChanged, type Message, type Snapshot, parseMessage } from "./protocol/messages";
 import type { Prefs } from "./protocol/prefs";
 import type { Session } from "./protocol/session";
@@ -46,6 +46,7 @@ export interface WsClientHandlers {
   onUsage?: (usage: Usage) => void;
   onSessionRemoved?: (id: number) => void;
   onClaudeTheme?: (family: ClaudeFamily) => void;
+  onClaudeCode?: (claudeCode: ClaudeCodeInfo) => void;
   onUpdate?: (update: UpdateInfo) => void;
   onDocChanged?: (docChanged: DocChanged) => void;
   onShellActivity?: (sessionId: number, busy: boolean) => void;
@@ -155,6 +156,10 @@ export class WsClient {
     }
     if (message.type === "claudeTheme") {
       this.handlers.onClaudeTheme?.(message.family);
+      return;
+    }
+    if (message.type === "claudeCode") {
+      this.handlers.onClaudeCode?.(message.claudeCode);
       return;
     }
     if (message.type === "update") {

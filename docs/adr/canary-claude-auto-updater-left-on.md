@@ -7,7 +7,7 @@ summary: Muster never freezes Claude Code's auto-updater; it detects and classif
 features: [canary]
 tags: [claude-code-format, user-decision]
 files: [docs/claude-code-versions.md, internal/claudecode/version.go, cmd/musterd/main.go]
-tests: [TestCheckVersion, TestCheckClaudeCode_UnknownOutcomeNeverFailsStartup]
+tests: [TestCheckVersion, TestClaudeVersion_UnknownOutcomeNeverFailsStartup]
 refs: [docs/history/todo-done.md, docs/claude-code-versions.md, kb:adr/canary-verified-range-observed-not-pinned, kb:adr/connection-installed-claude-classified-never-refused, kb:adr/update-check-pref-governs-checking-only]
 supersedes: []
 ---

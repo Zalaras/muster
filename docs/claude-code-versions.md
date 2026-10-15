@@ -55,8 +55,8 @@ Claude Code updates everywhere in exchange for Muster's convenience.
 So the decision (2026-08-16, reaffirmed 2026-09-10) is **detect and classify, don't
 freeze**:
 
-- `musterd` calls `claudecode.CheckVersion()` at startup and classifies the installed
-  version as `unknown | below | verified | above` against the observed range. `below` and
+- `musterd` calls `claudecode.CheckVersion()` in the background once it is serving, and again
+  whenever the `claude` binary file changes, and classifies the installed version as `unknown | below | verified | above` against the observed range. `below` and
   `above` log a warning; `verified` logs info; none of the four ever stops the daemon
   starting or serving (INV-3).
 - `make canary` asserts the same classification, and — from M4 — that the payload fields

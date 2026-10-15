@@ -1,7 +1,7 @@
 ---
 id: launch-model-check-cached-per-binary-identity
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-26
 summary: The model check runs when the launch dialog opens and caches verdicts against the resolved claude binary path, size and mtime; launch reads the cache.
 features: [launch]

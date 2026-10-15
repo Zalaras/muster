@@ -125,10 +125,11 @@ func (f *issueFeature) buildIssueSnapshot(ctx context.Context, now time.Time, se
 		Scope:      "dashboard",
 	}
 	snap.Musterd.Version = f.daemonVersion
-	snap.ClaudeCode.Installed = f.claudeCode.Installed
-	snap.ClaudeCode.Floor = f.claudeCode.Floor
-	snap.ClaudeCode.Verified = f.claudeCode.Verified
-	snap.ClaudeCode.Status = f.claudeCode.Status
+	cc := f.claudeCode()
+	snap.ClaudeCode.Installed = cc.Installed
+	snap.ClaudeCode.Floor = cc.Floor
+	snap.ClaudeCode.Verified = cc.Verified
+	snap.ClaudeCode.Status = cc.Status
 	snap.Host.OS = runtime.GOOS
 	snap.Host.Arch = runtime.GOARCH
 	snap.Dashboard.SessionsTotal = len(sessions)

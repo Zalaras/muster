@@ -43,6 +43,8 @@ const defaultUsagePoll = 5 * time.Minute
 // theme config key (kb:adr/theme-claude-theme-read-only-poll).
 const defaultClaudeThemePoll = 10 * time.Second
 
+const claudeVersionLookInterval = 30 * time.Second
+
 // defaultRepoPoll is -repo-poll's default: the liveness poll's cadence, so a checkout shows
 // on the card within one tick (kb:adr/lifecycle-branch-refreshed-by-repo-poll).
 const defaultRepoPoll = 5 * time.Second
@@ -355,24 +357,16 @@ type servingEnv struct {
 	listener         net.Listener
 	port             int
 	dashboardURL     string
-	claudeCodeInfo   server.ClaudeCodeInfo
 	hookScript       string
 	statusLineScript string
 	legacyScript     string
 }
 
-// prepareServing bootstraps the tokens, classifies the installed Claude Code, binds the
-// listener and writes the tokens file and hook wrapper scripts — in that order, since each
-// step's output feeds the next.
 func prepareServing(ctx context.Context, f *cliFlags, st *store.Store, log zerolog.Logger) (*servingEnv, error) {
 	uiToken, ingestToken, err := bootstrapTokens(ctx, st)
 	if err != nil {
 		return nil, fmt.Errorf("bootstrapping tokens: %w", err)
 	}
-
-	versionCtx, versionCancel := context.WithTimeout(ctx, versionCheckTimeout)
-	claudeCodeInfo := checkClaudeCode(versionCtx, f.claudeBin, log)
-	versionCancel()
 
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", f.addr)
@@ -406,7 +400,6 @@ func prepareServing(ctx context.Context, f *cliFlags, st *store.Store, log zerol
 		listener:         ln,
 		port:             port,
 		dashboardURL:     dashboardURL,
-		claudeCodeInfo:   claudeCodeInfo,
 		hookScript:       hookScript,
 		statusLineScript: statusLineScript,
 		legacyScript:     legacyScript,
@@ -424,7 +417,6 @@ func buildServerConfig(f *cliFlags, st *store.Store, log zerolog.Logger, serving
 		IngestToken:   serving.ingestToken,
 		WebDist:       f.webDist,
 		DaemonVersion: version,
-		ClaudeCode:    serving.claudeCodeInfo,
 		TmuxSocket:    f.tmuxSocket,
 		Locator:       locate.New(),
 
@@ -453,7 +445,8 @@ func buildServerConfig(f *cliFlags, st *store.Store, log zerolog.Logger, serving
 			Poll:       f.claudeThemePoll,
 			ConfigFile: f.claudeConfigFile,
 		},
-		RepoRefresh: server.RepoRefreshConfig{Poll: f.repoPoll},
+		ClaudeVersion: server.ClaudeVersionConfig{Poll: claudeVersionLookInterval},
+		RepoRefresh:   server.RepoRefreshConfig{Poll: f.repoPoll},
 		Update: server.UpdateConfig{
 			BaseURL:       f.updateBaseURL,
 			CheckInterval: f.updateCheckInterval,

@@ -45,11 +45,18 @@ function claudeVersionReadout(page: Page): Locator {
   return page.locator("#claude-version");
 }
 
-/** Waits past the pre-hello placeholder — the readout starts "claude unknown" (existing
- * behaviour, main.ts's `renderClaudeVersion(claudeVersionEl, null)` at init) and
- * re-renders once the WS `hello` frame arrives (UI Specifications > User Flows 1). */
+/** The readout's hover text while its state is unknown — pre-hello and `status: "unknown"`
+ * both render it (plan REQ-5, decision readout-reserved-width B). Cleared by every other state. */
+const UNKNOWN_HINT = "The Claude Code version check failed or hasn't completed yet";
+
+/** Waits for the WS `hello` frame. The readout's pre-hello placeholder and its
+ * `status: "unknown"` state are the same text ("claude unknown"), so the text can no longer
+ * tell them apart; the connection status can: `features/connection.ts`'s `connected()`
+ * flips it to "connected" and renders the hello's `claudeCode` in the same synchronous
+ * call (UI Specifications > User Flows 1), so "connected" means the readout shows the
+ * hello's state. */
 async function waitForHello(page: Page): Promise<void> {
-  await expect(claudeVersionReadout(page)).not.toHaveText("claude unknown");
+  await expect(page.locator("#connection-status")).toHaveText("connected");
 }
 
 const DEFAULT_STUB_INSTALLED = leadingVersion(STUB_CLAUDE_VERSION);
@@ -117,7 +124,7 @@ test("stub answering one patch above the verified ceiling: the not-tested glyph 
   expect(glyphName).not.toContain("update");
 });
 
-test("stub whose --version fails: the dashboard still serves and the readout reads exactly Claude installation unknown, no glyph (E4, Edge Case 1)", async ({
+test("stub whose --version fails: the dashboard still serves and the readout reads exactly claude unknown with the check-failed hover text, no glyph (E4, Edge Case 1)", async ({
   page,
   startDaemon,
 }) => {
@@ -125,11 +132,13 @@ test("stub whose --version fails: the dashboard still serves and the readout rea
   await page.goto(daemon.dashboardUrl);
 
   // INV-3: no version-check outcome makes musterd exit non-zero or skip serving.
-  // Reaching "connected" is the functional proof (embedded.spec.ts's own idiom).
+  // Reaching "connected" is the functional proof (embedded.spec.ts's own idiom); it is also
+  // the hello, so the readout below is the hello's `unknown`, not the pre-hello placeholder.
   await expect(page.getByRole("status")).toHaveText(/connected/i);
 
   const readout = claudeVersionReadout(page);
-  await expect(readout).toHaveText("Claude installation unknown");
+  await expect(readout).toHaveText("claude unknown");
+  await expect(readout).toHaveAttribute("title", UNKNOWN_HINT);
   await expect(readout.getByRole("img")).toHaveCount(0);
 });
 
@@ -173,4 +182,69 @@ test("the readout holds no button or link, and clicking the glyph leaves it visi
   await expect(readout).toHaveText(
     new RegExp(`^claude ${DEFAULT_STUB_INSTALLED.replace(/\./g, "\\.")}(\\s|$)`),
   );
+});
+
+test("a stub whose --version takes 7 s: the daemon serves within 3 s and the open dashboard's readout flips to the version with no reload (claude-version-watch REQ-1, REQ-2)", async ({
+  page,
+  startDaemon,
+}) => {
+  const daemon = await startDaemon({ stubClaudeVersionDelaySeconds: 7 });
+
+  // REQ-1: /healthz answered, measured from the spawn, without waiting on the version check.
+  expect(daemon.startupMs).toBeLessThan(3_000);
+
+  await page.goto(daemon.dashboardUrl);
+  const readout = claudeVersionReadout(page);
+
+  // Until the check finishes the dashboard holds `unknown` (hello.claudeCode "not checked yet").
+  // Wait for the hello first: the pre-hello placeholder reads the same text.
+  await waitForHello(page);
+  await expect(readout).toHaveText("claude unknown");
+  await expect(readout).toHaveAttribute("title", UNKNOWN_HINT);
+
+  // REQ-2: the same page, never reloaded, re-renders from the pushed `claudeCode` message.
+  await expect(readout).toHaveText(
+    new RegExp(`^claude ${DEFAULT_STUB_INSTALLED.replace(/\./g, "\\.")}(\\s|$)`),
+  );
+});
+
+test("a stub whose --version takes 7 s: the Settings button holds its x while the readout flips from claude unknown to the version and warning glyph, no reload (claude-version-watch REQ-5)", async ({
+  page,
+  startDaemon,
+}) => {
+  const daemon = await startDaemon({ stubClaudeVersionDelaySeconds: 7 });
+  await page.goto(daemon.dashboardUrl);
+
+  const readout = claudeVersionReadout(page);
+  const settings = page.locator("#settings-button");
+
+  // The hello's `unknown`, held while the check runs. The pre-hello placeholder is the same
+  // text, so wait for "connected" (the hello) before measuring, not for the text.
+  await waitForHello(page);
+  await expect(readout).toHaveText("claude unknown");
+  await expect(settings).toBeVisible();
+  const before = await settings.boundingBox();
+  if (before === null) throw new Error("#settings-button has no bounding box before the flip");
+  const widthBefore = (await readout.boundingBox())?.width;
+
+  // The hover text carries the explanation while unknown.
+  await expect(readout).toHaveAttribute("title", UNKNOWN_HINT);
+
+  // The same page, never reloaded, flips to `claude <version>` plus the warning glyph (the
+  // default stub reply classifies "below") - the widest version state the reservation covers.
+  await expect(readout).toHaveText(
+    new RegExp(`^claude ${DEFAULT_STUB_INSTALLED.replace(/\./g, "\\.")}(\\s|$)`),
+  );
+  await expect(readout.getByRole("img")).toBeVisible();
+
+  // No hover text once a version is known (the glyph keeps its own title).
+  await expect(readout).toHaveAttribute("title", "");
+
+  const after = await settings.boundingBox();
+  if (after === null) throw new Error("#settings-button has no bounding box after the flip");
+  expect(after.x).toBeCloseTo(before.x, 2);
+
+  // The reservation, not luck: the readout itself keeps its width across the flip.
+  const widthAfter = (await readout.boundingBox())?.width;
+  expect(widthAfter).toBeCloseTo(widthBefore ?? Number.NaN, 2);
 });

@@ -344,6 +344,12 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.claude-version {
+  display: inline-block;
+  min-width: calc(17ch + 4px);
+  text-align: right;
+}
+
 #connection-status {
   position: relative;
   display: inline-block;

@@ -70,7 +70,9 @@ async function expectSingleLine(locator: Locator, label: string): Promise<void> 
 
 // The widest realistic suffix on every bar: an other-day reset, which carries the weekday.
 // The next Wednesday at least two days out, so it is never today whatever day the suite runs.
-for (const width of [1512, 1440]) {
+// 1280 is the width browser review cycle 3 found the readout's reserved width pushing
+// #connection-status off-screen at, with every gauge known (plan REQ-5).
+for (const width of [1512, 1440, 1280]) {
   test(`at ${width}px with every gauge known, the model-week selector showing and other-day resets on all three bars, the masthead is one row with no wrapped text and no model readout (E7, REQ-11, issue #52)`, async ({
     page,
     startDaemon,
@@ -165,9 +167,18 @@ for (const width of [1512, 1440]) {
             rightScrollWidth: right.scrollWidth,
             rightClientWidth: right.clientWidth,
             connRight: connRect.right,
+            viewportWidth: document.documentElement.clientWidth,
             paddingBoxRight: mastheadRect.right - paddingRight,
           };
         });
+        // The connection dot is fully on-screen, not merely inside the masthead's own
+        // padding box (the masthead can itself overflow the viewport).
+        expect(
+          layout.connRight,
+          `#connection-status should sit fully inside the ${width}px viewport`,
+        ).toBeLessThanOrEqual(layout.viewportWidth);
+        expect(layout.connRight).toBeGreaterThan(0);
+
         expect(
           layout.mastheadScrollWidth,
           `masthead scrollWidth should not exceed its clientWidth at ${width}px`,

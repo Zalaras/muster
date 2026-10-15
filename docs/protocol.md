@@ -1155,12 +1155,14 @@ Every message: `{"type": "<name>", …}`. Unknown types are ignored.
   "claudeCode": { "installed": "2.1.267", "floor": "2.1.246", "verified": "2.1.267", "status": "verified" } }
 ```
 
-`claudeCode` is the daemon's startup classification of the installed Claude Code against the
-canary-verified range (`docs/claude-code-versions.md`):
+`claudeCode` is the daemon's latest classification of the installed Claude Code against the
+canary-verified range (`docs/claude-code-versions.md`). The check runs in the background once the
+daemon serves and again whenever the `claude` binary file changes; a later result reaches an open
+dashboard as `claudeCode` (`kb:anchor/ws.claude-code`):
 
-- `installed` — `string|null`: the leading `major.minor.patch` of `claude --version` at daemon
-  startup. `null` **iff** `status` is `"unknown"` (the check failed, hung past its timeout or was
-  unparseable).
+- `installed` — `string|null`: the leading `major.minor.patch` of `claude --version` from the
+  latest check. `null` **iff** `status` is `"unknown"` (not checked yet, or the check failed, hung
+  past its timeout or was unparseable).
 - `floor` — `string`, always present: the lowest version `make canary` has gone green on.
 - `verified` — `string`, always present: the highest such version (the ceiling). `floor ≤ verified`
   always; equal when only one version has been observed.
@@ -1168,7 +1170,7 @@ canary-verified range (`docs/claude-code-versions.md`):
   `verified` is `floor ≤ installed ≤ verified` (versions strictly inside the range are inferred, not
   individually run), `above` is `installed > verified`.
 
-The masthead renders the four states (`unknown` as the words "Claude installation unknown", `kb:anchor/conventions`;
+The masthead renders the four states (`unknown` as the words "claude unknown", `kb:anchor/conventions`;
 `below`/`above` with a warning glyph and hover text). Protocol 1 carried `{pinned, installed,
 drift}` — removed. A `protocolVersion` the client doesn't know → client shows "reload the
 dashboard"; the dashboard is embedded in the binary, so the only skewed client is a tab left open
@@ -1464,6 +1466,19 @@ Best-effort like the hooks it mirrors (`kb:fact/hook-delivery-best-effort`): the
 re-fetches the open file on it and lights a changed dot on others, and must never depend on
 receiving it — a missed one leaves the file stale and labelled by its freshness cue. A client
 that does not know `id` ignores it. Nothing is replayed on reconnect.
+
+<!-- kb:anchor ws.claude-code -->
+### `claudeCode`
+
+```jsonc
+{ "type": "claudeCode", "claudeCode": { "installed": "2.1.300", "floor": "2.1.246", "verified": "2.1.300", "status": "verified" } }
+```
+
+`claudeCode` is the same object, with the same field rules, as `hello.claudeCode`
+(`kb:anchor/ws.hello`). Sent **only when the daemon's latest result changed** since the last one it
+held — never per look at the binary, never with a timestamp. The first value a client sees is
+`hello.claudeCode`, so a reconnect needs no replay. On receipt the dashboard re-renders the
+masthead's Claude version readout.
 
 <!-- kb:anchor ws.claude-theme -->
 ### `claudeTheme`

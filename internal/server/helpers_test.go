@@ -79,8 +79,8 @@ func newTestServer(t *testing.T, cc ClaudeCodeInfo) *testServer {
 		IngestToken:   testIngestToken,
 		WebDist:       t.TempDir(),
 		DaemonVersion: "test-version",
-		ClaudeCode:    cc,
 	})
+	srv.claudeVersion.current = cc
 
 	return &testServer{Server: srv, dbPath: dbPath, logs: logBuf, store: st}
 }

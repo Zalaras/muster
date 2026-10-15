@@ -30,6 +30,11 @@ function isClaudeCodeStatus(value: unknown): value is ClaudeCodeStatus {
   return (CLAUDE_CODE_STATUSES as readonly unknown[]).includes(value);
 }
 
+export interface ClaudeCodeMessage {
+  type: "claudeCode";
+  claudeCode: ClaudeCodeInfo;
+}
+
 function parseClaudeCode(value: unknown): ClaudeCodeInfo | null {
   if (!isRecord(value)) return null;
   const installed = value["installed"];
@@ -41,6 +46,12 @@ function parseClaudeCode(value: unknown): ClaudeCodeInfo | null {
   if (typeof verified !== "string") return null;
   if (!isClaudeCodeStatus(status)) return null;
   return { installed, floor, verified, status };
+}
+
+export function parseClaudeCodeMessage(rec: Record<string, unknown>): ClaudeCodeMessage | null {
+  const claudeCode = parseClaudeCode(rec["claudeCode"]);
+  if (!claudeCode) return null;
+  return { type: "claudeCode", claudeCode };
 }
 
 export function parseHello(rec: Record<string, unknown>): Hello | null {

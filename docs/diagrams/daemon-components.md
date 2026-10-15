@@ -93,7 +93,7 @@ C4Component
     Rel(server, store, "events, rows")
     Rel(server, tmuxpkg, "spawns, kills")
     Rel(server, ttypkg, "reads line discipline")
-    Rel(server, cc, "parses payloads")
+    Rel(server, cc, "parses payloads, checks the version")
     Rel(server, webui, "serves")
     Rel(server, locate, "resolves drops")
     Rel(server, selfupd, "polls, applies")

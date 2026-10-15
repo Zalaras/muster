@@ -44,26 +44,12 @@ group deliberately, and otherwise don't re-sort this list.
 The refusal entry was filed 2026-09-26 by the developer from
 `plans/maintainability-regressions/proposed-backlog.md`.
 
-- [ ] **Taking long time to launch a new session** ([#81](https://github.com/Zalaras/muster/issues/81)) — a
-  newly launched session took a long time to come up, with six live sessions at the time, and
-  musterd logged the model check failing for every model in the launch dialog:
-  `model-catalog check failed; unchecked error="context deadline exceeded"` for `haiku`,
-  `fable`, `sonnet` and `opus`. A launch should be ready promptly, and the model check should
-  complete. #89 logs a call to Claude Code being killed the same
-  way; the two may share a fix.
-
 - [ ] **A model refusal can move focus after the selection changed** — in one open dialog:
   submit model A (refused), change to B and submit, change back to A and click Title; B's
   refusal moves focus to the custom-model field. A refusal should move focus only while the
   refused model is still the selection. From `plans/maintainability-regressions/`.
 
 ### Together — the installed Claude Code version (#89, #88)
-
-- [ ] **Getting error running claude --version** ([#89](https://github.com/Zalaras/muster/issues/89)) — musterd
-  logged `could not determine claude code version error="running claude --version: signal:
-  killed"`, and the dashboard showed the installed Claude Code version as unknown. The installed
-  version should always be read and shown. #81 logs the launch's model check timing out the
-  same way; the two may share a fix.
 
 - [ ] **Need a way to restart all claude session with latest Claude version** ([#88](https://github.com/Zalaras/muster/issues/88)) —
   after Claude Code updates, the developer wants to restart every session onto the new version
@@ -185,6 +171,11 @@ and the second is the one to re-measure if a Claude Code bump touches worktrees.
   failed with another suite alive in a second worktree, and passed alone every time
   (`docs/history/design/test-strategy.md`, 2026-09-26). The gate lock now keeps a second suite
   out; these four are the ones to look at if the lock ever has to go.
+
+- [ ] **`embedded.spec.ts:76` may be macOS holding a freshly copied musterd** — the embedded
+  fixture copies a new `musterd` for every start and waits 10 s for `/healthz`; it went red alone,
+  under the gate lock, with empty output (2026-10-15). A daemon start should pass whatever the
+  binary's age. From `plans/claude-version-watch/`.
 
 ### Test suite time (filed 2026-10-06)
 

@@ -1,0 +1,263 @@
+{
+  "plan": "claude-version-watch",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-15T11:27:47Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 13,
+        "keep": 3,
+        "drop": 10
+      },
+      "keeps": [
+        {
+          "key": "internal/server/claudeversion.go:b6ecec40195021d1",
+          "path": "internal/server/claudeversion.go",
+          "anchor": {
+            "kind": "above",
+            "text": "const claudeVersionTimeout = 30 * time.Second",
+            "line": 14
+          },
+          "lines": [
+            "// claudeVersionTimeout bounds one `claude --version` run: the first run of a newly written",
+            "// binary costs ~11 s on macOS (kb:fact/new-claude-binary-first-run-slow-on-macos)."
+          ],
+          "reason": "Without it a reader would shorten the 30 s timeout to a few seconds as generous for `claude --version`; that makes the ~11 s first run of a new binary time out and report unknown at `const claudeVersionTimeout = 30 * time.Second`."
+        },
+        {
+          "key": "internal/server/claudeversion.go:74793ab5bbda5018",
+          "path": "internal/server/claudeversion.go",
+          "anchor": {
+            "kind": "above",
+            "text": "seen claudecode.BinaryIdentity",
+            "line": 66
+          },
+          "lines": [
+            "// seen and haveSeen belong to the loop goroutine alone."
+          ],
+          "reason": "Without it a reader would read seen/haveSeen from another goroutine such as Current without a lock; that races with the unlocked writes at `f.seen, f.haveSeen = id, true`."
+        },
+        {
+          "key": "internal/server/claudeversion.go:15231c2b16f4b8ed",
+          "path": "internal/server/claudeversion.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *claudeVersionFeature) tick(ctx context.Context) {",
+            "line": 104
+          },
+          "lines": [
+            "// tick looks at the binary's identity and runs one check when it is not the one last",
+            "// checked. An identity that cannot be resolved (an update mid-swap) runs nothing and",
+            "// keeps the held value; the next tick looks again. The identity is recorded before the",
+            "// check so a binary that changes while it runs is seen again by the next tick."
+          ],
+          "reason": "Without it a reader would move the identity record after the check as tidier; that makes a binary swapped during the check never get rechecked at `f.seen, f.haveSeen = id, true`."
+        }
+      ],
+      "drops": [
+        {
+          "key": "cmd/musterd/main.go:06340a5c4b9244a4",
+          "path": "cmd/musterd/main.go",
+          "anchor": {
+            "kind": "above",
+            "text": "const claudeVersionLookInterval = 30 * time.Second",
+            "line": 46
+          },
+          "lines": [
+            "// claudeVersionLookInterval is how often the daemon stats the claude binary to notice an",
+            "// update (kb:adr/connection-claude-version-watched-and-pushed)."
+          ]
+        },
+        {
+          "key": "cmd/musterd/main.go:49d4d34b05d276bc",
+          "path": "cmd/musterd/main.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func prepareServing(ctx context.Context, f *cliFlags, st *store.Store, log zerolog.Logger) (*servingEnv, error) {",
+            "line": 365
+          },
+          "lines": [
+            "// prepareServing bootstraps the tokens, binds the listener and writes the tokens file and",
+            "// hook wrapper scripts — in that order, since each step's output feeds the next."
+          ]
+        },
+        {
+          "key": "internal/server/claudeversion.go:e076c0402529d45c",
+          "path": "internal/server/claudeversion.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type ClaudeVersionConfig struct {",
+            "line": 16
+          },
+          "lines": [
+            "// ClaudeVersionConfig groups the Claude Code version watch's config. Poll \u003c= 0 means no",
+            "// check ever runs, so `claude` is never exec'd by a zero-value Config."
+          ]
+        },
+        {
+          "key": "internal/server/claudeversion.go:4b5df4c1e9fe4013",
+          "path": "internal/server/claudeversion.go",
+          "anchor": {
+            "kind": "above",
+            "text": "Poll time.Duration",
+            "line": 17
+          },
+          "lines": [
+            "// Poll is how often the resolved claude binary's identity is looked at (a stat, never a",
+            "// claude run). \u003c= 0 disables the watch: hello.claudeCode stays \"unknown\"."
+          ]
+        },
+        {
+          "key": "internal/server/claudeversion.go:bb543e6966bcce89",
+          "path": "internal/server/claudeversion.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type ClaudeCodeInfo struct {",
+            "line": 20
+          },
+          "lines": [
+            "// ClaudeCodeInfo is the daemon's latest Claude Code version check against the",
+            "// canary-verified range (kb:anchor/ws.hello, kb:anchor/ws.claude-code), also read by the",
+            "// issue-capture snapshot. Installed is nil iff Status is \"unknown\" (not checked yet, or the",
+            "// check failed, hung past its timeout or was unparseable); Floor/Verified are always",
+            "// populated."
+          ]
+        },
+        {
+          "key": "internal/server/claudeversion.go:4c6686c520f1fcf1",
+          "path": "internal/server/claudeversion.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type claudeCodeMessage struct {",
+            "line": 51
+          },
+          "lines": [
+            "// claudeCodeMessage is the WS `claudeCode` envelope (kb:anchor/ws.claude-code): the same",
+            "// object as hello.claudeCode, sent only when the daemon's result changed — never per look,",
+            "// never with a timestamp."
+          ]
+        },
+        {
+          "key": "internal/server/claudeversion.go:b17a3c3a3178a8be",
+          "path": "internal/server/claudeversion.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type claudeVersionFeature struct {",
+            "line": 56
+          },
+          "lines": [
+            "// claudeVersionFeature owns the daemon's latest Claude Code version result",
+            "// (kb:adr/connection-claude-version-watched-and-pushed). It mounts no routes. Its one",
+            "// goroutine (bgLoop) is the only writer of current, under mu; hello and the issue snapshot",
+            "// read it through Current. No outcome here makes musterd skip serving",
+            "// (kb:adr/connection-installed-claude-classified-never-refused)."
+          ]
+        },
+        {
+          "key": "internal/server/claudeversion.go:31597de7fc270b61",
+          "path": "internal/server/claudeversion.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *claudeVersionFeature) Current() ClaudeCodeInfo {",
+            "line": 98
+          },
+          "lines": [
+            "// Current returns the latest result; \"unknown\" with Installed nil until the first check",
+            "// finishes."
+          ]
+        },
+        {
+          "key": "web/src/features/connection.ts:59c8e834ff0daa1c",
+          "path": "web/src/features/connection.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "claudeCodeChanged(claudeCode: ClaudeCodeInfo): void;",
+            "line": 43
+          },
+          "lines": [
+            "/** WS `claudeCode`: the daemon's check result changed after this hello — re-renders the",
+            "* version readout alone. */"
+          ]
+        },
+        {
+          "key": "web/src/protocol/hello.ts:b12ad3eef03ae945",
+          "path": "web/src/protocol/hello.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface ClaudeCodeMessage {",
+            "line": 33
+          },
+          "lines": [
+            "// kb:anchor/ws.claude-code: sent only when the daemon's latest check result changed — the",
+            "// same object `hello.claudeCode` carries, nested under `claudeCode`."
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-10-15T12:17:06Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 1,
+        "keep": 1,
+        "drop": 0
+      },
+      "keeps": [
+        {
+          "key": "internal/server/claudeversion.go:637b7f6eba73996e",
+          "path": "internal/server/claudeversion.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *claudeVersionFeature) tick(ctx context.Context) {",
+            "line": 108
+          },
+          "lines": [
+            "// tick looks at the binary's identity and runs one check when it is not the one last",
+            "// checked. An identity that cannot be resolved (no claude on PATH, a bad -claude-bin, an",
+            "// update mid-swap) runs nothing and keeps the held value; it is logged once per",
+            "// unresolved stretch and the next tick looks again. The identity is recorded before the",
+            "// check so a binary that changes while it runs is seen again by the next tick."
+          ],
+          "reason": "Without it a reader would move `f.seen, f.haveSeen = id, true` below the check call as tidier ordering; that makes a binary swapped during the check go unnoticed at `report := f.check(checkCtx)`."
+        }
+      ],
+      "drops": null
+    },
+    {
+      "cycle": 4,
+      "at": "2026-10-15T16:52:31Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 1,
+        "keep": 1,
+        "drop": 0
+      },
+      "keeps": [
+        {
+          "key": "web/src/features/connectionversion.ts:d370c0f57fe1521a",
+          "path": "web/src/features/connectionversion.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function describeClaudeVersion(info: ClaudeCodeInfo | null): ClaudeVersionDescription {",
+            "line": 13
+          },
+          "lines": [
+            "/** The text/warning decision per `ClaudeCodeInfo.status`:",
+            "* - `null` (pre-hello) -\u003e \"claude unknown\", no warning, the unknown hover text",
+            "* - `status: \"unknown\"` (any `installed`), or a defensive non-`unknown` status with",
+            "*   `installed === null` (the daemon never sends this — kb:adr/connection-installed-claude-classified-never-refused) -\u003e \"claude",
+            "*   unknown\", no warning, the unknown hover text",
+            "* - `status: \"verified\"` -\u003e \"claude \u003cinstalled\u003e\", no warning",
+            "* - `status: \"above\"` -\u003e \"claude \u003cinstalled\u003e\" + the \"not tested\" warning",
+            "* - `status: \"below\"` -\u003e \"claude \u003cinstalled\u003e\" + the \"not tested, please update\" warning",
+            "*/"
+          ],
+          "reason": "Edited on `main`; still true: `export function describeClaudeVersion(info: ClaudeCodeInfo | null)` returns the unknown, above, below and verified results the comment lists."
+        }
+      ],
+      "drops": null
+    }
+  ]
+}

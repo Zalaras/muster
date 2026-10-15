@@ -23,6 +23,7 @@ export interface WsAppConnection {
  * which `doc.ts` builds, does not, so it stays scoped to `dashboardWsHandlers`. */
 export interface DashboardConnection extends WsAppConnection {
   showProtocolMismatch(): void;
+  claudeCodeChanged(claudeCode: ClaudeCodeInfo): void;
 }
 
 /** Exactly what `doc.ts` registers verbatim; `dashboardWsHandlers` below spreads the
@@ -86,6 +87,7 @@ export function dashboardWsHandlers(
       app.emit("update", update);
       app.render();
     },
+    onClaudeCode: (claudeCode) => connection.claudeCodeChanged(claudeCode),
     onProtocolMismatch: () => connection.showProtocolMismatch(),
     // features/updaterestart.ts's own `app.on("helloArrived", ...)` decides what to do
     // with it (kb:adr/update-restart-reloads-dashboard) — this module only relays the

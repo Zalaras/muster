@@ -187,8 +187,9 @@ never wraps. Below 1840px the gaps tighten and the bars drop to 40px; nothing tr
 (kb:adr/usage-masthead-narrow-width-shrinks-bars).
 
 **Claude Code version readout** (`#claude-version`, plan `version-claude-interface`) —
-`claude <installed>`, or `Claude installation unknown` when the check failed or hasn't
-completed. When the installed version falls outside the canary-verified range, a warning
+`claude <installed>`, or `claude unknown` when the check failed or hasn't completed (its hover
+text says so). The readout keeps one width, right-aligned, so a live change never moves the
+controls beside it (kb:adr/connection-claude-version-readout-short-unknown-fixed-width). When the installed version falls outside the canary-verified range, a warning
 glyph follows the version text; it carries **no state colour** (§3) — it inherits the
 readout's own muted text colour — and its hover/`aria-label` text names whether Claude Code
 needs updating or is simply newer than anything verified yet.

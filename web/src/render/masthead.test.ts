@@ -395,6 +395,7 @@ class FakeVersionNode {
 }
 
 class FakeVersionElement {
+  title = "";
   private children: FakeVersionNode[] = [];
 
   replaceChildren(...nodes: FakeVersionNode[]): void {
@@ -444,6 +445,20 @@ describe("renderClaudeVersion — rebuilds #claude-version via replaceChildren (
     renderClaudeVersion(el as unknown as HTMLElement, describeClaudeVersion(null));
     expect(el.nodes()).toHaveLength(1);
     expect(el.textContent).toBe("claude unknown");
+  });
+
+  it("unknown sets the readout title to the hint; a later version render clears it", () => {
+    const el = element();
+    renderClaudeVersion(el as unknown as HTMLElement, describeClaudeVersion(null));
+    expect(el.title).toBe("The Claude Code version check failed or hasn't completed yet");
+    const info: ClaudeCodeInfo = {
+      installed: "2.1.267",
+      floor: "2.1.246",
+      verified: "2.1.267",
+      status: "verified",
+    };
+    renderClaudeVersion(el as unknown as HTMLElement, describeClaudeVersion(info));
+    expect(el.title).toBe("");
   });
 
   it("warning present: trailing-space text node followed by a role=img glyph whose aria-label and title both carry the warning sentence", () => {

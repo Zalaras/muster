@@ -19,7 +19,7 @@ Filing is two steps (kb:adr/issue-capture-then-file-server-held). Opening the di
 capture through `kb:anchor/issue.captures`, scoped to the focused session or to the
 dashboard as a whole via a Session select built from the rail's order. The daemon assembles
 the snapshot by explicit field copy from a pinned allowlist: daemon and Claude Code versions
-and classification, host OS and architecture, dashboard counts and view state, and for a
+and classification (the daemon's latest result at capture time), host OS and architecture, dashboard counts and view state, and for a
 session its state, timings, liveness, attention reason, raw failure token, model,
 permission mode, context figures, compaction count, tmux target and event counts. Prompt
 text, hook payloads, pane captures, the last activity and failure message, the title,

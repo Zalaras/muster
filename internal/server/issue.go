@@ -63,7 +63,7 @@ type issueFeature struct {
 	manager       *session.Manager
 	store         *store.Store
 	daemonVersion string
-	claudeCode    ClaudeCodeInfo
+	claudeCode    func() ClaudeCodeInfo
 	log           zerolog.Logger
 }
 
@@ -71,7 +71,7 @@ type issueFeature struct {
 // usageFeature's nil-when-disabled poller): no token reader is built and no
 // exec.LookPath/gh probe happens on a daemon with issue capture disabled — every handler
 // already 404s on f.apiURL == "" before it would reach f.client.
-func newIssueFeature(cfg IssueConfig, httpClient *http.Client, manager *session.Manager, st *store.Store, daemonVersion string, claudeCode ClaudeCodeInfo, log zerolog.Logger) *issueFeature {
+func newIssueFeature(cfg IssueConfig, httpClient *http.Client, manager *session.Manager, st *store.Store, daemonVersion string, claudeCode func() ClaudeCodeInfo, log zerolog.Logger) *issueFeature {
 	f := &issueFeature{
 		repo:          cfg.Repo,
 		apiURL:        cfg.APIURL,

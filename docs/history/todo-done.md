@@ -2383,3 +2383,23 @@ One `/orchestrate` run covers all of this group.
   scheme is defined (`docs/conventions.md` § Issue labels), every open issue is labelled, and
   `/triage` applies labels from validated names (plan `triage-rework`, 2026-10-15). Ticks when
   that plan lands with `closes #43`.
+
+### Together — launching a session (#81, #68)
+
+- [x] **Taking long time to launch a new session** ([#81](https://github.com/Zalaras/muster/issues/81)) — a
+  newly launched session took a long time to come up, with six live sessions at the time, and
+  musterd logged the model check failing for every model in the launch dialog:
+  `model-catalog check failed; unchecked error="context deadline exceeded"` for `haiku`,
+  `fable`, `sonnet` and `opus`. A launch should be ready promptly, and the model check should
+  complete. #89 logs a call to Claude Code being killed the same
+  way; the two may share a fix.
+  ✅ done 2026-10-15 (plan `claude-version-watch`, via `/fix`): the cause was the first run of a newly installed `claude` binary, which macOS holds ~11 s, not the six sessions. The daemon now runs `claude --version` as soon as the binary file changes, so that wait is paid before a launch rather than during one (kb:fact/new-claude-binary-first-run-slow-on-macos).
+
+### Together — the installed Claude Code version (#89, #88)
+
+- [x] **Getting error running claude --version** ([#89](https://github.com/Zalaras/muster/issues/89)) — musterd
+  logged `could not determine claude code version error="running claude --version: signal:
+  killed"`, and the dashboard showed the installed Claude Code version as unknown. The installed
+  version should always be read and shown. #81 logs the launch's model check timing out the
+  same way; the two may share a fix.
+  ✅ done 2026-10-15 (plan `claude-version-watch`, via `/fix`): the version check runs in the background after the daemon starts serving, with a 30 s bound, re-runs when the binary changes, and each new result is pushed to open dashboards in a `claudeCode` message.

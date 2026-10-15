@@ -99,6 +99,10 @@ const STUB_CLAUDE_SCRIPT = [
   // MUSTER_E2E_STUB_VERSION_FAIL set (to anything) means "answer like a broken
   // install": exit non-zero, print nothing — REQ-13's `stubClaudeVersionFails`/E4.
   `  if [ -n "\${MUSTER_E2E_STUB_VERSION_FAIL:-}" ]; then exit 1; fi`,
+  // MUSTER_E2E_STUB_VERSION_DELAY_SECONDS set means "answer like the first run of a newly
+  // written binary": hold the reply that many seconds first
+  // (`stubClaudeVersionDelaySeconds`).
+  `  if [ -n "\${MUSTER_E2E_STUB_VERSION_DELAY_SECONDS:-}" ]; then sleep "$MUSTER_E2E_STUB_VERSION_DELAY_SECONDS"; fi`,
   // Otherwise reply shape-faithful to a real install's "2.1.246 (Claude Code)" — the
   // masthead and the daemon's classification both parse only the leading
   // major.minor.patch, ignoring the "-e2e-stub" suffix — using
@@ -353,6 +357,13 @@ export interface ScratchDaemonOptions {
    */
   stubClaudeVersionFails?: boolean;
   /**
+   * Plan claude-version-watch test seam: seconds the stub's `--version` branch sleeps before
+   * answering (`MUSTER_E2E_STUB_VERSION_DELAY_SECONDS`), for this run only — the first run of
+   * a newly written `claude` binary on macOS takes ~11 s with no CPU of its own. Omit for an
+   * immediate answer.
+   */
+  stubClaudeVersionDelaySeconds?: number;
+  /**
    * Plan maintainability-regressions test seam: exact model names the stub's `--bare`
    * branch answers as unrecognised (`MUSTER_E2E_STUB_UNRECOGNIZED_MODELS`, space-joined),
    * for `GET /api/models`/`POST /api/sessions` fixtures that need a *preset* (sonnet,
@@ -554,6 +565,13 @@ export class ScratchDaemon {
   /** Plan version-claude-interface REQ-13: true iff this run's stub answers
    * `--version` with a failure instead of a version string. */
   private readonly stubClaudeVersionFails: boolean;
+  /** Plan claude-version-watch: seconds this run's stub holds its `--version` reply, or
+   * `undefined` for an immediate answer. */
+  private readonly stubClaudeVersionDelaySeconds: number | undefined;
+  /** Milliseconds from this run's spawn until `/healthz` first answered (set by
+   * `spawnAndWait`, re-set by `restart()`). Plan claude-version-watch: measures the daemon
+   * becoming reachable, not the harness's own setup around it. */
+  startupMs = 0;
   /** Plan maintainability-regressions: exact model names this run's stub answers as
    * unrecognised from its `--bare` branch (`MUSTER_E2E_STUB_UNRECOGNIZED_MODELS`). */
   private readonly stubUnrecognizedModels: string[];
@@ -589,6 +607,7 @@ export class ScratchDaemon {
     extraEnv?: Record<string, string>,
     stubUnrecognizedModels: string[] = [],
     repoPoll?: string,
+    stubClaudeVersionDelaySeconds?: number,
   ) {
     this.port = port;
     this.baseURL = `http://127.0.0.1:${port}`;
@@ -620,6 +639,7 @@ export class ScratchDaemon {
     this.extraEnv = extraEnv;
     this.stubUnrecognizedModels = stubUnrecognizedModels;
     this.repoPoll = repoPoll;
+    this.stubClaudeVersionDelaySeconds = stubClaudeVersionDelaySeconds;
   }
 
   static async start(opts: ScratchDaemonOptions = {}): Promise<ScratchDaemon> {
@@ -663,6 +683,7 @@ export class ScratchDaemon {
         opts.env,
         opts.stubUnrecognizedModels ?? [],
         opts.repoPoll,
+        opts.stubClaudeVersionDelaySeconds,
       );
       daemon.denyStubServer = denyStubServer;
       await mkdir(daemon.browseRoot, { recursive: true });
@@ -842,6 +863,9 @@ export class ScratchDaemon {
         ? { MUSTER_E2E_STUB_VERSION: this.stubClaudeVersion }
         : {}),
       ...(this.stubClaudeVersionFails ? { MUSTER_E2E_STUB_VERSION_FAIL: "1" } : {}),
+      ...(this.stubClaudeVersionDelaySeconds !== undefined
+        ? { MUSTER_E2E_STUB_VERSION_DELAY_SECONDS: String(this.stubClaudeVersionDelaySeconds) }
+        : {}),
       ...(this.stubUnrecognizedModels.length > 0
         ? { MUSTER_E2E_STUB_UNRECOGNIZED_MODELS: this.stubUnrecognizedModels.join(" ") }
         : {}),
@@ -852,6 +876,7 @@ export class ScratchDaemon {
     this.output = "";
     const args = this.buildArgs();
     const env = this.buildEnv();
+    const spawnedAt = Date.now();
     const proc = spawn(this.serveEmbedded ? this.embeddedBinPath : this.resolvedMusterdBin, args, {
       // Plan embed-dashboard REQ-7: the embedded fixture runs from the scratch data dir
       // itself (an OS tmpdir containing no web/ or internal/ tree) rather than the repo
@@ -885,6 +910,7 @@ export class ScratchDaemon {
     this.proc = proc;
     try {
       await waitForHealthy(this.baseURL);
+      this.startupMs = Date.now() - spawnedAt;
     } catch (err) {
       throw new Error(`${String(err)}\nscratch musterd output:\n${this.output}`);
     }

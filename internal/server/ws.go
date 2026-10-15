@@ -198,12 +198,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		Type:            "hello",
 		ProtocolVersion: protocolVersion,
 		Daemon:          daemonInfo{Version: s.daemonVersion},
-		ClaudeCode: claudeCodeWire{
-			Installed: s.claudeCode.Installed,
-			Floor:     s.claudeCode.Floor,
-			Verified:  s.claudeCode.Verified,
-			Status:    s.claudeCode.Status,
-		},
+		ClaudeCode:      claudeCodeWire(s.claudeVersion.Current()),
 	}
 	if err := wsjson.Write(ctx, c, hello); err != nil {
 		return

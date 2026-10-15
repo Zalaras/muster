@@ -17,19 +17,6 @@ import (
 	"github.com/Zalaras/muster/internal/webui"
 )
 
-// ClaudeCodeInfo is the daemon's startup snapshot of the installed Claude Code against
-// the canary-verified range, used to build the WS `hello` message
-// (kb:anchor/ws.hello) and the issue-capture snapshot. Installed is nil iff Status is "unknown" (the
-// startup version check failed, hung past its timeout, or was unparseable); Floor/Verified
-// are always populated. A Config field (server.go, not ws.go): main computes it once, at
-// startup, before New exists.
-type ClaudeCodeInfo struct {
-	Installed *string
-	Floor     string
-	Verified  string
-	Status    string
-}
-
 // Config wires everything a Server needs, built entirely in main (no init() magic, no
 // package-level state). Core fields are shared by more than one feature or by the root
 // itself; everything else groups into one sub-struct per feature, declared in that
@@ -42,7 +29,6 @@ type Config struct {
 	// WebDist, non-empty, serves the dashboard from disk instead of the embedded copy.
 	WebDist         string
 	DaemonVersion   string
-	ClaudeCode      ClaudeCodeInfo
 	IngestQueueSize int
 	TmuxSocket      string
 	// HTTPClient is shared by every feature with outbound HTTP calls (usage, issue,
@@ -67,6 +53,7 @@ type Config struct {
 	Launch           LaunchConfig
 	Usage            UsageConfig
 	Theme            ThemeConfig
+	ClaudeVersion    ClaudeVersionConfig
 	Issue            IssueConfig
 	Update           UpdateConfig
 	RepoRefresh      RepoRefreshConfig
@@ -114,7 +101,6 @@ type Server struct {
 	webDist       string
 	tmuxSocket    string
 	daemonVersion string
-	claudeCode    ClaudeCodeInfo
 
 	hub        *wsHub
 	manager    *session.Manager
@@ -131,6 +117,7 @@ type Server struct {
 	ingest        *ingestFeature
 	usage         *usageFeature
 	theme         *themeFeature
+	claudeVersion *claudeVersionFeature
 	shellActivity *shellActivityFeature
 	issue         *issueFeature
 	update        *updateFeature
@@ -154,7 +141,6 @@ func New(cfg Config) *Server {
 		webDist:       cfg.WebDist,
 		tmuxSocket:    cfg.TmuxSocket,
 		daemonVersion: cfg.DaemonVersion,
-		claudeCode:    cfg.ClaudeCode,
 		hub:           newWSHub(cfg.Logger),
 	}
 
@@ -234,7 +220,9 @@ func New(cfg Config) *Server {
 	register(s, newBrowseFeature(cfg.Launch.BrowseRoot, cfg.Logger))
 	register(s, newReposFeature(cfg.Store, cfg.Logger))
 	register(s, newPastSessionsFeature(cfg.Launch.ProjectsDir, s.manager, cfg.Logger))
-	s.issue = register(s, newIssueFeature(cfg.Issue, httpClient, s.manager, cfg.Store, cfg.DaemonVersion, cfg.ClaudeCode, cfg.Logger))
+	claudeVersion := newClaudeVersionFeature(cfg.ClaudeVersion, defaultClaudeBin(cfg.Launch.ClaudeBin), s.hub, cfg.Logger)
+	s.claudeVersion = claudeVersion
+	s.issue = register(s, newIssueFeature(cfg.Issue, httpClient, s.manager, cfg.Store, cfg.DaemonVersion, claudeVersion.Current, cfg.Logger))
 
 	// update is built before prefs so prefs can take it as its checkEnabledSetter
 	// straight from the constructor — update's own initial checkEnabled value comes from
@@ -253,6 +241,7 @@ func New(cfg Config) *Server {
 	s.shellActivity = register(s, newShellActivityFeature(shells.HasAny, tmuxClient.ListPaneActivity, s.hub, cfg.Logger))
 	s.update = register(s, updateFeat)
 	s.repoRefresh = register(s, newRepoRefreshFeature(cfg.RepoRefresh, s.manager, cfg.Logger))
+	register(s, claudeVersion)
 
 	s.routes()
 	return s

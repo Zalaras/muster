@@ -10,7 +10,7 @@ import (
 )
 
 // TestNew_RegistersLifecycleFeaturesInStartOrder pins REQ-11: Start and Stop must run the
-// five independent-goroutine features in exactly today's order — ingest, usage poller,
+// independent-goroutine features in exactly today's order — ingest, usage poller,
 // theme poller, shell activity poller, updates (server.go's own comment above the
 // ingest/usage/theme/shellActivity registrations, plan terminal-fixes-cleanup Affected
 // Files: "internal/server/server.go — one-line registration of the poller") — since Start
@@ -25,13 +25,14 @@ func TestNew_RegistersLifecycleFeaturesInStartOrder(t *testing.T) {
 		}
 	}
 
-	require.Len(t, lifecycles, 6, "exactly six features implement lifecycle: ingest, usage, theme, shellActivity, update, repoRefresh")
+	require.Len(t, lifecycles, 7, "exactly seven features implement lifecycle: ingest, usage, theme, shellActivity, update, repoRefresh, claudeVersion")
 	assert.Same(t, srv.ingest, lifecycles[0], "REQ-11: ingest must start first")
 	assert.Same(t, srv.usage, lifecycles[1], "REQ-11: usage poller must start second")
 	assert.Same(t, srv.theme, lifecycles[2], "REQ-11: theme poller must start third")
 	assert.Same(t, srv.shellActivity, lifecycles[3], "REQ-11: shell activity poller must start fourth")
 	assert.Same(t, srv.update, lifecycles[4], "REQ-11: updates must start fifth")
-	assert.Same(t, srv.repoRefresh, lifecycles[5], "the repo poll registers last, after the manager it reads exists")
+	assert.Same(t, srv.repoRefresh, lifecycles[5], "the repo poll registers after the manager it reads exists")
+	assert.Same(t, srv.claudeVersion, lifecycles[6], "the version watch registers last, after the issue feature that reads its Current")
 }
 
 // TestNew_ZeroValueLaunchConfigDefaultsClaudeBin covers REQ-10 for LaunchConfig: a Config

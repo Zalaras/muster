@@ -1,0 +1,81 @@
+{
+  "plan_name": "claude-version-watch",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 2,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [],
+  "step_started_at": {
+    "review": "2026-10-15T17:23:09Z",
+    "doc-reconcile": "2026-10-15T17:30:44Z"
+  },
+  "step_finished_at": {
+    "review": "2026-10-15T17:30:43Z",
+    "doc-reconcile": "2026-10-15T17:31:32Z"
+  },
+  "step_attempts": {
+    "review": [
+      {
+        "start": "2026-10-15T11:46:59Z",
+        "finish": "2026-10-15T11:57:49Z"
+      },
+      {
+        "start": "2026-10-15T15:41:43Z",
+        "finish": "2026-10-15T16:43:15Z"
+      },
+      {
+        "start": "2026-10-15T17:23:09Z",
+        "finish": "2026-10-15T17:30:43Z"
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-10-15T12:34:46Z",
+        "finish": "2026-10-15T12:36:15Z"
+      },
+      {
+        "start": "2026-10-15T17:30:44Z",
+        "finish": "2026-10-15T17:31:32Z"
+      }
+    ]
+  },
+  "started_at": "2026-10-15T10:51:04Z",
+  "updated_at": "2026-10-15T17:45:53Z",
+  "review_parts": {
+    "1": [
+      "code",
+      "browser"
+    ],
+    "2": [
+      "code",
+      "browser"
+    ],
+    "3": [
+      "code",
+      "browser"
+    ]
+  },
+  "review_verdicts": {
+    "1": "needs-changes",
+    "2": "needs-changes",
+    "3": "approved"
+  },
+  "review_commits": {
+    "1": "b8e7b881d2d97918d3fc3510749522d1659e31f6",
+    "2": "1e14392b94d196208a81662afdf2acf97a9bb163",
+    "3": "7b9291fc32a15e2c5098b97ecffdef5e0cfaf468"
+  },
+  "review_cycle": 3,
+  "closes_issues": [
+    81,
+    89
+  ]
+}

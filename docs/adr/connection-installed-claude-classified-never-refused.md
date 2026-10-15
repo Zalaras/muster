@@ -7,7 +7,7 @@ summary: The installed Claude Code is classified unknown, below, verified or abo
 features: [connection, canary]
 tags: [claude-code-format, ux, user-decision]
 files: [internal/claudecode/version.go, cmd/musterd/main.go, internal/server/ws.go, web/src/features/connection.ts]
-tests: [TestCheckClaudeCode_MapsEachStatusAndLogsAtTheRightLevel, TestCheckClaudeCode_UnknownOutcomeNeverFailsStartup, TestClassifyAgainst, web/e2e/claude-version.spec.ts]
+tests: [TestClaudeVersion_MapsEachStatusAndLogsAtTheRightLevel, TestClaudeVersion_UnknownOutcomeNeverFailsStartup, TestClassifyAgainst, web/e2e/claude-version.spec.ts]
 refs: [docs/history/spec-changelog.md, docs/history/protocol-changelog.md, plan:version-claude-interface, kb:anchor/ws.hello, kb:adr/canary-verified-range-observed-not-pinned, kb:adr/canary-claude-auto-updater-left-on, "#6"]
 supersedes: []
 ---
