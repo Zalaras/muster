@@ -55,10 +55,6 @@ The refusal entry was filed 2026-09-26 by the developer from
 
 ### On their own
 
-- [ ] **A rail card re-inserted by a reorder while the pointer is pressed still drops that click**
-  (measured in research; the developer scoped #69 to the context row, 2026-10-14). From
-  `plans/focus-lands/` (its `## Out of scope`).
-
 - [ ] **Tiles per group** — a Tiles view scoped to one group (the grid holds that group's live sessions, the strip the rest of it), reached from the group's ⋯ menu. The grid and strip ignore groups today. The tile footer's live (Stop) versus ended (age, Resume, Remove) row shapes, and the layout shift between them, are reworked here too, matching the Focus header's single Stop/Resume button (plan `title-crop-stop-resume-button` left the footer alone, 2026-10-13).
 
 - [ ] **Tool hooks surface `hook error` after a daemon update** ([#54](https://github.com/Zalaras/muster/issues/54)) — seen
