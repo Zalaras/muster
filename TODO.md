@@ -167,6 +167,14 @@ From `plans/maintainability-cleanup/`, filed by the developer 2026-09-24. Releas
   Filed 2026-10-15 from musterd 0.21.1 / Claude Code 2.1.293, focus view, session working.
   Labels: enhancement, sessions, ux.
 
+- [ ] **Long background tasks note the session as IDLE** ([#96](https://github.com/Zalaras/muster/issues/96)) — A
+  session running a long background task is shown as IDLE on the dashboard, and the author asks
+  whether this is intended or whether it should show WORKING. Expected: A session with a long
+  background task still running should show WORKING rather than IDLE, unless an existing decision
+  says otherwise.
+  Filed 2026-10-15 from musterd 0.21.2 / Claude Code 2.1.300, focus view, session idle.
+  Labels: bug, lifecycle, needs-info.
+
 ## Pre-v1
 
 Everything below is blocking a v1 release (the developer, 2026-09-12: no v1 until all of it is
