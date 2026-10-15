@@ -150,6 +150,20 @@ From `plans/maintainability-cleanup/`, filed by the developer 2026-09-24. Releas
   Filed 2026-10-15 from musterd 0.21.2 / Claude Code 2.1.300, focus view, session idle.
   Labels: bug, lifecycle.
 
+- [ ] **Right click menu with multiple select only applies action to one** ([#97](https://github.com/Zalaras/muster/issues/97)) — With
+  several items selected, the right click menu applies its action to only one item instead of all of
+  the selected items. Expected: The right click menu should apply its action to all selected items
+  rather than just the one under the pointer.
+  Filed 2026-10-15 from musterd 0.21.2 / Claude Code 2.1.300, focus view, session working.
+  Labels: bug, rail, ux.
+
+- [ ] **Should select mode be disabled after an action?** ([#98](https://github.com/Zalaras/muster/issues/98)) — After
+  selecting several sessions and removing them, it is unclear whether the dashboard should stay in
+  select mode or leave it. Expected: Select mode should end after an action, or stay on depending on
+  the action, as the author suggests.
+  Filed 2026-10-15 from musterd 0.22.1 / Claude Code 2.1.301, focus view, session working.
+  Labels: question, rail, ux.
+
 ## Pre-v1
 
 Everything below is blocking a v1 release (the developer, 2026-09-12: no v1 until all of it is
