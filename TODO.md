@@ -83,6 +83,12 @@ The refusal entry was filed 2026-09-26 by the developer from
   validated enums. Needs the skill's "no labels" rule revisited first: triage deliberately never
   labels, assigns or milestones.
 
+- [ ] **Missing underline from mock ups for GitHub cache expiring soon** ([#92](https://github.com/Zalaras/muster/issues/92)) —
+  a rail card's cache-warmth timer read "expiring" (under 5 minutes) and still read the same more
+  than 30 minutes later, and the dotted underline the mockups show for the last stretch of the
+  cache lifetime never appeared. The timer should track the real cache lifetime, and the underline
+  should appear in its last 15% as the `rail-card-organise` mockups show.
+
 - [ ] **Renaming in Muster does not rename Claude session** ([#71](https://github.com/Zalaras/muster/issues/71)) —
   renaming a session in Muster leaves Claude Code's own session name unchanged. A rename should
   reach both.
