@@ -164,6 +164,26 @@ From `plans/maintainability-cleanup/`, filed by the developer 2026-09-24. Releas
   Filed 2026-10-15 from musterd 0.22.1 / Claude Code 2.1.301, focus view, session working.
   Labels: question, rail, ux.
 
+- [ ] **Hover for cache takes too long to show** ([#99](https://github.com/Zalaras/muster/issues/99)) — The
+  hover that shows cache information takes too long to appear. Expected: The cache hover should
+  appear much more quickly.
+  Filed 2026-10-16 from musterd 0.22.2 / Claude Code 2.1.293, focus view, session working.
+  Labels: bug, rail, perf, ux.
+
+- [ ] **Cache should maybe show the local time for the person** ([#100](https://github.com/Zalaras/muster/issues/100)) — The
+  cache indicator shows only the time remaining until expiry, not the local clock time at which it
+  expires. Expected: The cache should show the local time of expiry, either instead of the remaining
+  duration or in brackets after it.
+  Filed 2026-10-16 from musterd 0.22.2 / Claude Code 2.1.293, focus view, session working.
+  Labels: enhancement, usage, ux.
+
+- [ ] **I want to see the added directories** ([#101](https://github.com/Zalaras/muster/issues/101)) — After
+  directories are added to a Claude Code session with the add-dir command, there is no way to see
+  afterwards which ones have been added. Expected: Muster should track the directories added to a
+  session and show them so the developer can see which ones were added.
+  Filed 2026-10-16 from musterd 0.22.2 / Claude Code 2.1.293, focus view, session started.
+  Labels: enhancement, sessions, claude-code.
+
 ## Pre-v1
 
 Everything below is blocking a v1 release (the developer, 2026-09-12: no v1 until all of it is
