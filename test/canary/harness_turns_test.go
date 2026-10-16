@@ -83,13 +83,14 @@ type failedTurnRun struct {
 	err             error
 }
 
-// bangCdRun is what run N observed; TestCwdFollowsShellCd and
-// TestBangCommandFiresNoPromptSubmit read it. Both directories have their symlinks resolved
-// (/var is /private/var), as Claude Code reports them.
+// bangCdRun is what run N observed; TestCwdFollowsShellCd,
+// TestBangCommandFiresNoPromptSubmit and TestAddedDirsInStatusLine read it. All three
+// directories have their symlinks resolved (/var is /private/var), as Claude Code reports them.
 type bangCdRun struct {
 	claudeSessionID string
 	repoDir         string    // the scratch repo: the launch directory
 	subDir          string    // <repo>/sub, where `!cd sub` moves the shell
+	addedDir        string    // outside the repo, passed with --add-dir at launch
 	cdSubAt         time.Time // when `!cd sub` was submitted
 	cdRootAt        time.Time // when `!cd /` was submitted
 	err             error
@@ -269,7 +270,8 @@ func (f *fixture) runJ(ctx context.Context) error {
 // so the follow-up turn each one starts spends nothing. `!cd sub` stays inside the project;
 // `!cd /` leaves it, which Claude Code resets to the project root
 // (kb:fact/cwd-follows-claude-mid-session). Each step waits for a status post at the
-// expected directory and for the failed turn's hook.
+// expected directory and for the failed turn's hook. The launch also passes --add-dir, which
+// costs nothing and puts a directory in workspace.added_dirs (kb:fact/added-dirs-in-status-line).
 func (f *fixture) runN(ctx context.Context) error {
 	if err := os.MkdirAll(filepath.Join(f.repo, "sub"), 0o755); err != nil {
 		return err
@@ -280,6 +282,14 @@ func (f *fixture) runN(ctx context.Context) error {
 	}
 	f.bangCd.repoDir = repo
 	f.bangCd.subDir = filepath.Join(repo, "sub")
+	addedDir, err := filepath.EvalSymlinks(f.root)
+	if err != nil {
+		return err
+	}
+	f.bangCd.addedDir = filepath.Join(addedDir, "added")
+	if err = os.MkdirAll(f.bangCd.addedDir, 0o755); err != nil {
+		return err
+	}
 
 	srv := httptest.NewServer(failapi.Handler(failapi.Failure{
 		Status: http.StatusInternalServerError, Type: "api_error", Message: "canary-induced failure",
@@ -287,6 +297,7 @@ func (f *fixture) runN(ctx context.Context) error {
 	defer srv.Close()
 
 	argv := claudecode.BuildArgv(claudeBin, claudecode.LaunchParams{Model: haikuModel, PermissionMode: "default"})
+	argv = append(argv, "--add-dir", f.bangCd.addedDir)
 	target, started, _, err := f.startInteractive(ctx, bangCdTmuxID, sessionBangCd, argv, failEnv(srv))
 	if err != nil {
 		return err

@@ -240,6 +240,24 @@ func TestBangCommandFiresNoPromptSubmit(t *testing.T) {
 	t.Logf("hooks after the `!` commands: %v", types)
 }
 
+// TestAddedDirsInStatusLine guards kb:fact/added-dirs-in-status-line on run N, launched with
+// --add-dir: workspace.added_dirs leads with the launch directory and lists the added one.
+// The DirectoryAdded hook is not observed here (production registers no hook for it, and it
+// fires only for /add-dir); the static tier checks its name is still in the bundle.
+func TestAddedDirsInStatusLine(t *testing.T) {
+	f := harness(t)
+	r := f.bangCd
+	require.NoError(t, r.err, "run N did not complete")
+	posts := f.statusPostsFor(sessionBangCd, r.claudeSessionID)
+	require.NotEmpty(t, posts, "no status post from run N")
+	ws, _ := posts[0].payload["workspace"].(map[string]any)
+	require.NotNil(t, ws, "status post has no workspace object")
+	dirs, _ := ws["added_dirs"].([]any)
+	require.Lenf(t, dirs, 2, "workspace.added_dirs must hold the launch directory and the --add-dir one")
+	assert.True(t, sameDir(dirs[0], r.repoDir), "workspace.added_dirs must lead with the launch directory")
+	assert.True(t, sameDir(dirs[1], r.addedDir), "workspace.added_dirs must list the --add-dir directory")
+}
+
 // hooksBefore is the prefix of hooks that arrived before t.
 func hooksBefore(hooks []capture, t time.Time) []capture {
 	for i, c := range hooks {

@@ -94,6 +94,10 @@ func TestInstalledBinaryCarriesInterfaceStrings(t *testing.T) {
 	needles["status-line worktree original_branch"] = "original_branch"
 	needles["status-line worktree original_cwd"] = "original_cwd"
 	needles["shell cwd reset message"] = "Shell cwd was reset to"
+	// kb:fact/added-dirs-in-status-line: the hook /add-dir fires, which production does not
+	// register, and the status-line key TestAddedDirsInStatusLine reads live.
+	needles["DirectoryAdded hook event"] = "DirectoryAdded"
+	needles["status-line added_dirs field"] = "added_dirs"
 
 	misses, err := scanForNeedles(resolved, needles)
 	require.NoErrorf(t, err, "scanning %s", resolved)

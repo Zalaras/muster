@@ -21,10 +21,10 @@
 - The canary's settings are production plus exactly one key: `statusLine.refreshInterval`, which `MergeSettings` never writes (kb:adr/canary-refresh-interval-key-canary-only).
 - Run D holds **two** claude sessions — `/clear` mints a second in the same pane — so status-line views filter on `preClearClaudeID()` (kb:adr/canary-run-d-holds-two-claude-sessions).
 - `failproxy` never logs request headers, and `failapi` (which it and the canary's fail server share) never reads them: they carry a live OAuth token.
-- Six runs depart from production, each covered by an ADR: G appends `--allowedTools Bash` to the argv, I, J, N and P set `ANTHROPIC_BASE_URL` + `CLAUDE_CODE_MAX_RETRIES=0` (P's fail server also holds each reply 30 s so an Esc lands before any output), and the capture server holds run H's `PostToolUse` replies for 1.5 s.
+- Six runs depart from production, each covered by an ADR: G appends `--allowedTools Bash` to the argv and N appends `--add-dir` (outside the repo), I, J, N and P set `ANTHROPIC_BASE_URL` + `CLAUDE_CODE_MAX_RETRIES=0` (P's fail server also holds each reply 30 s so an Esc lands before any output), and the capture server holds run H's `PostToolUse` replies for 1.5 s.
 
 <!-- kb:trailer -->
-<!-- kb:hash 10f9d7f82bf035ff -->
+<!-- kb:hash a9c4e12430bc7023 -->
 - **canary** — The verified Claude Code version range, canary tiers, and the fragments tools/versions regenerates. → `docs/features/canary/INDEX.md`
-- 20 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 21 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->
