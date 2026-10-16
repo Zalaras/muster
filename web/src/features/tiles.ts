@@ -28,6 +28,7 @@ import {
   type TileRefs,
   type TileRenameHandlers,
 } from "../render/tiles";
+import { createCardTip } from "../render/cardtip";
 import { installDragReorder } from "../render/dragreorder";
 import type { CardMenuRequest } from "../render/sessions";
 import { captureFocusedControl, type FocusedControl } from "../render/focuskeep";
@@ -90,6 +91,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   // no `render/` module looks up its own template.
   const tileTemplate = requireElement<HTMLTemplateElement>("#tile-template");
   const sessionCardTemplate = requireElement<HTMLTemplateElement>("#session-card-template");
+  const cardTip = createCardTip();
 
   let tilesLive: number[] = [];
   // Tiles' mounted chrome per live session id — kept across render passes so the 1s tick
@@ -131,7 +133,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
     tileElements.delete(id);
   }
   app.on("cancelRenames", cancelTileRenames);
-  app.on("status", () => cancelTileRenames());
+  app.on("status", cancelTileRenames);
 
   app.on("prefs", (prefs) => {
     if (prefs.view !== lastView) {
@@ -323,7 +325,9 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
       onMenu: deps.railMenu.open,
       connected,
       railActivity: app.state.railActivity,
+      cardTip,
     });
+    cardTip.refresh();
   }
 
   return {

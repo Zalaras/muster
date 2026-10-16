@@ -4224,8 +4224,10 @@ fieldset.seg legend {
   color: var(--fg-dim);
 }
 
-/* The header's hover popover: appended to <body>, never takes a click. */
-.pop {
+/* The header's hover popover and the card timer's warmth panel: appended to <body>, never take a
+ * click. */
+.pop,
+.cardtip {
   position: fixed;
   z-index: 55;
   min-width: 220px;
@@ -4238,6 +4240,14 @@ fieldset.seg legend {
   font-size: var(--fs-2xs);
   color: var(--fg-muted);
   pointer-events: none;
+}
+
+.cardtip {
+  min-width: 0;
+  padding: 4px 10px;
+  white-space: nowrap;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
 }
 
 .pop .ph {

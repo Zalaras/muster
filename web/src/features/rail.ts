@@ -8,6 +8,7 @@ import { sendPrefsPatch } from "../api/prefs";
 import { requireElement, requireElements } from "../dom";
 import { installDragReorder } from "../render/dragreorder";
 import type { FocusedControl } from "../render/focuskeep";
+import { createCardTip } from "../render/cardtip";
 import { createGroupPopover } from "../render/grouppopover";
 import {
   createRailSections,
@@ -57,6 +58,7 @@ export function initRail(app: App, deps: RailDeps): void {
   // `render/` module looks up its own template.
   const sessionCardTemplate = requireElement<HTMLTemplateElement>("#session-card-template");
   const popover = createGroupPopover();
+  const cardTip = createCardTip();
   const railSections = createRailSections(
     sessionsEl,
     sessionCardTemplate,
@@ -153,7 +155,9 @@ export function initRail(app: App, deps: RailDeps): void {
     },
   });
 
-  app.on("status", () => popover.close());
+  app.on("status", () => {
+    popover.close();
+  });
 
   // Render phase 9 (main.ts's numbered render-phase order).
   app.onRender((frame) => {
@@ -193,8 +197,10 @@ export function initRail(app: App, deps: RailDeps): void {
         pendingFocus: pendingRailFocus,
         currentId: app.state.focusedId,
         railActivity: app.state.railActivity,
+        cardTip,
       },
     });
+    cardTip.refresh();
     pendingRailFocus = null;
     railCountEl.textContent = railCountText(
       shownCount(sections, filter),

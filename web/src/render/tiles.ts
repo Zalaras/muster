@@ -16,6 +16,7 @@ import {
 } from "../sessions/card";
 import { requireElement } from "../dom";
 import { renderContextRow } from "./context";
+import type { CardTip } from "./cardtip";
 import { type CardListOptions, type CardMenuRequest, reconcileCards } from "./sessions";
 import { buildActionButton } from "./actionbutton";
 import { attachRenameEditor, type RenameEditorController } from "./rename";
@@ -206,6 +207,7 @@ export interface StripOptions {
   onMenu: (request: CardMenuRequest) => void;
   connected: boolean;
   railActivity: RailActivity;
+  cardTip?: CardTip | undefined;
 }
 
 /** Renders the snapshot strip: the same rail-card markup, on its side — clicking
@@ -244,6 +246,7 @@ export function renderStrip(
     // the marker.
     currentId: null,
     railActivity: options.railActivity,
+    cardTip: options.cardTip,
   };
   reconcileCards(el, sessions, now, template, cardOptions);
 }

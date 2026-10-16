@@ -1731,6 +1731,12 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
 
 ### On their own
 
+- [x] **Hover for cache takes too long to show** ([#99](https://github.com/Zalaras/muster/issues/99)) ✅ done 2026-10-16 (plan `cache-hover`, via `/fix`) — The
+  hover that shows cache information takes too long to appear. Expected: The cache hover should
+  appear much more quickly.
+  Filed 2026-10-16 from musterd 0.22.2 / Claude Code 2.1.293, focus view, session working.
+  Labels: bug, rail, perf, ux.
+
 - [x] **Missing underline from mock ups for GitHub cache expiring soon** ([#92](https://github.com/Zalaras/muster/issues/92)) ✅ done 2026-10-15 (plan `cache-timing`, via `/fix`) —
   a rail card's cache-warmth timer read "expiring" (under 5 minutes) and still read the same more
   than 30 minutes later, and the dotted underline the mockups show for the last stretch of the

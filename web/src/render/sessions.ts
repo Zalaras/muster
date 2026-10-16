@@ -9,6 +9,7 @@ import {
   type SessionAction,
 } from "../sessions/card";
 import { requireElement } from "../dom";
+import type { CardTip } from "./cardtip";
 import { renderContextRow } from "./context";
 import { renderRepoLines } from "./repolines";
 import { captureFocusedControl, type FocusedControl } from "./focuskeep";
@@ -43,6 +44,7 @@ export interface CardOptions {
   currentId: number | null;
   railActivity: RailActivity;
   selection?: CardSelection | undefined;
+  cardTip?: CardTip | undefined;
 }
 
 export interface CardSelection {
@@ -107,7 +109,7 @@ function applyCardText(card: HTMLElement, vm: CardViewModel, session: Session): 
   requireElement<HTMLElement>(".badge", card).textContent = vm.badge;
   const timer = requireElement<HTMLElement>(".timer", card);
   timer.textContent = vm.timer;
-  timer.title = vm.warmth.hover;
+  timer.setAttribute("aria-description", vm.warmth.hover);
   applyWarmth(timer, vm.warmth);
 
   applyRepoBlocks(card, vm);
@@ -273,6 +275,8 @@ function buildSessionCardElement(
   const card = fragment.querySelector<HTMLElement>(".card");
   if (!card) throw new Error("session-card-template is missing its .card root");
   updateSessionCardContent(card, session, now, options);
+
+  options.cardTip?.attach(card, requireElement<HTMLElement>(".timer", card));
 
   // Wired once, like the click/keydown listeners below — reconcileCards never
   // rebuilds an existing card, so this never double-attaches on a later render tick.

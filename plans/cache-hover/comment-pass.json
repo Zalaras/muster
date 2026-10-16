@@ -1,0 +1,30 @@
+{
+  "plan": "cache-hover",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-16T13:45:34Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 1,
+        "keep": 0,
+        "drop": 1
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "web/src/render/sessions.ts:bdfb1e876707cc97",
+          "path": "web/src/render/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "cardTip?: CardTip | undefined;",
+            "line": 47
+          },
+          "lines": [
+            "/** The host's hover panel for the timer's warmth; every real host passes one. */"
+          ]
+        }
+      ]
+    }
+  ]
+}

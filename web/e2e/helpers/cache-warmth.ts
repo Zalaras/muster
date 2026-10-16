@@ -142,6 +142,11 @@ export function cardTimer(card: Locator): Locator {
   return card.locator(".timer");
 }
 
+/** The hover panel a card timer opens (`role="tooltip"`, appended to `document.body`). */
+export function cardTip(page: Page): Locator {
+  return page.getByRole("tooltip");
+}
+
 /** The extra timer a group header's summary carries, when the section has one. */
 export function headerTimer(head: Locator): Locator {
   return head.locator(".gsum [data-cache]");

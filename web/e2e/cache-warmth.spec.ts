@@ -1,5 +1,6 @@
 import {
   cardTimer,
+  cardTip,
   expectTimerFade,
   expectUnderline,
   expiresIn,
@@ -30,7 +31,7 @@ import {
   rawSessionEnd,
   rawUserPromptSubmit,
 } from "./helpers/payloads";
-import { railCard } from "./helpers/railorder";
+import { railCard, railOrderIds } from "./helpers/railorder";
 import { bindClaude } from "./helpers/rail-menu";
 import { envelopeOpts, waitForNextClockSecond } from "./helpers/session";
 import { liveTile, stripCard } from "./helpers/terminal";
@@ -71,21 +72,22 @@ test("an idle session's timer is tinted and hovers as warm, turns cooling with a
       .toEqual({ expiresAt: wireInstant(expiresIn(3600)), ttlSeconds: 3600 });
     await expect(timer).toHaveAttribute("aria-label", "time in state");
     await expect(timer).toHaveAttribute("data-cache", "warm");
-    await expect(timer).toHaveAttribute("title", "cache warm · cold in 60m");
+    await expect(timer).toHaveAttribute("aria-description", "cache warm · cold in 60m");
+    await expect(timer).not.toHaveAttribute("title");
     await expectTimerFade(page, timer, 1);
     await expectUnderline(timer, false);
 
     // 52 minutes on, no message sent: 480 s of 3600 s remain, 13.3%, inside the last 15%.
     await useWarmthClock(page, 52 * 60);
     await expect(timer).toHaveAttribute("data-cache", "cooling");
-    await expect(timer).toHaveAttribute("title", "cache warm · cold in 8m");
+    await expect(timer).toHaveAttribute("aria-description", "cache warm · cold in 8m");
     await expectTimerFade(page, timer, 480 / 3600);
     await expectUnderline(timer, true);
 
     // Past expiry: plain grey, no underline, the cold wording.
     await useWarmthClock(page, 61 * 60);
     await expect(timer).toHaveAttribute("data-cache", "cold");
-    await expect(timer).toHaveAttribute("title", "cache cold");
+    await expect(timer).toHaveAttribute("aria-description", "cache cold");
     await expectTimerFade(page, timer, 0, 1);
     await expectUnderline(timer, false);
   } finally {
@@ -120,9 +122,9 @@ test("the tint is a straight line from the bright foreground to the timer's usua
 
     await expect(warm).toHaveAttribute("data-cache", "warm");
     await expect(unknown).toHaveAttribute("data-cache", "unknown");
-    await expect(unknown).toHaveAttribute("title", "cache unknown");
+    await expect(unknown).toHaveAttribute("aria-description", "cache unknown");
     await expect(cold).toHaveAttribute("data-cache", "cold");
-    await expect(cold).toHaveAttribute("title", "cache cold");
+    await expect(cold).toHaveAttribute("aria-description", "cache cold");
 
     // Today's plain timer is --fg-dim; unknown and cold both are exactly that, with no underline.
     const grey = await tokenRgb(page, "--fg-dim");
@@ -133,10 +135,10 @@ test("the tint is a straight line from the bright foreground to the timer's usua
 
     await expectTimerFade(page, warm, 1);
     await useWarmthClock(page, 1800);
-    await expect(warm).toHaveAttribute("title", "cache warm · cold in 30m");
+    await expect(warm).toHaveAttribute("aria-description", "cache warm · cold in 30m");
     await expectTimerFade(page, warm, 0.5);
     await useWarmthClock(page, 2700);
-    await expect(warm).toHaveAttribute("title", "cache warm · cold in 15m");
+    await expect(warm).toHaveAttribute("aria-description", "cache warm · cold in 15m");
     await expectTimerFade(page, warm, 0.25);
     // The unknown card never moved with the clock.
     expect(colourDistance(await timerRgb(page, unknown), grey)).toBeLessThanOrEqual(1);
@@ -170,44 +172,44 @@ test("the underline starts at exactly 15% of the lifetime remaining, a 5m-ttl po
     await expect
       .poll(() => wireCache(page, daemon, short.id))
       .toEqual({ expiresAt: wireInstant(expiresIn(300 + 3600)), ttlSeconds: 3900 });
-    await expect(shortTimer).toHaveAttribute("title", "cache warm · cold in 65m");
+    await expect(shortTimer).toHaveAttribute("aria-description", "cache warm · cold in 65m");
 
     // 586 s left of 3900: above 15% (585 s), so warm and plain; whole minutes while a minute or more remains.
     await useWarmthClock(page, 3900 - 586);
     await expect(shortTimer).toHaveAttribute("data-cache", "warm");
-    await expect(shortTimer).toHaveAttribute("title", "cache warm · cold in 10m");
+    await expect(shortTimer).toHaveAttribute("aria-description", "cache warm · cold in 10m");
     await expectUnderline(shortTimer, false);
     // 585 s left: exactly 15%, so cooling and underlined.
     await useWarmthClock(page, 3900 - 585);
     await expect(shortTimer).toHaveAttribute("data-cache", "cooling");
-    await expect(shortTimer).toHaveAttribute("title", "cache warm · cold in 10m");
+    await expect(shortTimer).toHaveAttribute("aria-description", "cache warm · cold in 10m");
     await expectUnderline(shortTimer, true);
     // Minute boundary on the predicted lifetime: 60 s reads 1m, 59 s reads 59s.
     await useWarmthClock(page, 3900 - 60);
-    await expect(shortTimer).toHaveAttribute("title", "cache warm · cold in 1m");
+    await expect(shortTimer).toHaveAttribute("aria-description", "cache warm · cold in 1m");
     await useWarmthClock(page, 3900 - 59);
     await expect(shortTimer).toHaveAttribute("data-cache", "cooling");
-    await expect(shortTimer).toHaveAttribute("title", "cache warm · cold in 59s");
+    await expect(shortTimer).toHaveAttribute("aria-description", "cache warm · cold in 59s");
     await useWarmthClock(page, 3899);
     await expect(shortTimer).toHaveAttribute("data-cache", "cooling");
-    await expect(shortTimer).toHaveAttribute("title", "cache warm · cold in 1s");
+    await expect(shortTimer).toHaveAttribute("aria-description", "cache warm · cold in 1s");
     // Nothing left: cold.
     await useWarmthClock(page, 3900);
     await expect(shortTimer).toHaveAttribute("data-cache", "cold");
-    await expect(shortTimer).toHaveAttribute("title", "cache cold");
+    await expect(shortTimer).toHaveAttribute("aria-description", "cache cold");
     await expectUnderline(shortTimer, false);
 
     // The hour-long cache around the minute boundary: 61 s left reads 2m, 60 s 1m, 59 s 59s.
     await useWarmthClock(page, 3539);
-    await expect(hourTimer).toHaveAttribute("title", "cache warm · cold in 2m");
+    await expect(hourTimer).toHaveAttribute("aria-description", "cache warm · cold in 2m");
     await useWarmthClock(page, 3540);
-    await expect(hourTimer).toHaveAttribute("title", "cache warm · cold in 1m");
+    await expect(hourTimer).toHaveAttribute("aria-description", "cache warm · cold in 1m");
     await useWarmthClock(page, 3541);
-    await expect(hourTimer).toHaveAttribute("title", "cache warm · cold in 59s");
+    await expect(hourTimer).toHaveAttribute("aria-description", "cache warm · cold in 59s");
     await expect(hourTimer).toHaveAttribute("data-cache", "cooling");
     await useWarmthClock(page, 3600);
     await expect(hourTimer).toHaveAttribute("data-cache", "cold");
-    await expect(hourTimer).toHaveAttribute("title", "cache cold");
+    await expect(hourTimer).toHaveAttribute("aria-description", "cache cold");
   } finally {
     await cleanup();
   }
@@ -229,7 +231,7 @@ test("a session with no prompt_cache shows an unknown plain timer, a later post 
 
     // Started, never replied: unknown on the card and null on the wire.
     await expect(freshTimer).toHaveAttribute("data-cache", "unknown");
-    await expect(freshTimer).toHaveAttribute("title", "cache unknown");
+    await expect(freshTimer).toHaveAttribute("aria-description", "cache unknown");
     expect(await wireCache(page, daemon, fresh.id)).toBeNull();
 
     await driveToState(request, daemon, warm, "claude-clear-warm", "idle");
@@ -255,7 +257,7 @@ test("a session with no prompt_cache shows an unknown plain timer, a later post 
       }),
     });
     await expect(warmTimer).toHaveAttribute("data-cache", "unknown");
-    await expect(warmTimer).toHaveAttribute("title", "cache unknown");
+    await expect(warmTimer).toHaveAttribute("aria-description", "cache unknown");
     await expect.poll(() => wireCache(page, daemon, warm.id)).toBeNull();
     // The bystander never had one and still has none.
     expect(await wireCache(page, daemon, fresh.id)).toBeNull();
@@ -263,7 +265,7 @@ test("a session with no prompt_cache shows an unknown plain timer, a later post 
     // The new conversation's first reply refills it.
     await postStatus(request, daemon, warm, "claude-clear-warm-2", WARM_1H(1500));
     await expect(warmTimer).toHaveAttribute("data-cache", "warm");
-    await expect(warmTimer).toHaveAttribute("title", "cache warm · cold in 25m");
+    await expect(warmTimer).toHaveAttribute("aria-description", "cache warm · cold in 25m");
   } finally {
     await cleanup();
   }
@@ -326,7 +328,7 @@ test("every state shows an unknown plain timer before a first reply and a tinted
     for (const title of titles) {
       const timer = cardTimer(exactCard(page, title));
       await expect(timer).toHaveAttribute("data-cache", "unknown");
-      await expect(timer).toHaveAttribute("title", "cache unknown");
+      await expect(timer).toHaveAttribute("aria-description", "cache unknown");
     }
 
     const known = [
@@ -356,12 +358,12 @@ test("every state shows an unknown plain timer before a first reply and a tinted
     await expect(exactCard(page, "state-ended")).toHaveClass(/ended/);
     await expect(exactCard(page, "state-ended-unknown")).toHaveClass(/ended/);
     await expect(endedTimer).toHaveAttribute("data-cache", "warm");
-    await expect(endedTimer).toHaveAttribute("title", "cache warm · cold in 30m");
+    await expect(endedTimer).toHaveAttribute("aria-description", "cache warm · cold in 30m");
     expect(await timerText(endedTimer)).toMatch(/^ended /);
     await expectTimerFade(page, endedTimer, 0.5);
     const unknownTimer = cardTimer(exactCard(page, "state-ended-unknown"));
     await expect(unknownTimer).toHaveAttribute("data-cache", "unknown");
-    await expect(unknownTimer).toHaveAttribute("title", "cache unknown");
+    await expect(unknownTimer).toHaveAttribute("aria-description", "cache unknown");
   } finally {
     await cleanup();
   }
@@ -393,12 +395,12 @@ test("a Tiles strip card's timer carries the same warmth as its rail card (REQ-2
     expect(stripped).toHaveLength(1);
     const timer = cardTimer(stripCard(page, stripped[0] ?? ""));
     await expect(timer).toHaveAttribute("data-cache", "warm");
-    await expect(timer).toHaveAttribute("title", "cache warm · cold in 40m");
+    await expect(timer).toHaveAttribute("aria-description", "cache warm · cold in 40m");
     await expectTimerFade(page, timer, 2400 / 3600);
 
     await useWarmthClock(page, 2400 + 3500);
     await expect(timer).toHaveAttribute("data-cache", "cold");
-    await expect(timer).toHaveAttribute("title", "cache cold");
+    await expect(timer).toHaveAttribute("aria-description", "cache cold");
   } finally {
     await cleanup();
   }
@@ -434,7 +436,7 @@ test("the cache is kept by Stop and Resume, by liveness death and by a compactio
     ).toBe(200);
     await expect(railCard(page, "kept-stop")).toHaveClass(/ended/);
     await expect(stopTimer).toHaveAttribute("data-cache", "warm");
-    await expect(stopTimer).toHaveAttribute("title", "cache warm · cold in 50m");
+    await expect(stopTimer).toHaveAttribute("aria-description", "cache warm · cold in 50m");
     expect(await wireCache(page, daemon, stop.id)).toEqual(held);
     const resumed = await page.request.post(`${daemon.baseURL}/api/sessions/${stop.id}/resume`);
     expect(resumed.status()).toBe(200);
@@ -483,7 +485,7 @@ test("a live session's warmth is the same after a daemon restart and after a das
     const held = { expiresAt: wireInstant(expiresIn(2400)), ttlSeconds: 3600 };
     const timer = cardTimer(railCard(page, "restart-warm"));
     await expect(timer).toHaveAttribute("data-cache", "warm");
-    await expect(timer).toHaveAttribute("title", "cache warm · cold in 40m");
+    await expect(timer).toHaveAttribute("aria-description", "cache warm · cold in 40m");
 
     await daemon.kill();
     await expect(page.getByRole("alert").filter({ hasText: /musterd unreachable/i })).toBeVisible();
@@ -491,14 +493,14 @@ test("a live session's warmth is the same after a daemon restart and after a das
     await expect(page.getByRole("alert").filter({ hasText: /musterd unreachable/i })).toBeHidden();
     await expect.poll(() => wireCache(page, daemon, warm.id)).toEqual(held);
     await expect(timer).toHaveAttribute("data-cache", "warm");
-    await expect(timer).toHaveAttribute("title", "cache warm · cold in 40m");
+    await expect(timer).toHaveAttribute("aria-description", "cache warm · cold in 40m");
     await expectTimerFade(page, timer, 2400 / 3600);
     expect(await wireCache(page, daemon, plain.id)).toBeNull();
 
     await page.reload();
     await useWarmthClock(page);
     await expect(timer).toHaveAttribute("data-cache", "warm");
-    await expect(timer).toHaveAttribute("title", "cache warm · cold in 40m");
+    await expect(timer).toHaveAttribute("aria-description", "cache warm · cold in 40m");
     await expectTimerFade(page, timer, 2400 / 3600);
     await expect(cardTimer(railCard(page, "restart-plain"))).toHaveAttribute(
       "data-cache",
@@ -581,14 +583,96 @@ test("the timer keeps fading from the last-known expiry while the daemon is down
 
     await useWarmthClock(page, 52 * 60);
     await expect(timer).toHaveAttribute("data-cache", "cooling");
-    await expect(timer).toHaveAttribute("title", "cache warm · cold in 8m");
+    await expect(timer).toHaveAttribute("aria-description", "cache warm · cold in 8m");
     await expectUnderline(timer, true);
     await expectTimerFade(page, timer, 480 / 3600);
 
     await useWarmthClock(page, 3600);
     await expect(timer).toHaveAttribute("data-cache", "cold");
-    await expect(timer).toHaveAttribute("title", "cache cold");
+    await expect(timer).toHaveAttribute("aria-description", "cache cold");
     await expectUnderline(timer, false);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a card timer's cache hover opens within the popover delay and stays open, counting down, while a card above it changes height (REQ-1, REQ-2, REQ-3)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await useWarmthClock(page);
+  await page.goto(daemon.dashboardUrl);
+  const { sessions, cleanup } = await launchTitled(page, daemon, ["hover-above", "hover-below"]);
+  try {
+    const [above, below] = sessions;
+    if (!above || !below) throw new Error("expected 2 sessions");
+    await driveToState(request, daemon, above, "claude-hover-above", "working");
+    await driveToState(request, daemon, below, "claude-hover-below", "idle");
+    await postStatus(request, daemon, below, "claude-hover-below", WARM_1H(3600));
+    const timer = cardTimer(railCard(page, "hover-below"));
+    await expect(timer).toHaveAttribute("data-cache", "warm");
+    await expect.poll(() => railOrderIds(page)).toEqual([above.id, below.id]);
+
+    const tip = cardTip(page);
+    await expect(tip).toHaveCount(0);
+    await timer.hover();
+    // Shortened from the config's 15 s on purpose: the plan's claim is that the panel is there
+    // within a second of the pointer entering (it opens POPOVER_DELAY_MS, 350 ms, after).
+    await expect(tip).toBeVisible({ timeout: 1000 });
+    await expect(tip).toHaveText("cache warm · cold in 60m");
+
+    // The pointer stays still while the upper card's activity line is rewritten with prompts of
+    // different lengths, which changes its height and slides the lower card.
+    const startBox = await timer.boundingBox();
+    if (!startBox) throw new Error("the lower card's timer has no box");
+    const longPrompt = "keep the hover readable while this card grows ".repeat(8);
+    let n = 0;
+    await expect
+      .poll(
+        async () => {
+          n += 1;
+          await request.post(daemon.ingestURL("hook"), {
+            data: rawUserPromptSubmit("claude-hover-above", {
+              promptId: `hover-p${n}`,
+              prompt: n % 2 === 1 ? longPrompt : "short",
+            }),
+          });
+          const box = await timer.boundingBox();
+          return box ? Math.abs(box.y - startBox.y) : 0;
+        },
+        { message: "the lower card's timer moved under the still pointer" },
+      )
+      .toBeGreaterThan(8);
+
+    await expect(tip).toBeVisible();
+    await expect(tip).toHaveText("cache warm · cold in 60m");
+    // Re-reading both boxes on every retry: the panel sits just under the timer where it is now.
+    await expect
+      .poll(async () => {
+        const timerBox = await timer.boundingBox();
+        const tipBox = await tip.boundingBox();
+        if (!timerBox || !tipBox) return Number.NaN;
+        return tipBox.y - (timerBox.y + timerBox.height);
+      })
+      .toBeGreaterThanOrEqual(0);
+    await expect
+      .poll(async () => {
+        const timerBox = await timer.boundingBox();
+        const tipBox = await tip.boundingBox();
+        if (!timerBox || !tipBox) return Number.NaN;
+        return tipBox.y - (timerBox.y + timerBox.height);
+      })
+      .toBeLessThanOrEqual(5);
+
+    // Fifty minutes on, no message sent: the open panel counts down.
+    await useWarmthClock(page, 50 * 60);
+    await expect(tip).toHaveText("cache warm · cold in 10m");
+    await expect(timer).toHaveAttribute("aria-description", "cache warm · cold in 10m");
+
+    // Off the card: gone.
+    await page.mouse.move(1, 1);
+    await expect(tip).toBeHidden();
   } finally {
     await cleanup();
   }
@@ -786,6 +870,181 @@ test("the header popover shows a state timer beside every session's title, carry
           (await timerText(cardTimer(railCard(page, "pop-warm")))),
       )
       .toBe(true);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a pointer that leaves a card timer inside the popover delay opens no panel, even though it stays on the card (REQ-1, edge case 1)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await useWarmthClock(page);
+  await page.goto(daemon.dashboardUrl);
+  const { sessions, cleanup } = await launchTitled(page, daemon, ["hover-brief"]);
+  try {
+    const [s] = sessions;
+    if (!s) throw new Error("expected 1 session");
+    await driveToState(request, daemon, s, "claude-hover-brief", "idle");
+    await postStatus(request, daemon, s, "claude-hover-brief", WARM_1H(3600));
+    const card = railCard(page, "hover-brief");
+    const timer = cardTimer(card);
+    await expect(timer).toHaveAttribute("data-cache", "warm");
+    await page.mouse.move(0, 0);
+
+    const timerBox = await timer.boundingBox();
+    const cardBox = await card.boundingBox();
+    if (!timerBox || !cardBox) throw new Error("the card or its timer has no box");
+    // Onto the timer, then straight to the card's top-left corner: still on the card (so the card's
+    // own mouseleave close cannot be what cancels the open), but off the timer, well inside 350 ms.
+    await page.mouse.move(timerBox.x + timerBox.width / 2, timerBox.y + timerBox.height / 2);
+    await page.mouse.move(cardBox.x + 2, cardBox.y + 2);
+    expect(
+      await page.evaluate(
+        ([x, y]) => document.elementFromPoint(x ?? 0, y ?? 0)?.closest(".timer") !== null,
+        [cardBox.x + 2, cardBox.y + 2],
+      ),
+    ).toBe(false);
+
+    // Past the 350 ms delay, with the pointer still on the card: no panel ever opens.
+    await settleFor(page, 900);
+    await expect(cardTip(page)).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("pressing on the card closes the open cache panel and it stays closed with the pointer still on the timer (REQ-2)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await useWarmthClock(page);
+  await page.goto(daemon.dashboardUrl);
+  const { sessions, cleanup } = await launchTitled(page, daemon, ["hover-press"]);
+  try {
+    const [s] = sessions;
+    if (!s) throw new Error("expected 1 session");
+    await driveToState(request, daemon, s, "claude-hover-press", "idle");
+    await postStatus(request, daemon, s, "claude-hover-press", WARM_1H(3600));
+    const timer = cardTimer(railCard(page, "hover-press"));
+    await expect(timer).toHaveAttribute("data-cache", "warm");
+    await page.mouse.move(0, 0);
+
+    const tip = cardTip(page);
+    await timer.hover();
+    await expect(tip).toBeVisible({ timeout: 1000 });
+    await expect(tip).toHaveText("cache warm · cold in 60m");
+
+    await page.mouse.down();
+    try {
+      await expect(tip).toHaveCount(0);
+    } finally {
+      await page.mouse.up();
+    }
+    // The pointer never left the timer, so nothing reopens it.
+    await settleFor(page, 900);
+    await expect(tip).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a Tiles strip card's timer opens the same cache panel on hover and closes it when the pointer leaves the card (REQ-1)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await useWarmthClock(page);
+  await page.goto(daemon.dashboardUrl);
+  const titles = Array.from({ length: 5 }, (_, i) => `strip-tip-${i}`);
+  const { sessions, cleanup } = await launchTitled(page, daemon, titles);
+  try {
+    for (const [i, session] of sessions.entries()) {
+      await driveToState(request, daemon, session, `claude-strip-tip-${i}`, "idle");
+      await postStatus(request, daemon, session, `claude-strip-tip-${i}`, WARM_1H(2400));
+    }
+    await page.getByRole("button", { name: "Tiles", exact: true }).click();
+    await expect(page.locator("article.tile")).toHaveCount(4);
+    await expect(page.locator("#tiles-strip").getByTestId("session-card")).toHaveCount(1);
+
+    const stripped: string[] = [];
+    for (const title of titles) {
+      if ((await liveTile(page, title).count()) === 0) stripped.push(title);
+    }
+    expect(stripped).toHaveLength(1);
+    const timer = cardTimer(stripCard(page, stripped[0] ?? ""));
+    await expect(timer).toHaveAttribute("data-cache", "warm");
+    await page.mouse.move(0, 0);
+
+    const tip = cardTip(page);
+    await expect(tip).toHaveCount(0);
+    await timer.hover();
+    await expect(tip).toBeVisible({ timeout: 1000 });
+    await expect(tip).toHaveText("cache warm · cold in 40m");
+
+    // The open panel counts down with the page clock, as the rail's does.
+    await useWarmthClock(page, 1200);
+    await expect(tip).toHaveText("cache warm · cold in 20m");
+
+    await page.mouse.move(1, 1);
+    await expect(tip).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a cache panel opened while the daemon is down stays open, counting down, across reconnect attempts while the pointer stays on the card (REQ-2)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await useWarmthClock(page);
+  // Each reconnect attempt opens a fresh `/ws` socket, even when it fails: count them.
+  let attempts = 0;
+  page.on("websocket", (ws) => {
+    if (new URL(ws.url()).pathname === "/ws") attempts += 1;
+  });
+  await page.goto(daemon.dashboardUrl);
+  const { sessions, cleanup } = await launchTitled(page, daemon, ["hover-down"]);
+  try {
+    const [s] = sessions;
+    if (!s) throw new Error("expected 1 session");
+    await driveToState(request, daemon, s, "claude-hover-down", "idle");
+    await postStatus(request, daemon, s, "claude-hover-down", WARM_1H(3600));
+    const timer = cardTimer(railCard(page, "hover-down"));
+    await expect(timer).toHaveAttribute("data-cache", "warm");
+    await page.mouse.move(0, 0);
+
+    await daemon.kill();
+    await expect(page.getByRole("alert").filter({ hasText: /musterd unreachable/i })).toBeVisible();
+
+    const tip = cardTip(page);
+    await timer.hover();
+    await expect(tip).toBeVisible({ timeout: 2000 });
+    await expect(tip).toHaveText("cache warm · cold in 60m");
+
+    // At least two more attempts, the pointer not moving; the panel must be there at every look.
+    const before = attempts;
+    let vanished = false;
+    await expect
+      .poll(
+        async () => {
+          if ((await tip.count()) === 0) vanished = true;
+          return attempts - before;
+        },
+        {
+          message: "reconnect attempts while the pointer rests on the card timer",
+          intervals: [100],
+        },
+      )
+      .toBeGreaterThanOrEqual(2);
+    expect(vanished, "the panel closed during a reconnect attempt").toBe(false);
+    await expect(tip).toBeVisible();
+
+    await useWarmthClock(page, 50 * 60);
+    await expect(tip).toHaveText("cache warm · cold in 10m");
   } finally {
     await cleanup();
   }

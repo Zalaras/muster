@@ -7,7 +7,7 @@ summary: Rail cards, attention versus manual order, pin, drag reorder, session c
 features: [rail]
 tags: [ux]
 go: [internal/server/rail*.go, internal/session/railorder*.go]
-web: [web/src/features/rail.ts, web/src/render/sessions*.ts, web/src/sessions/testfixtures*.ts, web/src/render/repolines*.ts, web/src/render/actionbutton*.ts, web/src/render/dragreorder*.ts, web/src/render/keyedreorder*.ts, web/src/sessions/card*.ts, web/src/sessions/railorder*.ts, web/src/sessions/reorder*.ts, web/src/sessions/format*.ts, web/src/sessions/paths*.ts, web/src/sessions/sort*.ts, web/src/dragmime*.ts, web/src/features/railmenu*.ts]
+web: [web/src/features/rail.ts, web/src/render/sessions*.ts, web/src/sessions/testfixtures*.ts, web/src/render/repolines*.ts, web/src/render/actionbutton*.ts, web/src/render/dragreorder*.ts, web/src/render/keyedreorder*.ts, web/src/sessions/card*.ts, web/src/sessions/railorder*.ts, web/src/sessions/reorder*.ts, web/src/sessions/format*.ts, web/src/sessions/paths*.ts, web/src/sessions/sort*.ts, web/src/dragmime*.ts, web/src/features/railmenu*.ts, web/src/render/cardtip*.ts]
 e2e: [web/e2e/rail-order.spec.ts, web/e2e/rail-cards.spec.ts, web/e2e/rail-unread.spec.ts, web/e2e/rail-layout.spec.ts, web/e2e/rail-activity.spec.ts, web/e2e/helpers/railorder.ts, web/e2e/helpers/railcards.ts, web/e2e/rail-menu.spec.ts, web/e2e/helpers/rail-menu.ts, web/e2e/rail-drag-groups.spec.ts]
 protocol: [sessions.pin, sessions.order]
 refs: [kb:adr/rail-user-owned-manual-order-default, kb:adr/rail-attention-order-your-turn-before-active, kb:adr/rail-order-daemon-owned-per-session-fields, kb:adr/rail-whole-card-drag-drop-decides-pin, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/focus-rail-click-focuses-terminal, kb:adr/usage-context-gauge-shows-tokens-and-compactions, kb:adr/drop-reorder-drag-mime-custom-type, kb:adr/rail-card-title-leads-and-density-ramp-corrected, kb:adr/rail-activity-line-turn-aware-default-with-pref, kb:adr/rail-unread-inferred-from-live-terminal-client, kb:adr/rail-unread-marker-neutral-dot, kb:adr/rail-card-title-foreground-token, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/rail-card-right-click-menu-holds-session-actions, kb:adr/rail-cards-drag-in-both-sort-modes-selection-together, kb:adr/rail-timer-tinted-wherever-cache-warmth-known, docs/design/ux-flows.md, docs/design/design-system.md, kb:adr/rail-pin-invariant-scoped-per-section]
@@ -19,7 +19,7 @@ its side (kb:spec/tiles). Every session has a card.
 
 A card is a title that wraps, above a state row of badge, time in the current state and
 pin, then the repo block of the launch directory: the folder (`<repo> /`) over the branch, each
-line truncated at its own end (one line in compact), with a worktree marker when the directory is a
+line truncated at its end (one line in compact), with a worktree marker when the directory is a
 linked worktree and the directory's name alone when it is not a git checkout
 (kb:adr/focus-header-readout-sized-by-text), the context gauge with absolute
 tokens and the compaction counter (kb:adr/usage-context-gauge-shows-tokens-and-compactions),
@@ -27,19 +27,21 @@ and an activity line whose text `prefs.railActivity` chooses
 (kb:adr/rail-activity-line-turn-aware-default-with-pref, kb:spec/settings).
 While Claude works in another checkout, a `↳` block of the same shape sits under the repo block
 (kb:adr/lifecycle-card-shows-launch-directory-marks-claude-elsewhere).
-The title, the repo line and the activity line each carry their full text as a hover title. A
-card whose session's last-known permission mode is bypass carries a danger `bypass` chip after
+The title, repo line and activity line each carry their full text as a hover title. A
+card whose last-known permission mode is bypass carries a danger `bypass` chip after
 the title, in every state (kb:adr/launch-bypass-offered-with-danger-guardrails).
-A reason line still follows: the attention reason for `needs_input`, the raw error for `failed`, and the
+A reason line follows: the attention reason for `needs_input`, the raw error for `failed`, and the
 first-launch or no-signal note for `started` (docs/design/ux-flows.md "Rail card",
-"Degraded and honest states"). Unknown context renders the word unknown, never an empty
-gauge. While background work runs, `1 background task` (or `<n> background tasks`) is the card's last
+"Degraded and honest states"). Unknown context renders the word unknown, never an empty gauge. While background work runs, `1 background task` (or `<n> background tasks`) is the card's last
 line. A dead card greys out. No card renders a Stop, Resume or Remove button: a right-click, the
 context-menu key or Shift+F10 opens the session's menu, Stop or Resume and Remove, then Move to and
 Pin or Unpin (kb:spec/actions, kb:adr/rail-card-right-click-menu-holds-session-actions). Where cache warmth
 is known the timer fades from the foreground to grey over the cache's lifetime, is underlined in its
-last 15% and names the warmth on hover (kb:spec/usage, kb:adr/rail-timer-tinted-wherever-cache-warmth-known).
-Cards render a static state summary, never a live terminal.
+last 15% and names the warmth in a hover panel, on the Tiles strip card too (kb:spec/usage,
+kb:adr/rail-timer-tinted-wherever-cache-warmth-known). The panel opens 350 ms after the pointer enters the
+timer, follows it as the card moves, counts down while open and closes when the pointer leaves or presses
+the card; the text is the timer's accessible description, not a native title.
+Cards never render a live terminal.
 
 An idle session that finished a turn while no window had its terminal open is unread until
 one attaches — the daemon infers this from its terminal registry
@@ -48,16 +50,15 @@ before the title; a read idle title renders muted, on every surface
 (kb:adr/rail-unread-marker-neutral-dot, kb:adr/rail-card-title-foreground-token).
 
 Density is `prefs.railDensity`, chosen from an icon control in the rail head: comfortable
-is the reference render and clamps the activity line to three lines, compact clamps the
+is the reference and clamps the activity line to three lines, compact clamps the
 title to one line and drops the activity line, expanded lets the activity line run to
-however many lines it needs, and the gauge track renders in all three; the Tiles strip
+as many lines as it needs, and the gauge track renders in all three; the Tiles strip
 follows the same density (kb:adr/rail-card-title-leads-and-density-ramp-corrected, kb:spec/settings).
 
-A pointer click on a card focuses that session and puts keyboard focus in its terminal;
+A pointer click on a card focuses that session and its terminal;
 keyboard activation and the number chords only select
 (kb:adr/focus-rail-click-focuses-terminal). The card whose session the Focus pane shows
-carries a neutral current marker and `aria-current`; the marker means "shown in Focus", so
-the Tiles strip renders none (kb:adr/rail-current-marker-means-shown-in-focus). The rail
+carries a neutral current marker and `aria-current`; the Tiles strip renders none (kb:adr/rail-current-marker-means-shown-in-focus). The rail
 head shows the sort select, the session count and the density control, then a second row of
 Select, a ⋯ menu and, while a group exists, the filter (kb:spec/groups).
 
