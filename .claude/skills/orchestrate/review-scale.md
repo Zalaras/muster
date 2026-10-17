@@ -4,6 +4,8 @@ Read by `review-work`, `review-browser` and `review-maintainability` before they
 the orchestrator when it routes a merged `review.md`. Each reviewer's own file says which defects it
 owns and gives examples at each severity; this file says what the severities and tags mean.
 `orch-state.py merge-review` computes the merged verdict from the parts on exactly these rules.
+Every issue states the measured defect and what a fix must make true; finding the fix is the
+implementing agent's — never write, build or run one.
 
 ## Severities
 
@@ -17,9 +19,9 @@ owns and gives examples at each severity; this file says what the severities and
   orchestrator routes it in that agent's wave, and the cycle after a Minors-only wave is a delta
   re-review. A Minor costs a fix wave and a re-review, so keep the line to Note sharp.
 - **Note** — an observation with no change requested. Tag it `[note]`, never with an agent tag — an
-  agent tag is a request for work. List notes under their own `### Notes` heading. A false or stale
-  code comment is always a `[note]` with `path:line` — the comment pass owns comments
-  (kb:adr/process-comment-pass-owns-code-comments).
+  agent tag is a request for work. List notes under their own `### Notes` heading. Code comments are
+  not reviewed: no issue or note asks for, judges or cites one — the comment pass owns them
+  (kb:adr/process-review-never-reviews-comments).
 
 ## Tags
 

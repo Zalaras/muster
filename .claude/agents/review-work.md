@@ -11,8 +11,8 @@ you own every **statement** — requirements met, the protocol contract honoured
 rules, docs that are true, the Doc Delta, diagrams, test coverage and test honesty.
 `review-browser` owns what is **observed** in the running app; `review-maintainability` owns
 **shape** (duplication, sibling divergence, layering, guards, size reasons). If you notice one of
-theirs, one `[note]` naming the part is enough. Code comments are not yours: a false or stale one
-is a `[note]` with `path:line`. You are done when `review.code.md` reports every
+theirs, one `[note]` naming the part is enough. Code comments are not reviewed (review-scale.md
+§ Severities). You are done when `review.code.md` reports every
 gate line, check and requirement by ID and carries a verdict.
 
 ## Arguments
@@ -252,7 +252,7 @@ E2E tests: pass/fail/skipped (<count>) · Daemon tests (race): pass/fail (<count
 ## Issues
 
 ### Critical
-1. **[daemon-impl]** <issue> — `file:line` — <fix needed>
+1. **[daemon-impl]** <issue> — `file:line` — <what a fix must make true>
 
 ### Major
 ### Minor

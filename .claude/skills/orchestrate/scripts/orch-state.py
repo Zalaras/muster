@@ -392,6 +392,7 @@ def main():
             if a.reset_retries:
                 s["retry_counts"][a.arg] = 0
             s["completed_steps"] = [x for x in s["completed_steps"] if x != a.arg]
+            stamp_plan_status(path.parent, "in-progress")
         s["updated_at"] = now()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(s, indent=2) + "\n")

@@ -22,6 +22,14 @@ import type { FlatTreeEntry } from "../reader/tree";
 import { wireDiagramDialog } from "./diagramdialog";
 import { buildFrontmatterNode } from "./frontmatter";
 import { captureFocusedKey, restoreFocusedKey } from "./focuskeep";
+import {
+  buildFindRefs,
+  type FindCallbacks,
+  type FindRefs,
+  type FindView,
+  renderFindBar,
+  wireFind,
+} from "./readerfind";
 
 /** `doc.ts`'s placeholder when its `?session=` doesn't parse —
  * not part of the `#reader-template` component below, since nothing here needs a session
@@ -77,13 +85,14 @@ export interface ReaderVM {
   /** A user-initiated open is in flight — `article.md` dims and carries
    * `aria-busy` (kb:adr/reader-loading-cue-never-clears-a-rendered-body). */
   bodyLoading: boolean;
+  find: FindView;
 }
 
 export type ReaderBody =
   | { kind: "placeholder"; text: string }
   | { kind: "fragment"; fragment: DocumentFragment; frontmatter: Frontmatter | null };
 
-export interface ReaderCallbacks {
+export interface ReaderCallbacks extends FindCallbacks {
   /** A tree file button — `path` is relative to the session directory, exactly as the
    * listing carries it; `features/reader.ts` joins it against `directory` to fetch. */
   onSelectPath(path: string): void;
@@ -96,6 +105,7 @@ export interface ReaderCallbacks {
   onToggleFiles(): void;
   onToggleOutline(): void;
   onOutlineSelect(id: string): void;
+  onKeydown(event: KeyboardEvent): void;
 }
 
 export interface ReaderRefs {
@@ -131,6 +141,7 @@ export interface ReaderRefs {
   diagramZoomOut: HTMLButtonElement;
   diagramZoomReset: HTMLButtonElement;
   diagramClose: HTMLButtonElement;
+  find: FindRefs;
   callbacks: ReaderCallbacks;
 }
 
@@ -169,6 +180,7 @@ export function buildReader(template: HTMLTemplateElement, callbacks: ReaderCall
     diagramZoomOut: requireElement<HTMLButtonElement>(".diagram-zoom-out", root),
     diagramZoomReset: requireElement<HTMLButtonElement>(".diagram-zoom-reset", root),
     diagramClose: requireElement<HTMLButtonElement>(".diagram-close", root),
+    find: buildFindRefs(root),
     callbacks,
   };
 
@@ -177,6 +189,8 @@ export function buildReader(template: HTMLTemplateElement, callbacks: ReaderCall
   refs.outlineToggle.addEventListener("click", callbacks.onToggleOutline);
   refs.filter.addEventListener("input", () => callbacks.onFilterInput(refs.filter.value));
   wireDiagramDialog(refs);
+  wireFind(refs.find, callbacks);
+  root.addEventListener("keydown", callbacks.onKeydown);
 
   return refs;
 }
@@ -477,6 +491,7 @@ export function renderReader(refs: ReaderRefs, vm: ReaderVM): void {
   refs.body.classList.toggle("loading", vm.bodyLoading);
   if (vm.bodyLoading) refs.body.setAttribute("aria-busy", "true");
   else refs.body.removeAttribute("aria-busy");
+  renderFindBar(refs.find, vm.find, refs.body);
 }
 
 /** Sets the reader body — only ever called when the open file's rendered content

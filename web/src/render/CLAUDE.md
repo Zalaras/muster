@@ -1,6 +1,6 @@
 # web/src/render — pure DOM builders, no state
 
-**Owns**: the DOM half of every view: rail cards, tiles and strip, mainhead, masthead, dead surface, confirm dialogs, inline rename editor, drag wiring, drop guard, the reader and its diagram pass (`diagrams.ts`, `mermaid.ts`, `diagramdialog.ts`), and the rail's group sections, menus, popover, card-timer hover, selection bar and dialogs (`railsections.ts`, `menu.ts`, `grouppopover.ts`, `cardtip.ts`, `selectbar.ts`, `groupdialogs.ts`, with `anchored.ts` placing the menu, popover and hover and `options.ts` filling a select's options). No cross-call state here (render-state rule below); session/reader derivation lives in `sessions/`/`reader/`, wiring in `features/`. A DOM-free decision only one controller calls lives in `features/`, not here — a builder takes the computed value, never the raw data (docs/conventions.md § Composition roots). **Features**: actions, connection, drop, focus, launch, rail, reader, rename, tiles, update, usage.
+**Owns**: the DOM half of every view: rail cards, tiles and strip, mainhead, masthead, dead surface, confirm dialogs, inline rename editor, drag wiring, drop guard, the reader, its diagram pass (`diagrams.ts`, `mermaid.ts`, `diagramdialog.ts`) and find bar (`readerfind.ts`), and the rail's group sections, menus, popover, card-timer hover, selection bar and dialogs (`railsections.ts`, `menu.ts`, `grouppopover.ts`, `cardtip.ts`, `selectbar.ts`, `groupdialogs.ts`, with `anchored.ts` placing those overlays and `options.ts` filling a select's options). No cross-call state here (render-state rule below); session/reader derivation lives in `sessions/`/`reader/`, wiring in `features/`. A DOM-free decision only one controller calls lives in `features/`, not here — a builder takes the computed value, never the raw data (docs/conventions.md § Composition roots). **Features**: actions, connection, drop, focus, launch, rail, reader, rename, tiles, update, usage.
 
 **Render-state rule**: a builder holds only its own instance's state — never state keyed across calls by an external id; that belongs to the caller, which holds refs built once (`masthead.ts`'s model-week `<select>`, not a module-level `Map`).
 
@@ -23,7 +23,7 @@
 - `diagramdialog.ts`'s backdrop-close is `event.target === dialogEl` (a `::backdrop` isn't a node), so its children must fill the whole box.
 
 <!-- kb:trailer -->
-<!-- kb:hash a0192d463c4a90f5 -->
+<!-- kb:hash c440abe7e1dee3ce -->
 - **actions** — Stop, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
@@ -34,11 +34,12 @@
 - **past-sessions** — The launch dialog's Resume tab — a directory's Claude Code sessions listed from transcripts, the running-session guard, resume in the original mode. → `docs/features/past-sessions/INDEX.md`
 - **rail** — Rail cards, attention versus manual order, pin, drag reorder, session count. → `docs/features/rail/INDEX.md`
 - **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`
+- **reader-find** — The reader's own find bar — case-insensitive matches in the rendered document alone, highlighted without touching the sanitized body, in every reader host. → `docs/features/reader-find/INDEX.md`
 - **rename** — Muster-owned session title override, inline rename in the mainhead and tiles. → `docs/features/rename/INDEX.md`
 - **settings** — Settings dialog and the prefs it edits. → `docs/features/settings/INDEX.md`
 - **surfaces** — PTY bridge, xterm pane, the ephemeral shell surface, sizing, one live client per target. → `docs/features/surfaces/INDEX.md`
 - **tiles** — Tiles view: slot-stable grid, strip, tile drag, density, snapshot-not-live rule. → `docs/features/tiles/INDEX.md`
 - **update** — Release check, minisign-verified apply, in-place restart with sessions re-adopted. → `docs/features/update/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 52 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 54 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

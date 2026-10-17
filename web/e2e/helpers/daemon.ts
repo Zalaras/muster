@@ -44,6 +44,9 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 // web/e2e/helpers -> repo root
 const repoRoot = resolve(here, "../../..");
 const musterdBin = join(repoRoot, "bin", "musterd");
+// Tags every scratch dir with the worktree that made it, so orch-cleanup.sh sweeps only its
+// own tree's dirs and processes; the script derives the same tag from the same root path.
+export const scratchOwner = createHash("sha256").update(repoRoot).digest("hex").slice(0, 8);
 // Plan embed-dashboard REQ-7: the disk-override fixture every non-embedded spec in this
 // suite uses now points at the daemon's new build output (internal/webui/assets), not
 // the retired web/dist — the flag was always passed explicitly, but the path it named
@@ -649,7 +652,7 @@ export class ScratchDaemon {
     // (`~/Library/Application Support/Muster`) contains a space, which the shell quoting
     // of the two command hooks must survive. Do not "fix" a spec that breaks on the space
     // — that's the harness doing its job; report it instead.
-    const dataDir = await mkdtemp(join(tmpdir(), "muster e2e-"));
+    const dataDir = await mkdtemp(join(tmpdir(), `muster e2e-${scratchOwner}-`));
     // Plan issue-capture REQ-17: resolve the deny stub BEFORE constructing, since the
     // constructor wants a concrete `issueApiURL` string, never `undefined`.
     let denyStubServer: HttpServer | null = null;

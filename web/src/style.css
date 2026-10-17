@@ -75,6 +75,8 @@
   --warn-bg: #4a4116;
   --warn-line: #8a7526;
   --warn-fg: #fbefb8;
+  --find-match: #2b4a6b;
+  --find-current: #3a6694;
 }
 
 /* Dark — conventional web-style dark (neutral greys, editor/GitHub sense) */
@@ -123,6 +125,8 @@
   --warn-bg: #403a1a;
   --warn-line: #7d6f2a;
   --warn-fg: #f6ecc0;
+  --find-match: #2a4866;
+  --find-current: #3a6592;
 }
 
 /* Light — standard light */
@@ -171,6 +175,8 @@
   --warn-bg: #fbf1c2;
   --warn-line: #d4bd5c;
   --warn-fg: #5a4a00;
+  --find-match: #cfe1f5;
+  --find-current: #8fb8e6;
 }
 
 /* Terminal ground follows Claude Code's own theme family, never the Muster theme
@@ -1228,7 +1234,8 @@ body {
   display: none;
 }
 
-.arr {
+.arr,
+.fbtn {
   font-family: var(--mono);
   font-size: 14px;
   line-height: 1;
@@ -1240,7 +1247,8 @@ body {
   cursor: pointer;
 }
 
-.arr:hover {
+.arr:hover,
+.fbtn:hover {
   color: var(--fg);
 }
 
@@ -1468,6 +1476,122 @@ body {
   margin-bottom: 6px;
 }
 
+/* The find bar overlays `.md`'s corner (same grid cell, never inside the scroller), so it stays
+ * put while the body scrolls and follows the nav's left border, or the reader's right edge
+ * once the nav is collapsed, for free. The right margin clears `.md`'s scrollbar. */
+.find {
+  grid-column: 1;
+  grid-row: 3;
+  align-self: start;
+  justify-self: end;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  max-width: calc(100% - 20px);
+  margin: 6px 20px 0 0;
+}
+
+.reader.compact .find {
+  margin: 4px 18px 0 0;
+}
+
+.find-open,
+.find-bar {
+  background: var(--bg-raised);
+}
+
+.find-open {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 7px;
+  border-color: var(--edge);
+  border-radius: 4px;
+}
+
+.find-open[hidden] {
+  display: none;
+}
+
+.find-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 3px;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+
+.find-bar[hidden] {
+  display: none;
+}
+
+.find-query {
+  flex: 1 1 auto;
+  width: 18ch;
+  min-width: 0;
+  font-size: var(--fs-xs);
+}
+
+.find-query::-webkit-search-cancel-button {
+  display: none;
+}
+
+.find-count {
+  flex: none;
+  min-width: 7ch;
+  text-align: right;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.find-bar .fbtn {
+  padding: 3px 7px;
+  border-radius: 3px;
+}
+
+.reader.compact .find-bar {
+  gap: 2px;
+  padding: 2px;
+  font-size: var(--fs-2xs);
+}
+
+.reader.compact .find-query {
+  width: 11ch;
+  padding: 2px 5px;
+  font-size: var(--fs-2xs);
+}
+
+.reader.compact .find-count {
+  min-width: 6ch;
+}
+
+.reader.compact .find-bar .fbtn {
+  padding: 2px 5px;
+}
+
+.reader:has(.find-bar:not([hidden])) .md {
+  padding-top: 44px;
+}
+
+.reader.compact:has(.find-bar:not([hidden])) .md {
+  padding-top: 38px;
+}
+
+::highlight(find-match) {
+  background-color: var(--find-match);
+}
+
+::highlight(find-current) {
+  background-color: var(--find-current);
+  text-decoration: underline;
+}
+
 .rnav {
   grid-column: 2;
   grid-row: 3;
@@ -1550,14 +1674,18 @@ body {
   font-style: italic;
 }
 
-.rnav .filter {
-  margin: 4px 10px 6px;
+.rnav .filter,
+.find-query {
   border: 1px solid var(--edge);
   border-radius: 3px;
   padding: 3px 7px;
   background: var(--well);
   color: var(--fg);
   font-family: var(--mono);
+}
+
+.rnav .filter {
+  margin: 4px 10px 6px;
   font-size: var(--fs-2xs);
   flex: none;
 }

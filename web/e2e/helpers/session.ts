@@ -11,7 +11,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
-import type { ScratchDaemon } from "./daemon";
+import { type ScratchDaemon, scratchOwner } from "./daemon";
 import { liveTile, liveTileById } from "./terminal";
 
 /**
@@ -19,7 +19,7 @@ import { liveTile, liveTileById } from "./terminal";
  * that launch straight via `POST /api/sessions` (no folder-browser navigation).
  */
 export async function scratchDirectory(
-  prefix = "muster-e2e-repo-",
+  prefix = `muster-e2e-repo-${scratchOwner}-`,
 ): Promise<{ path: string; cleanup: () => Promise<void> }> {
   const path = await mkdtemp(join(tmpdir(), prefix));
   return {

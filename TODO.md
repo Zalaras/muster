@@ -128,13 +128,6 @@ From `plans/maintainability-cleanup/`, filed by the developer 2026-09-24. Releas
   Filed 2026-10-15 from musterd 0.21.1 / Claude Code 2.1.293, focus view, session started.
   Labels: enhancement, sessions, ux.
 
-- [ ] **Add a search bar for the markdown document** ([#94](https://github.com/Zalaras/muster/issues/94)) — The
-  browser's built-in search over a markdown document also matches titles and other unwanted page
-  items, so results are cluttered. Expected: The markdown document view should offer its own search
-  bar that searches only the document content.
-  Filed 2026-10-15 from musterd 0.21.1 / Claude Code 2.1.300, focus view, session started.
-  Labels: enhancement, documents, ux.
-
 - [ ] **I'd like to be able to add a note to my session** ([#95](https://github.com/Zalaras/muster/issues/95)) — The
   author wants to attach their own persistent note to a session, separate from titles and rail
   summaries. Expected: Each session should support a persistent user-written note that the author

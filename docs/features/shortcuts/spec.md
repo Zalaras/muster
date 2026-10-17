@@ -19,6 +19,8 @@ Option-Command family (kb:adr/shortcuts-option-command-family-off-reserved-chord
 - Option-Command-N opens the launch dialog; Command-Up goes to the parent directory inside
   it (kb:spec/launch).
 - Command-Backslash toggles Focus and Tiles (kb:spec/views).
+- Command-F opens the find bar of the reader holding keyboard focus (Focus, tile or pop-out)
+  and is otherwise left to the browser (kb:spec/reader-find).
 - Option-Command-G opens a new group in the rail (kb:spec/groups) and is inert in Tiles.
 - Option-Command-1 to 9 select the nth card as displayed, manual or attention, skipping a
   collapsed or filtered-out card; in Tiles this promotes the session into the grid

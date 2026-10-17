@@ -232,6 +232,8 @@ if m:
         words = len(body.split()) + adds.get(f, 0) - cuts.get(f, 0)
         if words > 800:
             print(f"NOTE  Doc Delta: {f} spec would reach ~{words} words (cap 800) — cut more under 'stops being true' or split a feature before approval")
+        elif words > 700:  # docs-search-bar planned ~800 and stayed silent; fix waves' doc-delta lines added ~50 more and doc-reconcile blocked
+            print(f"NOTE  Doc Delta: {f} spec would reach ~{words} of 800 words — fix waves add claims; cut or split a feature before approval")
 PY
 
 # 14. Warn, never fail: Affected Files is an impact read, so a backticked call or signature there pins

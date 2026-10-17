@@ -1826,6 +1826,16 @@ Filed 2026-10-12 by the developer from `plans/reader-expanded-persists/proposed-
   keyboard loses focus; it should stay on the button. From `plans/settings-update-failures/`.
   ✅ done 2026-10-14 (plan `focus-lands`): Check now stays focusable while its check runs (unavailable by `aria-disabled`), so focus stays on it.
 
+### Together — the gate outside the developer's checkout
+
+- [x] **Add a search bar for the markdown document** ([#94](https://github.com/Zalaras/muster/issues/94)) — The
+  browser's built-in search over a markdown document also matches titles and other unwanted page
+  items, so results are cluttered. Expected: The markdown document view should offer its own search
+  bar that searches only the document content.
+  Filed 2026-10-15 from musterd 0.21.1 / Claude Code 2.1.300, focus view, session started.
+  Labels: enhancement, documents, ux.
+  ✅ done 2026-10-17 (plan `docs-search-bar`, via `/orchestrate`; all three review parts approved in cycle 4 after the developer granted one more)
+
 ## Post v1
 <!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 

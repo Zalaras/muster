@@ -41,6 +41,7 @@ defines the **roles**; it does not repeat the numbers.
 | `--warn` / `--warn-bg` / `--warn-line` / `--warn-fg` | the launch-mismatch warning (kb:adr/theme-warn-tokens-not-amber): the Focus header's effort-mismatch strip and the tint on the bracketed effort — not a state colour, never `--amber`; `--warn` stays in a 46–65° hue band disjoint from amber's |
 | `--danger` / `--danger-line` / `--danger-fg` | destructive actions (§3: rose is never delete) |
 | `--disabled-fg` / `--disabled-line` / `--disabled-bg` | every `.btn:disabled` (§5) — exempt from the contrast bar (inactive components) |
+| `--find-match` / `--find-current` | the reader find bar's `::highlight()` grounds: every match / the current one — background only, never `color`, so diagram `<text>` matches paint too (kb:adr/reader-find-highlights-via-css-highlight-api); each pair ≥ 4.5:1 against `--fg` |
 | `--term-dark-bg`/`-fg`, `--term-light-bg`/`-fg` | the two terminal pairs every theme supplies |
 | `--term` / `--term-fg` | **the live pane's ground/foreground — chosen by `<html data-claude-family>`, not by the theme** (see below) |
 | `--scrim` / `--bg-raised-95` | modal backdrop and overlays / the dead-surface pill (translucent; exempt) |

@@ -48,6 +48,7 @@ import {
   type ReaderVM,
 } from "../render/reader";
 import { getSurfaceState, type SurfaceSwitchState } from "../terminal/surfaceswitch";
+import { initReaderFind, type ReaderFindHandle } from "./readerfind";
 
 // `tiles` and `surfaces` are both already constructed by the time `reader` is (main.ts's
 // init order), so both fields below are real values passed straight through — `tilesLive`
@@ -112,6 +113,7 @@ class ReaderInstance {
    * a value fixed at mount time went stale the moment the host changed under it. */
   private compact = false;
   private readonly refs: ReaderRefs;
+  private readonly find: ReaderFindHandle;
   private readonly requestRender: () => void;
   private memory: ReaderMemory;
   private listing: ReaderListing | null = null;
@@ -175,7 +177,20 @@ class ReaderInstance {
       onToggleFiles: () => this.toggleFiles(),
       onToggleOutline: () => this.toggleOutline(),
       onOutlineSelect: (id) => this.selectOutline(id),
+      onFindOpen: () => this.find.open(),
+      onFindInput: (value) => this.find.setQuery(value),
+      onFindStep: (direction) => this.find.step(direction),
+      onFindClose: () => this.find.close(),
+      onKeydown: (event) => this.find.handleKeydown(event),
     });
+    this.find = initReaderFind(
+      { body: this.refs.body, find: this.refs.find },
+      {
+        hasDocument: () => this.bodyRendered,
+        diagramOpen: () => this.refs.diagramDialog.open,
+        requestRender: () => this.requestRender(),
+      },
+    );
     // `render()` (called immediately after construction in both the mount and
     // reconcile paths — see `initReader`) sets the `compact` class from its own
     // parameter; nothing here needs to guess a value that will be overwritten before
@@ -204,6 +219,7 @@ class ReaderInstance {
   dispose(): void {
     this.disposed = true;
     this.disposeScrollSpy?.();
+    this.find.dispose();
     this.refs.root.remove();
   }
 
@@ -320,6 +336,8 @@ class ReaderInstance {
       isCurrent: () => !this.disposed && seq === this.fetchSeq,
       theme: currentMermaidTheme(),
     });
+    void this.diagramPass.then(() => this.refindAfterDiagrams(seq));
+    this.find.fileOpened(opts.showLoading);
     const writtenAt = this.writtenAt.get(absPath) ?? null;
     this.commitMemory((m) => withOpened(m, absPath, writtenAt));
     this.requestRender();
@@ -422,6 +440,11 @@ class ReaderInstance {
           isCurrent: () => !this.disposed && seq === this.fetchSeq,
         }),
       );
+    void this.diagramPass.then(() => this.refindAfterDiagrams(seq));
+  }
+
+  private refindAfterDiagrams(seq: number): void {
+    if (!this.disposed && seq === this.fetchSeq) this.find.diagramsSettled();
   }
 
   /** A plan that appears after mount (ExitPlanMode's `sessionUpsert`) opens
@@ -525,6 +548,7 @@ class ReaderInstance {
         current: entry.id === this.currentHeadingId,
       })),
       bodyLoading: this.loadingPath !== null,
+      find: this.find.view(),
     };
 
     renderReader(this.refs, vm);

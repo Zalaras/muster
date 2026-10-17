@@ -306,9 +306,6 @@ cycle (kb:lesson/decision-made-inside-a-fix-wave).
      `.claude/rules/*.md` and `internal/<pkg>/CLAUDE.md` trailers wave-1 agents hold
      (kb:lesson/orchestrator-work-spawned-as-agent).
    - **Every severity routes.** An agent with any tagged issue — Critical, Major or Minor — is spawned in its wave with all of them; Minors are never deferred to `TODO.md`. The cycle after a Minors-only wave is a cheap delta re-review (above).
-   - A reviewer's `[note]` naming a false or stale comment (`path:line`) is yours, never a wave:
-     `go run ./tools/commentpass drop <plan> <path:line> --message "chore(<plan>): drop comments per review cycle <N>"`
-     before the next cycle's pass.
    - **Exception — plan-log and doc-label Minors:** a Minor whose whole fix is wording or a label inside `plans/<plan>/*.md`, `docs/` or `TODO.md` (no code, test or assertion) is yours to make while the wave runs, in your own `docs(<plan-name>)` commit, cited in the completion summary; the delta re-review verifies it (kb:lesson/orchestrator-work-spawned-as-agent).
    - `[note]` items are never routed; list them in the completion summary.
 1a. **Decision items first.**
@@ -485,7 +482,7 @@ running only the runnable clause reports a pass the plan never earned.
    and `docs/protocol.md` describe the pre-plan world until it does.
 1. Re-verify the Doc-Upkeep Backstop (done during Step 3; fix anything the review cycles changed).
 2. Resolve every `[orchestrator]`-tagged issue in review.md: do the doc edit, or propose genuine follow-up in `plans/<plan>/proposed-backlog.md` (doc-upkeep.md gives the shape) — **never as a new `TODO.md` item**, which is the developer's to file (kb:adr/process-backlog-entries-are-the-users-to-file). List each one and its disposition in the completion summary. An approved review may carry these; a `completed` pipeline may not leave them unaddressed.
-3. An approved review.md has no agent-tagged issue open at any severity (review-scale.md § Verdicts) — if you find one, the verdict is wrong; stop and re-spawn the reviewer rather than writing it down anywhere. Every `[note]` is listed in the completion summary verbatim — no TODO line, no agent; one naming a comment is resolved with `commentpass drop` before Final Validation; one worth keeping goes to `proposed-backlog.md`, **Change requested: no**.
+3. An approved review.md has no agent-tagged issue open at any severity (review-scale.md § Verdicts) — if you find one, the verdict is wrong; stop and re-spawn the reviewer rather than writing it down anywhere. Every `[note]` is listed in the completion summary verbatim — no TODO line, no agent; one worth keeping goes to `proposed-backlog.md`, **Change requested: no**.
 4. **Accept this plan's ADRs.** For every name in the plan's `**Features**` and `**Touches**`, `go tool kb
    ls --feature <f> --status proposed` — for each record whose `refs` carry `plan:<plan>`, Edit
    `status: accepted` and `date:` today. The ADR and the code it describes land in one squash,

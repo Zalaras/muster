@@ -9,7 +9,7 @@ folds" memory (`memory.ts`),
 the loading-cue status text (`paths.ts`, built on `basename` from `sessions/paths.ts` — that
 one function lives below `reader/` so the directory graph stays acyclic), mermaid
 fence/theme/error-text/id helpers (`mermaid.ts`) and the diagram modal's zoom/pan
-arithmetic (`zoom.ts`). `render/reader.ts`
+arithmetic (`zoom.ts`) and the find bar's literal matcher and match stepping (`find.ts`). `render/reader.ts`
 draws the results; `render/mermaid.ts` and `render/diagrams.ts` are the DOM half of the
 diagram pass, and `render/frontmatter.ts` is the DOM half of the frontmatter split —
 `markdown.ts`'s `renderMarkdown` returns the parsed `Frontmatter` alongside the body
@@ -22,7 +22,7 @@ fetches and which session gets a mounted instance. **Features**: reader.
   `default.sanitize is not a function` under this project's jsdom-less Vitest (measured
   2026-09-13). Its coverage is Playwright's: `web/e2e/reader.spec.ts`. `render/mermaid.ts`
   is the same shape (needs `window` for mermaid/DOMPurify) — not Vitest-importable either;
-  `mermaid.ts` and `zoom.ts` themselves are pure and join `slug.ts` as exemplars.
+  `mermaid.ts`, `zoom.ts` and `find.ts` themselves are pure and join `slug.ts` as exemplars.
 - The sanitized fragment `markdown.ts` returns is the only thing ever inserted into the
   reader body, via `replaceChildren` — never `innerHTML` with interpolated data.
 - `memory.ts` never throws: every storage access is try/caught, falling back to the caller's default.

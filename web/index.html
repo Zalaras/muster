@@ -481,6 +481,18 @@
         </div>
         <div class="reader-notice" role="status" hidden></div>
         <article class="md" tabindex="-1"></article>
+        <div class="find">
+          <button type="button" class="fbtn find-open" data-role="find-open" aria-label="Search document" hidden>
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M10 10l4.5 4.5"/></svg>
+          </button>
+          <div class="find-bar" data-role="find-bar" hidden>
+            <input type="search" class="find-query" data-role="find-query" aria-label="Search document" autocomplete="off" spellcheck="false" />
+            <span class="find-count" data-role="find-count" role="status"></span>
+            <button type="button" class="fbtn" data-role="find-previous" aria-label="Previous match">↑</button>
+            <button type="button" class="fbtn" data-role="find-next" aria-label="Next match">↓</button>
+            <button type="button" class="fbtn" data-role="find-close" aria-label="Close search">×</button>
+          </div>
+        </div>
         <nav class="rnav" aria-label="Documents">
           <div class="hd" data-role="plan-header">
             <span class="plan-label">plan</span>

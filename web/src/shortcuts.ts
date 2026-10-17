@@ -11,7 +11,8 @@ export type ShortcutAction =
   | { readonly type: "toggle-view" }
   | { readonly type: "launch-parent-dir" }
   | { readonly type: "focus-neediest" }
-  | { readonly type: "focus-nth"; readonly n: number };
+  | { readonly type: "focus-nth"; readonly n: number }
+  | { readonly type: "find" };
 
 interface Binding {
   readonly code: string;
@@ -77,6 +78,14 @@ const BINDINGS: readonly Binding[] = [
     shiftKey: false,
     ctrlKey: false,
     action: { type: "focus-neediest" },
+  },
+  {
+    code: "KeyF",
+    metaKey: true,
+    altKey: false,
+    shiftKey: false,
+    ctrlKey: false,
+    action: { type: "find" },
   },
   ...DIGIT_CODES.map(
     (code, index): Binding => ({

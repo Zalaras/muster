@@ -1,0 +1,238 @@
+{
+  "plan": "docs-search-bar",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-16T17:49:31Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 15,
+        "keep": 0,
+        "drop": 15
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "web/src/features/reader.ts:095c600d5a1f6440",
+          "path": "web/src/features/reader.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "private refindAfterDiagrams(seq: number): void {",
+            "line": 442
+          },
+          "lines": [
+            "/** A diagram pass swaps a fence's source for its SVG, so an open find bar's ranges are",
+            "* re-run over the new nodes — in place, never scrolling, and only for the open this pass",
+            "* belonged to. */"
+          ]
+        },
+        {
+          "key": "web/src/features/readerfind.ts:077b444ab052eea2",
+          "path": "web/src/features/readerfind.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export type RefreshMode = \"first\" | \"keep\";",
+            "line": 12
+          },
+          "lines": [
+            "/** `first` jumps to the first match and scrolls to it (typing, opening another file);",
+            "* `keep` re-runs the query over a body that changed in place, keeps the ordinal clamped to",
+            "* the new count and never scrolls. */"
+          ]
+        },
+        {
+          "key": "web/src/features/readerfind.ts:8f3bac399003638e",
+          "path": "web/src/features/readerfind.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "hasDocument(): boolean;",
+            "line": 15
+          },
+          "lines": [
+            "/** A document (not a placeholder) is rendered — the find controls exist only then. */"
+          ]
+        },
+        {
+          "key": "web/src/features/readerfind.ts:74e5934b62fa2147",
+          "path": "web/src/features/readerfind.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function createReaderFind(refs: ReaderRefs, deps: ReaderFindDeps): ReaderFind {",
+            "line": 30
+          },
+          "lines": [
+            "/** One reader's find bar: its open/query/ordinal state and its own ranges, painted into",
+            "* the two document-global highlights. Written only from user events and `refresh`, read by",
+            "* the render tick through `view()`. */"
+          ]
+        },
+        {
+          "key": "web/src/reader/find.ts:33351c74de887bcb",
+          "path": "web/src/reader/find.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "readonly node: number;",
+            "line": 2
+          },
+          "lines": [
+            "/** Index into the `texts` array handed to `findInTexts`. */"
+          ]
+        },
+        {
+          "key": "web/src/reader/find.ts:8dc72d452fdffbd6",
+          "path": "web/src/reader/find.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "readonly origin: readonly number[] | null;",
+            "line": 11
+          },
+          "lines": [
+            "/** `origin[i]` is the original index the folded character `i` came from; one extra",
+            "* trailing entry holds the original length. `null` when folding kept every index. */"
+          ]
+        },
+        {
+          "key": "web/src/reader/find.ts:8c2469554b63c7da",
+          "path": "web/src/reader/find.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function findInTexts(texts: readonly string[], query: string): TextMatch[] {",
+            "line": 45
+          },
+          "lines": [
+            "/** Literal, case-insensitive, non-overlapping matches of `query` within each string of",
+            "* `texts` (a match never spans two strings), in document order. An empty query matches",
+            "* nothing; every other query, a lone space included, is matched as written. */"
+          ]
+        },
+        {
+          "key": "web/src/reader/find.ts:c784a869ae365eb7",
+          "path": "web/src/reader/find.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function stepIndex(index: number, count: number, direction: StepDirection): number {",
+            "line": 55
+          },
+          "lines": [
+            "/** The zero-based index one step from `index`, wrapping at both ends. */"
+          ]
+        },
+        {
+          "key": "web/src/reader/find.ts:74397bae15bda818",
+          "path": "web/src/reader/find.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function countText(index: number, count: number, query: string): string {",
+            "line": 64
+          },
+          "lines": [
+            "/** The count line: `\u003ci\u003e of \u003cn\u003e` (1-based), `no matches`, or empty for an empty query. */"
+          ]
+        },
+        {
+          "key": "web/src/render/reader.ts:4168be694fd5d74c",
+          "path": "web/src/render/reader.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "onKeydown(event: KeyboardEvent): void;",
+            "line": 106
+          },
+          "lines": [
+            "/** Every keydown inside the reader root: the find chord from anywhere in it, and the",
+            "* query box's Enter and Escape. */"
+          ]
+        },
+        {
+          "key": "web/src/render/readerfind.ts:61b1e19bf3a16573",
+          "path": "web/src/render/readerfind.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "available: boolean;",
+            "line": 11
+          },
+          "lines": [
+            "/** A document is rendered, so the find controls exist at all. */"
+          ]
+        },
+        {
+          "key": "web/src/render/readerfind.ts:410ce40bc2083a5c",
+          "path": "web/src/render/readerfind.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function renderFindBar(refs: FindRefs, view: FindView): void {",
+            "line": 38
+          },
+          "lines": [
+            "/** Per-tick pass: only `hidden` and the count text are written, and only when they",
+            "* differ, so the controls (and any focus on them) are never rebuilt. The query box's own",
+            "* value is the user's and is never touched here. */"
+          ]
+        },
+        {
+          "key": "web/src/render/readerfind.ts:cde6b7fa1decdcbb",
+          "path": "web/src/render/readerfind.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function findRanges(body: HTMLElement, query: string): Range[] {",
+            "line": 62
+          },
+          "lines": [
+            "/** One live `Range` per match of `query` in the rendered body's text, in document order. */"
+          ]
+        },
+        {
+          "key": "web/src/render/readerfind.ts:82dd64cd0644a5d4",
+          "path": "web/src/render/readerfind.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function paintFind(previous: FindPaint, next: FindPaint): FindPaint {",
+            "line": 89
+          },
+          "lines": [
+            "/** Swaps one reader's ranges in the two document-global highlights: only the ranges this",
+            "* reader previously painted are removed, so another reader's stay untouched. */"
+          ]
+        },
+        {
+          "key": "web/src/render/readerfind.ts:b303c72e7e73c6e8",
+          "path": "web/src/render/readerfind.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function scrollRangeIntoView(body: HTMLElement, range: Range): void {",
+            "line": 99
+          },
+          "lines": [
+            "/** Scrolls `body` (never an ancestor) so `range` sits in its visible box; a range already",
+            "* inside it, or with no layout box, leaves the scroll alone. */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-10-16T18:50:16Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 1,
+        "keep": 0,
+        "drop": 1
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "web/src/render/readerfind.ts:12409aad67b02ebb",
+          "path": "web/src/render/readerfind.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "const MATCH_HIGHLIGHT = \"find-match\";",
+            "line": 4
+          },
+          "lines": [
+            "// CSS.highlights is document-wide: the focus reader and every tile reader write these two",
+            "// entries. They stay apart because paintFind deletes only the ranges its caller painted last."
+          ]
+        }
+      ]
+    }
+  ]
+}

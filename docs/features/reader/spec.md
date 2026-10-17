@@ -15,7 +15,7 @@ refs: [plan:markdown-viewing, plan:markdown-render-fixes, plan:mermaid-support, 
 A session's third surface. The `claude | shell` segment in the Focus mainhead and every tile
 footer gains `docs`; selecting it replaces the pane with a reader for the plan the session wrote
 in plan mode and for every `.md` under the session's directory. The reader is read-only and
-leaves room in its bar for the plan-approval controls a later feature adds.
+leaves room in its bar for the plan-approval controls a later feature adds. Its find bar is kb:spec/reader-find.
 
 ## Locating the plan
 

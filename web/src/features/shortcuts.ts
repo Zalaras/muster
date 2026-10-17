@@ -1,8 +1,9 @@
 // Window keydown -> views/focus/tiles/launch. Matching itself lives in `../shortcuts.ts` —
 // this only ever dispatches on the returned action, never on `event.key`/`event.code`
 // directly (kb:adr/shortcuts-match-event-code-in-pure-module). This is the one `window`
-// keydown listener for every bound chord, including ⌥⌘N (launch modal) and ⌘↑ (parent
-// directory), both reaching `deps.launch`, and ⌥⌘G (the rail's New group).
+// keydown listener for every bound chord but ⌘F, including ⌥⌘N (launch modal) and ⌘↑
+// (parent directory), both reaching `deps.launch`, and ⌥⌘G (the rail's New group). ⌘F is
+// claimed by the reader's own listener in `./readerfind.ts`.
 import type { App } from "../app";
 import { matchShortcut } from "../shortcuts";
 

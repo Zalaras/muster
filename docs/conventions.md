@@ -132,8 +132,8 @@ seam (the shape chosen, why, and what it reused or matched).
   fine when Decisions states the problem they answer here; introduced by label alone they are
   ceremony a newcomer has to unlearn.
 - **Shared state names its writers and its guard.** Anything touched from more than one goroutine
-  (or more than one render pass) says so where it is declared, and the race detector covers it
-  (`make test-race`, a baseline gate; `make test` stays the fast run).
+  (or more than one render pass) says so in its log's `design:` line, and the race detector
+  covers it (`make test-race`, a baseline gate; `make test` stays the fast run).
 - **Size is read, not obeyed.** `funlen`, `dupl` and the 500-line file check are warnings
   (`make size-warn`; the gates run it scoped to the branch —
   kb:adr/process-size-linters-warn-never-fail). Exceeding one is fine with a reason in Decisions;

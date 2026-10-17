@@ -12,9 +12,8 @@ ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
 say() { printf '%s\n' "$*"; }
 act() { if [ "$APPLY" = 1 ]; then eval "$1"; say "  removed"; else say "  (dry run — pass --yes to remove)"; fi; }
 
-# Hold the gate lock while killing and sweeping: `pgrep -f bin/musterd` matches every
-# worktree's scratch daemons and the $TMPDIR sweep every tree's `muster e2e-*` dirs, so a
-# neighbour's live Playwright run would be gutted. Holding (not probing) closes the window
+# Hold the gate lock while killing and sweeping, so this tree's own live Playwright run (a
+# gates.sh beside the cleanup) is never gutted. Holding (not probing) closes the window
 # between check and act. Busy (75) → steps 1 and 3 report only; step 2 is safe regardless.
 BUSY=0
 if [ -z "${MUSTER_GATELOCK:-}" ]; then
@@ -28,15 +27,34 @@ act_locked() { # like act, but a held gate lock turns the action into a report
   if [ "$BUSY" = 1 ]; then say "  skipped — gate lock held by $(gatelock_holder) a Playwright run in another worktree owns these"; else act "$1"; fi
 }
 
-# 1. Orphaned daemon / stub processes. Matched on the muster binary path and the harness's
-#    stub names, so a user's own `musterd` started via /dev-loop from bin/ is still listed —
-#    it is reported, and only removed with --yes, which the orchestrator runs knowingly.
-pids=$(pgrep -f 'bin/musterd|stub-claude|stub-open' 2>/dev/null | tr '\n' ' ')
+# Ownership: this worktree's binary path, and the tag web/e2e/helpers/daemon.ts puts in every
+# scratch dir name (first 8 hex of sha256 of the repo root). Another worktree's daemons, stubs
+# and dirs are reported and never touched (docs-search-bar retro: --yes killed a neighbour's).
+OWNER=$(printf '%s' "$ROOT" | shasum -a 256 | cut -c1-8)
+owns() { case "$1" in *"$ROOT/bin/musterd"*|*"muster e2e-$OWNER-"*|*"muster-e2e-repo-$OWNER-"*) return 0;; esac; return 1; }
+owned_pid() { # the process, or an ancestor within 8 hops (a stub's pane shell, tmux server), is ours
+  local p=$1 i=0 cmd
+  while [ "$i" -lt 8 ] && [ -n "$p" ] && [ "$p" -gt 1 ]; do
+    cmd=$(ps -o command= -p "$p" 2>/dev/null) || return 1
+    owns "$cmd" && return 0
+    p=$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' '); i=$((i+1))
+  done
+  return 1
+}
+
+# 1. Orphaned daemon / stub processes this worktree started. A user's own `musterd` started via
+#    /dev-loop from this tree's bin/ is still listed — reported, and only removed with --yes,
+#    which the orchestrator runs knowingly.
+pids=""; others=""
+for p in $(pgrep -f 'bin/musterd|stub-claude|stub-open' 2>/dev/null); do
+  if owned_pid "$p"; then pids="$pids $p"; else others="$others $p"; fi
+done
 if [ -n "${pids// /}" ]; then
-  found=1; say "musterd/stub processes: $pids"
-  ps -o pid=,etime=,command= -p ${pids} 2>/dev/null | cut -c1-120 | sed 's/^/  /'
-  act_locked "kill ${pids} 2>/dev/null; sleep 1; kill -9 ${pids} 2>/dev/null; true"
+  found=1; say "musterd/stub processes:$pids"
+  ps -o pid=,etime=,command= -p "$(echo $pids | tr ' ' ',')" 2>/dev/null | cut -c1-120 | sed 's/^/  /'
+  act_locked "kill${pids} 2>/dev/null; sleep 1; kill -9${pids} 2>/dev/null; true"
 else say "musterd/stub processes: none"; fi
+[ -n "${others// /}" ] && say "  not this worktree's, left alone:$others"
 
 # 2. tmux sockets under the dedicated dir — only those with no live server.
 socks=$(ls /private/tmp/tmux-$(id -u)/ 2>/dev/null || true)
@@ -52,12 +70,20 @@ else say "stale tmux sockets: none"; fi
 # while one is alive deletes the log it is writing and every check reports "No such file or
 # directory" instead of its result — a green tree read as 14 failures (general-cleanup retro,
 # 2026-09-16). Found by pgrep, never a PID file (kb:lesson/pid-file-captures-subshell).
-NAMES="-name 'muster e2e-*' -o -name 'muster-e2e-repo-*' -o -name 'musterd-onexit-build-*'"
-if pgrep -f 'gates\.sh' >/dev/null 2>&1; then
-  say "gates.sh is running: leaving muster-gates-* alone"
+# Only this worktree's: owner-tagged dirs, and the gates logs and ledgers of the plan its branch
+# names. Untagged dirs (another tree's, a Go test's onexit build, or pre-tag) are counted, not removed.
+NAMES="-name 'muster e2e-$OWNER-*' -o -name 'muster-e2e-repo-$OWNER-*'"
+PLAN=$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null); PLAN=${PLAN#plan/}
+if [ "$PLAN" = main ] || [ -z "$PLAN" ]; then
+  :
+elif pgrep -f 'gates\.sh' >/dev/null 2>&1; then
+  say "gates.sh is running: leaving muster-gates-*$PLAN* alone"
 else
-  NAMES="$NAMES -o -name 'muster-gates-*'"
+  NAMES="$NAMES -o -name 'muster-gates-$PLAN.??????' -o -name 'muster-gates-ledger-$PLAN.tsv' -o -name 'muster-gates-last-$PLAN.tsv'"
 fi
+foreign=$(find "$T" -maxdepth 1 \( -name 'muster e2e-*' -o -name 'muster-e2e-repo-*' -o -name 'musterd-onexit-build-*' \) \
+  ! -name "muster e2e-$OWNER-*" ! -name "muster-e2e-repo-$OWNER-*" ! -name 'muster e2e-stub-*' 2>/dev/null | wc -l | tr -d ' ')
+[ "$foreign" != 0 ] && say "scratch dirs not tagged for this worktree, left alone: $foreign"
 n=$(eval "find \"$T\" -maxdepth 1 \\( $NAMES \\)" 2>/dev/null | wc -l | tr -d ' ')
 if [ "$n" != 0 ]; then
   found=1; say "scratch dirs in \$TMPDIR: $n ($(eval "find \"$T\" -maxdepth 1 \\( $NAMES \\) -print0" 2>/dev/null | xargs -0 du -ch 2>/dev/null | tail -1 | cut -f1))"

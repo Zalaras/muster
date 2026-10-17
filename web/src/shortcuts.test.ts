@@ -54,6 +54,12 @@ describe("matchShortcut — bound chords (W1/W2/W3)", () => {
     ).toEqual({ type: "new-group" });
   });
 
+  it("returns find for Cmd+F (docs-search-bar W2)", () => {
+    expect(matchShortcut(keyEvent({ code: "KeyF", metaKey: true, key: "f" }))).toEqual({
+      type: "find",
+    });
+  });
+
   it("returns toggle-view for Cmd+\\ (unchanged binding, REQ-10)", () => {
     expect(matchShortcut(keyEvent({ code: "Backslash", metaKey: true, key: "\\" }))).toEqual({
       type: "toggle-view",
@@ -180,6 +186,14 @@ const BOUND_CHORDS: ReadonlyArray<{
     shift: false,
     ctrl: false,
     action: { type: "focus-neediest" },
+  },
+  {
+    code: "KeyF",
+    meta: true,
+    alt: false,
+    shift: false,
+    ctrl: false,
+    action: { type: "find" },
   },
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({
     code: `Digit${n}`,
