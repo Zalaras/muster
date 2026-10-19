@@ -171,6 +171,13 @@ From `plans/maintainability-cleanup/`, filed by the developer 2026-09-24. Releas
   Filed 2026-10-16 from musterd 0.22.2 / Claude Code 2.1.293, focus view, session started.
   Labels: enhancement, sessions, claude-code.
 
+- [ ] **Search box in docs should go to the first arrow** ([#102](https://github.com/Zalaras/muster/issues/102)) — In
+  the docs search box there is a large gap between the text input and the first arrow button.
+  Expected: The gap between the text input and the first arrow button should be small, like the gap
+  between the two arrow buttons.
+  Filed 2026-10-17 from musterd 0.23.0 / Claude Code 2.1.302, focus view, session idle; 1 image attached.
+  Labels: bug, documents, ux.
+
 ## Pre-v1
 
 Everything below is blocking a v1 release (the developer, 2026-09-12: no v1 until all of it is
