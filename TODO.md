@@ -23,12 +23,22 @@ Closing happens when the fix lands: `/land` puts `closes #N` in the squash subje
 (`docs/conventions.md` § Commits), and `/triage --audit` reports any issue whose entry is ticked
 while the issue is still open.
 
-Entries sit in **the developer's priority order**, not issue-number or filing order, and are
-grouped under `###` sub-headings by the work they share — a group is a plausible single piece of
-work, not a ranking. `/triage` appends new entries at the end of the section; move one into a
-group deliberately, and otherwise don't re-sort this list.
+Every work item blocking v1 lives here, whatever its origin (an issue or a plan's proposed
+backlog), in three `###` tiers by how it is worked: features, fixes, and work that releases
+nothing. Within a tier, entries are grouped under `####` sub-headings by the work they share — a
+group is a plausible single piece of work, not a ranking — and sit in **the developer's priority
+order**, not issue-number or filing order. `/triage` appends new entries at the end of the
+section, under § Not yet grouped; move one into a group deliberately, and otherwise don't re-sort
+this list.
 
-### Together — session retention and clearing (#47; #39 in Post v1 is the same seam)
+### Features — each is its own `/spec`, `/plan-work` and `/orchestrate`
+
+A feature changes the daemon↔UI protocol, adds a UI surface or needs a decision recorded first, so
+each is planned on its own.
+
+#### Sessions surviving a restart (#47; #39 in Post v1 is the same seam)
+
+May turn out to be a daemon-only fix rather than a feature.
 
 - [ ] **Sessions survive only one daemon start after their tmux server is gone** — filed by the
   developer 2026-09-22 during `rail-card-improvements` planning. After a computer restart, or a
@@ -39,87 +49,16 @@ group deliberately, and otherwise don't re-sort this list.
   gone after stopping musterd and killing tmux. They should come back on restart as resumable
   rows, even though Claude itself has quit.
 
-### Together — launching a session (#81, #68)
-
-The refusal entry was filed 2026-09-26 by the developer from
-`plans/maintainability-regressions/proposed-backlog.md`.
-
-- [ ] **A model refusal can move focus after the selection changed** — in one open dialog:
-  submit model A (refused), change to B and submit, change back to A and click Title; B's
-  refusal moves focus to the custom-model field. A refusal should move focus only while the
-  refused model is still the selection. From `plans/maintainability-regressions/`.
-
-### Together — the installed Claude Code version (#89, #88)
+#### Restarting sessions onto a new Claude Code (#88)
 
 - [ ] **Need a way to restart all claude session with latest Claude version** ([#88](https://github.com/Zalaras/muster/issues/88)) —
   after Claude Code updates, the developer wants to restart every session onto the new version
   with each one resumed where it was, and also to restart just one session or just one group.
 
-### On their own
+#### What a session records (#93, #101, #95)
 
-- [ ] **Tiles per group** — a Tiles view scoped to one group (the grid holds that group's live sessions, the strip the rest of it), reached from the group's ⋯ menu. The grid and strip ignore groups today. The tile footer's live (Stop) versus ended (age, Resume, Remove) row shapes, and the layout shift between them, are reworked here too, matching the Focus header's single Stop/Resume button (plan `title-crop-stop-resume-button` left the footer alone, 2026-10-13).
-
-- [ ] **Clean up `TODO.md`'s structure and how the backlog is worked** — which sections exist,
-  how entries group and rank, and what `/triage` appends where; for now every new entry files
-  under `## Issues` and is moved by hand. Filed 2026-10-15 by the developer during the triage
-  rework.
-
-- [ ] **Check the Focus view's first-attach terminal height** — the size note's reserved row
-  was restored; confirm the terminal is not a row short on first attach. From
-  `plans/maintainability-cleanup/`.
-
-- [ ] **A card shows alive for up to 5 s after Claude exits** when no terminal is attached. From
-  `plans/maintainability-cleanup/`.
-
-### Together — the ingest endpoint and dashboard sockets
-
-From `plans/maintainability-cleanup/`, filed by the developer 2026-09-24.
-
-- [ ] **Shutdown's `/ws` close code disagrees with the protocol** — musterd closes dashboard
-  sockets with 1000 at shutdown; `docs/protocol.md` says 1001.
-- [ ] **The ingest endpoint accepts hook bodies of any size.**
-- [ ] **Decide the owner of the ingest route and `MUSTER_SESSION`** — both are Muster names,
-  declared today in `internal/claudecode`.
-
-### Together — Update and restart
-
-Filed by the developer 2026-09-25/26 from the plans' proposed backlogs.
-
-- [ ] **The pop-out reader keeps the old dashboard after Update and restart** — dashboard
-  windows reload onto the new version; an open pop-out should too. From
-  `plans/settings-update-failures/`.
-- [ ] **The self-updater swaps in the new binary with its own temp-file-and-rename writer** —
-  it should use the daemon's shared atomic write (a fresh temp name, synced before the rename).
-  From `plans/maintainability-regressions/`.
-
-### Together — what code comments cite
-
-Filed by the developer 2026-09-24/25 from the plans' proposed backlogs.
-
-- [ ] **Code cites external docs** — Go and TS comments (and test names) carry `kb:` citations
-  to records under `docs/`; code should carry no citations to external docs. Reverses
-  `docs/conventions.md` § Comments, which asks for them — change it there first. From
-  `plans/settings-update-failures/`.
-- [ ] **Plan IDs remain in test-file comments** — about 370 lines; production code is clean.
-  From `plans/maintainability-cleanup/`.
-
-### Together — missing tests
-
-From `plans/maintainability-cleanup/`, filed by the developer 2026-09-24.
-
-- [ ] **No test covers the launch rollback after a failed record.**
-- [ ] **`internal/boundedwait` has no tests of its own.**
-
-### Together — the gate outside the developer's checkout
-
-From `plans/maintainability-cleanup/`, filed by the developer 2026-09-24. Releases nothing.
-`shell.spec.ts:47` is also one of the four specs in Pre-v1's shared-machine entry.
-
-- [ ] **`make check` fails in a fresh clone or worktree** — `check-kb` reports `refs` entries for
-  `test/rig/captures/*.jsonl` that match no file; it passes only in the developer's checkout.
-- [ ] **Two E2E specs fail on a release-tag commit** — `shell.spec.ts:47` and
-  `update.spec.ts:449` fail whenever HEAD is exactly a release tag (e.g. `main` right after a
-  release).
+#93 and #101 ask for the same thing; one change closes both. All three add something per session
+that the dashboard shows.
 
 - [ ] **I'd like to be able to see what directories I've added to the session** ([#93](https://github.com/Zalaras/muster/issues/93)) — The
   report title asks for a way to see which directories have been added to a session, and the
@@ -128,42 +67,6 @@ From `plans/maintainability-cleanup/`, filed by the developer 2026-09-24. Releas
   Filed 2026-10-15 from musterd 0.21.1 / Claude Code 2.1.293, focus view, session started.
   Labels: enhancement, sessions, ux.
 
-- [ ] **I'd like to be able to add a note to my session** ([#95](https://github.com/Zalaras/muster/issues/95)) — The
-  author wants to attach their own persistent note to a session, separate from titles and rail
-  summaries. Expected: Each session should support a persistent user-written note that the author
-  can add and keep.
-  Filed 2026-10-15 from musterd 0.21.1 / Claude Code 2.1.293, focus view, session working.
-  Labels: enhancement, sessions, ux.
-
-- [ ] **Long background tasks note the session as IDLE** ([#96](https://github.com/Zalaras/muster/issues/96)) — A
-  session running a long background task is shown as IDLE on the dashboard, and the author asks
-  whether this is intended or whether it should show WORKING. Expected: A session with a long
-  background task still running should show WORKING rather than IDLE, unless an existing decision
-  says otherwise.
-  Filed 2026-10-15 from musterd 0.21.2 / Claude Code 2.1.300, focus view, session idle.
-  Labels: bug, lifecycle.
-
-- [ ] **Right click menu with multiple select only applies action to one** ([#97](https://github.com/Zalaras/muster/issues/97)) — With
-  several items selected, the right click menu applies its action to only one item instead of all of
-  the selected items. Expected: The right click menu should apply its action to all selected items
-  rather than just the one under the pointer.
-  Filed 2026-10-15 from musterd 0.21.2 / Claude Code 2.1.300, focus view, session working.
-  Labels: bug, rail, ux.
-
-- [ ] **Should select mode be disabled after an action?** ([#98](https://github.com/Zalaras/muster/issues/98)) — After
-  selecting several sessions and removing them, it is unclear whether the dashboard should stay in
-  select mode or leave it. Expected: Select mode should end after an action, or stay on depending on
-  the action, as the author suggests.
-  Filed 2026-10-15 from musterd 0.22.1 / Claude Code 2.1.301, focus view, session working.
-  Labels: question, rail, ux.
-
-- [ ] **Cache should maybe show the local time for the person** ([#100](https://github.com/Zalaras/muster/issues/100)) — The
-  cache indicator shows only the time remaining until expiry, not the local clock time at which it
-  expires. Expected: The cache should show the local time of expiry, either instead of the remaining
-  duration or in brackets after it.
-  Filed 2026-10-16 from musterd 0.22.2 / Claude Code 2.1.293, focus view, session working.
-  Labels: enhancement, usage, ux.
-
 - [ ] **I want to see the added directories** ([#101](https://github.com/Zalaras/muster/issues/101)) — After
   directories are added to a Claude Code session with the add-dir command, there is no way to see
   afterwards which ones have been added. Expected: Muster should track the directories added to a
@@ -171,50 +74,33 @@ From `plans/maintainability-cleanup/`, filed by the developer 2026-09-24. Releas
   Filed 2026-10-16 from musterd 0.22.2 / Claude Code 2.1.293, focus view, session started.
   Labels: enhancement, sessions, claude-code.
 
-- [ ] **Search box in docs should go to the first arrow** ([#102](https://github.com/Zalaras/muster/issues/102)) — In
-  the docs search box there is a large gap between the text input and the first arrow button.
-  Expected: The gap between the text input and the first arrow button should be small, like the gap
-  between the two arrow buttons.
-  Filed 2026-10-17 from musterd 0.23.0 / Claude Code 2.1.302, focus view, session idle; 1 image attached.
-  Labels: bug, documents, ux.
+- [ ] **I'd like to be able to add a note to my session** ([#95](https://github.com/Zalaras/muster/issues/95)) — The
+  author wants to attach their own persistent note to a session, separate from titles and rail
+  summaries. Expected: Each session should support a persistent user-written note that the author
+  can add and keep.
+  Filed 2026-10-15 from musterd 0.21.1 / Claude Code 2.1.293, focus view, session working.
+  Labels: enhancement, sessions, ux.
 
-## Pre-v1
+#### Tiles per group
 
-Everything below is blocking a v1 release (the developer, 2026-09-12: no v1 until all of it is
-in) — a mix of small cleanup and full features that used to be filed as post-v1. The release
-itself is § v1 Release, done only once this section and § Issues are empty.
+- [ ] **Tiles per group** — a Tiles view scoped to one group (the grid holds that group's live sessions, the strip the rest of it), reached from the group's ⋯ menu. The grid and strip ignore groups today. The tile footer's live (Stop) versus ended (age, Resume, Remove) row shapes, and the layout shift between them, are reworked here too, matching the Focus header's single Stop/Resume button (plan `title-crop-stop-resume-button` left the footer alone, 2026-10-13).
 
-Plan-mode flow (§3.1) → worktree manager with setup scripts (§3.2) → start-from-PR/issue
-(§3.3) → permissions UI (§3.4) → `code <worktree>` button (trivial, anytime).
-Conflict-handling groundwork for §3.2 (option analysis + external survey, 2026-09-01) is in
-`docs/history/design/worktree-conflicts.md` — read it before planning the worktree manager.
-§3.2's first half is now specced: `plans/worktree-lifecycle/spec.md` (2026-09-14), resting on
-`kb:adr/worktree-muster-owned-sibling-path` and the two facts a probe measured that day. Both
-facts carry `guard: none` — `kb:fact/worktree-flag-defaults` and
-`kb:fact/worktree-create-hook-owns-path` want canary or unit coverage when the feature is built,
-and the second is the one to re-measure if a Claude Code bump touches worktrees.
+#### Resizable side panels (#37)
 
-- [ ] **Four E2E specs go red when a second Playwright suite shares the machine** —
-  `shell.spec.ts:47`, `update.spec.ts:456`, `rail-cards.spec.ts:226`, `embedded.spec.ts:76`
-  failed with another suite alive in a second worktree, and passed alone every time
-  (`docs/history/design/test-strategy.md`, 2026-09-26). The gate lock now keeps a second suite
-  out; these four are the ones to look at if the lock ever has to go.
+- [ ] **Resizable side panels** ([#37](https://github.com/Zalaras/muster/issues/37)) — the
+  developer can drag to resize both the session rail on the left and the docs reader's file
+  nav / outline panel on the right, and minimise the rail the way the docs nav already
+  collapses. Each panel keeps its width across reloads.
 
-- [ ] **`embedded.spec.ts:76` may be macOS holding a freshly copied musterd** — the embedded
-  fixture copies a new `musterd` for every start and waits 10 s for `/healthz`; it went red alone,
-  under the gate lock, with empty output (2026-10-15). A daemon start should pass whatever the
-  binary's age. From `plans/claude-version-watch/`.
+#### A launch's `model_not_found`
 
-### Test suite time (filed 2026-10-06)
+- [ ] **Name a launched session's `model_not_found`** — a model the installed Claude Code knows
+  but the account cannot run passes the launch pre-check and fails its first turn with
+  `StopFailure.error = "model_not_found"` (kb:fact/unknown-model-fails-first-turn); the card
+  shows only the generic failure. Candidate: say "model unavailable" on the card and offer
+  Resume with another model. From `plans/new-session-improvement/` (its `## Out of scope`).
 
-- [ ] **The E2E sweep takes about six minutes and is most of the gate's time** — 715 tests ran
-  in 5.9 min at 4 workers, against 2.1 min for Go and 8 s for Vitest. The time is spread
-  across the whole suite, not a few slow tests: median 1.4 s per test, the slowest 100 are only
-  39% of E2E time, and only 8 take 10 s or more. Largest files: `card-location.spec.ts` (88
-  tests, 211 s) and `update.spec.ts` (27 tests, 195 s). The sweep should take a fraction of
-  that without dropping coverage. `workers: 4` is a measured load policy, not the lever
-  (`docs/conventions.md` § Testing). Measurements: `plans/_audit/test-audit-2026-10-06.md`
-  § "Where the time goes".
+#### Needs a `/spec` or a superseding ADR first
 
 - [ ] **Richer terminal functionality** — a second pass over the shell. The first pass
   (`plans/plain-terminal-session/spec.md`, #21 — cross-reference; the owning entry is in the history file)
@@ -240,6 +126,227 @@ and the second is the one to re-measure if a Claude Code bump touches worktrees.
   cost *tracking*, but spending is a new class of behaviour either way), and where a summary
   is cached and invalidated so it isn't recomputed every render. Wants a `/spec` pass.
 
+### Fixes — each group is one `/fix` run
+
+Grouped by the part of Muster they touch, so one `/fix` plan can close a whole group.
+
+#### Launch dialog
+
+- [ ] **A model refusal can move focus after the selection changed** — in one open dialog:
+  submit model A (refused), change to B and submit, change back to A and click Title; B's
+  refusal moves focus to the custom-model field. A refusal should move focus only while the
+  refused model is still the selection. From `plans/maintainability-regressions/`.
+
+- [ ] **Launch dialog briefly shows the wrong effort** — for up to 1.5 s after the launch dialog
+  opens, Effort can read `default` before settling on the directory's remembered level. The
+  dialog should open showing the remembered level. From `plans/effort/`.
+
+#### While musterd is down and when it comes back
+
+The menus entry is a decision for the developer before it can be fixed.
+
+- [ ] **Shutdown's `/ws` close code disagrees with the protocol** — musterd closes dashboard
+  sockets with 1000 at shutdown; `docs/protocol.md` says 1001. From `plans/maintainability-cleanup/`.
+
+- [ ] **Review how menus behave while the daemon is down** — an open card right-click menu
+  closes at each reconnect attempt (about 2 s, 4 s and 8 s) while musterd is unreachable; the
+  other menus, popovers and dialogs may do the same. Decide how each should behave while the
+  daemon is down and make them consistent. From `plans/rail-card-organise/`.
+
+- [ ] **"Could not reach musterd." stays after the daemon is back** — after an action fails while
+  musterd is down, the action-error line keeps that message once the connection returns, until
+  the next action replaces it. It should clear when the daemon is reachable again. From
+  `plans/effort/`.
+
+- [ ] **The pop-out reader keeps the old dashboard after Update and restart** — dashboard
+  windows reload onto the new version; an open pop-out should too. From
+  `plans/settings-update-failures/`.
+
+#### Rail
+
+#98 is a question for the developer before it can be fixed. Keeping the current card on screen
+supersedes an accepted ADR, so it carries a new one.
+
+- [ ] **Right click menu with multiple select only applies action to one** ([#97](https://github.com/Zalaras/muster/issues/97)) — With
+  several items selected, the right click menu applies its action to only one item instead of all of
+  the selected items. Expected: The right click menu should apply its action to all selected items
+  rather than just the one under the pointer.
+  Filed 2026-10-15 from musterd 0.21.2 / Claude Code 2.1.300, focus view, session working.
+  Labels: bug, rail, ux.
+
+- [ ] **Should select mode be disabled after an action?** ([#98](https://github.com/Zalaras/muster/issues/98)) — After
+  selecting several sessions and removing them, it is unclear whether the dashboard should stay in
+  select mode or leave it. Expected: Select mode should end after an action, or stay on depending on
+  the action, as the author suggests.
+  Filed 2026-10-15 from musterd 0.22.1 / Claude Code 2.1.301, focus view, session working.
+  Labels: question, rail, ux.
+
+- [ ] **Keep the current session's rail card on screen** — in a rail with more cards than fit,
+  a launch and the number chords (⌥⌘5–9, ⌥⌘0) move the current marker to a card that can be
+  scrolled out of view, so you can't see which session you're on; nothing in `web/src` calls
+  `scrollIntoView`. Candidate: the single "bring a session forward" owner scrolls the card into
+  view (`block: "nearest"`) on every path. Doing it supersedes
+  `kb:adr/rail-launch-leaves-rail-scroll-untouched`, which left launch unscrolled to match the
+  chords. From `plans/new-session-improvement/`.
+
+- [ ] **Cache should maybe show the local time for the person** ([#100](https://github.com/Zalaras/muster/issues/100)) — The
+  cache indicator shows only the time remaining until expiry, not the local clock time at which it
+  expires. Expected: The cache should show the local time of expiry, either instead of the remaining
+  duration or in brackets after it.
+  Filed 2026-10-16 from musterd 0.22.2 / Claude Code 2.1.293, focus view, session working.
+  Labels: enhancement, usage, ux.
+
+#### What the card's state says (#96)
+
+#96 may need a decision on what counts as working before it is a fix.
+
+- [ ] **Long background tasks note the session as IDLE** ([#96](https://github.com/Zalaras/muster/issues/96)) — A
+  session running a long background task is shown as IDLE on the dashboard, and the author asks
+  whether this is intended or whether it should show WORKING. Expected: A session with a long
+  background task still running should show WORKING rather than IDLE, unless an existing decision
+  says otherwise.
+  Filed 2026-10-15 from musterd 0.21.2 / Claude Code 2.1.300, focus view, session idle.
+  Labels: bug, lifecycle.
+
+- [ ] **A card shows alive for up to 5 s after Claude exits** when no terminal is attached. From
+  `plans/maintainability-cleanup/`.
+
+#### Focus view
+
+- [ ] **Check the Focus view's first-attach terminal height** — the size note's reserved row
+  was restored; confirm the terminal is not a row short on first attach. From
+  `plans/maintainability-cleanup/`.
+
+- [ ] **Focus lands nowhere after a keyboard Dismiss of the effort warning** — pressing Dismiss
+  on the Focus header's effort-mismatch strip with the keyboard hides the strip and leaves focus
+  on the page itself. Focus should land somewhere sensible in the header. From `plans/effort/`.
+
+#### Shell pane
+
+- [ ] **Shell terminal follow-ups** — one web plan over the shell pane (`web/src/terminal/`,
+  `web/src/style.css`):
+  - [ ] **Unit-test the real wheel accumulator** — `shellkeys.test.ts`'s `accumulateFrame`
+    mirrors `pane.ts`'s private sub-line accumulation instead of calling it, so reverting the fix
+    in `pane.ts` leaves those tests green (only the `shell-scroll.spec.ts` E2E catches it). Lift
+    the step into `shellkeys.ts` as a pure `(accum, deltaY) => { accum, lines }` that `pane.ts`
+    calls. From `plans/terminal-fixes-cleanup/`.
+  - [ ] **Reduced-motion rule for the activity spinner** — `shellact-spin` (0.7 s infinite) is
+    the stylesheet's only animation, and nothing in `web/src` or `docs/design` handles
+    `prefers-reduced-motion`. Stop or slow the spin under it. From
+    `plans/terminal-fixes-cleanup/`.
+
+#### Docs reader
+
+- [ ] **Search box in docs should go to the first arrow** ([#102](https://github.com/Zalaras/muster/issues/102)) — In
+  the docs search box there is a large gap between the text input and the first arrow button.
+  Expected: The gap between the text input and the first arrow button should be small, like the gap
+  between the two arrow buttons.
+  Filed 2026-10-17 from musterd 0.23.0 / Claude Code 2.1.302, focus view, session idle; 1 image attached.
+  Labels: bug, documents, ux.
+
+#### Daemon internals: ingest and the self-updater
+
+- [ ] **The ingest endpoint accepts hook bodies of any size.** From `plans/maintainability-cleanup/`.
+
+- [ ] **Decide the owner of the ingest route and `MUSTER_SESSION`** — both are Muster names,
+  declared today in `internal/claudecode`. From `plans/maintainability-cleanup/`.
+
+- [ ] **The self-updater swaps in the new binary with its own temp-file-and-rename writer** —
+  it should use the daemon's shared atomic write (a fresh temp name, synced before the rename).
+  From `plans/maintainability-regressions/`.
+
+#### Missing tests
+
+- [ ] **No test covers the launch rollback after a failed record.** From `plans/maintainability-cleanup/`.
+
+- [ ] **`internal/boundedwait` has no tests of its own.** From `plans/maintainability-cleanup/`.
+
+#### E2E specs that fail outside a clean run
+
+Each passes alone on an ordinary commit and fails from the machine or the commit it runs on.
+
+- [ ] **Two E2E specs fail on a release-tag commit** — `shell.spec.ts:47` and
+  `update.spec.ts:449` fail whenever HEAD is exactly a release tag (e.g. `main` right after a
+  release). From `plans/maintainability-cleanup/`.
+
+- [ ] **Four E2E specs go red when a second Playwright suite shares the machine** —
+  `shell.spec.ts:47`, `update.spec.ts:456`, `rail-cards.spec.ts:226`, `embedded.spec.ts:76`
+  failed with another suite alive in a second worktree, and passed alone every time
+  (`docs/history/design/test-strategy.md`, 2026-09-26). The gate lock now keeps a second suite
+  out; these four are the ones to look at if the lock ever has to go.
+
+- [ ] **`embedded.spec.ts:76` may be macOS holding a freshly copied musterd** — the embedded
+  fixture copies a new `musterd` for every start and waits 10 s for `/healthz`; it went red alone,
+  under the gate lock, with empty output (2026-10-15). A daemon start should pass whatever the
+  binary's age. From `plans/claude-version-watch/`.
+
+#### E2E sweep time
+
+A perf fix, but a large one.
+
+- [ ] **The E2E sweep takes about six minutes and is most of the gate's time** — 715 tests ran
+  in 5.9 min at 4 workers, against 2.1 min for Go and 8 s for Vitest. The time is spread
+  across the whole suite, not a few slow tests: median 1.4 s per test, the slowest 100 are only
+  39% of E2E time, and only 8 take 10 s or more. Largest files: `card-location.spec.ts` (88
+  tests, 211 s) and `update.spec.ts` (27 tests, 195 s). The sweep should take a fraction of
+  that without dropping coverage. `workers: 4` is a measured load policy, not the lever
+  (`docs/conventions.md` § Testing). Measurements: `plans/_audit/test-audit-2026-10-06.md`
+  § "Where the time goes".
+
+### Releases nothing — a plan and a commit
+
+#### Gate and pipeline tooling
+
+- [ ] **`make check` fails in a fresh clone or worktree** — `check-kb` reports `refs` entries for
+  `test/rig/captures/*.jsonl` that match no file; it passes only in the developer's checkout. From `plans/maintainability-cleanup/`.
+
+- [ ] **Pipeline gate fixes** — one tooling plan (releases nothing), both in
+  `.claude/skills/orchestrate/scripts/`:
+  - [ ] **Run `make web-lint` in the wave-2 gate** — `gates.sh`'s wave cases hard-code
+    build/lint/test/web-build/web-test/e2e, and Biome reaches a wave only when a plan authors
+    `make web-lint` in its ```` ```checks ```` block. `terminal-fixes-cleanup` authored none, so a
+    format error passed every wave gate and was caught only by hand (`bbad9cf`). Add `web-lint`
+    to the wave-2 case so no plan can forget it. From `plans/terminal-fixes-cleanup/`.
+
+#### What code comments cite
+
+- [ ] **Code cites external docs** — Go and TS comments (and test names) carry `kb:` citations
+  to records under `docs/`; code should carry no citations to external docs. Reverses
+  `docs/conventions.md` § Comments, which asks for them — change it there first. From
+  `plans/settings-update-failures/`.
+
+- [ ] **Plan IDs remain in test-file comments** — about 370 lines; production code is clean.
+  From `plans/maintainability-cleanup/`.
+
+#### The backlog's structure
+
+- [ ] **Clean up `TODO.md`'s structure and how the backlog is worked** — which sections exist,
+  how entries group and rank, and what `/triage` appends where; for now every new entry files
+  under `## Issues` and is moved by hand. Filed 2026-10-15 by the developer during the triage
+  rework.
+
+### Not yet grouped
+
+New `/triage` entries land here until they are moved into a group.
+
+## Pre-v1
+
+Everything below is blocking a v1 release (the developer, 2026-09-12: no v1 until all of it is
+in), as is everything in § Issues. Every work item is filed in § Issues; this section holds the
+roadmap and design notes. The release itself is § v1 Release, done only once this section and § Issues are empty.
+
+Plan-mode flow (§3.1) → worktree manager with setup scripts (§3.2) → start-from-PR/issue
+(§3.3) → permissions UI (§3.4) → `code <worktree>` button (trivial, anytime).
+Conflict-handling groundwork for §3.2 (option analysis + external survey, 2026-09-01) is in
+`docs/history/design/worktree-conflicts.md` — read it before planning the worktree manager.
+§3.2's first half is now specced: `plans/worktree-lifecycle/spec.md` (2026-09-14), resting on
+`kb:adr/worktree-muster-owned-sibling-path` and the two facts a probe measured that day. Both
+facts carry `guard: none` — `kb:fact/worktree-flag-defaults` and
+`kb:fact/worktree-create-hook-owns-path` want canary or unit coverage when the feature is built,
+and the second is the one to re-measure if a Claude Code bump touches worktrees.
+
+### Notes, not work items
+
 - Scaling note (m2 review cycle-2 Minor 3): `terminalRegistry.takeover` holds one global
   mutex across the PTY spawn — deliberate and correct for REQ-2's evict-before-attach
   ordering, imperceptible at 6 tiles, but it serializes attaches across *all* sessions.
@@ -260,74 +367,6 @@ and the second is the one to re-measure if a Claude Code bump touches worktrees.
   that probe's micro-benchmark. Not built for m4-hook-lifetime (YAGNI — the shell version
   is measured-correct and ships one file, no build/distribution story); revisit if the
   per-event cost is ever felt on a tool-heavy turn.
-
-Filed 2026-09-23 by the developer from the plans' `proposed-backlog.md` files (each names its
-source; the file records the decision). Entries that make one plan are grouped under a parent;
-tick a sub-item as it lands, the parent when all have.
-
-- [ ] **Pipeline gate fixes** — one tooling plan (releases nothing), both in
-  `.claude/skills/orchestrate/scripts/`:
-  - [ ] **Run `make web-lint` in the wave-2 gate** — `gates.sh`'s wave cases hard-code
-    build/lint/test/web-build/web-test/e2e, and Biome reaches a wave only when a plan authors
-    `make web-lint` in its ```` ```checks ```` block. `terminal-fixes-cleanup` authored none, so a
-    format error passed every wave gate and was caught only by hand (`bbad9cf`). Add `web-lint`
-    to the wave-2 case so no plan can forget it. From `plans/terminal-fixes-cleanup/`.
-
-- [ ] **Shell terminal follow-ups** — one web plan over the shell pane (`web/src/terminal/`,
-  `web/src/style.css`):
-  - [ ] **Unit-test the real wheel accumulator** — `shellkeys.test.ts`'s `accumulateFrame`
-    mirrors `pane.ts`'s private sub-line accumulation instead of calling it, so reverting the fix
-    in `pane.ts` leaves those tests green (only the `shell-scroll.spec.ts` E2E catches it). Lift
-    the step into `shellkeys.ts` as a pure `(accum, deltaY) => { accum, lines }` that `pane.ts`
-    calls. From `plans/terminal-fixes-cleanup/`.
-  - [ ] **Reduced-motion rule for the activity spinner** — `shellact-spin` (0.7 s infinite) is
-    the stylesheet's only animation, and nothing in `web/src` or `docs/design` handles
-    `prefers-reduced-motion`. Stop or slow the spin under it. From
-    `plans/terminal-fixes-cleanup/`.
-
-- [ ] **Keep the current session's rail card on screen** — in a rail with more cards than fit,
-  a launch and the number chords (⌥⌘5–9, ⌥⌘0) move the current marker to a card that can be
-  scrolled out of view, so you can't see which session you're on; nothing in `web/src` calls
-  `scrollIntoView`. Candidate: the single "bring a session forward" owner scrolls the card into
-  view (`block: "nearest"`) on every path. Doing it supersedes
-  `kb:adr/rail-launch-leaves-rail-scroll-untouched`, which left launch unscrolled to match the
-  chords. From `plans/new-session-improvement/`.
-
-- [ ] **Name a launched session's `model_not_found`** — a model the installed Claude Code knows
-  but the account cannot run passes the launch pre-check and fails its first turn with
-  `StopFailure.error = "model_not_found"` (kb:fact/unknown-model-fails-first-turn); the card
-  shows only the generic failure. Candidate: say "model unavailable" on the card and offer
-  Resume with another model. From `plans/new-session-improvement/` (its `## Out of scope`).
-
-- [ ] **Resizable side panels** ([#37](https://github.com/Zalaras/muster/issues/37)) — the
-  developer can drag to resize both the session rail on the left and the docs reader's file
-  nav / outline panel on the right, and minimise the rail the way the docs nav already
-  collapses. Each panel keeps its width across reloads.
-
-Filed 2026-10-15 by the developer from the plans' proposed-backlog.md files.
-
-- [ ] **Review how menus behave while the daemon is down** — an open card right-click menu
-  closes at each reconnect attempt (about 2 s, 4 s and 8 s) while musterd is unreachable; the
-  other menus, popovers and dialogs may do the same. Decide how each should behave while the
-  daemon is down and make them consistent. From `plans/rail-card-organise/`.
-
-- [ ] **Focus lands nowhere after a keyboard Dismiss of the effort warning** — pressing Dismiss
-  on the Focus header's effort-mismatch strip with the keyboard hides the strip and leaves focus
-  on the page itself. Focus should land somewhere sensible in the header. From `plans/effort/`.
-
-- [ ] **"Could not reach musterd." stays after the daemon is back** — after an action fails while
-  musterd is down, the action-error line keeps that message once the connection returns, until
-  the next action replaces it. It should clear when the daemon is reachable again. From
-  `plans/effort/`.
-
-- [ ] **Launch dialog briefly shows the wrong effort** — for up to 1.5 s after the launch dialog
-  opens, Effort can read `default` before settling on the directory's remembered level. The
-  dialog should open showing the remembered level. From `plans/effort/`.
-
-- [ ] **Restructure TODO.md so its sections can be picked up as work** — the sections have grown
-  by origin and date rather than by what could be worked on together, so it is hard to pick a
-  coherent piece of work from the list. Regroup the sections so each one reads as a unit that
-  can be planned and picked up.
 
 ## v1 Release
 

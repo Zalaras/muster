@@ -1237,6 +1237,11 @@ the mobile/responsive pass rem-ifies the pixel layer.
     `kb:adr/process-features-scope-answered-by-widening-header`.
     ✅ done 2026-10-06 (direct on `main`): resolved without an any-owner rule — one owning spec per source file (`7b4b57eb`), the session handler split (`8c3a2cff`), and a `**Touches**` header the scope gate widens itself, packing a touched feature as spec and contract only (kb:adr/process-touched-features-widen-without-stopping).
 
+- [x] **Restructure TODO.md so its sections can be picked up as work** — the sections have grown
+  by origin and date rather than by what could be worked on together, so it is hard to pick a
+  coherent piece of work from the list. Regroup the sections so each one reads as a unit that
+  can be planned and picked up.
+  ✅ done 2026-10-19 (a hand edit on `main`): § Issues regrouped into units of work, each a `### Together —` or `### On its own —` group, with § Not yet grouped for new `/triage` entries; § Pre-v1 keeps only features that need a `/spec` or ADR first, and its notes.
 
 ## Issues
 
