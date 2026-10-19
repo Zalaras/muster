@@ -126,7 +126,9 @@ only, and why. Any other failure is yours to fix before you finish.
 does — e2e-specs authored them against the same Testable UI Elements table you built to, and its
 Tests table names the files; without that file write `**E2E smoke**: no spec authored`. After your build gate: `make web-build build` from the project root
 (that order — the binary embeds the dashboard), then `npx playwright test <those files>` from
-`web/`, and paste the summary line under `## Handoff`. A failure your code causes is yours to fix,
+`web/` — in the foreground with an explicit `timeout` (it takes the exclusive gate lock through
+`globalSetup` and may wait on a neighbour; kb:lesson/subagent-never-woken-by-harness) — and paste
+the summary line under `## Handoff`. A failure your code causes is yours to fix,
 not argue down; a spec locator defect (wrong role, wrong name, an element the table never promised) goes
 to validate mode — name the test and the mismatch in `## Handoff` and leave the spec as it is. This
 is your smoke check, not the E2E gate, so it never becomes a `pass`/`fail` verdict

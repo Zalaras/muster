@@ -9,7 +9,7 @@ features: []
 tags: [pipeline]
 files: [.claude/skills/spec/SKILL.md, .claude/skills/plan-work/SKILL.md, .claude/skills/orchestrate/SKILL.md, .claude/skills/retro/SKILL.md, .claude/skills/land/SKILL.md, .claude/agents/*.md]
 tests: []
-refs: [kb:adr/process-doc-reconcile-after-review, kb:adr/process-comment-pass-owns-code-comments, plans/_audit/diagrams-from-code.md]
+refs: [kb:adr/process-doc-reconcile-after-review, kb:adr/process-comment-pass-owns-code-comments, kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion, plans/_audit/diagrams-from-code.md]
 ---
 One feature, end to end. Each arrow into a skill is a gate that refuses rather than warns:
 `/plan-work` refuses a spec whose `Status` is not `Approved`; `/orchestrate` refuses a `draft`
@@ -20,21 +20,21 @@ proposal to the user before merging (kb:adr/process-land-decides-proposed-backlo
 Inside `/orchestrate`, a full-stack plan runs both tracks; a `daemon` or `web` plan drops the
 other track's two boxes, and an E2E Scope of `none` drops both E2E stages. E2E Specs authors
 against a feature that does not exist yet, so it gates on collection, never on a pass. Each
-tester starts when its own track is green; the daemon tester never waits for the web coder.
-Before the gates the comment pass strips every added comment, a Sonnet judge with the plan
-withheld returns the load-bearing few, and reviewers file no finding on a comment
-(kb:adr/process-comment-pass-owns-code-comments). The orchestrator runs the gates once and
-then spawns three Opus reviewers in parallel —
+tester starts when its own track is green. Before the gates the comment pass strips every added
+comment, a Sonnet judge with the plan withheld returns the load-bearing few, and reviewers file no
+finding on a comment (kb:adr/process-comment-pass-owns-code-comments). The orchestrator runs the
+gates once and then spawns three Opus reviewers in parallel —
 correctness against the plan, the browser matrix (UI plans only), a maintainability read with the
 plan withheld — and merges their parts into one `review.md` whose verdict is computed, never
 opined (kb:adr/process-review-split-three-reviewers-computed-verdict). Doc Reconcile
-is reached only by an `approved` merged review, and only its `reconciled` verdict completes the
-run (kb:adr/process-doc-reconcile-after-review). Retry budgets and `needs-changes` wave
-ordering live in the orchestrate skill's tables.
+is reached only by an `approved` merged review, and only its `reconciled` verdict reaches
+Completion (kb:adr/process-doc-reconcile-after-review), whose Final Validation is the one full E2E
+sweep; every earlier gate ran E2E scoped to the plan's specs
+(kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion). Retry budgets and wave ordering
+live in the orchestrate skill's tables.
 
 `/retro` runs in the session that ran `/orchestrate`, while the stumbles are in context,
-and commits on the plan branch so its changes ride `/land`'s squash, which is why it precedes
-the merge.
+and commits on the plan branch so its changes ride `/land`'s squash.
 
 ```mermaid
 %%{init: {"layout": "dagre", "flowchart": {"curve": "stepAfter"}}}%%
@@ -55,7 +55,7 @@ flowchart TD
         WT --> V
         V -->|implementation-bug| DI
         V -->|implementation-bug| WI
-        V --> CP[Comment pass — strip, Sonnet judge, reconstruct] --> G[Gates — orchestrator, once]
+        V --> CP[Comment pass — strip, Sonnet judge, reconstruct] --> G[Gates — orchestrator, once; E2E scoped]
         G --> RC[Review: correctness]
         G --> RB[Review: browser — UI plans]
         G --> RM[Review: maintainability]
@@ -66,7 +66,9 @@ flowchart TD
         M -->|needs-changes, in waves| WI
         M -->|approved| DR[Doc Reconcile]
         DR -->|contradiction| CP
-        DR -->|reconciled| C[Completion — accept ADRs, record closes]
+        DR -->|reconciled| C[Completion — Final Validation: the one full E2E sweep; accept ADRs, record closes]
+        C -->|full sweep red| DI
+        C -->|full sweep red| WI
     end
 
     ORCH --> RETRO["/retro — one lesson or nothing, commits on the plan branch"]
@@ -75,5 +77,4 @@ flowchart TD
     LAND -.->|verdict not approved, or a proposed ADR remains| USER
 ```
 
-Trivial fixes and doc work skip all of this; the pipeline is for anything with acceptance
-criteria.
+Doc work skips all of this; the pipeline is for anything with acceptance criteria.

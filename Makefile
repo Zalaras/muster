@@ -76,13 +76,17 @@ e2e-lint: ## Mechanical checks on web/e2e (fixtures only from helpers/fixtures.t
 # build compiles them into the binary via go:embed, or the E2E-embedded spec (embedded.spec.ts)
 # runs against stale assets (plan embed-dashboard Edge Case 3/8 — this repo never runs
 # make -j, so make's serial default is what makes this ordering hold).
+# SPECS narrows the run to those files (paths as Playwright takes them from web/); the pipeline's
+# gates pass the plan's scope every cycle and run the bare suite once at Final Validation
+# (kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion).
+SPECS ?=
 .PHONY: e2e
-e2e: $(GATELOCK) ## Playwright E2E suite under the exclusive gate lock (builds first; runs e2e-lint via npm run e2e)
-	$(GATELOCK) run --exclusive -- $(MAKE) web-build build e2e-run
+e2e: $(GATELOCK) ## Playwright E2E suite under the exclusive gate lock (builds first; runs e2e-lint via npm run e2e; SPECS='e2e/a.spec.ts e2e/b.spec.ts' narrows it to those files)
+	$(GATELOCK) run --exclusive -- $(MAKE) web-build build e2e-run SPECS='$(SPECS)'
 
 .PHONY: e2e-run
-e2e-run: ## The Playwright sweep alone, no build (make e2e runs this under the lock; globalSetup no-ops the nested lock)
-	cd web && npm run e2e
+e2e-run: ## The Playwright sweep alone, no build (make e2e runs this under the lock; globalSetup no-ops the nested lock; honours SPECS)
+	cd web && npm run e2e -- $(SPECS)
 
 # Proof for a flake fix, not a retry: every repetition must be green (retries stay 0 in
 # playwright.config.ts). --repeat-each makes each repetition its own test entry, so copies

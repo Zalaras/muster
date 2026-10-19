@@ -165,6 +165,11 @@ seam (the shape chosen, why, and what it reused or matched).
   counts too; `make test` / `make test-race` hold it shared (unit runs may overlap each other,
   never a sweep — kb:lesson/concurrent-e2e-across-worktrees-goes-red). A busy lock waits and
   names its holder every 15 s; when the wait expires it exits 75 — rerun, nothing failed.
+- The pipeline's gates run E2E **scoped** per cycle — `make e2e SPECS='…'` over the specs the
+  plan's features own, the plan changed or named, and those its helper edits reach
+  (`gates.sh <plan> --e2e-scope` prints the set) — and the whole suite once, at Final Validation
+  (`--full-e2e`), which is the only run that can complete a plan
+  (kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion).
 - Assert the state the UI *settles* in, never a display a later render pass replaces — the
   `4001` "session ended" overlay lasts ~25 ms before the dead surface (e2e-lint rule 4). A
   change that fixes or touches a flaky spec is proven with `make e2e-soak SPEC=<file> N=10`

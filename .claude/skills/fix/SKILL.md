@@ -170,8 +170,10 @@ For an E2E Proof whose fix is a flake, spawn `e2e-specs` in VALIDATE MODE after 
    Skipping this turns the `comment-ledger` gate red on the first added comment.
 3. Gates, in the foreground (`timeout: 600000`; exit 75 is a busy lock — rerun, never poll):
    ```bash
-   GATES_LOG_DIR=$TMPDIR/gates-<name>-c1 .claude/skills/orchestrate/scripts/gates.sh <name>   # --no-e2e when **E2E Scope**: none
+   GATES_LOG_DIR=$TMPDIR/gates-<name>-c1 .claude/skills/orchestrate/scripts/gates.sh <name>
    ```
+   Its e2e line is scoped to the specs the fix can affect (the `NOTE  e2e scope` line); the whole
+   suite runs once, at step 8 (kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion).
    Never `--baseline-only`: it skips the checks block, where the Proof line lives. If the
    `features` gate widened `**Touches**`, commit `docs(<name>): touch <owner>` before any re-run —
    the ledger fingerprints a dirty tree as a new one. Note the summary's `<F> failed`.
@@ -193,8 +195,8 @@ python3 $S <name> reviewed "$(git rev-parse HEAD)"
 `needs-changes`: one fix wave — `python3 $S <name> archive review.md`, then `archive
 review.<part>.md` for each part file, then `retry review`; the agent each issue's tag names in FIX
 MODE with the issues quoted verbatim and `(review cycle 2)` as its commit suffix (an `[e2e-specs]`
-prompt adds: "skip Validate step 5's soak — the gates run is the sweep; soak only when the plan
-fixes a flake"); gates again (ledger reuse is fine); a delta re-review per Step 6 item 3; merge and
+prompt adds: "skip Validate step 5's soak unless the plan fixes a flake — the gates run is the
+sweep"); gates again (ledger reuse is fine); a delta re-review per Step 6 item 3; merge and
 commit as `cycle 2`. Still not approved: `status blocked --step review`, report the open
 issues, and ask the developer. A `[orchestrator]`-tagged Minor is yours to fix in a `docs(<name>)`
 commit, as in `/orchestrate`.
@@ -208,9 +210,16 @@ commit, as in `/orchestrate`.
 2. `go tool kb ls --feature <f> --status proposed` for every Features/Touches name shows no
    record with `refs: plan:<name>` (flip any to `accepted`, `date:` today). `make gen-kb && make
    check-kb`.
-3. `python3 $S <name> closes <N> …` — run it with no numbers when the plan closes nothing.
-4. `python3 $S <name> status completed` (refused unless `review.md` says approved), commit the
-   state file `chore(<name>): complete`, `git checkout main`.
+3. Final Validation — the one full sweep, after reconcile so it sees the tree that lands, in the
+   foreground (`timeout: 600000`, ~7 min):
+   ```bash
+   .claude/skills/orchestrate/scripts/gates.sh <name> --full-e2e   # --no-e2e when **E2E Scope**: none
+   ```
+   Everything but the e2e line is a ledger reuse. A red spec outside the fix's scope is a
+   regression the fix caused: one more fix wave as in step 7, this run again, a delta re-review.
+4. `python3 $S <name> closes <N> …` — run it with no numbers when the plan closes nothing.
+5. `python3 $S <name> status completed` (refused unless `review.md` says approved and step 3's
+   run was green on this tree), commit the state file `chore(<name>): complete`, `git checkout main`.
 
 Report: what the entry claimed against what research found; the Proof test (red output, then
 green); what shipped, per file; the gates summary; the review verdict and cycles; doc-reconcile's

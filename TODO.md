@@ -267,7 +267,10 @@ Each passes alone on an ordinary commit and fails from the machine or the commit
 
 #### E2E sweep time
 
-A perf fix, but a large one.
+A perf fix, but a large one. Since 2026-10-19 the gates run the sweep scoped to a plan's specs
+per cycle and the whole suite once at Final Validation
+(kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion), so it runs less often; the
+entry below is about how long one run takes, and stays open.
 
 - [ ] **The E2E sweep takes about six minutes and is most of the gate's time** — 715 tests ran
   in 5.9 min at 4 workers, against 2.1 min for Go and 8 s for Vitest. The time is spread

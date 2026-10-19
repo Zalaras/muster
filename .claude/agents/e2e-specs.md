@@ -169,7 +169,7 @@ believe one is obsolete, list it with the reason so the orchestrator and reviewe
 says so), your deliverable is the helper/fixture edit the plan names under Affected Files — not a
 new spec. Make the edit, run the collection gate, and list in the Tests table the *existing* spec
 files that now exercise the change (each row `collection-only`). The orchestrator runs the
-full-suite sweep itself in place of validate mode.
+full-suite sweep itself in place of validate mode (a harness edit scopes to every spec anyway).
 
 Collection is not validation: a spec that collects cleanly can still contain locators that could
 never match anything. The E2E Validate step exists to catch those.
@@ -197,7 +197,7 @@ npm run e2e -- e2e/<your-file>.spec.ts
 ```
 
 - If the UI you observe contradicts the implementation logs, suspect harness drift (a config change that reintroduced server reuse) — stop and report `blocked` rather than repairing locators against the wrong build.
-- One early failure in a serial file hides later ones; expect to iterate. Allow yourself at most **3 debugging runs** of the file per invocation (the collection re-check, full sweep and soaks in steps 4–5 don't count). If it still fails on your locators after 3 runs, your assumptions about the markup are wrong — not just your selectors. Report and stop.
+- One early failure in a serial file hides later ones; expect to iterate. Allow yourself at most **3 debugging runs** of the file per invocation (the collection re-check and the soaks in steps 4–5 don't count). If it still fails on your locators after 3 runs, your assumptions about the markup are wrong — not just your selectors. Report and stop.
 
 ### 2. Decide: my defect, or theirs?
 
@@ -232,15 +232,21 @@ Your edits can break *global* collection. After your last edit, re-run from `web
 npx playwright test --list
 ```
 
-### 5. Sweep the full suite, then soak
+### 5. Soak
 
-Once your own spec file passes, run the **full** suite (`make e2e` from the project root) and each
-soak below with `timeout: 600000` on the Bash call, in the foreground — both exceed the 120 s default,
-which the harness would background (kb:lesson/subagent-never-woken-by-harness) — before reporting
-`pass`. Then soak **every spec file this plan authored or changed** — `make e2e-soak SPEC=<file>
-N=10` each, summary line pasted in that file's Tests-table `Live run` cell. Not only the ones that
-already flaked: a spec that is flaky from birth passes its first sweep and then reds somewhere
-downstream, where nobody can fix it but you. A red soak is yours to fix now, never a flake to report.
+Once your own spec file passes, soak **every spec file this plan authored or changed** —
+`make e2e-soak SPEC=<file> N=10` each, with `timeout: 600000` on the Bash call, in the foreground
+(a soak exceeds the 120 s default, which the harness would background —
+kb:lesson/subagent-never-woken-by-harness) — summary line pasted in that file's Tests-table
+`Live run` cell, before reporting `pass`. Not only the ones that already flaked: a spec that is
+flaky from birth passes its first run and then reds somewhere downstream, where nobody can fix it
+but you. A red soak is yours to fix now, never a flake to report.
+
+You do **not** run the suite beyond your own files: the gate the orchestrator runs right after
+you is the sweep — scoped to every spec the plan's features own or its helpers reach, and the
+whole suite once at Final Validation (kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion).
+When that gate reds a spec you did not author, the orchestrator routes it back to you in a fix
+wave, and the triage below applies then.
 
 The plan's approved protocol delta changes wire shapes and value semantics that *pre-existing*
 specs may assert the old way, and those specs are also yours (kb:lesson/concurrent-build-invalidates-running-e2e). Triage each non-plan failure:
@@ -342,6 +348,6 @@ Then state explicitly: `No assertion was deleted, skipped, or weakened.` If you 
 The **Verdict** field is what the orchestrator reads to decide next steps (`worker-rules.md` § Verdicts gives the shared meanings):
 - `authored` — authoring mode: the collection gate is clean and the new-behaviour tests are not yet executable. An authoring run never reports `pass`.
 - `harness-only` — authoring mode, harness-only plan: no new spec; the named helper/fixture edit is made and collection is clean. `authored` would claim tests you did not write, `pass` a run that did not happen.
-- `pass` — validate/fix mode: the spec file ran live and every test passed, the full sweep and soaks are green, and no assertion was weakened.
+- `pass` — validate/fix mode: the spec file ran live and every test passed, the soaks are green, and no assertion was weakened.
 - `implementation-bug` — your spec is correct but the implementation contradicts the plan. Every row of the **E2E Implementation Bugs** table carries a `Route` tag; the orchestrator routes on it.
 - `blocked` — cannot run at all (harness broken, missing dependency). The orchestrator stops and reports.

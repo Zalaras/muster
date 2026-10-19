@@ -32,7 +32,8 @@ If no plan name was provided, list available plans from the `plans/` directory a
    - `new-specs` → Step 1 authors tests; expected verdict `authored`
    - `harness-only` → the E2E deliverable is an edit to `web/e2e/helpers/*` or fixtures, no new
      spec. Step 1 still runs e2e-specs (expected verdict `harness-only`). **Step 5 is yours, not an
-     agent's**: run `make e2e` yourself, read the plan's E criteria against the diff, record it in
+     agent's**: run `make e2e` yourself (the whole suite — a harness edit scopes to `all` anyway),
+     read the plan's E criteria against the diff, record it in
      `completed_steps` (kb:lesson/orchestrator-work-spawned-as-agent).
    - `none` → skip Steps 1 and 5
 4. Determine the project root (the directory containing `.claude/`)
@@ -241,11 +242,14 @@ result.
    A missing `verdicts.json` or a rejected apply re-spawns the judge once with apply's output quoted,
    then `status blocked --step review`. The completion summary reports candidates/kept/dropped per
    cycle. Then the gates, in the foreground with
-   `timeout: 600000`; a cold full run is ~12 min, so the harness backgrounds it and wakes **you** —
+   `timeout: 600000`; a cold run is ~5 min, so the harness backgrounds it and wakes **you** —
    fine for the main session, never for a subagent:
    ```bash
-   GATES_LOG_DIR=$TMPDIR/gates-<plan>-c<N> .claude/skills/orchestrate/scripts/gates.sh <plan>   # --no-e2e for a daemon plan whose Step 1 was skipped
+   GATES_LOG_DIR=$TMPDIR/gates-<plan>-c<N> .claude/skills/orchestrate/scripts/gates.sh <plan>
    ```
+   Its e2e line is **scoped** to the specs this plan can affect — the `NOTE  e2e scope` line names
+   them; the whole suite runs once, at Final Validation
+   (kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion).
    Note the summary's `<F> failed` count; the ledger makes a re-run on an identical tree a reuse —
    nobody runs it twice (kb:adr/process-gates-run-once-by-orchestrator-before-review).
    A red line does **not** stop the review — the reviewers report it as a Critical and one fix wave
@@ -292,7 +296,7 @@ result.
 **Approved with open decision items is conditional.** `[orchestrator:decision]` and
 `[orchestrator:user-decision]` items never block approval but do block completion: settle each per
 item 1a below. An outcome that changes no code leaves the approval standing; one that changes code
-runs through the ordinary fix waves, the full suite and a delta re-review, counting one review
+runs through the ordinary fix waves, their gates and a delta re-review, counting one review
 cycle (kb:lesson/decision-made-inside-a-fix-wave).
 
 **Review Retry Logic** — on `needs-changes`, the sequence is always wave 1 → gate → wave 2 → gate
@@ -320,10 +324,10 @@ cycle (kb:lesson/decision-made-inside-a-fix-wave).
    - Max 2 debates per run. A third decision item, or any item on the skill's never-debated list, stops the pipeline and asks the developer (kb:lesson/decision-made-inside-a-fix-wave).
 2. **Do not fan all five out at once — they are not independent.** Group the non-empty buckets into waves per Fix Wave Ordering and run them strictly in order. Within a wave, spawn its agents in parallel (multiple Agent calls in one message); between waves, wait for completion, stamp `finish <step>` for each agent that reported, and run the wave's gate.
 3. A wave gate red only on that wave's own files goes back to its agent once; red again or elsewhere ends the cycle — count it and report — never start the next wave on a broken tree.
-4. Do **not** run a full-suite gate between waves. The next cycle's Step 6 item 1 runs
-   `gates.sh <plan>` once — the baseline suites plus every line of the ```checks block — and that
-   run is the cycle's validation; a red line becomes the merged header's `**Gates**: N failed` and
-   a Critical for the same fix wave.
+4. Do **not** run a baseline gate between waves. The next cycle's Step 6 item 1 runs
+   `gates.sh <plan>` once — the baseline suites plus every line of the ```checks block, its e2e
+   line scoped as always — and that run is the cycle's validation; a red line becomes the merged
+   header's `**Gates**: N failed` and a Critical for the same fix wave.
 5. `python3 $S <plan> archive review.md`, then `archive review.<part>.md` for each part file that
    exists (`code`, `browser`, `maintainability`), then `retry review` — **once per cycle**, not once
    per wave — then Step 6 from item 1.
@@ -367,7 +371,7 @@ gate, that side's unit test agent (wave 2), gate, Step 5 again (wave 3).
 |------|------|----------------------------------|
 | 1 | `[daemon-impl]`, `[web-impl]` | `gates.sh <plan> --wave 1` — must exit 0 |
 | 2 | `[daemon-tests]`, `[web-tests]` | `gates.sh <plan> --wave 2` — must exit 0 |
-| 3 | `[e2e-specs]` | `gates.sh <plan> --wave 3` — must exit 0 |
+| 3 | `[e2e-specs]` | `gates.sh <plan> --wave 3` (the scoped e2e gate) — must exit 0 |
 
 **Why this order.** The dependency is "who reads whose output". `daemon-tests` and `web-tests` read the implementation log and the implementation files, and are forbidden from modifying them — so a test agent run before the impl fix lands fixes the wrong thing. `e2e-specs` asserts against the rendered product, so it is downstream of both.
 
@@ -444,7 +448,7 @@ Every fix-wave prompt carries:
   (kb:lesson/fix-wave-uncovers-product-defect). That verdict does not fail the wave and does not
   end the cycle — the wave's own tagged fixes are complete; fold the same cycle back on itself:
   route the new bug to the impl agent as a fresh wave 1 (that agent's still-open review issues
-  ride along as usual), gate, wave 2, gate, wave 3 again, then the full-suite run and the
+  ride along as usual), gate, wave 2, gate, wave 3 again, then Step 6's gate run and the
   re-review — all within the current cycle's single review retry. End the cycle early only when
   a wave's *own tagged fixes* are incomplete (its gate fails on its own work), never because it
   honestly surfaced someone else's defect.
@@ -458,18 +462,24 @@ Completion steps in order.
 ### Final Validation
 
 Run the baseline gates and the plan's authored checks **fresh, via the bundled runner** — never a
-hand-rolled loop, never a cached agent verdict:
+hand-rolled loop, never a cached agent verdict — **after Step 7**, so the sweep sees the tree that
+will land, in the foreground with `timeout: 600000` (~7 min; the harness backgrounds it and wakes you):
 
 ```bash
-.claude/skills/orchestrate/scripts/gates.sh <plan-name>            # baseline + ```checks block
-.claude/skills/orchestrate/scripts/gates.sh <plan-name> --no-e2e   # daemon plan whose Step 1 was skipped
+.claude/skills/orchestrate/scripts/gates.sh <plan-name> --full-e2e   # baseline + ```checks block, e2e = the whole suite
+.claude/skills/orchestrate/scripts/gates.sh <plan-name> --no-e2e     # only for E2E Scope: none
 ```
 
-The script header documents what it runs, how it dedupes, where it logs and how it handles the `rg`
-shim. Paste its summary into the completion report. **Every baseline gate and every authored check
-must pass** — otherwise the pipeline is not complete. On a tree unchanged since Step 6's run this is
-a ledger reuse that costs seconds and proves the tree did not move; the `WARN size` line never
-counts against it.
+This is the run's **one full E2E sweep**: every gate before it ran the e2e line scoped to the plan's
+specs, so this is where a regression in a spec no feature link reaches shows up
+(kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion). Every other line is a ledger reuse
+on an unchanged tree. The script header documents what it runs, how it dedupes, where it logs and
+how it handles the `rg` shim. Paste its summary into the completion report. **Every baseline gate
+and every authored check must pass** — otherwise the pipeline is not complete; the `WARN size` line
+never counts against it. A red e2e line here routes exactly like a wave-3 `implementation-bug`
+(Fix Wave Ordering § Rules): fix waves, this run again, a delta re-review — and `status completed`
+stays refused until a `--full-e2e` (or `--no-e2e`) run is green on the current tree
+(`orch-state.py`'s `gates_green`; a scoped run never satisfies it).
 
 If the plan has no ```checks block, run the baseline gates and say in the summary that the plan
 predates the Automated Checks convention. Do not parse prose criteria for backticked commands to
@@ -501,7 +511,7 @@ running only the runnable clause reports a pass the plan never earned.
    main...plan/<plan-name>`, then `/land <plan-name>`). An agent's uncommitted files are its defect
    (Pre-flight 4a); if it cannot commit them, commit them yourself as `chore(<plan-name>): commit
    <agent>'s uncommitted work (orchestrator)`.
-7. `python3 $S <plan> status completed`. The script refuses it unless `review.md` says `approved`; you additionally refuse it while any suite or build is red, or the tree is dirty beyond the pre-flight strays.
+7. `python3 $S <plan> status completed`. The script refuses it unless `review.md` says `approved` and Final Validation's `--full-e2e`/`--no-e2e` run was green on this tree; you additionally refuse it while any suite or build is red, or the tree is dirty beyond the pre-flight strays.
 8. Print a summary: what was done, files changed, retry count, notable issues, the `[note]` items
    verbatim, the ADR ids accepted in step 4, **a per-step cost table** (`python3 $S <plan> timings`, plus each agent's tokens and
    duration from its task notification), and the branch (`plan/<plan-name>`, `git log --oneline

@@ -59,8 +59,11 @@ tagged to the agent owning the file it names, and you continue the review so eve
 in one cycle. The `WARN size` line (funlen, dupl, file length) is `review-maintainability`'s — it
 reads it with the implementer's reasons.
 
-The `make e2e` in that run is a **regression sweep** over every spec, not just this plan's. Tag
-failures by cause, not by convenience:
+The e2e line in that run is **scoped**: `make e2e SPECS='…'` over the specs owned by the plan's
+Features/Touches features, the specs it changed or named, and every spec importing a helper it
+changed — the log's `NOTE  e2e scope` line lists them; the whole suite runs once more at
+Completion (kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion). Within that scope it
+is still a regression run, not just this plan's own files. Tag failures by cause, not by convenience:
 
 - Rendered DOM or a displayed value contradicts the plan → `[web-impl]`
 - An HTTP status, WS message, or daemon behaviour contradicts the plan's Protocol Contract → `[daemon-impl]`
@@ -223,7 +226,7 @@ restarts in each reviewer's file; cross-reference by part ("correctness Major 1"
 
 ## Build & Tests
 
-E2E tests: pass/fail/skipped (<count>) · Daemon tests (race): pass/fail (<count>) · Web tests: pass/fail (<count>) · Daemon build: pass/fail · Web build: pass/fail · Lint: pass/fail — all read from $GATES_LOG_DIR
+E2E tests: pass/fail/skipped (<count>, scoped to <n> files | full) · Daemon tests (race): pass/fail (<count>) · Web tests: pass/fail (<count>) · Daemon build: pass/fail · Web build: pass/fail · Lint: pass/fail — all read from $GATES_LOG_DIR
 
 ## Acceptance Checks
 

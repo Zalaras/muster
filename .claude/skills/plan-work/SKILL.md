@@ -80,8 +80,12 @@ This determines which agents the orchestrator will invoke later.
 
 Also settle the **E2E Scope** header explicitly — the orchestrator must not infer it from prose:
 - **new-specs**: the plan adds Playwright specs (any plan with user-visible behaviour)
-- **harness-only**: no new spec, but an edit to `web/e2e/helpers/*` or fixtures is part of the deliverable (kb:lesson/orchestrator-work-spawned-as-agent) — e2e-specs still runs, reporting `harness-only` then sweeping the full suite
+- **harness-only**: no new spec, but an edit to `web/e2e/helpers/*` or fixtures is part of the deliverable (kb:lesson/orchestrator-work-spawned-as-agent) — e2e-specs still runs, reporting `harness-only`; the orchestrator sweeps the full suite itself
 - **none**: nothing E2E-observable; Steps 1 and 5 are skipped
+
+Whatever the scope, every gate run before Completion runs E2E only over the specs the plan can
+affect (its features' specs, its own, and those its helper edits reach); the whole suite runs
+once at Final Validation (kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion).
 
 And the **Fixture plan** header (docs/conventions.md §Testing) when E2E Scope is not `none`: per new
 spec, `daemon` (fresh per test — the default, and mandatory when any test asserts daemon-global state
@@ -262,7 +266,7 @@ left to a parser. Anything needing a human read stays in prose under `### Review
 non-runnable half of a split criterion is assigned rather than lost — but *no `<string>` survives in
 `<dir>`* is a negative grep and belongs in the block (`plan-lint.sh` flags it in prose).
 
-The orchestrator and the review agent execute the block **verbatim**, so every line must run from the project root with no arguments, no environment setup and no interactive prompt. Prefer the Make entry points (`make test`, `make lint`, `make web-build`, `make web-test`, `make e2e`) over ad-hoc pipelines.
+The orchestrator's gate runner executes the block **verbatim** (reviewers read its log), so every line must run from the project root with no arguments, no environment setup and no interactive prompt. Prefer the Make entry points (`make test`, `make lint`, `make web-build`, `make web-test`, `make e2e`) over ad-hoc pipelines. A bare `make e2e` line means "the e2e gate": the runner dedupes it to its own scoped run each cycle and to the whole suite at Final Validation, so it never sweeps twice.
 
 **Negative grep checks (`! rg …`) need one authoring decision: test-file scope.** State in the
 check's prose twin (or a note beside the block) whether `_test.go` / `*.test.ts` / `e2e/` files are
@@ -407,7 +411,7 @@ criterion; never mix a runnable command with a judgement call in one item.
 Every line below is `<ID> <single-line shell command>`, run from the project root. A check passes
 iff its command exits 0. Write "must not exist" checks so success is exit 0 — prefix the grep with
 `!`. IDs match the prose criterion above where one exists; a check with no prose twin (e.g. a build
-gate) is fine and shares the same ID namespace. The orchestrator and the review agent run these
+gate) is fine and shares the same ID namespace. The orchestrator's gate runner runs these
 verbatim; nothing else in this section is executed automatically.
 
 ```checks

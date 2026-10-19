@@ -38,10 +38,11 @@ Feature work goes through the multi-agent pipeline, not ad-hoc editing:
 3. `/orchestrate <name>` — in its own worktree, `../muster-<name>` on `plan/<name>`, made by
    `make worktree NAME=<name>` from the primary checkout (which stays on `main` for `/land`);
    runs e2e-specs (authoring) → daemon-impl ∥ web-impl →
-   daemon-tests ∥ web-tests → e2e-validate → gates (orchestrator, once) → review-work ∥
-   review-browser ∥ review-maintainability (Opus; merged into one computed verdict) →
-   doc-reconcile, with fix waves and `orchestration-state.json` resume. Only a merged review
-   verdict of `approved` reaches doc-reconcile, and only its `reconciled` completes the run.
+   daemon-tests ∥ web-tests → e2e-validate → gates (orchestrator, once; E2E scoped to the plan's
+   specs) → review-work ∥ review-browser ∥ review-maintainability (Opus; merged into one computed
+   verdict) → doc-reconcile → Final Validation (the one full E2E sweep), with fix waves and
+   `orchestration-state.json` resume. Only a merged review verdict of `approved` reaches
+   doc-reconcile, and only its `reconciled` plus a green full sweep completes the run.
 4. `/fix <name> "<desc>"` — the small track for a fix, perf change, refactor or chore: research
    with evidence, the developer confirms the diagnosis, a small-shape `plans/<name>/plan.md` on
    an in-place `plan/<name>` branch, the test agent writes the regression test red, the impl
