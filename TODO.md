@@ -241,14 +241,16 @@ per cycle and the whole suite once at Final Validation
 (kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion), so it runs less often; the
 entry below is about how long one run takes, and stays open.
 
-- [ ] **The E2E sweep takes about six minutes and is most of the gate's time** — 715 tests ran
-  in 5.9 min at 4 workers, against 2.1 min for Go and 8 s for Vitest. The time is spread
-  across the whole suite, not a few slow tests: median 1.4 s per test, the slowest 100 are only
-  39% of E2E time, and only 8 take 10 s or more. Largest files: `card-location.spec.ts` (88
-  tests, 211 s) and `update.spec.ts` (27 tests, 195 s). The sweep should take a fraction of
-  that without dropping coverage. `workers: 4` is a measured load policy, not the lever
-  (`docs/conventions.md` § Testing). Measurements: `plans/_audit/test-audit-2026-10-06.md`
-  § "Where the time goes".
+- [ ] **The E2E sweep takes about nine minutes and is most of the gate's time** — 1,001 tests
+  ran in 8.7 min at 4 workers (2026-10-19; 715 in 5.9 min on 2026-10-06). The median test is
+  1.34 s, which is the harness floor for a daemon, a browser page and one or two launches, so
+  the 743 tests under 2 s are 42% of the time and are nearly all floor; the 73 tests over 5 s
+  (window sweeps, restart flows, timer waits) are another 32%. The sweep should take a fraction
+  of that without dropping coverage. Levers with their measured returns, largest first: move
+  floor-bound files to Vitest, more workers (needs an ADR and soaks), pre-start the tmux server
+  in the fixture, coarser sweep steps; sharing daemons returns the least.
+  Measurements: `plans/_audit/test-audit-2026-10-19.md`; the earlier ones in
+  `plans/_audit/test-audit-2026-10-06.md` § "Where the time goes".
 
 ### Releases nothing — a plan and a commit
 
