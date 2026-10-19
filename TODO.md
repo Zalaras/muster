@@ -306,6 +306,19 @@ entry below is about how long one run takes, and stays open.
 
 New `/triage` entries land here until they are moved into a group.
 
+- [ ] **Add mark unread right click option** ([#103](https://github.com/Zalaras/muster/issues/103)) — There
+  is no right-click option to mark a session as unread or read. Expected: A right-click menu option
+  should let the user mark a session as unread or read.
+  Filed 2026-10-19 from musterd 0.23.0 / Claude Code 2.1.303, focus view, session idle.
+  Labels: enhancement, rail, ux.
+
+- [ ] **Add the remove option without me having to Stop** ([#104](https://github.com/Zalaras/muster/issues/104)) — In
+  the right-click menu a session must be stopped before the Remove option becomes available.
+  Expected: The right-click menu should offer Remove directly, without requiring the session to be
+  stopped first.
+  Filed 2026-10-19 from musterd 0.23.0 / Claude Code 2.1.303, focus view, session idle.
+  Labels: enhancement, lifecycle, ux.
+
 ## Pre-v1
 
 Everything below is blocking a v1 release (the developer, 2026-09-12: no v1 until all of it is
