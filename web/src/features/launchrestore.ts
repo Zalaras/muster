@@ -4,7 +4,7 @@
 // not `render/`).
 import type { Repo } from "../api/launch";
 import type { PermissionMode } from "../protocol/session";
-import { effortToCheck, type EffortChoice } from "../sessions/effort";
+import { DEFAULT_EFFORT, effortToCheck, type EffortChoice } from "../sessions/effort";
 import { permissionModeToCheck } from "../sessions/permission";
 
 /** The one fallback a repo has no stored model to restore — also `resetForm`'s brand-new-
@@ -45,12 +45,24 @@ export function repoRestore(repo: Repo): {
   };
 }
 
-/** Restores only the fields the user has not touched since the dialog opened. */
-export function initialRestore(touched: Touched, repo: Repo): Restore {
-  const values = repoRestore(repo);
+type RestoreValues = ReturnType<typeof repoRestore>;
+
+function untouchedOnly(touched: Touched, values: RestoreValues): Restore {
   const restore: Restore = {};
   if (!touched.model) restore.model = values.model;
   if (!touched.mode) restore.mode = values.mode;
   if (!touched.effort) restore.effort = values.effort;
   return restore;
+}
+
+export function initialRestore(touched: Touched, repo: Repo): Restore {
+  return untouchedOnly(touched, repoRestore(repo));
+}
+
+export function defaultRestore(touched: Touched): Restore {
+  return untouchedOnly(touched, {
+    model: DEFAULT_MODEL,
+    mode: permissionModeToCheck(null),
+    effort: DEFAULT_EFFORT,
+  });
 }

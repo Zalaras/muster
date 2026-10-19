@@ -219,11 +219,14 @@ if m:
     delta, cur, adds, cuts = m.group(1), None, {}, {}
     for line in delta.splitlines():
         h = re.match(r"^\*\*([a-z0-9-]+)\*\* — (becomes true|stops being true)", line)
-        if h: cur = (h.group(1), h.group(2)); continue
-        if cur and line.startswith("- "):
-            (adds if cur[1] == "becomes true" else cuts).setdefault(cur[0], 0)
+        if h:  # an inline delta counts too: launch-dialog-fixes' one-paragraph delta registered nothing
+            cur = (h.group(1), h.group(2))
             d = adds if cur[1] == "becomes true" else cuts
-            d[cur[0]] += len(line.split())
+            d[cur[0]] = d.get(cur[0], 0) + len(line[h.end():].split())
+            continue
+        if cur and line.startswith("- "):
+            d = adds if cur[1] == "becomes true" else cuts
+            d[cur[0]] = d.get(cur[0], 0) + len(line.split())
     for f in sorted(set(adds) | set(cuts)):
         spec = pathlib.Path(f"docs/features/{f}/spec.md")
         if not spec.exists(): continue

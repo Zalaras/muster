@@ -533,3 +533,77 @@ test("a stale model_unrecognized refusal from a cancelled-and-reopened dialog mo
   await expect(g2.locator('[data-e2e-kept-focus="1"]')).toBeFocused();
   await expect(titleInput).toBeFocused();
 });
+
+test("a late refusal of a model no longer selected leaves focus where it is (REQ-1)", async ({
+  page,
+  startDaemon,
+}) => {
+  const daemon = await startDaemon({});
+  const modelB = "muster-e2e-unrecognized-model-b";
+  const refusalB = `Claude Code doesn't recognise the model "${modelB}" — update Claude Code, or pick another model`;
+  await page.goto(daemon.dashboardUrl);
+
+  // Holds only B's launch POST; A's goes straight through.
+  let releaseB: () => void = () => {};
+  const bHeld = new Promise<void>((resolve) => {
+    releaseB = resolve;
+  });
+  let bHeldRequest: () => void = () => {};
+  const bArrived = new Promise<void>((resolve) => {
+    bHeldRequest = resolve;
+  });
+  await page.route("**/api/sessions", async (route) => {
+    const request = route.request();
+    if (request.method() === "POST" && request.postDataJSON()?.model === modelB) {
+      bHeldRequest();
+      await bHeld;
+    }
+    await route.continue();
+  });
+
+  const dialog = await openLaunchDialog(page);
+  const customModel = dialog.getByLabel("Custom model");
+  const launch = dialog.getByRole("button", { name: "Launch" });
+
+  // A is refused, so the dialog's verdicts now hold A as unrecognised.
+  await dialog.getByRole("radio", { name: "other…" }).check();
+  await customModel.fill(UNRECOGNIZED_MODEL);
+  await launch.click();
+  await expect(modelError(dialog)).toHaveText(new RegExp(escapeForRegExp(REFUSAL_MESSAGE)));
+
+  // B is submitted and its answer held in flight.
+  await customModel.fill(modelB);
+  await expect(launch).toBeEnabled();
+  await launch.click();
+  await bArrived;
+
+  // The selection moves back to A (marked invalid again from its stored verdict), and the
+  // developer moves on to Title while B's refusal is still on its way.
+  await customModel.fill(UNRECOGNIZED_MODEL);
+  await expect(modelError(dialog)).toHaveText(new RegExp(escapeForRegExp(REFUSAL_MESSAGE)));
+  const titleInput = dialog.getByLabel("Title");
+  await titleInput.click();
+  await expect(titleInput).toBeFocused();
+  await titleInput.evaluate((el) => el.setAttribute("data-e2e-kept-focus", "1"));
+
+  const bAnswered = page.waitForResponse(
+    (res) =>
+      res.url().includes("/api/sessions") &&
+      res.request().method() === "POST" &&
+      res.request().postDataJSON()?.model === modelB,
+  );
+  releaseB();
+  expect((await bAnswered).status()).toBe(400);
+  // The refusal's handler runs after its response; nothing visible changes when it is
+  // dropped correctly, so this is the sanctioned fixed hold for a stays-unchanged check.
+  await settleFor(page, 1_000);
+
+  await expect(modelError(dialog)).toHaveText(new RegExp(escapeForRegExp(REFUSAL_MESSAGE)));
+  await expect(dialog.locator('[data-e2e-kept-focus="1"]')).toBeFocused();
+  await expect(titleInput).toBeFocused();
+
+  // B is still marked unrecognised: selecting it again shows its mark and blocks Launch.
+  await customModel.fill(modelB);
+  await expect(modelError(dialog)).toHaveText(new RegExp(escapeForRegExp(refusalB)));
+  await expect(launch).toBeDisabled();
+});

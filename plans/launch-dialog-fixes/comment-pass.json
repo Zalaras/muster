@@ -1,0 +1,60 @@
+{
+  "plan": "launch-dialog-fixes",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-19T13:05:09Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 3,
+        "keep": 1,
+        "drop": 2
+      },
+      "keeps": [
+        {
+          "key": "web/src/features/launch.ts:7223e262c63b9a39",
+          "path": "web/src/features/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "updateModelRowState(appliedToCurrentStore \u0026\u0026 selectedModel() === model);",
+            "line": 596
+          },
+          "lines": [
+            "// Force focus onto the invalid control (see render/launch.ts's doc on",
+            "// `renderModelRowState` for the rule this is the exception to) — but only when the",
+            "// refusal actually landed in the dialog now open and its model is still the",
+            "// selection; a dropped or superseded refusal moves nothing, focus included."
+          ],
+          "reason": "Edited on `main`; still true: `updateModelRowState(appliedToCurrentStore \u0026\u0026 selectedModel() === model);` forces focus only when the refusal landed in the current open and the model is still selected."
+        }
+      ],
+      "drops": [
+        {
+          "key": "web/src/features/launch.ts:53451a4788c31a3e",
+          "path": "web/src/features/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function applyRestore(restore: Restore): void {",
+            "line": 479
+          },
+          "lines": [
+            "/** Applies whichever of a restore's three fields survived the touched filter — a plain",
+            "* caller of the pure decisions (`initialRestore`, `defaultRestore`). */"
+          ]
+        },
+        {
+          "key": "web/src/features/launchrestore.ts:4afdb3c9d0fcac39",
+          "path": "web/src/features/launchrestore.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function initialRestore(touched: Touched, repo: Repo): Restore {",
+            "line": 58
+          },
+          "lines": [
+            "/** Restores only the fields the user has not touched since the dialog opened. */"
+          ]
+        }
+      ]
+    }
+  ]
+}

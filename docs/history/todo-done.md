@@ -2468,3 +2468,16 @@ One `/orchestrate` run covers all of this group.
     `prefers-reduced-motion`. Stop or slow the spin under it. From
     `plans/terminal-fixes-cleanup/`.
     ✅ done 2026-10-19 (plan `shell-pane-fixes`, via `/fix`).
+
+#### Launch dialog ✅ done 2026-10-19 (plan `launch-dialog-fixes`, via `/fix`)
+
+- [x] **A model refusal can move focus after the selection changed** — in one open dialog:
+  submit model A (refused), change to B and submit, change back to A and click Title; B's
+  refusal moves focus to the custom-model field. A refusal should move focus only while the
+  refused model is still the selection. From `plans/maintainability-regressions/`.
+  ✅ done 2026-10-19 (plan `launch-dialog-fixes`, via `/fix`).
+
+- [x] **Launch dialog briefly shows the wrong effort** — for up to 1.5 s after the launch dialog
+  opens, Effort can read `default` before settling on the directory's remembered level. The
+  dialog should open showing the remembered level. From `plans/effort/`.
+  ✅ done 2026-10-19 (plan `launch-dialog-fixes`, via `/fix`).

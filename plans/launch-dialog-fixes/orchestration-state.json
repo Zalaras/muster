@@ -1,0 +1,73 @@
+{
+  "plan_name": "launch-dialog-fixes",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 1,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [],
+  "step_started_at": {
+    "web-impl": "2026-10-19T12:31:50Z",
+    "review": "2026-10-19T13:42:06Z",
+    "doc-reconcile": "2026-10-19T14:51:25Z"
+  },
+  "step_finished_at": {
+    "review": "2026-10-19T14:08:30Z"
+  },
+  "step_attempts": {
+    "web-impl": [
+      {
+        "start": "2026-10-19T12:31:41Z",
+        "finish": null
+      },
+      {
+        "start": "2026-10-19T12:31:50Z",
+        "finish": null
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-10-19T13:42:01Z",
+        "finish": null
+      },
+      {
+        "start": "2026-10-19T13:42:06Z",
+        "finish": "2026-10-19T14:08:30Z"
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-10-19T14:51:25Z",
+        "finish": null
+      }
+    ]
+  },
+  "started_at": "2026-10-19T12:07:03Z",
+  "updated_at": "2026-10-19T15:22:41Z",
+  "review_parts": {
+    "1": [
+      "code",
+      "browser"
+    ],
+    "2": [
+      "code"
+    ]
+  },
+  "review_verdicts": {
+    "1": "needs-changes",
+    "2": "approved"
+  },
+  "review_commits": {
+    "1": "8998e0d4a0c853d04d62457cbf8192588b8a3881",
+    "2": "1e2d714a046495ac289fd1584b40fe2b51e2cdcf"
+  },
+  "review_cycle": 2,
+  "closes_issues": []
+}

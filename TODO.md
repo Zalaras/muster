@@ -130,17 +130,6 @@ that the dashboard shows.
 
 Grouped by the part of Muster they touch, so one `/fix` plan can close a whole group.
 
-#### Launch dialog
-
-- [ ] **A model refusal can move focus after the selection changed** — in one open dialog:
-  submit model A (refused), change to B and submit, change back to A and click Title; B's
-  refusal moves focus to the custom-model field. A refusal should move focus only while the
-  refused model is still the selection. From `plans/maintainability-regressions/`.
-
-- [ ] **Launch dialog briefly shows the wrong effort** — for up to 1.5 s after the launch dialog
-  opens, Effort can read `default` before settling on the directory's remembered level. The
-  dialog should open showing the remembered level. From `plans/effort/`.
-
 #### While musterd is down and when it comes back
 
 The menus entry is a decision for the developer before it can be fixed.

@@ -1,7 +1,9 @@
-import { rm } from "node:fs/promises";
-import { basename } from "node:path";
-import { expect, test } from "./helpers/fixtures";
+import { mkdir, rm } from "node:fs/promises";
+import { basename, join } from "node:path";
+import { effortRadio, pickEffort } from "./helpers/effort";
+import { expect, type Locator, type Page, type ScratchDaemon, test } from "./helpers/fixtures";
 import {
+  childEntry,
   currentCrumb,
   launchError,
   launchTargetPath,
@@ -185,5 +187,245 @@ test("with the most recent Recent's directory deleted before the dialog opens, t
     await expect(dialog.getByRole("radio", { name: "sonnet" })).toBeChecked();
   } finally {
     await dir.cleanup();
+  }
+});
+
+test("the dialog opens showing the first recent's remembered model, mode and effort before its own fetch returns (REQ-2)", async ({
+  page,
+  daemon,
+}) => {
+  const dir = await browseScratchDirectory(daemon, "muster-e2e-open-restore-");
+  let releaseHeld: () => void = () => {};
+  try {
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, {
+      directory: dir.path,
+      title: "open-restore-seed",
+      model: "haiku",
+      permissionMode: "default",
+      effort: "high",
+    });
+
+    // Both routes pass every request through until `holding` flips; after that every GET is held
+    // until `releaseHeld`, so only a list the controller already holds can supply the values.
+    let holding = false;
+    let heldRepos = 0;
+    const held = new Promise<void>((resolve) => {
+      releaseHeld = resolve;
+    });
+    await page.route("**/api/repos*", async (route) => {
+      if (holding && route.request().method() === "GET") {
+        heldRepos += 1;
+        await held;
+      }
+      await route.continue();
+    });
+    await page.route("**/api/browse*", async (route) => {
+      if (holding && route.request().method() === "GET") await held;
+      await route.continue();
+    });
+
+    // Reload so the page's own load-time fetches (the controller's repos fetch at init) see the
+    // seeded launch, and let them settle before the dialog opens.
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+    holding = true;
+
+    const dialog = await openLaunchDialog(page);
+    // The open's own GET /api/repos is on its way and held.
+    await expect.poll(() => heldRepos).toBeGreaterThan(0);
+
+    await expect(dialog.getByRole("radio", { name: "haiku" })).toBeChecked();
+    await expect(dialog.getByRole("radio", { name: "manual" })).toBeChecked();
+    await expect(effortRadio(dialog, "high")).toBeChecked();
+
+    releaseHeld();
+    await expect(currentCrumb(dialog)).toHaveText(basename(dir.path));
+    await expect(dialog.getByRole("radio", { name: "haiku" })).toBeChecked();
+    await expect(dialog.getByRole("radio", { name: "manual" })).toBeChecked();
+    await expect(effortRadio(dialog, "high")).toBeChecked();
+  } finally {
+    releaseHeld();
+    await dir.cleanup();
+  }
+});
+
+test("a launch made through the dialog refreshes what the next open restores, with no reload in between (REQ-2)", async ({
+  page,
+  daemon,
+}) => {
+  const seeded = await browseScratchDirectory(daemon, "muster-e2e-refresh-seed-");
+  const childName = "refresh-target";
+  let releaseHeld: () => void = () => {};
+  try {
+    await mkdir(join(seeded.path, childName));
+    // What the page's load-time repos fetch will know: one recent, opus / acceptEdits / low.
+    // Seeded after the first goto (the launch endpoint needs the page's cookie), then reloaded.
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, {
+      directory: seeded.path,
+      title: "refresh-seed",
+      model: "opus",
+      permissionMode: "acceptEdits",
+      effort: "low",
+    });
+    await waitForNextClockSecond();
+
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+
+    // The dialog's own first open restores what the init fetch knew.
+    const first = await openLaunchDialog(page);
+    await expect(currentCrumb(first)).toHaveText(basename(seeded.path));
+    await expect(first.getByRole("radio", { name: "opus" })).toBeChecked();
+
+    // Launch through the dialog (New tab) into a directory whose remembered level differs
+    // from everything the page has fetched so far: haiku / manual / max.
+    await childEntry(first, childName).click();
+    await expect(launchTargetPath(first)).toHaveText(join(seeded.path, childName));
+    await first.getByRole("radio", { name: "haiku" }).check();
+    await first.getByRole("radio", { name: "manual" }).check();
+    await pickEffort(first, "max");
+    await expect(effortRadio(first, "max")).toBeChecked();
+    await first.getByLabel("Title").fill("refresh-via-dialog");
+
+    // The refresh the launch triggers is the one GET /api/repos that must get through.
+    const refreshed = page.waitForResponse(
+      (res) => res.request().method() === "GET" && new URL(res.url()).pathname === "/api/repos",
+    );
+    await first.getByRole("button", { name: "Launch" }).click();
+    await expect(first).toBeHidden();
+    await refreshed;
+
+    // From here every GET is held: only a list the controller already holds can supply the
+    // values the reopened dialog shows. The page is never reloaded.
+    let heldRepos = 0;
+    const held = new Promise<void>((resolve) => {
+      releaseHeld = resolve;
+    });
+    await page.route("**/api/repos*", async (route) => {
+      if (route.request().method() === "GET") {
+        heldRepos += 1;
+        await held;
+      }
+      await route.continue();
+    });
+    await page.route("**/api/browse*", async (route) => {
+      if (route.request().method() === "GET") await held;
+      await route.continue();
+    });
+
+    const dialog = await openLaunchDialog(page);
+    await expect.poll(() => heldRepos).toBeGreaterThan(0);
+
+    // opus / acceptEdits / low is what the page's init fetch knew; only the launch's refresh
+    // can make these haiku / manual / max.
+    await expect(dialog.getByRole("radio", { name: "haiku" })).toBeChecked();
+    await expect(dialog.getByRole("radio", { name: "manual" })).toBeChecked();
+    await expect(effortRadio(dialog, "max")).toBeChecked();
+
+    releaseHeld();
+    await expect(currentCrumb(dialog)).toHaveText(childName);
+    await expect(dialog.getByRole("radio", { name: "haiku" })).toBeChecked();
+    await expect(dialog.getByRole("radio", { name: "manual" })).toBeChecked();
+    await expect(effortRadio(dialog, "max")).toBeChecked();
+  } finally {
+    releaseHeld();
+    await seeded.cleanup();
+  }
+});
+
+// REQ-3's `failed` branch: the open shows the first recent's held values, and when that recent's
+// directory has vanished the controller's `failed` outcome (`applyRestore(defaultRestore(touched))`
+// in `initOpen`) returns them to the defaults. E12 above cannot pin that reset: it seeds after the
+// page's load-time fetch, so the controller holds no list at its open and the defaults are already
+// on screen. These two seed first, reload so the init fetch knows the recent, delete the directory
+// and hold only GET /api/browse (the open's navigate), so the held values are observable and then
+// the reset. Without the reset the held haiku / manual / high would stay checked.
+async function openOntoVanishedRecent(
+  page: Page,
+  daemon: ScratchDaemon,
+  prefix: string,
+): Promise<{
+  dialog: Locator;
+  browseHeld: () => number;
+  release: () => void;
+  cleanup: () => Promise<void>;
+}> {
+  const dir = await browseScratchDirectory(daemon, prefix);
+  let release: () => void = () => {};
+  let holding = false;
+  let heldBrowse = 0;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.goto(daemon.dashboardUrl);
+  await launchSession(page, daemon, {
+    directory: dir.path,
+    title: `${prefix}seed`,
+    model: "haiku",
+    permissionMode: "default",
+    effort: "high",
+  });
+  await page.route("**/api/browse*", async (route) => {
+    if (holding && route.request().method() === "GET") {
+      heldBrowse += 1;
+      await held;
+    }
+    await route.continue();
+  });
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await rm(dir.path, { recursive: true, force: true });
+  holding = true;
+
+  const dialog = await openLaunchDialog(page);
+  // The open's own navigate to the vanished directory is on its way and held.
+  await expect.poll(() => heldBrowse).toBeGreaterThan(0);
+  await expect(dialog.getByRole("radio", { name: "haiku" })).toBeChecked();
+  await expect(dialog.getByRole("radio", { name: "manual" })).toBeChecked();
+  await expect(effortRadio(dialog, "high")).toBeChecked();
+  return {
+    dialog,
+    browseHeld: () => heldBrowse,
+    release,
+    cleanup: dir.cleanup,
+  };
+}
+
+test("a vanished first recent's held model, mode and effort return to the defaults once its directory fails to open (REQ-3, E3)", async ({
+  page,
+  daemon,
+}) => {
+  const open = await openOntoVanishedRecent(page, daemon, "muster-e2e-vanished-held-");
+  try {
+    open.release();
+    await expect(currentCrumb(open.dialog)).toHaveText(basename(daemon.browseRoot));
+    await expect(open.dialog.getByRole("radio", { name: "sonnet" })).toBeChecked();
+    await expect(open.dialog.getByRole("radio", { name: "auto" })).toBeChecked();
+    await expect(effortRadio(open.dialog, "default")).toBeChecked();
+  } finally {
+    open.release();
+    await open.cleanup();
+  }
+});
+
+test("a vanished first recent resets only the fields the user did not touch while its directory was still opening (REQ-3, E3, E4)", async ({
+  page,
+  daemon,
+}) => {
+  const open = await openOntoVanishedRecent(page, daemon, "muster-e2e-vanished-touched-");
+  try {
+    // The user's own pick, made while the open's navigate is still held.
+    await open.dialog.getByRole("radio", { name: "opus" }).check();
+    open.release();
+
+    await expect(currentCrumb(open.dialog)).toHaveText(basename(daemon.browseRoot));
+    await expect(open.dialog.getByRole("radio", { name: "opus" })).toBeChecked();
+    await expect(open.dialog.getByRole("radio", { name: "auto" })).toBeChecked();
+    await expect(effortRadio(open.dialog, "default")).toBeChecked();
+  } finally {
+    open.release();
+    await open.cleanup();
   }
 });

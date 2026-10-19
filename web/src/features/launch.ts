@@ -55,7 +55,14 @@ import {
   resetVerdictStore,
   type VerdictStore,
 } from "./launchmodels";
-import { DEFAULT_MODEL, initialRestore, repoRestore, type Touched } from "./launchrestore";
+import {
+  DEFAULT_MODEL,
+  defaultRestore,
+  initialRestore,
+  repoRestore,
+  type Restore,
+  type Touched,
+} from "./launchrestore";
 
 export interface LaunchModalElements {
   dialog: HTMLDialogElement;
@@ -138,6 +145,7 @@ function initLaunchModal(
   let current: BrowseResult | null = null;
   let repos: Repo[] = [];
   let reposLoaded = false;
+  let knownRepos: Repo[] = [];
   let browseRequestId = 0;
   // Which fields the user has changed since the dialog opened, so the async
   // initial restore (initOpen/initialRestore) never overwrites a deliberate choice. Set
@@ -462,13 +470,21 @@ function initLaunchModal(
     elements.browseDirs.querySelector<HTMLButtonElement>("button.entry")?.focus();
   }
 
-  /** Applies whichever of `initialRestore`'s three fields survived the touched
-   * filter — a plain caller of the pure decision. */
-  function applyInitialRestore(first: Repo): void {
-    const restore = initialRestore(touched, first);
+  function refreshKnownRepos(): void {
+    void fetchRepos().then((result) => {
+      if (result.ok) knownRepos = result.value;
+    });
+  }
+
+  function applyRestore(restore: Restore): void {
     if (restore.model !== undefined) applyModelRestore(restore.model);
     if (restore.mode !== undefined) setPermissionMode(restore.mode);
     if (restore.effort !== undefined) setEffort(restore.effort);
+  }
+
+  function restoreFromKnownRepos(): void {
+    const first = knownRepos[0];
+    if (first) applyRestore(initialRestore(touched, first));
   }
 
   /** The initial-open sequence: fetches the MRU list, then attempts the
@@ -478,6 +494,7 @@ function initLaunchModal(
     const reposResult = await fetchRepos();
     if (reposResult.ok) {
       repos = reposResult.value;
+      knownRepos = reposResult.value;
       clearError();
     } else {
       repos = [];
@@ -488,17 +505,19 @@ function initLaunchModal(
 
     const first = repos[0];
     if (!first) {
+      applyRestore(defaultRestore(touched));
       await navigate(undefined);
       return;
     }
 
     const outcome = await navigate(first.path);
     if (outcome === "ok") {
-      applyInitialRestore(first);
+      applyRestore(initialRestore(touched, first));
     } else if (outcome === "failed") {
       // The first recent's directory no longer exists. Without a
       // fallback there would be no crumbs to click, so fall back to the browse root; its
       // success clears the error the failed attempt raised.
+      applyRestore(defaultRestore(touched));
       await navigate(undefined);
     }
     // "superseded": the initial navigation was superseded by a navigation the
@@ -523,6 +542,7 @@ function initLaunchModal(
     // `setPermissionMode`.
     setPermissionMode(null);
     setEffort(DEFAULT_EFFORT);
+    restoreFromKnownRepos();
     clearError();
     renderAll();
   }
@@ -575,16 +595,21 @@ function initLaunchModal(
         ]);
         // Force focus onto the invalid control (see render/launch.ts's doc on
         // `renderModelRowState` for the rule this is the exception to) — but only when the
-        // refusal actually landed in the dialog now open; a dropped, stale refusal moves
-        // nothing, focus included.
-        updateModelRowState(appliedToCurrentStore);
+        // refusal actually landed in the dialog now open and its model is still the
+        // selection; a dropped or superseded refusal moves nothing, focus included.
+        updateModelRowState(appliedToCurrentStore && selectedModel() === model);
       } else {
         showError(result.error.message);
       }
       return;
     }
+    finishLaunch(result.value);
+  }
+
+  function finishLaunch(session: Session): void {
     elements.dialog.close();
-    handlers.onLaunched(result.value);
+    refreshKnownRepos();
+    handlers.onLaunched(session);
   }
 
   async function dispatchSubmit(): Promise<void> {
@@ -604,8 +629,7 @@ function initLaunchModal(
       showError(result.error.message);
       return;
     }
-    elements.dialog.close();
-    handlers.onLaunched(result.value);
+    finishLaunch(result.value);
   }
 
   function setLaunchInFlight(inFlight: boolean): void {
@@ -644,6 +668,8 @@ function initLaunchModal(
     elements.titleInput.focus();
     void initOpen();
   }
+
+  refreshKnownRepos();
 
   for (const button of elements.openButtons) {
     button.addEventListener("click", openModal);
