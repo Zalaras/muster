@@ -255,12 +255,6 @@ supersedes an accepted ADR, so it carries a new one.
   it should use the daemon's shared atomic write (a fresh temp name, synced before the rename).
   From `plans/maintainability-regressions/`.
 
-#### Missing tests
-
-- [ ] **No test covers the launch rollback after a failed record.** From `plans/maintainability-cleanup/`.
-
-- [ ] **`internal/boundedwait` has no tests of its own.** From `plans/maintainability-cleanup/`.
-
 #### E2E specs that fail outside a clean run
 
 Each passes alone on an ordinary commit and fails from the machine or the commit it runs on.

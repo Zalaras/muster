@@ -2424,3 +2424,11 @@ One `/orchestrate` run covers all of this group.
   version should always be read and shown. #81 logs the launch's model check timing out the
   same way; the two may share a fix.
   ✅ done 2026-10-15 (plan `claude-version-watch`, via `/fix`): the version check runs in the background after the daemon starts serving, with a 30 s bound, re-runs when the binary changes, and each new result is pushed to open dashboards in a `claudeCode` message.
+
+#### Missing tests ✅ done 2026-10-19 (two `test` commits on `main`, no plan)
+
+- [x] **No test covers the launch rollback after a failed record.** From `plans/maintainability-cleanup/`.
+  ✅ done 2026-10-19: `TestLauncher_RecordLaunchFailureRollsBack` (`internal/server/launcher_record_failure_test.go`) fails the record after the spawn and asserts launch_failed, one kill of the spawned tmux session and no session left behind.
+
+- [x] **`internal/boundedwait` has no tests of its own.** From `plans/maintainability-cleanup/`.
+  ✅ done 2026-10-19: `internal/boundedwait/boundedwait_test.go` pins both halves — returns silently once the group is done, warns once and gives up when ctx ends first.
