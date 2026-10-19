@@ -218,6 +218,119 @@ func TestHandleIngest_NeverLogsPayloadBodies(t *testing.T) {
 	assert.NotContains(t, logged, secretMarker)
 }
 
+const ingestBodyLimitBytes = 20 << 20
+
+var kibOfA = strings.Repeat("a", 1024)
+
+// paddedIngestBody builds a valid JSON object of exactly size bytes: prefix (a JSON
+// object's opening fields, ending in a comma) then one filler string field.
+func paddedIngestBody(t *testing.T, prefix string, size int) string {
+	t.Helper()
+	const open, closing = `"pad":"`, `"}`
+	fill := size - len(prefix) - len(open) - len(closing)
+	require.Positive(t, fill)
+	var b strings.Builder
+	b.Grow(size)
+	b.WriteString(prefix)
+	b.WriteString(open)
+	for range fill / 1024 {
+		b.WriteString(kibOfA)
+	}
+	b.WriteString(kibOfA[:fill%1024])
+	b.WriteString(closing)
+	require.Equal(t, size, b.Len())
+	return b.String()
+}
+
+var ingestKindCases = []struct {
+	name   string
+	path   string
+	prefix func(sessionID string) string
+}{
+	{
+		name: "hook",
+		path: "/ingest/" + testIngestToken + "/hook",
+		prefix: func(sessionID string) string {
+			return `{"hook_event_name":"SessionStart","session_id":"` + sessionID + `",`
+		},
+	},
+	{
+		name: "status",
+		path: "/ingest/" + testIngestToken + "/status",
+		prefix: func(sessionID string) string {
+			return `{"session_id":"` + sessionID + `",`
+		},
+	},
+}
+
+func TestHandleIngest_OversizedBodyReturns200AndPersistsNothing(t *testing.T) {
+	for _, kc := range ingestKindCases {
+		t.Run(kc.name, func(t *testing.T) {
+			srv := newTestServer(t, ClaudeCodeInfo{})
+			srv.Start()
+			t.Cleanup(func() { srv.Shutdown(context.Background()) })
+
+			rec := postIngest(t, srv, kc.path, paddedIngestBody(t, kc.prefix("oversized-"+kc.name), ingestBodyLimitBytes+1))
+
+			assert.Equal(t, http.StatusOK, rec.Code)
+			assert.Empty(t, rec.Body.String())
+
+			// The queue is FIFO behind a single worker: once the sentinel posted after the
+			// oversized body has persisted, anything enqueued before it has been processed.
+			sentinel := "sentinel-" + kc.name
+			require.Equal(t, http.StatusOK, postIngest(t, srv, kc.path, kc.prefix(sentinel)+`"x":1}`).Code)
+			require.Eventually(t, func() bool {
+				return countEventsForSession(t, srv, sentinel) == 1
+			}, 5*time.Second, 10*time.Millisecond)
+
+			assert.Equal(t, 0, countEventsForSession(t, srv, "oversized-"+kc.name))
+			assert.Equal(t, 1, totalEventCount(t, srv), "only the sentinel may be persisted")
+		})
+	}
+}
+
+func TestHandleIngest_BodyAtLimitPersists(t *testing.T) {
+	for _, kc := range ingestKindCases {
+		t.Run(kc.name, func(t *testing.T) {
+			srv := newTestServer(t, ClaudeCodeInfo{})
+			srv.Start()
+			t.Cleanup(func() { srv.Shutdown(context.Background()) })
+
+			rec := postIngest(t, srv, kc.path, paddedIngestBody(t, kc.prefix("at-limit-"+kc.name), ingestBodyLimitBytes))
+
+			assert.Equal(t, http.StatusOK, rec.Code)
+			require.Eventually(t, func() bool {
+				return countEventsForSession(t, srv, "at-limit-"+kc.name) == 1
+			}, 10*time.Second, 10*time.Millisecond, "a body of exactly the limit must be accepted")
+		})
+	}
+}
+
+func TestHandleIngest_OversizedBodyLogsKindAndLimitButNoPayload(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	srv.Start()
+	t.Cleanup(func() { srv.Shutdown(context.Background()) })
+
+	const secretMarker = "oversized-secret-prompt-marker"
+	prefix := `{"hook_event_name":"UserPromptSubmit","session_id":"oversized-log","prompt":"` + secretMarker + `",`
+
+	rec := postIngest(t, srv, "/ingest/"+testIngestToken+"/hook", paddedIngestBody(t, prefix, ingestBodyLimitBytes+1))
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	logged := srv.logs.String()
+	assert.NotContains(t, logged, secretMarker)
+	assert.NotContains(t, logged, "aaaaaaaaaaaaaaaa")
+
+	var warnLines []string
+	for _, line := range strings.Split(logged, "\n") {
+		if strings.Contains(line, `"level":"warn"`) && strings.Contains(line, `"kind":"hook"`) {
+			warnLines = append(warnLines, line)
+		}
+	}
+	require.Len(t, warnLines, 1, "one warn line naming the kind; log was: %s", logged)
+	assert.Regexp(t, `20971520|20 ?MiB`, warnLines[0])
+}
+
 func TestIngestPipeline_SeqAssignmentAcrossHookAndStatusEndpoints(t *testing.T) {
 	// D5: seq assignment per claude_session_id, shared across both ingest endpoints
 	// (REQ-12), exercised end-to-end through the real HTTP handlers rather than a direct

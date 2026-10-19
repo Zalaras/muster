@@ -17,6 +17,8 @@ import (
 	"github.com/Zalaras/muster/internal/usage"
 )
 
+const maxIngestBodyBytes = 20 << 20
+
 type ingestJob struct {
 	kind claudecode.Kind
 	body []byte
@@ -318,8 +320,14 @@ func (f *ingestFeature) handleIngest(w http.ResponseWriter, r *http.Request, kin
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxIngestBodyBytes)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			f.log.Warn().Str("kind", string(kind)).Int64("limitBytes", tooLarge.Limit).
+				Msg("dropping ingest post over the body limit")
+		}
 		// Nothing usable arrived; still ack per kb:anchor/ingest (never make Claude Code retry).
 		w.WriteHeader(http.StatusOK)
 		return

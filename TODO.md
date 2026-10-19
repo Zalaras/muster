@@ -237,14 +237,8 @@ supersedes an accepted ADR, so it carries a new one.
 
 #### Daemon internals: ingest and the self-updater
 
-- [ ] **The ingest endpoint accepts hook bodies of any size.** From `plans/maintainability-cleanup/`.
-
 - [ ] **Decide the owner of the ingest route and `MUSTER_SESSION`** — both are Muster names,
   declared today in `internal/claudecode`. From `plans/maintainability-cleanup/`.
-
-- [ ] **The self-updater swaps in the new binary with its own temp-file-and-rename writer** —
-  it should use the daemon's shared atomic write (a fresh temp name, synced before the rename).
-  From `plans/maintainability-regressions/`.
 
 #### E2E specs that fail outside a clean run
 

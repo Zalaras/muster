@@ -1,0 +1,151 @@
+{
+  "plan": "daemon-internals-fixes",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-19T12:36:13Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 8,
+        "keep": 4,
+        "drop": 4
+      },
+      "keeps": [
+        {
+          "key": "internal/atomicfile/atomicfile.go:6ea7e5c5d0c7648d",
+          "path": "internal/atomicfile/atomicfile.go",
+          "anchor": {
+            "kind": "above",
+            "text": "if err := tmp.Sync(); err != nil {",
+            "line": 34
+          },
+          "lines": [
+            "// fsync before the rename, or a crash between them can still lose the write despite",
+            "// the rename itself being atomic (durable, not just atomic)."
+          ],
+          "reason": "Without it a reader would delete the Sync call as redundant with the atomic rename; that loses durability of the write across a crash at `if err := tmp.Sync(); err != nil {`."
+        },
+        {
+          "key": "internal/claudecode/settings.go:c5d6b9d9c7249706",
+          "path": "internal/claudecode/settings.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func writeScriptAtomically(path string, content []byte) error {",
+            "line": 367
+          },
+          "lines": [
+            "// writeScriptAtomically is atomicfile.Write at the wrapper scripts' own fixed mode: 0o700,",
+            "// not 0o755, because the script embeds the ingest token in cleartext and only the",
+            "// daemon's own user ever executes it — world-readable would publish the token to every",
+            "// other account on the machine. Named rather than inlined at its one call site so the",
+            "// mode lives in one place, next to the reason for it."
+          ],
+          "reason": "Edited on `main`; still true: `return atomicfile.Write(path, content, 0o700)` does what it says."
+        },
+        {
+          "key": "internal/selfupdate/apply.go:4d97ee65e830d69a",
+          "path": "internal/selfupdate/apply.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func Apply(ctx context.Context, opts Options) error {",
+            "line": 95
+          },
+          "lines": [
+            "// Apply downloads the release archive plus checksums.txt/checksums.txt.minisig for",
+            "// runtime.GOARCH, verifies them, extracts the musterd member, and",
+            "// installs it over opts.ExePath, reporting phases via opts.Progress. Any",
+            "// failure returns before installBinary is ever reached, so opts.ExePath stays",
+            "// byte-identical to before the call (kb:adr/update-trust-root-minisign-signed-checksums)",
+            "// — including a failure during",
+            "// installBinary itself, whose temp file is removed on every error path."
+          ],
+          "reason": "Edited on `main`; still true: `if err := atomicfile.Write(exePath, data, 0o755); err != nil {` leaves ExePath untouched on failure and removes its temp file."
+        },
+        {
+          "key": "internal/server/launcher.go:1bd21b23a012eb65",
+          "path": "internal/server/launcher.go",
+          "anchor": {
+            "kind": "above",
+            "text": "if err := atomicfile.Write(path, merged, 0o600); err != nil {",
+            "line": 616
+          },
+          "lines": [
+            "// atomicfile.Write, not a direct WriteFile. The per-id lock only",
+            "// serialises the same session id — two different sessions launching into the same",
+            "// directory (a shared repo, two launches) still race on this same",
+            "// settings.local.json, and a torn write there refuses every future launch in the",
+            "// directory (kb:adr/actions-serialized-per-session's Consequences)."
+          ],
+          "reason": "Edited on `main`; still true: `if err := atomicfile.Write(path, merged, 0o600); err != nil {` does what it says."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/atomicfile/atomicfile.go:d369ddd18a62ff02",
+          "path": "internal/atomicfile/atomicfile.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func Write(path string, content []byte, perm os.FileMode) error {",
+            "line": 10
+          },
+          "lines": [
+            "// Write replaces path with content, at mode perm, by writing a temp file in",
+            "// path's own directory and renaming it over path",
+            "// (kb:adr/ingest-wrapper-scripts-replaced-atomically): a reader that already opened the",
+            "// old path keeps reading the complete old content, and a fresh open sees either the",
+            "// complete old file or the complete new one, never a truncated one — unlike a plain",
+            "// os.WriteFile, which truncates the target in place before writing the new bytes.",
+            "// Content already on disk that equals content is left untouched: no write, no rename,",
+            "// same inode and mtime — the common daemon-restart case, where rewriting unchanged",
+            "// content would otherwise still tax every reader with a torn-read window for nothing.",
+            "// The one implementation internal/server's writeSettings, internal/claudecode's",
+            "// wrapper-script writer and internal/selfupdate's binary install all call, rather than",
+            "// each keeping its own copy of the same temp-fsync-rename sequence."
+          ]
+        },
+        {
+          "key": "internal/atomicfile/atomicfile.go:f573aca87b1a0c1d",
+          "path": "internal/atomicfile/atomicfile.go",
+          "anchor": {
+            "kind": "on",
+            "text": "defer func() { _ = os.Remove(tmpPath) }()",
+            "line": 24
+          },
+          "lines": [
+            "// no-op once the rename below succeeds"
+          ]
+        },
+        {
+          "key": "internal/selfupdate/apply.go:ebcf6cbefe5cf7bf",
+          "path": "internal/selfupdate/apply.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func installBinary(exePath string, data []byte) error {",
+            "line": 208
+          },
+          "lines": [
+            "// installBinary replaces exePath with data at mode 0755 through atomicfile.Write: a fresh",
+            "// temp file in exePath's directory (same filesystem, so the final rename is atomic),",
+            "// synced before the rename and removed on every failure path. exePath itself is never",
+            "// opened for writing, so a write error or a disk-full mid-write leaves it untouched",
+            "// (kb:adr/update-trust-root-minisign-signed-checksums)."
+          ]
+        },
+        {
+          "key": "internal/server/ingest.go:22b05582d314e70b",
+          "path": "internal/server/ingest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "const maxIngestBodyBytes = 20 \u003c\u003c 20",
+            "line": 20
+          },
+          "lines": [
+            "// maxIngestBodyBytes bounds one hook or status post's body (kb:anchor/ingest): about 28x",
+            "// the largest hook payload measured on a live database (a 703 KB PostToolBatch). A body",
+            "// over it is dropped like malformed JSON, still answered 200."
+          ]
+        }
+      ]
+    }
+  ]
+}

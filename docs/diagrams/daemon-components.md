@@ -14,15 +14,15 @@ refs: [kb:diagram/containers, kb:adr/nongoal-generic-agent-abstraction-layer, kb
 Components inside the `musterd` binary and their responsibilities. Every edge is a real import,
 drawn from the import blocks, not from prose; the absent edges are the architecture.
 
-`internal/store`, `internal/tmux`, `internal/tty` and `internal/claudecode` import nothing
-internal — leaf adapters, which is what keeps Claude-Code-format knowledge inside one package
+`internal/store`, `internal/tmux`, `internal/tty` and `internal/claudecode` import no
+domain or server package — leaf adapters, which is what keeps Claude-Code-format knowledge inside one package
 (kb:adr/nongoal-generic-agent-abstraction-layer). `internal/session` never imports
 `internal/server`: it declares its own `PaneChecker`, `PaneSnapshotter` and `TmuxSessions` ports and
 `*tmux.Client` satisfies them, injected by the composition root. Ingest is not a package of its
 own: it is `internal/server/ingest.go`, one feature type among the server's twenty-odd.
 
-`internal/boundedwait` and `internal/keyedlock` are shared primitives with no internal
-imports, pulled out once each stopped being one caller's private helper: `boundedwait.Wait`
+`internal/boundedwait`, `internal/keyedlock` and `internal/atomicfile` are shared primitives with no internal
+imports, pulled out once each stopped being one caller's helper: `boundedwait.Wait`
 is the bounded-wait-with-warn shutdown tail (`server`'s ingest queue, background-loop and
 update-apply stops; `session.Manager.Stop`'s liveness poll); `keyedlock.Locks[K]` is the
 per-id/per-target lock (`session.Manager`'s row locks, `server`'s shell and terminal
@@ -74,6 +74,7 @@ C4Component
             Component(boundedwait, "internal/boundedwait", "Go", "Bounded wait-with-warn shutdown tail")
             Component(keyedlock, "internal/keyedlock", "Go", "Per-key lock, generic over the key type")
             Component(evict, "internal/evict", "Go", "Generic map-eviction rule")
+            Component(atomicfile, "internal/atomicfile", "Go", "Atomic file replace: temp, sync, rename")
         }
     }
 
@@ -110,6 +111,9 @@ C4Component
     Rel(usage, store, "persists samples")
     Rel(bridge, tmuxpkg, "attach argv, resize")
     Rel(reader, evict, "write-log eviction")
+    Rel(cc, atomicfile, "wrapper scripts")
+    Rel(server, atomicfile, "settings write")
+    Rel(selfupd, atomicfile, "binary install")
 
     UpdateRelStyle(usage, store, $offsetY="-22")
     UpdateRelStyle(session, tmuxpkg, $offsetY="20")

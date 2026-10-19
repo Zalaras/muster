@@ -349,6 +349,67 @@ func TestApply_WriteFailureDuringInstallLeavesBinaryUnchanged(t *testing.T) {
 	assert.Equal(t, before, got)
 }
 
+// TestInstallBinary_StaleFixedTempNameDoesNotBlockInstall drives installBinary through
+// Apply: a leftover directory at the old fixed temp name must not stop the new binary
+// being swapped in.
+func TestInstallBinary_StaleFixedTempNameDoesNotBlockInstall(t *testing.T) {
+	key := newTestKeypair(t)
+	tag := "v0.11.0"
+	newContent := []byte("#!/bin/sh\necho new musterd\n")
+	archive := buildTarGz(t, map[string][]byte{"musterd": newContent})
+	asset := assetNameForTag(t, tag)
+	checksums := checksumsLineFor(archive, asset)
+	srv, _ := newFakeReleaseServer(t, tag, fakeReleaseAssets{archive: archive, checksums: checksums, minisig: key.signLegacy(checksums)})
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "musterd")
+	require.NoError(t, os.WriteFile(exePath, []byte("old musterd content"), 0o755))
+	staleDir := filepath.Join(dir, fmt.Sprintf(".musterd-%s.tmp", tag))
+	require.NoError(t, os.Mkdir(staleDir, 0o755))
+
+	err := Apply(context.Background(), Options{
+		Client: srv.Client(), Base: srv.URL, Tag: tag, ExePath: exePath, PubKey: key.pubFile,
+	})
+
+	require.NoError(t, err)
+	got, readErr := os.ReadFile(exePath)
+	require.NoError(t, readErr)
+	assert.Equal(t, newContent, got)
+}
+
+// applyNewBinary runs Apply for a signed fake release carrying "new content" and installs
+// it at exePath, returning Apply's error.
+func applyNewBinary(t *testing.T, exePath string) error {
+	t.Helper()
+	key := newTestKeypair(t)
+	tag := "v0.11.0"
+	archive := buildTarGz(t, map[string][]byte{"musterd": []byte("new content")})
+	asset := assetNameForTag(t, tag)
+	checksums := checksumsLineFor(archive, asset)
+	srv, _ := newFakeReleaseServer(t, tag, fakeReleaseAssets{archive: archive, checksums: checksums, minisig: key.signLegacy(checksums)})
+	return Apply(context.Background(), Options{
+		Client: srv.Client(), Base: srv.URL, Tag: tag, ExePath: exePath, PubKey: key.pubFile,
+	})
+}
+
+// TestInstallBinary_DirectoryAtInstallPathFailsAndLeavesNoTempFile covers the failure
+// that happens before any temp file exists (a non-empty directory at the install path
+// makes the initial read fail). The post-temp failure is
+// TestInstallBinary_FailedRenameLeavesNoTempFile (apply_darwin_test.go).
+func TestInstallBinary_DirectoryAtInstallPathFailsAndLeavesNoTempFile(t *testing.T) {
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "musterd")
+	require.NoError(t, os.MkdirAll(filepath.Join(exePath, "occupant"), 0o755))
+
+	err := applyNewBinary(t, exePath)
+
+	require.Error(t, err)
+	entries, readErr := os.ReadDir(dir)
+	require.NoError(t, readErr)
+	require.Len(t, entries, 1, "only the occupied install path may remain")
+	assert.Equal(t, "musterd", entries[0].Name())
+}
+
 // TestApply_RequestsCarryA120SecondDeadline covers D26's Apply half via the same
 // deadline-inspection technique as TestLatestTag_RequestCarriesTenSecondDeadline
 // (release_test.go, same package): a fake transport captures the first request's

@@ -1049,7 +1049,7 @@ other session is touched (kb:adr/focus-effort-mismatch-warning-persisted-per-ses
   `{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"…"}}`; the hook
   wrapper (`hook.sh`, not `status-line.sh`) prints a 2xx body to stdout. A slow receiver
   taxes every turn by its timeout, additively per hook (`kb:spec/ingest`). Hook timeouts Muster
-  configures are 1–2 s, never 5. Malformed JSON is still `200` (logged, dropped) — there
+  configures are 1–2 s, never 5. Malformed JSON, or a body over 20 MiB, is still `200` (logged, dropped) — there
   is no value in making Claude Code retry, and 4xx/5xx behaviour is not ours to lean on.
 - Bad token → `404` (no oracle for token guessing; it's logged).
 - At ingest the daemon assigns a **monotonic per-session `seq`**, persists the event

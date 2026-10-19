@@ -13,6 +13,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/Zalaras/muster/internal/atomicfile"
 	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/gitutil"
 	"github.com/Zalaras/muster/internal/session"
@@ -612,12 +613,12 @@ func (l *sessionLauncher) writeSettings(dir string) error {
 	if err = os.MkdirAll(settingsDir, 0o700); err != nil {
 		return fmt.Errorf("creating %s: %w", settingsDir, err)
 	}
-	// claudecode.AtomicWriteFile, not a direct WriteFile. The per-id lock only
+	// atomicfile.Write, not a direct WriteFile. The per-id lock only
 	// serialises the same session id — two different sessions launching into the same
 	// directory (a shared repo, two launches) still race on this same
 	// settings.local.json, and a torn write there refuses every future launch in the
 	// directory (kb:adr/actions-serialized-per-session's Consequences).
-	if err := claudecode.AtomicWriteFile(path, merged, 0o600); err != nil {
+	if err := atomicfile.Write(path, merged, 0o600); err != nil {
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
 	return nil

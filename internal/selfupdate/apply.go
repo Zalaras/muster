@@ -9,10 +9,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"runtime"
 	"time"
+
+	"github.com/Zalaras/muster/internal/atomicfile"
 )
 
 // Phase is one step of an Apply call, mirrored on the wire as `update.apply.phase`
@@ -97,7 +98,7 @@ type Options struct {
 // failure returns before installBinary is ever reached, so opts.ExePath stays
 // byte-identical to before the call (kb:adr/update-trust-root-minisign-signed-checksums)
 // — including a failure during
-// installBinary itself, which removes its own temp file on every error path.
+// installBinary itself, whose temp file is removed on every error path.
 func Apply(ctx context.Context, opts Options) error {
 	ctx, cancel := context.WithTimeout(ctx, ApplyTimeout)
 	defer cancel()
@@ -153,7 +154,7 @@ func Apply(ctx context.Context, opts Options) error {
 	if err != nil {
 		return err
 	}
-	if err := installBinary(opts.ExePath, opts.Tag, member); err != nil {
+	if err := installBinary(opts.ExePath, member); err != nil {
 		return err
 	}
 
@@ -211,26 +212,8 @@ func extractMember(archive []byte, name string) ([]byte, error) {
 	return nil, fmt.Errorf("archive has no %s member", name)
 }
 
-// installBinary writes data to a fixed-name temp file beside exePath (same filesystem,
-// so the final rename is atomic) named ".musterd-<tag>.tmp",
-// chmods it 0755, then renames it over exePath. exePath itself is never opened for
-// writing — the temp file is removed on every failure path, so a write error or a
-// disk-full mid-write leaves exePath untouched
-// (kb:adr/update-trust-root-minisign-signed-checksums).
-func installBinary(exePath, tag string, data []byte) error {
-	dir := filepath.Dir(exePath)
-	tmpPath := filepath.Join(dir, fmt.Sprintf(".musterd-%s.tmp", tag))
-
-	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("writing new binary: %w", err)
-	}
-	if err := os.Chmod(tmpPath, 0o755); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("chmod new binary: %w", err)
-	}
-	if err := os.Rename(tmpPath, exePath); err != nil {
-		_ = os.Remove(tmpPath)
+func installBinary(exePath string, data []byte) error {
+	if err := atomicfile.Write(exePath, data, 0o755); err != nil {
 		return fmt.Errorf("installing new binary: %w", err)
 	}
 	return nil

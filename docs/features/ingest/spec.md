@@ -6,7 +6,7 @@ date: 2026-09-12
 summary: Hook and status-line ingest endpoints, the envelope that binds an event to a Muster session, seq assigned at ingest.
 features: [ingest]
 tags: [envelope, claude-code-format]
-go: [internal/server/ingest*.go, internal/claudecode/ingest*.go, internal/claudecode/interpret*.go, internal/claudecode/settings*.go, internal/server/settings_shell_reply_test.go, internal/claudecode/doc.go, internal/claudecode/claudecodetest/**]
+go: [internal/server/ingest*.go, internal/claudecode/ingest*.go, internal/claudecode/interpret*.go, internal/claudecode/settings*.go, internal/server/settings_shell_reply_test.go, internal/claudecode/doc.go, internal/claudecode/claudecodetest/**, internal/atomicfile/**]
 web: []
 e2e: [web/e2e/ingest.spec.ts, web/e2e/ingest-envelope.spec.ts, web/e2e/subagent-status.spec.ts, web/e2e/helpers/payloads.ts]
 protocol: [ingest, ingest.transport, ingest.envelope]
@@ -53,8 +53,9 @@ routed `UserPromptSubmit` carrying a not-yet-sent rename, whose body is
 body to stdout. Its only request-path work is an in-memory parse of each hook body and a
 session-state read-and-mark that builds that reply; persistence, `seq` and state transitions
 stay in the single worker, which parses, assigns a monotonic per-session `seq`, appends it to the `event` table and
-feeds the state machine in that order (kb:adr/ingest-seq-assigned-at-ingest). Malformed JSON
-and bodies without a `session_id` are dropped with a log line and still answered `200`.
+feeds the state machine in that order (kb:adr/ingest-seq-assigned-at-ingest). Malformed JSON,
+bodies without a `session_id`, and bodies over 20 MiB are dropped with a log line (an oversized
+one names its kind and the limit, never the body) and still answered `200`.
 Delivery is best-effort and unordered (kb:fact/hook-delivery-best-effort); nothing is
 replayed. Payload bodies are never logged.
 

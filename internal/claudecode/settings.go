@@ -1,7 +1,6 @@
 package claudecode
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -11,6 +10,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/Zalaras/muster/internal/atomicfile"
 )
 
 // hookTimeoutSeconds is the timeout Muster registers on every hook it owns — never 5
@@ -363,62 +364,11 @@ exit 0
 	return writeScriptAtomically(path, []byte(script))
 }
 
-// writeScriptAtomically is AtomicWriteFile at the wrapper scripts' own fixed mode: 0o700,
+// writeScriptAtomically is atomicfile.Write at the wrapper scripts' own fixed mode: 0o700,
 // not 0o755, because the script embeds the ingest token in cleartext and only the
 // daemon's own user ever executes it — world-readable would publish the token to every
 // other account on the machine. Named rather than inlined at its one call site so the
 // mode lives in one place, next to the reason for it.
 func writeScriptAtomically(path string, content []byte) error {
-	return AtomicWriteFile(path, content, 0o700)
-}
-
-// AtomicWriteFile replaces path with content, at mode perm, by writing a temp file in
-// path's own directory and renaming it over path
-// (kb:adr/ingest-wrapper-scripts-replaced-atomically): a reader that already opened the
-// old path keeps reading the complete old content, and a fresh open sees either the
-// complete old file or the complete new one, never a truncated one — unlike a plain
-// os.WriteFile, which truncates the target in place before writing the new bytes.
-// Content already on disk that equals content is left untouched: no write, no rename,
-// same inode and mtime — the common daemon-restart case, where rewriting unchanged
-// content would otherwise still tax every reader with a torn-read window for nothing.
-// The one implementation internal/server's writeSettings and this package's
-// writeEnvelopeScript both call, rather than each keeping its own copy of the same
-// temp-fsync-rename sequence.
-func AtomicWriteFile(path string, content []byte, perm os.FileMode) error {
-	existing, err := os.ReadFile(path)
-	if err == nil && bytes.Equal(existing, content) {
-		return nil
-	} else if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("reading %q: %w", path, err)
-	}
-
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
-	if err != nil {
-		return fmt.Errorf("creating temp file in %q: %w", dir, err)
-	}
-	tmpPath := tmp.Name()
-	defer func() { _ = os.Remove(tmpPath) }() // no-op once the rename below succeeds
-
-	if err := tmp.Chmod(perm); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("setting permissions on %q: %w", tmpPath, err)
-	}
-	if _, err := tmp.Write(content); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("writing %q: %w", tmpPath, err)
-	}
-	// fsync before the rename, or a crash between them can still lose the write despite
-	// the rename itself being atomic (durable, not just atomic).
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("syncing %q: %w", tmpPath, err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("closing %q: %w", tmpPath, err)
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		return fmt.Errorf("renaming %q to %q: %w", tmpPath, path, err)
-	}
-	return nil
+	return atomicfile.Write(path, content, 0o700)
 }

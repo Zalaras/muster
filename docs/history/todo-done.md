@@ -2442,3 +2442,13 @@ One `/orchestrate` run covers all of this group.
   Filed 2026-10-17 from musterd 0.23.0 / Claude Code 2.1.302, focus view, session idle; 1 image attached.
   Labels: bug, documents, ux.
   ✅ done 2026-10-19 (plan `search-bar-text-length`, via `/fix`): the count reads `No results` instead of going blank and reserves its longest text's width, so the bar keeps one width.
+
+#### Daemon internals: ingest and the self-updater
+
+- [x] **The ingest endpoint accepts hook bodies of any size.** From `plans/maintainability-cleanup/`.
+  ✅ done 2026-10-19 (plan `daemon-internals-fixes`, via `/fix`): a post over 20 MiB is answered `200` and dropped with a log line naming its kind; the largest real payload measured was 703 KB.
+
+- [x] **The self-updater swaps in the new binary with its own temp-file-and-rename writer** —
+  it should use the daemon's shared atomic write (a fresh temp name, synced before the rename).
+  From `plans/maintainability-regressions/`.
+  ✅ done 2026-10-19 (plan `daemon-internals-fixes`, via `/fix`): the shared write moved to `internal/atomicfile`, and the updater, the wrapper scripts and the settings write all call it.
