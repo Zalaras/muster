@@ -16,3 +16,4 @@
 2.1.296 2026-10-12 make canary
 2.1.300 2026-10-14 make canary
 2.1.301 2026-10-15 make canary
+2.1.303 2026-10-19 make canary

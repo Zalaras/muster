@@ -1,6 +1,6 @@
 # Claude Code versions
 
-**Verified range: <!-- versions:range -->2.1.246–2.1.301<!-- /versions:range --> —
+**Verified range: <!-- versions:range -->2.1.246–2.1.303<!-- /versions:range --> —
 declared in `internal/claudecode/observed_versions.txt` and asserted by `make canary`.**
 
 Versions `make canary` has gone green on (one row per green run outside the range, appended
@@ -22,6 +22,7 @@ by `go run ./tools/versions bump`; this table is generated — edit the record, 
 | 2.1.296 | 2026-10-12 | make canary |
 | 2.1.300 | 2026-10-14 | make canary |
 | 2.1.301 | 2026-10-15 | make canary |
+| 2.1.303 | 2026-10-19 | make canary |
 <!-- /versions:table -->
 
 ## Why a range, not a pin
