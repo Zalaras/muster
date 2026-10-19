@@ -33,13 +33,9 @@ export interface MainheadElements {
   effortStrip: HTMLElement;
 }
 
-/** Fills `.meta`'s static slots (index.html) in place — never rebuilt, since the hover
- * title and the `.rf`/`.rb` text change on a sibling write but nothing here holds focus.
- * The `.loc` group carries the hover for both blocks (kb:adr/rail-repo-line-wraps-at-slash). */
 function renderMeta(metaEl: HTMLElement, meta: MainheadMeta): void {
   const loc = requireElement<HTMLElement>(".loc", metaEl);
-  loc.title = meta.hover;
-  renderRepoLines(requireElement<HTMLElement>(".repo", loc), meta.repo);
+  renderRepoLines(requireElement<HTMLElement>(".repo", loc), meta.repo, meta.addedCount);
 
   const claudeAt = requireElement<HTMLElement>(".claude-at", loc);
   claudeAt.hidden = meta.claudeAt === null;

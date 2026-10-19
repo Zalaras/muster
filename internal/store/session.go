@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -122,6 +123,8 @@ type SessionRow struct {
 	// working directory Claude last reported; NULL = nothing reported since the last launch
 	// or resume. Display-only, never read by the state machine.
 	ClaudeDir *string
+
+	AddedDirs []string
 
 	// GroupID (kb:spec/rail) is the rail group the session belongs to, nil = the Ungrouped
 	// section. Display-only, never read by the state machine or the status path.
@@ -320,7 +323,12 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		cacheReportedExpiresAt = &v
 	}
 
-	_, err := s.db.ExecContext(ctx, `
+	addedDirs, err := encodeAddedDirs(row.AddedDirs)
+	if err != nil {
+		return fmt.Errorf("encoding added dirs of session %d: %w", row.ID, err)
+	}
+
+	_, err = s.db.ExecContext(ctx, `
 		UPDATE session SET
 			tmux_target = ?, tmux_pane = ?, claude_session_id = ?, directory = ?, branch = ?,
 			is_worktree = ?, title = ?, state = ?, state_since = ?, permission_mode = ?,
@@ -331,7 +339,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 			last_snapshot = ?, last_snapshot_at = ?, pinned = ?, rail_pos = ?, title_override = ?,
 			transcript_file = ?, plan_path = ?, plan_exists = ?, unread = ?, last_prompt = ?,
 			pending_resume_claude_session_id = ?, background_tasks = ?, attention_agent = ?, claude_dir = ?,
-			group_id = ?, cache_expires_at = ?, cache_ttl_seconds = ?, cache_requests = ?,
+			added_dirs = ?, group_id = ?, cache_expires_at = ?, cache_ttl_seconds = ?, cache_requests = ?,
 			cache_reported_expires_at = ?,
 			effort_known = ?, effort_level = ?, effort_requested = ?,
 			effort_warning_requested = ?, effort_warning_actual = ?, effort_warning_model = ?
@@ -346,7 +354,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		row.LastSnapshot, lastSnapshotAt, boolToInt(row.Pinned), row.RailPos, row.TitleOverride,
 		row.TranscriptPath, row.PlanPath, boolToInt(row.PlanExists), boolToInt(row.Unread), row.LastPrompt,
 		row.PendingResumeClaudeSessionID, row.BackgroundTasks, row.AttentionAgent, row.ClaudeDir,
-		row.GroupID, cacheExpiresAt, row.CacheTTLSeconds, row.CacheRequests, cacheReportedExpiresAt,
+		addedDirs, row.GroupID, cacheExpiresAt, row.CacheTTLSeconds, row.CacheRequests, cacheReportedExpiresAt,
 		boolToInt(row.EffortKnown), row.EffortLevel, row.EffortRequested,
 		row.EffortWarningRequested, row.EffortWarningActual, row.EffortWarningModel,
 		row.ID,
@@ -365,7 +373,7 @@ const sessionColumns = `
 	context_used_pct, context_total_input_tokens, context_window_size,
 	last_snapshot, last_snapshot_at, pinned, rail_pos, title_override,
 	transcript_file, plan_path, plan_exists, unread, last_prompt,
-	pending_resume_claude_session_id, background_tasks, attention_agent, claude_dir, group_id,
+	pending_resume_claude_session_id, background_tasks, attention_agent, claude_dir, added_dirs, group_id,
 	cache_expires_at, cache_ttl_seconds, cache_requests, cache_reported_expires_at,
 	effort_known, effort_level, effort_requested,
 	effort_warning_requested, effort_warning_actual, effort_warning_model
@@ -431,6 +439,30 @@ func (s *Store) decodeRowTimePtr(table string, id int64, column, text string) (t
 	return t, true
 }
 
+func encodeAddedDirs(dirs []string) (*string, error) {
+	if len(dirs) == 0 {
+		return nil, nil
+	}
+	encoded, err := json.Marshal(dirs)
+	if err != nil {
+		return nil, err
+	}
+	text := string(encoded)
+	return &text, nil
+}
+
+func (s *Store) decodeAddedDirs(id int64, text *string) []string {
+	if text == nil {
+		return nil
+	}
+	var dirs []string
+	if err := json.Unmarshal([]byte(*text), &dirs); err != nil {
+		s.log.Warn().Err(err).Int64("row_id", id).Msg("corrupt stored session added_dirs column; leaving unset")
+		return nil
+	}
+	return dirs
+}
+
 func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 	var (
 		r                            SessionRow
@@ -444,6 +476,7 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 		lastSnapshotAt               *string
 		cacheExpiresAt               *string
 		cacheReportedExpiresAt       *string
+		addedDirs                    *string
 	)
 	if err := row.Scan(
 		&r.ID, &r.TmuxTarget, &r.TmuxPane, &r.ClaudeSessionID, &r.RepoID, &r.Directory, &r.Branch, &isWorktree,
@@ -453,7 +486,7 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 		&r.ContextUsedPct, &r.ContextTotalInputTokens, &r.ContextWindowSize,
 		&r.LastSnapshot, &lastSnapshotAt, &pinned, &r.RailPos, &r.TitleOverride,
 		&r.TranscriptPath, &r.PlanPath, &planExists, &unread, &r.LastPrompt,
-		&r.PendingResumeClaudeSessionID, &r.BackgroundTasks, &r.AttentionAgent, &r.ClaudeDir, &r.GroupID,
+		&r.PendingResumeClaudeSessionID, &r.BackgroundTasks, &r.AttentionAgent, &r.ClaudeDir, &addedDirs, &r.GroupID,
 		&cacheExpiresAt, &r.CacheTTLSeconds, &r.CacheRequests, &cacheReportedExpiresAt,
 		&effortKnown, &r.EffortLevel, &r.EffortRequested,
 		&r.EffortWarningRequested, &r.EffortWarningActual, &r.EffortWarningModel,
@@ -467,6 +500,7 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 	r.Pinned = pinned != 0
 	r.PlanExists = planExists != 0
 	r.Unread = unread != 0
+	r.AddedDirs = s.decodeAddedDirs(r.ID, addedDirs)
 	r.StateSince = s.decodeRowTime("session", r.ID, "state_since", stateSince)
 	r.CreatedAt = s.decodeRowTime("session", r.ID, "created_at", createdAt)
 	if attentionSince != nil {

@@ -177,17 +177,25 @@ export interface RepoParts {
   branch: string | null;
 }
 
-// `markWorktree` is the launch readout's alone: the `↳` block's branch line is the bare
-// branch, since the `↳` already says Claude is elsewhere.
-function partsOf(repo: SessionRepo | null, directory: string, markWorktree: boolean): RepoParts {
-  if (!repo) return { folder: basename(directory), branch: null };
+export function folderName(repo: SessionRepo | null, directory: string): string {
+  return repo ? repo.name : basename(directory);
+}
+
+function partsOf(
+  repo: SessionRepo | null,
+  directory: string,
+  markWorktree: boolean,
+  slash = true,
+): RepoParts {
+  const name = folderName(repo, directory);
+  if (!repo) return { folder: name, branch: null };
   const worktree = markWorktree && repo.isWorktree ? " (worktree)" : "";
-  return { folder: `${repo.name} /`, branch: `${repo.branch ?? "—"}${worktree}` };
+  return { folder: slash ? `${name} /` : name, branch: `${repo.branch ?? "—"}${worktree}` };
 }
 
 /** The launch directory's readout, split at the `/` for the rail card and Focus header. */
-export function repoParts(session: Session): RepoParts {
-  return partsOf(session.repo, session.directory, true);
+export function repoParts(session: Session, slash = true): RepoParts {
+  return partsOf(session.repo, session.directory, true, slash);
 }
 
 /** The `↳` readout for where Claude is working, or null while it is in the launch checkout.
@@ -224,9 +232,6 @@ export function claudeHover(session: Session): string | null {
   return branch ? `${note}\non ${branch}` : note;
 }
 
-/** The location hover (the Focus header's `.loc` and the tile's `.wh`): the repo line, the
- * launch directory, then — only while moved — where Claude is and its branch, one per
- * line. */
 export function locationHover(session: Session): string {
   const lines = [repoLine(session), session.directory];
   const claude = claudeHover(session);
@@ -234,13 +239,10 @@ export function locationHover(session: Session): string {
   return lines.join("\n");
 }
 
-/** What the Focus header's `.meta` shows, structured so the DOM half owns no text
- * composition: the launch repo block, the `↳` block while moved, the hover for both, the
- * model word, and the ended clause when dead. */
 export interface MainheadMeta {
   repo: RepoParts;
+  addedCount: number;
   claudeAt: RepoParts | null;
-  hover: string;
   model: string;
   effort: EffortReadout;
   // `ended <age>` while dead, else null.
@@ -248,10 +250,11 @@ export interface MainheadMeta {
 }
 
 export function mainheadMeta(session: Session, now: Date): MainheadMeta {
+  const addedCount = session.addedDirs.length;
   return {
-    repo: repoParts(session),
+    repo: repoParts(session, addedCount === 0),
+    addedCount,
     claudeAt: claudeLocationParts(session),
-    hover: locationHover(session),
     // kb:adr/launch-resume-null-model-reads-unknown: a null model reads the word
     // "unknown" rather than omitting the clause (design-system §6, "unknown data renders
     // the word unknown, never blank").

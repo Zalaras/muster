@@ -36,3 +36,9 @@ export function checkRadioValue(radios: readonly HTMLInputElement[], value: stri
   }
   return matched;
 }
+
+/** Writes `text` only when it differs, so an unchanged value across the 1s render tick does not
+ * replace the node's text and reset selection or hover state on it. */
+export function setText(el: HTMLElement, text: string): void {
+  if (el.textContent !== text) el.textContent = text;
+}

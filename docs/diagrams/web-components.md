@@ -53,7 +53,7 @@ C4Component
             Component(wsapp, "wsapp.ts", "mapping", "The WS-to-app mapping both entries register, then layer their own handlers on top of")
         }
         Boundary(rnd, "Render and seam") {
-            Component(render, "render/", "41 modules", "DOM only — view-model in, DOM out; one menu builder serves every menu")
+            Component(render, "render/", "43 modules", "DOM only — view-model in, DOM out; one menu builder serves every menu")
             Component(app, "app.ts", "seam", "Session store, shared state (incl. ConnectionStatus), typed event bus, render phases")
         }
         Boundary(leaves, "Leaves") {
@@ -63,7 +63,7 @@ C4Component
             Component(terminal, "terminal/", "8 modules", "xterm.js surfaces, the per-terminal socket to musterd, shell key translation, drop wiring and the shell activity reducer")
             Component(dom, "dom.ts", "helpers", "Element lookup")
             Component(reader, "reader/", "11 modules", "Markdown render, nav tree, per-session memory, find matching")
-            Component(sessions, "sessions/", "16 modules", "Pure derivation — view-models, sort, rail sections, tile math, formatters, a path basename")
+            Component(sessions, "sessions/", "17 modules", "Pure derivation — view-models, sort, rail sections, tile math, formatters, a path basename")
             Component(theme, "theme.ts", "registry", "Theme choice; first-paint hint")
             Component(shortcuts, "shortcuts.ts", "pure", "Keyboard chord table")
             Component(storage, "storage.ts", "seam", "The one localStorage/sessionStorage read/write-JSON seam")

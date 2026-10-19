@@ -82,21 +82,34 @@ func (g *gitRunner) topLevel(ctx context.Context, dir string) *string {
 }
 
 // IsWorktree reports whether dir is a linked worktree: its git-dir and the repository's
-// common-dir differ (kb:adr/launch-hybrid-mru-directory-memory's recognition rule).
+// common-dir are different directories (kb:adr/launch-hybrid-mru-directory-memory's
+// recognition rule). They are compared as resolved paths, never as git prints them: from a
+// subdirectory of an ordinary checkout git spells one absolute and the other relative to dir.
 func IsWorktree(ctx context.Context, dir string) bool {
 	return newGitRunner().isWorktree(ctx, dir)
 }
 
 func (g *gitRunner) isWorktree(ctx context.Context, dir string) bool {
-	gitDir, err := g.run(ctx, dir, "git", "rev-parse", "--git-dir")
+	out, err := g.run(ctx, dir, "git", "rev-parse", "--git-dir", "--git-common-dir")
 	if err != nil {
 		return false
 	}
-	commonDir, err := g.run(ctx, dir, "git", "rev-parse", "--git-common-dir")
-	if err != nil {
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) != 2 {
 		return false
 	}
-	return strings.TrimSpace(string(gitDir)) != strings.TrimSpace(string(commonDir))
+	return resolveFrom(dir, lines[0]) != resolveFrom(dir, lines[1])
+}
+
+func resolveFrom(dir, path string) string {
+	path = strings.TrimSpace(path)
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(dir, path)
+	}
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return resolved
+	}
+	return filepath.Clean(path)
 }
 
 // ListFiles returns every path `git ls-files -co --exclude-standard` reports for dir (a

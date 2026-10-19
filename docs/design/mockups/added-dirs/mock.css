@@ -1,0 +1,86 @@
+/* Shared chrome for the see-added-dirs mockups. Tokens, the Focus mainhead rules and the
+ * `.pop` hover panel are transcribed from web/src/style.css (instrument theme) so every option
+ * renders on the real header; each option adds only the rules it changes, marked NEW. */
+:root {
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --disp: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fs-root: 15px;
+  --fs-2xs: 0.68rem;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.82rem;
+  --fs-md: 0.89rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.07rem;
+  --fs-xl: 1.14rem;
+  --bg: #12141c;
+  --bg-raised: #171a24;
+  --bg-hover: #1c2029;
+  --well: #0d0f16;
+  --line: #282d3b;
+  --line-control: #343a4a;
+  --edge: #6a7286;
+  --fg: #e8e6e1;
+  --fg-muted: #b2b6c3;
+  --fg-dim: #a6abbc;
+  --teal: #56c5d0;
+  --danger: #c24646;
+  --danger-line: #7a3535;
+  --danger-fg: #ffffff;
+  --scrim: rgba(8, 9, 13, 0.72);
+}
+html { font-size: var(--fs-root); }
+body {
+  margin: 0;
+  padding: 28px 32px 80px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+}
+h1 { font-family: var(--disp); font-size: var(--fs-xl); margin: 0 0 6px; }
+h2 { font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-dim); margin: 34px 0 10px; }
+p.lead, p.cap { color: var(--fg-muted); max-width: 960px; line-height: 1.5; font-size: var(--fs-md); }
+p.cap { font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); margin: 8px 0 0; }
+p.cap b { color: var(--fg); font-weight: 600; }
+nav a { color: var(--teal); font-family: var(--mono); font-size: var(--fs-sm); margin-right: 18px; }
+.label { font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-dim); margin: 18px 0 4px; }
+
+/* frame: the main column, header over a terminal well */
+.frame { width: 980px; border: 1px solid var(--line); position: relative; }
+.frame.narrow { width: 640px; }
+.well { height: 46px; background: var(--well); }
+.frame.open { margin-bottom: 190px; }
+
+/* ── mainhead, transcribed ── */
+.mainhead { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 9px 14px; border-bottom: 1px solid var(--line); background: var(--bg-raised); }
+.mainhead .idrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; flex: 1 1 max-content; min-width: 0; max-width: 100%; }
+.mainhead .name { margin: 0; font-family: var(--disp); font-weight: 700; font-size: var(--fs-lg); letter-spacing: -0.015em; text-transform: none; color: var(--fg); min-width: 6rem; flex: 1000 1 6rem; max-width: max-content; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ingroup { display: flex; flex: none; align-items: center; gap: 0.6ch; padding: 2px 5px; border: 1px solid var(--line-control); background: transparent; color: var(--fg-dim); font-family: var(--mono); font-size: var(--fs-2xs); }
+.mainhead .meta { --floor: 8ch; --sep-gap: 2.75ch; display: flex; align-items: center; white-space: nowrap; font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); font-variant-numeric: tabular-nums; position: relative; }
+.mainhead .meta .loc { display: flex; align-items: center; line-height: 1.35; position: relative; cursor: default; }
+.mainhead .meta .repo { display: flex; flex-direction: column; margin-right: var(--sep-gap); }
+.mainhead .meta .sep { position: relative; left: calc((var(--sep-gap) + 1ch) / -2); width: 0; }
+.mainhead .meta .claude-at { display: grid; grid-template-columns: auto 1fr; margin-right: var(--sep-gap); }
+.mainhead .meta .claude-at .lead { grid-row: 1 / span 2; padding-right: 5px; color: var(--fg-muted); }
+.mainhead .meta .claude-at .rf, .mainhead .meta .claude-at .rb { grid-column: 2; }
+.mainhead .acts { margin-left: auto; flex: none; display: flex; align-items: center; gap: 7px; }
+.surfseg { display: inline-flex; border: 1px solid var(--line-control); }
+.surfseg button { font-family: var(--mono); font-size: 10.5px; padding: 4px 11px; background: transparent; border: 0; border-right: 1px solid var(--line-control); color: var(--fg-dim); }
+.surfseg button:last-child { border-right: 0; }
+.surfseg button[aria-pressed="true"] { background: var(--bg-hover); color: var(--fg); }
+.btn { font-family: var(--mono); font-size: var(--fs-xs); padding: 5px 11px; background: transparent; border: 1px solid var(--line-control); color: var(--fg-muted); }
+.btn.stop-resume { box-sizing: content-box; min-width: 6ch; }
+
+/* ── .pop, transcribed (position: absolute here instead of fixed, so it sits in the page) ── */
+.pop { position: absolute; z-index: 55; top: calc(100% + 8px); left: 0; min-width: 220px; max-width: 380px; padding: 6px 0; border: 1px solid var(--edge); background: var(--bg-raised); box-shadow: 0 8px 24px var(--scrim); font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-muted); white-space: normal; display: none; }
+.pop .ph { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; padding: 2px 12px 6px; border-bottom: 1px solid var(--line); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg); }
+.pop .ph span { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--fg-dim); }
+/* NEW: one row per directory — folder name over its full path */
+.pop .dr { padding: 3px 12px; }
+.pop .dr .df { color: var(--fg); font-size: var(--fs-xs); }
+.pop .dr .dp { color: var(--fg-dim); overflow-wrap: anywhere; }
+.pop .sub { margin-top: 4px; padding: 6px 12px 2px; border-top: 1px solid var(--line); letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-dim); }
+.pop .none { padding: 3px 12px; color: var(--fg-dim); }
+/* hover opens it; `.open` pins it open in the mock so it reads without hovering */
+.hov:hover > .pop, .hov.open > .pop { display: block; }

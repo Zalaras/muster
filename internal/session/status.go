@@ -8,7 +8,7 @@ import (
 
 // applyStatusUpdate mutates sess per kb:anchor/ws.session's value semantics: title, model,
 // context, prompt-cache warmth and effort refresh from a routed status-line post, plus the
-// directory Claude reports (ClaudeDir), each adopted only when update carried it and only
+// directory Claude reports (ClaudeDir) and the added directories, each adopted only when update carried it and only
 // when it actually differs from the current value. Returns whether
 // anything changed, so the caller only persists+broadcasts on a real change — status
 // posts fire on every tool use, so a naive always-broadcast would spam sessionUpsert.
@@ -58,6 +58,10 @@ func applyStatusUpdate(sess *Session, update claudecode.StatusUpdate) bool {
 	}
 
 	if adoptEffort(sess, update.Effort) {
+		changed = true
+	}
+
+	if adoptAddedDirs(sess, update.AddedDirs) {
 		changed = true
 	}
 

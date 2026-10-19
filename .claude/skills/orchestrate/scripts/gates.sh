@@ -368,7 +368,7 @@ web_build_src() {
   if [[ -z "$files" ]]; then
     echo "make web-build failed with no tsc errors — the failure is in vite build"; return 1
   fi
-  bad="$(printf '%s\n' "$files" | grep -v '\.test\.ts$' || true)"
+  bad="$(printf '%s\n' "$files" | grep -vE '\.test\.ts$|/testfixtures\.ts$' || true)"
   if [[ -n "$bad" ]]; then
     echo "tsc errors outside test files:"; printf '%s\n' "$bad"; return 1
   fi

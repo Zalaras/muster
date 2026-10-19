@@ -3,16 +3,13 @@
 // supplies every string. `role="tooltip"`, `pointer-events: none` (style.css), appended to
 // `document.body` because the rail scrolls and clips, so it never steals a click.
 //
-// One controller per rail (`createGroupPopover()`), holding the timer and the open panel — the
-// instance's own state. A header calls `attach` once, when it is built, with a getter for its
+// One controller per rail (`createGroupPopover()`), whose timer and open panel live in its
+// `hovertip.ts` controller. A header calls `attach` once, when it is built, with a getter for its
 // *current* model: headers are updated in place across the 1s tick, so the model is read when the
 // popover opens, never captured.
 import type { PopoverModel } from "../sessions/sections";
-import { placeAnchored } from "./anchored";
+import { createHoverTip } from "./hovertip";
 import { applyWarmth } from "./warmth";
-
-/** How long a header is hovered before its popover opens. */
-export const POPOVER_DELAY_MS = 350;
 
 export interface GroupPopover {
   /** Hover opens it after `POPOVER_DELAY_MS`; `focusTarget` taking keyboard focus opens it at
@@ -75,50 +72,27 @@ function buildPanel(model: PopoverModel): HTMLElement {
 }
 
 export function createGroupPopover(): GroupPopover {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let panel: HTMLElement | null = null;
-
-  function close(): void {
-    if (timer !== null) clearTimeout(timer);
-    timer = null;
-    panel?.remove();
-    panel = null;
-  }
-
-  function show(anchor: HTMLElement, model: () => PopoverModel): void {
-    close();
-    panel = buildPanel(model());
-    document.body.append(panel);
-    placeAnchored(panel, anchor);
-  }
+  const tip = createHoverTip(buildPanel);
 
   function attach(
     anchor: HTMLElement,
     focusTarget: HTMLElement,
     model: () => PopoverModel,
   ): () => void {
-    const onEnter = (): void => {
-      close();
-      timer = setTimeout(() => show(anchor, model), POPOVER_DELAY_MS);
-    };
+    const detachHover = tip.attachHover(anchor, model);
     const onFocus = (): void => {
       // Only a keyboard focus opens it: a click focuses the caret too, and the popover would then
       // sit over the section the click just folded.
-      if (focusTarget.matches(":focus-visible")) show(anchor, model);
+      if (focusTarget.matches(":focus-visible")) tip.show(anchor, model);
     };
-    anchor.addEventListener("mouseenter", onEnter);
-    anchor.addEventListener("mouseleave", close);
-    anchor.addEventListener("pointerdown", close);
     focusTarget.addEventListener("focus", onFocus);
-    focusTarget.addEventListener("blur", close);
+    focusTarget.addEventListener("blur", tip.close);
     return () => {
-      anchor.removeEventListener("mouseenter", onEnter);
-      anchor.removeEventListener("mouseleave", close);
-      anchor.removeEventListener("pointerdown", close);
+      detachHover();
       focusTarget.removeEventListener("focus", onFocus);
-      focusTarget.removeEventListener("blur", close);
+      focusTarget.removeEventListener("blur", tip.close);
     };
   }
 
-  return { attach, close };
+  return { attach, close: tip.close };
 }

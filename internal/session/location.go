@@ -1,6 +1,9 @@
 package session
 
-import "strings"
+import (
+	"path/filepath"
+	"strings"
+)
 
 // Location is where Claude is working when that is a different checkout from the launch
 // directory (kb:adr/lifecycle-card-shows-launch-directory-marks-claude-elsewhere): the
@@ -33,6 +36,13 @@ func Elsewhere(launchTop, claudeTop *string, launchDir, claudeDir string) bool {
 		return launchTop == nil || *launchTop != *claudeTop
 	}
 	return claudeDir != launchDir && !strings.HasPrefix(claudeDir, strings.TrimSuffix(launchDir, "/")+"/")
+}
+
+func ResolvePath(path string) string {
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return resolved
+	}
+	return filepath.Clean(path)
 }
 
 // adoptClaudeDir records the directory Claude reported (a main-agent hook's, or the status

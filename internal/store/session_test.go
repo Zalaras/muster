@@ -232,6 +232,7 @@ func TestUpdateSession_RoundTripsEveryField(t *testing.T) {
 	row.PendingResumeClaudeSessionID = &pendingResume
 	claudeDir := "/private/tmp/proj/.claude/worktrees/probewt"
 	row.ClaudeDir = &claudeDir
+	row.AddedDirs = []string{"/private/tmp/infra", "/private/tmp/with space/docs"}
 	row.EffortKnown = true
 	row.EffortLevel = ptr("high")
 	row.EffortRequested = ptr("max")
@@ -287,6 +288,7 @@ func TestUpdateSession_RoundTripsEveryField(t *testing.T) {
 	assert.False(t, got.FirstLaunchHere)
 	require.NotNil(t, got.ClaudeDir)
 	assert.Equal(t, claudeDir, *got.ClaudeDir)
+	assert.Equal(t, []string{"/private/tmp/infra", "/private/tmp/with space/docs"}, got.AddedDirs)
 	assert.True(t, got.EffortKnown)
 	assert.Equal(t, ptr("high"), got.EffortLevel)
 	assert.Equal(t, ptr("max"), got.EffortRequested)

@@ -3,12 +3,12 @@ id: card-location
 type: spec
 status: active
 date: 2026-10-01
-summary: The card's launch directory, its branch kept fresh by the repo poll, where Claude works when elsewhere, and the bind's model name.
+summary: The card's launch directory, its branch kept fresh by the repo poll, where Claude works when elsewhere, the directories added to it, and the bind's model name.
 features: [card-location]
 tags: [state-machine, ux]
-go: [internal/server/reporefresh*.go, internal/session/location*.go, internal/session/repo*.go]
+go: [internal/server/reporefresh*.go, internal/session/location*.go, internal/session/repo*.go, internal/session/addeddirs*.go]
 web: []
-e2e: [web/e2e/card-location.spec.ts, web/e2e/helpers/card-location.ts]
+e2e: [web/e2e/card-location.spec.ts, web/e2e/helpers/card-location.ts, web/e2e/added-dirs.spec.ts, web/e2e/helpers/added-dirs.ts]
 protocol: [ws.session]
 refs: [kb:adr/lifecycle-card-shows-launch-directory-marks-claude-elsewhere, kb:adr/lifecycle-branch-refreshed-by-repo-poll, kb:adr/lifecycle-claude-location-from-main-agent-cwd, kb:adr/lifecycle-bind-model-display-name-is-id, kb:adr/ingest-claude-cwd-read-in-interpret-only, kb:adr/focus-header-readout-sized-by-text, kb:fact/cwd-follows-claude-mid-session, kb:fact/enter-worktree-moves-project-dir, kb:fact/cwd-changed-hook, kb:fact/hook-delivery-best-effort, kb:fact/sessionstart-model-optional-string, kb:fact/status-model-is-object, kb:fact/model-switch-hooks]
 ---
@@ -47,6 +47,18 @@ Both sides are symlink-resolved. It is display-only, never read by the state mac
 null on a dead session. Launch and resume clear it, because Claude restarts in the launch
 directory.
 
+## Added directories
+
+`addedDirs` is the status line's `workspace.added_dirs` from every status post, the launch
+directory removed and each entry normalised like Claude's directory: absolute (a relative entry
+resolves against the launch directory), cleaned and symlink-resolved; an entry that does not
+exist is only cleaned. It is empty until the first such post after a launch or resume and on
+every dead session; `/clear` and a daemon restart keep it. The repo poll refreshes each
+directory's checkout reading under its own deadline, so a long list never stops the launch
+directory's branch, worktree flag and `claudeLocation` refreshing; a directory missing or not
+finished reading keeps its last reading. A worktree flag compares resolved paths, so a
+subdirectory of an ordinary checkout is not a worktree and one inside a linked worktree is.
+
 ## Effort
 
 The session's effort is the status line's `effort.level` from each post, `{"level": null}` when the key
@@ -61,8 +73,8 @@ the held id changes nothing, so a confirmed name survives
 (kb:adr/lifecycle-bind-model-display-name-is-id, kb:fact/sessionstart-model-optional-string,
 kb:fact/status-model-is-object, kb:fact/model-switch-hooks).
 
-The rail, Focus header and tiles render these fields (kb:spec/rail, kb:spec/focus,
-kb:spec/tiles). Their shapes are in `kb:anchor/ws.session`.
+The rail and tiles render the other fields; the Focus header alone renders `addedDirs`
+(kb:spec/rail, kb:spec/tiles, kb:spec/focus). Their shapes are in `kb:anchor/ws.session`.
 
 ```mermaid
 flowchart LR

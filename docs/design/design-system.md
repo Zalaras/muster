@@ -278,8 +278,12 @@ floor, the readout floor and the model no longer fit side by side, the model (an
 under it) stacks under the readout while the title and readout stay side by side; below about
 316px of header content the cluster tightens its padding
 (kb:adr/focus-header-give-way-order-title-last,
-kb:adr/focus-model-never-truncates-name-blocks-give-way). The location group carries a hover `title` with the full repo, the launch directory
-and, while moved, where Claude is (reference `mockups/claude-location/c-long-names.html`).
+kb:adr/focus-model-never-truncates-name-blocks-give-way). While the session has added directories the folder line drops its ` /` and ends in a `+N` suffix
+in `--fg-muted` (`muster+2`), never ellipsized: the folder name shortens first. Resting the mouse on
+the location group opens the location panel, a `.pop` tooltip appended to the body: a `Location`
+heading, the launch checkout, a `↳` row for where Claude is while moved, then `Added directories · N`
+with each directory's folder, `· <branch>` when it has one, over its full path (reference
+`mockups/added-dirs/final.html`). The group carries no `title`.
 Between the name (and its bypass chip) and the meta row sits the **group control** (`.ingroup`,
 plan `groups`): a button reading the session's group name or `no group` with an `aria-hidden`
 `▾`, mono `--fs-2xs`, 1px `--line-control` border, `--fg-dim` text, capped at 24ch with an

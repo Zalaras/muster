@@ -165,6 +165,7 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	beforeEffort := sess.Effort
 	beforeWarning := sess.EffortWarning
 	beforeDir := sess.ClaudeDir
+	beforeAdded := sess.AddedDirs
 
 	prevTitle := sess.Title
 	changed := applyStatusUpdate(sess, update)
@@ -180,8 +181,9 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	// broadcast — the wire object (DisplayTitle()/model/context) is unchanged, and
 	// kb:anchor/ws.session's no-no-op-upserts rule stands
 	// (kb:adr/rename-muster-owned-title-override-wins).
+	addedChanged := !addedDirsEqual(beforeAdded, sess.AddedDirs)
 	broadcast := !stringPtrEqual(beforeDisplay, sess.DisplayTitle()) || beforeModel != sess.Model || beforeContext != sess.Context || beforeCache != sess.Cache ||
-		beforeEffort != sess.Effort || beforeWarning != sess.EffortWarning
+		beforeEffort != sess.Effort || beforeWarning != sess.EffortWarning || addedChanged
 
 	// A ClaudeDir-only change persists without broadcasting for the same reason: the wire
 	// object stays as it was until the repo poll derives claudeLocation from it.
@@ -191,6 +193,6 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	if err != nil {
 		return nil, fmt.Errorf("persisting status update for session %d: %w", musterSessionID, err)
 	}
-	m.nudgeRepoPoll(dirChanged)
+	m.nudgeRepoPoll(dirChanged || addedChanged)
 	return snapshot, nil
 }

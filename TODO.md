@@ -55,24 +55,7 @@ May turn out to be a daemon-only fix rather than a feature.
   after Claude Code updates, the developer wants to restart every session onto the new version
   with each one resumed where it was, and also to restart just one session or just one group.
 
-#### What a session records (#93, #101, #95)
-
-#93 and #101 ask for the same thing; one change closes both. All three add something per session
-that the dashboard shows.
-
-- [ ] **I'd like to be able to see what directories I've added to the session** ([#93](https://github.com/Zalaras/muster/issues/93)) — The
-  report title asks for a way to see which directories have been added to a session, and the
-  dashboard shows no such list. Expected: The dashboard should show the additional directories that
-  have been added to a session.
-  Filed 2026-10-15 from musterd 0.21.1 / Claude Code 2.1.293, focus view, session started.
-  Labels: enhancement, sessions, ux.
-
-- [ ] **I want to see the added directories** ([#101](https://github.com/Zalaras/muster/issues/101)) — After
-  directories are added to a Claude Code session with the add-dir command, there is no way to see
-  afterwards which ones have been added. Expected: Muster should track the directories added to a
-  session and show them so the developer can see which ones were added.
-  Filed 2026-10-16 from musterd 0.22.2 / Claude Code 2.1.293, focus view, session started.
-  Labels: enhancement, sessions, claude-code.
+#### What a session records (#95)
 
 - [ ] **I'd like to be able to add a note to my session** ([#95](https://github.com/Zalaras/muster/issues/95)) — The
   author wants to attach their own persistent note to a session, separate from titles and rail
@@ -125,6 +108,14 @@ that the dashboard shows.
   can be planned: whether Muster may spend tokens summarizing (`kb:adr/nongoal-cost-tracking` rejects
   cost *tracking*, but spending is a new class of behaviour either way), and where a summary
   is cached and invalidated so it isn't recomputed every render. Wants a `/spec` pass.
+
+Filed 2026-10-19 by the developer from the plans' proposed-backlog.md files:
+
+- [ ] **A subdirectory's folder name differs between the Location row and the Added list** — a
+  session launched in a subdirectory of a checkout shows that subdirectory's own name (`sub0`) in the
+  location panel's Location row, while an added directory in a subdirectory shows its checkout's
+  top-level name. Expected: one naming rule for both rows; the current split matches the protocol
+  contract, so changing it needs a contract decision first. From `plans/see-added-dirs/`.
 
 ### Fixes — each group is one `/fix` run
 
@@ -307,6 +298,14 @@ New `/triage` entries land here until they are moved into a group.
   stopped first.
   Filed 2026-10-19 from musterd 0.23.0 / Claude Code 2.1.303, focus view, session idle.
   Labels: enhancement, lifecycle, ux.
+
+Filed 2026-10-19 by the developer from the plans' proposed-backlog.md files:
+
+- [ ] **Added directories from status-line shapes nobody measured** — three shapes the
+  added-directories list relies on were never captured from real Claude Code: a status post with no
+  `added_dirs` key, a relative entry, and a wrongly typed list; today a wrongly typed list empties
+  the session's list. Expected: each shape measured with `/interface-probe` and recorded as a fact,
+  and the list behaves as measured. From `plans/see-added-dirs/`.
 
 ## Pre-v1
 

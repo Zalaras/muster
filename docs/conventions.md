@@ -118,8 +118,8 @@ implementer's, reported in its log's `## Decisions` as a `design:` line per new 
 seam (the shape chosen, why, and what it reused or matched).
 
 - **Reuse before add.** Before writing a helper, type or module, `rg` for one that already does it
-  and paste the grep in Decisions. A second implementation of an existing idea is a defect even
-  when both work.
+  and paste the grep in Decisions. What it finds is reused or generalised, never copied, whatever
+  Decisions says.
 - **Match the siblings.** A new module in a package or directory takes its neighbours' shape —
   constructor, seam, error path, naming — or says in Decisions why it diverges. A reader who
   knows one module should know them all.

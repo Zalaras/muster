@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>see-added-dirs — decided</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+/* NEW: the +N suffix on the folder line. --fg-muted, never a state colour (design-system §3). */
+.rf .plus { color: var(--fg-muted); }
+.pop .dr .df .b { color: var(--fg-dim); }
+.pop .dr .lead { color: var(--fg-muted); margin-right: 5px; }
+</style>
+</head>
+<body>
+<h1>Added directories — decided (B suffix, A's panel)</h1>
+<p class="lead">
+The folder line gains a <code>+N</code> suffix while directories are added; hovering the readout (mouse
+only) opens a panel that replaces the readout's plain tooltip on every session: <b>Location</b> (the launch
+checkout, then where Claude is while it is elsewhere), then <b>Added directories · N</b> while there are
+any. Each row is the folder name and branch over the full path. The rail card and tile header are unchanged.
+</p>
+<div id="out"></div>
+<script>
+const launch = { f: "muster", b: "feat-e2e", p: "/Users/bob/code/Projects/muster" };
+const two = [
+  { f: "infra", b: "main", p: "/Users/bob/code/infra" },
+  { f: "shared-docs", b: null, p: "/Users/bob/Documents/shared-docs" },
+];
+const six = two.concat([
+  { f: "platform-terraform-modules", b: "chore/upgrade-provider-pins", p: "/Users/bob/code/work/platform/platform-terraform-modules" },
+  { f: "kb", b: "main", p: "/Users/bob/code/kb" },
+  { f: "design", b: null, p: "/Users/bob/Documents/design" },
+  { f: "fixtures", b: null, p: "/private/tmp/muster-fixtures" },
+]);
+const row = (d, lead) => `<div class="dr"><div class="df">${lead ? `<span class="lead">↳</span>` : ""}${d.f}${d.b ? ` <span class="b">· ${d.b}</span>` : ""}</div><div class="dp">${d.p}</div></div>`;
+function pop(dirs, moved) {
+  let h = `<div class="pop"><div class="ph">Location</div>${row(launch)}`;
+  if (moved) h += row(moved, true);
+  if (dirs.length) h += `<div class="sub">Added directories · ${dirs.length}</div>` + dirs.map(d => row(d)).join("");
+  return h + "</div>";
+}
+function header(dirs, { open = false, dead = false, narrow = false, moved = null } = {}) {
+  const n = dirs.length;
+  return `<div class="frame${narrow ? " narrow" : ""}${open ? " open" : ""}">
+  <div class="mainhead"><div class="idrow">
+    <h2 class="name">flaky-e2e-hunt</h2>
+    ${narrow ? "" : `<span class="ingroup">reviews ▾</span>`}
+    <span class="meta"><span class="loc hov${open ? " open" : ""}">
+      <span class="repo"><span class="rf">muster${n ? `<span class="plus">+${n}</span>` : ""}</span><span class="rb">feat-e2e</span></span>
+      ${moved ? `<span class="sep">·</span><span class="claude-at"><span class="lead">↳</span><span class="rf">${moved.f}</span><span class="rb">${moved.b}</span></span>` : ""}
+      <span class="sep">·</span>${pop(dirs, moved)}</span>
+      <span class="model">Opus 5 (high)${dead ? "<br>ended 2h ago" : ""}</span></span>
+  </div>
+  <div class="acts"><span class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></span>
+    <button class="btn stop-resume">${dead ? "Resume" : "Stop"}</button><button class="btn">Remove</button></div>
+  </div><div class="well"></div></div>`;
+}
+const infra = two[0];
+document.getElementById("out").innerHTML =
+  `<div class="label">two added, panel open</div>` + header(two, { open: true }) +
+  `<div class="label">nothing added — no suffix; the panel shows Location only (hover)</div>` + header([]) +
+  `<div class="label">Claude working in an added repo — ↳ block plus the added list (hover)</div>` + header(two, { moved: infra }) +
+  `<div class="label">six added, long names and paths (hover)</div>` + header(six) +
+  `<div class="label">ended session — the list is cleared on end, so no suffix (hover)</div>` + header([], { dead: true }) +
+  `<div class="label">640px header (hover)</div>` + header(two, { narrow: true });
+</script>
+</body>
+</html>

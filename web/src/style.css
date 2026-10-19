@@ -846,6 +846,21 @@ body {
   white-space: nowrap;
 }
 
+.mainhead .meta .rf.has-plus {
+  display: flex;
+}
+
+.mainhead .meta .rf.has-plus .rf-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mainhead .meta .rf.has-plus .plus {
+  flex: none;
+  color: var(--fg-muted);
+}
+
 /* The `·` after a block takes no room of its own: a zero-width box drawn into the margin the
  * block before it left (centred in it: half of `--sep-gap` plus the glyph's own `1ch`), so it
  * goes with that block and never stands alone. `.loc`'s last `.sep` is the
@@ -4442,6 +4457,42 @@ fieldset.seg legend {
 }
 
 .pop .pr[data-state="ended"] .prh b {
+  color: var(--fg-dim);
+}
+
+.pop.loc-pop {
+  max-width: 380px;
+}
+
+.pop .dr {
+  padding: 3px 12px;
+}
+
+.pop .dr .df {
+  font-size: var(--fs-xs);
+  color: var(--fg);
+}
+
+.pop .dr .df .b {
+  color: var(--fg-dim);
+}
+
+.pop .dr .df .lead {
+  margin-right: 5px;
+  color: var(--fg-muted);
+}
+
+.pop .dr .dp {
+  overflow-wrap: anywhere;
+  color: var(--fg-dim);
+}
+
+.pop .sub {
+  margin-top: 4px;
+  padding: 6px 12px 2px;
+  border-top: 1px solid var(--line);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--fg-dim);
 }
 

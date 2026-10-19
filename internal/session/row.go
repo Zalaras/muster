@@ -202,6 +202,7 @@ func rowToSession(row store.SessionRow) *Session {
 		BackgroundTasks:              row.BackgroundTasks,
 		AttentionAgent:               derefOrZero(row.AttentionAgent),
 		ClaudeDir:                    derefOrZero(row.ClaudeDir),
+		AddedDirs:                    addedDirsFromRow(row.AddedDirs),
 		TranscriptPath:               derefOrZero(row.TranscriptPath),
 		PlanPath:                     derefOrZero(row.PlanPath),
 		TmuxPane:                     derefOrZero(row.TmuxPane),
@@ -250,6 +251,7 @@ func sessionToRow(s *Session) store.SessionRow {
 		BackgroundTasks:              s.BackgroundTasks,
 		AttentionAgent:               ptrOrNil(s.AttentionAgent),
 		ClaudeDir:                    ptrOrNil(s.ClaudeDir),
+		AddedDirs:                    addedDirPaths(s.AddedDirs),
 		TranscriptPath:               ptrOrNil(s.TranscriptPath),
 		PlanPath:                     ptrOrNil(s.PlanPath),
 		TmuxPane:                     ptrOrNil(s.TmuxPane),
@@ -274,4 +276,15 @@ func sessionToRow(s *Session) store.SessionRow {
 	row.AttentionReason, row.AttentionSince = attentionToRow(s.Attention)
 	row.FailureError, row.FailureMessage = failureToRow(s.Failure)
 	return row
+}
+
+func addedDirsFromRow(paths []string) []Location {
+	if len(paths) == 0 {
+		return nil
+	}
+	dirs := make([]Location, len(paths))
+	for i, p := range paths {
+		dirs[i] = Location{Directory: p}
+	}
+	return dirs
 }

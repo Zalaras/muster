@@ -10,6 +10,7 @@ import type { App, RenderFrame } from "../app";
 import { requireElement } from "../dom";
 import { renderFocusMain, renderSizenote, setMainSlotHidden } from "../render/focusview";
 import { fitMainheadMeta, renderMainhead, type MainheadElements } from "../render/mainhead";
+import { createLocationPanel } from "../render/locationpanel";
 import { attachRenameEditor, type RenameEditorHandlers } from "../render/rename";
 import { mountSlotRoot } from "../render/slotmount";
 import { stopResumeButton, type PaneState, type SessionAction } from "../sessions/card";
@@ -26,6 +27,7 @@ import { buildSurfaceSegment } from "../render/surfaceseg";
 import type { TerminalSurface } from "../terminal/pane";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import type { Session } from "../protocol/session";
+import { locationPanelModel } from "../sessions/locationpanel";
 import { orderRail, pickNeediest } from "../sessions/sort";
 import {
   defaultFocusId,
@@ -140,6 +142,13 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
       fitMainheadMeta(mainheadElements.metaEl, mainheadElements.root),
     ).observe(mainheadPane);
   }
+
+  const locationPanel = createLocationPanel();
+  locationPanel.attach(requireElement<HTMLElement>(".loc", mainheadElements.metaEl), () => {
+    const session = app.store.values().find((s) => s.id === app.state.focusedId);
+    return session ? locationPanelModel(session) : null;
+  });
+  app.on("focusChanged", () => locationPanel.close());
 
   const mainEmptyEl = requireElement<HTMLElement>("#main-empty");
   const mainSlotEl = requireElement<HTMLElement>("#main-terminal-slot");
@@ -266,6 +275,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
       mainheadRename.isEditing(),
       session ? groupLabel(session, app.state.groups) : "",
     );
+    locationPanel.refresh();
 
     if (!session) {
       setMainSlotHidden(mainSlotEl, true);

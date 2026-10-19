@@ -16,6 +16,7 @@
 //
 // Authored before any of this is built: every test here asserts new behaviour and is
 // collection-only at authoring.
+import { expectLocationPanel } from "./helpers/added-dirs";
 import {
   addClaudeWorktree,
   addSubdirectory,
@@ -415,8 +416,12 @@ test("the Focus header's location hover carries the repo, the directory and, whi
     const branch = await git(repo.path, "rev-parse", "--abbrev-ref", "HEAD");
     const wtBranch = await git(wt.path, "rev-parse", "--abbrev-ref", "HEAD");
 
-    const unmoved = hoverLines({ repo: repo.name, branch, directory: session.directory });
-    await expect(mainheadLoc(page)).toHaveAttribute("title", unmoved);
+    // Plan see-added-dirs REQ-7: the readout's `title` is gone; the same facts — the repo and
+    // branch over the launch directory, and while moved where Claude is and its branch — are
+    // the location panel's rows.
+    await expect(mainheadLoc(page)).not.toHaveAttribute("title");
+    const launchRow = { folder: repo.name, branch, path: session.directory };
+    await expectLocationPanel(page, { launch: launchRow, added: [] });
     await expect(card.locator(".r2")).toHaveAttribute("title", `${repo.name} / ${branch}`);
 
     await hookMover(request, daemon, "claude-loc-e4")(wt.path);
@@ -429,7 +434,12 @@ test("the Focus header's location hover carries the repo, the directory and, whi
       movedTo: { directory: wt.path, branch: wtBranch },
     });
     expect(moved.split("\n")).toHaveLength(4);
-    await expect(mainheadLoc(page)).toHaveAttribute("title", moved);
+    await expect(mainheadLoc(page)).not.toHaveAttribute("title");
+    await expectLocationPanel(page, {
+      launch: launchRow,
+      moved: { folder: wt.name, branch: wtBranch, path: wt.path },
+      added: [],
+    });
     await expect(card.locator(".r2")).toHaveAttribute("title", `${repo.name} / ${branch}`);
     await expect(card.locator(".r2c")).toHaveAttribute(
       "title",
@@ -466,14 +476,14 @@ test("a move outside any checkout shows the folder name alone with no branch lin
     await expect(mainheadClaudeAt(page).locator(".rb")).toHaveCount(0);
 
     const branch = await git(repo.path, "rev-parse", "--abbrev-ref", "HEAD");
-    const hover = hoverLines({
-      repo: repo.name,
-      branch,
-      directory: session.directory,
-      movedTo: { directory: plain.path },
+    // Plan see-added-dirs REQ-7: the readout's `title` is gone; the panel's `↳` row is the plain
+    // directory's folder over its path with no branch (the old hover's three lines).
+    await expect(mainheadLoc(page)).not.toHaveAttribute("title");
+    await expectLocationPanel(page, {
+      launch: { folder: repo.name, branch, path: session.directory },
+      moved: { folder: plain.name, branch: null, path: plain.path },
+      added: [],
     });
-    expect(hover.split("\n")).toHaveLength(3);
-    await expect(mainheadLoc(page)).toHaveAttribute("title", hover);
     await expect(card.locator(".r2c")).toHaveAttribute("title", `Claude is in ${plain.path}`);
   } finally {
     await repo.cleanup();

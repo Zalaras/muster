@@ -2,6 +2,7 @@
 // the tile header's `.ctxinfo` span are the same view-model rendered twice (one
 // derivation, two renderers; docs/design/mockups/a-instrument.html lines 103-111 /
 // d-tiled.html's `.thead .ctx`). DOM only — derivation lives in ../sessions/context.ts.
+import { setText } from "../dom";
 import type { SessionContext } from "../protocol/session";
 import { buildContextRowViewModel } from "../sessions/context";
 
@@ -80,8 +81,4 @@ function syncCompactCounter(el: HTMLElement, existing: HTMLElement | null, compa
   const compactEl = existing ?? el.appendChild(document.createElement("span"));
   compactEl.className = "compact";
   setText(compactEl, `⟳${compactions}`);
-}
-
-function setText(el: HTMLElement, text: string): void {
-  if (el.textContent !== text) el.textContent = text;
 }

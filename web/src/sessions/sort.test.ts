@@ -18,6 +18,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     directory: "/tmp/repo",
     repo: null,
     claudeLocation: null,
+    addedDirs: [],
     model: null,
     permissionMode: { value: "default", source: "seed" },
     context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },

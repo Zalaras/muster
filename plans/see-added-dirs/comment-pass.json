@@ -1,0 +1,634 @@
+{
+  "plan": "see-added-dirs",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-19T14:35:24Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 22,
+        "keep": 7,
+        "drop": 15
+      },
+      "keeps": [
+        {
+          "key": "internal/server/reporefresh.go:eefb16d53de3de49",
+          "path": "internal/server/reporefresh.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type repoRefreshFeature struct {",
+            "line": 28
+          },
+          "lines": [
+            "// repoRefreshFeature re-reads each alive session's launch-directory branch and worktree flag,",
+            "// reads each added directory's checkout, and derives where Claude is working when that is",
+            "// another checkout (claudeLocation), on a",
+            "// timer and whenever the session manager reports Claude's directory changed. Hooks never",
+            "// report a checkout made by the shell pane or outside Muster, so a poll is the only source",
+            "// (kb:adr/lifecycle-branch-refreshed-by-repo-poll). It mounts no routes. All git runs",
+            "// happen here, outside the manager's lock; the manager's SetRepoState applies the result."
+          ],
+          "reason": "Edited on `main`; still true: `state.AddedRepos = readAddedRepos(ctx, t.AddedDirs)` reads added directories as the doc says, and the rest of the doc still holds."
+        },
+        {
+          "key": "internal/server/reporefresh.go:cb333e90eefab773",
+          "path": "internal/server/reporefresh.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func readAddedRepos(ctx context.Context, dirs []string) map[string]*session.LocationRepo {",
+            "line": 136
+          },
+          "lines": [
+            "// readAddedRepos reads each added directory's checkout. A directory that is gone, or that",
+            "// vanished while it was read (a failing read would then look like \"not a checkout\"), is left",
+            "// out of the result, so its last-known reading is kept."
+          ],
+          "reason": "Without it a reader would delete the second `if isDir(dir)` check after the git read as redundant with the first; that lets a vanished directory be stored as 'not a checkout' at `repos[dir] = repo`."
+        },
+        {
+          "key": "internal/session/addeddirs.go:a9dcbed4ca1a4e97",
+          "path": "internal/session/addeddirs.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func adoptAddedDirs(sess *Session, reported *[]string) bool {",
+            "line": 15
+          },
+          "lines": [
+            "// adoptAddedDirs replaces the session's added directories with reported (the status line's",
+            "// full list, nil when the post did not carry the key) once normalised, reporting whether the",
+            "// list changed. A dead session never adopts one, so a straggler post cannot refill what a",
+            "// death emptied. A directory already held keeps its git reading across the replacement.",
+            "// The caller holds Manager.mu."
+          ],
+          "reason": "Without it a reader would drop the `!sess.Alive` check as unnecessary; that lets a straggler status post refill a dead session's directories at `if reported == nil || !sess.Alive`."
+        },
+        {
+          "key": "internal/session/repo.go:bc99f83283d0e5ee",
+          "path": "internal/session/repo.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) SetRepoState(ctx context.Context, id int64, state RepoState) error {",
+            "line": 40
+          },
+          "lines": [
+            "// SetRepoState adopts one repo-poll reading and, only when the wire-visible repo or",
+            "// claudeLocation changed, persists and broadcasts it as one sessionUpsert. A reading that",
+            "// finds nothing new touches nothing.",
+            "//",
+            "// The reading was taken outside the lock, so it is checked against the session as it stands",
+            "// now. A reading taken before the session died is dropped whole, branch included, however",
+            "// soon a resume made it alive again: a checkout made after the card showed ended must not",
+            "// reach the dead card, and the resumed session's first tick reads it afresh. A Location",
+            "// derived from a ClaudeDir that has since been replaced or cleared is dropped alone; the",
+            "// ClaudeDir change that outdated it has already nudged the poll for a fresh reading. An",
+            "// added directory's reading applies only to a directory still listed: the list as it stands",
+            "// now decides which entries exist, and one the reading never saw stays unread until the",
+            "// next tick."
+          ],
+          "reason": "Edited on `main`; still true: `if !sess.Alive || sess.repoEpoch != state.Epoch` drops a pre-death reading and `withAddedRepos(sess.AddedDirs, state.AddedRepos)` applies added readings only to listed dirs."
+        },
+        {
+          "key": "internal/session/repo.go:43fb2581e92c3e5a",
+          "path": "internal/session/repo.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func withAddedRepos(held []Location, repos map[string]*LocationRepo) []Location {",
+            "line": 99
+          },
+          "lines": [
+            "// withAddedRepos is held with each entry's Repo replaced by its reading in repos, when there",
+            "// is one. Always a fresh slice, so the held one is never written through."
+          ],
+          "reason": "Without it a reader would write `d.Repo` into `held` in place to save an allocation; that mutates a slice shared by Session.Clone copies at `out := make([]Location, len(held))`."
+        },
+        {
+          "key": "internal/session/session.go:275d068df67a8965",
+          "path": "internal/session/session.go",
+          "anchor": {
+            "kind": "above",
+            "text": "AddedDirs []Location",
+            "line": 200
+          },
+          "lines": [
+            "// AddedDirs (kb:adr/lifecycle-added-dirs-from-status-line-cleared-on-death) are the",
+            "// directories the session works in beyond Directory, from the status line's full list:",
+            "// normalised, launch directory removed, in reported order. Empty from launch and resume",
+            "// until a status post carries the list, and on every dead session. Display-only. Written",
+            "// by adoptAddedDirs (ApplyStatus), by SetRepoState (each entry's Repo) and cleared by",
+            "// markEnded, RecordLaunch and RecordResume, all under Manager.mu; always replaced with a",
+            "// fresh slice, never mutated in place."
+          ],
+          "reason": "Without it a reader would mutate `AddedDirs` entries in place; Clone is a shallow copy, so that races readers holding clones at `AddedDirs []Location`."
+        },
+        {
+          "key": "internal/session/status.go:8828836f14d6cfe6",
+          "path": "internal/session/status.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func applyStatusUpdate(sess *Session, update claudecode.StatusUpdate) bool {",
+            "line": 9
+          },
+          "lines": [
+            "// applyStatusUpdate mutates sess per kb:anchor/ws.session's value semantics: title, model,",
+            "// context, prompt-cache warmth and effort refresh from a routed status-line post, plus the",
+            "// directory Claude reports (ClaudeDir) and the added directories, each adopted only when update carried it and only",
+            "// when it actually differs from the current value. Returns whether",
+            "// anything changed, so the caller only persists+broadcasts on a real change — status",
+            "// posts fire on every tool use, so a naive always-broadcast would spam sessionUpsert.",
+            "//",
+            "// This function's switch never reaches state/stateSince/attention/failure/alive/",
+            "// compactions/permissionMode/titleOverride: there is no code path here that touches them",
+            "// — Title always means Claude's last-known name, never the user's override, and callers",
+            "// needing the display-title (wire \"title\") distinction compare Session.DisplayTitle()",
+            "// themselves (Manager.ApplyStatus's persist-vs-broadcast split). Attention/Failure/Model/Context are treated as immutable",
+            "// snapshots elsewhere (Session.Clone's doc comment), so a changed field is always",
+            "// replaced with a fresh pointer, never mutated in place. Cache is replaced the same way",
+            "// when its wire lifetime changes, but a keep-alive post writes its held Requests and",
+            "// ReportedExpiresAt in place: the broadcast check compares the pointer, and those two",
+            "// fields are off the wire."
+          ],
+          "reason": "Edited on `main`; still true: `if adoptAddedDirs(sess, update.AddedDirs)` adopts added directories only when carried and differing, as the doc says."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/claudecode/status.go:260c47e800e36e68",
+          "path": "internal/claudecode/status.go",
+          "anchor": {
+            "kind": "above",
+            "text": "AddedDirs *[]string",
+            "line": 128
+          },
+          "lines": [
+            "// AddedDirs is workspace.added_dirs verbatim (kb:fact/added-dirs-in-status-line): the",
+            "// session's full directory list, led by the launch directory, entries unresolved. Nil when",
+            "// the key is absent or null, a non-nil empty list when the post reported none."
+          ]
+        },
+        {
+          "key": "internal/server/reporefresh.go:a4cc08e313bd2404",
+          "path": "internal/server/reporefresh.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func checkoutRepo(ctx context.Context, dir string, top *string) *session.LocationRepo {",
+            "line": 125
+          },
+          "lines": [
+            "// checkoutRepo is dir's repo readout given its checkout top level: nil when dir is not in a",
+            "// checkout (top nil) or HEAD is detached."
+          ]
+        },
+        {
+          "key": "internal/server/sessionwire.go:5377d74b4ac17dee",
+          "path": "internal/server/sessionwire.go",
+          "anchor": {
+            "kind": "above",
+            "text": "AddedDirs []sessionWireLocation `json:\"addedDirs\"`",
+            "line": 28
+          },
+          "lines": [
+            "// AddedDirs (kb:anchor/ws.session): the directories the session works in beyond Directory,",
+            "// each with its checkout's readout; required key, [] when none, never null."
+          ]
+        },
+        {
+          "key": "internal/session/addeddirs.go:e7d1631e0c67a78a",
+          "path": "internal/session/addeddirs.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func ResolvePath(path string) string {",
+            "line": 8
+          },
+          "lines": [
+            "// ResolvePath is path cleaned and symlink-resolved, or merely cleaned when it does not",
+            "// exist. The same directory arrives as /tmp/x from one source and /private/tmp/x from",
+            "// another (kb:fact/cwd-follows-claude-mid-session), so every directory this package or the",
+            "// repo poll compares goes through here first."
+          ]
+        },
+        {
+          "key": "internal/session/addeddirs.go:6102415f1c43f73a",
+          "path": "internal/session/addeddirs.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func normalizeAddedDirs(launchDir string, reported []string, held []Location) []Location {",
+            "line": 27
+          },
+          "lines": [
+            "// normalizeAddedDirs is the directories beyond launchDir that reported names: each entry",
+            "// resolved against launchDir when relative, cleaned and symlink-resolved, with the launch",
+            "// directory itself (under any spelling) and repeats dropped, first position kept. held",
+            "// supplies the git reading of a directory that stays listed; a new one starts with none."
+          ]
+        },
+        {
+          "key": "internal/session/addeddirs.go:839e3d43304236d6",
+          "path": "internal/session/addeddirs.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func addedDirsEqual(a, b []Location) bool {",
+            "line": 50
+          },
+          "lines": [
+            "// addedDirsEqual compares two added-directory lists by value, order included."
+          ]
+        },
+        {
+          "key": "internal/session/addeddirs.go:891a7bb8f518b440",
+          "path": "internal/session/addeddirs.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (s *Session) clearAddedDirs() {",
+            "line": 54
+          },
+          "lines": [
+            "// clearAddedDirs forgets the added directories: launch, resume and every death leave none,",
+            "// because Claude's list is re-reported by its first status post and a dead session shows",
+            "// nothing. The caller holds Manager.mu."
+          ]
+        },
+        {
+          "key": "internal/session/manager.go:61b670e94cd345de",
+          "path": "internal/session/manager.go",
+          "anchor": {
+            "kind": "above",
+            "text": "OnClaudeDirChange func()",
+            "line": 96
+          },
+          "lines": [
+            "// OnClaudeDirChange fires after Apply or ApplyStatus persisted a changed ClaudeDir or a",
+            "// changed added-directory list, so the repo poll can derive claudeLocation and read the",
+            "// added directories without waiting out its interval. Nil-tolerant like OnUpsert. It must not block: it runs on the ingest worker."
+          ]
+        },
+        {
+          "key": "internal/session/repo.go:655793d41924b745",
+          "path": "internal/session/repo.go",
+          "anchor": {
+            "kind": "above",
+            "text": "AddedDirs []string",
+            "line": 14
+          },
+          "lines": [
+            "// AddedDirs are the session's added directories as listed when this was copied."
+          ]
+        },
+        {
+          "key": "internal/session/repo.go:6977bf61d0985e6f",
+          "path": "internal/session/repo.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type RepoState struct {",
+            "line": 21
+          },
+          "lines": [
+            "// RepoState is one repo-poll reading of a session: the launch directory's branch and",
+            "// worktree flag, and where Claude is when that is another checkout (nil when not).",
+            "// ClaudeDir is the recorded directory the Location was derived from; Epoch is the target's.",
+            "// AddedRepos holds the reading of each added directory that could be read, keyed by its",
+            "// path: a nil value is a directory read and found not to be a checkout (or on a detached",
+            "// HEAD), an absent key one that was not read (it no longer exists), which keeps its last",
+            "// reading."
+          ]
+        },
+        {
+          "key": "internal/session/repo.go:6026bcfabcfb9c8f",
+          "path": "internal/session/repo.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) RepoTargets() []RepoTarget {",
+            "line": 30
+          },
+          "lines": [
+            "// RepoTargets returns every session's launch, Claude and added directories for the repo poll."
+          ]
+        },
+        {
+          "key": "internal/store/session.go:f2c6faa1535cb658",
+          "path": "internal/store/session.go",
+          "anchor": {
+            "kind": "above",
+            "text": "AddedDirs []string",
+            "line": 127
+          },
+          "lines": [
+            "// AddedDirs (kb:adr/lifecycle-added-dirs-from-status-line-cleared-on-death) are the",
+            "// directories the status line last reported beyond the launch directory, as paths; stored",
+            "// as a JSON array, NULL when empty. Display-only, never read by the state machine."
+          ]
+        },
+        {
+          "key": "web/src/render/mainhead.ts:cb53a0e8e426a8d7",
+          "path": "web/src/render/mainhead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function renderMeta(metaEl: HTMLElement, meta: MainheadMeta): void {",
+            "line": 36
+          },
+          "lines": [
+            "/** Fills `.meta`'s static slots (index.html) in place — never rebuilt, since the `.rf`/`.rb`",
+            "* text changes on a sibling write but nothing here holds focus. The `.loc` group is the hover",
+            "* anchor for both blocks (features/focus.ts attaches the location panel to it once). */"
+          ]
+        },
+        {
+          "key": "web/src/sessions/card.ts:d7d698d334beb186",
+          "path": "web/src/sessions/card.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function locationHover(session: Session): string {",
+            "line": 227
+          },
+          "lines": [
+            "/** The tile's `.wh` hover: the repo line, the launch directory, then — only while moved —",
+            "* where Claude is and its branch, one per line. */"
+          ]
+        },
+        {
+          "key": "web/src/sessions/card.ts:c639980b7f74b24e",
+          "path": "web/src/sessions/card.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface MainheadMeta {",
+            "line": 234
+          },
+          "lines": [
+            "/** What the Focus header's `.meta` shows, structured so the DOM half owns no text",
+            "* composition: the launch repo block, the `↳` block while moved, the model word, and the",
+            "* ended clause when dead. */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-10-19T16:38:50Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 18,
+        "keep": 4,
+        "drop": 14
+      },
+      "keeps": [
+        {
+          "key": "internal/gitutil/gitutil.go:ef6810db6dd83b9b",
+          "path": "internal/gitutil/gitutil.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func IsWorktree(ctx context.Context, dir string) bool {",
+            "line": 84
+          },
+          "lines": [
+            "// IsWorktree reports whether dir is a linked worktree: its git-dir and the repository's",
+            "// common-dir are different directories (kb:adr/launch-hybrid-mru-directory-memory's",
+            "// recognition rule). They are compared as resolved paths, never as git prints them: from a",
+            "// subdirectory of an ordinary checkout git spells one absolute and the other relative to dir."
+          ],
+          "reason": "Without it a reader would compare the two rev-parse lines as printed strings; that misreports an ordinary checkout's subdirectory as a worktree at `return resolveFrom(dir, lines[0]) != resolveFrom(dir, lines[1])`."
+        },
+        {
+          "key": "internal/server/reporefresh.go:2271f39d6939ddee",
+          "path": "internal/server/reporefresh.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func readRepoState(ctx context.Context, t session.RepoTarget) (state session.RepoState, ok bool) {",
+            "line": 105
+          },
+          "lines": [
+            "// readRepoState runs the git reads for one session. ok is false when the reading cannot be",
+            "// told apart from a git failure: the launch directory's read deadline (or the poll's own",
+            "// cancellation) expired mid-read, or the launch directory vanished after tick's stat. A",
+            "// failing git then looks like \"not a checkout\", so applying the reading would null a card's",
+            "// last-known repo for a directory that is still a checkout (or is merely gone); the caller",
+            "// keeps the old repo. The added directories are read under their own deadline, so a long",
+            "// list can slow this session's refresh but never discard the launch directory's reading; a",
+            "// directory whose read did not finish is left out and keeps its last-known reading."
+          ],
+          "reason": "Without it a reader would apply the reading after a deadline expiry or run the added read under launchCtx; that nulls a card's last-known repo at `return state, false` and `addedCtx, cancelAdded := context.WithTimeout(ctx, repoReadTimeout)`."
+        },
+        {
+          "key": "web/src/dom.ts:94b82fa786f6a8f3",
+          "path": "web/src/dom.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function setText(el: HTMLElement, text: string): void {",
+            "line": 40
+          },
+          "lines": [
+            "/** Writes `text` only when it differs, so an unchanged value across the 1s render tick does not",
+            "* replace the node's text and reset selection or hover state on it. */"
+          ],
+          "reason": "Without it a reader would drop the equality check as redundant and assign textContent every tick; that resets selection and hover state at `if (el.textContent !== text) el.textContent = text;`."
+        },
+        {
+          "key": "web/src/render/grouppopover.ts:035dd2f2a3f553e8",
+          "path": "web/src/render/grouppopover.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { PopoverModel } from \"../sessions/sections\";",
+            "line": 1
+          },
+          "lines": [
+            "// The hover popover a rail header shows: the group's name and `n sessions`, then one row per state",
+            "// present with that state's session titles. DOM only — `sessions/sections.ts`'s `popoverModel`",
+            "// supplies every string. `role=\"tooltip\"`, `pointer-events: none` (style.css), appended to",
+            "// `document.body` because the rail scrolls and clips, so it never steals a click.",
+            "//",
+            "// One controller per rail (`createGroupPopover()`), whose timer and open panel live in its",
+            "// `hovertip.ts` controller. A header calls `attach` once, when it is built, with a getter for its",
+            "// *current* model: headers are updated in place across the 1s tick, so the model is read when the",
+            "// popover opens, never captured."
+          ],
+          "reason": "Edited on `main`; still true: `createHoverTip(buildPanel)` holds the timer and open panel and headers call `attach` once with a model getter."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/gitutil/gitutil.go:77265f7c17aed5f1",
+          "path": "internal/gitutil/gitutil.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func resolveFrom(dir, path string) string {",
+            "line": 100
+          },
+          "lines": [
+            "// resolveFrom is path as an absolute, symlink-resolved path, a relative one taken relative to",
+            "// dir (where git ran); a path that cannot be resolved is only cleaned."
+          ]
+        },
+        {
+          "key": "internal/server/reporefresh.go:1b2ffb6041d47394",
+          "path": "internal/server/reporefresh.go",
+          "anchor": {
+            "kind": "above",
+            "text": "const addedReadWorkers = 8",
+            "line": 22
+          },
+          "lines": [
+            "// addedReadWorkers bounds how many added directories one session's read has in flight at",
+            "// once, so a long list is read in a few rounds instead of one git call after another."
+          ]
+        },
+        {
+          "key": "internal/server/reporefresh.go:9fdd2a835f2652e8",
+          "path": "internal/server/reporefresh.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func readAddedRepos(ctx context.Context, dirs []string) map[string]*session.LocationRepo {",
+            "line": 146
+          },
+          "lines": [
+            "// readAddedRepos reads each added directory's checkout, addedReadWorkers at a time. A",
+            "// directory that is gone, that vanished while it was read, or whose read did not finish",
+            "// before ctx expired (a failing read would then look like \"not a checkout\") is left out of",
+            "// the result, so its last-known reading is kept."
+          ]
+        },
+        {
+          "key": "internal/session/location.go:ff46a8a84bd0c687",
+          "path": "internal/session/location.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func ResolvePath(path string) string {",
+            "line": 41
+          },
+          "lines": [
+            "// ResolvePath is path with symlinks resolved, or merely cleaned when it cannot be (a path",
+            "// that does not exist keeps its spelling): the one normalisation every directory compared by",
+            "// Elsewhere, claudeLocation and the added-directory list goes through."
+          ]
+        },
+        {
+          "key": "internal/session/manager.go:ac9dba718935ec54",
+          "path": "internal/session/manager.go",
+          "anchor": {
+            "kind": "above",
+            "text": "onRepoPollNeeded func()",
+            "line": 121
+          },
+          "lines": [
+            "// onRepoPollNeeded is Config.OnRepoPollNeeded."
+          ]
+        },
+        {
+          "key": "internal/session/manager.go:9dbef7ffd19eac0e",
+          "path": "internal/session/manager.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) nudgeRepoPoll(changed bool) {",
+            "line": 612
+          },
+          "lines": [
+            "// nudgeRepoPoll tells the repo poll a re-read is needed, once the change that needs it is",
+            "// persisted: Claude's recorded directory or the added-directory list changed. A no-op when",
+            "// nothing did (or no callback is wired)."
+          ]
+        },
+        {
+          "key": "web/src/render/hovertip.ts:0e35e42fcfa8e35b",
+          "path": "web/src/render/hovertip.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import { placeAnchored } from \"./anchored\";",
+            "line": 1
+          },
+          "lines": [
+            "// The delayed-hover lifecycle of a tooltip appended to `document.body`, shared by the group",
+            "// popover (`grouppopover.ts`) and the Focus header's location panel (`locationpanel.ts`): the",
+            "// timer, the one open panel, and the `mouseenter` / `mouseleave` / `pointerdown` listeners.",
+            "// A caller supplies only `build`, the pure model -\u003e element function, and decides what else opens",
+            "// it (the group popover adds keyboard focus). Nothing in a panel is interactive",
+            "// (`pointer-events: none`, style.css), so rebuilding one on `refresh` loses no browser state."
+          ]
+        },
+        {
+          "key": "web/src/render/hovertip.ts:db36d3067362ad9c",
+          "path": "web/src/render/hovertip.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export const POPOVER_DELAY_MS = 350;",
+            "line": 3
+          },
+          "lines": [
+            "/** How long an anchor is hovered before its tooltip opens. */"
+          ]
+        },
+        {
+          "key": "web/src/render/hovertip.ts:0e5dd893a0124d2c",
+          "path": "web/src/render/hovertip.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "show(anchor: HTMLElement, model: () =\u003e M | null): void;",
+            "line": 6
+          },
+          "lines": [
+            "/** Opens the tooltip at once, closing any other. Does nothing when `model()` is `null`. */"
+          ]
+        },
+        {
+          "key": "web/src/render/hovertip.ts:710cf72d0d273f90",
+          "path": "web/src/render/hovertip.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "attachHover(anchor: HTMLElement, model: () =\u003e M | null): () =\u003e void;",
+            "line": 7
+          },
+          "lines": [
+            "/** Hover opens it after `POPOVER_DELAY_MS`; leaving and a pointerdown close it. Returns the",
+            "* detach function. */"
+          ]
+        },
+        {
+          "key": "web/src/render/hovertip.ts:08d121f6390640f6",
+          "path": "web/src/render/hovertip.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "refresh(): void;",
+            "line": 8
+          },
+          "lines": [
+            "/** Re-reads the open tooltip's model: rebuilt when it changed, closed when it is now `null`.",
+            "* Does nothing while closed. */"
+          ]
+        },
+        {
+          "key": "web/src/render/locationpanel.ts:4fc249ed462bea9a",
+          "path": "web/src/render/locationpanel.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "refresh(): void;",
+            "line": 6
+          },
+          "lines": [
+            "/** Re-reads the open panel's session: rebuilt when the model changed, closed when there is none. */"
+          ]
+        },
+        {
+          "key": "web/src/sessions/card.ts:4be11bf11c9d939b",
+          "path": "web/src/sessions/card.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function folderName(repo: SessionRepo | null, directory: string): string {",
+            "line": 180
+          },
+          "lines": [
+            "/** The repo's name, else the directory's basename: the one home of that rule. */"
+          ]
+        },
+        {
+          "key": "web/src/sessions/card.ts:67eb036be9e66281",
+          "path": "web/src/sessions/card.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function partsOf(",
+            "line": 184
+          },
+          "lines": [
+            "// `markWorktree` is the launch readout's alone (the `↳` already says Claude is elsewhere);",
+            "// `slash` is false where the header puts a `+N` suffix straight after the name."
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -93,10 +93,7 @@ type Config struct {
 	Watcher      Watcher       // nil counts every session as unwatched
 	PollInterval time.Duration // 0 uses defaultPollInterval
 
-	// OnClaudeDirChange fires after Apply or ApplyStatus persisted a changed ClaudeDir, so
-	// the repo poll can derive claudeLocation without waiting out its interval. Nil-tolerant
-	// like OnUpsert. It must not block: it runs on the ingest worker.
-	OnClaudeDirChange func()
+	OnRepoPollNeeded func()
 
 	// InterruptChecker reports whether the transcript at path records an interrupt of
 	// promptID. Injected so this package never reads transcript bytes
@@ -113,18 +110,17 @@ type InterruptChecker func(path, promptID string) (bool, error)
 // mutation persists the full row and (unless OnUpsert is nil) broadcasts the fresh
 // Session — the "whole-object sessionUpsert" design (kb:anchor/ws.session).
 type Manager struct {
-	store           *store.Store
-	log             zerolog.Logger
-	paneChecker     PaneChecker
-	paneSnapshotter PaneSnapshotter
-	tmuxSessions    TmuxSessions
-	onUpsert        func(*Session)
-	onRemoved       func(id int64)
-	onGroups        func([]Group, UngroupedLayout)
-	// onClaudeDirChange is Config.OnClaudeDirChange.
-	onClaudeDirChange func()
-	interval          time.Duration
-	watcher           Watcher
+	store            *store.Store
+	log              zerolog.Logger
+	paneChecker      PaneChecker
+	paneSnapshotter  PaneSnapshotter
+	tmuxSessions     TmuxSessions
+	onUpsert         func(*Session)
+	onRemoved        func(id int64)
+	onGroups         func([]Group, UngroupedLayout)
+	onRepoPollNeeded func()
+	interval         time.Duration
+	watcher          Watcher
 	// interruptChecker is Config.InterruptChecker, read only by sweepInterrupts.
 	interruptChecker InterruptChecker
 
@@ -271,22 +267,22 @@ func NewManager(cfg Config) *Manager {
 		interval = defaultPollInterval
 	}
 	return &Manager{
-		store:             cfg.Store,
-		log:               cfg.Logger,
-		paneChecker:       cfg.PaneChecker,
-		paneSnapshotter:   cfg.PaneSnapshotter,
-		tmuxSessions:      cfg.TmuxSessions,
-		onUpsert:          cfg.OnUpsert,
-		onRemoved:         cfg.OnRemoved,
-		onGroups:          cfg.OnGroups,
-		onClaudeDirChange: cfg.OnClaudeDirChange,
-		interval:          interval,
-		watcher:           cfg.Watcher,
-		interruptChecker:  cfg.InterruptChecker,
-		sessions:          make(map[int64]*Session),
-		byClaude:          make(map[string]int64),
-		launchGroups:      make(map[int64]struct{}),
-		groups:            make(map[int64]Group),
+		store:            cfg.Store,
+		log:              cfg.Logger,
+		paneChecker:      cfg.PaneChecker,
+		paneSnapshotter:  cfg.PaneSnapshotter,
+		tmuxSessions:     cfg.TmuxSessions,
+		onUpsert:         cfg.OnUpsert,
+		onRemoved:        cfg.OnRemoved,
+		onGroups:         cfg.OnGroups,
+		onRepoPollNeeded: cfg.OnRepoPollNeeded,
+		interval:         interval,
+		watcher:          cfg.Watcher,
+		interruptChecker: cfg.InterruptChecker,
+		sessions:         make(map[int64]*Session),
+		byClaude:         make(map[string]int64),
+		launchGroups:     make(map[int64]struct{}),
+		groups:           make(map[int64]Group),
 	}
 }
 
@@ -613,11 +609,9 @@ func (m *Manager) List() []*Session {
 	return out
 }
 
-// nudgeRepoPoll tells the repo poll that Claude's recorded directory changed, once the
-// change is persisted; a no-op when it did not (or no callback is wired).
 func (m *Manager) nudgeRepoPoll(changed bool) {
-	if changed && m.onClaudeDirChange != nil {
-		m.onClaudeDirChange()
+	if changed && m.onRepoPollNeeded != nil {
+		m.onRepoPollNeeded()
 	}
 }
 

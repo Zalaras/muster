@@ -197,6 +197,15 @@ type Session struct {
 	// Manager.mu; always replaced with a fresh pointer, never mutated in place.
 	ClaudeLocation *Location
 
+	// AddedDirs (kb:adr/lifecycle-added-dirs-from-status-line-cleared-on-death) are the
+	// directories the session works in beyond Directory, from the status line's full list:
+	// normalised, launch directory removed, in reported order. Empty from launch and resume
+	// until a status post carries the list, and on every dead session. Display-only. Written
+	// by adoptAddedDirs (ApplyStatus), by SetRepoState (each entry's Repo) and cleared by
+	// markEnded, RecordLaunch and RecordResume, all under Manager.mu; always replaced with a
+	// fresh slice, never mutated in place.
+	AddedDirs []Location
+
 	// repoEpoch counts this session's deaths (markEnded, under Manager.mu; the only writer),
 	// so a repo-poll reading taken while it was alive (RepoTarget.Epoch) is recognisable as
 	// older than the death, however soon a resume made the session alive again. Never

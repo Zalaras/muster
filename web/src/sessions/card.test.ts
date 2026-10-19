@@ -19,6 +19,7 @@ import {
   type PaneState,
   type RepoParts,
   repoLine,
+  folderName,
   repoParts,
   stopResumeButton,
   tileFooterAgeText,
@@ -42,6 +43,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     directory: "/Users/bob/code/muster",
     repo: null,
     claudeLocation: null,
+    addedDirs: [],
     model: null,
     permissionMode: { value: "default", source: "seed" },
     context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
@@ -695,6 +697,29 @@ describe("repoParts — the launch readout split into folder and branch lines (W
   }
 });
 
+describe("folderName — the one repo-name-else-basename rule, and repoParts without the slash", () => {
+  const repo = { name: "muster", branch: "main", isWorktree: false };
+  const rows: Array<{ name: string; repo: typeof repo | null; dir: string; want: string }> = [
+    { name: "the repo name wins over the directory", repo, dir: "/x/other", want: "muster" },
+    { name: "no repo: the basename", repo: null, dir: "/Users/bob/code/infra", want: "infra" },
+    { name: "no repo, trailing slash", repo: null, dir: "/Users/bob/code/infra/", want: "infra" },
+  ];
+  for (const { name, repo: r, dir, want } of rows) {
+    it(name, () => expect(folderName(r, dir)).toBe(want));
+  }
+
+  it("repoParts(session, false) carries no ` /`; the default keeps it", () => {
+    const s = makeSession({ id: 1, repo });
+    expect(repoParts(s, false)).toEqual({ folder: "muster", branch: "main" });
+    expect(repoParts(s)).toEqual({ folder: "muster /", branch: "main" });
+  });
+
+  it("repoParts(session, false) with no repo is the same bare basename", () => {
+    const s = makeSession({ id: 1, repo: null, directory: "/a/b/c" });
+    expect(repoParts(s, false)).toEqual({ folder: "c", branch: null });
+  });
+});
+
 // REQ-12 (W2).
 describe("claudeLocationParts — the `↳` readout (W2)", () => {
   const cases: Array<{
@@ -838,7 +863,7 @@ describe("mainheadMeta — the structured Focus header view-model (W4)", () => {
     expect(mainheadMeta(session, NOW).model).toBe("Sonnet 5");
   });
 
-  it("carries the repo block, the `↳` block and the hover", () => {
+  it("carries the repo block and the `↳` block", () => {
     const session = makeSession({
       id: 1,
       repo: { name: "muster", branch: "main", isWorktree: false },
@@ -847,7 +872,53 @@ describe("mainheadMeta — the structured Focus header view-model (W4)", () => {
     const meta = mainheadMeta(session, NOW);
     expect(meta.repo).toEqual(repoParts(session));
     expect(meta.claudeAt).toEqual(claudeLocationParts(session));
-    expect(meta.hover).toBe(locationHover(session));
+    expect(meta.addedCount).toBe(0);
+  });
+
+  const added = [
+    { directory: "/Users/bob/code/infra", repo: null },
+    { directory: "/tmp/scratch", repo: null },
+  ];
+  const mainRepo = { name: "muster", branch: "main", isWorktree: false };
+  const addedCases: Array<{
+    name: string;
+    session: Partial<Session>;
+    folder: string;
+    count: number;
+  }> = [
+    {
+      name: "none added: the slash stays",
+      session: { repo: mainRepo },
+      folder: "muster /",
+      count: 0,
+    },
+    {
+      name: "two added: the slash drops so the line reads muster+2",
+      session: { repo: mainRepo, addedDirs: added },
+      folder: "muster",
+      count: 2,
+    },
+    {
+      name: "added with no repo: the basename, no slash",
+      session: { repo: null, addedDirs: added.slice(0, 1) },
+      folder: "muster",
+      count: 1,
+    },
+  ];
+  for (const { name, session, folder, count } of addedCases) {
+    it(`addedCount and folder line: ${name}`, () => {
+      const s = makeSession({ id: 1, directory: "/Users/bob/code/muster", ...session });
+      const meta = mainheadMeta(s, NOW);
+      expect(meta.addedCount).toBe(count);
+      expect(meta.repo.folder).toBe(folder);
+    });
+  }
+
+  it("leaves the tile hover and the card's repo parts alone while directories are added (REQ-8)", () => {
+    const base = makeSession({ id: 1, repo: mainRepo });
+    const withAdded = { ...base, addedDirs: added };
+    expect(locationHover(withAdded)).toBe(locationHover(base));
+    expect(repoParts(withAdded).folder).toBe("muster /");
   });
 
   const ended: Array<{

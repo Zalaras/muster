@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>see-added-dirs — three header options</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+/* ── Option A: a count chip after the readout ── NEW */
+.dirs-chip { flex: none; margin-left: 2px; padding: 0 5px; border: 1px solid var(--line-control); color: var(--fg-muted); font-size: var(--fs-2xs); line-height: 1.5; }
+.dirs-chip .g { color: var(--fg-dim); margin-right: 3px; }
+
+/* ── Option B: a +N suffix on the folder line ── NEW */
+.rf .plus { color: var(--teal); margin-left: 0.6ch; }
+
+/* ── Option C: a third two-line block in the readout, shaped like the ↳ block ── NEW */
+.mainhead .meta .added { display: grid; grid-template-columns: auto 1fr; margin-right: var(--sep-gap); max-width: 22ch; }
+.mainhead .meta .added .lead { grid-row: 1 / span 2; padding-right: 5px; color: var(--fg-muted); }
+.mainhead .meta .added .af, .mainhead .meta .added .ab { grid-column: 2; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+<h1>Added directories in the Focus header — three options</h1>
+<p class="lead">
+Every option reads the same thing: the directories Claude Code reports in the status line's
+<code>workspace.added_dirs</code>, minus the launch directory (from <code>/add-dir</code>, the
+<code>--add-dir</code> flag and <code>permissions.additionalDirectories</code> alike). Each option is
+shown with nothing added, with two added (hover panel pinned open), with six long ones, on an ended
+session, and at a 640px header. Hover any readout to open its panel. Nothing changes on the rail card.
+</p>
+<nav><a href="#a">A · count chip</a><a href="#b">B · folder suffix</a><a href="#c">C · added block</a></nav>
+
+<div id="out"></div>
+
+<script>
+const two = [
+  ["infra", "~/code/infra"],
+  ["shared-docs", "~/Documents/shared-docs"],
+];
+const six = [
+  ["infra", "~/code/infra"],
+  ["shared-docs", "~/Documents/shared-docs"],
+  ["platform-terraform-modules", "~/code/work/platform/platform-terraform-modules"],
+  ["kb", "~/code/kb"],
+  ["design", "~/Documents/design"],
+  ["fixtures", "/tmp/muster-fixtures"],
+];
+
+function pop(dirs, opt) {
+  if (!dirs.length) return "";
+  const rows = dirs.map(([f, p]) => `<div class="dr"><div class="df">${f}</div><div class="dp">${p}</div></div>`).join("");
+  if (opt === "a") {
+    // A replaces the readout's native title: launch location first, then the added list.
+    return `<div class="pop"><div class="ph">Location</div>
+      <div class="dr"><div class="df">muster · feat-e2e</div><div class="dp">~/code/Projects/muster</div></div>
+      <div class="sub">Added directories · ${dirs.length}</div>${rows}</div>`;
+  }
+  return `<div class="pop"><div class="ph">Added directories <span>${dirs.length}</span></div>${rows}</div>`;
+}
+
+function loc(opt, dirs, open) {
+  const n = dirs.length;
+  let repoFolder = "muster";
+  if (opt === "b" && n) repoFolder = `muster<span class="plus">+${n}</span>`;
+  let extra = "";
+  if (opt === "a" && n) extra = `<span class="dirs-chip"><span class="g">+</span>${n} dir${n > 1 ? "s" : ""}</span>`;
+  if (opt === "c" && n) {
+    const names = dirs.map(d => d[0]).join(", ");
+    extra = `<span class="sep">·</span><span class="added"><span class="lead">+</span><span class="af">${n} added</span><span class="ab">${names}</span></span>`;
+  }
+  const hov = n ? `hov${open ? " open" : ""}` : "";
+  const title = n ? "" : ` title="muster · feat-e2e\n~/code/Projects/muster"`;
+  return `<span class="loc ${hov}"${title}>
+      <span class="repo"><span class="rf">${repoFolder}</span><span class="rb">feat-e2e</span></span>
+      ${opt === "c" ? extra : ""}${opt === "a" && n ? `<span style="margin-right:var(--sep-gap)">${extra}</span>` : ""}
+      <span class="sep">·</span>
+      ${pop(dirs, opt)}
+    </span>`;
+}
+
+function header(opt, dirs, { open = false, dead = false, narrow = false } = {}) {
+  return `<div class="frame${narrow ? " narrow" : ""}${open ? " open" : ""}">
+  <div class="mainhead">
+    <div class="idrow">
+      <h2 class="name">flaky-e2e-hunt</h2>
+      ${narrow ? "" : `<span class="ingroup">reviews ▾</span>`}
+      <span class="meta">${loc(opt, dirs, open)}
+        <span class="model" >Opus 5 (high)${dead ? "<br>ended 2h ago" : ""}</span>
+      </span>
+    </div>
+    <div class="acts">
+      <span class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></span>
+      <button class="btn stop-resume">${dead ? "Resume" : "Stop"}</button>
+      <button class="btn">Remove</button>
+    </div>
+  </div>
+  <div class="well"></div>
+</div>`;
+}
+
+const opts = [
+  ["a", "A · Count chip",
+   "A bordered <b>+ 2 dirs</b> chip sits after the readout, in the same chip treatment as the group control. Hovering the readout or the chip opens a panel that <b>replaces the readout's plain tooltip</b>: the launch location first, then the added list. Most discoverable; costs ~8ch of row width, and the chip joins the give-way order (hides with the ↳ block)."],
+  ["b", "B · Folder suffix",
+   "No new element: the folder line reads <b>muster+2</b>, the count in teal. Hovering the readout opens the added list. Costs ~3ch and never needs its own give-way step, but the cue is the quietest of the three."],
+  ["c", "C · Added block",
+   "A third two-line block in the readout, shaped like the ↳ block: <b>+ 2 added</b> over the folder names. Reads the names without hovering; the panel gives full paths. Widest (up to ~22ch), so it would hide whole before the ↳ block as the row narrows, leaving no cue at narrow widths unless it falls back to B's suffix."],
+];
+
+let html = "";
+for (const [id, title, cap] of opts) {
+  html += `<h2 id="${id}">${title}</h2><p class="cap">${cap}</p>`;
+  html += `<div class="label">nothing added — header unchanged from today</div>` + header(id, []);
+  html += `<div class="label">two added, hover panel open</div>` + header(id, two, { open: true });
+  html += `<div class="label">six added, long paths (hover to open)</div>` + header(id, six);
+  html += `<div class="label">ended session — keeps the last-known list (hover to open)</div>` + header(id, two, { dead: true });
+  html += `<div class="label">640px header (hover to open)</div>` + header(id, two, { narrow: true });
+}
+document.getElementById("out").innerHTML = html;
+</script>
+</body>
+</html>

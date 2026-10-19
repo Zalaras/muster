@@ -14,7 +14,7 @@ import (
 	"github.com/Zalaras/muster/internal/store"
 )
 
-// repoHarness is a Manager wired with a recording OnUpsert and OnClaudeDirChange, so a test
+// repoHarness is a Manager wired with a recording OnUpsert and OnRepoPollNeeded, so a test
 // can assert how many broadcasts and nudges a call produced and what was already on disk
 // when the nudge fired.
 type repoHarness struct {
@@ -33,7 +33,7 @@ func newRepoHarness(t *testing.T) *repoHarness {
 	t.Helper()
 	h := &repoHarness{st: openTestStore(t), rec: &upsertsRecorder{}}
 	h.mgr = newTestManager(t, h.st, nil, h.rec.record, func(c *Config) {
-		c.OnClaudeDirChange = func() {
+		c.OnRepoPollNeeded = func() {
 			h.nudges.Add(1)
 			h.mu.Lock()
 			defer h.mu.Unlock()

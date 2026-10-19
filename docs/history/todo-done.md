@@ -2433,6 +2433,27 @@ One `/orchestrate` run covers all of this group.
 - [x] **`internal/boundedwait` has no tests of its own.** From `plans/maintainability-cleanup/`.
   ✅ done 2026-10-19: `internal/boundedwait/boundedwait_test.go` pins both halves — returns silently once the group is done, warns once and gives up when ctx ends first.
 
+#### What a session records (#93, #101) ✅ done 2026-10-19 (plan `see-added-dirs`, via `/orchestrate`)
+
+#93 and #101 ask for the same thing; one change closes both. All three add something per session
+that the dashboard shows.
+
+- [x] **I'd like to be able to see what directories I've added to the session** ([#93](https://github.com/Zalaras/muster/issues/93)) — The
+  report title asks for a way to see which directories have been added to a session, and the
+  dashboard shows no such list. Expected: The dashboard should show the additional directories that
+  have been added to a session.
+  Filed 2026-10-15 from musterd 0.21.1 / Claude Code 2.1.293, focus view, session started.
+  Labels: enhancement, sessions, ux.
+  ✅ done 2026-10-19 (plan `see-added-dirs`, via `/orchestrate`): the Focus header's folder line ends in `+N` while directories are added, and hovering its readout opens a panel listing the location and each added directory with its branch and path.
+
+- [x] **I want to see the added directories** ([#101](https://github.com/Zalaras/muster/issues/101)) — After
+  directories are added to a Claude Code session with the add-dir command, there is no way to see
+  afterwards which ones have been added. Expected: Muster should track the directories added to a
+  session and show them so the developer can see which ones were added.
+  Filed 2026-10-16 from musterd 0.22.2 / Claude Code 2.1.293, focus view, session started.
+  Labels: enhancement, sessions, claude-code.
+  ✅ done 2026-10-19 (plan `see-added-dirs`, via `/orchestrate`): the Focus header's folder line ends in `+N` while directories are added, and hovering its readout opens a panel listing the location and each added directory with its branch and path.
+
 #### Docs reader ✅ done 2026-10-19 (plan `search-bar-text-length`, via `/fix`)
 
 - [x] **Search box in docs should go to the first arrow** ([#102](https://github.com/Zalaras/muster/issues/102)) — In

@@ -35,8 +35,8 @@ Then read each implemented file and the existing `_test.go` files beside it, and
 - Test code only: new `*_test.go` files and test helpers in the appropriate package, and existing
   `_test.go` files — including every file the impl log's `## Handoff` names as sanctioned breakage,
   which is yours to bring up to the approved contract this step.
-- Implementation code and the E2E specs are other agents'. A defect there is an `implementation-bug`
-  verdict, never an edit.
+- Implementation code and E2E specs are others'. A defect there, pre-existing included, is an
+  `implementation-bug` verdict, never an edit.
 - **Git** — `worker-rules.md` § Git. Your subject is `test(<plan-name>): <imperative summary>`.
 
 ## Test Strategy

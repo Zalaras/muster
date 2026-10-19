@@ -18,7 +18,8 @@ type statusPayload struct {
 	RateLimits    *statusRateLimits  `json:"rate_limits"`
 	PromptCache   *statusPromptCache `json:"prompt_cache"`
 	Workspace     *struct {
-		CurrentDir string `json:"current_dir"`
+		CurrentDir string    `json:"current_dir"`
+		AddedDirs  *[]string `json:"added_dirs"`
 	} `json:"workspace"`
 	Cwd    string        `json:"cwd"`
 	Effort *statusEffort `json:"effort"`
@@ -122,8 +123,9 @@ type StatusUpdate struct {
 	Cache   *StatusCache
 	// Cwd is the directory Claude reports working in (workspace.current_dir, else the
 	// top-level cwd); nil when neither is non-empty.
-	Cwd    *string
-	Effort *StatusEffort
+	Cwd       *string
+	Effort    *StatusEffort
+	AddedDirs *[]string
 }
 
 // InterpretStatus derives the neutral StatusUpdate for one status-line payload. It is a
@@ -157,6 +159,10 @@ func InterpretStatus(payload []byte) StatusUpdate {
 			TotalInputTokens: p.ContextWindow.TotalInputTokens,
 			WindowSize:       p.ContextWindow.ContextWindowSize,
 		}
+	}
+
+	if p.Workspace != nil {
+		out.AddedDirs = p.Workspace.AddedDirs
 	}
 
 	out.Cache = interpretPromptCache(p.PromptCache)

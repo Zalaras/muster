@@ -25,6 +25,7 @@ type sessionWire struct {
 	// different checkout from Directory, null otherwise. Required key on every Session
 	// object, so it carries no omitempty.
 	ClaudeLocation  *sessionWireLocation      `json:"claudeLocation"`
+	AddedDirs       []sessionWireLocation     `json:"addedDirs"`
 	Model           *sessionWireModel         `json:"model"`
 	PermissionMode  sessionWirePermissionMode `json:"permissionMode"`
 	Context         sessionWireContext        `json:"context"`
@@ -168,6 +169,7 @@ func toWireSession(s *session.Session) sessionWire {
 		LastPrompt:      s.LastPrompt,
 		BackgroundTasks: s.BackgroundTasks,
 		EndedAt:         wireTimePtr(s.EndedAt),
+		AddedDirs:       toWireAddedDirs(s.AddedDirs),
 	}
 
 	if s.Attention != nil {
@@ -207,6 +209,14 @@ func toWireSession(s *session.Session) sessionWire {
 		w.ClaudeSessionID = &v
 	}
 	return w
+}
+
+func toWireAddedDirs(dirs []session.Location) []sessionWireLocation {
+	out := make([]sessionWireLocation, len(dirs))
+	for i := range dirs {
+		out[i] = *toWireLocation(&dirs[i])
+	}
+	return out
 }
 
 func toWireLocation(l *session.Location) *sessionWireLocation {

@@ -74,7 +74,7 @@ func newPollEnvOnStore(t *testing.T, st *store.Store, poll time.Duration) *pollE
 		case e.signal <- struct{}{}:
 		default:
 		}
-	}), func(c *session.Config) { c.OnClaudeDirChange = func() { feature.nudge() } })
+	}), func(c *session.Config) { c.OnRepoPollNeeded = func() { feature.nudge() } })
 	feature = newRepoRefreshFeature(RepoRefreshConfig{Poll: poll}, e.mgr, zerolog.Nop())
 	e.feature = feature
 	return e

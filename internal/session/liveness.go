@@ -216,6 +216,7 @@ func (m *Manager) markEnded(ctx context.Context, id int64) (*Session, error) {
 	// claudeLocation is null on the wire for a dead session; ClaudeDir itself is kept until
 	// the next launch or resume clears it.
 	sess.ClaudeLocation = nil
+	sess.clearAddedDirs()
 	// A repo-poll reading in flight predates this death: SetRepoState must drop it, or a
 	// checkout made after the card shows ended would reach the dead card.
 	sess.repoEpoch++

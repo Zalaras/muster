@@ -1,5 +1,5 @@
 import { placeAnchored } from "./anchored";
-import { POPOVER_DELAY_MS } from "./grouppopover";
+import { POPOVER_DELAY_MS } from "./hovertip";
 
 export interface CardTip {
   attach(card: HTMLElement, timer: HTMLElement): void;

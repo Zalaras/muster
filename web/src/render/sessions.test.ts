@@ -62,6 +62,20 @@ class FakeDomNode {
     removeProperty: (name: string) => this.styleProps.delete(name),
   };
   readonly dataset: Record<string, string | undefined> = {};
+  // `renderRepoLines` clears `has-plus` on the folder line; `className` stays the source of truth.
+  readonly classList = {
+    add: (name: string) => {
+      if (!this.className.split(/\s+/).includes(name)) {
+        this.className = `${this.className} ${name}`.trim();
+      }
+    },
+    remove: (name: string) => {
+      this.className = this.className
+        .split(/\s+/)
+        .filter((c) => c && c !== name)
+        .join(" ");
+    },
+  };
   private readonly attrs: Record<string, string> = {};
   parent: FakeDomNode | null = null;
   private nodeChildren: FakeChild[] = [];
@@ -355,6 +369,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     directory: "/Users/bob/code/muster",
     repo: null,
     claudeLocation: null,
+    addedDirs: [],
     model: null,
     permissionMode: { value: "default", source: "seed" },
     context: {

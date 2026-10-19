@@ -18,6 +18,7 @@ export function makeSession(overrides: Partial<Session> & { id: number }): Sessi
     directory: "/tmp/repo",
     repo: null,
     claudeLocation: null,
+    addedDirs: [],
     model: null,
     permissionMode: { value: "default", source: "seed" },
     context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },

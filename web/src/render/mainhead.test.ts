@@ -59,6 +59,8 @@ class FakeNode {
       if (force) this.classes.add(name);
       else this.classes.delete(name);
     },
+    add: (name: string) => this.classes.add(name),
+    remove: (name: string) => this.classes.delete(name),
   };
   readonly style = {
     setProperty: (name: string, value: string) => this.props.set(name, value),
@@ -123,6 +125,10 @@ class FakeNode {
   }
 
   querySelector(selector: string): FakeNode | null {
+    if (selector.startsWith(":scope > ")) {
+      const direct = selector.slice(":scope > .".length);
+      return this.kids.find((kid) => kid.className.split(" ").includes(direct)) ?? null;
+    }
     const cls = selector.slice(1);
     for (const kid of this.kids) {
       if (kid.className.split(" ").includes(cls)) return kid;
@@ -305,6 +311,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     directory: "/Users/bob/code/muster",
     repo: null,
     claudeLocation: null,
+    addedDirs: [],
     model: null,
     permissionMode: { value: "default", source: "seed" },
     context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
@@ -499,7 +506,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
     repo: { name: "e7b", branch: "worktree-e7b", isWorktree: true },
   };
 
-  it("not moved: two repo lines, the `↳` block and the first `.loc` separator hidden (the last stays), hover is lines 1-2", () => {
+  it("not moved: two repo lines, the `↳` block and the first `.loc` separator hidden (the last stays), no title", () => {
     const { s } = render(
       makeSession({
         id: 1,
@@ -512,10 +519,10 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
     ]);
     expect(s.claudeAt.hidden).toBe(true);
     expect(s.locSeps.map((n) => n.hidden)).toEqual([true, false]);
-    expect(s.loc.title).toBe("muster / main\n/Users/bob/code/muster");
+    expect(s.loc.title).toBe("");
   });
 
-  it("moved into a worktree: the `↳` block shows the bare branch and the hover grows to four lines", () => {
+  it("moved into a worktree: the `↳` block shows the bare branch and `.loc` still has no title", () => {
     const { s } = render(
       makeSession({
         id: 1,
@@ -526,12 +533,10 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
     expect(s.claudeAt.hidden).toBe(false);
     expect(s.locSeps.map((n) => n.hidden)).toEqual([false, false]);
     expect(lines(s.claudeAt).map((n) => n.textContent)).toEqual(["e7b /", "worktree-e7b"]);
-    expect(s.loc.title).toBe(
-      "muster / main\n/Users/bob/code/muster\nClaude is in /Users/bob/code/muster/.claude/worktrees/e7b\non worktree-e7b",
-    );
+    expect(s.loc.title).toBe("");
   });
 
-  it("moved to a non-git directory: the `↳` block is one basename line and the hover has three lines", () => {
+  it("moved to a non-git directory: the `↳` block is one basename line and `.loc` has no title", () => {
     const { s } = render(
       makeSession({
         id: 1,
@@ -539,7 +544,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
       }),
     );
     expect(lines(s.claudeAt).map((n) => n.textContent)).toEqual(["scratch"]);
-    expect(s.loc.title).toBe("muster\n/Users/bob/code/muster\nClaude is in /tmp/scratch");
+    expect(s.loc.title).toBe("");
   });
 
   it("a session with no repo renders one folder line, the basename, and removes a stale branch line", () => {
@@ -560,6 +565,82 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
       "no group",
     );
     expect(lines(slots(elements).repo).map((n) => n.textContent)).toEqual(["muster"]);
+  });
+
+  // REQ-6 / INV-3: `.rf` holds `.rf-name` + `.plus` while directories are added; plain text at 0.
+  describe("the `+N` suffix on the folder line", () => {
+    const mainRepo = { name: "muster", branch: "main", isWorktree: false };
+    const dirs = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ directory: `/tmp/d${i}`, repo: null }));
+    const rf = (elements: MainheadElements) => lines(slots(elements).repo)[0] as FakeNode;
+    const draw = (elements: MainheadElements, n: number) =>
+      renderMainhead(
+        elements,
+        makeSession({ id: 1, repo: mainRepo, addedDirs: dirs(n) }),
+        NOW,
+        true,
+        DEFAULT_SURFACE_STATE,
+        "none",
+        false,
+        "no group",
+      );
+
+    it("N = 0: plain text `muster /`, no span, no has-plus class", () => {
+      const { s } = render(makeSession({ id: 1, repo: mainRepo }));
+      const node = lines(s.repo)[0] as FakeNode;
+      expect(node.textContent).toBe("muster /");
+      expect(node.kids).toHaveLength(0);
+      expect(node.classes.has("has-plus")).toBe(false);
+    });
+
+    it("N = 2: name and plus spans, textContent `muster+2`, has-plus set", () => {
+      const elements = fakeMainheadElements();
+      draw(elements, 2);
+      const node = rf(elements);
+      expect(node.kids.map((k) => [k.className, k.textContent])).toEqual([
+        ["rf-name", "muster"],
+        ["plus", "+2"],
+      ]);
+      expect(node.textContent).toBe("muster+2");
+      expect(node.classes.has("has-plus")).toBe(true);
+    });
+
+    it("a render tick with the same count reuses both spans and writes no text", () => {
+      const elements = fakeMainheadElements();
+      draw(elements, 2);
+      const node = rf(elements);
+      const [name, plus] = node.kids as [FakeNode, FakeNode];
+      const writes = [name.textWrites, plus.textWrites, node.textWrites];
+      draw(elements, 2);
+      expect(node.kids[0]).toBe(name);
+      expect(node.kids[1]).toBe(plus);
+      expect([name.textWrites, plus.textWrites, node.textWrites]).toEqual(writes);
+    });
+
+    it("a count change updates the plus text in place, keeping the spans", () => {
+      const elements = fakeMainheadElements();
+      draw(elements, 2);
+      const [name, plus] = rf(elements).kids as [FakeNode, FakeNode];
+      draw(elements, 3);
+      expect(rf(elements).kids[0]).toBe(name);
+      expect(rf(elements).kids[1]).toBe(plus);
+      expect(plus.textContent).toBe("+3");
+    });
+
+    it("dropping back to 0 restores the plain `muster /` and clears has-plus", () => {
+      const elements = fakeMainheadElements();
+      draw(elements, 2);
+      draw(elements, 0);
+      const node = rf(elements);
+      expect(node.kids).toHaveLength(0);
+      expect(node.textContent).toBe("muster /");
+      expect(node.classes.has("has-plus")).toBe(false);
+    });
+
+    it("a session with no repo reads `<basename>+N`", () => {
+      const { s } = render(makeSession({ id: 1, addedDirs: dirs(1) }));
+      expect((lines(s.repo)[0] as FakeNode).textContent).toBe("muster+1");
+    });
   });
 
   it("returning to the launch checkout hides the `↳` block again", () => {

@@ -52,6 +52,7 @@ const validSession = {
   directory: "/Users/bob/code/muster",
   repo: { name: "muster", branch: "main", isWorktree: false },
   claudeLocation: null,
+  addedDirs: [],
   model: { id: "claude-sonnet-4-5", displayName: "sonnet" },
   permissionMode: { value: "default", source: "seed" },
   context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
@@ -88,6 +89,7 @@ const freshLaunchSession = {
   directory: "/Users/bob/code/muster",
   repo: null,
   claudeLocation: null,
+  addedDirs: [],
   model: null,
   permissionMode: { value: "default", source: "seed" },
   context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
@@ -315,6 +317,14 @@ describe("parseMessage — sessionUpsert", () => {
   it("parses a sessionUpsert carrying the fresh-launch session (REQ-2: card must render before any hook)", () => {
     const message = { type: "sessionUpsert", session: freshLaunchSession };
     expect(parseMessage(message)).toEqual(message);
+  });
+
+  it("carries addedDirs through, and rejects an upsert whose session lacks the key", () => {
+    const added = [{ directory: "/Users/bob/code/infra", repo: null }];
+    const message = { type: "sessionUpsert", session: { ...validSession, addedDirs: added } };
+    expect(parseMessage(message)).toEqual(message);
+    const { addedDirs: _omitted, ...withoutKey } = validSession;
+    expect(parseMessage({ type: "sessionUpsert", session: withoutKey })).toBeNull();
   });
 
   it("rejects a sessionUpsert whose session is malformed", () => {

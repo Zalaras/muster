@@ -2,7 +2,14 @@
 // the protocol/ concept modules, each owning one wire concept's type and parser;
 // `decode.ts` holds the primitives every one of them shares.
 
-import { asInteger, asNumber, isNullableString, isRecord, parseNullable } from "./decode";
+import {
+  asInteger,
+  asNumber,
+  isNullableString,
+  isRecord,
+  parseListOf,
+  parseNullable,
+} from "./decode";
 
 export const SESSION_STATES = [
   "started",
@@ -37,6 +44,11 @@ export interface SessionRepo {
 // launch `directory`. `repo` is null for a directory that is not a git checkout (or has a
 // detached HEAD) — the card then shows the directory's basename.
 export interface ClaudeLocation {
+  directory: string;
+  repo: SessionRepo | null;
+}
+
+export interface AddedDirectory {
   directory: string;
   repo: SessionRepo | null;
 }
@@ -132,6 +144,7 @@ export interface Session {
   // `directory` (kb:adr/lifecycle-card-shows-launch-directory-marks-claude-elsewhere).
   // Display-only: nothing but the `↳` readouts reads it.
   claudeLocation: ClaudeLocation | null;
+  addedDirs: AddedDirectory[];
   model: SessionModelInfo | null;
   permissionMode: PermissionModeInfo;
   context: SessionContext;
@@ -330,6 +343,7 @@ export function parseSession(value: unknown): Session | null {
   // An older daemon omits the key; absent reads as "not moved" rather than rejecting the
   // whole session (the one field here that is not required — kb:anchor/ws.session).
   const rawClaudeLocation = value["claudeLocation"] ?? null;
+  const rawAddedDirs = value["addedDirs"];
   const rawModel = value["model"];
   const lastActivity = value["lastActivity"];
   const backgroundTasks = value["backgroundTasks"];
@@ -367,6 +381,9 @@ export function parseSession(value: unknown): Session | null {
 
   const claudeLocation = parseNullable(rawClaudeLocation, parseClaudeLocation);
   if (claudeLocation === undefined) return null;
+
+  const addedDirs = parseListOf(rawAddedDirs, parseClaudeLocation);
+  if (addedDirs === null) return null;
 
   const model = parseNullable(rawModel, parseModelInfo);
   if (model === undefined) return null;
@@ -421,6 +438,7 @@ export function parseSession(value: unknown): Session | null {
     directory,
     repo,
     claudeLocation,
+    addedDirs,
     model,
     permissionMode,
     context,

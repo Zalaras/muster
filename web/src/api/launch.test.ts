@@ -26,6 +26,7 @@ const validSession: Session = {
   directory: "/Users/bob/code/muster",
   repo: null,
   claudeLocation: null,
+  addedDirs: [],
   model: null,
   permissionMode: { value: "default", source: "seed" },
   context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },

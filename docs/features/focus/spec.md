@@ -7,7 +7,7 @@ summary: Focus view: mainhead, main slot, dead surface, default focus, focus mar
 features: [focus]
 tags: [ux]
 go: [internal/server/effort*.go, internal/session/effort*.go, internal/store/effort*.go]
-web: [web/src/features/focus.ts, web/src/features/effort*.ts, web/src/render/effortstrip*.ts, web/src/sessions/effort*.ts, web/src/render/mainhead*.ts, web/src/render/focus*.ts, web/src/render/slotmount*.ts]
+web: [web/src/features/focus.ts, web/src/features/effort*.ts, web/src/render/effortstrip*.ts, web/src/sessions/effort*.ts, web/src/render/mainhead*.ts, web/src/render/locationpanel*.ts, web/src/sessions/locationpanel*.ts, web/src/render/focus*.ts, web/src/render/slotmount*.ts]
 e2e: [web/e2e/focus-marker.spec.ts, web/e2e/sessions.spec.ts, web/e2e/focus-header.spec.ts, web/e2e/helpers/focus-header.ts, web/e2e/effort-header.spec.ts, web/e2e/helpers/effort.ts]
 protocol: [sessions.effort-warning-dismiss]
 refs: [kb:adr/focus-rail-plus-one-live-pane, kb:adr/focus-rail-click-focuses-terminal, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/launch-opens-launched-session, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/launch-resume-null-model-reads-unknown, docs/design/ux-flows.md, kb:adr/focus-group-control-hides-below-640px-container-width, kb:adr/focus-header-readout-sized-by-text, kb:adr/focus-header-give-way-order-title-last, kb:adr/focus-surface-switch-pinned-with-actions, kb:adr/actions-mainhead-one-stop-resume-button, kb:adr/focus-model-never-truncates-name-blocks-give-way]
@@ -21,7 +21,8 @@ Above the pane sits the mainhead: the session name with its inline rename trigge
 (kb:spec/rename), a danger `bypass` chip after the name while the session's last-known
 permission mode is bypass (kb:adr/launch-bypass-offered-with-danger-guardrails), the session's group as
 a control that offers the groups, New group… and No group (kb:spec/groups), a meta line of
-the repo readout (folder over branch, each line as wide as its text, kb:adr/focus-header-readout-sized-by-text),
+the repo readout (folder over branch, each line as wide as its text, kb:adr/focus-header-readout-sized-by-text; the
+folder line ends in `+N` while directories are added, as `muster+2`, and in ` /` while none are),
 a `↳` block while Claude works in another checkout, and the model followed by its effort in brackets — a resumed session with no recorded
 model reads `unknown`, as any null model does (kb:adr/launch-resume-null-model-reads-unknown). The
 brackets read `(…)` until a new session's first status-line report and are absent when the model has no
@@ -32,8 +33,12 @@ or not it shows. A right-aligned cluster holds the `claude | shell | docs` surfa
 (kb:spec/surfaces, kb:adr/focus-surface-switch-pinned-with-actions) and the actions: one Stop/Resume
 button, `Stop` while alive and `Resume` while dead, the same box under both, and Remove
 (kb:adr/actions-mainhead-one-stop-resume-button), so a Stop or a Resume moves nothing at any width.
-The session name and the repo readout carry hover text (the name's is its full title; the
-readout's is the launch path and branch, plus where Claude is when it has moved). A title too
+The session name carries hover text (its full title); hovering the repo readout with the mouse opens
+the location panel: the launch location, where Claude is while moved, and each added directory with its
+branch and path. It follows the focused session, rebuilt when its content changes and closed when there is
+no session, and lists no added directories once the session has ended. It lists every added directory; past
+what fits below the readout it moves to the top of the viewport, over the header, and rows past the
+viewport are not shown (kb:adr/focus-location-panel-lists-every-row). A title too
 long for the row ends in an ellipsis, so the action cluster always stays in view. The model never
 truncates at any width (kb:adr/focus-model-never-truncates-name-blocks-give-way). As the row narrows
 the header gives way in a fixed order: the `↳` block hides whole, then the surface switch and the

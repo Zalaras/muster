@@ -215,7 +215,7 @@ func TestSessionWire_JSONShapeHasNoUnexpectedNulls(t *testing.T) {
 		"id", "title", "state", "stateSince", "alive", "endedAt", "attention", "failure",
 		"directory", "repo", "model", "permissionMode", "context", "cache", "lastActivity",
 		"claudeSessionId", "tmuxTarget", "firstLaunchHere", "createdAt", "pinned", "railPos",
-		"claudeLocation", "effort", "effortWarning",
+		"claudeLocation", "addedDirs", "effort", "effortWarning",
 	} {
 		assert.Contains(t, got, field)
 	}

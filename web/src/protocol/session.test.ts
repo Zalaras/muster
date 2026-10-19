@@ -15,6 +15,7 @@ const validSession = {
   directory: "/Users/bob/code/muster",
   repo: { name: "muster", branch: "main", isWorktree: false },
   claudeLocation: null,
+  addedDirs: [],
   model: { id: "claude-sonnet-4-5", displayName: "sonnet" },
   permissionMode: { value: "default", source: "seed" },
   context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
@@ -51,6 +52,7 @@ const freshLaunchSession = {
   directory: "/Users/bob/code/muster",
   repo: null,
   claudeLocation: null,
+  addedDirs: [],
   model: null,
   permissionMode: { value: "default", source: "seed" },
   context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
@@ -148,6 +150,7 @@ describe("parseSession — full kb:anchor/ws.session shape", () => {
       expect(parseSession(withoutKey)).toEqual({
         ...validSession,
         claudeLocation: null,
+        addedDirs: [],
       });
     });
 
@@ -197,6 +200,61 @@ describe("parseSession — full kb:anchor/ws.session shape", () => {
         expect(parseSession({ ...validSession, claudeLocation })).toBeNull();
       });
     }
+  });
+
+  // kb:anchor/ws.session addedDirs: required key, array, never null; an entry has claudeLocation's shape.
+  describe("addedDirs", () => {
+    const infra = {
+      directory: "/Users/bob/code/infra",
+      repo: { name: "infra", branch: "main", isWorktree: false },
+    };
+    const accepted: Array<{ name: string; addedDirs: unknown }> = [
+      { name: "an empty array", addedDirs: [] },
+      { name: "one entry with a repo", addedDirs: [infra] },
+      {
+        name: "an entry with repo null (the git reading has not landed)",
+        addedDirs: [{ directory: "/tmp/x", repo: null }],
+      },
+      {
+        name: "an entry whose repo has a null branch",
+        addedDirs: [{ directory: "/tmp/x", repo: { name: "x", branch: null, isWorktree: false } }],
+      },
+      {
+        name: "several entries in wire order",
+        addedDirs: [{ directory: "/b", repo: null }, infra, { directory: "/a", repo: null }],
+      },
+    ];
+    for (const { name, addedDirs } of accepted) {
+      it(`parses ${name}`, () => {
+        const session = { ...validSession, addedDirs };
+        expect(parseSession(session)).toEqual(session);
+      });
+    }
+
+    const rejected: Array<{ name: string; addedDirs: unknown }> = [
+      { name: "null", addedDirs: null },
+      { name: "undefined", addedDirs: undefined },
+      { name: "an object", addedDirs: { directory: "/x", repo: null } },
+      { name: "a string", addedDirs: "/x" },
+      { name: "an entry that is a string", addedDirs: ["/x"] },
+      { name: "an entry missing directory", addedDirs: [{ repo: null }] },
+      { name: "an entry with a numeric directory", addedDirs: [{ directory: 7, repo: null }] },
+      { name: "an entry with a malformed repo", addedDirs: [{ directory: "/x", repo: "x" }] },
+      {
+        name: "one good entry then one bad",
+        addedDirs: [infra, { directory: "/y", repo: { name: "y" } }],
+      },
+    ];
+    for (const { name, addedDirs } of rejected) {
+      it(`rejects ${name}`, () => {
+        expect(parseSession({ ...validSession, addedDirs })).toBeNull();
+      });
+    }
+
+    it("rejects a session whose key is missing", () => {
+      const { addedDirs: _omitted, ...withoutKey } = validSession;
+      expect(parseSession(withoutKey)).toBeNull();
+    });
   });
 
   it("parses a null model (before SessionStart's optional model field arrives)", () => {

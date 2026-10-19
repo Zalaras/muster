@@ -195,7 +195,7 @@ func New(cfg Config) *Server {
 		},
 		// repoRefresh is assigned below, before Start can run any ingest worker that
 		// calls this.
-		OnClaudeDirChange: func() { s.repoRefresh.nudge() },
+		OnRepoPollNeeded: func() { s.repoRefresh.nudge() },
 	})
 	// models is the one model-catalog verdict cache (kb:adr/launch-model-check-cached-per-binary-identity):
 	// registered for GET /api/models and handed into newSessionLauncher below so Launch's

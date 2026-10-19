@@ -219,6 +219,9 @@ func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Sess
 		restoreIfUnchanged(&cur.ClaudeDir, post.ClaudeDir, last.ClaudeDir)
 		restoreIfUnchanged(&cur.ClaudeLocation, post.ClaudeLocation, last.ClaudeLocation)
 		restoreIfUnchanged(&cur.repoEpoch, post.repoEpoch, last.repoEpoch)
+		if addedDirsEqual(cur.AddedDirs, post.AddedDirs) {
+			cur.AddedDirs = last.AddedDirs
+		}
 		restoreIfUnchanged(&cur.ClaudeSessionID, post.ClaudeSessionID, last.ClaudeSessionID)
 		restoreIfUnchanged(&cur.Title, post.Title, last.Title)
 		restoreIfUnchanged(&cur.State, post.State, last.State)
@@ -278,7 +281,7 @@ func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Sess
 // same "two places that must agree will not" hazard restoreChangedFields' single copy of
 // the DB row already avoids. CheckSessionFieldCoverage below is what keeps them honest.
 var restoredSessionFields = []string{
-	"TmuxTarget", "TmuxPane", "Branch", "IsWorktree", "ClaudeDir", "ClaudeLocation", "repoEpoch",
+	"TmuxTarget", "TmuxPane", "Branch", "IsWorktree", "ClaudeDir", "ClaudeLocation", "AddedDirs", "repoEpoch",
 	"ClaudeSessionID", "Title", "State", "StateSince",
 	"PermissionMode", "PermissionModeSource", "Model", "Context", "Cache", "Effort", "EffortWarning", "effortRequested", "Compactions",
 	"Attention", "Failure", "LastActivity", "Alive", "EndedAt", "LastSnapshot",

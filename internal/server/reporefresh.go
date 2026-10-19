@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -15,8 +16,10 @@ import (
 )
 
 // repoReadTimeout bounds one session's git reads in a repo-poll tick, so a wedged checkout
-// cannot stall the loop for every other session.
-const repoReadTimeout = 5 * time.Second
+// cannot stall the loop for every other session. A var so a test can shorten it.
+var repoReadTimeout = 5 * time.Second
+
+const addedReadWorkers = 8
 
 // RepoRefreshConfig groups the repo poll's config.
 type RepoRefreshConfig struct {
@@ -26,7 +29,8 @@ type RepoRefreshConfig struct {
 }
 
 // repoRefreshFeature re-reads each alive session's launch-directory branch and worktree flag,
-// and derives where Claude is working when that is another checkout (claudeLocation), on a
+// reads each added directory's checkout, and derives where Claude is working when that is
+// another checkout (claudeLocation), on a
 // timer and whenever the session manager reports Claude's directory changed. Hooks never
 // report a checkout made by the shell pane or outside Muster, so a poll is the only source
 // (kb:adr/lifecycle-branch-refreshed-by-repo-poll). It mounts no routes. All git runs
@@ -99,18 +103,27 @@ func isDir(path string) bool {
 }
 
 // readRepoState runs the git reads for one session. ok is false when the reading cannot be
-// told apart from a git failure: the read deadline (or the poll's own cancellation) expired
-// mid-read, or the launch directory vanished after tick's stat. A failing git then looks
-// like "not a checkout", so applying the reading would null a card's last-known repo for a
-// directory that is still a checkout (or is merely gone); the caller keeps the old repo.
+// told apart from a git failure: the launch directory's read deadline (or the poll's own
+// cancellation) expired mid-read, or the launch directory vanished after tick's stat. A
+// failing git then looks like "not a checkout", so applying the reading would null a card's
+// last-known repo for a directory that is still a checkout (or is merely gone); the caller
+// keeps the old repo. The added directories are read under their own deadline, so a long
+// list can slow this session's refresh but never discard the launch directory's reading; a
+// directory whose read did not finish is left out and keeps its last-known reading.
 func readRepoState(ctx context.Context, t session.RepoTarget) (state session.RepoState, ok bool) {
-	ctx, cancel := context.WithTimeout(ctx, repoReadTimeout)
+	launchCtx, cancel := context.WithTimeout(ctx, repoReadTimeout)
 	defer cancel()
-	_, branch, isWorktree := repoContext(ctx, t.Directory)
+	_, branch, isWorktree := repoContext(launchCtx, t.Directory)
 	state = session.RepoState{Branch: branch, IsWorktree: isWorktree, ClaudeDir: t.ClaudeDir, Epoch: t.Epoch}
 	if t.ClaudeDir != "" {
-		state.Location = deriveLocation(ctx, t.Directory, t.ClaudeDir)
+		state.Location = deriveLocation(launchCtx, t.Directory, t.ClaudeDir)
 	}
+	if launchCtx.Err() != nil || !isDir(t.Directory) {
+		return state, false
+	}
+	addedCtx, cancelAdded := context.WithTimeout(ctx, repoReadTimeout)
+	defer cancelAdded()
+	state.AddedRepos = readAddedRepos(addedCtx, t.AddedDirs)
 	return state, ctx.Err() == nil && isDir(t.Directory)
 }
 
@@ -119,27 +132,62 @@ func readRepoState(ctx context.Context, t session.RepoTarget) (state session.Rep
 // directory arrives as /tmp/x from one source and /private/tmp/x from another
 // (kb:fact/cwd-follows-claude-mid-session).
 func deriveLocation(ctx context.Context, launchDir, claudeDir string) *session.Location {
-	launch, claude := resolvePath(launchDir), resolvePath(claudeDir)
+	launch, claude := session.ResolvePath(launchDir), session.ResolvePath(claudeDir)
 	launchTop, claudeTop := topLevel(ctx, launch), topLevel(ctx, claude)
 	if !session.Elsewhere(launchTop, claudeTop, launch, claude) {
 		return nil
 	}
-	loc := &session.Location{Directory: claude}
-	if claudeTop == nil {
-		return loc
-	}
-	if branch, isWorktree := checkoutState(ctx, claude); branch != nil {
-		loc.Repo = &session.LocationRepo{Name: filepath.Base(*claudeTop), Branch: *branch, IsWorktree: isWorktree}
-	}
-	return loc
+	return &session.Location{Directory: claude, Repo: checkoutRepo(ctx, claude, claudeTop)}
 }
 
-// resolvePath is path cleaned and symlink-resolved, or merely cleaned when it does not exist.
-func resolvePath(path string) string {
-	if resolved, err := filepath.EvalSymlinks(path); err == nil {
-		return resolved
+func checkoutRepo(ctx context.Context, dir string, top *string) *session.LocationRepo {
+	if top == nil {
+		return nil
 	}
-	return filepath.Clean(path)
+	branch, isWorktree := checkoutState(ctx, dir)
+	if branch == nil {
+		return nil
+	}
+	return &session.LocationRepo{Name: filepath.Base(*top), Branch: *branch, IsWorktree: isWorktree}
+}
+
+func readAddedRepos(ctx context.Context, dirs []string) map[string]*session.LocationRepo {
+	if len(dirs) == 0 {
+		return nil
+	}
+	type reading struct {
+		repo *session.LocationRepo
+		read bool
+	}
+	readings := make([]reading, len(dirs))
+	slots := make(chan struct{}, addedReadWorkers)
+	var wg sync.WaitGroup
+dispatch:
+	for i, dir := range dirs {
+		select {
+		case slots <- struct{}{}:
+		case <-ctx.Done():
+			break dispatch
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() { <-slots }()
+			if !isDir(dir) {
+				return
+			}
+			repo := checkoutRepo(ctx, dir, topLevel(ctx, dir))
+			readings[i] = reading{repo: repo, read: ctx.Err() == nil && isDir(dir)}
+		}()
+	}
+	wg.Wait()
+	repos := make(map[string]*session.LocationRepo, len(dirs))
+	for i, r := range readings {
+		if r.read {
+			repos[dirs[i]] = r.repo
+		}
+	}
+	return repos
 }
 
 // topLevel is gitutil.TopLevel with the answer resolved the same way as the directories it
@@ -149,6 +197,6 @@ func topLevel(ctx context.Context, dir string) *string {
 	if top == nil {
 		return nil
 	}
-	resolved := resolvePath(*top)
+	resolved := session.ResolvePath(*top)
 	return &resolved
 }

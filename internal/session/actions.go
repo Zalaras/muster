@@ -28,6 +28,7 @@ func (m *Manager) RecordLaunch(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	sess.TmuxTarget = tmuxTarget
 	sess.TmuxPane = tmuxPane
 	sess.clearClaudeLocation()
+	sess.clearAddedDirs()
 	post := sess.Clone()
 
 	snapshot, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true)
@@ -300,6 +301,7 @@ func (m *Manager) RecordResume(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	sess.LastSnapshotAt = time.Time{}
 	sess.effortRequested = ""
 	sess.clearClaudeLocation()
+	sess.clearAddedDirs()
 	post := sess.Clone()
 
 	// A persist failure rolls every field this call touched back — a half-resumed session

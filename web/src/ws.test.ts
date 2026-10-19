@@ -97,6 +97,7 @@ const session: Session = {
   directory: "/Users/bob/code/muster",
   repo: { name: "muster", branch: "main", isWorktree: false },
   claudeLocation: null,
+  addedDirs: [],
   model: { id: "claude-sonnet-4-5", displayName: "sonnet" },
   permissionMode: { value: "default", source: "seed" },
   context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
