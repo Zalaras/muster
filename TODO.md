@@ -490,6 +490,26 @@ New post-v1 ideas go here; re-rank when reached.
   in should offer it; kb:adr/launch-bypass-and-dontask-unoffered records why it was left out
   and would need superseding.
 
+- [ ] **Let an agent drive Muster** — a Claude session whose job is to start up to N sessions in
+  Muster for the developer to monitor, and to end, resume or group them. Filed by the developer
+  2026-10-19. Leaning: a CLI over the existing HTTP API (`muster launch`, `muster list --json`,
+  `muster wait <id> --until <state>`), with a skill teaching an agent to use it; an MCP server, if
+  ever wanted, is a thin wrapper over the CLI, not the first surface. Design challenges to settle
+  in a `/spec` pass:
+
+  - **Auth.** Every `/api/*` route takes only the cookie the dashboard gets for the UI token. A
+    CLI needs a bearer path — ideally its own token in the data dir, not the UI one — which
+    changes `kb:adr/ingest-separate-token-in-url-path` and needs an ADR.
+  - **Waiting on state.** Launch is asynchronous; an agent needs to wait for started, needs
+    input, idle or failed without polling `list` — a `wait` command or a state stream.
+  - **Guardrails.** Bypass permissions is offered only behind the dashboard's danger warning
+    (`kb:adr/launch-bypass-offered-with-danger-guardrails`); a CLI must not be a quiet way around
+    it, so leave bypass out at first. The "up to N" cap belongs in the daemon, so a runaway agent
+    cannot burn the subscription.
+  - **Who launched what.** A controlling session running in Muster carries `MUSTER_SESSION`; the
+    daemon could tag the sessions it launches (e.g. into their own group) so the rail shows which
+    came from the agent.
+
 ## Open questions carried forward
 
 From `spikes/FINDINGS.md` "Still open" and the open-question ADRs (`go tool kb ls --type adr --status proposed`).
