@@ -235,15 +235,6 @@ supersedes an accepted ADR, so it carries a new one.
     `prefers-reduced-motion`. Stop or slow the spin under it. From
     `plans/terminal-fixes-cleanup/`.
 
-#### Docs reader
-
-- [ ] **Search box in docs should go to the first arrow** ([#102](https://github.com/Zalaras/muster/issues/102)) — In
-  the docs search box there is a large gap between the text input and the first arrow button.
-  Expected: The gap between the text input and the first arrow button should be small, like the gap
-  between the two arrow buttons.
-  Filed 2026-10-17 from musterd 0.23.0 / Claude Code 2.1.302, focus view, session idle; 1 image attached.
-  Labels: bug, documents, ux.
-
 #### Daemon internals: ingest and the self-updater
 
 - [ ] **The ingest endpoint accepts hook bodies of any size.** From `plans/maintainability-cleanup/`.

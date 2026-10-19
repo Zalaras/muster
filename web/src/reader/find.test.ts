@@ -89,9 +89,9 @@ describe("clampIndex", () => {
 
 describe("countText (W3)", () => {
   it.each([
-    [0, 0, "", ""],
-    [0, 5, "", ""],
-    [0, 0, "x", "no matches"],
+    [0, 0, "", "No results"],
+    [0, 5, "", "No results"],
+    [0, 0, "x", "No results"],
     [0, 4, "x", "1 of 4"],
     [3, 4, "x", "4 of 4"],
     [0, 1, " ", "1 of 1"],

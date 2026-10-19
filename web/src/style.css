@@ -1541,9 +1541,10 @@ body {
   display: none;
 }
 
+/* Wide enough for `999 of 999`, so the bar keeps one width as the count changes. */
 .find-count {
   flex: none;
-  min-width: 7ch;
+  min-width: 10ch;
   text-align: right;
   color: var(--fg-muted);
   white-space: nowrap;
@@ -1565,10 +1566,6 @@ body {
   width: 11ch;
   padding: 2px 5px;
   font-size: var(--fs-2xs);
-}
-
-.reader.compact .find-count {
-  min-width: 6ch;
 }
 
 .reader.compact .find-bar .fbtn {

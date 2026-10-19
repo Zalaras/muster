@@ -2432,3 +2432,13 @@ One `/orchestrate` run covers all of this group.
 
 - [x] **`internal/boundedwait` has no tests of its own.** From `plans/maintainability-cleanup/`.
   ✅ done 2026-10-19: `internal/boundedwait/boundedwait_test.go` pins both halves — returns silently once the group is done, warns once and gives up when ctx ends first.
+
+#### Docs reader ✅ done 2026-10-19 (plan `search-bar-text-length`, via `/fix`)
+
+- [x] **Search box in docs should go to the first arrow** ([#102](https://github.com/Zalaras/muster/issues/102)) — In
+  the docs search box there is a large gap between the text input and the first arrow button.
+  Expected: The gap between the text input and the first arrow button should be small, like the gap
+  between the two arrow buttons.
+  Filed 2026-10-17 from musterd 0.23.0 / Claude Code 2.1.302, focus view, session idle; 1 image attached.
+  Labels: bug, documents, ux.
+  ✅ done 2026-10-19 (plan `search-bar-text-length`, via `/fix`): the count reads `No results` instead of going blank and reserves its longest text's width, so the bar keeps one width.

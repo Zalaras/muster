@@ -17,4 +17,4 @@ supersedes: []
 
 **Decision.** B. A file switch in the reader happens inside one page, which is closer to switching editors than to navigating. A re-render keeps the current ordinal, clamped to the new count, and never scrolls — the developer did not ask to move. A switch starts at the first match and scrolls to it, because the developer is searching the new file.
 
-**Consequences.** The query is not remembered across a reload or a session switch. A re-render that leaves no matches shows `no matches` with the bar still open.
+**Consequences.** The query is not remembered across a reload or a session switch. A re-render that leaves no matches shows `No results` with the bar still open.

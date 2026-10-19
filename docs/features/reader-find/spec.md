@@ -15,7 +15,9 @@ refs: [plan:docs-search-bar, kb:spec/reader, kb:spec/shortcuts, kb:adr/reader-fi
 The docs reader (kb:spec/reader) has a find bar: an icon at the body's top-right, or Command-F
 in the reader holding keyboard focus (kb:spec/shortcuts), in Focus, a tile or a pop-out. It
 highlights case-insensitive matches in the rendered document alone, never in the bar or chrome
-(kb:adr/reader-find-highlights-via-css-highlight-api).
+(kb:adr/reader-find-highlights-via-css-highlight-api). Its count reads `<i> of <n>`, or `No
+results` while the query is empty or matches nothing, and holds room for `999 of 999`, so the
+bar keeps one width as the count changes.
 
 While the bar is open it reserves the top of the reading area, so no match ever sits under it.
 The current match is revealed against the bar's bottom edge, and stepping scrolls every

@@ -3,7 +3,7 @@
 // Locators come from the plan's Testable UI Elements table: the icon is a `button` named
 // "Search document", the query box a `searchbox` with the same name, previous / next /
 // close are buttons with their own aria-labels, and the count is a `role="status"` element
-// whose text is `<i> of <n>`, `no matches` or empty. `.reader-notice` is also a
+// whose text is `<i> of <n>` or `No results`. `.reader-notice` is also a
 // `role="status"` inside `.reader`, so the count is selected by excluding it.
 //
 // Highlights have no DOM, so `readHighlights` reads them from `CSS.highlights`. The plan

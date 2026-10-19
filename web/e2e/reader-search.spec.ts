@@ -221,7 +221,7 @@ test("clicking Search document opens the bar with the query box focused, the ico
     await expect(searchBox(region)).toBeVisible();
     await expect(searchBox(region)).toBeFocused();
     await expect(searchIcon(region)).toBeHidden();
-    await expect(matchCount(region)).toHaveText(/^$/);
+    await expect(matchCount(region)).toHaveText("No results");
     await expect(previousMatch(region)).toBeVisible();
     await expect(nextMatch(region)).toBeVisible();
     await expect(closeSearch(region)).toBeVisible();
@@ -645,7 +645,7 @@ test("Enter and Next match step forward, Shift+Enter and Previous match step bac
   }
 });
 
-test("typing scrolls the first match into the body, counts update per key, an empty query clears the count and highlights, and a miss reads no matches (REQ-6, REQ-7)", async ({
+test("typing scrolls the first match into the body, counts update per key, an empty query clears the highlights and reads No results, and so does a miss (REQ-6, REQ-7)", async ({
   page,
   daemon,
 }) => {
@@ -671,23 +671,23 @@ test("typing scrolls the first match into the body, counts update per key, an em
     // That count equals the one before it, so it cannot tell a re-run from a stale read: a
     // query that matches nothing and then the shorter one again can.
     await typeQuery(page, "x");
-    await expect(matchCount(region)).toHaveText("no matches");
+    await expect(matchCount(region)).toHaveText("No results");
     await page.keyboard.press("Backspace");
     await expectFindState(region, { index: 1, total: 2 });
     await expectHighlightedText(region, ["Needl", "Needl"]);
 
     for (let i = 0; i < 5; i += 1) await page.keyboard.press("Backspace");
     await expect(searchBox(region)).toHaveValue("");
-    await expect(matchCount(region)).toHaveText(/^$/);
+    await expect(matchCount(region)).toHaveText("No results");
     await expectNoHighlights(region);
     await expect(searchBox(region)).toBeVisible();
 
     await typeQuery(page, "zzzz");
-    await expect(matchCount(region)).toHaveText("no matches");
+    await expect(matchCount(region)).toHaveText("No results");
     await expectNoHighlights(region);
     await page.keyboard.press("Enter");
     await page.keyboard.press("Shift+Enter");
-    await expect(matchCount(region)).toHaveText("no matches");
+    await expect(matchCount(region)).toHaveText("No results");
   } finally {
     await cleanup();
   }
@@ -928,7 +928,7 @@ test("opening a file with a diagram under an open bar reveals the first match in
     const { region } = await openFocusDoc(page, daemon, "find-latediag", dir, FIND_FILES.plain);
     await openBar(region);
     await typeQuery(page, "zorblax");
-    await expect(matchCount(region)).toHaveText("no matches");
+    await expect(matchCount(region)).toHaveText("No results");
 
     await fileEntry(region, FIND_FILES.lateDiagram.name).click();
     await expect(renderedBody(region).locator("h1")).toHaveText(FIND_FILES.lateDiagram.heading, {
@@ -1141,7 +1141,7 @@ test("clicking Close search closes the bar, clears the highlights and returns th
 
     await openBar(region);
     await typeQuery(page, "alpha");
-    await expect(matchCount(region)).toHaveText("no matches");
+    await expect(matchCount(region)).toHaveText("No results");
   } finally {
     await cleanup();
   }
@@ -1149,7 +1149,7 @@ test("clicking Close search closes the bar, clears the highlights and returns th
 
 // ── E11, E12: the document changes under an open bar ───────────────────────────────────
 
-test("rewriting the open file with a Write hook re-runs the query, keeps the ordinal when it fits, clamps it when it does not, reads no matches at zero, and never scrolls the body (E11, REQ-11)", async ({
+test("rewriting the open file with a Write hook re-runs the query, keeps the ordinal when it fits, clamps it when it does not, reads No results at zero, and never scrolls the body (E11, REQ-11)", async ({
   page,
   daemon,
 }) => {
@@ -1192,7 +1192,7 @@ test("rewriting the open file with a Write hook re-runs the query, keeps the ord
     // None left: the bar stays open and says so.
     await writeFile(tall, tallBody(FIND_FILES.tall.heading, 80, [3, 40, 78], [3, 40, 78]));
     await writeHook();
-    await expect(matchCount(region)).toHaveText("no matches", { timeout: 15_000 });
+    await expect(matchCount(region)).toHaveText("No results", { timeout: 15_000 });
     await expect(searchBox(region)).toBeVisible();
     await expect(searchBox(region)).toHaveValue("needle");
     await expectNoHighlights(region);
@@ -1314,6 +1314,68 @@ test("in the pop-out the icon and the open bar hug the reading area's corner wit
     await popup.keyboard.press("Escape");
     await expect(searchIcon(popRegion)).toBeVisible();
     await expectIconInCorner(popRegion, false, "pop-out icon, nav collapsed");
+  } finally {
+    await cleanup();
+  }
+});
+
+// ── Plan search-bar-text-length: the count never leaves a blank gap ───────────────────
+
+/** The bar's box in each count state — empty query, `1 of 3`, a miss — so a count that
+ * changes length can be seen moving the bar's left edge. */
+async function barBoxPerCountState(page: Page, region: Locator): Promise<Box[]> {
+  const boxes: Box[] = [];
+  await expect(matchCount(region)).toHaveText("No results");
+  boxes.push((await barMetrics(region)).box);
+  await typeQuery(page, "needle");
+  await expectFindState(region, { index: 1, total: 3 });
+  boxes.push((await barMetrics(region)).box);
+  await typeQuery(page, "zzzz");
+  await expect(matchCount(region)).toHaveText("No results");
+  boxes.push((await barMetrics(region)).box);
+  return boxes;
+}
+
+function expectOneWidth(boxes: Box[], what: string): void {
+  const [first, ...rest] = boxes;
+  if (first === undefined) throw new Error("no bar boxes");
+  for (const box of rest) {
+    expect(Math.abs(box.x - first.x), `${what}: left edge`).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(box.width - first.width), `${what}: width`).toBeLessThanOrEqual(0.5);
+  }
+}
+
+test("in Focus the opened bar's count reads No results, and the bar keeps one width across an empty query, a count and a miss (search-bar-text-length REQ-1, REQ-3)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await writeFindFixtures(dir);
+    const { region } = await openFocusDoc(page, daemon, "find-width", dir, FIND_FILES.tall);
+    await openBar(region);
+    expectOneWidth(await barBoxPerCountState(page, region), "Focus");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("in a 3×2 tile the bar keeps one width across an empty query, a count and a miss (search-bar-text-length REQ-1, REQ-3)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await writeFindFixtures(dir);
+    const [region] = await openTileReaders(
+      page,
+      daemon,
+      [{ title: "find-width-tile", dir, file: FIND_FILES.tall }],
+      "3×2",
+    );
+    if (region === undefined) throw new Error("no tile reader");
+    await openBar(region);
+    expectOneWidth(await barBoxPerCountState(page, region), "compact tile");
   } finally {
     await cleanup();
   }

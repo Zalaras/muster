@@ -49,11 +49,15 @@ func wrapperCommands(t *testing.T, baseURL string) (hookCmd, statusLineCmd strin
 	return doc.Hooks["UserPromptSubmit"][0].Hooks[0].Command, doc.StatusLine.Command
 }
 
+// wrapperHangGuard only stops a hung wrapper: under a loaded `make test-race` one run took
+// over 6 s to start sh and curl, so speed is asserted separately, never by this limit.
+const wrapperHangGuard = 30 * time.Second
+
 // runWrapperCapture runs cmdString via sh -c like Claude Code would and returns what it
-// wrote, failing the test unless it exits 0 within timeout.
-func runWrapperCapture(t *testing.T, cmdString string, env []string, stdin string, timeout time.Duration) (stdout, stderr string) {
+// wrote, failing the test unless it exits 0 within wrapperHangGuard.
+func runWrapperCapture(t *testing.T, cmdString string, env []string, stdin string) (stdout, stderr string) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), wrapperHangGuard)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "sh", "-c", cmdString)
 	cmd.Env = env
@@ -120,11 +124,11 @@ func TestWrapperReply_PrintsTheBodyOnlyOnA2xx(t *testing.T) {
 			status, body = tt.status, tt.body
 			mu.Unlock()
 
-			stdout, stderr := runWrapperCapture(t, hookCmd, env, hookStdin, 6*time.Second)
+			stdout, stderr := runWrapperCapture(t, hookCmd, env, hookStdin)
 			assert.Equal(t, tt.want, stdout, "hook.sh stdout")
 			assert.Empty(t, stderr)
 
-			stdout, stderr = runWrapperCapture(t, statusLineCmd, env, statusStdin, 6*time.Second)
+			stdout, stderr = runWrapperCapture(t, statusLineCmd, env, statusStdin)
 			assert.Empty(t, stdout, "status-line.sh must never print the daemon's answer")
 			assert.Empty(t, stderr)
 		})
@@ -152,7 +156,7 @@ func TestWrapperReply_AnAnswerThatNeverComesPrintsNothing(t *testing.T) {
 	env := append(baseTestEnv(t), "MUSTER_SESSION=1", "TMUX_PANE=%1")
 
 	start := time.Now()
-	stdout, stderr := runWrapperCapture(t, hookCmd, env, claudecodetest.RawHookBody("UserPromptSubmit", "wrapper-timeout-claude"), 6*time.Second)
+	stdout, stderr := runWrapperCapture(t, hookCmd, env, claudecodetest.RawHookBody("UserPromptSubmit", "wrapper-timeout-claude"))
 
 	assert.Empty(t, stdout)
 	assert.Empty(t, stderr)
@@ -171,7 +175,7 @@ func TestWrapperReply_RenameRoundTripThroughTheRealIngest(t *testing.T) {
 	hookCmd, _ := wrapperCommands(t, hs.URL)
 	env := append(baseTestEnv(t), "MUSTER_SESSION="+strconv.FormatInt(r.id, 10), "TMUX_PANE=%1")
 	run := func(event string) string {
-		stdout, stderr := runWrapperCapture(t, hookCmd, env, claudecodetest.RawHookBody(event, r.claude), 6*time.Second)
+		stdout, stderr := runWrapperCapture(t, hookCmd, env, claudecodetest.RawHookBody(event, r.claude))
 		assert.Empty(t, stderr)
 		return stdout
 	}

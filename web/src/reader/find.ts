@@ -62,6 +62,6 @@ export function clampIndex(index: number, count: number): number {
 }
 
 export function countText(index: number, count: number, query: string): string {
-  if (query === "") return "";
-  return count === 0 ? "no matches" : `${index + 1} of ${count}`;
+  if (query === "" || count === 0) return "No results";
+  return `${index + 1} of ${count}`;
 }
