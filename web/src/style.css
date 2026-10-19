@@ -1120,6 +1120,12 @@ body {
   margin-top: -1px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .shellact[data-act="busy"] {
+    animation: none;
+  }
+}
+
 /* ── plan markdown-viewing: the reader (docs/design/mockups/markdown-viewing/) ──────── */
 
 /* review markdown-viewing cycle-3 Critical 1: `doc.html`'s standalone page has no `#app`

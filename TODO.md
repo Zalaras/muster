@@ -223,17 +223,12 @@ supersedes an accepted ADR, so it carries a new one.
 
 #### Shell pane
 
-- [ ] **Shell terminal follow-ups** — one web plan over the shell pane (`web/src/terminal/`,
-  `web/src/style.css`):
-  - [ ] **Unit-test the real wheel accumulator** — `shellkeys.test.ts`'s `accumulateFrame`
-    mirrors `pane.ts`'s private sub-line accumulation instead of calling it, so reverting the fix
-    in `pane.ts` leaves those tests green (only the `shell-scroll.spec.ts` E2E catches it). Lift
-    the step into `shellkeys.ts` as a pure `(accum, deltaY) => { accum, lines }` that `pane.ts`
-    calls. From `plans/terminal-fixes-cleanup/`.
-  - [ ] **Reduced-motion rule for the activity spinner** — `shellact-spin` (0.7 s infinite) is
-    the stylesheet's only animation, and nothing in `web/src` or `docs/design` handles
-    `prefers-reduced-motion`. Stop or slow the spin under it. From
-    `plans/terminal-fixes-cleanup/`.
+Filed 2026-10-19 by the developer from the plans' proposed-backlog.md files.
+
+- [ ] **A hard wheel flick swallows the next wheel the other way** — after a hard downward
+  flick over a shell surface, the next several wheel-ups do nothing before the pane starts
+  scrolling up. Reversing direction should scroll the other way straight away. From
+  `plans/shell-pane-fixes/`.
 
 #### Daemon internals: ingest and the self-updater
 

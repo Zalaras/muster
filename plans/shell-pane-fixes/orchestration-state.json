@@ -1,0 +1,59 @@
+{
+  "plan_name": "shell-pane-fixes",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 1,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [],
+  "step_started_at": {
+    "review": "2026-10-19T13:26:56Z",
+    "doc-reconcile": "2026-10-19T14:06:53Z"
+  },
+  "step_finished_at": {
+    "review": "2026-10-19T14:06:44Z",
+    "doc-reconcile": "2026-10-19T14:07:33Z"
+  },
+  "step_attempts": {
+    "review": [
+      {
+        "start": "2026-10-19T13:26:56Z",
+        "finish": "2026-10-19T13:43:32Z"
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-10-19T14:06:53Z",
+        "finish": "2026-10-19T14:07:33Z"
+      }
+    ]
+  },
+  "started_at": "2026-10-19T12:06:02Z",
+  "updated_at": "2026-10-19T14:25:34Z",
+  "review_parts": {
+    "1": [
+      "code",
+      "browser"
+    ],
+    "2": [
+      "code"
+    ]
+  },
+  "review_verdicts": {
+    "1": "needs-changes",
+    "2": "approved"
+  },
+  "review_commits": {
+    "1": "0c7fc7f4578eb5d0942bedda7b82f859ed59579f",
+    "2": "1a69eebd7b269853ff2406d160ef1df06ff341a6"
+  },
+  "review_cycle": 2,
+  "closes_issues": []
+}

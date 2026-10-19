@@ -2452,3 +2452,19 @@ One `/orchestrate` run covers all of this group.
   it should use the daemon's shared atomic write (a fresh temp name, synced before the rename).
   From `plans/maintainability-regressions/`.
   ✅ done 2026-10-19 (plan `daemon-internals-fixes`, via `/fix`): the shared write moved to `internal/atomicfile`, and the updater, the wrapper scripts and the settings write all call it.
+
+#### Shell pane ✅ done 2026-10-19 (plan `shell-pane-fixes`, via `/fix`)
+
+- [x] **Shell terminal follow-ups** — one web plan over the shell pane (`web/src/terminal/`,
+  `web/src/style.css`):
+  - [x] **Unit-test the real wheel accumulator** — `shellkeys.test.ts`'s `accumulateFrame`
+    mirrors `pane.ts`'s private sub-line accumulation instead of calling it, so reverting the fix
+    in `pane.ts` leaves those tests green (only the `shell-scroll.spec.ts` E2E catches it). Lift
+    the step into `shellkeys.ts` as a pure `(accum, deltaY) => { accum, lines }` that `pane.ts`
+    calls. From `plans/terminal-fixes-cleanup/`.
+    ✅ done 2026-10-19 (plan `shell-pane-fixes`, via `/fix`).
+  - [x] **Reduced-motion rule for the activity spinner** — `shellact-spin` (0.7 s infinite) is
+    the stylesheet's only animation, and nothing in `web/src` or `docs/design` handles
+    `prefers-reduced-motion`. Stop or slow the spin under it. From
+    `plans/terminal-fixes-cleanup/`.
+    ✅ done 2026-10-19 (plan `shell-pane-fixes`, via `/fix`).

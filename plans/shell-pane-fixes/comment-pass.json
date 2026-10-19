@@ -1,0 +1,32 @@
+{
+  "plan": "shell-pane-fixes",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-19T13:03:33Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 1,
+        "keep": 0,
+        "drop": 1
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "web/src/terminal/pane.ts:9359cc0d708e5910",
+          "path": "web/src/terminal/pane.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "private flushWheelScroll(): void {",
+            "line": 186
+          },
+          "lines": [
+            "/** The coalesced `scroll` frame — folds every `wheel` event since the last animation",
+            "* frame into the carried sub-line remainder via `accumulateWheelDelta`, and sends a frame",
+            "* only when that rounds to a whole line. */"
+          ]
+        }
+      ]
+    }
+  ]
+}

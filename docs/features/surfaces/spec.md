@@ -70,7 +70,7 @@ translated to their readline word- and line-jump equivalents on the shell surfac
 the Claude pane keeps xterm.js's own handling. A shell reports a busy flag derived from
 three tmux-read gates — its foreground command, its alternate-screen flag, and the pane
 tty's line discipline — and the shell segment shows a spinner while busy and a tick once
-work finishes (kb:adr/surfaces-shell-busy-from-tmux-process-state).
+work finishes; under `prefers-reduced-motion: reduce` the spinner stands still, keeping its busy shape (kb:adr/surfaces-shell-busy-from-tmux-process-state).
 
 Switching a session's surface from the Focus header or a tile footer, by pointer or keyboard,
 moves keyboard focus into the surface switched to: the terminal for claude and shell (the

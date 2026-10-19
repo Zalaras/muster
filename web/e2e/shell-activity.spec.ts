@@ -1,4 +1,4 @@
-import { expect, test } from "./helpers/fixtures";
+import { expect, type Locator, test } from "./helpers/fixtures";
 import { launchSession, scratchDirectory } from "./helpers/session";
 import {
   createShellViaApi,
@@ -409,6 +409,94 @@ test("the shell busy/done indicator computes the same shapes in a tile footer (E
       return { width: Number.parseFloat(cs.width), height: Number.parseFloat(cs.height) };
     });
     expect(doneBox.width).toBeGreaterThan(doneBox.height);
+  } finally {
+    await cleanup();
+  }
+});
+
+// Plan shell-pane-fixes — REQ-2 (the busy spinner stops under prefers-reduced-motion) and
+// its edge case 1 (no preference emulated: the spin is unchanged).
+
+// Reads data-act and the computed animation-name in one evaluate, so the animation is only
+// ever judged while the indicator is still busy: the done tick has no animation, and a
+// separate read after the state flipped would pass `none` without the reduced-motion rule.
+function busyAnimationName(indicator: Locator) {
+  return indicator.evaluate((el) => ({
+    act: (el as HTMLElement).dataset.act,
+    name: getComputedStyle(el).animationName,
+  }));
+}
+
+test("under reduced motion the busy spinner does not spin, on the mainhead and in a tile footer (REQ-2)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "shell-reduced-motion",
+    });
+    await mainheadSurfaceButton(page, "shell").click();
+    const shellRegion = shellSurfaceRegion(page, "shell-reduced-motion");
+    await expect(shellRegion).toBeVisible({ timeout: 15_000 });
+
+    await shellRegion.click();
+    await page.keyboard.type("sleep 15");
+    await page.keyboard.press("Enter");
+
+    const mainheadIndicator = shellActivityIndicator(mainheadSurfaceButton(page, "shell"));
+    await expect(mainheadIndicator).toHaveAttribute("data-act", "busy", { timeout: 15_000 });
+    await expect(mainheadIndicator).toBeVisible();
+    expect(await busyAnimationName(mainheadIndicator)).toEqual({ act: "busy", name: "none" });
+
+    await page.keyboard.press("Meta+Backslash");
+    await expect(liveTileById(page, session.id)).toBeVisible();
+    const tileIndicator = shellActivityIndicator(tileSurfaceButton(page, session.id, "shell"));
+    await expect(tileIndicator).toHaveAttribute("data-act", "busy", { timeout: 15_000 });
+    await expect(tileIndicator).toBeVisible();
+    expect(await busyAnimationName(tileIndicator)).toEqual({ act: "busy", name: "none" });
+
+    await expect(tileIndicator).toHaveAttribute("data-act", "done", { timeout: 15_000 });
+    await expect(tileIndicator).toBeVisible();
+  } finally {
+    await cleanup();
+  }
+});
+
+test("without a reduced-motion preference the busy spinner still spins, on the mainhead and in a tile footer (REQ-2, edge case 1)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "shell-motion-allowed",
+    });
+    await mainheadSurfaceButton(page, "shell").click();
+    const shellRegion = shellSurfaceRegion(page, "shell-motion-allowed");
+    await expect(shellRegion).toBeVisible({ timeout: 15_000 });
+
+    await shellRegion.click();
+    await page.keyboard.type("sleep 15");
+    await page.keyboard.press("Enter");
+
+    const mainheadIndicator = shellActivityIndicator(mainheadSurfaceButton(page, "shell"));
+    await expect(mainheadIndicator).toHaveAttribute("data-act", "busy", { timeout: 15_000 });
+    expect(await busyAnimationName(mainheadIndicator)).toEqual({
+      act: "busy",
+      name: "shellact-spin",
+    });
+
+    await page.keyboard.press("Meta+Backslash");
+    await expect(liveTileById(page, session.id)).toBeVisible();
+    const tileIndicator = shellActivityIndicator(tileSurfaceButton(page, session.id, "shell"));
+    await expect(tileIndicator).toHaveAttribute("data-act", "busy", { timeout: 15_000 });
+    expect(await busyAnimationName(tileIndicator)).toEqual({ act: "busy", name: "shellact-spin" });
   } finally {
     await cleanup();
   }

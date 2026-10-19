@@ -11,7 +11,7 @@ import type { Session } from "../protocol/session";
 import { wsUrl } from "../ws";
 import { showNotice as showNoticeOn } from "./notice";
 import { overlayForCloseCode, overlayText, type OverlayKind } from "./overlay";
-import { PIXELS_PER_LINE, shellKeyBytes, wheelDeltaToScrollLines } from "./shellkeys";
+import { accumulateWheelDelta, shellKeyBytes } from "./shellkeys";
 import type { SurfaceKind } from "./surfaceswitch";
 
 // Debounce window for resize frames after the initial one (kb:anchor/terminal.ws / design-system
@@ -81,6 +81,7 @@ export class TerminalSurface {
   // accumulated wheel `deltaY`, for `kind === "shell"` only — coalesced so a fast wheel
   // gesture sends at most one `scroll` frame per frame rather than one per native `wheel`
   // event.
+  private wheelPendingDeltaY = 0;
   private wheelAccumDeltaY = 0;
   private wheelFlushScheduled = false;
 
@@ -173,7 +174,7 @@ export class TerminalSurface {
 
     term.attachCustomWheelEventHandler((event) => {
       event.preventDefault();
-      this.wheelAccumDeltaY += event.deltaY;
+      this.wheelPendingDeltaY += event.deltaY;
       if (!this.wheelFlushScheduled) {
         this.wheelFlushScheduled = true;
         requestAnimationFrame(() => this.flushWheelScroll());
@@ -182,26 +183,14 @@ export class TerminalSurface {
     });
   }
 
-  /** The coalesced `scroll` frame — reads the accumulator built up by every `wheel`
-   * event since the last animation frame. A `0` conversion (the gesture accumulated to
-   * date is too small to round to a whole line — a slow trackpad's per-event `deltaY` is
-   * routinely under `PIXELS_PER_LINE`) sends no frame and leaves the accumulator
-   * untouched, so the next frame's events add to the same sub-line remainder rather than
-   * starting over from it (zeroing unconditionally here discarded that remainder every
-   * frame, so a gentle scroll never reached a whole line at all).
-   * When a frame *is* sent, only the pixel amount that rounded into `lines` comes back
-   * out — `lines * PIXELS_PER_LINE` signed opposite to `deltaY` per
-   * `wheelDeltaToScrollLines`'s convention (negative `deltaY` yields positive `lines`), so
-   * adding it here is what removes it — leaving any true remainder (below the rounding
-   * threshold, or beyond the daemon's 200-line clamp) queued for the next flush instead of
-   * silently dropped. */
   private flushWheelScroll(): void {
     this.wheelFlushScheduled = false;
-    const lines = wheelDeltaToScrollLines(this.wheelAccumDeltaY);
-    if (lines === 0) return;
-    this.wheelAccumDeltaY += lines * PIXELS_PER_LINE;
+    const step = accumulateWheelDelta(this.wheelAccumDeltaY, this.wheelPendingDeltaY);
+    this.wheelPendingDeltaY = 0;
+    this.wheelAccumDeltaY = step.accumDeltaY;
+    if (step.lines === 0) return;
     if (this.socket?.readyState === WebSocket.OPEN) {
-      this.socket.send(JSON.stringify({ type: "scroll", lines }));
+      this.socket.send(JSON.stringify({ type: "scroll", lines: step.lines }));
     }
   }
 

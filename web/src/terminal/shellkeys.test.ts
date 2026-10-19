@@ -4,7 +4,7 @@
 // of W4) is Playwright's job (web/e2e/shell-keys.spec.ts, web/e2e/shell-scroll.spec.ts).
 import { describe, expect, it } from "vitest";
 import {
-  PIXELS_PER_LINE,
+  accumulateWheelDelta,
   shellKeyBytes,
   wheelDeltaToScrollLines,
   type ShellKeyChord,
@@ -122,43 +122,39 @@ describe("wheelDeltaToScrollLines — deltaY to a signed line count (REQ-7..12, 
   });
 });
 
-describe("PIXELS_PER_LINE — sub-line wheel accumulation across frames (review cycle 1 Major 1)", () => {
-  // `PIXELS_PER_LINE` is exported for exactly this purpose (see shellkeys.ts's own
-  // comment on the export): `pane.ts`'s `flushWheelScroll` keeps its running
-  // `wheelAccumDeltaY` in the private `TerminalSurface` instance, so it isn't reachable
-  // here directly — but its accumulator step is these two exported values and nothing
-  // else, so this reproduces that exact step to pin the fixed semantics: a 0-line frame
-  // leaves the full accumulated delta in place, and a frame that does produce `lines`
-  // subtracts only the pixels that rounded into it, carrying any remainder forward.
-  function accumulateFrame(
-    accumDeltaY: number,
-    eventDeltaY: number,
-  ): { accumDeltaY: number; lines: number } {
-    const next = accumDeltaY + eventDeltaY;
-    const lines = wheelDeltaToScrollLines(next);
-    if (lines === 0) return { accumDeltaY: next, lines: 0 };
-    return { accumDeltaY: next + lines * PIXELS_PER_LINE, lines };
-  }
-
+describe("accumulateWheelDelta — sub-line wheel accumulation across frames (review cycle 1 Major 1)", () => {
+  // Calls the pure accumulator step `pane.ts`'s `flushWheelScroll` uses (plan
+  // shell-pane-fixes REQ-1): a 0-line frame keeps the whole sum, a frame that produces
+  // `lines` keeps only the remainder.
   it("a run of sub-line deltas too small to scroll individually accumulates until one does", () => {
     let accumDeltaY = 0;
     for (let i = 0; i < 4; i++) {
-      const r = accumulateFrame(accumDeltaY, -2);
+      const r = accumulateWheelDelta(accumDeltaY, -2);
       expect(r.lines).toBe(0); // -2, -4, -6, -8: all below the half-line rounding threshold
       accumDeltaY = r.accumDeltaY;
     }
-    const r = accumulateFrame(accumDeltaY, -2); // -10 hits the half-line tie, rounds up to 1
+    const r = accumulateWheelDelta(accumDeltaY, -2); // -10 hits the half-line tie, rounds up to 1
     expect(r.lines).toBe(1);
   });
 
   it("the remainder below a whole line carries into the next frame rather than resetting to 0", () => {
-    const first = accumulateFrame(0, -24); // one line (-20) consumed, -4 left over
+    const first = accumulateWheelDelta(0, -24); // one line (-20) consumed, -4 left over
     expect(first.lines).toBe(1);
     expect(first.accumDeltaY).toBe(-4);
 
     // A single further -4 event is not yet a full line on its own...
-    const second = accumulateFrame(first.accumDeltaY, -4);
+    const second = accumulateWheelDelta(first.accumDeltaY, -4);
     expect(second.lines).toBe(0);
     expect(second.accumDeltaY).toBe(-8); // ...but the carried remainder shows: -4 + -4 = -8, not -4
+  });
+
+  it("a sum past the 200-line clamp carries the unconsumed pixels to the next frame", () => {
+    const first = accumulateWheelDelta(0, -5000); // clamp consumes 200 lines (-4000px), -1000px left over
+    expect(first.lines).toBe(200);
+    expect(first.accumDeltaY).toBe(-1000);
+
+    const second = accumulateWheelDelta(first.accumDeltaY, 0); // the carry drains, again clamped-free
+    expect(second.lines).toBe(50);
+    expect(second.accumDeltaY).toBe(0);
   });
 });

@@ -52,10 +52,7 @@ export function shellKeyBytes(chord: ShellKeyChord): Uint8Array<ArrayBuffer> | n
 // rule) — only needs to be in the right neighbourhood, since the daemon clamps the
 // magnitude it actually acts on; this conversion just keeps a normal trackpad/wheel
 // gesture from producing an implausibly large or a rounds-to-zero request.
-// Exported so `pane.ts`'s `flushWheelScroll` can convert a sent `lines` count back into
-// the pixel amount it consumed, to carry the sub-line remainder into the next frame
-// rather than recomputing/duplicating this constant.
-export const PIXELS_PER_LINE = 20;
+const PIXELS_PER_LINE = 20;
 const MIN_SCROLL_MAGNITUDE = 1;
 // Protocol Contract: "Magnitude clamped to [1, 200]" — clamped here too so the frame the
 // client sends already honours the contract rather than relying solely on the daemon.
@@ -76,4 +73,16 @@ export function wheelDeltaToScrollLines(deltaY: number): number {
     Math.max(MIN_SCROLL_MAGNITUDE, Math.abs(rawLines)),
   );
   return Math.sign(rawLines) * magnitude;
+}
+
+export interface WheelAccumulation {
+  accumDeltaY: number;
+  lines: number;
+}
+
+export function accumulateWheelDelta(accumDeltaY: number, eventDeltaY: number): WheelAccumulation {
+  const sum = accumDeltaY + eventDeltaY;
+  const lines = wheelDeltaToScrollLines(sum);
+  if (lines === 0) return { accumDeltaY: sum, lines };
+  return { accumDeltaY: sum + lines * PIXELS_PER_LINE, lines };
 }

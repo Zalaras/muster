@@ -39,11 +39,11 @@ built on what you measured, not on what it says. Before any change:
 - Reproduce. A unit test run, a `curl` against a scratch daemon (`dev-loop` skill), an E2E spec,
   a `tmux capture-pane` — and paste the output. A real `claude` launch costs the developer's
   subscription: `--model claude-haiku-4-5-20251001`, trivial prompt, killed when done.
-- Say which of these holds: the claim held as written; it held with a different cause or scope;
-  it did not hold. Quote the evidence for each.
+- Say which holds: the claim held as written; it held with a different cause or scope; it did
+  not hold. The evidence goes in the plan's `## Findings`.
 
-Present that in prose and **stop**. The developer confirms the diagnosis, corrects it, or drops the
-work; nothing below runs before their word (memory: explain first, the developer says when to go).
+Then **stop** and tell the developer, per entry, in plain words without paths or pipeline terms:
+the problem in two sentences, your fix in one. They confirm, correct, or drop it.
 
 ## 2. The small-shape plan
 
@@ -82,7 +82,7 @@ Write `plans/<name>/plan.md`. It is a `/plan-work` plan with whole sections drop
 writes it — daemon-tests | web-tests | e2e-specs>
 
 ## Edge Cases
-None.   | 1. <case> → D1 | W1 | E1 | untested: <why>
+None.   | 1. <case> → D1 | W1 | E1 (a test ## Proof names) | untested: <why>
 
 ## Acceptance Criteria
 ### Automated Checks
