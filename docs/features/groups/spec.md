@@ -7,7 +7,7 @@ summary: Rail groups: sections, header summary and popover, select mode, filter,
 features: [groups]
 tags: [ux]
 go: [internal/server/groups*.go, internal/store/group*.go]
-web: [web/src/features/groups*.ts, web/src/render/menu*.ts, web/src/render/anchored*.ts, web/src/render/options*.ts, web/src/render/railsections*.ts, web/src/render/grouppopover*.ts, web/src/render/hovertip*.ts, web/src/render/selectbar*.ts, web/src/render/groupdialogs*.ts, web/src/sessions/sections*.ts]
+web: [web/src/features/groups*.ts, web/src/render/menu*.ts, web/src/render/anchored*.ts, web/src/render/options*.ts, web/src/render/railsections*.ts, web/src/render/grouppopover*.ts, web/src/render/hovertip*.ts, web/src/render/selectbar*.ts, web/src/render/groupdialogs*.ts, web/src/sessions/sections*.ts, web/render/groups.spec.ts, web/render/helpers/groups.ts]
 e2e: [web/e2e/groups*.spec.ts, web/e2e/helpers/groups.ts]
 protocol: [sessions.group, groups.create, groups.update, groups.order, groups.collapsed, groups.delete, ws.groups]
 refs: [kb:adr/rail-groups-daemon-rows-whole-list-broadcast, kb:adr/rail-pin-invariant-scoped-per-section, kb:adr/rail-ungrouped-is-section-zero-on-the-wire, kb:adr/rail-new-group-is-named-before-it-exists, kb:adr/rail-cards-drag-in-both-sort-modes-selection-together, kb:adr/rail-timer-tinted-wherever-cache-warmth-known, kb:adr/rail-select-mode-persists-across-bar-actions, kb:adr/rail-filter-and-selection-are-window-state, kb:adr/rail-summary-dot-order-is-attention-order-idle-once, kb:adr/rail-group-name-click-does-not-fold, kb:adr/web-menu-component-single-builder]

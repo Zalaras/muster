@@ -30,17 +30,9 @@ import { browseScratchDirectory, launchSession, waitForNextClockSecond } from ".
 // own rationale), which a neighbour test's launch on a shared daemon would corrupt —
 // doubly so here, since E9/E10 depend on controlling exactly which GET /api/browse call
 // is the dialog's own initial one.
-
-test("a fresh dialog with no launch history checks auto and sonnet (REQ-5, E1, E2)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const dialog = await openLaunchDialog(page);
-
-  await expect(dialog.getByRole("radio", { name: "auto" })).toBeChecked();
-  await expect(dialog.getByRole("radio", { name: "sonnet" })).toBeChecked();
-});
+//
+// E1/E2 — the fresh dialog's auto and sonnet defaults — is a render test in
+// web/render/launch.spec.ts since 2026-10-20 (plans/_audit/relevel/launch-update.md).
 
 test("a model picked before the initial restore lands stays checked, and the untouched mode still restores from the recent (REQ-6, E9)", async ({
   page,

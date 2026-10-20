@@ -7,7 +7,6 @@ import {
   createGroupViaApi,
   driveToState,
   endSessionViaApi,
-  expectFocusAndNodeSurviveTick,
   getGroupsState,
   groupBody,
   groupHead,
@@ -16,7 +15,6 @@ import {
   launchTitled,
   menuItem,
   newGroupModal,
-  openGroupMenu,
   openMenu,
   removeSessionViaApi,
   sectionCardIds,
@@ -27,12 +25,19 @@ import {
   trackMutations,
   UNGROUPED,
 } from "./helpers/groups";
-import { pinButton, railCard, railOrderIds, railSortSelect } from "./helpers/railorder";
-import { resolvedCssVar } from "./helpers/theme";
+import { railCard, railOrderIds } from "./helpers/railorder";
 
-// Plan groups — select mode and the bulk actions: the checkboxes, the bar, Move to, bulk Stop and
-// Remove (#27), leaving the mode, the partial-batch report. Plan acceptance E12-E16, with REQ-12
-// to REQ-14, REQ-22, REQ-24, REQ-27 and invariant I3.
+// Plan groups — the bulk actions: Move to, bulk Stop and Remove (#27), the partial-batch
+// report, leaving the mode with Tiles and the daemon-down behaviour. Plan acceptance E14-E16,
+// E24, with REQ-12 to REQ-14, REQ-22, REQ-27 and invariant I3. The display properties — the
+// checkboxes and the bar's enablement for a selection (E12), what drags while selecting
+// (REQ-24), the selected card's token, a card click toggling instead of focusing and a
+// header checkbox (E13), Select all from a header, the dialogs' singular copy and their
+// Cancel and Escape, Escape and Done leaving the mode (E16), and the controls' focus across
+// a render tick — are render tests in web/render/groups.spec.ts since 2026-10-20
+// (plans/_audit/relevel/groups.md). What stays here is every journey: a batch endpoint
+// answering and the rail re-rendering, the view switch (adopted from the prefs broadcast),
+// and the daemon going down and coming back.
 //
 // Daemon shape (the plan's Fixture plan header): every test takes the per-test `daemon` fixture.
 // Bulk Remove must leave "No sessions yet", a daemon-global state, and the others read counts,
@@ -44,199 +49,6 @@ import { resolvedCssVar } from "./helpers/theme";
 
 /** `#action-error`, the global failure alert (render/actionerror.ts); hidden while empty. */
 const actionError = (page: Page) => page.locator("#action-error");
-
-test("in attention sort Select shows a checkbox per card and per header and the bar's buttons follow the selection (REQ-12, E12)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["e12a-g1", "e12a-g2", "e12a-u1"]);
-  try {
-    const [g1, g2] = sessions;
-    if (!g1 || !g2) throw new Error("expected 3 sessions");
-    await createGroupViaApi(page, daemon, "Pick me", [g1.id, g2.id]);
-    await railSortSelect(page).selectOption("attention");
-    await expect(railSortSelect(page)).toHaveValue("attention");
-    await expect(selectBar(page)).toBeHidden();
-    await expect(selectToggle(page)).toHaveAttribute("aria-pressed", "false");
-
-    await selectToggle(page).click();
-    await expect(selectToggle(page)).toHaveAttribute("aria-pressed", "true");
-    await expect(selectBar(page)).toBeVisible();
-    await expect(selectBarCount(page)).toHaveText("Select sessions");
-    for (const title of ["e12a-g1", "e12a-g2", "e12a-u1"]) {
-      await expect(cardCheckbox(page, title)).toBeVisible();
-      await expect(cardCheckbox(page, title)).not.toBeChecked();
-      // The pin control hides while selecting.
-      await expect(pinButton(railCard(page, title))).toBeHidden();
-    }
-    await expect(headerCheckbox(page, "Pick me")).toBeVisible();
-    await expect(headerCheckbox(page, "Ungrouped")).toBeVisible();
-
-    // At zero selected the actions that need a selection are disabled; All and Done are not.
-    for (const name of ["Move to", "Ungroup", "Stop…", "Remove…"] as const) {
-      await expect(barButton(page, name)).toBeDisabled();
-    }
-    await expect(barButton(page, "All")).toBeEnabled();
-    await expect(barButton(page, "Done")).toBeEnabled();
-
-    // A grouped, live card: everything is enabled.
-    await cardCheckbox(page, "e12a-g1").check();
-    await expect(selectBarCount(page)).toHaveText("1 selected");
-    for (const name of ["Move to", "Ungroup", "Stop…", "Remove…"] as const) {
-      await expect(barButton(page, name)).toBeEnabled();
-    }
-    // Only an ungrouped card: Ungroup has nothing to do.
-    await cardCheckbox(page, "e12a-g1").uncheck();
-    await cardCheckbox(page, "e12a-u1").check();
-    await expect(selectBarCount(page)).toHaveText("1 selected");
-    await expect(barButton(page, "Ungroup")).toBeDisabled();
-    await expect(barButton(page, "Move to")).toBeEnabled();
-  } finally {
-    await cleanup();
-  }
-});
-
-test("in manual sort a selected card in select mode is draggable and an unselected one is not, the pin control is hidden, and dragging an unselected card moves nothing (REQ-12, REQ-24, E12, plan rail-card-organise REQ-15)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["e12m-a1", "e12m-b1", "e12m-u1"]);
-  try {
-    const [a1, b1, u1] = sessions;
-    if (!a1 || !b1 || !u1) throw new Error("expected 3 sessions");
-    await createGroupViaApi(page, daemon, "Source", [a1.id]);
-    const groupB = await createGroupViaApi(page, daemon, "Sink", [b1.id]);
-    await expect(railSortSelect(page)).toHaveValue("manual");
-    await expect(railCard(page, "e12m-u1")).toHaveAttribute("draggable", "true");
-    await expect(pinButton(railCard(page, "e12m-u1"))).toBeVisible();
-
-    await selectToggle(page).click();
-    await cardCheckbox(page, "e12m-u1").check();
-    // Only the selected card drags now; every other card is not draggable.
-    await expect(railCard(page, "e12m-u1")).toHaveAttribute("draggable", "true");
-    await expect(railCard(page, "e12m-a1")).toHaveAttribute("draggable", "false");
-    await expect(railCard(page, "e12m-b1")).toHaveAttribute("draggable", "false");
-    await expect(pinButton(railCard(page, "e12m-u1"))).toBeHidden();
-
-    const before = await railOrderIds(page);
-    const net = trackMutations(page);
-    await railCard(page, "e12m-a1").dragTo(groupHead(page, groupB.id));
-    await railCard(page, "e12m-a1").dragTo(railCard(page, "e12m-b1"));
-    await settleFor(page, 800);
-    expect(net.requests()).toEqual([]);
-    expect(await railOrderIds(page)).toEqual(before);
-    expect(
-      (await getGroupsState(page, daemon)).sessions.find((s) => s.title === "e12m-a1")?.groupId,
-    ).not.toBeNull();
-    expect(
-      (await getGroupsState(page, daemon)).sessions.find((s) => s.title === "e12m-u1")?.groupId,
-    ).toBeNull();
-
-    await barButton(page, "Done").click();
-    await expect(railCard(page, "e12m-u1")).toHaveAttribute("draggable", "true");
-    await expect(railCard(page, "e12m-a1")).toHaveAttribute("draggable", "true");
-    await expect(pinButton(railCard(page, "e12m-u1"))).toBeVisible();
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a selected card carries the selected class and its ground is the --bg-hover token (REQ-12, UI Specifications Select mode)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["css-sel-a", "css-sel-b"]);
-  try {
-    await createGroupViaApi(page, daemon, "Look", [sessions[0]?.id ?? -1]);
-    await selectToggle(page).click();
-    await cardCheckbox(page, "css-sel-b").check();
-    const selected = railCard(page, "css-sel-b");
-    await expect(selected).toHaveClass(/selected/);
-    await expect(selected).toHaveCSS(
-      "background-color",
-      await resolvedCssVar(page, "--bg-hover", "background-color"),
-    );
-    await expect(railCard(page, "css-sel-a")).not.toHaveClass(/selected/);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("in select mode a card click toggles instead of focusing, the mainhead keeps its session, and a header checkbox selects all its members (REQ-12, E13)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, [
-    "e13-a1",
-    "e13-a2",
-    "e13-b1",
-    "e13-u1",
-  ]);
-  try {
-    const [a1, a2, b1] = sessions;
-    if (!a1 || !a2 || !b1) throw new Error("expected 4 sessions");
-    await createGroupViaApi(page, daemon, "Pair", [a1.id, a2.id]);
-    await createGroupViaApi(page, daemon, "Single", [b1.id]);
-    await railCard(page, "e13-u1").click();
-    await expect(page.locator("#mainhead .name")).toHaveText("e13-u1");
-
-    await selectToggle(page).click();
-    await railCard(page, "e13-a1").click();
-    await expect(cardCheckbox(page, "e13-a1")).toBeChecked();
-    await expect(selectBarCount(page)).toHaveText("1 selected");
-    await railCard(page, "e13-b1").click();
-    await expect(cardCheckbox(page, "e13-b1")).toBeChecked();
-    await expect(selectBarCount(page)).toHaveText("2 selected");
-    // Neither click focused a session: the mainhead still names the previous one.
-    await expect(page.locator("#mainhead .name")).toHaveText("e13-u1");
-    await expect(railCard(page, "e13-u1")).toHaveAttribute("aria-current", "true");
-
-    // A second click toggles it back off.
-    await railCard(page, "e13-b1").click();
-    await expect(cardCheckbox(page, "e13-b1")).not.toBeChecked();
-    await expect(selectBarCount(page)).toHaveText("1 selected");
-
-    // A header checkbox selects every member of its group.
-    await headerCheckbox(page, "Pair").check();
-    await expect(cardCheckbox(page, "e13-a1")).toBeChecked();
-    await expect(cardCheckbox(page, "e13-a2")).toBeChecked();
-    await expect(cardCheckbox(page, "e13-u1")).not.toBeChecked();
-    await expect(selectBarCount(page)).toHaveText("2 selected");
-    await headerCheckbox(page, "Pair").uncheck();
-    await expect(selectBarCount(page)).toHaveText("Select sessions");
-    await expect(page.locator("#mainhead .name")).toHaveText("e13-u1");
-  } finally {
-    await cleanup();
-  }
-});
-
-test("⋯ → Select all (n) on a header turns on select mode with that group's members selected (REQ-12)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["e13s-a1", "e13s-a2", "e13s-u1"]);
-  try {
-    const [a1, a2] = sessions;
-    if (!a1 || !a2) throw new Error("expected 3 sessions");
-    const group = await createGroupViaApi(page, daemon, "Whole", [a1.id, a2.id]);
-
-    await openGroupMenu(page, groupHead(page, group.id));
-    await menuItem(page, "Select all (2)").click();
-
-    await expect(selectToggle(page)).toHaveAttribute("aria-pressed", "true");
-    await expect(selectBarCount(page)).toHaveText("2 selected");
-    await expect(cardCheckbox(page, "e13s-a1")).toBeChecked();
-    await expect(cardCheckbox(page, "e13s-a2")).toBeChecked();
-    await expect(cardCheckbox(page, "e13s-u1")).not.toBeChecked();
-  } finally {
-    await cleanup();
-  }
-});
 
 test("Move to lists the groups, New group… and Ungrouped, and choosing a group moves the selection to the end of it (REQ-13, E14)", async ({
   page,
@@ -490,67 +302,6 @@ test("Remove… over ended sessions only says a removed session cannot be resume
   }
 });
 
-test("a selection of one reads in the singular: Stop 1 session? with Stop 1, and Remove 1 session? with Remove 1 (REQ-13)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { cleanup } = await launchTitled(page, daemon, ["e14o-one", "e14o-two"]);
-  try {
-    await selectToggle(page).click();
-    await cardCheckbox(page, "e14o-one").check();
-
-    await barButton(page, "Stop…").click();
-    const stop = bulkStopDialog(page, 1);
-    await expect(stop).toBeVisible();
-    await expect(stop.getByRole("button", { name: "Stop 1", exact: true })).toBeVisible();
-    await stop.getByRole("button", { name: "Cancel", exact: true }).click();
-    await expect(stop).toBeHidden();
-
-    await barButton(page, "Remove…").click();
-    const remove = bulkRemoveDialog(page, 1);
-    await expect(remove).toBeVisible();
-    await expect(remove.getByRole("button", { name: "Remove 1", exact: true })).toBeVisible();
-  } finally {
-    await cleanup();
-  }
-});
-
-test("Cancel and Escape in a bulk dialog close it without a request, leaving the selection and select mode as they were (REQ-12, REQ-13)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { cleanup } = await launchTitled(page, daemon, ["e14c-one", "e14c-two"]);
-  try {
-    await selectToggle(page).click();
-    await barButton(page, "All").click();
-    await expect(selectBarCount(page)).toHaveText("2 selected");
-    const net = trackMutations(page);
-
-    await barButton(page, "Remove…").click();
-    const dialog = bulkRemoveDialog(page, 2);
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-    await expect(dialog).toBeHidden();
-
-    await barButton(page, "Stop…").click();
-    const stop = bulkStopDialog(page, 2);
-    await expect(stop).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(stop).toBeHidden();
-
-    await settleFor(page, 500);
-    expect(net.requests()).toEqual([]);
-    // Escape closed the dialog, not select mode (Escape leaves the mode only with no dialog open).
-    await expect(selectBar(page)).toBeVisible();
-    await expect(selectBarCount(page)).toHaveText("2 selected");
-    await expect(railCard(page, "e14c-one")).not.toHaveClass(/ended/);
-  } finally {
-    await cleanup();
-  }
-});
-
 test("Select → All → Remove… with groups present removes every session, leaves the rail reading No sessions yet, the mainhead hidden and select mode off (REQ-14, #27, E15)", async ({
   page,
   request,
@@ -646,38 +397,6 @@ test("Select → All → Remove… with no groups removes every session too (REQ
   }
 });
 
-for (const how of ["Escape", "Done"] as const) {
-  test(`${how} leaves select mode with no checkbox and nothing selected (REQ-12, E16)`, async ({
-    page,
-    daemon,
-  }) => {
-    await page.goto(daemon.dashboardUrl);
-    const { sessions, cleanup } = await launchTitled(page, daemon, [
-      `e16-${how}-a1`,
-      `e16-${how}-u1`,
-    ]);
-    try {
-      await createGroupViaApi(page, daemon, "Leave", [sessions[0]?.id ?? -1]);
-      await selectToggle(page).click();
-      await cardCheckbox(page, `e16-${how}-a1`).check();
-      await expect(selectBarCount(page)).toHaveText("1 selected");
-
-      if (how === "Escape") await page.keyboard.press("Escape");
-      else await barButton(page, "Done").click();
-
-      await expect(selectBar(page)).toBeHidden();
-      await expect(selectToggle(page)).toHaveAttribute("aria-pressed", "false");
-      await expect(page.locator("#sessions").getByRole("checkbox")).toHaveCount(0);
-      // Nothing stays selected: the next Select starts from zero.
-      await selectToggle(page).click();
-      await expect(selectBarCount(page)).toHaveText("Select sessions");
-      await expect(cardCheckbox(page, `e16-${how}-a1`)).not.toBeChecked();
-    } finally {
-      await cleanup();
-    }
-  });
-}
-
 test("switching to Tiles leaves select mode, the Tiles strip shows no header, section or checkbox, and coming back shows no checkbox (REQ-12, I7, E16)", async ({
   page,
   daemon,
@@ -765,35 +484,6 @@ test("a bulk Remove where one selected session is already gone reports the parti
     await bulkRemoveDialog(page, 1).getByRole("button", { name: "Remove 1", exact: true }).click();
     await expect(railCard(page, "r27-three")).toHaveCount(0);
     await expect(actionError(page)).toBeHidden();
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a card checkbox, a header checkbox and the All button keep focus and the same node across a render tick after a real key (REQ-12)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["tick12-one", "tick12-two"]);
-  try {
-    await createGroupViaApi(page, daemon, "Tick12", [sessions[0]?.id ?? -1]);
-    await selectToggle(page).click();
-
-    await expectFocusAndNodeSurviveTick(
-      page,
-      cardCheckbox(page, "tick12-two"),
-      "Space",
-      async () => {
-        await expect(cardCheckbox(page, "tick12-two")).toBeChecked();
-      },
-    );
-    await expectFocusAndNodeSurviveTick(page, headerCheckbox(page, "Tick12"), "Space", async () => {
-      await expect(headerCheckbox(page, "Tick12")).toBeChecked();
-    });
-    await expectFocusAndNodeSurviveTick(page, barButton(page, "All"), "Enter", async () => {
-      await expect(selectBarCount(page)).toHaveText("2 selected");
-    });
   } finally {
     await cleanup();
   }

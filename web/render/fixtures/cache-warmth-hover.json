@@ -1,0 +1,930 @@
+{
+  "scenario": "cache-warmth-hover",
+  "hello": {
+    "claudeCode": {
+      "floor": "2.1.246",
+      "installed": "2.1.300",
+      "status": "verified",
+      "verified": "2.1.300"
+    },
+    "daemon": {
+      "version": "0.0.0-renderfix"
+    },
+    "protocolVersion": 2,
+    "type": "hello"
+  },
+  "snapshot": {
+    "claudeTheme": {
+      "family": "unknown"
+    },
+    "groups": [
+      {
+        "collapsed": false,
+        "id": 1,
+        "name": "unknown",
+        "pos": 0
+      },
+      {
+        "collapsed": false,
+        "id": 2,
+        "name": "cold",
+        "pos": 1
+      },
+      {
+        "collapsed": false,
+        "id": 3,
+        "name": "warm",
+        "pos": 2
+      },
+      {
+        "collapsed": false,
+        "id": 4,
+        "name": "Popover",
+        "pos": 3
+      }
+    ],
+    "prefs": {
+      "density": "2x2",
+      "railActivity": "turn",
+      "railDensity": "comfortable",
+      "railSort": "manual",
+      "theme": "follow",
+      "updateCheck": true,
+      "usageModel": "Fable",
+      "view": "focus"
+    },
+    "sessions": [
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-hover-unk-a",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:00:00Z",
+        "directory": "/home/bob/projects/hover-unk-a",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 1,
+        "id": 1,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 11,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "hover-unk-a"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:01:00Z",
+        "title": "hover-unk-a",
+        "titleOverride": null,
+        "tmuxTarget": "muster-1:@1",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-hover-unk-b",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:02:00Z",
+        "directory": "/home/bob/projects/hover-unk-b",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 1,
+        "id": 2,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 12,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "hover-unk-b"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:03:00Z",
+        "title": "hover-unk-b",
+        "titleOverride": null,
+        "tmuxTarget": "muster-2:@2",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-hover-unk-c",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:04:00Z",
+        "directory": "/home/bob/projects/hover-unk-c",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": {
+          "error": "server_error",
+          "message": "API error ended the turn"
+        },
+        "firstLaunchHere": true,
+        "groupId": 1,
+        "id": 3,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 13,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "hover-unk-c"
+        },
+        "state": "failed",
+        "stateSince": "2026-01-01T00:05:00Z",
+        "title": "hover-unk-c",
+        "titleOverride": null,
+        "tmuxTarget": "muster-3:@3",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:00:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-hover-cld-a",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:06:00Z",
+        "directory": "/home/bob/projects/hover-cld-a",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 2,
+        "id": 4,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 14,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "hover-cld-a"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:07:00Z",
+        "title": "hover-cld-a",
+        "titleOverride": null,
+        "tmuxTarget": "muster-4:@4",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": {
+          "reason": "permission",
+          "since": "2026-01-01T00:08:00Z"
+        },
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:00:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-hover-cld-b",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:09:00Z",
+        "directory": "/home/bob/projects/hover-cld-b",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 2,
+        "id": 5,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 15,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "hover-cld-b"
+        },
+        "state": "needs_input",
+        "stateSince": "2026-01-01T00:08:00Z",
+        "title": "hover-cld-b",
+        "titleOverride": null,
+        "tmuxTarget": "muster-5:@5",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-pop-working",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:10:00Z",
+        "directory": "/home/bob/projects/pop-working",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 4,
+        "id": 6,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 20,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "pop-working"
+        },
+        "state": "working",
+        "stateSince": "2026-01-01T00:11:00Z",
+        "title": "pop-working",
+        "titleOverride": null,
+        "tmuxTarget": "muster-6:@6",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-pop-started",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:12:00Z",
+        "directory": "/home/bob/projects/pop-started",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 4,
+        "id": 7,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 21,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "pop-started"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:12:00Z",
+        "title": "pop-started",
+        "titleOverride": null,
+        "tmuxTarget": "muster-7:@7",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:13:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-hover-wrm-a",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:14:00Z",
+        "directory": "/home/bob/projects/hover-wrm-a",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 3,
+        "id": 8,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 16,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "hover-wrm-a"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:15:00Z",
+        "title": "hover-wrm-a",
+        "titleOverride": null,
+        "tmuxTarget": "muster-8:@8",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:16:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-hover-wrm-b",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:17:00Z",
+        "directory": "/home/bob/projects/hover-wrm-b",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": {
+          "error": "server_error",
+          "message": "API error ended the turn"
+        },
+        "firstLaunchHere": true,
+        "groupId": 3,
+        "id": 9,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 17,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "hover-wrm-b"
+        },
+        "state": "failed",
+        "stateSince": "2026-01-01T00:18:00Z",
+        "title": "hover-wrm-b",
+        "titleOverride": null,
+        "tmuxTarget": "muster-9:@9",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:19:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-pop-warm",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:20:00Z",
+        "directory": "/home/bob/projects/pop-warm",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 4,
+        "id": 10,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 18,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "pop-warm"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:21:00Z",
+        "title": "pop-warm",
+        "titleOverride": null,
+        "tmuxTarget": "muster-10:@10",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:22:00Z",
+          "ttlSeconds": 86400
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-pop-cooling",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:23:00Z",
+        "directory": "/home/bob/projects/pop-cooling",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 4,
+        "id": 11,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 19,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "pop-cooling"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:24:00Z",
+        "title": "pop-cooling",
+        "titleOverride": null,
+        "tmuxTarget": "muster-11:@11",
+        "unread": true
+      }
+    ],
+    "shellsBusy": [],
+    "type": "snapshot",
+    "ungrouped": {
+      "collapsed": false,
+      "pos": 4
+    },
+    "update": {
+      "apply": {
+        "error": null,
+        "phase": "idle",
+        "version": null
+      },
+      "available": null,
+      "canCheck": false,
+      "checkedAt": null,
+      "install": "dev",
+      "installed": null,
+      "remedy": null,
+      "running": "renderfix"
+    },
+    "usage": {
+      "fiveHour": {
+        "resetsAt": "2026-01-01T00:25:00Z",
+        "usedPct": 61
+      },
+      "modelScoped": null,
+      "modelScopedAt": null,
+      "modelScopedError": null,
+      "modelScopedSource": "subscription-api",
+      "sampledAt": "2026-01-01T00:26:00Z",
+      "sevenDay": {
+        "resetsAt": "2026-01-01T00:25:00Z",
+        "usedPct": 23
+      },
+      "source": "subscription"
+    }
+  },
+  "repos": [
+    {
+      "branch": "main",
+      "id": 11,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:23:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "pop-cooling",
+      "path": "/home/bob/projects/pop-cooling",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 10,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:20:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "pop-warm",
+      "path": "/home/bob/projects/pop-warm",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 9,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:17:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "hover-wrm-b",
+      "path": "/home/bob/projects/hover-wrm-b",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 8,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:14:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "hover-wrm-a",
+      "path": "/home/bob/projects/hover-wrm-a",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 7,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:12:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "pop-started",
+      "path": "/home/bob/projects/pop-started",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 6,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:10:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "pop-working",
+      "path": "/home/bob/projects/pop-working",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 5,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:09:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "hover-cld-b",
+      "path": "/home/bob/projects/hover-cld-b",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 4,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:06:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "hover-cld-a",
+      "path": "/home/bob/projects/hover-cld-a",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 3,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:04:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "hover-unk-c",
+      "path": "/home/bob/projects/hover-unk-c",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 2,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:02:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "hover-unk-b",
+      "path": "/home/bob/projects/hover-unk-b",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 1,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:00:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "hover-unk-a",
+      "path": "/home/bob/projects/hover-unk-a",
+      "pinned": false
+    }
+  ],
+  "reader": [
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/hover-unk-a",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/hover-unk-b",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 2
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/hover-unk-c",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 3
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/hover-cld-a",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 4
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/hover-cld-b",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 5
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/pop-working",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 6
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/pop-started",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 7
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/hover-wrm-a",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 8
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/hover-wrm-b",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 9
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/pop-warm",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 10
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/pop-cooling",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 11
+    }
+  ]
+}

@@ -1,0 +1,234 @@
+{
+  "scenario": "reader-docs-tiles-2x2",
+  "hello": {
+    "claudeCode": {
+      "floor": "2.1.246",
+      "installed": "2.1.300",
+      "status": "verified",
+      "verified": "2.1.300"
+    },
+    "daemon": {
+      "version": "0.0.0-renderfix"
+    },
+    "protocolVersion": 2,
+    "type": "hello"
+  },
+  "snapshot": {
+    "claudeTheme": {
+      "family": "unknown"
+    },
+    "groups": [],
+    "prefs": {
+      "density": "2x2",
+      "railActivity": "turn",
+      "railDensity": "comfortable",
+      "railSort": "manual",
+      "theme": "follow",
+      "updateCheck": true,
+      "usageModel": "Fable",
+      "view": "tiles"
+    },
+    "sessions": [
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-reader",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:00:00Z",
+        "directory": "/home/bob/projects/reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 1,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 0,
+        "repo": null,
+        "state": "idle",
+        "stateSince": "2026-01-01T00:01:00Z",
+        "title": "reader",
+        "titleOverride": null,
+        "tmuxTarget": "muster-1:@1",
+        "unread": true
+      }
+    ],
+    "shellsBusy": [],
+    "type": "snapshot",
+    "ungrouped": {
+      "collapsed": false,
+      "pos": 0
+    },
+    "update": {
+      "apply": {
+        "error": null,
+        "phase": "idle",
+        "version": null
+      },
+      "available": null,
+      "canCheck": false,
+      "checkedAt": null,
+      "install": "dev",
+      "installed": null,
+      "remedy": null,
+      "running": "renderfix"
+    },
+    "usage": {
+      "fiveHour": null,
+      "modelScoped": null,
+      "modelScopedAt": null,
+      "modelScopedError": null,
+      "modelScopedSource": "subscription-api",
+      "sampledAt": null,
+      "sevenDay": null,
+      "source": "subscription"
+    }
+  },
+  "repos": [
+    {
+      "branch": null,
+      "id": 1,
+      "isGit": false,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:00:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header",
+      "path": "/home/bob/projects/reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header",
+      "pinned": false
+    }
+  ],
+  "reader": [
+    {
+      "files": [
+        {
+          "body": "# TODO\n\n- [ ] one\n",
+          "path": "/home/bob/projects/reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header/TODO.md"
+        },
+        {
+          "body": "# Top\n\n## A very long heading that is far wider than the outline panel can show\n\nBody.\n",
+          "path": "/home/bob/projects/reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header/a-very-long-folder-name-that-overflows-the-nav/a-very-long-file-name-that-overflows-the-nav-panel.md"
+        },
+        {
+          "body": "# ADR X\n\nBody.\n",
+          "path": "/home/bob/projects/reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header/docs/adr/x.md"
+        },
+        {
+          "body": "# Top\n\n## Notes\n\nFirst.\n\n## Notes\n\nSecond.\n",
+          "path": "/home/bob/projects/reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header/dup.md"
+        },
+        {
+          "body": "---\ntags:\n  - a\n  - b\nnotes: |\n  # Not a real heading\n  just text\n---\n# Real Heading\n\nBody text.\n",
+          "path": "/home/bob/projects/reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header/fm-raw.md"
+        },
+        {
+          "body": "---\ntitle: <img src=x onerror=\"window.__fmXss = true\">\nnote: <script>window.__fmXss = true;</script>\n---\n# Heading\n\nBody text.\n",
+          "path": "/home/bob/projects/reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header/fm-unsafe.md"
+        },
+        {
+          "body": "---\nid: reader-plan-located-by-transcript-scan\ntags: [claude-code-format, store]\nstatus: accepted\n---\n# Real Heading\n\nBody text.\n\n## Second Heading\n\nMore text.\n",
+          "path": "/home/bob/projects/reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header/front.md"
+        },
+        {
+          "body": "# GFM\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n- [ ] todo one\n- [x] todo two\n\n```js\nconsole.log('hi');\n```\n",
+          "path": "/home/bob/projects/reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header/gfm.md"
+        },
+        {
+          "body": "# Top\n\nParagraph line 0 of filler text to force a scrollable body.\n\nParagraph line 1 of filler text to force a scrollable body.\n\nParagraph line 2 of filler text to force a scrollable body.\n\nParagraph line 3 of filler text to force a scrollable body.\n\nParagraph line 4 of filler text to force a scrollable body.\n\nParagraph line 5 of filler text to force a scrollable body.\n\nParagraph line 6 of filler text to force a scrollable body.\n\nParagraph line 7 of filler text to force a scrollable body.\n\nParagraph line 8 of filler text to force a scrollable body.\n\nParagraph line 9 of filler text to force a scrollable body.\n\nParagraph line 10 of filler text to force a scrollable body.\n\nParagraph line 11 of filler text to force a scrollable body.\n\nParagraph line 12 of filler text to force a scrollable body.\n\nParagraph line 13 of filler text to force a scrollable body.\n\nParagraph line 14 of filler text to force a scrollable body.\n\nParagraph line 15 of filler text to force a scrollable body.\n\nParagraph line 16 of filler text to force a scrollable body.\n\nParagraph line 17 of filler text to force a scrollable body.\n\nParagraph line 18 of filler text to force a scrollable body.\n\nParagraph line 19 of filler text to force a scrollable body.\n\nParagraph line 20 of filler text to force a scrollable body.\n\nParagraph line 21 of filler text to force a scrollable body.\n\nParagraph line 22 of filler text to force a scrollable body.\n\nParagraph line 23 of filler text to force a scrollable body.\n\nParagraph line 24 of filler text to force a scrollable body.\n\nParagraph line 25 of filler text to force a scrollable body.\n\nParagraph line 26 of filler text to force a scrollable body.\n\nParagraph line 27 of filler text to force a scrollable body.\n\nParagraph line 28 of filler text to force a scrollable body.\n\nParagraph line 29 of filler text to force a scrollable body.\n\nParagraph line 30 of filler text to force a scrollable body.\n\nParagraph line 31 of filler text to force a scrollable body.\n\nParagraph line 32 of filler text to force a scrollable body.\n\nParagraph line 33 of filler text to force a scrollable body.\n\nParagraph line 34 of filler text to force a scrollable body.\n\nParagraph line 35 of filler text to force a scrollable body.\n\nParagraph line 36 of filler text to force a scrollable body.\n\nParagraph line 37 of filler text to force a scrollable body.\n\nParagraph line 38 of filler text to force a scrollable body.\n\nParagraph line 39 of filler text to force a scrollable body.\n\nParagraph line 40 of filler text to force a scrollable body.\n\nParagraph line 41 of filler text to force a scrollable body.\n\nParagraph line 42 of filler text to force a scrollable body.\n\nParagraph line 43 of filler text to force a scrollable body.\n\nParagraph line 44 of filler text to force a scrollable body.\n\nParagraph line 45 of filler text to force a scrollable body.\n\nParagraph line 46 of filler text to force a scrollable body.\n\nParagraph line 47 of filler text to force a scrollable body.\n\nParagraph line 48 of filler text to force a scrollable body.\n\nParagraph line 49 of filler text to force a scrollable body.\n\nParagraph line 50 of filler text to force a scrollable body.\n\nParagraph line 51 of filler text to force a scrollable body.\n\nParagraph line 52 of filler text to force a scrollable body.\n\nParagraph line 53 of filler text to force a scrollable body.\n\nParagraph line 54 of filler text to force a scrollable body.\n\nParagraph line 55 of filler text to force a scrollable body.\n\nParagraph line 56 of filler text to force a scrollable body.\n\nParagraph line 57 of filler text to force a scrollable body.\n\nParagraph line 58 of filler text to force a scrollable body.\n\nParagraph line 59 of filler text to force a scrollable body.\n\nParagraph line 60 of filler text to force a scrollable body.\n\nParagraph line 61 of filler text to force a scrollable body.\n\nParagraph line 62 of filler text to force a scrollable body.\n\nParagraph line 63 of filler text to force a scrollable body.\n\nParagraph line 64 of filler text to force a scrollable body.\n\nParagraph line 65 of filler text to force a scrollable body.\n\nParagraph line 66 of filler text to force a scrollable body.\n\nParagraph line 67 of filler text to force a scrollable body.\n\nParagraph line 68 of filler text to force a scrollable body.\n\nParagraph line 69 of filler text to force a scrollable body.\n\nParagraph line 70 of filler text to force a scrollable body.\n\nParagraph line 71 of filler text to force a scrollable body.\n\nParagraph line 72 of filler text to force a scrollable body.\n\nParagraph line 73 of filler text to force a scrollable body.\n\nParagraph line 74 of filler text to force a scrollable body.\n\nParagraph line 75 of filler text to force a scrollable body.\n\nParagraph line 76 of filler text to force a scrollable body.\n\nParagraph line 77 of filler text to force a scrollable body.\n\nParagraph line 78 of filler text to force a scrollable body.\n\nParagraph line 79 of filler text to force a scrollable body.\n\n## Middle\n\nParagraph line 0 of filler text to force a scrollable body.\n\nParagraph line 1 of filler text to force a scrollable body.\n\nParagraph line 2 of filler text to force a scrollable body.\n\nParagraph line 3 of filler text to force a scrollable body.\n\nParagraph line 4 of filler text to force a scrollable body.\n\nParagraph line 5 of filler text to force a scrollable body.\n\nParagraph line 6 of filler text to force a scrollable body.\n\nParagraph line 7 of filler text to force a scrollable body.\n\nParagraph line 8 of filler text to force a scrollable body.\n\nParagraph line 9 of filler text to force a scrollable body.\n\nParagraph line 10 of filler text to force a scrollable body.\n\nParagraph line 11 of filler text to force a scrollable body.\n\nParagraph line 12 of filler text to force a scrollable body.\n\nParagraph line 13 of filler text to force a scrollable body.\n\nParagraph line 14 of filler text to force a scrollable body.\n\nParagraph line 15 of filler text to force a scrollable body.\n\nParagraph line 16 of filler text to force a scrollable body.\n\nParagraph line 17 of filler text to force a scrollable body.\n\nParagraph line 18 of filler text to force a scrollable body.\n\nParagraph line 19 of filler text to force a scrollable body.\n\nParagraph line 20 of filler text to force a scrollable body.\n\nParagraph line 21 of filler text to force a scrollable body.\n\nParagraph line 22 of filler text to force a scrollable body.\n\nParagraph line 23 of filler text to force a scrollable body.\n\nParagraph line 24 of filler text to force a scrollable body.\n\nParagraph line 25 of filler text to force a scrollable body.\n\nParagraph line 26 of filler text to force a scrollable body.\n\nParagraph line 27 of filler text to force a scrollable body.\n\nParagraph line 28 of filler text to force a scrollable body.\n\nParagraph line 29 of filler text to force a scrollable body.\n\nParagraph line 30 of filler text to force a scrollable body.\n\nParagraph line 31 of filler text to force a scrollable body.\n\nParagraph line 32 of filler text to force a scrollable body.\n\nParagraph line 33 of filler text to force a scrollable body.\n\nParagraph line 34 of filler text to force a scrollable body.\n\nParagraph line 35 of filler text to force a scrollable body.\n\nParagraph line 36 of filler text to force a scrollable body.\n\nParagraph line 37 of filler text to force a scrollable body.\n\nParagraph line 38 of filler text to force a scrollable body.\n\nParagraph line 39 of filler text to force a scrollable body.\n\nParagraph line 40 of filler text to force a scrollable body.\n\nParagraph line 41 of filler text to force a scrollable body.\n\nParagraph line 42 of filler text to force a scrollable body.\n\nParagraph line 43 of filler text to force a scrollable body.\n\nParagraph line 44 of filler text to force a scrollable body.\n\nParagraph line 45 of filler text to force a scrollable body.\n\nParagraph line 46 of filler text to force a scrollable body.\n\nParagraph line 47 of filler text to force a scrollable body.\n\nParagraph line 48 of filler text to force a scrollable body.\n\nParagraph line 49 of filler text to force a scrollable body.\n\nParagraph line 50 of filler text to force a scrollable body.\n\nParagraph line 51 of filler text to force a scrollable body.\n\nParagraph line 52 of filler text to force a scrollable body.\n\nParagraph line 53 of filler text to force a scrollable body.\n\nParagraph line 54 of filler text to force a scrollable body.\n\nParagraph line 55 of filler text to force a scrollable body.\n\nParagraph line 56 of filler text to force a scrollable body.\n\nParagraph line 57 of filler text to force a scrollable body.\n\nParagraph line 58 of filler text to force a scrollable body.\n\nParagraph line 59 of filler text to force a scrollable body.\n\nParagraph line 60 of filler text to force a scrollable body.\n\nParagraph line 61 of filler text to force a scrollable body.\n\nParagraph line 62 of filler text to force a scrollable body.\n\nParagraph line 63 of filler text to force a scrollable body.\n\nParagraph line 64 of filler text to force a scrollable body.\n\nParagraph line 65 of filler text to force a scrollable body.\n\nParagraph line 66 of filler text to force a scrollable body.\n\nParagraph line 67 of filler text to force a scrollable body.\n\nParagraph line 68 of filler text to force a scrollable body.\n\nParagraph line 69 of filler text to force a scrollable body.\n\nParagraph line 70 of filler text to force a scrollable body.\n\nParagraph line 71 of filler text to force a scrollable body.\n\nParagraph line 72 of filler text to force a scrollable body.\n\nParagraph line 73 of filler text to force a scrollable body.\n\nParagraph line 74 of filler text to force a scrollable body.\n\nParagraph line 75 of filler text to force a scrollable body.\n\nParagraph line 76 of filler text to force a scrollable body.\n\nParagraph line 77 of filler text to force a scrollable body.\n\nParagraph line 78 of filler text to force a scrollable body.\n\nParagraph line 79 of filler text to force a scrollable body.\n\n## Bottom\n\nParagraph line 0 of filler text to force a scrollable body.\n\nParagraph line 1 of filler text to force a scrollable body.\n\nParagraph line 2 of filler text to force a scrollable body.\n\nParagraph line 3 of filler text to force a scrollable body.\n\nParagraph line 4 of filler text to force a scrollable body.\n\nParagraph line 5 of filler text to force a scrollable body.\n\nParagraph line 6 of filler text to force a scrollable body.\n\nParagraph line 7 of filler text to force a scrollable body.\n\nParagraph line 8 of filler text to force a scrollable body.\n\nParagraph line 9 of filler text to force a scrollable body.\n\nParagraph line 10 of filler text to force a scrollable body.\n\nParagraph line 11 of filler text to force a scrollable body.\n\nParagraph line 12 of filler text to force a scrollable body.\n\nParagraph line 13 of filler text to force a scrollable body.\n\nParagraph line 14 of filler text to force a scrollable body.\n\nParagraph line 15 of filler text to force a scrollable body.\n\nParagraph line 16 of filler text to force a scrollable body.\n\nParagraph line 17 of filler text to force a scrollable body.\n\nParagraph line 18 of filler text to force a scrollable body.\n\nParagraph line 19 of filler text to force a scrollable body.\n\nParagraph line 20 of filler text to force a scrollable body.\n\nParagraph line 21 of filler text to force a scrollable body.\n\nParagraph line 22 of filler text to force a scrollable body.\n\nParagraph line 23 of filler text to force a scrollable body.\n\nParagraph line 24 of filler text to force a scrollable body.\n\nParagraph line 25 of filler text to force a scrollable body.\n\nParagraph line 26 of filler text to force a scrollable body.\n\nParagraph line 27 of filler text to force a scrollable body.\n\nParagraph line 28 of filler text to force a scrollable body.\n\nParagraph line 29 of filler text to force a scrollable body.\n\nParagraph line 30 of filler text to force a scrollable body.\n\nParagraph line 31 of filler text to force a scrollable body.\n\nParagraph line 32 of filler text to force a scrollable body.\n\nParagraph line 33 of filler text to force a scrollable body.\n\nParagraph line 34 of filler text to force a scrollable body.\n\nParagraph line 35 of filler text to force a scrollable body.\n\nParagraph line 36 of filler text to force a scrollable body.\n\nParagraph line 37 of filler text to force a scrollable body.\n\nParagraph line 38 of filler text to force a scrollable body.\n\nParagraph line 39 of filler text to force a scrollable body.\n\nParagraph line 40 of filler text to force a scrollable body.\n\nParagraph line 41 of filler text to force a scrollable body.\n\nParagraph line 42 of filler text to force a scrollable body.\n\nParagraph line 43 of filler text to force a scrollable body.\n\nParagraph line 44 of filler text to force a scrollable body.\n\nParagraph line 45 of filler text to force a scrollable body.\n\nParagraph line 46 of filler text to force a scrollable body.\n\nParagraph line 47 of filler text to force a scrollable body.\n\nParagraph line 48 of filler text to force a scrollable body.\n\nParagraph line 49 of filler text to force a scrollable body.\n\nParagraph line 50 of filler text to force a scrollable body.\n\nParagraph line 51 of filler text to force a scrollable body.\n\nParagraph line 52 of filler text to force a scrollable body.\n\nParagraph line 53 of filler text to force a scrollable body.\n\nParagraph line 54 of filler text to force a scrollable body.\n\nParagraph line 55 of filler text to force a scrollable body.\n\nParagraph line 56 of filler text to force a scrollable body.\n\nParagraph line 57 of filler text to force a scrollable body.\n\nParagraph line 58 of filler text to force a scrollable body.\n\nParagraph line 59 of filler text to force a scrollable body.\n\nParagraph line 60 of filler text to force a scrollable body.\n\nParagraph line 61 of filler text to force a scrollable body.\n\nParagraph line 62 of filler text to force a scrollable body.\n\nParagraph line 63 of filler text to force a scrollable body.\n\nParagraph line 64 of filler text to force a scrollable body.\n\nParagraph line 65 of filler text to force a scrollable body.\n\nParagraph line 66 of filler text to force a scrollable body.\n\nParagraph line 67 of filler text to force a scrollable body.\n\nParagraph line 68 of filler text to force a scrollable body.\n\nParagraph line 69 of filler text to force a scrollable body.\n\nParagraph line 70 of filler text to force a scrollable body.\n\nParagraph line 71 of filler text to force a scrollable body.\n\nParagraph line 72 of filler text to force a scrollable body.\n\nParagraph line 73 of filler text to force a scrollable body.\n\nParagraph line 74 of filler text to force a scrollable body.\n\nParagraph line 75 of filler text to force a scrollable body.\n\nParagraph line 76 of filler text to force a scrollable body.\n\nParagraph line 77 of filler text to force a scrollable body.\n\nParagraph line 78 of filler text to force a scrollable body.\n\nParagraph line 79 of filler text to force a scrollable body.\n",
+          "path": "/home/bob/projects/reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header/long.md"
+        },
+        {
+          "body": "---\nsolo: value\n---\n",
+          "path": "/home/bob/projects/reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header/only-front.md"
+        },
+        {
+          "body": "# Unsafe\n\n<script>window.__readerXss = true;</script>\n\n<img src=\"x\" onerror=\"window.__readerXss = true\" />\n\n[click me](javascript:window.__readerXss=true)\n",
+          "path": "/home/bob/projects/reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header/unsafe.md"
+        },
+        {
+          "body": "---\nverified_claude_code_version: 2.1.3\nan_extremely_long_frontmatter_key_used_to_test_line_wrapping: value\n---\n# Heading\n\nBody text.\n",
+          "path": "/home/bob/projects/reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header/wide-key.md"
+        }
+      ],
+      "listing": {
+        "directory": "/home/bob/projects/reader-checkout-whose-folder-name-is-long-enough-to-wrap-the-files-header",
+        "files": [
+          {
+            "path": "TODO.md",
+            "writtenAt": null
+          },
+          {
+            "path": "a-very-long-folder-name-that-overflows-the-nav/a-very-long-file-name-that-overflows-the-nav-panel.md",
+            "writtenAt": null
+          },
+          {
+            "path": "docs/adr/x.md",
+            "writtenAt": null
+          },
+          {
+            "path": "dup.md",
+            "writtenAt": null
+          },
+          {
+            "path": "fm-raw.md",
+            "writtenAt": null
+          },
+          {
+            "path": "fm-unsafe.md",
+            "writtenAt": null
+          },
+          {
+            "path": "front.md",
+            "writtenAt": null
+          },
+          {
+            "path": "gfm.md",
+            "writtenAt": null
+          },
+          {
+            "path": "long.md",
+            "writtenAt": null
+          },
+          {
+            "path": "only-front.md",
+            "writtenAt": null
+          },
+          {
+            "path": "unsafe.md",
+            "writtenAt": null
+          },
+          {
+            "path": "wide-key.md",
+            "writtenAt": null
+          }
+        ],
+        "listing": "walk",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    }
+  ]
+}

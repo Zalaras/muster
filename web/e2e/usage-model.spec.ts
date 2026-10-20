@@ -20,7 +20,10 @@ import {
 // is pointed at, and a scratch `-usage-token-file` (helpers/daemon.ts) that stands in
 // for the macOS Keychain. Nothing here launches a real `claude` or touches the real
 // Keychain/api.anthropic.com (CLAUDE.md hard rule; REQ-13/INV-4). Plan acceptance:
-// E1-E7 (E8 is `make e2e` itself, not a spec).
+// E1, E3 to E7 (E8 is `make e2e` itself, not a spec) and the list-restored regression. The
+// readout for a null list (E2), the select's node identity across a render tick and the
+// placeholder for a pref the list lacks are render tests in web/render/usage.spec.ts
+// (re-levelled 2026-10-20, plans/_audit/relevel/usage.md).
 //
 // A distinctive, fixed (never random — deterministic fixtures only) token string so
 // E7/INV-4's log grep has something unambiguous to look for.
@@ -75,35 +78,6 @@ test("with the fake endpoint returning a Fable 61% window, the readout shows the
       "title",
       new RegExp(await clockText(page, resetsInstant)),
     );
-  } finally {
-    await api.stop();
-  }
-});
-
-test("before the first fetch completes, the readout reads unknown with a disabled single-option select and no track markup (E2)", async ({
-  page,
-  startDaemon,
-}) => {
-  const api = await FakeUsageAPI.start();
-  try {
-    // Held before the daemon even starts, so the poller's immediate on-Start fetch
-    // (REQ-1) never completes for the whole test — deterministic, no race against a
-    // poll interval.
-    api.hold();
-    const daemon = await startDaemon({
-      usageApiURL: api.baseURL,
-      usageTokenContent: credentialsFileContent(FAKE_TOKEN),
-    });
-    await page.goto(daemon.dashboardUrl);
-
-    await expect(mastheadModelWeekPercent(page)).toHaveText(/unknown/i);
-    await expect(mastheadModelWeekTrack(page)).toHaveCount(0);
-    await expect(mastheadModelWeekResets(page)).toHaveCount(0);
-    // UI Specifications > States, "No data yet": select still exists, disabled,
-    // single option reading the current pref (default "Fable").
-    await expect(mastheadModelSelect(page)).toBeDisabled();
-    await expect(mastheadModelSelect(page).locator("option")).toHaveCount(1);
-    await expect(mastheadModelSelect(page)).toHaveValue("Fable");
   } finally {
     await api.stop();
   }
@@ -352,55 +326,6 @@ test("a usageModel change in one window re-renders another window's readout via 
 // node instead, waits past a full render tick, and asserts both that focus survived and
 // that the exact same DOM node instance is still in the tree — not merely that *some*
 // select happens to be focused afterwards.
-test("the model select keeps focus and the same node instance across a render tick (Critical 1 regression)", async ({
-  page,
-  startDaemon,
-}) => {
-  const api = await FakeUsageAPI.start();
-  try {
-    api.setResponse(
-      200,
-      weeklyScopedUsageResponse([{ displayName: "Fable", percent: 61, resetsAt: RESETS_AT }]),
-    );
-    const daemon = await startDaemon({
-      usageApiURL: api.baseURL,
-      usageTokenContent: credentialsFileContent(FAKE_TOKEN),
-    });
-    await page.goto(daemon.dashboardUrl);
-    await expect(mastheadModelWeekPercent(page)).toHaveText("61%");
-
-    const select = mastheadModelSelect(page);
-    await select.focus();
-    await expect(select).toBeFocused();
-
-    // Tag the live node itself (not a Playwright-side reference) so that after the
-    // wait below we can tell "this exact node is still attached and focused" apart
-    // from "a freshly-built replacement select that happens to also be focused".
-    await select.evaluate((node) => {
-      (node as HTMLSelectElement & { __e2eTag?: string }).__e2eTag = "original-select";
-    });
-
-    // main.ts's render loop ticks every 1s; wait past more than one full tick. Before
-    // the fix, `renderModelWeek` rebuilt a brand-new <select> unconditionally on
-    // every pass (`el.replaceChildren(select, num)`), which detaches the focused
-    // node — the reviewer measured `document.activeElement` going SELECT -> BODY and
-    // the tagged node vanishing within 1.6s.
-    await settleFor(page, 1600);
-
-    await expect(select).toBeFocused();
-    const stillTagged = await select.evaluate(
-      (node) => (node as HTMLSelectElement & { __e2eTag?: string }).__e2eTag === "original-select",
-    );
-    expect(stillTagged).toBe(true);
-
-    // The steady-state reuse path only touches `select.value`/`select.disabled` in
-    // place (masthead.ts), so the value set before the wait must still read correctly
-    // too — not just "focused", but still the same functioning control.
-    await expect(select).toHaveValue("Fable");
-  } finally {
-    await api.stop();
-  }
-});
 
 // web-implementation.md Fix Attempt 1, Minor 3 fix: a pref naming a model absent from a
 // non-null list used to leave `select.value` unmatched (selectedIndex -1, rendering
@@ -410,53 +335,6 @@ test("the model select keeps focus and the same node instance across a render ti
 // covered by any existing spec (every prior test either never diverges the pref from the
 // list, or exercises the null/empty-list branch, which already had its own single
 // disabled option before this fix).
-test("a usageModel pref naming a model absent from a non-null list shows a disabled placeholder option instead of going blank (Minor 3 fix)", async ({
-  page,
-  startDaemon,
-}) => {
-  const api = await FakeUsageAPI.start();
-  try {
-    api.setResponse(
-      200,
-      weeklyScopedUsageResponse([
-        { displayName: "Fable", percent: 61, resetsAt: RESETS_AT },
-        { displayName: "Opus", percent: 20, resetsAt: RESETS_AT },
-      ]),
-    );
-    const daemon = await startDaemon({
-      usageApiURL: api.baseURL,
-      usageTokenContent: credentialsFileContent(FAKE_TOKEN),
-    });
-    await page.goto(daemon.dashboardUrl);
-    await expect(mastheadModelWeekPercent(page)).toHaveText("61%");
-
-    // Point the pref at a model that is not in the (non-null) list returned above.
-    const putRes = await page.request.put(`${daemon.baseURL}/api/prefs`, {
-      data: { usageModel: "Sonnet" },
-    });
-    expect(putRes.status()).toBe(204);
-
-    // INV-2 still holds: the honest "unknown" reading with zero track markup, even
-    // though the underlying list is non-null and non-empty.
-    await expect(mastheadModelWeekPercent(page)).toHaveText(/unknown/i);
-    await expect(mastheadModelWeekTrack(page)).toHaveCount(0);
-    await expect(mastheadModelWeekResets(page)).toHaveCount(0);
-
-    // The select itself shows the pref name via a prepended, disabled placeholder
-    // option — not a blank control (selectedIndex -1) and not silently falling back
-    // to the first real option.
-    const select = mastheadModelSelect(page);
-    await expect(select).toHaveValue("Sonnet");
-    const options = select.locator("option");
-    await expect(options).toHaveCount(3);
-    await expect(options.nth(0)).toHaveText("Sonnet");
-    await expect(options.nth(0)).toHaveAttribute("disabled", "");
-    await expect(options.nth(1)).toHaveText("Fable");
-    await expect(options.nth(2)).toHaveText("Opus");
-  } finally {
-    await api.stop();
-  }
-});
 
 // review usage-model-bar cycle 2, Major 1 regression test: the node-reuse cache in
 // `renderModelWeek` used to key on the option-*name* sequence alone, so a

@@ -79,3 +79,35 @@ test("(R-smoke) hello: the masthead reads the Claude Code version the fixture's 
     await expect(readout).toContainText(installed);
   }
 });
+
+test("(R-smoke) docs: the docs surface lists the fixture's documents and renders the first one from the recording", async ({
+  page,
+  dashboard,
+}) => {
+  const fixture = await dashboard.open("docs");
+  const [recording] = fixture.reader;
+  if (!recording) throw new Error("the docs fixture carries no reader recording");
+  expect(recording.files.length).toBeGreaterThan(1);
+
+  await sessionCards(page).first().click();
+  await page.getByRole("group", { name: "Surface" }).getByRole("button", { name: "docs" }).click();
+  const reader = page.locator(".reader");
+  await expect(reader).toBeVisible();
+  // A top-level document is its own entry; a nested one sits under its folder's entry,
+  // collapsed, so what is visible for it is the folder.
+  const nav = reader.getByRole("navigation", { name: "Documents" });
+  const listing = recording.listing as { files: { path: string }[] };
+  for (const { path } of listing.files) {
+    const [head] = path.split("/");
+    const entry = path.includes("/") ? `${head}/` : path;
+    await expect(nav.getByRole("button", { name: entry, exact: true })).toBeVisible();
+  }
+  // Nothing opens by itself ("nothing open — pick a file"); opening a top-level document
+  // fetches its recorded bytes, and the rendered body carries the heading from them.
+  const topLevel = listing.files.find((f) => !f.path.includes("/"));
+  const file = recording.files.find((f) => f.path.endsWith(`/${topLevel?.path}`));
+  if (!topLevel || !file) throw new Error("the docs fixture has no top-level document");
+  await nav.getByRole("button", { name: topLevel.path, exact: true }).click();
+  const heading = /^#\s+(.+)$/m.exec(file.body)?.[1];
+  await expect(reader.getByRole("heading", { name: heading ?? "" })).toBeVisible();
+});

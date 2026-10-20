@@ -22,8 +22,10 @@ import {
 } from "./helpers/session";
 
 // REQ-7 through REQ-13, REQ-16, REQ-18 — the kb:anchor/state state machine driven end-to-end through
-// the real ingest endpoints, and the client-side sort. Plan acceptance: E3-E9, W6, W7,
-// W9-W11. One scratch daemon per file via fileDaemon(): every test is title-scoped (its
+// the real ingest endpoints, and the client-side sort. Plan acceptance: E3-E9, W6,
+// W9-W11. W7 (a fresh session's card reads `untitled` and `ctx unknown`) is what the rail shows
+// for a launched, unbound session and moved to the render tier on 2026-10-20:
+// web/render/focus.spec.ts against the `unbound-sessions` fixture (plans/_audit/relevel/focus.md). One scratch daemon per file via fileDaemon(): every test is title-scoped (its
 // own session, its own card, only relative order asserted in the sort test). E10/W12
 // (daemon restart / stale-rail-during-disconnect) is the exception — it restarts, so it
 // takes the test-scoped `daemon` fixture (a fresh daemon of its own) in the block below.
@@ -35,24 +37,6 @@ import {
 // `claude` is ever launched.
 
 const daemon = fileDaemon();
-
-test("a fresh session renders 'untitled' and its context row as ctx unknown (W7)", async ({
-  page,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon().dashboardUrl);
-    const session = await launchSession(page, daemon(), { directory: dir });
-    expect(session.title).toBeNull();
-
-    const card = sessionCard(page, "untitled");
-    await expect(card).toBeVisible();
-    await expect(stateBadge(card)).toHaveText(/started/i);
-    await expect(card.getByText(/ctx\s+unknown/i)).toBeVisible();
-  } finally {
-    await cleanup();
-  }
-});
 
 test("walks started -> working -> idle via SessionStart, turn-activity, then Stop, with lastActivity shown (E3)", async ({
   page,

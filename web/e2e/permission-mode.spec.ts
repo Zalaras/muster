@@ -29,18 +29,10 @@ import {
 // dialog must show the MOST RECENT recent's stored mode — so every test takes the
 // per-test `daemon` fixture (helpers/fixtures.ts); a neighbour's launch would win that
 // ordering on a shared daemon.
-
-// Regression pin (runs live at authoring — REQ-1 only renames labels and adds a fourth
-// radio; the radiogroup's own role and accessible name are the plan's one row explicitly
-// marked "existing aria-label; unchanged" in the Testable UI Elements table).
-test('the "Start in" radiogroup keeps its role and accessible name across the rename (REQ-1 regression)', async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const dialog = await openLaunchDialog(page);
-  await expect(dialog.getByRole("radiogroup", { name: "Start in" })).toBeVisible();
-});
+//
+// The REQ-1 regression pin (the "Start in" radiogroup keeps its role and accessible name
+// across the rename) is folded into the launch dialog's static-layout render test in
+// web/render/launch.spec.ts since 2026-10-20 (plans/_audit/relevel/launch-update.md).
 
 test("picking auto and launching sends permissionMode: auto and seeds the session's latch; re-opening the dialog on that directory shows auto checked (E1, E2)", async ({
   page,

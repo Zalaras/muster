@@ -3,24 +3,15 @@ import { expect, type Page, type ScratchDaemon, settleFor, test } from "./helper
 import { mastheadBucket } from "./helpers/gauges";
 import {
   allMastheadResets,
-  clockText,
   connectionBanner,
   connectionStatus,
   dotColour,
-  epochSeconds,
-  expectedResetsText,
   type HealthSample,
   healthViolations,
-  localDay,
   mastheadBucketResets,
-  nextWeekday,
-  RESETS_OTHER_DAY,
-  RESETS_SAME_DAY,
   recordHealth,
   removedModelReadout,
   resolvedColours,
-  sameDayResetsAt,
-  shortWeekday,
   TITLE_CONNECTED,
   TITLE_CONNECTING,
   TITLE_DOWN,
@@ -39,8 +30,14 @@ import { envelopeOpts, launchSession, scratchDirectory } from "./helpers/session
 // Fixture plan: every test takes the per-test `daemon` fixture. Account usage (the
 // masthead buckets, `usage_sample`) is daemon-global, and the connection tests kill or
 // restart their daemon. The model-week window needs a fake usage endpoint whose port is
-// computed in the test, so its reset assertions live in usage-model.spec.ts and
-// masthead-layout.spec.ts, which already spawn their daemons through `startDaemon`.
+// computed in the test, so its journeys live in usage-model.spec.ts, which spawns its
+// daemons through `startDaemon`.
+//
+// What the suffix and the dot look like for a given state — the `(HH:MM)` / `(HH:MM Ddd)`
+// forms, the hover title, the dot-sized status (REQ-4, REQ-7, REQ-12) — is a render test in
+// web/render/usage.spec.ts (re-levelled 2026-10-20, plans/_audit/relevel/usage.md). The
+// dot's three colours stay here: the render harness has no way to withhold the hello or
+// close the socket, so pending and down are only reachable against a daemon.
 
 /** Launches a session on a fresh daemon, binds it with a SessionStart, and returns what a
  * test needs to post status lines to it. */
@@ -53,144 +50,6 @@ async function boundSession(page: Page, daemon: ScratchDaemon, title: string, cl
   });
   return { session, cleanup };
 }
-
-test("a same-day reset renders as (HH:MM) on both status-line buckets, with no resets word or separator (E1, REQ-4)", async ({
-  page,
-  daemon,
-}) => {
-  const { session, cleanup } = await boundSession(page, daemon, "mi-same-day", "claude-mi-same");
-  try {
-    const resetsAt = sameDayResetsAt();
-    await page.request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull("claude-mi-same", {
-        ...(await envelopeOpts(session, daemon)),
-        fiveHourPct: 45,
-        fiveHourResetsAt: epochSeconds(resetsAt),
-        sevenDayPct: 10,
-        sevenDayResetsAt: epochSeconds(resetsAt),
-      }),
-    });
-
-    await expect(mastheadBucket(page, "5h")).toContainText("45%");
-    const expected = await expectedResetsText(page, resetsAt);
-    expect(expected).toMatch(RESETS_SAME_DAY);
-    await expect(mastheadBucketResets(page, "5h")).toHaveText(expected);
-    await expect(mastheadBucketResets(page, "5h")).toHaveText(RESETS_SAME_DAY);
-    await expect(mastheadBucketResets(page, "7d")).toHaveText(expected);
-    await expect(mastheadBucketResets(page, "7d")).toHaveText(RESETS_SAME_DAY);
-    // No `resets` word and no `·` separator anywhere in either readout.
-    await expect(mastheadBucket(page, "5h")).not.toContainText(/resets|·/i);
-    await expect(mastheadBucket(page, "7d")).not.toContainText(/resets|·/i);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("an other-day reset renders as (HH:MM Ddd), including just after local midnight and a week out on today's weekday (E1, REQ-4, edge cases 3-4)", async ({
-  page,
-  daemon,
-}) => {
-  const { session, cleanup } = await boundSession(page, daemon, "mi-other-day", "claude-mi-other");
-  try {
-    // Tomorrow 00:01 is the day after "now" however close to midnight this runs; a week
-    // out at the same clock time falls on today's own weekday and must still carry it.
-    const justAfterMidnight = localDay(1, 0, 1);
-    const weekOut = localDay(7, 15, 59);
-    await page.request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull("claude-mi-other", {
-        ...(await envelopeOpts(session, daemon)),
-        fiveHourPct: 45,
-        fiveHourResetsAt: epochSeconds(justAfterMidnight),
-        sevenDayPct: 10,
-        sevenDayResetsAt: epochSeconds(weekOut),
-      }),
-    });
-
-    await expect(mastheadBucket(page, "5h")).toContainText("45%");
-    await expect(mastheadBucketResets(page, "5h")).toHaveText(
-      await expectedResetsText(page, justAfterMidnight),
-    );
-    await expect(mastheadBucketResets(page, "5h")).toHaveText(RESETS_OTHER_DAY);
-    await expect(mastheadBucketResets(page, "5h")).toHaveText(
-      new RegExp(`^\\(00:01 ${await shortWeekday(page, justAfterMidnight)}\\)$`),
-    );
-    await expect(mastheadBucketResets(page, "7d")).toHaveText(
-      await expectedResetsText(page, weekOut),
-    );
-    await expect(mastheadBucketResets(page, "7d")).toHaveText(
-      new RegExp(`^\\(15:59 ${await shortWeekday(page, new Date())}\\)$`),
-    );
-    await expect(mastheadBucket(page, "7d")).not.toContainText(/resets|·/i);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a stale resetsAt already in the past renders verbatim in the other-day form (REQ-4, edge case 5)", async ({
-  page,
-  daemon,
-}) => {
-  const { session, cleanup } = await boundSession(page, daemon, "mi-past", "claude-mi-past");
-  try {
-    const past = localDay(-3, 10, 5);
-    await page.request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull("claude-mi-past", {
-        ...(await envelopeOpts(session, daemon)),
-        fiveHourPct: 45,
-        fiveHourResetsAt: epochSeconds(past),
-        sevenDayPct: 10,
-        sevenDayResetsAt: epochSeconds(past),
-      }),
-    });
-
-    await expect(mastheadBucket(page, "5h")).toContainText("45%");
-    const expected = await expectedResetsText(page, past);
-    expect(expected).toMatch(RESETS_OTHER_DAY);
-    await expect(mastheadBucketResets(page, "5h")).toHaveText(expected);
-    await expect(mastheadBucketResets(page, "7d")).toHaveText(expected);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("each reset suffix carries a title with the weekday, date and the HH:MM it shows (E8, REQ-12)", async ({
-  page,
-  daemon,
-}) => {
-  const { session, cleanup } = await boundSession(page, daemon, "mi-title", "claude-mi-title");
-  try {
-    const today = sameDayResetsAt();
-    const later = nextWeekday(3, 20, 8);
-    await page.request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull("claude-mi-title", {
-        ...(await envelopeOpts(session, daemon)),
-        fiveHourPct: 45,
-        fiveHourResetsAt: epochSeconds(today),
-        sevenDayPct: 10,
-        sevenDayResetsAt: epochSeconds(later),
-      }),
-    });
-
-    await expect(mastheadBucket(page, "5h")).toContainText("45%");
-    const todayClock = await clockText(page, today);
-    const laterClock = await clockText(page, later);
-    // A same-day suffix hides the weekday, so its hover is the only place the full date
-    // shows: weekday + date + time, the time being exactly the one on screen.
-    await expect(mastheadBucketResets(page, "5h")).toHaveAttribute("title", new RegExp(todayClock));
-    await expect(mastheadBucketResets(page, "5h")).toHaveAttribute(
-      "title",
-      new RegExp(await shortWeekday(page, today)),
-    );
-    await expect(mastheadBucketResets(page, "7d")).toHaveAttribute("title", new RegExp(laterClock));
-    await expect(mastheadBucketResets(page, "7d")).toHaveAttribute(
-      "title",
-      new RegExp(await shortWeekday(page, later)),
-    );
-    await expect(mastheadBucketResets(page, "7d")).toHaveAttribute("title", /\d{1,2}/);
-  } finally {
-    await cleanup();
-  }
-});
 
 test("a fresh daemon shows unknown buckets with no reset text, and a status post then brings the suffixes in (E3, REQ-5)", async ({
   page,
@@ -565,24 +424,4 @@ test("the dot's pending, ok and down colours are three distinct colours, none of
       expect(dot, `the ${name} dot must not reuse ${token}`).not.toBe(colour);
     }
   }
-});
-
-test("the connection readout is a status whose word is visually hidden, leaving only a dot-sized box (REQ-7)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-
-  const status = page.getByRole("status");
-  await expect(status).toHaveText("connected");
-  await expect(connectionStatus(page)).toHaveAttribute("role", "status");
-  await expect
-    .poll(async () => {
-      const box = await connectionStatus(page).boundingBox();
-      return box === null ? null : Math.max(box.width, box.height);
-    })
-    .toBeLessThanOrEqual(24);
-  // The word is still in the accessibility tree: the dot's title is the only visible text
-  // channel left, and the status keeps announcing the word.
-  await expect(connectionStatus(page)).toHaveAttribute("title", TITLE_CONNECTED);
 });

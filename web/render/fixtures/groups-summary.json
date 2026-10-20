@@ -1,0 +1,816 @@
+{
+  "scenario": "groups-summary",
+  "hello": {
+    "claudeCode": {
+      "floor": "2.1.246",
+      "installed": "2.1.300",
+      "status": "verified",
+      "verified": "2.1.300"
+    },
+    "daemon": {
+      "version": "0.0.0-renderfix"
+    },
+    "protocolVersion": 2,
+    "type": "hello"
+  },
+  "snapshot": {
+    "claudeTheme": {
+      "family": "unknown"
+    },
+    "groups": [
+      {
+        "collapsed": false,
+        "id": 1,
+        "name": "Mixed",
+        "pos": 0
+      },
+      {
+        "collapsed": false,
+        "id": 2,
+        "name": "Hover me",
+        "pos": 1
+      },
+      {
+        "collapsed": false,
+        "id": 3,
+        "name": "Void",
+        "pos": 2
+      }
+    ],
+    "prefs": {
+      "density": "2x2",
+      "railActivity": "turn",
+      "railDensity": "comfortable",
+      "railSort": "manual",
+      "theme": "follow",
+      "updateCheck": true,
+      "usageModel": "Fable",
+      "view": "focus"
+    },
+    "sessions": [
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": {
+          "reason": "permission",
+          "since": "2026-01-01T00:00:00Z"
+        },
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-e8-need",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:01:00Z",
+        "directory": "/home/bob/projects/e8-need",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 1,
+        "id": 1,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 7,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "e8-need"
+        },
+        "state": "needs_input",
+        "stateSince": "2026-01-01T00:00:00Z",
+        "title": "e8-need",
+        "titleOverride": null,
+        "tmuxTarget": "muster-1:@1",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-e8-fail",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:02:00Z",
+        "directory": "/home/bob/projects/e8-fail",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": {
+          "error": "server_error",
+          "message": "API error ended the turn"
+        },
+        "firstLaunchHere": true,
+        "groupId": 1,
+        "id": 2,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 8,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "e8-fail"
+        },
+        "state": "failed",
+        "stateSince": "2026-01-01T00:03:00Z",
+        "title": "e8-fail",
+        "titleOverride": null,
+        "tmuxTarget": "muster-2:@2",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-e8-new",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:04:00Z",
+        "directory": "/home/bob/projects/e8-new",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 1,
+        "id": 3,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 9,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "e8-new"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:04:00Z",
+        "title": "e8-new",
+        "titleOverride": null,
+        "tmuxTarget": "muster-3:@3",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-e8-work1",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:05:00Z",
+        "directory": "/home/bob/projects/e8-work1",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 1,
+        "id": 4,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 10,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "e8-work1"
+        },
+        "state": "working",
+        "stateSince": "2026-01-01T00:06:00Z",
+        "title": "e8-work1",
+        "titleOverride": null,
+        "tmuxTarget": "muster-4:@4",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-e8-work2",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:07:00Z",
+        "directory": "/home/bob/projects/e8-work2",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 1,
+        "id": 5,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 11,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "e8-work2"
+        },
+        "state": "working",
+        "stateSince": "2026-01-01T00:08:00Z",
+        "title": "e8-work2",
+        "titleOverride": null,
+        "tmuxTarget": "muster-5:@5",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-e8-idle",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:09:00Z",
+        "directory": "/home/bob/projects/e8-idle",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 1,
+        "id": 6,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 12,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "e8-idle"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:10:00Z",
+        "title": "e8-idle",
+        "titleOverride": null,
+        "tmuxTarget": "muster-6:@6",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": false,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-e8-dead",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:11:00Z",
+        "directory": "/home/bob/projects/e8-dead",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": "2026-01-01T00:12:00Z",
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 1,
+        "id": 7,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 13,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "e8-dead"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:11:00Z",
+        "title": "e8-dead",
+        "titleOverride": null,
+        "tmuxTarget": "muster-7:@7",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": {
+          "reason": "permission",
+          "since": "2026-01-01T00:13:00Z"
+        },
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-e9-need",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:14:00Z",
+        "directory": "/home/bob/projects/e9-need",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 2,
+        "id": 8,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 17,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "e9-need"
+        },
+        "state": "needs_input",
+        "stateSince": "2026-01-01T00:13:00Z",
+        "title": "e9-need",
+        "titleOverride": null,
+        "tmuxTarget": "muster-8:@8",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-e9-work",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:15:00Z",
+        "directory": "/home/bob/projects/e9-work",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 2,
+        "id": 9,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 18,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "e9-work"
+        },
+        "state": "working",
+        "stateSince": "2026-01-01T00:16:00Z",
+        "title": "e9-work",
+        "titleOverride": null,
+        "tmuxTarget": "muster-9:@9",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-e9-new",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:17:00Z",
+        "directory": "/home/bob/projects/e9-new",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 2,
+        "id": 10,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 19,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "e9-new"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:17:00Z",
+        "title": "e9-new",
+        "titleOverride": null,
+        "tmuxTarget": "muster-10:@10",
+        "unread": false
+      }
+    ],
+    "shellsBusy": [],
+    "type": "snapshot",
+    "ungrouped": {
+      "collapsed": false,
+      "pos": 3
+    },
+    "update": {
+      "apply": {
+        "error": null,
+        "phase": "idle",
+        "version": null
+      },
+      "available": null,
+      "canCheck": false,
+      "checkedAt": null,
+      "install": "dev",
+      "installed": null,
+      "remedy": null,
+      "running": "renderfix"
+    },
+    "usage": {
+      "fiveHour": null,
+      "modelScoped": null,
+      "modelScopedAt": null,
+      "modelScopedError": null,
+      "modelScopedSource": "subscription-api",
+      "sampledAt": null,
+      "sevenDay": null,
+      "source": "subscription"
+    }
+  },
+  "repos": [
+    {
+      "branch": "main",
+      "id": 10,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:17:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "e9-new",
+      "path": "/home/bob/projects/e9-new",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 9,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:15:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "e9-work",
+      "path": "/home/bob/projects/e9-work",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 8,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:14:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "e9-need",
+      "path": "/home/bob/projects/e9-need",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 7,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:11:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "e8-dead",
+      "path": "/home/bob/projects/e8-dead",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 6,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:09:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "e8-idle",
+      "path": "/home/bob/projects/e8-idle",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 5,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:07:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "e8-work2",
+      "path": "/home/bob/projects/e8-work2",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 4,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:05:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "e8-work1",
+      "path": "/home/bob/projects/e8-work1",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 3,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:04:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "e8-new",
+      "path": "/home/bob/projects/e8-new",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 2,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:02:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "e8-fail",
+      "path": "/home/bob/projects/e8-fail",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 1,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:01:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "e8-need",
+      "path": "/home/bob/projects/e8-need",
+      "pinned": false
+    }
+  ],
+  "reader": [
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/e8-need",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/e8-fail",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 2
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/e8-new",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 3
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/e8-work1",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 4
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/e8-work2",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 5
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/e8-idle",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 6
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/e8-dead",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 7
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/e9-need",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 8
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/e9-work",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 9
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/e9-new",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 10
+    }
+  ]
+}

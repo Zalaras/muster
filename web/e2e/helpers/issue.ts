@@ -4,26 +4,13 @@
 // doesn't (the preview `<pre>` has no implicit role; the per-session `<option>`s are
 // left to us). Kept as a shared module since assertions live across several tests in
 // issue-capture.spec.ts.
-import type { Locator, Page } from "@playwright/test";
+import type { Locator } from "@playwright/test";
 
-/** Masthead button — `aria-label="File an issue"` overrides the visible text "Issue"
- * (Testable UI Elements). */
-export function issueButton(page: Page): Locator {
-  return page.getByRole("button", { name: "File an issue" });
-}
-
-/** `#issue-dialog` itself, named via `aria-labelledby="issue-dialog-title"` → "File an
- * issue" — a distinct accessible name from the masthead button's (avoids a locator
- * collision per the plan's own note). */
-export function issueDialog(page: Page): Locator {
-  return page.getByRole("dialog", { name: "File an issue" });
-}
-
-/** Clicks the masthead button and returns the now-open dialog locator. */
-export async function openIssueDialog(page: Page): Promise<Locator> {
-  await issueButton(page).click();
-  return issueDialog(page);
-}
+// The masthead button, the dialog and its opener are pure DOM and live in the render tier's
+// helper (web/render/helpers/issue.ts, where the button's per-view property re-levelled on
+// 2026-10-20 reads them); the journeys here reach them through this re-export. Everything
+// below needs the capture POST the dialog fires on open, which only the daemon answers.
+export { issueButton, issueDialog, openIssueDialog } from "../../render/helpers/issue";
 
 /** Session `<select>` — native `<select>` + `<label for>` gives it the accessible name
  * "Session". */

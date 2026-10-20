@@ -1,8 +1,12 @@
 // Plan see-added-dirs — REQ-1 to REQ-9 (a live session's added directories, read from every
 // status post's `workspace.added_dirs`, show as a `+N` suffix on the Focus header's folder line
 // and in a mouse-hover panel with each directory's folder, branch and path). Plan acceptance
-// E1-E5 and E7; E6 is `make e2e` itself. The daemon, web and Go unit criteria (D*, W*) live in
-// their own suites; the ones with a browser-visible half are repeated here (W2, W4, W5).
+// E1, E3-E5 and E7; E6 is `make e2e` itself. The daemon, web and Go unit criteria (D*, W*)
+// live in their own suites; the one with a browser-visible half the daemon decides is repeated
+// here (W5). What the header and the panel show for a given list — the rows, the ↳ row, the
+// no-data panel, the suffix's drawing beside a long folder name and the panel's placement for
+// 3, 15 and 22 directories (E2, W2, W3, W4, edge case 15) — is a render test in
+// web/render/card-location.spec.ts (re-levelled 2026-10-20, plans/_audit/relevel/misc-core.md).
 //
 // Fixture plan: `daemon` (fresh per test), as the plan's header says — one criterion restarts
 // the daemon and several kill or end sessions. The file passes `repoPoll: "200ms"` through
@@ -22,11 +26,9 @@ import {
   folderLineEndingInPlus,
   headerFolderLine,
   hoverReadout,
-  leaveReadout,
   locationPanel,
   makeSubdirectory,
   type PanelRow,
-  panelGeometry,
   panelPattern,
   postWorkspace,
   scratchSymlinkTo,
@@ -39,10 +41,7 @@ import {
   addSubdirectory,
   cardFolder,
   git,
-  hookMover,
   hoverLines,
-  mainheadFitProblems,
-  mainheadLoc,
   railCardByTitle,
   type ScratchRepo,
   scratchPlainDir,
@@ -74,8 +73,6 @@ import { resolvedCssVar } from "./helpers/theme";
 import { liveTile } from "./helpers/terminal";
 
 test.use({ daemonOptions: { repoPoll: "200ms" } });
-
-const LONG_FOLDER = "long-folder-name-for-wrapping-".repeat(2);
 
 interface AddedDirsSession {
   session: SessionObject;
@@ -298,103 +295,6 @@ test("a relative entry resolves against the launch directory and a symlinked dup
 });
 
 // --- E2: the panel (REQ-7, REQ-9, W2) ---
-
-test("hovering the header readout opens a tooltip listing Location then Added directories · 2 with each folder, branch and path, and moving away closes it (E2, REQ-7, REQ-9, W2)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const repo = await scratchRepo();
-  const first = await scratchRepo();
-  const second = await scratchRepo();
-  await git(second.path, "checkout", "-b", "feature-x");
-  await withDirs([repo, first, second], async () => {
-    await page.goto(daemon.dashboardUrl);
-    const s = await openSession(page, request, daemon, repo, "ad-e2");
-    await s.report([first.path, second.path]);
-    await expect(addedCountSuffix(page)).toHaveText("+2");
-
-    const repoBranch = await branchOf(repo.path);
-    const firstBranch = await branchOf(first.path);
-    await expect
-      .poll(async () =>
-        (await wireAddedDirs(page, daemon, s.session.id)).map((d) => d.repo?.branch),
-      )
-      .toEqual([firstBranch, "feature-x"]);
-
-    // The readout's plain `title` is replaced by the panel (REQ-7, W2).
-    await expect(mainheadLoc(page)).not.toHaveAttribute("title");
-
-    await expectLocationPanel(page, {
-      launch: { folder: repo.name, branch: repoBranch, path: s.session.directory },
-      added: [
-        { folder: first.name, branch: firstBranch, path: first.path },
-        { folder: second.name, branch: "feature-x", path: second.path },
-      ],
-    });
-
-    // Closed on leave, open on hover, and a tooltip that never takes a click, appended to the body.
-    await leaveReadout(page);
-    await expect(locationPanel(page)).toHaveCount(0);
-    await hoverReadout(page);
-    const panel = locationPanel(page);
-    await expect(panel).toBeVisible();
-    await expect(panel).toHaveCSS("pointer-events", "none");
-    expect(await panel.evaluate((el) => el.parentElement === document.body)).toBe(true);
-    await leaveReadout(page);
-    await expect(locationPanel(page)).toHaveCount(0);
-  });
-});
-
-test("a session that has reported no directories has no suffix and a panel showing Location alone, with no title on the readout (E2, REQ-7, W2, States: No data yet)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const repo = await scratchRepo();
-  await withDirs([repo], async () => {
-    await page.goto(daemon.dashboardUrl);
-    const s = await openSession(page, request, daemon, repo, "ad-nodata");
-    const branch = await branchOf(repo.path);
-
-    await expect(headerFolderLine(page)).toHaveText(`${repo.name} /`);
-    await expect(addedCountSuffix(page)).toHaveCount(0);
-    await expect(mainheadLoc(page)).not.toHaveAttribute("title");
-    await expectLocationPanel(page, {
-      launch: { folder: repo.name, branch, path: s.session.directory },
-      added: [],
-    });
-  });
-});
-
-test("while Claude is in an added checkout the panel lists the ↳ row and the added list together (REQ-7, W3)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const repo = await scratchRepo();
-  const first = await scratchRepo();
-  const second = await scratchRepo();
-  await withDirs([repo, first, second], async () => {
-    await page.goto(daemon.dashboardUrl);
-    const s = await openSession(page, request, daemon, repo, "ad-moved");
-    await s.report([first.path, second.path]);
-    await hookMover(request, daemon, s.claudeId)(first.path);
-
-    const repoBranch = await branchOf(repo.path);
-    const firstBranch = await branchOf(first.path);
-    const secondBranch = await branchOf(second.path);
-    await expect(addedCountSuffix(page)).toHaveText("+2");
-    await expectLocationPanel(page, {
-      launch: { folder: repo.name, branch: repoBranch, path: s.session.directory },
-      moved: { folder: first.name, branch: firstBranch, path: first.path },
-      added: [
-        { folder: first.name, branch: firstBranch, path: first.path },
-        { folder: second.name, branch: secondBranch, path: second.path },
-      ],
-    });
-  });
-});
 
 // --- E7 and REQ-5a: the git reading never gates the directory ---
 
@@ -803,89 +703,7 @@ for (const order of ["end-then-start", "start-then-end"] as const) {
   });
 }
 
-// --- W4, W5: layout and the daemon-down state ---
-
-test("a long folder name ellipsizes before the +N suffix, which stays fully visible and the header keeps its fit invariants at every width (W4, REQ-6)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const repo = await scratchRepo(LONG_FOLDER);
-  const first = await scratchRepo();
-  const second = await scratchRepo();
-  await withDirs([repo, first, second], async () => {
-    await page.goto(daemon.dashboardUrl);
-    const s = await openSession(page, request, daemon, repo, "ad-long");
-    await s.report([first.path, second.path]);
-    await expect(addedCountSuffix(page)).toHaveText("+2");
-
-    let ellipsizedAtNarrowest = false;
-    // 600 px is the floor every existing header sweep stops at (`sweepWidths`); below it the
-    // header overflows with no suffix at all (Stop and Remove past the viewport).
-    const widths = [1280, 1024, 768, 600];
-    for (const width of widths) {
-      await page.setViewportSize({ width, height: 800 });
-      await expect
-        .poll(() => suffixProblems(page), { message: `suffix at ${width}px` })
-        .toEqual([]);
-      await expect
-        .poll(() => mainheadFitProblems(page), { message: `header fit at ${width}px` })
-        .toEqual([]);
-      if (width === widths[widths.length - 1]) ellipsizedAtNarrowest = await nameEllipsized(page);
-    }
-    // The checks above only mean something where the name really was cut short.
-    expect(ellipsizedAtNarrowest).toBe(true);
-  });
-});
-
-/**
- * What is wrong with the suffix's drawing right now: it must lie inside the viewport and its own
- * folder line, and be what the pointer meets at its centre and at its right edge — a suffix
- * clipped by the folder line's `overflow: hidden` is a box that exists but is not drawn.
- */
-async function suffixProblems(page: Page): Promise<string[]> {
-  return await page.evaluate(() => {
-    const suffix = document.querySelector<HTMLElement>(
-      "#mainhead .meta .loc .repo .rf > span:last-child",
-    );
-    if (!suffix) return ["the suffix is missing"];
-    const line = suffix.parentElement as HTMLElement;
-    const box = suffix.getBoundingClientRect();
-    const lineBox = line.getBoundingClientRect();
-    const out: string[] = [];
-    if (box.width <= 0) out.push("the suffix has no width");
-    if (box.left < 0 || box.right > document.documentElement.clientWidth + 0.5)
-      out.push(`the suffix ${box.left}-${box.right} is outside the viewport`);
-    if (box.right > lineBox.right + 0.5)
-      out.push(`the suffix ends at ${box.right}, past its folder line at ${lineBox.right}`);
-    const y = box.top + box.height / 2;
-    for (const [label, x] of [
-      ["centre", box.left + box.width / 2],
-      ["right edge", box.right - 1],
-    ] as const) {
-      const hit = document.elementFromPoint(x, y);
-      if (!hit || !suffix.contains(hit))
-        out.push(`the pointer at the suffix's ${label} meets something else`);
-    }
-    return out;
-  });
-}
-
-/** Whether the folder name (anything in the folder line but the suffix) is cut with an ellipsis. */
-async function nameEllipsized(page: Page): Promise<boolean> {
-  return await page.evaluate(() => {
-    const suffix = document.querySelector<HTMLElement>(
-      "#mainhead .meta .loc .repo .rf > span:last-child",
-    );
-    const line = suffix?.parentElement;
-    if (!suffix || !line) return false;
-    return [line, ...line.querySelectorAll<HTMLElement>("*")]
-      .filter((el) => el !== suffix && !suffix.contains(el))
-      .some(
-        (el) => getComputedStyle(el).textOverflow === "ellipsis" && el.scrollWidth > el.clientWidth,
-      );
-  });
-}
+// --- W5: the daemon-down state ---
 
 test("with the daemon down the panel still opens on hover with the last-known directories and branches (W5, REQ-7, edge case 16)", async ({
   page,
@@ -1076,109 +894,4 @@ test("an added subdirectory of an ordinary checkout reads isWorktree false and o
         },
       ]);
   });
-});
-
-// --- Edge case 15, as amended (decisions/location-panel-overflow, outcome B): the panel lists
-// every directory; past what fits below the readout it moves to the top of the viewport. ---
-
-/** Plain directories keep the rows quick to make; each path is long enough to wrap in the panel. */
-async function plainDirs(n: number): Promise<ScratchRepo[]> {
-  const dirs: ScratchRepo[] = [];
-  for (let i = 0; i < n; i += 1) dirs.push(await scratchPlainDir());
-  return dirs;
-}
-
-type Geometry = Awaited<ReturnType<typeof panelGeometry>>;
-
-/** Opens the panel on a session holding `n` added directories and returns its geometry. */
-async function openPanelWithDirs(
-  page: Page,
-  request: APIRequestContext,
-  daemon: ScratchDaemon,
-  title: string,
-  n: number,
-): Promise<Geometry> {
-  await page.setViewportSize({ width: 1280, height: 800 });
-  const repo = await scratchRepo();
-  const dirs = await plainDirs(n);
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const s = await openSession(page, request, daemon, repo, title);
-    await s.report(dirs.map((d) => d.path));
-    await expect(addedCountSuffix(page)).toHaveText(`+${n}`);
-    const expected = {
-      launch: {
-        folder: repo.name,
-        branch: await branchOf(repo.path),
-        path: s.session.directory,
-      },
-      added: dirs.map((d) => ({ folder: d.name, branch: null, path: d.path })),
-    };
-    let geometry: Geometry | undefined;
-    await expect(async () => {
-      await hoverReadout(page);
-      // Every directory, in wire order, and nothing after the last one.
-      await expect(locationPanel(page)).toHaveText(panelPattern(expected), { timeout: 2_000 });
-      geometry = await panelGeometry(page);
-    }).toPass({ timeout: 15_000 });
-    await expect(locationPanel(page)).not.toContainText(/\+\s*\d+\s*more/i);
-    await expect(locationPanel(page).locator(".dr")).toHaveCount(n + 1);
-    if (geometry === undefined) throw new Error("the panel was never measured");
-    return geometry;
-  } finally {
-    await repo.cleanup();
-    for (const d of dirs) await d.cleanup();
-  }
-}
-
-const EDGE_GAP = 8;
-const ANCHOR_GAP = 4;
-
-test("a few added directories fit below the readout, so the panel sits under it inside the viewport (edge case 15, REQ-7)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const g = await openPanelWithDirs(page, request, daemon, "ad-fits", 3);
-  // The rows fit below the readout, so the panel is placed there: under it, not over it.
-  expect(g.readout.bottom + ANCHOR_GAP + g.panel.height).toBeLessThanOrEqual(
-    g.viewportHeight - EDGE_GAP,
-  );
-  expect(g.panel.top).toBeGreaterThanOrEqual(g.readout.bottom);
-  expect(g.panel.bottom).toBeLessThanOrEqual(g.viewportHeight);
-  for (const row of g.rows) expect(row.bottom).toBeLessThanOrEqual(g.viewportHeight);
-});
-
-test("fifteen added directories do not fit below the readout, so the panel moves to the top of the viewport and still shows every row inside it (edge case 15, REQ-7, kb:adr/focus-location-panel-lists-every-row)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const g = await openPanelWithDirs(page, request, daemon, "ad-flips", 15);
-  // Not vacuous: the panel really is too tall for the room under the readout.
-  expect(g.readout.bottom + ANCHOR_GAP + g.panel.height).toBeGreaterThan(
-    g.viewportHeight - EDGE_GAP,
-  );
-  // It moved to the top edge rather than staying below, and nothing runs off the bottom.
-  expect(g.panel.top).toBeCloseTo(EDGE_GAP, 0);
-  expect(g.panel.top).toBeLessThan(g.readout.top);
-  expect(g.panel.bottom).toBeLessThanOrEqual(g.viewportHeight);
-  expect(g.rows).toHaveLength(16);
-  for (const row of g.rows) {
-    expect(row.top).toBeGreaterThanOrEqual(0);
-    expect(row.bottom).toBeLessThanOrEqual(g.viewportHeight);
-  }
-});
-
-test("twenty-two added directories are all listed in the panel, none capped and no +K more line (edge case 15, kb:adr/focus-location-panel-lists-every-row)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  // Past the viewport the lower rows drop off the screen, a recorded limit; what is asserted
-  // is that the panel still holds every directory (`openPanelWithDirs` matches all 22 rows in
-  // order, counts 23 `.dr` and rejects a `+K more` line).
-  const g = await openPanelWithDirs(page, request, daemon, "ad-many", 22);
-  expect(g.rows).toHaveLength(23);
-  expect(g.panel.top).toBeCloseTo(EDGE_GAP, 0);
 });

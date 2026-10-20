@@ -7,7 +7,7 @@ summary: The masthead never wraps its text; below 1840px its gaps tighten and ba
 features: [usage]
 tags: [ux]
 files: [web/src/style.css, web/src/render/masthead.ts]
-tests: [web/e2e/masthead-layout.spec.ts]
+tests: [web/render/usage.spec.ts]
 refs: [https://github.com/Zalaras/muster/issues/52, kb:adr/nongoal-ui-scaling-delegated-to-browser-zoom, kb:adr/usage-masthead-one-selectable-model-window, docs/design/design-system.md]
 supersedes: []
 ---

@@ -10,38 +10,19 @@
 // `shellActivityIndicator`, not this file, which owns only the pre-existing pip locator's
 // removal per that plan's Affected Files).
 import type { Locator, Page, WebSocket } from "@playwright/test";
-import { liveTileById } from "./terminal";
 
-// Plan markdown-viewing REQ-1: the segment gains a third `docs` kind (`claude | shell |
-// docs`) rendered by the same component in both hosts — `mainheadSurfaceButton` and
-// `tileSurfaceButton` below already take `kind: SurfaceKind` generically (a plain
-// `getByRole("button", { name: kind, exact: true })`), so widening this union is the
-// only change this file needs to make "docs" locatable through the same helpers.
-export type SurfaceKind = "claude" | "shell" | "docs";
-
-/** The Focus mainhead's segmented group (Testable UI Elements: `role="group"
- * aria-label="Surface"`, `.mainhead .surfseg`). */
-export function mainheadSurfaceGroup(page: Page): Locator {
-  return page.locator(".mainhead .surfseg");
-}
-
-/** One of the mainhead's two segment buttons, by exact accessible name. */
-export function mainheadSurfaceButton(page: Page, kind: SurfaceKind): Locator {
-  return mainheadSurfaceGroup(page).getByRole("button", { name: kind, exact: true });
-}
-
-/** A tile's segmented group, scoped by `data-session-id` (`liveTileById`) rather than
- * title text — the same disambiguation `helpers/session.ts`'s `tileRenameButton` and
- * `helpers/terminal.ts`'s `tileDragHandleById` already need, since every tile's footer
- * carries identically-named `claude`/`shell` buttons. */
-export function tileSurfaceGroup(page: Page, sessionId: number): Locator {
-  return liveTileById(page, sessionId).locator(".tfoot .acts .surfseg");
-}
-
-/** One of a tile's two segment buttons, by exact accessible name. */
-export function tileSurfaceButton(page: Page, sessionId: number, kind: SurfaceKind): Locator {
-  return tileSurfaceGroup(page, sessionId).getByRole("button", { name: kind, exact: true });
-}
+// The segmented control in both hosts and the shell surface's container are pure DOM and
+// live in the render tier's helper (web/render/helpers/surfaces.ts, where the shell
+// indicator's display properties re-levelled on 2026-10-20 read them); the journeys here
+// reach them through this re-export.
+export {
+  mainheadSurfaceButton,
+  mainheadSurfaceGroup,
+  shellSurfaceRegion,
+  type SurfaceKind,
+  tileSurfaceButton,
+  tileSurfaceGroup,
+} from "../../render/helpers/surfaces";
 
 /**
  * Review Major 1: a dead surface's own `role="status"` notice (`.terminal-notice`,
@@ -56,15 +37,6 @@ export function tileSurfaceButton(page: Page, sessionId: number, kind: SurfaceKi
  */
 export function deadSurfaceNotice(deadSurfaceRoot: Locator): Locator {
   return deadSurfaceRoot.locator(".terminal-notice");
-}
-
-/**
- * The shell surface's container, per the Testable UI Elements row: same
- * `.terminal-surface` component as the Claude pane, `aria-label="Shell: <title>"`
- * (distinct prefix from `helpers/terminal.ts`'s `terminalRegion`'s `"Terminal: "`).
- */
-export function shellSurfaceRegion(page: Page, title: string): Locator {
-  return page.locator(`[aria-label="Shell: ${title}"]`);
 }
 
 /**

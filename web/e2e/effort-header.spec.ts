@@ -1,5 +1,4 @@
 import {
-  amberHueBand,
   computed,
   deleteWarning,
   type EffortSession,
@@ -9,7 +8,6 @@ import {
   focusSession,
   headerEff,
   headerModel,
-  hueOf,
   launchBound,
   OPUS_5_5,
   postEffort,
@@ -25,25 +23,20 @@ import {
 import { expect, type Page, settleFor, test } from "./helpers/fixtures";
 import { focusedNode, headerButton, tagNode } from "./helpers/focus-header";
 import { envelopedSessionStart } from "./helpers/payloads";
-import {
-  envelopeOpts,
-  findSession,
-  getState,
-  launchSession,
-  scratchDirectory,
-} from "./helpers/session";
-import {
-  htmlTheme,
-  openSettingsDialog,
-  settingsCloseButton,
-  themeRadio,
-  type ThemeRadioLabel,
-} from "./helpers/theme";
+import { envelopeOpts, findSession, getState } from "./helpers/session";
 import { activeElementInsideTerminal, terminalRegion } from "./helpers/terminal";
 
 // Plan effort — the header half: the bracketed effort after the model, the launch-mismatch warning
 // strip, its Dismiss, and the Resume button's effort. Acceptance E5 to E15 and E17 with REQ-5 to
 // REQ-10, REQ-12, REQ-13 and INV-E1 to INV-E6.
+//
+// The journeys: a later post changing the header, Dismiss and its DELETE round-trip, the warning
+// across reloads, restarts, a /clear rebind and a killed daemon, the size note's rows, and the
+// Resume button's `--effort`. What the header shows for a given state — the unreported `(…)` and
+// the bracketless dead model (E5, E6), the clamped and the no-effort strips (E8, E9), the strip's
+// geometry, its wrap at five widths and the --warn family per theme (REQ-12) — moved to the render
+// tier on 2026-10-20: web/render/focus.spec.ts against the `effort-header` and `effort-warned-*`
+// fixtures (plans/_audit/relevel/focus.md).
 //
 // Daemon shape (the plan's Fixture plan header): every test takes the per-test `daemon` fixture —
 // the warning-survives-restart criterion restarts the daemon and the daemon-down one kills it.
@@ -54,8 +47,6 @@ import { activeElementInsideTerminal, terminalRegion } from "./helpers/terminal"
 
 const clamped = (requested: string, model: string, actual: string) =>
   `Asked for ${requested} — ${model} started at ${actual}.`;
-const noEffort = (requested: string, model: string) =>
-  `Asked for ${requested} — ${model} has no effort setting, so it started without one.`;
 
 /** A session launched at `max` on Opus 4.5 whose first post reported `high`: the clamped warning. */
 async function warnedSession(
@@ -71,43 +62,6 @@ async function warnedSession(
 }
 
 // --- the bracketed effort (REQ-5, REQ-6) ---
-
-test("a launched session with no status post yet reads <model> (…), a dead one that never reported reads the model with no brackets (REQ-6, E5, E6)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const dir = await scratchDirectory("muster-e2e-effort-nopost-");
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
-      directory: dir.path,
-      title: "effort-no-post",
-      model: "sonnet",
-    });
-    await focusSession(page, "effort-no-post");
-
-    // E5: no hook and no status post at all.
-    await expect(headerModel(page)).toHaveText("sonnet (…)");
-    expect(await effText(page)).toBe(" (…)");
-    expect((await wireEffort(page, daemon, session.id)).effort).toBeNull();
-
-    // A bound session that has still posted no status line reads the same.
-    await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-effort-no-post", await envelopeOpts(session, daemon)),
-    });
-    await expect(headerModel(page)).toHaveText(/\(…\)$/);
-
-    // E6: it ends before any report — no brackets.
-    await endSession(page, daemon, session.id);
-    await expect(page.locator("#mainhead .meta .ended-at")).toBeVisible();
-    await expect(headerEff(page)).toHaveCount(0);
-    await expect(headerModel(page)).toHaveText(/^[^(]+$/);
-    expect((await wireEffort(page, daemon, session.id)).effort).toBeNull();
-  } finally {
-    await dir.cleanup();
-  }
-});
 
 test("a later post with another level changes the header to it with no strip, and a post with no effort key drops the brackets and reads {level: null}, never null (REQ-5, REQ-6, E7, INV-E4)", async ({
   page,
@@ -250,97 +204,6 @@ test("effort survives Stop, a /clear rebind and a daemon restart: a dead session
 });
 
 // --- the launch-mismatch warning (REQ-7, REQ-8) ---
-
-test("a launch with max whose first post reports high shows the strip 'Asked for max — Opus 4.5 started at high.' under the header and tints the effort warn (REQ-7, REQ-8, E8, INV-E1)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const s = await launchBound(
-    page,
-    request,
-    daemon,
-    { title: "effort-clamped", model: "opus", effort: "max" },
-    { bindModel: null },
-  );
-  await expect(headerModel(page)).toHaveText("opus (…)");
-  await expect(effortStrip(page)).toHaveCount(0);
-
-  await postEffort(request, daemon, s.session, s.claudeId, { level: "high" });
-
-  await expect(headerModel(page)).toHaveText("Opus 4.5 (high)");
-  await expect.poll(() => stripSentence(page)).toBe(clamped("max", "Opus 4.5", "high"));
-  await expect(effortStrip(page).locator("b")).toHaveText(["max", "high"]);
-  await expect(headerEff(page)).toHaveClass(/\bwarn\b/);
-  expect(await wireEffort(page, daemon, s.session.id)).toEqual({
-    effort: { level: "high" },
-    effortWarning: { requested: "max", actual: "high", model: "Opus 4.5" },
-  });
-
-  // The tint is the --warn token itself, the strip sits on --warn-bg in --warn-fg.
-  await expect
-    .poll(() => computed(headerEff(page), "color"))
-    .toBe(await tokenColour(page, "--warn"));
-  await expect
-    .poll(() => computed(effortStrip(page), "background-color"))
-    .toBe(await tokenColour(page, "--warn-bg"));
-  await expect
-    .poll(() => computed(effortStrip(page), "color"))
-    .toBe(await tokenColour(page, "--warn-fg"));
-  await expect
-    .poll(() => computed(effortStrip(page), "border-bottom-color"))
-    .toBe(await tokenColour(page, "--warn-line"));
-});
-
-test("the strip is a full-width status line directly under the header and above the terminal, with the ⚠ glyph hidden from the accessible tree and Dismiss on its right (REQ-8)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  await warnedSession(page, request, daemon, "effort-strip-shape");
-
-  const strip = effortStrip(page);
-  const [head, box, slot] = await Promise.all([
-    page.locator("#mainhead").boundingBox(),
-    strip.boundingBox(),
-    page.locator("#main-terminal-slot").boundingBox(),
-  ]);
-  if (!head || !box || !slot)
-    throw new Error("expected the header, the strip and the slot to be laid out");
-  expect(box.y).toBeGreaterThanOrEqual(head.y + head.height - 1);
-  expect(box.y + box.height).toBeLessThanOrEqual(slot.y + 1);
-  expect(box.width).toBeGreaterThanOrEqual(head.width - 2);
-
-  await expect(strip.locator("[aria-hidden]")).toContainText("⚠");
-  const dismiss = await stripDismiss(page).boundingBox();
-  if (!dismiss) throw new Error("expected Dismiss to be laid out");
-  expect(dismiss.x + dismiss.width).toBeGreaterThan(box.x + box.width * 0.7);
-});
-
-test("a launch with high whose first post carries no effort key shows the strip ending 'has no effort setting, so it started without one.' and the model with no brackets (REQ-7, REQ-8, E9)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const s = await launchBound(page, request, daemon, {
-    title: "effort-none",
-    model: "haiku",
-    effort: "high",
-  });
-
-  await postEffort(request, daemon, s.session, s.claudeId, { level: null });
-
-  await expect(headerModel(page)).toHaveText("Haiku 4.5");
-  await expect(headerEff(page)).toHaveCount(0);
-  await expect.poll(() => stripSentence(page)).toBe(noEffort("high", "Haiku 4.5"));
-  expect(await wireEffort(page, daemon, s.session.id)).toEqual({
-    effort: { level: null },
-    effortWarning: { requested: "high", actual: null, model: "Haiku 4.5" },
-  });
-});
 
 test("a launch whose first post reports the level it asked for shows no strip, and a later post at another level never raises one (REQ-7, E10, INV-E2)", async ({
   page,
@@ -865,108 +728,6 @@ test("the strip belongs to the Focus view only: Tiles shows none, and Focus show
   await expect(effortStrip(page)).toHaveCount(1);
   await expect(headerEff(page)).toHaveClass(/\bwarn\b/);
 });
-
-// The plan's 316px is the header's own width (the `@container (width < 316px)` rule), and the
-// rail beside it is a fixed 300px, so the narrowest header the plan names is a 616px window. The
-// 600px window (a 300px header) is the narrowest the existing header sweeps use.
-const RAIL_PX = 300;
-for (const width of [1280, 800, 700, 616, 600]) {
-  test(`at ${width}px the strip wraps inside the window with Dismiss in view, and the model with its bracketed effort is never clipped (REQ-6, REQ-8)`, async ({
-    page,
-    request,
-    daemon,
-  }) => {
-    await page.setViewportSize({ width, height: 800 });
-    await page.goto(daemon.dashboardUrl);
-    await warnedSession(
-      page,
-      request,
-      daemon,
-      "effort-width-with-a-rather-long-title-to-crowd-the-header",
-    );
-    await expect
-      .poll(async () => (await page.locator("#mainhead").boundingBox())?.width ?? 0, {
-        message: "the header is the window less the fixed rail",
-      })
-      .toBeGreaterThanOrEqual(width - RAIL_PX - 1);
-
-    const dismiss = stripDismiss(page);
-    await expect(dismiss).toBeVisible();
-    await expect
-      .poll(
-        async () => {
-          const box = await dismiss.boundingBox();
-          return box !== null && box.x >= 0 && box.x + box.width <= width;
-        },
-        { message: "Dismiss sits fully inside the window" },
-      )
-      .toBe(true);
-    const strip = await effortStrip(page).evaluate((el) => ({
-      scrollWidth: el.scrollWidth,
-      clientWidth: el.clientWidth,
-    }));
-    expect(strip.scrollWidth).toBeLessThanOrEqual(strip.clientWidth);
-
-    const model = await headerModel(page).evaluate((el) => {
-      const eff = el.querySelector(".eff");
-      return {
-        scrollWidth: el.scrollWidth,
-        clientWidth: el.clientWidth,
-        effRight: eff?.getBoundingClientRect().right ?? Number.POSITIVE_INFINITY,
-        modelRight: el.getBoundingClientRect().right,
-      };
-    });
-    expect(model.scrollWidth).toBeLessThanOrEqual(model.clientWidth);
-    expect(model.effRight).toBeLessThanOrEqual(model.modelRight + 0.5);
-    expect(model.effRight).toBeLessThanOrEqual(width);
-  });
-}
-
-for (const [label, data] of [
-  ["Instrument", "instrument"],
-  ["Dark", "dark"],
-  ["Light", "light"],
-] as [ThemeRadioLabel, string][]) {
-  test(`in the ${label} theme the --warn family is defined, --warn sits outside amber's hue band, and the strip and the tint use it (REQ-12, REQ-8)`, async ({
-    page,
-    request,
-    daemon,
-  }) => {
-    await page.goto(daemon.dashboardUrl);
-    await warnedSession(page, request, daemon, "effort-theme");
-    const dialog = await openSettingsDialog(page);
-    await themeRadio(dialog, label).check();
-    await expect.poll(() => htmlTheme(page)).toBe(data);
-    await settingsCloseButton(dialog).click();
-    await expect(dialog).toBeHidden();
-
-    for (const token of ["--warn", "--warn-bg", "--warn-line", "--warn-fg"]) {
-      const value = await page.evaluate(
-        (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim(),
-        token,
-      );
-      expect(value, `${token} is defined in the ${label} theme`).not.toBe("");
-    }
-
-    const warn = await tokenColour(page, "--warn");
-    const amber = await tokenColour(page, "--amber");
-    expect(warn).not.toBe(amber);
-    const band = await amberHueBand();
-    const hue = hueOf(warn);
-    expect(
-      hue >= band.min && hue <= band.max,
-      `--warn hue ${hue.toFixed(1)}deg is inside amber's band [${band.min}, ${band.max}]`,
-    ).toBe(false);
-
-    await expect.poll(() => computed(headerEff(page), "color")).toBe(warn);
-    await expect
-      .poll(() => computed(effortStrip(page), "background-color"))
-      .toBe(await tokenColour(page, "--warn-bg"));
-    await expect
-      .poll(() => computed(effortStrip(page), "color"))
-      .toBe(await tokenColour(page, "--warn-fg"));
-  });
-}
 
 // --- the Resume button (REQ-10, E15, E17) ---
 

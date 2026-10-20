@@ -7,7 +7,7 @@ summary: Muster-owned session title override, inline rename in the mainhead and 
 features: [rename]
 tags: [ux]
 go: [internal/server/rename*.go, internal/server/title_test.go, internal/session/title*.go, internal/claudecode/promptreply*.go]
-web: [web/src/features/rename.ts, web/src/render/rename.ts, web/src/sessions/rename*.ts]
+web: [web/src/features/rename.ts, web/src/render/rename.ts, web/src/sessions/rename*.ts, web/render/rename.spec.ts, web/render/helpers/rename.ts]
 e2e: [web/e2e/rename.spec.ts]
 protocol: [sessions.title]
 refs: [kb:adr/rename-title-from-status-line-session-name, kb:adr/rename-muster-owned-title-override-wins, kb:adr/views-active-segment-click-commits-rename, kb:adr/rename-pushed-to-claude-once, kb:adr/rename-claude-change-after-delivery-clears-override, kb:fact/session-name-uniqueness-flagged, kb:fact/name-flag-reaches-title, kb:fact/status-session-name-source]

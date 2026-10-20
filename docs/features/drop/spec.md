@@ -7,7 +7,7 @@ summary: File drop pastes the original on-disk path into the pane.
 features: [drop]
 tags: [ux]
 go: [internal/server/locate*.go, internal/locate/**]
-web: [web/src/render/dropguard*.ts, web/src/terminal/drop*.ts]
+web: [web/src/render/dropguard*.ts, web/src/terminal/drop*.ts, web/render/drop.spec.ts, web/render/helpers/drop.ts]
 e2e: [web/e2e/drop.spec.ts, web/e2e/helpers/dropfiles.ts]
 protocol: [sessions.locate]
 refs: [kb:adr/drop-daemon-locates-original-never-stages, kb:adr/drop-reorder-drag-mime-custom-type]

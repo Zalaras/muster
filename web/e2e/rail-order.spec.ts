@@ -23,7 +23,6 @@ import {
   railCard,
   railOrderIds,
   railSortSelect,
-  stripOrderIds,
 } from "./helpers/railorder";
 
 // Plan order-sidebar — REQ-1 through REQ-15 (Must Have) plus REQ-16/17 (Should Have),
@@ -385,27 +384,6 @@ test("switching to Attention resorts unpinned cards by need while the pinned blo
   }
 });
 
-test("rail cards are draggable in both sort modes", async ({ page, daemon }) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["order-e11-a", "order-e11-b"]);
-  try {
-    if (sessions.length !== 2) throw new Error("expected 2 sessions");
-    await expect(railCard(page, "order-e11-a")).toHaveAttribute("draggable", "true");
-    await expect(railCard(page, "order-e11-b")).toHaveAttribute("draggable", "true");
-
-    await railSortSelect(page).selectOption("attention");
-    await expect(railSortSelect(page)).toHaveValue("attention");
-    await expect(railCard(page, "order-e11-a")).toHaveAttribute("draggable", "true");
-    await expect(railCard(page, "order-e11-b")).toHaveAttribute("draggable", "true");
-
-    await railSortSelect(page).selectOption("manual");
-    await expect(railCard(page, "order-e11-a")).toHaveAttribute("draggable", "true");
-    await expect(railCard(page, "order-e11-b")).toHaveAttribute("draggable", "true");
-  } finally {
-    await cleanup();
-  }
-});
-
 test("the Attention selection persists after a reload (E12)", async ({ page, daemon }) => {
   await page.goto(daemon.dashboardUrl);
   const { cleanup } = await launchTitled(page, daemon, ["order-e12-a", "order-e12-b"]);
@@ -454,34 +432,6 @@ test("a second window sees a pin and a reorder without reloading (E13)", async (
     } finally {
       await contextB.close();
     }
-  } finally {
-    await cleanup();
-  }
-});
-
-test("the Tiles strip order matches the rail order minus live tiles (E14)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const titles = Array.from({ length: 6 }, (_, i) => `order-e14-${i}`);
-  const { sessions, cleanup } = await launchTitled(page, daemon, titles);
-  try {
-    await expect.poll(() => railOrderIds(page)).toEqual(sessions.map((s) => s.id));
-    const railBefore = await railOrderIds(page);
-
-    await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
-
-    const strippedIds = new Set<number>();
-    for (const [i, s] of sessions.entries()) {
-      const title = titles[i] ?? "";
-      if ((await liveTile(page, title).count()) === 0) strippedIds.add(s.id);
-    }
-    expect(strippedIds.size).toBe(2); // 6 sessions, 2x2 grid -> 4 live, 2 stripped
-
-    const expectedStrip = railBefore.filter((id) => strippedIds.has(id));
-    await expect.poll(() => stripOrderIds(page)).toEqual(expectedStrip);
   } finally {
     await cleanup();
   }
@@ -584,124 +534,12 @@ test("pinning from the Tiles strip pins the session the same as the rail (REQ-13
   }
 });
 
-test("the pin button is hidden until hover/focus reveals it, but always visible once pinned (REQ-8)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { cleanup } = await launchTitled(page, daemon, ["order-hover-a"]);
-  try {
-    const card = railCard(page, "order-hover-a");
-    const pin = pinButton(card);
-
-    // Playwright's actionability model treats opacity:0 as visible, so the check must
-    // read the computed style directly (m4-reconcile precedent, actions.spec.ts).
-    await expect(pin).toHaveCSS("opacity", "0");
-
-    await card.hover();
-    await expect(pin).toHaveCSS("opacity", "1");
-
-    await page.mouse.move(0, 0);
-    await expect(pin).toHaveCSS("opacity", "0");
-
-    await pin.focus();
-    await expect(pin).toHaveCSS("opacity", "1");
-
-    await pin.click();
-    await expect(card.getByRole("button", { name: "Unpin" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-
-    // Once pinned, the button stays visible with no hover/focus at all: move the
-    // pointer away and shift focus onto a plain, non-interactive masthead element.
-    await page.mouse.move(0, 0);
-    await page.locator(".brand").click();
-    await expect(pinButton(card)).toHaveCSS("opacity", "1");
-  } finally {
-    await cleanup();
-  }
-});
-
-// review usage-model-bar cycle 1 precedent: a control re-rendered every 1s render tick
-// can silently lose focus/identity even though every functional test passes with
-// `selectOption`. `main.ts`'s `render()` runs on a 1s `setInterval` and touches the
-// Focus rail on every pass, so `#rail-sort` is exercised by that same tick — this test
-// is the dedicated node-identity/focus regression check for it, independent of the
-// functional keyboard-driven test above.
-test("the rail sort select keeps focus and node identity across a render tick", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { cleanup } = await launchTitled(page, daemon, ["order-tick-a"]);
-  try {
-    const select = railSortSelect(page);
-    await select.focus();
-    await expect(select).toBeFocused();
-
-    await select.evaluate((node) => {
-      (node as HTMLSelectElement & { __e2eTag?: string }).__e2eTag = "original-rail-sort";
-    });
-
-    await settleFor(page, 1600);
-
-    await expect(select).toBeFocused();
-    const stillTagged = await select.evaluate(
-      (node) =>
-        (node as HTMLSelectElement & { __e2eTag?: string }).__e2eTag === "original-rail-sort",
-    );
-    expect(stillTagged).toBe(true);
-    await expect(select).toHaveValue("manual");
-  } finally {
-    await cleanup();
-  }
-});
-
 // Decision `plans/order-sidebar/decisions/cmd-n-ordering/decision.md` (Option A, review
 // cycle 2): ⌥⌘1–9 (`focusNth`) now indexes into `orderRail(store.values(), railSort)` —
-// the exact order the rail currently displays — rather than a fixed attention-priority
-// sort. Before this fix, ⌥⌘1 could disagree with what card 1 visually is; these three
-// tests are the reviewer's measured repro (Major 1) plus the drag/pin and attention-mode
-// cases the decision's "one order across both views" reasoning implies.
-
-test("Opt+Cmd+1 follows the manual rail order even when the needs-input session is not first", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, [
-    "order-cmdn-one",
-    "order-cmdn-two",
-    "order-cmdn-three",
-  ]);
-  try {
-    const [one, two, three] = sessions;
-    if (!one || !two || !three) throw new Error("expected 3 sessions");
-    await expect.poll(() => railOrderIds(page)).toEqual([one.id, two.id, three.id]);
-    await expect(railSortSelect(page)).toHaveValue("manual");
-
-    // Reviewer's measured case: the LAST rail card (three) is the one that needs input,
-    // not the first — manual order must stay [one, two, three] regardless (REQ-7).
-    await makeNeedsInput(request, daemon, three, "claude-cmdn-three");
-    await expect(stateBadge(railCard(page, "order-cmdn-three"))).toHaveText(/needs input/i);
-    expect(await railOrderIds(page)).toEqual([one.id, two.id, three.id]);
-
-    // Explicitly focus a different card first, so Opt+Cmd+1 has to move focus rather than
-    // merely leave it where it already was.
-    await railCard(page, "order-cmdn-two").click();
-    await expect(page.locator("#mainhead .name")).toHaveText("order-cmdn-two");
-
-    await page.keyboard.press("Alt+Meta+Digit1");
-
-    // Opt+Cmd+1 must select the rail's actual first card (one), not the needs-input card
-    // (three) that a fixed attention sort would have picked.
-    await expect(page.locator("#mainhead .name")).toHaveText("order-cmdn-one");
-  } finally {
-    await cleanup();
-  }
-});
+// the exact order the rail currently displays. The chord over a static arrangement (manual
+// with the needy card last, attention with a pinned card ahead of it) is a render test in
+// web/render/rail.spec.ts; these two journeys assert it tracks a mutation the daemon
+// round-trips — a drag reorder and a pin.
 
 test("Opt+Cmd+1 follows the rail order after a drag reorder", async ({ page, daemon }) => {
   await page.goto(daemon.dashboardUrl);
@@ -751,51 +589,6 @@ test("Opt+Cmd+1 follows the rail order after a pin", async ({ page, daemon }) =>
 
     await page.keyboard.press("Alt+Meta+Digit1");
     await expect(page.locator("#mainhead .name")).toHaveText("order-cmdn-pin-c");
-  } finally {
-    await cleanup();
-  }
-});
-
-test("Opt+Cmd+1 selects the pinned card in Attention mode, ahead of the neediest unpinned session", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, [
-    "order-cmdn-att-a",
-    "order-cmdn-att-b",
-    "order-cmdn-att-c",
-  ]);
-  try {
-    const [a, b, c] = sessions;
-    if (!a || !b || !c) throw new Error("expected 3 sessions");
-    await expect.poll(() => railOrderIds(page)).toEqual([a.id, b.id, c.id]);
-
-    // Pin B — not the neediest session — so the attention-mode pinned-block-first rule
-    // (`orderRail`: pinned block precedes the unpinned, need-sorted remainder in BOTH
-    // modes) can be distinguished from a plain attention/priority sort.
-    await pinButton(railCard(page, "order-cmdn-att-b")).click();
-    await expect.poll(() => railOrderIds(page)).toEqual([b.id, a.id, c.id]);
-
-    // C (unpinned) becomes the neediest session — if Opt+Cmd+1 merely followed attention
-    // priority with no pinned-block rule, C would win. It must not: B is pinned.
-    await makeNeedsInput(request, daemon, c, "claude-cmdn-att-c");
-    await expect(stateBadge(railCard(page, "order-cmdn-att-c"))).toHaveText(/needs input/i);
-
-    const select = railSortSelect(page);
-    await select.focus();
-    await page.keyboard.press("A");
-    await expect(select).toHaveValue("attention");
-    await expect.poll(() => railOrderIds(page)).toEqual([b.id, c.id, a.id]);
-
-    await railCard(page, "order-cmdn-att-a").click();
-    await expect(page.locator("#mainhead .name")).toHaveText("order-cmdn-att-a");
-
-    await page.keyboard.press("Alt+Meta+Digit1");
-    // Pinned B is the rail's actual first card in Attention mode — Opt+Cmd+1 must select
-    // it, not the needs-input unpinned card C.
-    await expect(page.locator("#mainhead .name")).toHaveText("order-cmdn-att-b");
   } finally {
     await cleanup();
   }

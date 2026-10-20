@@ -1,0 +1,1360 @@
+{
+  "scenario": "cache-warmth",
+  "hello": {
+    "claudeCode": {
+      "floor": "2.1.246",
+      "installed": "2.1.300",
+      "status": "verified",
+      "verified": "2.1.300"
+    },
+    "daemon": {
+      "version": "0.0.0-renderfix"
+    },
+    "protocolVersion": 2,
+    "type": "hello"
+  },
+  "snapshot": {
+    "claudeTheme": {
+      "family": "unknown"
+    },
+    "groups": [],
+    "prefs": {
+      "density": "2x2",
+      "railActivity": "turn",
+      "railDensity": "comfortable",
+      "railSort": "manual",
+      "theme": "follow",
+      "updateCheck": true,
+      "usageModel": "Fable",
+      "view": "focus"
+    },
+    "sessions": [
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-unknown-started",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:00:00Z",
+        "directory": "/home/bob/projects/unknown-started",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 1,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 0,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "unknown-started"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:00:00Z",
+        "title": "unknown-started",
+        "titleOverride": null,
+        "tmuxTarget": "muster-1:@1",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-unknown-planning",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:01:00Z",
+        "directory": "/home/bob/projects/unknown-planning",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 2,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "plan"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 1,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "unknown-planning"
+        },
+        "state": "planning",
+        "stateSince": "2026-01-01T00:02:00Z",
+        "title": "unknown-planning",
+        "titleOverride": null,
+        "tmuxTarget": "muster-2:@2",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-unknown-working",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:03:00Z",
+        "directory": "/home/bob/projects/unknown-working",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 3,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 2,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "unknown-working"
+        },
+        "state": "working",
+        "stateSince": "2026-01-01T00:04:00Z",
+        "title": "unknown-working",
+        "titleOverride": null,
+        "tmuxTarget": "muster-3:@3",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": {
+          "reason": "permission",
+          "since": "2026-01-01T00:05:00Z"
+        },
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-unknown-needs",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:06:00Z",
+        "directory": "/home/bob/projects/unknown-needs",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 4,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 3,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "unknown-needs"
+        },
+        "state": "needs_input",
+        "stateSince": "2026-01-01T00:05:00Z",
+        "title": "unknown-needs",
+        "titleOverride": null,
+        "tmuxTarget": "muster-4:@4",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-unknown-failed",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:07:00Z",
+        "directory": "/home/bob/projects/unknown-failed",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": {
+          "error": "server_error",
+          "message": "API error ended the turn"
+        },
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 5,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 4,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "unknown-failed"
+        },
+        "state": "failed",
+        "stateSince": "2026-01-01T00:08:00Z",
+        "title": "unknown-failed",
+        "titleOverride": null,
+        "tmuxTarget": "muster-5:@5",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-unknown-idle",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:09:00Z",
+        "directory": "/home/bob/projects/unknown-idle",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 6,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 5,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "unknown-idle"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:10:00Z",
+        "title": "unknown-idle",
+        "titleOverride": null,
+        "tmuxTarget": "muster-6:@6",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": false,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-unknown-ended",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:11:00Z",
+        "directory": "/home/bob/projects/unknown-ended",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": "2026-01-01T00:12:00Z",
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 7,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 6,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "unknown-ended"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:13:00Z",
+        "title": "unknown-ended",
+        "titleOverride": null,
+        "tmuxTarget": "muster-7:@7",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:14:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-known-started",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:15:00Z",
+        "directory": "/home/bob/projects/known-started",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 8,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 7,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "known-started"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:15:00Z",
+        "title": "known-started",
+        "titleOverride": null,
+        "tmuxTarget": "muster-8:@8",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:16:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-known-planning",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:17:00Z",
+        "directory": "/home/bob/projects/known-planning",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 9,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "plan"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 8,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "known-planning"
+        },
+        "state": "planning",
+        "stateSince": "2026-01-01T00:18:00Z",
+        "title": "known-planning",
+        "titleOverride": null,
+        "tmuxTarget": "muster-9:@9",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:19:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-known-working",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:20:00Z",
+        "directory": "/home/bob/projects/known-working",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 10,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 9,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "known-working"
+        },
+        "state": "working",
+        "stateSince": "2026-01-01T00:21:00Z",
+        "title": "known-working",
+        "titleOverride": null,
+        "tmuxTarget": "muster-10:@10",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": {
+          "reason": "permission",
+          "since": "2026-01-01T00:22:00Z"
+        },
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:23:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-known-needs",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:24:00Z",
+        "directory": "/home/bob/projects/known-needs",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 11,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 10,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "known-needs"
+        },
+        "state": "needs_input",
+        "stateSince": "2026-01-01T00:22:00Z",
+        "title": "known-needs",
+        "titleOverride": null,
+        "tmuxTarget": "muster-11:@11",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:25:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-known-failed",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:26:00Z",
+        "directory": "/home/bob/projects/known-failed",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": {
+          "error": "server_error",
+          "message": "API error ended the turn"
+        },
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 12,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 11,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "known-failed"
+        },
+        "state": "failed",
+        "stateSince": "2026-01-01T00:27:00Z",
+        "title": "known-failed",
+        "titleOverride": null,
+        "tmuxTarget": "muster-12:@12",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:28:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-known-idle",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:29:00Z",
+        "directory": "/home/bob/projects/known-idle",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 13,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 12,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "known-idle"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:30:00Z",
+        "title": "known-idle",
+        "titleOverride": null,
+        "tmuxTarget": "muster-13:@13",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": false,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:31:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-known-ended",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:32:00Z",
+        "directory": "/home/bob/projects/known-ended",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": "2026-01-01T00:33:00Z",
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 14,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 13,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "known-ended"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:34:00Z",
+        "title": "known-ended",
+        "titleOverride": null,
+        "tmuxTarget": "muster-14:@14",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:00:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-fade-cold",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:35:00Z",
+        "directory": "/home/bob/projects/fade-cold",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 15,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 14,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "fade-cold"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:36:00Z",
+        "title": "fade-cold",
+        "titleOverride": null,
+        "tmuxTarget": "muster-15:@15",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:37:00Z",
+          "ttlSeconds": 3900
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-bound-short",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:38:00Z",
+        "directory": "/home/bob/projects/bound-short",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 16,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 15,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "bound-short"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:39:00Z",
+        "title": "bound-short",
+        "titleOverride": null,
+        "tmuxTarget": "muster-16:@16",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:40:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-bound-hour",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:41:00Z",
+        "directory": "/home/bob/projects/bound-hour",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 17,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 16,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "bound-hour"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:42:00Z",
+        "title": "bound-hour",
+        "titleOverride": null,
+        "tmuxTarget": "muster-17:@17",
+        "unread": true
+      }
+    ],
+    "shellsBusy": [],
+    "type": "snapshot",
+    "ungrouped": {
+      "collapsed": false,
+      "pos": 0
+    },
+    "update": {
+      "apply": {
+        "error": null,
+        "phase": "idle",
+        "version": null
+      },
+      "available": null,
+      "canCheck": false,
+      "checkedAt": null,
+      "install": "dev",
+      "installed": null,
+      "remedy": null,
+      "running": "renderfix"
+    },
+    "usage": {
+      "fiveHour": {
+        "resetsAt": "2026-01-01T00:43:00Z",
+        "usedPct": 61
+      },
+      "modelScoped": null,
+      "modelScopedAt": null,
+      "modelScopedError": null,
+      "modelScopedSource": "subscription-api",
+      "sampledAt": "2026-01-01T00:44:00Z",
+      "sevenDay": {
+        "resetsAt": "2026-01-01T00:43:00Z",
+        "usedPct": 23
+      },
+      "source": "subscription"
+    }
+  },
+  "repos": [
+    {
+      "branch": "main",
+      "id": 17,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:41:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "bound-hour",
+      "path": "/home/bob/projects/bound-hour",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 16,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:38:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "bound-short",
+      "path": "/home/bob/projects/bound-short",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 15,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:35:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "fade-cold",
+      "path": "/home/bob/projects/fade-cold",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 14,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:32:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "known-ended",
+      "path": "/home/bob/projects/known-ended",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 13,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:29:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "known-idle",
+      "path": "/home/bob/projects/known-idle",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 12,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:26:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "known-failed",
+      "path": "/home/bob/projects/known-failed",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 11,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:24:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "known-needs",
+      "path": "/home/bob/projects/known-needs",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 10,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:20:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "known-working",
+      "path": "/home/bob/projects/known-working",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 9,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:17:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "plan",
+      "launchCount": 1,
+      "name": "known-planning",
+      "path": "/home/bob/projects/known-planning",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 8,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:15:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "known-started",
+      "path": "/home/bob/projects/known-started",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 7,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:11:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "unknown-ended",
+      "path": "/home/bob/projects/unknown-ended",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 6,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:09:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "unknown-idle",
+      "path": "/home/bob/projects/unknown-idle",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 5,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:07:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "unknown-failed",
+      "path": "/home/bob/projects/unknown-failed",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 4,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:06:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "unknown-needs",
+      "path": "/home/bob/projects/unknown-needs",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 3,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:03:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "unknown-working",
+      "path": "/home/bob/projects/unknown-working",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 2,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:01:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "plan",
+      "launchCount": 1,
+      "name": "unknown-planning",
+      "path": "/home/bob/projects/unknown-planning",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 1,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:00:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "unknown-started",
+      "path": "/home/bob/projects/unknown-started",
+      "pinned": false
+    }
+  ],
+  "reader": [
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/unknown-started",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/unknown-planning",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 2
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/unknown-working",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 3
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/unknown-needs",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 4
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/unknown-failed",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 5
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/unknown-idle",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 6
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/unknown-ended",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 7
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/known-started",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 8
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/known-planning",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 9
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/known-working",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 10
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/known-needs",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 11
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/known-failed",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 12
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/known-idle",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 13
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/known-ended",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 14
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/fade-cold",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 15
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/bound-short",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 16
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/bound-hour",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 17
+    }
+  ]
+}

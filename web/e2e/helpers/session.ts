@@ -14,6 +14,20 @@ import type { Locator, Page } from "@playwright/test";
 import { type ScratchDaemon, scratchOwner } from "./daemon";
 import { liveTile, liveTileById } from "./terminal";
 
+// The rail card, its state word, the Focus-pane marker and the mainhead's heading and rename
+// trigger are pure DOM and live in the render tier's helper (web/render/helpers/focus.ts,
+// where the display properties re-levelled on 2026-10-20 read them), as is the mainhead's
+// rename field (web/render/helpers/rename.ts); the journeys here reach them through these
+// re-exports.
+export {
+  currentRailCard,
+  mainheadHeading,
+  mainheadRenameButton,
+  sessionCard,
+  stateBadge,
+} from "../../render/helpers/focus";
+export { mainheadRenameField } from "../../render/helpers/rename";
+
 /**
  * Creates a fresh, never-before-launched-into scratch directory for one test, for tests
  * that launch straight via `POST /api/sessions` (no folder-browser navigation).
@@ -202,36 +216,8 @@ export function findSession(state: { sessions: SessionObject[] }, id: number): S
   return found;
 }
 
-/**
- * Session card locator. The plan's Testable UI Elements table explicitly leaves this to
- * us ("locator strategy is e2e-specs' call") — scoped via a `data-testid="session-card"`
- * hook containing the card's title (or "untitled") text. If web-impl's rail markup
- * doesn't carry that testid, validate mode repairs this to whatever container the real
- * markup uses (e.g. a role or class web-impl actually ships) rather than the product
- * gaining a testid it wouldn't otherwise need.
- */
-export function sessionCard(page: Page, titleOrUntitled: string): Locator {
-  return page.getByTestId("session-card").filter({ hasText: titleOrUntitled });
-}
-
-/** The state-badge word inside a session card (Testable UI Elements: lowercase in DOM). */
-export function stateBadge(card: Locator): Locator {
-  return card.getByText(/^\s*(started|planning|working|needs input|failed|idle)\s*$/i);
-}
-
 // --- ui-text-and-focus (plan) helpers: the Focus-pane marker, and the shared rename
 // editor on both surfaces (mainhead, tile header). ---
-
-/**
- * The rail card carrying the Focus-pane marker (REQ-1): `[aria-current="true"]` scoped
- * to `#sessions` so it can never match a strip card of the same session (the same
- * `data-testid="session-card"` template is reused there, per `helpers/terminal.ts`'s
- * `stripCard` comment). Resolves to zero-or-one; INV-3 asserts exactly one whenever the
- * rail is non-empty.
- */
-export function currentRailCard(page: Page): Locator {
-  return page.locator('#sessions [data-testid="session-card"][aria-current="true"]');
-}
 
 /**
  * The same marker locator, scoped to the Tiles strip instead (`#tiles-strip`) — INV-3
@@ -240,30 +226,6 @@ export function currentRailCard(page: Page): Locator {
  */
 export function currentStripCard(page: Page): Locator {
   return page.locator('#tiles-strip [data-testid="session-card"][aria-current="true"]');
-}
-
-/** `#mainhead h2.name` — the heading wrapping the rename trigger (REQ-13). */
-export function mainheadHeading(page: Page): Locator {
-  return page.locator("#mainhead h2.name");
-}
-
-/**
- * The mainhead's rename trigger button. Its accessible name IS the display title (or
- * "untitled") — the button's own text content, per the Testable UI Elements row; the
- * `title="Rename"` attribute is a tooltip/description, not the accessible name, since a
- * `<button>` with visible text content always names itself from that content first.
- */
-export function mainheadRenameButton(page: Page): Locator {
-  return mainheadHeading(page).getByRole("button");
-}
-
-/**
- * The mainhead's rename field — present only while editing (`aria-label="Session
- * title"`, REQ-13). Scoped to the heading so it can never collide with a tile's own
- * field when both happen to be attached in the DOM.
- */
-export function mainheadRenameField(page: Page): Locator {
-  return mainheadHeading(page).getByRole("textbox", { name: "Session title" });
 }
 
 /**

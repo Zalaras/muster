@@ -7,7 +7,7 @@ summary: Stop, Resume and Remove a session, the pane snapshot for dead sessions,
 features: [actions]
 tags: [ux]
 go: [internal/server/actions*.go]
-web: [web/src/features/actions*.ts, web/src/features/batchplan*.ts, web/src/render/confirm.ts, web/src/render/dead*.ts, web/src/render/actionerror*.ts]
+web: [web/src/features/actions*.ts, web/src/features/batchplan*.ts, web/src/render/confirm.ts, web/src/render/dead*.ts, web/src/render/actionerror*.ts, web/render/actions.spec.ts, web/render/helpers/actions.ts]
 e2e: [web/e2e/actions.spec.ts]
 protocol: [sessions.end, sessions.resume, sessions.remove, sessions.pane, ws.session-removed, sessions.end-many, sessions.remove-many]
 refs: [kb:adr/actions-bulk-stop-remove-are-daemon-batches, kb:adr/rail-card-right-click-menu-holds-session-actions, kb:adr/actions-mainhead-one-stop-resume-button, kb:adr/actions-pane-snapshot-display-only, kb:adr/actions-remove-allowed-on-live-session, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/theme-danger-tokens-not-rose, kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-pending-hold-persisted, kb:fact/resume-keeps-session-identity]

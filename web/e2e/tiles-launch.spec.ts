@@ -17,26 +17,11 @@ import { liveTile, stripCard } from "./helpers/terminal";
 // Grid membership depends on the EXACT total session count (`toHaveCount(4)` on the grid,
 // the `#tiles-empty` state) and prefs are global per daemon, so — like views.spec.ts —
 // every test here takes the per-test `daemon` fixture (helpers/fixtures.ts).
-
-test("Tiles shows the masthead New session button, with no Tiles-only button, and it opens the launch modal", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  await page.getByRole("button", { name: "Tiles" }).click();
-
-  // REQ-6/INV-3: one button total, visible in Tiles too — not hidden with the rail, and
-  // the old Tiles-only toolbar button is gone.
-  await expect(newSessionButton(page)).toBeVisible();
-  await expect(page.locator("#tiles-new-session-button")).toHaveCount(0);
-  await expect(page.locator("#tiles-empty")).toContainText("New session");
-
-  await newSessionButton(page).click();
-  const dialog = page.getByRole("dialog", { name: "New session" });
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Cancel" }).click();
-  await expect(dialog).toBeHidden();
-});
+//
+// The masthead button's presence in Tiles, the Tiles-only button's absence and the dialog
+// it opens (REQ-6, INV-3) are a render test in web/render/launch.spec.ts since 2026-10-20
+// (plans/_audit/relevel/launch-update.md), against the `empty-tiles` fixture: the view is a
+// pref the dashboard adopts only from the broadcast.
 
 test("a session launched from Tiles appears as a live tile", async ({ page, daemon }) => {
   const { path: dir, cleanup } = await browseScratchDirectory(daemon);

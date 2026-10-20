@@ -7,7 +7,7 @@ summary: The reader's own find bar — case-insensitive matches in the rendered 
 features: [reader-find]
 tags: [ux]
 go: []
-web: [web/src/reader/find*.ts, web/src/features/readerfind.ts, web/src/render/readerfind.ts]
+web: [web/src/reader/find*.ts, web/src/features/readerfind.ts, web/src/render/readerfind.ts, web/render/reader-find.spec.ts, web/render/helpers/reader-find.ts]
 e2e: [web/e2e/reader-search.spec.ts, web/e2e/helpers/reader-search.ts]
 protocol: []
 refs: [plan:docs-search-bar, kb:spec/reader, kb:spec/shortcuts, kb:adr/reader-find-highlights-via-css-highlight-api, kb:adr/reader-find-overrides-cmd-f-inside-reader, kb:adr/reader-find-query-follows-file-switch, docs/design/design-system.md]

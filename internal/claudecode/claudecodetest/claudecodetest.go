@@ -92,6 +92,9 @@ type SessionStartOpts struct {
 	// empty and set OmitModel to omit the field entirely.
 	ModelID   string
 	OmitModel bool
+	// Cwd, when non-empty, replaces the payload's default working directory ("/tmp") —
+	// the launch directory a real `claude` reports on its first hook.
+	Cwd string
 }
 
 // sessionStartPayload builds the `SessionStart` hook payload shared by
@@ -102,7 +105,7 @@ func sessionStartPayload(sessionID, transcriptPath string, opts SessionStartOpts
 		"hook_event_name": "SessionStart",
 		"session_id":      sessionID,
 		"transcript_path": transcriptPath,
-		"cwd":             defaultCWD,
+		"cwd":             orDefault(opts.Cwd, defaultCWD),
 		"source":          orDefault(opts.Source, "startup"),
 	}
 	if !opts.OmitModel {
@@ -325,6 +328,29 @@ func PlanRejectionLine(promptID string) string {
 	})
 }
 
+// PromptSubmitOpts overrides RawUserPromptSubmit's defaults; a zero field keeps its default.
+type PromptSubmitOpts struct {
+	PromptID       string
+	PermissionMode string
+	// Prompt is the user's prompt text (kb:fact/background-completion-new-prompt-id names the
+	// one synthetic shape that is not a real prompt).
+	Prompt string
+}
+
+// RawUserPromptSubmit returns a raw (non-enveloped) `UserPromptSubmit` carrying the
+// prompt's text and the permission mode, as the real hook sends them.
+func RawUserPromptSubmit(sessionID string, opts PromptSubmitOpts) string {
+	return marshal(map[string]any{
+		"hook_event_name": "UserPromptSubmit",
+		"session_id":      sessionID,
+		"transcript_path": defaultTranscriptPath,
+		"cwd":             defaultCWD,
+		"prompt_id":       orDefault(opts.PromptID, defaultPromptID),
+		"permission_mode": orDefault(opts.PermissionMode, defaultPermissionMode),
+		"prompt":          orDefault(opts.Prompt, "do the thing"),
+	})
+}
+
 // StopOpts overrides RawStop's defaults; a zero field keeps its default.
 type StopOpts struct {
 	PromptID             string
@@ -500,6 +526,14 @@ type StatusLineFullOpts struct {
 	SevenDayResetsAt int64
 	PromptCache      *PromptCacheOpts
 	EffortLevel      string
+	// CurrentDir, when non-empty, replaces the payload's default working directory
+	// ("/tmp") in `cwd` and `workspace.current_dir`/`project_dir` — the launch directory a
+	// real status line reports while Claude works in it.
+	CurrentDir string
+	// AddedDirs, when non-nil, is `workspace.added_dirs` verbatim — the live directory list
+	// a real status line carries, led by the launch directory as typed
+	// (kb:fact/added-dirs-in-status-line). Nil keeps the default empty list.
+	AddedDirs []string
 }
 
 type PromptCacheOpts struct {
@@ -568,6 +602,15 @@ func statusLineFullPayload(sessionID string, opts StatusLineFullOpts) map[string
 	}
 
 	payload := statusLineBase(sessionID)
+	if opts.CurrentDir != "" || opts.AddedDirs != nil {
+		dir := orDefault(opts.CurrentDir, defaultCWD)
+		added := make([]any, 0, len(opts.AddedDirs))
+		for _, d := range opts.AddedDirs {
+			added = append(added, d)
+		}
+		payload["cwd"] = dir
+		payload["workspace"] = map[string]any{"current_dir": dir, "project_dir": dir, "added_dirs": added}
+	}
 	payload["model"] = map[string]any{"id": modelID, "display_name": modelDisplayName}
 	payload["context_window"] = map[string]any{
 		"context_window_size":  windowSize,

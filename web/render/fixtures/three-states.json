@@ -244,5 +244,40 @@
       "path": "/home/bob/projects/alpha",
       "pinned": false
     }
+  ],
+  "reader": [
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/alpha",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/beta",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 2
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/gamma",
+        "files": [],
+        "listing": "walk",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 3
+    }
   ]
 }

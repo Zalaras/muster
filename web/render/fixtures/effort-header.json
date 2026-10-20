@@ -1,0 +1,459 @@
+{
+  "scenario": "effort-header",
+  "hello": {
+    "claudeCode": {
+      "floor": "2.1.246",
+      "installed": "2.1.300",
+      "status": "verified",
+      "verified": "2.1.300"
+    },
+    "daemon": {
+      "version": "0.0.0-renderfix"
+    },
+    "protocolVersion": 2,
+    "type": "hello"
+  },
+  "snapshot": {
+    "claudeTheme": {
+      "family": "unknown"
+    },
+    "groups": [],
+    "prefs": {
+      "density": "2x2",
+      "railActivity": "turn",
+      "railDensity": "comfortable",
+      "railSort": "manual",
+      "theme": "follow",
+      "updateCheck": true,
+      "usageModel": "Fable",
+      "view": "focus"
+    },
+    "sessions": [
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": null,
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:00:00Z",
+        "directory": "/home/bob/projects/rota",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 1,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "sonnet",
+          "id": "sonnet"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 0,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "rota"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:00:00Z",
+        "title": "effort-no-post",
+        "titleOverride": null,
+        "tmuxTarget": "muster-1:@1",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-effort-bound",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:01:00Z",
+        "directory": "/home/bob/projects/rota",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": false,
+        "groupId": null,
+        "id": 2,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 1,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "rota"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:01:00Z",
+        "title": "effort-bound",
+        "titleOverride": null,
+        "tmuxTarget": "muster-2:@2",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": false,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-effort-dead",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:02:00Z",
+        "directory": "/home/bob/projects/rota",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": "2026-01-01T00:03:00Z",
+        "failure": null,
+        "firstLaunchHere": false,
+        "groupId": null,
+        "id": 3,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 2,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "rota"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:02:00Z",
+        "title": "effort-dead-never",
+        "titleOverride": null,
+        "tmuxTarget": "muster-3:@3",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-effort-clamped",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:04:00Z",
+        "directory": "/home/bob/projects/rota",
+        "effort": {
+          "level": "high"
+        },
+        "effortWarning": {
+          "actual": "high",
+          "model": "Opus 4.5",
+          "requested": "max"
+        },
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": false,
+        "groupId": null,
+        "id": 4,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Opus 4.5",
+          "id": "claude-opus-4-5-20251101"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 3,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "rota"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:04:00Z",
+        "title": "effort-clamped",
+        "titleOverride": null,
+        "tmuxTarget": "muster-4:@4",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-effort-none",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:05:00Z",
+        "directory": "/home/bob/projects/rota",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": {
+          "actual": null,
+          "model": "Haiku 4.5",
+          "requested": "high"
+        },
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": false,
+        "groupId": null,
+        "id": 5,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 4,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "rota"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:05:00Z",
+        "title": "effort-none",
+        "titleOverride": null,
+        "tmuxTarget": "muster-5:@5",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-effort-crowd",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:06:00Z",
+        "directory": "/home/bob/projects/rota",
+        "effort": {
+          "level": "high"
+        },
+        "effortWarning": {
+          "actual": "high",
+          "model": "Opus 4.5",
+          "requested": "max"
+        },
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": false,
+        "groupId": null,
+        "id": 6,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Opus 4.5",
+          "id": "claude-opus-4-5-20251101"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 5,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "rota"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:06:00Z",
+        "title": "effort-width-with-a-rather-long-title-to-crowd-the-header",
+        "titleOverride": null,
+        "tmuxTarget": "muster-6:@6",
+        "unread": false
+      }
+    ],
+    "shellsBusy": [],
+    "type": "snapshot",
+    "ungrouped": {
+      "collapsed": false,
+      "pos": 0
+    },
+    "update": {
+      "apply": {
+        "error": null,
+        "phase": "idle",
+        "version": null
+      },
+      "available": null,
+      "canCheck": false,
+      "checkedAt": null,
+      "install": "dev",
+      "installed": null,
+      "remedy": null,
+      "running": "renderfix"
+    },
+    "usage": {
+      "fiveHour": {
+        "resetsAt": "2026-01-01T00:07:00Z",
+        "usedPct": 61
+      },
+      "modelScoped": null,
+      "modelScopedAt": null,
+      "modelScopedError": null,
+      "modelScopedSource": "subscription-api",
+      "sampledAt": "2026-01-01T00:08:00Z",
+      "sevenDay": {
+        "resetsAt": "2026-01-01T00:07:00Z",
+        "usedPct": 23
+      },
+      "source": "subscription"
+    }
+  },
+  "repos": [
+    {
+      "branch": "main",
+      "id": 1,
+      "isGit": true,
+      "lastEffort": "max",
+      "lastLaunchedAt": "2026-01-01T00:06:00Z",
+      "lastModel": "opus",
+      "lastPermissionMode": "default",
+      "launchCount": 6,
+      "name": "rota",
+      "path": "/home/bob/projects/rota",
+      "pinned": false
+    }
+  ],
+  "reader": [
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/rota",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/rota",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 2
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/rota",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 3
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/rota",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 4
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/rota",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 5
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/rota",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 6
+    }
+  ]
+}

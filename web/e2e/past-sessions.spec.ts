@@ -14,10 +14,8 @@ import {
   pastList,
   pastListHead,
   pastSessionRow,
-  pastSessionsSection,
   postResume,
   resumeTab,
-  sessionKindTablist,
 } from "./helpers/resume";
 import {
   browseScratchDirectory,
@@ -36,59 +34,14 @@ import { activeElementInsideTerminal } from "./helpers/terminal";
 // neighbour test's session on a shared daemon would corrupt both).
 //
 // The bypass Start-in segment and its chip live in bypass.spec.ts; this file covers only
-// the New | Resume tab pair's mechanics and the Resume tab itself: the past-session
-// list, filtering, selection, and resuming from it.
-
-test("opening the dialog always lands on the New tab, even right after a previous open was left on Resume (REQ-7)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const dialog = await openLaunchDialog(page);
-  await expect(sessionKindTablist(dialog)).toBeVisible();
-  await expect(newTab(dialog)).toHaveAttribute("aria-selected", "true");
-
-  await resumeTab(dialog).click();
-  await expect(resumeTab(dialog)).toHaveAttribute("aria-selected", "true");
-  await expect(pastSessionsSection(dialog)).toBeVisible();
-
-  await dialog.getByRole("button", { name: "Cancel" }).click();
-  await expect(dialog).toBeHidden();
-
-  // Reopen via the masthead button this time (not the chord) — REQ-7 names both.
-  const reopened = await openLaunchDialog(page);
-  await expect(newTab(reopened)).toHaveAttribute("aria-selected", "true");
-  await expect(resumeTab(reopened)).toHaveAttribute("aria-selected", "false");
-  await expect(pastSessionsSection(reopened)).toBeHidden();
-});
-
-test("switching to Resume and back to New restores the form exactly as it was left (User Flow 3)", async ({
-  page,
-  daemon,
-}) => {
-  const dir = await browseScratchDirectory(daemon, "muster-e2e-tabs-restore-");
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const dialog = await openLaunchDialog(page);
-    await childEntry(dialog, basename(dir.path)).click();
-    await dialog.getByLabel("Title").fill("tabs-restore-title");
-    await dialog.getByRole("radio", { name: "opus" }).check();
-    await dialog.getByRole("radio", { name: "accept edits" }).check();
-
-    await resumeTab(dialog).click();
-    await expect(pastSessionsSection(dialog)).toBeVisible();
-    await expect(dialog.locator("#launch-form .fields")).toBeHidden();
-
-    await newTab(dialog).click();
-    await expect(pastSessionsSection(dialog)).toBeHidden();
-    await expect(dialog.locator("#launch-form .fields")).toBeVisible();
-    await expect(dialog.getByLabel("Title")).toHaveValue("tabs-restore-title");
-    await expect(dialog.getByRole("radio", { name: "opus" })).toBeChecked();
-    await expect(dialog.getByRole("radio", { name: "accept edits" })).toBeChecked();
-  } finally {
-    await dir.cleanup();
-  }
-});
+// the Resume tab itself: the past-session list, filtering, selection, and resuming from it.
+//
+// The tab pair's own mechanics — a fresh open landing on New (REQ-7), a tab round trip
+// keeping the form (User Flow 3), ArrowLeft/ArrowRight between the tabs and the dialog's
+// accessible name — and the Resume tab's fetch-error line (E9) are render tests in
+// web/render/past-sessions.spec.ts since 2026-10-20 (plans/_audit/relevel/launch-update.md).
+// What stays here needs a listed row: every `GET /api/past-sessions` answer is the daemon's
+// reading of a transcript on disk.
 
 test("the Resume tab lists fixture sessions newest first, disables the one already open in Muster, and refuses a POST for it with already_open (REQ-9, E5, edge case 9)", async ({
   page,
@@ -298,27 +251,6 @@ test("resuming a fixture deleted after listing shows the 404 message in #launch-
   } finally {
     await dir.cleanup();
   }
-});
-
-test("with the daemon down, the Resume tab shows 'Couldn't read sessions — try again' (E9)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  await expect(page.getByRole("status")).toHaveText(/connected/i);
-
-  await daemon.kill();
-  await expect(page.getByRole("alert")).toBeVisible({ timeout: 15_000 });
-
-  const pastSessionsRequestFailed = page.waitForEvent("requestfailed", (request) =>
-    request.url().includes("/api/past-sessions"),
-  );
-  const dialog = await openLaunchDialog(page);
-  await resumeTab(dialog).click();
-  await pastSessionsRequestFailed;
-
-  await expect(pastList(dialog)).toHaveText("Couldn't read sessions — try again");
-  await expect(launchPrimaryButton(dialog)).toBeDisabled();
 });
 
 test("the filter narrows the list case-insensitively over title and last prompt, and shows 'No sessions match' when nothing does (REQ-14, E10)", async ({
@@ -964,27 +896,6 @@ test("#launch-error clears when a new row is selected", async ({ page, daemon })
   } finally {
     await dir.cleanup();
   }
-});
-
-test("ArrowLeft and ArrowRight switch tabs by keyboard, and the dialog's accessible name is exactly 'New session'", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const dialog = await openLaunchDialog(page);
-  // The tablist sitting inside the dialog's own labelling <h2> must not leak its own
-  // text ("New session Session kind") into the dialog's accessible name.
-  await expect(page.getByRole("dialog", { name: "New session", exact: true })).toBeVisible();
-
-  await newTab(dialog).click();
-  await expect(newTab(dialog)).toBeFocused();
-  await page.keyboard.press("ArrowRight");
-  await expect(resumeTab(dialog)).toHaveAttribute("aria-selected", "true");
-  await expect(resumeTab(dialog)).toBeFocused();
-
-  await page.keyboard.press("ArrowLeft");
-  await expect(newTab(dialog)).toHaveAttribute("aria-selected", "true");
-  await expect(newTab(dialog)).toBeFocused();
 });
 
 test("a fixture recorded with an unoffered permission mode resumes with it passed verbatim (kb:adr/launch-resume-passes-any-recorded-mode)", async ({

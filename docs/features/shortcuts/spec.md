@@ -7,7 +7,7 @@ summary: Keyboard chords routed to views, focus and tiles.
 features: [shortcuts]
 tags: [ux]
 go: []
-web: [web/src/features/shortcuts.ts, web/src/shortcuts*.ts]
+web: [web/src/features/shortcuts.ts, web/src/shortcuts*.ts, web/render/shortcuts.spec.ts, web/render/helpers/shortcuts.ts]
 e2e: [web/e2e/shortcuts.spec.ts]
 protocol: []
 refs: [kb:adr/shortcuts-option-command-family-off-reserved-chords, kb:adr/shortcuts-cmd-n-follows-rail-order, kb:adr/shortcuts-jump-to-neediest-option-command-zero, kb:adr/shortcuts-match-event-code-in-pure-module, docs/design/design-system.md]

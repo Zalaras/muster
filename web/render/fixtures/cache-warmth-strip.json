@@ -1,0 +1,459 @@
+{
+  "scenario": "cache-warmth-strip",
+  "hello": {
+    "claudeCode": {
+      "floor": "2.1.246",
+      "installed": "2.1.300",
+      "status": "verified",
+      "verified": "2.1.300"
+    },
+    "daemon": {
+      "version": "0.0.0-renderfix"
+    },
+    "protocolVersion": 2,
+    "type": "hello"
+  },
+  "snapshot": {
+    "claudeTheme": {
+      "family": "unknown"
+    },
+    "groups": [],
+    "prefs": {
+      "density": "2x2",
+      "railActivity": "turn",
+      "railDensity": "comfortable",
+      "railSort": "manual",
+      "theme": "follow",
+      "updateCheck": true,
+      "usageModel": "Fable",
+      "view": "tiles"
+    },
+    "sessions": [
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:00:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-strip-warm-0",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:01:00Z",
+        "directory": "/home/bob/projects/strip-warm-0",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 1,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 0,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "strip-warm-0"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:02:00Z",
+        "title": "strip-warm-0",
+        "titleOverride": null,
+        "tmuxTarget": "muster-1:@1",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:03:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-strip-warm-1",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:04:00Z",
+        "directory": "/home/bob/projects/strip-warm-1",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 2,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 1,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "strip-warm-1"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:05:00Z",
+        "title": "strip-warm-1",
+        "titleOverride": null,
+        "tmuxTarget": "muster-2:@2",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:06:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-strip-warm-2",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:07:00Z",
+        "directory": "/home/bob/projects/strip-warm-2",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 3,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 2,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "strip-warm-2"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:08:00Z",
+        "title": "strip-warm-2",
+        "titleOverride": null,
+        "tmuxTarget": "muster-3:@3",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:09:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-strip-warm-3",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:10:00Z",
+        "directory": "/home/bob/projects/strip-warm-3",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 4,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 3,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "strip-warm-3"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:11:00Z",
+        "title": "strip-warm-3",
+        "titleOverride": null,
+        "tmuxTarget": "muster-4:@4",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": {
+          "expiresAt": "2026-01-01T00:12:00Z",
+          "ttlSeconds": 3600
+        },
+        "claudeLocation": null,
+        "claudeSessionId": "cs-strip-warm-4",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:13:00Z",
+        "directory": "/home/bob/projects/strip-warm-4",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 5,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "Haiku 4.5",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 4,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "strip-warm-4"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:14:00Z",
+        "title": "strip-warm-4",
+        "titleOverride": null,
+        "tmuxTarget": "muster-5:@5",
+        "unread": true
+      }
+    ],
+    "shellsBusy": [],
+    "type": "snapshot",
+    "ungrouped": {
+      "collapsed": false,
+      "pos": 0
+    },
+    "update": {
+      "apply": {
+        "error": null,
+        "phase": "idle",
+        "version": null
+      },
+      "available": null,
+      "canCheck": false,
+      "checkedAt": null,
+      "install": "dev",
+      "installed": null,
+      "remedy": null,
+      "running": "renderfix"
+    },
+    "usage": {
+      "fiveHour": {
+        "resetsAt": "2026-01-01T00:15:00Z",
+        "usedPct": 61
+      },
+      "modelScoped": null,
+      "modelScopedAt": null,
+      "modelScopedError": null,
+      "modelScopedSource": "subscription-api",
+      "sampledAt": "2026-01-01T00:16:00Z",
+      "sevenDay": {
+        "resetsAt": "2026-01-01T00:15:00Z",
+        "usedPct": 23
+      },
+      "source": "subscription"
+    }
+  },
+  "repos": [
+    {
+      "branch": "main",
+      "id": 5,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:13:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "strip-warm-4",
+      "path": "/home/bob/projects/strip-warm-4",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 4,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:10:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "strip-warm-3",
+      "path": "/home/bob/projects/strip-warm-3",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 3,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:07:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "strip-warm-2",
+      "path": "/home/bob/projects/strip-warm-2",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 2,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:04:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "strip-warm-1",
+      "path": "/home/bob/projects/strip-warm-1",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 1,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:01:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "strip-warm-0",
+      "path": "/home/bob/projects/strip-warm-0",
+      "pinned": false
+    }
+  ],
+  "reader": [
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/strip-warm-0",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/strip-warm-1",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 2
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/strip-warm-2",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 3
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/strip-warm-3",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 4
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/strip-warm-4",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 5
+    }
+  ]
+}

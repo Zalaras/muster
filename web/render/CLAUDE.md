@@ -16,24 +16,23 @@ question is "given this snapshot, what does the page show?", never "what happens
   or `sessions: [` literal in a spec.
 - Every unmocked `/api/**` is a 404 (`code: "render-harness"`) on purpose: a test that needs a
   PUT or POST to succeed is a journey and belongs in `web/e2e/`. Terminal and shell sockets are
-  accepted and stay silent.
-- The page clock is installed at `FIXTURE_EPOCH` (`2026-01-01T00:00:00Z`); fixture timestamps
-  are that epoch plus minutes, so relative times are stable. `settleFor(page, ms)` advances it
-  for a stays-unchanged check; no `waitForTimeout`, no `setTimeout`.
+  accepted and stay silent. The reader's two GETs are answered from the fixture's `reader`
+  recording (kb:adr/process-render-fixtures-record-reader-documents).
+- The page clock starts at `FIXTURE_EPOCH` (`2026-01-01T00:00:00Z`); fixture timestamps are
+  that epoch plus minutes, so relative times are stable. `settleFor(page, ms)` advances it for
+  a stays-unchanged check; no `waitForTimeout`, no `setTimeout`.
 
-**Fixtures**: `fixtures/<scenario>.json` with `{scenario, hello, snapshot, repos}`, generated
+**Fixtures**: `fixtures/<scenario>.json` with `{scenario, hello, snapshot, repos, reader}`, generated
 by `make gen-render-fixtures` from a real daemon and never edited by hand
 (kb:adr/process-render-fixtures-generated-from-daemon). `loadFixture` validates each frame
 with the protocol's own parsers and names the fixture when one fails — a snapshot with one
-malformed session is rejected whole, so a parse error here is a generator bug, not a test
-bug. A scenario that does not exist is asked of daemon-impl in the plan's Handoff; a spec
-never fabricates one.
+malformed session is rejected whole, so a parse error here is a generator bug. A missing scenario is asked of daemon-impl in the plan's Handoff; a spec never fabricates one.
 
 **What goes where**: a card's badge, the ↳ block, the masthead readout, a density's layout,
-an empty state — render. Launch, hooks moving a session between states, restart, kill, rename
-round-trips, anything that reads the daemon's answer — `web/e2e/` (its `CLAUDE.md`).
+an empty state, the reader's display — render. Launch, hooks moving a session between states,
+restart, kill, rename round-trips, anything that reads the daemon's answer — `web/e2e/`.
 `web/scripts/e2e-lint.sh` rule 6 fails a newly added E2E test that touches no daemon.
 
-**Running**: `npm run render-test` from `web/` (render-lint, then Playwright with
-`playwright.render.config.ts`, which holds the gate lock shared — it may run beside unit tests,
-never beside a sweep). Build the bundle first; a missing `index.html` is named in the error.
+**Running**: `npm run render-test` from `web/` (render-lint, then Playwright under
+`playwright.render.config.ts`, gate lock shared — beside unit tests, never a sweep). Build
+the bundle first; a missing `index.html` is named in the error.

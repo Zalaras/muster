@@ -1,0 +1,578 @@
+{
+  "scenario": "rail-attention-order",
+  "hello": {
+    "claudeCode": {
+      "floor": "2.1.246",
+      "installed": "2.1.300",
+      "status": "verified",
+      "verified": "2.1.300"
+    },
+    "daemon": {
+      "version": "0.0.0-renderfix"
+    },
+    "protocolVersion": 2,
+    "type": "hello"
+  },
+  "snapshot": {
+    "claudeTheme": {
+      "family": "unknown"
+    },
+    "groups": [],
+    "prefs": {
+      "density": "2x2",
+      "railActivity": "turn",
+      "railDensity": "comfortable",
+      "railSort": "attention",
+      "theme": "follow",
+      "updateCheck": true,
+      "usageModel": "Fable",
+      "view": "focus"
+    },
+    "sessions": [
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-order5-ri",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:00:00Z",
+        "directory": "/home/bob/projects/order5-ri",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 1,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 0,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "order5-ri"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:01:00Z",
+        "title": "order5-ri",
+        "titleOverride": null,
+        "tmuxTarget": "muster-1:@1",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-order5-w",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:02:00Z",
+        "directory": "/home/bob/projects/order5-w",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 2,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 1,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "order5-w"
+        },
+        "state": "working",
+        "stateSince": "2026-01-01T00:03:00Z",
+        "title": "order5-w",
+        "titleOverride": null,
+        "tmuxTarget": "muster-2:@2",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-order5-pl",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:04:00Z",
+        "directory": "/home/bob/projects/order5-pl",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 3,
+        "lastActivity": null,
+        "lastPrompt": "do the thing",
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "plan"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 2,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "order5-pl"
+        },
+        "state": "planning",
+        "stateSince": "2026-01-01T00:05:00Z",
+        "title": "order5-pl",
+        "titleOverride": null,
+        "tmuxTarget": "muster-3:@3",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-order5-st",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:06:00Z",
+        "directory": "/home/bob/projects/order5-st",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 4,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 3,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "order5-st"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:06:00Z",
+        "title": "order5-st",
+        "titleOverride": null,
+        "tmuxTarget": "muster-4:@4",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-order5-ui",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:07:00Z",
+        "directory": "/home/bob/projects/order5-ui",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 5,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 4,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "order5-ui"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:08:00Z",
+        "title": "order5-ui",
+        "titleOverride": null,
+        "tmuxTarget": "muster-5:@5",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-order5-f",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:09:00Z",
+        "directory": "/home/bob/projects/order5-f",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": {
+          "error": "server_error",
+          "message": "API error ended the turn"
+        },
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 6,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 5,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "order5-f"
+        },
+        "state": "failed",
+        "stateSince": "2026-01-01T00:10:00Z",
+        "title": "order5-f",
+        "titleOverride": null,
+        "tmuxTarget": "muster-6:@6",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": {
+          "reason": "permission",
+          "since": "2026-01-01T00:11:00Z"
+        },
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-order5-ni",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:12:00Z",
+        "directory": "/home/bob/projects/order5-ni",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 7,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 6,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "order5-ni"
+        },
+        "state": "needs_input",
+        "stateSince": "2026-01-01T00:11:00Z",
+        "title": "order5-ni",
+        "titleOverride": null,
+        "tmuxTarget": "muster-7:@7",
+        "unread": false
+      }
+    ],
+    "shellsBusy": [],
+    "type": "snapshot",
+    "ungrouped": {
+      "collapsed": false,
+      "pos": 0
+    },
+    "update": {
+      "apply": {
+        "error": null,
+        "phase": "idle",
+        "version": null
+      },
+      "available": null,
+      "canCheck": false,
+      "checkedAt": null,
+      "install": "dev",
+      "installed": null,
+      "remedy": null,
+      "running": "renderfix"
+    },
+    "usage": {
+      "fiveHour": null,
+      "modelScoped": null,
+      "modelScopedAt": null,
+      "modelScopedError": null,
+      "modelScopedSource": "subscription-api",
+      "sampledAt": null,
+      "sevenDay": null,
+      "source": "subscription"
+    }
+  },
+  "repos": [
+    {
+      "branch": "main",
+      "id": 7,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:12:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "order5-ni",
+      "path": "/home/bob/projects/order5-ni",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 6,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:09:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "order5-f",
+      "path": "/home/bob/projects/order5-f",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 5,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:07:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "order5-ui",
+      "path": "/home/bob/projects/order5-ui",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 4,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:06:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "order5-st",
+      "path": "/home/bob/projects/order5-st",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 3,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:04:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "plan",
+      "launchCount": 1,
+      "name": "order5-pl",
+      "path": "/home/bob/projects/order5-pl",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 2,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:02:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "order5-w",
+      "path": "/home/bob/projects/order5-w",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 1,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:00:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "order5-ri",
+      "path": "/home/bob/projects/order5-ri",
+      "pinned": false
+    }
+  ],
+  "reader": [
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/order5-ri",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/order5-w",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 2
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/order5-pl",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 3
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/order5-st",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 4
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/order5-ui",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 5
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/order5-f",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 6
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/order5-ni",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 7
+    }
+  ]
+}

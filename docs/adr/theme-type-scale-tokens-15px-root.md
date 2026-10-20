@@ -7,7 +7,7 @@ summary: A seven-step rem type ramp on a 15px root replaces hardcoded sizes; the
 features: [theme]
 tags: [ux, user-decision, deferred]
 files: [web/src/style.css, docs/design/design-system.md]
-tests: [web/e2e/type-scale.spec.ts]
+tests: [web/render/connection.spec.ts]
 refs: [docs/history/spec-changelog.md, plan:ui-text-and-focus, docs/design/design-system.md, TODO.md, "#19"]
 supersedes: []
 ---

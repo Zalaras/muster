@@ -35,7 +35,6 @@ import {
   removeSessionViaApi,
   danglingGroupIds,
   sectionCardIds,
-  sectionCards,
   sectionIds,
   sectionOrderOracle,
   selectToggle,
@@ -50,12 +49,19 @@ import {
 import { rawNotification } from "./helpers/payloads";
 import { launchDialog } from "./helpers/picker";
 import { pinViaApi, railCard, railOrderIds, railSortSelect } from "./helpers/railorder";
-import { resolvedCssVar } from "./helpers/theme";
 
 // Plan groups — the rail's sections: creating, renaming, collapsing, deleting, ungrouping and
-// stopping a group, the header summary and popover, dragging cards and headers, the filter,
-// the daemon-down and two-window behaviour. Plan acceptance E1-E11, E24, E25, with REQ-1 to
-// REQ-9, REQ-15 to REQ-18, REQ-20, REQ-23 to REQ-25 and invariants I1 to I3, I6, I8.
+// stopping a group, a state change moving a summary, dragging cards and headers, the
+// daemon-down and two-window behaviour. Plan acceptance E1-E8, E10, E24, E25, with REQ-1 to
+// REQ-9, REQ-15, REQ-16, REQ-18, REQ-20, REQ-23 to REQ-25 and invariants I1 to I3, I6, I8.
+// The display properties — a pending or editing name field discarded (E2, edge case 12),
+// the header's CSS, the empty sections' lines, a cancelled Delete dialog, the summary and
+// popover for a given set of states (E8, E9), what is draggable and what a drop sends nothing
+// for (E10, E11), the filter (E22's REQ-17 half), the keyboard menus and the header menu's
+// items — are render tests in web/render/groups.spec.ts since 2026-10-20
+// (plans/_audit/relevel/groups.md): what the rail shows for a given snapshot needs no daemon
+// to falsify. What stays here is every journey: a group endpoint answering, a hook changing
+// a member, a drop that moves, a reload or restart, a second window.
 //
 // Daemon shape (the plan's Fixture plan header): every test takes the per-test `daemon`
 // fixture. Each asserts section order, counts or the Ungrouped header's presence, which are
@@ -112,82 +118,6 @@ test("with no groups the rail is today's plus Select and ⋯, and Rail actions �
     await expect(groupName(groupHead(page, UNGROUPED))).toHaveText("Ungrouped");
     await expect(railCount(page)).toHaveText("2");
     await expect.poll(() => sectionCardIds(page, UNGROUPED)).toEqual(sessions.map((s) => s.id));
-  } finally {
-    await cleanup();
-  }
-});
-
-test("Escape in the new-group textbox discards the pending section and creates nothing (REQ-1, E2)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { cleanup } = await launchTitled(page, daemon, ["e2-esc-one"]);
-  try {
-    await expect(railCard(page, "e2-esc-one")).toBeVisible();
-    await openRailMenu(page);
-    await menuItem(page, "New group…").click();
-    const field = groupNameInput(page.locator("#sessions"));
-    await expect(field).toBeFocused();
-    await page.keyboard.type("Never kept");
-    await page.keyboard.press("Escape");
-
-    await expect(field).toHaveCount(0);
-    await expect(groupHeads(page)).toHaveCount(0);
-    await expect(filterGroup(page)).toHaveCount(0);
-    await settleFor(page, 600);
-    expect((await getGroupsState(page, daemon)).groups).toEqual([]);
-  } finally {
-    await cleanup();
-  }
-});
-
-for (const typed of ["", "   "]) {
-  test(`Enter on ${typed === "" ? "an empty" : "a whitespace-only"} name discards the pending section and creates nothing (REQ-1, E2)`, async ({
-    page,
-    daemon,
-  }) => {
-    await page.goto(daemon.dashboardUrl);
-    const { cleanup } = await launchTitled(page, daemon, ["e2-blank-one"]);
-    try {
-      await expect(railCard(page, "e2-blank-one")).toBeVisible();
-      await openRailMenu(page);
-      await menuItem(page, "New group…").click();
-      const field = groupNameInput(page.locator("#sessions"));
-      await expect(field).toBeFocused();
-      if (typed !== "") await page.keyboard.type(typed);
-      await page.keyboard.press("Enter");
-
-      await expect(field).toHaveCount(0);
-      await expect(groupHeads(page)).toHaveCount(0);
-      await expect(filterGroup(page)).toHaveCount(0);
-      await settleFor(page, 600);
-      expect((await getGroupsState(page, daemon)).groups).toEqual([]);
-    } finally {
-      await cleanup();
-    }
-  });
-}
-
-test("tabbing out of the new-group textbox discards the pending section and creates nothing (REQ-1, UI Specifications New group)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { cleanup } = await launchTitled(page, daemon, ["e2-blur-one"]);
-  try {
-    await expect(railCard(page, "e2-blur-one")).toBeVisible();
-    await openRailMenu(page);
-    await menuItem(page, "New group…").click();
-    const field = groupNameInput(page.locator("#sessions"));
-    await expect(field).toBeFocused();
-    await page.keyboard.type("Typed then abandoned");
-    await page.keyboard.press("Tab");
-
-    await expect(field).toHaveCount(0);
-    await expect(groupHeads(page)).toHaveCount(0);
-    await settleFor(page, 600);
-    expect((await getGroupsState(page, daemon)).groups).toEqual([]);
   } finally {
     await cleanup();
   }
@@ -254,42 +184,6 @@ test("double-clicking a group's name edits it in place and the new name shows in
   }
 });
 
-test("Escape while editing a name, and a whitespace-only name on Enter, each restore the old name and send nothing (REQ-2, E3, edge case 12)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["e3r-one", "e3r-two"]);
-  try {
-    const [one, two] = sessions;
-    if (!one || !two) throw new Error("expected 2 sessions");
-    const group = await createGroupViaApi(page, daemon, "Alpha", [one.id, two.id]);
-    const head = groupHead(page, group.id);
-    await expect(groupName(head)).toHaveText("Alpha");
-    const net = trackMutations(page);
-
-    await groupName(head).dblclick();
-    await expect(groupNameInput(head)).toBeFocused();
-    await page.keyboard.type("Gamma");
-    await page.keyboard.press("Escape");
-    await expect(groupNameInput(head)).toHaveCount(0);
-    await expect(groupName(head)).toHaveText("Alpha");
-
-    await groupName(head).dblclick();
-    await expect(groupNameInput(head)).toBeFocused();
-    await page.keyboard.type("   ");
-    await page.keyboard.press("Enter");
-    await expect(groupNameInput(head)).toHaveCount(0);
-    await expect(groupName(head)).toHaveText("Alpha");
-
-    await settleFor(page, 600);
-    expect(net.requests().filter((r) => r.startsWith("PUT /api/groups"))).toEqual([]);
-    expect((await getGroupsState(page, daemon)).groups.map((g) => g.name)).toEqual(["Alpha"]);
-  } finally {
-    await cleanup();
-  }
-});
-
 test("⋯ → Rename opens the same in-place editor, and leaving the field commits a non-empty name (REQ-2)", async ({
   page,
   daemon,
@@ -313,23 +207,6 @@ test("⋯ → Rename opens the same in-place editor, and leaving the field commi
     await expect
       .poll(async () => (await getGroupsState(page, daemon)).groups.map((g) => g.name))
       .toEqual(["Delta"]);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a header's name is uppercased by CSS while its text stays the raw name, and the header is sticky (REQ-2, UI Specifications Sections)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["css-one"]);
-  try {
-    const group = await createGroupViaApi(page, daemon, "Mixed Case", [sessions[0]?.id ?? -1]);
-    const head = groupHead(page, group.id);
-    await expect(groupName(head)).toHaveText("Mixed Case");
-    await expect(groupName(head)).toHaveCSS("text-transform", "uppercase");
-    await expect(head).toHaveCSS("position", "sticky");
   } finally {
     await cleanup();
   }
@@ -462,28 +339,6 @@ test("deleting the last session of a group leaves the group with a 0 count, the 
     await expect(menuItem(page, "Delete group…")).toBeEnabled();
     await expect(menuItem(page, "Select all (0)")).toBeDisabled();
     await expect(menuItem(page, "Stop all…")).toBeDisabled();
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a group made empty shows the drop line, and an Ungrouped section whose sessions all moved says no ungrouped sessions (REQ-4, REQ-15)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["e4e-one"]);
-  try {
-    const empty = await createGroupViaApi(page, daemon, "Waiting");
-    await expect(groupBody(page, empty.id).locator(".empty")).toHaveText(
-      "empty — drop sessions here",
-    );
-    await expect(summaryCount(groupHead(page, empty.id))).toHaveText("0");
-
-    await moveToGroupViaApi(page, daemon, [sessions[0]?.id ?? -1], empty.id);
-    await expect(groupBody(page, UNGROUPED).locator(".empty")).toHaveText("no ungrouped sessions");
-    await expect(summaryCount(groupHead(page, UNGROUPED))).toHaveText("0");
-    await expect(groupBody(page, empty.id).locator(".empty")).toHaveCount(0);
   } finally {
     await cleanup();
   }
@@ -674,38 +529,6 @@ test("Delete group… on an empty group says nothing else changes and removes it
   }
 });
 
-test("Cancel and Escape in the Delete group dialog leave the group and its members as they were (REQ-5)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["e7c-one", "e7c-two"]);
-  try {
-    const [one, two] = sessions;
-    if (!one || !two) throw new Error("expected 2 sessions");
-    const group = await createGroupViaApi(page, daemon, "Kept", [one.id, two.id]);
-    const net = trackMutations(page);
-
-    await openGroupMenu(page, groupHead(page, group.id));
-    await menuItem(page, "Delete group…").click();
-    const dialog = deleteGroupDialog(page, "Kept");
-    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-    await expect(dialog).toBeHidden();
-
-    await openGroupMenu(page, groupHead(page, group.id));
-    await menuItem(page, "Delete group…").click();
-    await expect(dialog).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(dialog).toBeHidden();
-
-    await settleFor(page, 500);
-    expect(net.requests().filter((r) => r.startsWith("DELETE /api/groups"))).toEqual([]);
-    expect(await sectionCardIds(page, group.id)).toEqual([one.id, two.id]);
-  } finally {
-    await cleanup();
-  }
-});
-
 test("⋯ → Ungroup dissolves the group with no dialog and its sessions keep their relative order in Ungrouped (REQ-6)", async ({
   page,
   daemon,
@@ -796,67 +619,6 @@ test("⋯ → Stop all… confirms with the count, stops every member, keeps the
   }
 });
 
-test("a header shows the member count and one state item per state present in attention order, an ended member counts under a neutral ended dot (REQ-16, E8)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const titles = ["e8-need", "e8-fail", "e8-new", "e8-work1", "e8-work2", "e8-idle", "e8-dead"];
-  const { sessions, cleanup } = await launchTitled(page, daemon, titles);
-  try {
-    const [need, fail, started, work1, work2, idle, dead] = sessions;
-    if (!need || !fail || !started || !work1 || !work2 || !idle || !dead) {
-      throw new Error("expected 7 sessions");
-    }
-    const group = await createGroupViaApi(
-      page,
-      daemon,
-      "Mixed",
-      sessions.map((s) => s.id),
-    );
-    await driveToState(request, daemon, need, "claude-e8-need", "needs_input");
-    await driveToState(request, daemon, fail, "claude-e8-fail", "failed");
-    await driveToState(request, daemon, work1, "claude-e8-w1", "working");
-    await driveToState(request, daemon, work2, "claude-e8-w2", "working");
-    await driveToState(request, daemon, idle, "claude-e8-idle", "idle");
-    await endSessionViaApi(page, daemon, dead.id);
-
-    const head = groupHead(page, group.id);
-    await expect(summaryCount(head)).toHaveText("7");
-    // The states present, in the order needs input, failed, started, planning, working, idle, ended.
-    await expect
-      .poll(() =>
-        summaryStates(head).evaluateAll((els) => els.map((el) => el.getAttribute("data-state"))),
-      )
-      .toEqual(["needs_input", "failed", "started", "working", "idle", "ended"]);
-    const expected: Record<string, [string, string]> = {
-      needs_input: ["1", "1 needs input"],
-      failed: ["1", "1 failed"],
-      started: ["1", "1 started"],
-      working: ["2", "2 working"],
-      idle: ["1", "1 idle"],
-      ended: ["1", "1 ended"],
-    };
-    for (const [state, [number, title]] of Object.entries(expected)) {
-      await expect(summaryState(head, state)).toHaveText(number);
-      await expect(summaryState(head, state)).toHaveAttribute("title", title);
-    }
-    // The ended dot is the neutral token, never a state colour.
-    const endedDot = summaryState(head, "ended").locator("i");
-    await expect(endedDot).toHaveCSS(
-      "background-color",
-      await resolvedCssVar(page, "--line-control", "background-color"),
-    );
-    // Cross-check the count against the daemon.
-    const state = await getGroupsState(page, daemon);
-    expect(state.sessions.filter((s) => s.groupId === group.id)).toHaveLength(7);
-    expect(state.sessions.filter((s) => s.groupId === group.id && !s.alive)).toHaveLength(1);
-  } finally {
-    await cleanup();
-  }
-});
-
 for (const sort of ["manual", "attention"] as const) {
   test(`a state change in a collapsed ${sort}-sorted group changes its summary and moves no section, and a repeated hook counts once (REQ-16, I8, E8)`, async ({
     page,
@@ -907,110 +669,6 @@ for (const sort of ["manual", "attention"] as const) {
     }
   });
 }
-
-test("hovering a header shows a tooltip naming the group, its session count, each state present and each member's title under its state (REQ-16, E9)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["e9-need", "e9-work", "e9-new"]);
-  try {
-    const [need, work, started] = sessions;
-    if (!need || !work || !started) throw new Error("expected 3 sessions");
-    const group = await createGroupViaApi(
-      page,
-      daemon,
-      "Hover me",
-      sessions.map((s) => s.id),
-    );
-    await driveToState(request, daemon, need, "claude-e9-need", "needs_input");
-    await driveToState(request, daemon, work, "claude-e9-work", "working");
-    const head = groupHead(page, group.id);
-    await expect(summaryState(head, "needs_input")).toHaveText("1");
-    await expect(summaryState(head, "working")).toHaveText("1");
-
-    await page.mouse.move(0, 0);
-    await expect(popover(page)).toHaveCount(0);
-    await head.hover();
-    const tip = popover(page);
-    await expect(tip).toBeVisible();
-    await expect(tip).toContainText("Hover me");
-    await expect(tip).toContainText("3 sessions");
-    const rows = [
-      ["needs_input", "needs input", "e9-need"],
-      ["working", "working", "e9-work"],
-      ["started", "started", "e9-new"],
-    ] as const;
-    for (const [state, word, title] of rows) {
-      const row = tip.locator(`.pr[data-state="${state}"]`);
-      await expect(row).toContainText(word);
-      await expect(row.locator(".pt")).toHaveText([title]);
-    }
-    // Pointer-events none: the tooltip never steals a click (UI Specifications Popover).
-    await expect(tip).toHaveCSS("pointer-events", "none");
-
-    // Removed on leave.
-    await page.mouse.move(0, 0);
-    await expect(popover(page)).toHaveCount(0);
-
-    // And on pointerdown while it is showing.
-    await head.hover();
-    await expect(popover(page)).toBeVisible();
-    await page.mouse.down();
-    await expect(popover(page)).toHaveCount(0);
-    await page.mouse.up();
-  } finally {
-    await cleanup();
-  }
-});
-
-test("the popover of an empty group says empty (REQ-4, REQ-16, E9)", async ({ page, daemon }) => {
-  await page.goto(daemon.dashboardUrl);
-  const { cleanup } = await launchTitled(page, daemon, ["e9e-one"]);
-  try {
-    const group = await createGroupViaApi(page, daemon, "Void");
-    await page.mouse.move(0, 0);
-    await groupHead(page, group.id).hover();
-    await expect(popover(page)).toBeVisible();
-    await expect(popover(page)).toContainText("Void");
-    await expect(popover(page)).toContainText("empty");
-  } finally {
-    await cleanup();
-  }
-});
-
-test("keyboard focus reaching a header's caret shows the same popover (REQ-16, UI Specifications Popover)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["e9k-one", "e9k-two"]);
-  try {
-    const group = await createGroupViaApi(
-      page,
-      daemon,
-      "Keyed",
-      sessions.map((s) => s.id),
-    );
-    const caret = groupCaret(groupHead(page, group.id));
-    await expect(caret).toBeVisible();
-    await page.mouse.move(0, 0);
-    // Reach the caret the way a keyboard user does: tab forward from the rail head.
-    await selectToggle(page).focus();
-    for (let i = 0; i < 6; i += 1) {
-      await page.keyboard.press("Tab");
-      if (await caret.evaluate((el) => el === document.activeElement)) break;
-    }
-    await expect(caret).toBeFocused();
-    await expect(popover(page)).toBeVisible();
-    await expect(popover(page)).toContainText("Keyed");
-    await page.keyboard.press("Tab");
-    await expect(popover(page)).toHaveCount(0);
-  } finally {
-    await cleanup();
-  }
-});
 
 test("attention sort keeps every section in its place while cards sort inside each section, with a pinned block per section (REQ-18, REQ-23, E8)", async ({
   page,
@@ -1162,27 +820,6 @@ test("dropping a grouped card on the Ungrouped header leaves its group (REQ-9, E
   }
 });
 
-test("cards and headers are both draggable in attention sort (REQ-25, E10, plan rail-card-organise REQ-12, REQ-19)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["r25-a1", "r25-b1"]);
-  try {
-    const [a1, b1] = sessions;
-    if (!a1 || !b1) throw new Error("expected 2 sessions");
-    const groupA = await createGroupViaApi(page, daemon, "First", [a1.id]);
-    const groupB = await createGroupViaApi(page, daemon, "Second", [b1.id]);
-    await railSortSelect(page).selectOption("attention");
-    await expect(railSortSelect(page)).toHaveValue("attention");
-    await expect(railCard(page, "r25-a1")).toHaveAttribute("draggable", "true");
-    await expect(groupHead(page, groupA.id)).toHaveAttribute("draggable", "true");
-    await expect(groupHead(page, groupB.id)).toHaveAttribute("draggable", "true");
-  } finally {
-    await cleanup();
-  }
-});
-
 for (const sort of ["manual", "attention"] as const) {
   test(`dragging a group header above another section, and the Ungrouped header above a group, reorders the sections in ${sort} sort and the order survives a reload (REQ-8, REQ-25, E10)`, async ({
     page,
@@ -1227,44 +864,6 @@ for (const sort of ["manual", "attention"] as const) {
     }
   });
 }
-
-test("dropping a header onto a card and a card onto the rail head or the filter row send no request and change no order (REQ-25, E11)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["e11-a1", "e11-b1", "e11-u1"]);
-  try {
-    const [a1, b1] = sessions;
-    if (!a1 || !b1) throw new Error("expected 3 sessions");
-    const groupA = await createGroupViaApi(page, daemon, "One", [a1.id]);
-    await createGroupViaApi(page, daemon, "Two", [b1.id]);
-    await expect(groupHeads(page)).toHaveCount(3);
-    const sectionsBefore = await sectionIds(page);
-    const cardsBefore = await railOrderIds(page);
-    const stateBefore = await getGroupsState(page, daemon);
-    const net = trackMutations(page);
-
-    await groupHead(page, groupA.id).dragTo(railCard(page, "e11-b1"));
-    await railCard(page, "e11-u1").dragTo(page.locator(".railhead"));
-    await railCard(page, "e11-u1").dragTo(filterGroup(page));
-
-    await settleFor(page, 800);
-    expect(net.requests()).toEqual([]);
-    expect(await sectionIds(page)).toEqual(sectionsBefore);
-    expect(await railOrderIds(page)).toEqual(cardsBefore);
-    const stateAfter = await getGroupsState(page, daemon);
-    // The snapshot's `sessions` array has no promised order (kb:anchor/ws.snapshot): compare by id.
-    const rows = (state: typeof stateAfter) =>
-      state.sessions
-        .map((s) => [s.id, s.groupId, s.pinned, s.railPos])
-        .sort((a, b) => Number(a[0]) - Number(b[0]));
-    expect(rows(stateAfter)).toEqual(rows(stateBefore));
-    expect(stateAfter.groups).toEqual(stateBefore.groups);
-  } finally {
-    await cleanup();
-  }
-});
 
 test("a drag, a collapse and a section reorder survive a reload and then a daemon restart with the same order, membership and collapsed state (REQ-8, REQ-20, E6)", async ({
   page,
@@ -1324,49 +923,6 @@ test("a drag, a collapse and a section reorder survive a reload and then a daemo
     expect(sectionOrderOracle(state)).toEqual(expected.sections);
     expect(danglingGroupIds(state)).toEqual([]);
     expect(railInvariantProblems(state)).toEqual([]);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("the filter offers All, Groups and Ungrouped, the count reads n of m while it hides cards, and it resets to All on reload (REQ-17, E22)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, [
-    "r17-g1",
-    "r17-g2",
-    "r17-u1",
-    "r17-u2",
-    "r17-u3",
-  ]);
-  try {
-    const [g1, g2] = sessions;
-    if (!g1 || !g2) throw new Error("expected 5 sessions");
-    await createGroupViaApi(page, daemon, "Filtered", [g1.id, g2.id]);
-    await expect(filterGroup(page)).toBeVisible();
-    await expect(filterGroup(page).getByRole("button")).toHaveText(["All", "Groups", "Ungrouped"]);
-    await expect(filterButton(page, "All")).toHaveAttribute("aria-pressed", "true");
-    await expect(railCount(page)).toHaveText("5");
-
-    await filterButton(page, "Groups").click();
-    await expect(filterButton(page, "Groups")).toHaveAttribute("aria-pressed", "true");
-    await expect(filterButton(page, "All")).toHaveAttribute("aria-pressed", "false");
-    await expect(railCount(page)).toHaveText("2 of 5");
-    await expect(railCard(page, "r17-g1")).toBeVisible();
-    await expect(railCard(page, "r17-u1")).toBeHidden();
-
-    await filterButton(page, "Ungrouped").click();
-    await expect(railCount(page)).toHaveText("3 of 5");
-    await expect(railCard(page, "r17-g1")).toBeHidden();
-    await expect(railCard(page, "r17-u1")).toBeVisible();
-
-    await filterButton(page, "Groups").click();
-    await expect(railCount(page)).toHaveText("2 of 5");
-    await page.reload();
-    await expect(filterButton(page, "All")).toHaveAttribute("aria-pressed", "true");
-    await expect(railCount(page)).toHaveText("5");
   } finally {
     await cleanup();
   }
@@ -1558,75 +1114,6 @@ test("the filter segment, the caret and the Select toggle keep focus and the sam
     });
     await expect(barButton(page, "Done")).toBeVisible();
     await expect(headerCheckbox(page, "Tick")).toBeVisible();
-  } finally {
-    await cleanup();
-  }
-});
-
-test("the rail ⋯ and header ⋯ buttons open their menus from the keyboard, the opener stays the same node and the menu survives a render tick (REQ-1, REQ-3)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["tickm-one"]);
-  try {
-    const group = await createGroupViaApi(page, daemon, "Menus", [sessions[0]?.id ?? -1]);
-    const head = groupHead(page, group.id);
-    await expect(groupName(head)).toHaveText("Menus");
-
-    for (const opener of [railActionsButton(page), groupActionsButton(head)]) {
-      await opener.focus();
-      await opener.evaluate((el) => {
-        Reflect.set(el, "__e2eOpener", true);
-      });
-      await page.keyboard.press("Enter");
-      await expect(openMenu(page)).toBeVisible();
-      await expect(opener).toHaveAttribute("aria-expanded", "true");
-      await settleFor(page, 1_300);
-      await expect(openMenu(page)).toBeVisible();
-      expect(await opener.evaluate((el) => Reflect.get(el, "__e2eOpener") === true)).toBe(true);
-      await page.keyboard.press("Escape");
-      await expect(openMenu(page)).toHaveCount(0);
-      await expect(opener).toHaveAttribute("aria-expanded", "false");
-    }
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a group header's ⋯ menu offers the full item list while the Ungrouped header offers no Rename, Ungroup or Delete group… (REQ-2, REQ-5, REQ-6, UI Specifications Header menu)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["hm-one", "hm-two"]);
-  try {
-    const [one] = sessions;
-    if (!one) throw new Error("expected 2 sessions");
-    const group = await createGroupViaApi(page, daemon, "Menu check", [one.id]);
-
-    await openGroupMenu(page, groupHead(page, group.id));
-    for (const name of [
-      "Rename",
-      "Collapse",
-      "Select all (1)",
-      "New group…",
-      "Stop all…",
-      "Ungroup",
-      "Delete group…",
-    ]) {
-      await expect(menuItem(page, name)).toBeVisible();
-    }
-    await page.keyboard.press("Escape");
-
-    await openGroupMenu(page, groupHead(page, UNGROUPED));
-    for (const name of ["Collapse", "Select all (1)", "New group…", "Stop all…"]) {
-      await expect(menuItem(page, name)).toBeVisible();
-    }
-    for (const name of ["Rename", "Ungroup", "Delete group…"]) {
-      await expect(menuItem(page, name)).toHaveCount(0);
-    }
-    await expect(sectionCards(page, UNGROUPED)).toHaveCount(1);
   } finally {
     await cleanup();
   }

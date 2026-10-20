@@ -1,0 +1,306 @@
+{
+  "scenario": "reader-docs-large-tiles-2x2",
+  "hello": {
+    "claudeCode": {
+      "floor": "2.1.246",
+      "installed": "2.1.300",
+      "status": "verified",
+      "verified": "2.1.300"
+    },
+    "daemon": {
+      "version": "0.0.0-renderfix"
+    },
+    "protocolVersion": 2,
+    "type": "hello"
+  },
+  "snapshot": {
+    "claudeTheme": {
+      "family": "unknown"
+    },
+    "groups": [],
+    "prefs": {
+      "density": "2x2",
+      "railActivity": "turn",
+      "railDensity": "comfortable",
+      "railSort": "manual",
+      "theme": "follow",
+      "updateCheck": true,
+      "usageModel": "Fable",
+      "view": "tiles"
+    },
+    "sessions": [
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-reader",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:00:00Z",
+        "directory": "/home/bob/projects/reader-large",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 1,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 0,
+        "repo": null,
+        "state": "idle",
+        "stateSince": "2026-01-01T00:01:00Z",
+        "title": "reader",
+        "titleOverride": null,
+        "tmuxTarget": "muster-1:@1",
+        "unread": true
+      }
+    ],
+    "shellsBusy": [],
+    "type": "snapshot",
+    "ungrouped": {
+      "collapsed": false,
+      "pos": 0
+    },
+    "update": {
+      "apply": {
+        "error": null,
+        "phase": "idle",
+        "version": null
+      },
+      "available": null,
+      "canCheck": false,
+      "checkedAt": null,
+      "install": "dev",
+      "installed": null,
+      "remedy": null,
+      "running": "renderfix"
+    },
+    "usage": {
+      "fiveHour": null,
+      "modelScoped": null,
+      "modelScopedAt": null,
+      "modelScopedError": null,
+      "modelScopedSource": "subscription-api",
+      "sampledAt": null,
+      "sevenDay": null,
+      "source": "subscription"
+    }
+  },
+  "repos": [
+    {
+      "branch": null,
+      "id": 1,
+      "isGit": false,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:00:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "reader-large",
+      "path": "/home/bob/projects/reader-large",
+      "pinned": false
+    }
+  ],
+  "reader": [
+    {
+      "files": [
+        {
+          "body": "# Outline\n\n## Section 1\n\nParagraph text for Section 1.\n\n\n## Section 2\n\nParagraph text for Section 2.\n\n\n## Section 3\n\nParagraph text for Section 3.\n\n\n## Section 4\n\nParagraph text for Section 4.\n\n\n## Section 5\n\nParagraph text for Section 5.\n\n\n## Section 6\n\nParagraph text for Section 6.\n\n\n## Section 7\n\nParagraph text for Section 7.\n\n\n## Section 8\n\nParagraph text for Section 8.\n\n\n## Section 9\n\nParagraph text for Section 9.\n\n\n## Section 10\n\nParagraph text for Section 10.\n\n\n## Section 11\n\nParagraph text for Section 11.\n\n\n## Section 12\n\nParagraph text for Section 12.\n\n\n## Section 13\n\nParagraph text for Section 13.\n\n\n## Section 14\n\nParagraph text for Section 14.\n\n\n## Section 15\n\nParagraph text for Section 15.\n\n\n## Section 16\n\nParagraph text for Section 16.\n\n\n## Section 17\n\nParagraph text for Section 17.\n\n\n## Section 18\n\nParagraph text for Section 18.\n\n\n## Section 19\n\nParagraph text for Section 19.\n\n\n## Section 20\n\nParagraph text for Section 20.\n\n\n## Section 21\n\nParagraph text for Section 21.\n\n\n## Section 22\n\nParagraph text for Section 22.\n\n\n## Section 23\n\nParagraph text for Section 23.\n\n\n## Section 24\n\nParagraph text for Section 24.\n\n\n## Section 25\n\nParagraph text for Section 25.\n\n\n## Section 26\n\nParagraph text for Section 26.\n\n\n## Section 27\n\nParagraph text for Section 27.\n\n\n## Section 28\n\nParagraph text for Section 28.\n\n\n## Section 29\n\nParagraph text for Section 29.\n\n\n## Section 30\n\nParagraph text for Section 30.\n\n",
+          "path": "/home/bob/projects/reader-large/0-outline.md"
+        },
+        {
+          "body": "# File 1\n\nBody text for file 1.\n",
+          "path": "/home/bob/projects/reader-large/file-01.md"
+        },
+        {
+          "body": "# File 2\n\nBody text for file 2.\n",
+          "path": "/home/bob/projects/reader-large/file-02.md"
+        },
+        {
+          "body": "# File 3\n\nBody text for file 3.\n",
+          "path": "/home/bob/projects/reader-large/file-03.md"
+        },
+        {
+          "body": "# File 4\n\nBody text for file 4.\n",
+          "path": "/home/bob/projects/reader-large/file-04.md"
+        },
+        {
+          "body": "# File 5\n\nBody text for file 5.\n",
+          "path": "/home/bob/projects/reader-large/file-05.md"
+        },
+        {
+          "body": "# File 6\n\nBody text for file 6.\n",
+          "path": "/home/bob/projects/reader-large/file-06.md"
+        },
+        {
+          "body": "# File 7\n\nBody text for file 7.\n",
+          "path": "/home/bob/projects/reader-large/file-07.md"
+        },
+        {
+          "body": "# File 8\n\nBody text for file 8.\n",
+          "path": "/home/bob/projects/reader-large/file-08.md"
+        },
+        {
+          "body": "# File 9\n\nBody text for file 9.\n",
+          "path": "/home/bob/projects/reader-large/file-09.md"
+        },
+        {
+          "body": "# File 10\n\nBody text for file 10.\n",
+          "path": "/home/bob/projects/reader-large/file-10.md"
+        },
+        {
+          "body": "# File 11\n\nBody text for file 11.\n",
+          "path": "/home/bob/projects/reader-large/file-11.md"
+        },
+        {
+          "body": "# File 12\n\nBody text for file 12.\n",
+          "path": "/home/bob/projects/reader-large/file-12.md"
+        },
+        {
+          "body": "# File 13\n\nBody text for file 13.\n",
+          "path": "/home/bob/projects/reader-large/file-13.md"
+        },
+        {
+          "body": "# File 14\n\nBody text for file 14.\n",
+          "path": "/home/bob/projects/reader-large/file-14.md"
+        },
+        {
+          "body": "# File 15\n\nBody text for file 15.\n",
+          "path": "/home/bob/projects/reader-large/file-15.md"
+        },
+        {
+          "body": "# File 16\n\nBody text for file 16.\n",
+          "path": "/home/bob/projects/reader-large/file-16.md"
+        },
+        {
+          "body": "# File 17\n\nBody text for file 17.\n",
+          "path": "/home/bob/projects/reader-large/file-17.md"
+        },
+        {
+          "body": "# File 18\n\nBody text for file 18.\n",
+          "path": "/home/bob/projects/reader-large/file-18.md"
+        },
+        {
+          "body": "# File 19\n\nBody text for file 19.\n",
+          "path": "/home/bob/projects/reader-large/file-19.md"
+        },
+        {
+          "body": "# File 20\n\nBody text for file 20.\n",
+          "path": "/home/bob/projects/reader-large/file-20.md"
+        }
+      ],
+      "listing": {
+        "directory": "/home/bob/projects/reader-large",
+        "files": [
+          {
+            "path": "0-outline.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-01.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-02.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-03.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-04.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-05.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-06.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-07.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-08.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-09.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-10.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-11.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-12.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-13.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-14.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-15.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-16.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-17.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-18.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-19.md",
+            "writtenAt": null
+          },
+          {
+            "path": "file-20.md",
+            "writtenAt": null
+          }
+        ],
+        "listing": "walk",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    }
+  ]
+}

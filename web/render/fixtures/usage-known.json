@@ -134,5 +134,18 @@
       "path": "/home/bob/projects/zeta",
       "pinned": false
     }
+  ],
+  "reader": [
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/zeta",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    }
   ]
 }

@@ -14,9 +14,12 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,13 +38,18 @@ const (
 	renderfixPersonaRoot = "/home/bob/projects"
 )
 
-// RenderFixture is one scenario's recorded `hello` and `snapshot` frames and the
-// `GET /api/repos` body, in the order the fixture file carries them.
+// RenderFixture is one scenario's recorded `hello` and `snapshot` frames, the
+// `GET /api/repos` body and the reader's documents, in the order the fixture file carries them.
 type RenderFixture struct {
 	Scenario string `json:"scenario"`
 	Hello    any    `json:"hello"`
 	Snapshot any    `json:"snapshot"`
 	Repos    any    `json:"repos"`
+	// Reader is one entry per session whose `GET /api/sessions/{id}/reader` answered 200:
+	// `{sessionId, listing, files: [{path, body}]}`, every document the listing names (and
+	// the plan when it exists) read through `GET …/reader/file`, so a render test can open the
+	// docs surface and its find bar (kb:anchor/sessions.reader, kb:anchor/sessions.reader-file).
+	Reader any `json:"reader"`
 }
 
 // RenderScenarioNames lists every scenario in generation order.
@@ -144,6 +152,9 @@ type renderRig struct {
 	srv  *Server
 	st   *store.Store
 	root string
+	// lastStep is the wall-clock second the previous step finished in; every step runs in a
+	// later second (see freshSecond).
+	lastStep int64
 }
 
 func newRenderRig() (*renderRig, error) {
@@ -218,6 +229,15 @@ func (r *renderRig) dir(ctx context.Context, name, branch string) (string, error
 	return dir, nil
 }
 
+// writeDoc writes a markdown file at <dir>/<rel>, creating parents, for the reader to list.
+func (r *renderRig) writeDoc(dir, rel, body string) error {
+	path := filepath.Join(dir, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(body), 0o644)
+}
+
 // worktree adds a linked worktree of dir at <dir>/.claude/worktrees/<name> on a new branch.
 func (r *renderRig) worktree(ctx context.Context, dir, name, branch string) (string, error) {
 	path := filepath.Join(dir, ".claude", "worktrees", name)
@@ -246,8 +266,18 @@ func (r *renderRig) git(ctx context.Context, dir string, args ...string) error {
 }
 
 // api fires one cookie-authed request at the mux and returns the decoded body; a
-// non-2xx status is an error carrying the body.
+// non-2xx status is an error carrying the body. A mutating call is a step of its own
+// (freshSecond); a GET stamps nothing and runs at once.
 func (r *renderRig) api(ctx context.Context, method, path string, body any) (json.RawMessage, error) {
+	if method != http.MethodGet {
+		r.freshSecond()
+		defer r.stepDone()
+	}
+	return r.apiRaw(ctx, method, path, body)
+}
+
+// apiRaw is api without the step bookkeeping, for a caller that is itself the step.
+func (r *renderRig) apiRaw(ctx context.Context, method, path string, body any) (json.RawMessage, error) {
 	var reader io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -276,19 +306,38 @@ type launchOpts struct {
 	title          string
 	model          string
 	permissionMode string
+	// effort, when non-empty, is the request's `effort` (kb:anchor/sessions.create).
+	effort string
 }
 
-// nextSecond waits for the next wall-clock second boundary, so the step that follows runs
-// in a second no earlier step touched and with most of that second still ahead of it. The
-// daemon stamps rows with time.Now at one-second wire resolution, and the normaliser
-// numbers distinct instants: two steps sharing a second in one run and not the next would
-// change the fixture, as would two launches tying on lastLaunchedAt in the repo list.
-func (r *renderRig) nextSecond() {
-	time.Sleep(time.Until(time.Now().Truncate(time.Second).Add(time.Second)))
+// freshSecond makes the step that follows run in a wall-clock second no earlier step
+// touched, with at least half of that second still ahead of it. The daemon stamps rows with
+// time.Now at one-second wire resolution and the normaliser numbers distinct instants in
+// first-seen order, so the fixture is stable only if the set of steps sharing a second is
+// the same on every run — and a step's duration varies with machine load. Giving every
+// step its own second removes the sharing altogether: a slow step only shifts the seconds
+// after it, which the normaliser renumbers to the same values. The caller records the
+// second the step finished in (stepDone), so a step that spilled past its own second still
+// keeps the next one apart.
+func (r *renderRig) freshSecond() {
+	for {
+		now := time.Now()
+		if now.Unix() > r.lastStep && now.Nanosecond() < int(500*time.Millisecond) {
+			return
+		}
+		time.Sleep(time.Until(now.Truncate(time.Second).Add(time.Second)))
+	}
 }
+
+// stepDone records the second a step finished in; freshSecond waits past it.
+func (r *renderRig) stepDone() { r.lastStep = time.Now().Unix() }
+
+// nextSecond is freshSecond for a caller that stamps its own step.
+func (r *renderRig) nextSecond() { r.freshSecond() }
 
 func (r *renderRig) launch(ctx context.Context, dir string, opts launchOpts) (renderSession, error) {
-	r.nextSecond()
+	r.freshSecond()
+	defer r.stepDone()
 	if opts.model == "" {
 		opts.model = "sonnet"
 	}
@@ -299,40 +348,55 @@ func (r *renderRig) launch(ctx context.Context, dir string, opts launchOpts) (re
 	if opts.title != "" {
 		body["title"] = opts.title
 	}
-	raw, err := r.api(ctx, http.MethodPost, "/api/sessions", body)
+	if opts.effort != "" {
+		body["effort"] = opts.effort
+	}
+	raw, err := r.apiRaw(ctx, http.MethodPost, "/api/sessions", body)
 	if err != nil {
 		return renderSession{}, err
 	}
 	var wire struct {
 		ID int64 `json:"id"`
 	}
-	if err := json.Unmarshal(raw, &wire); err != nil {
+	if err = json.Unmarshal(raw, &wire); err != nil {
 		return renderSession{}, err
 	}
 	pane, ok := r.srv.manager.PaneOf(wire.ID)
 	if !ok {
 		return renderSession{}, fmt.Errorf("session %d has no recorded pane", wire.ID)
 	}
+	// The launch stamped the repo row and the session row with two clock reads; the repo's
+	// lastLaunchedAt follows the session's createdAt so the launch is one instant on the wire
+	// whatever the machine's load (store.AlignRepoLaunchedAt).
+	row, err := r.st.GetSession(ctx, wire.ID)
+	if err != nil {
+		return renderSession{}, err
+	}
+	if err = r.st.AlignRepoLaunchedAt(ctx, row.Directory, row.CreatedAt); err != nil {
+		return renderSession{}, err
+	}
 	return renderSession{id: wire.ID, pane: pane}, nil
 }
 
-// hook and status post one body to the ingest route and process it before returning.
+// hook and status post one body to the ingest route and process it before returning; each
+// is a step in its own second.
 func (r *renderRig) hook(ctx context.Context, body string) error {
 	return r.ingest(ctx, claudecode.IngestHookPath(renderfixIngestToken), body)
 }
 
-// hookStamped is hook in a fresh second, for the post whose timestamp the fixture keeps.
+// hookStamped is hook: every post has its own second now; the name survives for the
+// scenarios that marked the post whose timestamp the fixture keeps.
 func (r *renderRig) hookStamped(ctx context.Context, body string) error {
-	r.nextSecond()
 	return r.hook(ctx, body)
 }
 
 func (r *renderRig) status(ctx context.Context, body string) error {
-	r.nextSecond()
 	return r.ingest(ctx, claudecode.IngestStatusPath(renderfixIngestToken), body)
 }
 
 func (r *renderRig) ingest(ctx context.Context, path, body string) error {
+	r.freshSecond()
+	defer r.stepDone()
 	req := httptest.NewRequestWithContext(ctx, http.MethodPost, path, strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	r.srv.Handler().ServeHTTP(rec, req)
@@ -359,7 +423,8 @@ func (r *renderRig) drainIngest() {
 
 // markDead ends a session the way a liveness tick would, without the tick.
 func (r *renderRig) markDead(ctx context.Context, id int64) error {
-	r.nextSecond()
+	r.freshSecond()
+	defer r.stepDone()
 	row, err := r.st.GetSession(ctx, id)
 	if err != nil {
 		return err
@@ -376,8 +441,14 @@ func (r *renderRig) markDead(ctx context.Context, id int64) error {
 // repoTick runs the repo poll once — the step Start's poller would take after a cwd change.
 func (r *renderRig) repoTick(ctx context.Context) { r.srv.repoRefresh.tick(ctx) }
 
-// capture records the first two /ws frames and GET /api/repos, then normalises them.
+// capture records the reader's documents, the first two /ws frames and GET /api/repos,
+// then normalises them. The reader comes first: its listing runs the transcript scan that
+// may upsert a plan, which the snapshot should then carry.
 func (r *renderRig) capture(ctx context.Context, scenario string) (RenderFixture, error) {
+	reader, err := r.captureReader(ctx)
+	if err != nil {
+		return RenderFixture{}, err
+	}
 	ts := httptest.NewServer(r.srv.Handler())
 	defer ts.Close()
 
@@ -408,8 +479,76 @@ func (r *renderRig) capture(ctx context.Context, scenario string) (RenderFixture
 	if err != nil {
 		return RenderFixture{}, err
 	}
-	fixture := RenderFixture{Scenario: scenario, Hello: frames[0], Snapshot: frames[1], Repos: repos}
+	fixture := RenderFixture{Scenario: scenario, Hello: frames[0], Snapshot: frames[1], Repos: repos, Reader: reader}
 	return normaliseRenderFixture(fixture, r.root), nil
+}
+
+// captureReader records, per session in id order, the reader listing and each document it
+// names. A session whose directory is gone answers 409 and is left out, as the dashboard
+// would show its error state from the live daemon only.
+func (r *renderRig) captureReader(ctx context.Context) (any, error) {
+	rows, err := r.st.ListSessions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].ID < rows[j].ID })
+	recordings := make([]any, 0, len(rows))
+	for _, row := range rows {
+		raw, err := r.api(ctx, http.MethodGet, fmt.Sprintf("/api/sessions/%d/reader", row.ID), nil)
+		if err != nil {
+			if strings.Contains(err.Error(), ": 409 ") {
+				continue
+			}
+			return nil, err
+		}
+		listing, err := decodeFaithful(raw)
+		if err != nil {
+			return nil, err
+		}
+		files, err := r.captureReaderFiles(ctx, row.ID, listing)
+		if err != nil {
+			return nil, err
+		}
+		recordings = append(recordings, map[string]any{
+			"sessionId": json.Number(strconv.FormatInt(row.ID, 10)),
+			"listing":   listing,
+			"files":     files,
+		})
+	}
+	return recordings, nil
+}
+
+// captureReaderFiles reads every path the listing names — `directory` joined with each
+// `files[i].path`, and `plan.path` when the plan exists — as `[{path, body}]`.
+func (r *renderRig) captureReaderFiles(ctx context.Context, id int64, listing any) ([]any, error) {
+	m, _ := listing.(map[string]any)
+	dir, _ := m["directory"].(string)
+	var paths []string
+	if plan, ok := m["plan"].(map[string]any); ok {
+		if exists, _ := plan["exists"].(bool); exists {
+			if p, ok := plan["path"].(string); ok {
+				paths = append(paths, p)
+			}
+		}
+	}
+	if files, ok := m["files"].([]any); ok {
+		for _, f := range files {
+			if fm, ok := f.(map[string]any); ok {
+				if rel, ok := fm["path"].(string); ok {
+					paths = append(paths, filepath.Join(dir, filepath.FromSlash(rel)))
+				}
+			}
+		}
+	}
+	out := make([]any, 0, len(paths))
+	for _, p := range paths {
+		body, err := r.api(ctx, http.MethodGet, "/api/sessions/"+strconv.FormatInt(id, 10)+"/reader/file?path="+url.QueryEscape(p), nil)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, map[string]any{"path": p, "body": string(body)})
+	}
+	return out, nil
 }
 
 // decodeFaithful keeps numbers as their wire text, so re-encoding changes no digit.

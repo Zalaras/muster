@@ -1,0 +1,501 @@
+{
+  "scenario": "focus-header-rows-b",
+  "hello": {
+    "claudeCode": {
+      "floor": "2.1.246",
+      "installed": "2.1.300",
+      "status": "verified",
+      "verified": "2.1.300"
+    },
+    "daemon": {
+      "version": "0.0.0-renderfix"
+    },
+    "protocolVersion": 2,
+    "type": "hello"
+  },
+  "snapshot": {
+    "claudeTheme": {
+      "family": "unknown"
+    },
+    "groups": [
+      {
+        "collapsed": false,
+        "id": 1,
+        "name": "Game",
+        "pos": 0
+      }
+    ],
+    "prefs": {
+      "density": "2x2",
+      "railActivity": "turn",
+      "railDensity": "comfortable",
+      "railSort": "manual",
+      "theme": "follow",
+      "updateCheck": true,
+      "usageModel": "Fable",
+      "view": "focus"
+    },
+    "sessions": [
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": {
+          "directory": "/home/bob/projects/economic-game-theory-simulation-lab/.claude/worktrees/probe-worktree",
+          "repo": {
+            "branch": "worktree-probe-worktree",
+            "isWorktree": true,
+            "name": "probe-worktree"
+          }
+        },
+        "claudeSessionId": "cs-row-a",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:00:00Z",
+        "directory": "/home/bob/projects/economic-game-theory-simulation-lab",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 1,
+        "id": 1,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-haiku-4-5-20251001",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "bypassPermissions"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 6,
+        "repo": {
+          "branch": "long-branch-name-for-wrapping-long-branch-name-for-wrapping-long-branch-name-fox",
+          "isWorktree": false,
+          "name": "economic-game-theory-simulation-lab"
+        },
+        "state": "working",
+        "stateSince": "2026-01-01T00:01:00Z",
+        "title": "rework shift-swap approval for the weekend rosterinx",
+        "titleOverride": null,
+        "tmuxTarget": "muster-1:@1",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": {
+          "directory": "/home/bob/projects/economic-game-theory-simulation-lab/.claude/worktrees/probe-worktree",
+          "repo": {
+            "branch": "worktree-probe-worktree",
+            "isWorktree": true,
+            "name": "probe-worktree"
+          }
+        },
+        "claudeSessionId": "cs-row-b",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:02:00Z",
+        "directory": "/home/bob/projects/economic-game-theory-simulation-lab",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": false,
+        "groupId": 1,
+        "id": 2,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-haiku-4-5-20251001",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "bypassPermissions"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 7,
+        "repo": {
+          "branch": "long-branch-name-for-wrapping-long-branch-name-for-wrapping-long-branch-name-fox",
+          "isWorktree": false,
+          "name": "economic-game-theory-simulation-lab"
+        },
+        "state": "working",
+        "stateSince": "2026-01-01T00:03:00Z",
+        "title": "rework shift-swap approval for the weekend rosterinx",
+        "titleOverride": null,
+        "tmuxTarget": "muster-2:@2",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": false,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-row-c",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:04:00Z",
+        "directory": "/home/bob/projects/economic-game-theory-simulation-lab",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": "2026-01-01T00:05:00Z",
+        "failure": null,
+        "firstLaunchHere": false,
+        "groupId": 1,
+        "id": 3,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-haiku-4-5-20251001",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "bypassPermissions"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 8,
+        "repo": {
+          "branch": "long-branch-name-for-wrapping-long-branch-name-for-wrapping-long-branch-name-fox",
+          "isWorktree": false,
+          "name": "economic-game-theory-simulation-lab"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:04:00Z",
+        "title": "rework shift-swap approval for the weekend rosterinx",
+        "titleOverride": null,
+        "tmuxTarget": "muster-3:@3",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": false,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-row-d",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:06:00Z",
+        "directory": "/home/bob/projects/abc123",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": "2026-01-01T00:07:00Z",
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 4,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-haiku-4-5-20251001",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 3,
+        "repo": {
+          "branch": "long-branch-name-for-wrapping-long-branch-name-for-wrapping-long-branch-name-fox",
+          "isWorktree": false,
+          "name": "abc123"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:06:00Z",
+        "title": "Game Play",
+        "titleOverride": null,
+        "tmuxTarget": "muster-4:@4",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-row-e",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": 84000,
+          "usedPct": 42,
+          "windowSize": 200000
+        },
+        "createdAt": "2026-01-01T00:08:00Z",
+        "directory": "/home/bob/projects/abc123",
+        "effort": {
+          "level": null
+        },
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": false,
+        "groupId": null,
+        "id": 5,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-haiku-4-5-20251001",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 4,
+        "repo": {
+          "branch": "long-branch-name-for-wrapping-long-branch-name-for-wrapping-long-branch-name-fox",
+          "isWorktree": false,
+          "name": "abc123"
+        },
+        "state": "started",
+        "stateSince": "2026-01-01T00:08:00Z",
+        "title": "a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any heax",
+        "titleOverride": null,
+        "tmuxTarget": "muster-5:@5",
+        "unread": false
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": {
+          "directory": "/home/bob/projects/long-folder-name-for-wrapping-long-folder-name-for-wrapping-/.claude/worktrees/probe-worktree",
+          "repo": {
+            "branch": "worktree-probe-worktree",
+            "isWorktree": true,
+            "name": "probe-worktree"
+          }
+        },
+        "claudeSessionId": "cs-row-f",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:09:00Z",
+        "directory": "/home/bob/projects/long-folder-name-for-wrapping-long-folder-name-for-wrapping-",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": 1,
+        "id": 6,
+        "lastActivity": null,
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-haiku-4-5-20251001",
+          "id": "claude-haiku-4-5-20251001"
+        },
+        "permissionMode": {
+          "source": "seed",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 9,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "long-folder-name-for-wrapping-long-folder-name-for-wrapping-"
+        },
+        "state": "working",
+        "stateSince": "2026-01-01T00:10:00Z",
+        "title": "Game Play",
+        "titleOverride": null,
+        "tmuxTarget": "muster-6:@6",
+        "unread": false
+      }
+    ],
+    "shellsBusy": [],
+    "type": "snapshot",
+    "ungrouped": {
+      "collapsed": false,
+      "pos": 1
+    },
+    "update": {
+      "apply": {
+        "error": null,
+        "phase": "idle",
+        "version": null
+      },
+      "available": null,
+      "canCheck": false,
+      "checkedAt": null,
+      "install": "dev",
+      "installed": null,
+      "remedy": null,
+      "running": "renderfix"
+    },
+    "usage": {
+      "fiveHour": {
+        "resetsAt": "2026-01-01T00:11:00Z",
+        "usedPct": 61
+      },
+      "modelScoped": null,
+      "modelScopedAt": null,
+      "modelScopedError": null,
+      "modelScopedSource": "subscription-api",
+      "sampledAt": "2026-01-01T00:12:00Z",
+      "sevenDay": {
+        "resetsAt": "2026-01-01T00:11:00Z",
+        "usedPct": 23
+      },
+      "source": "subscription"
+    }
+  },
+  "repos": [
+    {
+      "branch": "main",
+      "id": 3,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:09:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "long-folder-name-for-wrapping-long-folder-name-for-wrapping-",
+      "path": "/home/bob/projects/long-folder-name-for-wrapping-long-folder-name-for-wrapping-",
+      "pinned": false
+    },
+    {
+      "branch": "long-branch-name-for-wrapping-long-branch-name-for-wrapping-long-branch-name-fox",
+      "id": 2,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:08:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 2,
+      "name": "abc123",
+      "path": "/home/bob/projects/abc123",
+      "pinned": false
+    },
+    {
+      "branch": "long-branch-name-for-wrapping-long-branch-name-for-wrapping-long-branch-name-fox",
+      "id": 1,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:04:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "bypassPermissions",
+      "launchCount": 3,
+      "name": "economic-game-theory-simulation-lab",
+      "path": "/home/bob/projects/economic-game-theory-simulation-lab",
+      "pinned": false
+    }
+  ],
+  "reader": [
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/economic-game-theory-simulation-lab",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/economic-game-theory-simulation-lab",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 2
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/economic-game-theory-simulation-lab",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 3
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/abc123",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 4
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/abc123",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 5
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/long-folder-name-for-wrapping-long-folder-name-for-wrapping-",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 6
+    }
+  ]
+}

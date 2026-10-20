@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page, settleFor, test } from "./helpers/fixtures";
+import { expect, type Page, test } from "./helpers/fixtures";
 import {
   barButton,
   cardCheckbox,
@@ -16,13 +16,15 @@ import {
   UNGROUPED,
 } from "./helpers/groups";
 import { launchEndedSession, stateSession, trackMutationBodies } from "./helpers/rail-menu";
-import { pinButton, pinViaApi, railCard, railOrderIds, railSortSelect } from "./helpers/railorder";
+import { pinViaApi, railCard, railOrderIds, railSortSelect } from "./helpers/railorder";
 import { scratchDirectory } from "./helpers/session";
 
 // Plan rail-card-organise — dragging rail cards into groups in both sort orders (#77) and
-// dragging a selection in Select mode. Acceptance E10-E13 with REQ-12 to REQ-18, REQ-20 and INV-4.
-// Section headers still drag to reorder in both sort orders (REQ-19, E20): that is the existing
-// groups.spec.ts spec, kept as it is.
+// dragging a selection in Select mode. The journeys where a drop commits through a daemon
+// request (group, order) or the daemon refuses one: acceptance E10, E11, E13 with REQ-12 to
+// REQ-17, REQ-20 and INV-4. The display properties — a drag that sends nothing and changes
+// nothing, which the request log proves — are render tests in web/render/rail.spec.ts
+// (plans/_audit/relevel/rail.md).
 //
 // Daemon shape (the plan's Fixture plan header): every test takes the per-test `daemon` fixture —
 // they assert rail order and group membership, which a neighbour's sessions on a shared daemon
@@ -47,34 +49,6 @@ function rowsOf(state: GroupsState): (number | boolean | null)[][] {
 }
 
 const sortedIds = (ids: number[]) => [...ids].sort((a, b) => a - b);
-
-/**
- * A real drag that ends on the card it started on: press, move past the drag threshold inside the
- * card, release. `dragTo(card, card)` never moves, so it is the click that toggles the selection
- * (REQ-15). Returns once the browser has fired `dragstart`, so the drag is shown to have happened.
- */
-async function dragWithin(page: Page, card: Locator): Promise<void> {
-  await page.evaluate(() => {
-    Reflect.set(window, "__e2eDragStarts", 0);
-    document.addEventListener(
-      "dragstart",
-      () =>
-        Reflect.set(window, "__e2eDragStarts", Number(Reflect.get(window, "__e2eDragStarts")) + 1),
-      { capture: true, once: true },
-    );
-  });
-  const box = await card.boundingBox();
-  if (!box) throw new Error("expected the card on screen");
-  const x = box.x + 40;
-  const y = box.y + box.height / 2;
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  await page.mouse.move(x + 14, y, { steps: 4 });
-  await page.mouse.move(x + 28, y, { steps: 4 });
-  await page.mouse.move(x, y, { steps: 4 });
-  await page.mouse.up();
-  await expect.poll(() => page.evaluate(() => Reflect.get(window, "__e2eDragStarts"))).toBe(1);
-}
 
 test("in attention order dragging a pinned card onto another group's header changes only its group, keeps its pin, sits it in the new section's pinned block, and leaves a bystander's group and pin as they were (REQ-12, REQ-13, INV-4, E10)", async ({
   page,
@@ -215,44 +189,6 @@ test("in manual order a drop among a section's cards sends one order request car
       body: { ids: [m3.id], groupId: null },
     });
     expect(net.requests()).toHaveLength(2);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("in attention order a drop inside the card's own section, on a sibling card or on its own header, changes nothing and sends nothing (REQ-13, E12)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, [
-    "drag-e13-a1",
-    "drag-e13-a2",
-    "drag-e13-b1",
-  ]);
-  try {
-    const [a1, a2, b1] = sessions;
-    if (!a1 || !a2 || !b1) throw new Error("expected 3 sessions");
-    const alpha = await createGroupViaApi(page, daemon, "alpha", [a1.id, a2.id]);
-    await createGroupViaApi(page, daemon, "bravo", [b1.id]);
-    await pinViaApi(page, daemon.baseURL, a1.id, true);
-    await setSort(page, "attention");
-    const before = await getGroupsState(page, daemon);
-    const orderBefore = await railOrderIds(page);
-    const net = trackMutationBodies(page);
-    // Draggable in attention order (REQ-12): a drag that sends nothing is only evidence when the
-    // card can be dragged at all.
-    await expect(railCard(page, "drag-e13-a2")).toHaveAttribute("draggable", "true");
-    await expect(railCard(page, "drag-e13-a1")).toHaveAttribute("draggable", "true");
-
-    await railCard(page, "drag-e13-a2").dragTo(railCard(page, "drag-e13-a1"));
-    await railCard(page, "drag-e13-a1").dragTo(groupHead(page, alpha.id));
-    await railCard(page, "drag-e13-a2").dragTo(groupHead(page, alpha.id));
-
-    await settleFor(page, 800);
-    expect(net.requests()).toEqual([]);
-    expect(await railOrderIds(page)).toEqual(orderBefore);
-    expect(rowsOf(await getGroupsState(page, daemon))).toEqual(rowsOf(before));
   } finally {
     await cleanup();
   }
@@ -419,60 +355,6 @@ test("in manual order a selection dropped among a section's cards lands contiguo
 });
 
 for (const sort of ["manual", "attention"] as const) {
-  test(`in ${sort} order an unselected card in Select mode is not draggable, and a drag released where it started, outside the rail or by an unselected card sends nothing and leaves the selection (REQ-15, REQ-18, E12)`, async ({
-    page,
-    daemon,
-  }) => {
-    await page.goto(daemon.dashboardUrl);
-    const { sessions, cleanup } = await launchTitled(page, daemon, [
-      `drag-e17-${sort}-a1`,
-      `drag-e17-${sort}-b1`,
-      `drag-e17-${sort}-u1`,
-    ]);
-    try {
-      const [a1, b1] = sessions;
-      if (!a1 || !b1) throw new Error("expected 3 sessions");
-      await createGroupViaApi(page, daemon, "alpha", [a1.id]);
-      const bravo = await createGroupViaApi(page, daemon, "bravo", [b1.id]);
-      await setSort(page, sort);
-
-      await selectToggle(page).click();
-      await cardCheckbox(page, `drag-e17-${sort}-u1`).check();
-      await expect(selectBarCount(page)).toHaveText("1 selected");
-      // Selected: draggable, with the pin control hidden. Unselected: neither.
-      await expect(railCard(page, `drag-e17-${sort}-u1`)).toHaveAttribute("draggable", "true");
-      await expect(railCard(page, `drag-e17-${sort}-a1`)).toHaveAttribute("draggable", "false");
-      await expect(railCard(page, `drag-e17-${sort}-b1`)).toHaveAttribute("draggable", "false");
-      await expect(pinButton(railCard(page, `drag-e17-${sort}-u1`))).toBeHidden();
-
-      const before = await getGroupsState(page, daemon);
-      const orderBefore = await railOrderIds(page);
-      const net = trackMutationBodies(page);
-
-      // An unselected card does not drag.
-      await railCard(page, `drag-e17-${sort}-a1`).dragTo(groupHead(page, bravo.id));
-      await railCard(page, `drag-e17-${sort}-a1`).dragTo(railCard(page, `drag-e17-${sort}-b1`));
-      // A selected card released where it started, and outside the rail.
-      await dragWithin(page, railCard(page, `drag-e17-${sort}-u1`));
-      await railCard(page, `drag-e17-${sort}-u1`).dragTo(page.locator("#mainhead"));
-
-      await settleFor(page, 800);
-      expect(net.requests()).toEqual([]);
-      expect(await railOrderIds(page)).toEqual(orderBefore);
-      expect(rowsOf(await getGroupsState(page, daemon))).toEqual(rowsOf(before));
-      await expect(selectBarCount(page)).toHaveText("1 selected");
-      await expect(cardCheckbox(page, `drag-e17-${sort}-u1`)).toBeChecked();
-      await expect(cardCheckbox(page, `drag-e17-${sort}-a1`)).not.toBeChecked();
-
-      // Leaving the mode makes every card draggable again.
-      await barButton(page, "Done").click();
-      await expect(railCard(page, `drag-e17-${sort}-a1`)).toHaveAttribute("draggable", "true");
-      await expect(pinButton(railCard(page, `drag-e17-${sort}-u1`))).toBeVisible();
-    } finally {
-      await cleanup();
-    }
-  });
-
   test(`in ${sort} order a drop onto a group deleted meanwhile shows the daemon's refusal in the action-error line and leaves every card where it was (REQ-20, E13)`, async ({
     page,
     daemon,

@@ -5,93 +5,33 @@
 // section and table — role + accessible name where the table pins one, a plain locator
 // (by id/class) where it explicitly leaves the choice to us (the past-session region's
 // `region` role is not asserted; the chip carries no role at all).
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import type { ScratchDaemon } from "./daemon";
-import { escapeForRegExp } from "./picker";
 
-/** `<span role="tablist" aria-label="Session kind">` in `#launch-dialog h2`. */
-export function sessionKindTablist(dialog: Locator): Locator {
-  return dialog.getByRole("tablist", { name: "Session kind" });
-}
-
-/** The `New` tab (`#launch-tab-new`) — always the selected tab on a fresh dialog open
- * (REQ-7), regardless of which tab a previous open was left on. */
-export function newTab(dialog: Locator): Locator {
-  return dialog.getByRole("tab", { name: "New" });
-}
-
-/** The `Resume` tab (`#launch-tab-resume`). */
-export function resumeTab(dialog: Locator): Locator {
-  return dialog.getByRole("tab", { name: "Resume" });
-}
-
-/** `#bypass-warning` — hidden except while the bypass radio is checked. Its exact
- * `textContent` per the Testable UI Elements table (the `<b>` wrapping the first two
- * words joins the text, not a separate node Playwright would need to skip). */
-export function bypassWarning(dialog: Locator): Locator {
-  return dialog.locator("#bypass-warning");
-}
-
-/** The bypass radio in the Start-in radiogroup — native `<input type="radio">`, labelled
- * "bypass" (no "s"), distinct from the danger chip's own text. */
-export function bypassRadio(dialog: Locator): Locator {
-  return dialog.getByRole("radio", { name: "bypass" });
-}
-
-/** `#launch-button` — keeps its id across all four faces (Launch / Launch without
- * checks / Resume / Resume without checks); class carries `key` or `key-danger`. */
-export function launchPrimaryButton(dialog: Locator): Locator {
-  return dialog.locator("#launch-button");
-}
-
-/** `#launch-target` — the footer selection readout, `Launch in <path>` on New,
- * `Resume <title> in <path>` on Resume. */
-export function launchTarget(dialog: Locator): Locator {
-  return dialog.locator("#launch-target");
-}
-
-/** `<section id="past-sessions" hidden aria-label="Past sessions">` — the `region` role
- * is deliberately not asserted (Testable UI Elements: "region role not asserted"). */
-export function pastSessionsSection(dialog: Locator): Locator {
-  return dialog.locator("#past-sessions");
-}
-
-/** `<input id="past-filter" type="search" aria-label="Filter sessions">` — a native
- * `type="search"` input carries the `searchbox` role implicitly. */
-export function pastFilterInput(dialog: Locator): Locator {
-  return dialog.getByRole("searchbox", { name: "Filter sessions" });
-}
-
-/** `<div id="past-list">` — holds the row buttons, or the loading/empty/no-match/error
- * line as plain text. */
-export function pastList(dialog: Locator): Locator {
-  return dialog.locator("#past-list");
-}
-
-/** The list head text, `Claude sessions in <dir name> · <count>`. */
-export function pastListHead(dialog: Locator): Locator {
-  return pastSessionsSection(dialog).locator(":scope > div").first();
-}
-
-/**
- * A past-session row, matched the same way `picker.ts`'s `childEntry` matches a browse
- * entry: `textContent` concatenates every span with no separator (title, optional chip
- * text, age, last prompt), so an exact match would break the moment any real fixture
- * carries an age or last-prompt suffix — anchor on the title as a leading substring.
- */
-export function pastSessionRow(dialog: Locator, title: string): Locator {
-  return pastList(dialog).getByRole("button", {
-    name: new RegExp(`^${escapeForRegExp(title)}`),
-  });
-}
-
-/** The danger chip — `<span class="chip-danger">bypass</span>` — inside any container
- * that can host it: a rail/strip card, `.mainhead`, or a tile's `.thead`. Scoped by the
- * caller (e.g. `bypassChip(railCard(page, title))`, `bypassChip(page.locator("#mainhead"))`,
- * `bypassChip(liveTile(page, title))`). */
-export function bypassChip(container: Locator): Locator {
-  return container.locator(".chip-danger");
-}
+// Every locator is pure DOM and lives in the render tier, where the dialog's static
+// properties re-levelled on 2026-10-20 read them: the tab pair (`#launch-tab-new`, always the
+// selected tab on a fresh dialog open per REQ-7, and `#launch-tab-resume`) beside the dialog
+// locator in web/render/helpers/shortcuts.ts; the bypass segment, its warning, the primary
+// button and the danger chip in web/render/helpers/launch.ts; the tablist, the footer
+// readout and the past-session section, list, filter and rows in
+// web/render/helpers/past-sessions.ts. The journeys here reach them through these re-exports
+// so a locator is written once for both tiers.
+export { newTab, resumeTab } from "../../render/helpers/shortcuts";
+export {
+  bypassChip,
+  bypassRadio,
+  bypassWarning,
+  launchPrimaryButton,
+} from "../../render/helpers/launch";
+export {
+  launchTarget,
+  pastFilterInput,
+  pastList,
+  pastListHead,
+  pastSessionRow,
+  pastSessionsSection,
+  sessionKindTablist,
+} from "../../render/helpers/past-sessions";
 
 export interface RepoObject {
   id: number;

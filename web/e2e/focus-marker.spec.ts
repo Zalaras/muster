@@ -1,6 +1,12 @@
 // Plan ui-text-and-focus — REQ-1 through REQ-3, INV-3 (the "shown in the Focus pane"
 // rail marker, #16). Plan acceptance: E1-E3.
 //
+// The journeys: the marker across a view switch, a Remove and a persisted drag reorder. The
+// marker for a given snapshot — the top card current by default and a click or ⌥⌘2 moving it, a
+// click into the terminal leaving it, `.card.current`'s ground and ring (E1, E2, REQ-2, REQ-3) —
+// moved to the render tier on 2026-10-20: web/render/focus.spec.ts against the
+// `unbound-sessions` fixture (plans/_audit/relevel/focus.md).
+//
 // Every test takes the per-test `daemon` fixture (helpers/fixtures.ts; mirrors
 // rail-order.spec.ts's rationale): marker assertions read the exact set/position of
 // `aria-current` in `#sessions`/`#tiles-strip` — "exactly one current card", the
@@ -15,63 +21,6 @@ import {
   launchSession,
   scratchDirectory,
 } from "./helpers/session";
-import { resolvedCssVar } from "./helpers/theme";
-
-test("the top rail card is current by default, and clicking another card moves the marker (E1)", async ({
-  page,
-  daemon,
-}) => {
-  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
-  try {
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dirA.path, title: "marker-e1-a" });
-    await launchSession(page, daemon, { directory: dirB.path, title: "marker-e1-b" });
-
-    const cardA = railCard(page, "marker-e1-a");
-    const cardB = railCard(page, "marker-e1-b");
-
-    // Default focus: the first-launched session's card is current, and it is the
-    // ONLY current card (INV-3).
-    await expect(cardA).toHaveAttribute("aria-current", "true");
-    await expect(cardB).not.toHaveAttribute("aria-current", "true");
-    await expect(currentRailCard(page)).toHaveCount(1);
-
-    await cardB.click();
-
-    await expect(cardB).toHaveAttribute("aria-current", "true");
-    await expect(cardA).not.toHaveAttribute("aria-current", "true");
-    await expect(currentRailCard(page)).toHaveCount(1);
-  } finally {
-    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
-  }
-});
-
-test("clicking into the live terminal leaves the marker on the clicked-into session (E2)", async ({
-  page,
-  daemon,
-}) => {
-  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
-  try {
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dirA.path, title: "marker-e2-a" });
-    await launchSession(page, daemon, { directory: dirB.path, title: "marker-e2-b" });
-
-    const cardB = railCard(page, "marker-e2-b");
-    await cardB.click();
-    await expect(cardB).toHaveAttribute("aria-current", "true");
-
-    const terminalRegion = page.locator('[aria-label="Terminal: marker-e2-b"]');
-    await expect(terminalRegion).toBeVisible();
-    await terminalRegion.click();
-
-    // The marker is a rail-only cue, orthogonal to keyboard focus (design decision,
-    // Overview) — clicking into the terminal must not move it back or clear it.
-    await expect(cardB).toHaveAttribute("aria-current", "true");
-    await expect(currentRailCard(page)).toHaveCount(1);
-  } finally {
-    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
-  }
-});
 
 test("Tiles never shows a current strip card; switching back to Focus restores exactly one (E3)", async ({
   page,
@@ -102,27 +51,6 @@ test("Tiles never shows a current strip card; switching back to Focus restores e
       "aria-pressed",
       "true",
     );
-    await expect(currentRailCard(page)).toHaveCount(1);
-  } finally {
-    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
-  }
-});
-
-test("Opt+Cmd+2 moves the marker to the rail's second card (REQ-3)", async ({ page, daemon }) => {
-  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
-  try {
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dirA.path, title: "marker-cmdn-a" });
-    await launchSession(page, daemon, { directory: dirB.path, title: "marker-cmdn-b" });
-
-    const cardA = railCard(page, "marker-cmdn-a");
-    const cardB = railCard(page, "marker-cmdn-b");
-    await expect(cardA).toHaveAttribute("aria-current", "true");
-
-    await page.keyboard.press("Alt+Meta+Digit2");
-
-    await expect(cardB).toHaveAttribute("aria-current", "true");
-    await expect(cardA).not.toHaveAttribute("aria-current", "true");
     await expect(currentRailCard(page)).toHaveCount(1);
   } finally {
     await Promise.all([dirA.cleanup(), dirB.cleanup()]);
@@ -212,43 +140,5 @@ test("a manual drag reorder follows the current session's id, never a stale DOM 
     await expect(currentRailCard(page)).toHaveAttribute("data-session-id", cId ?? "");
   } finally {
     await Promise.all(dirs.map((d) => d.cleanup()));
-  }
-});
-
-test(".card.current renders on --bg-hover with an --edge ring without hovering, and carries no action row (REQ-2, plan rail-card-organise REQ-6)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "marker-style" });
-
-    const card = railCard(page, "marker-style");
-    await expect(card).toHaveAttribute("aria-current", "true");
-
-    // Move the mouse well away from the card so `:hover` cannot also explain the
-    // ground/ring/reveal — the marker's own styling must hold on its own merits.
-    await page.mouse.move(0, 0);
-
-    const bgHover = await resolvedCssVar(page, "--bg-hover", "background-color");
-    const edge = await resolvedCssVar(page, "--edge", "color");
-    await expect(card).toHaveCSS("background-color", bgHover);
-    const outline = await card.evaluate((el) => {
-      const cs = getComputedStyle(el);
-      return { color: cs.outlineColor, style: cs.outlineStyle, width: cs.outlineWidth };
-    });
-    expect(outline.style).toBe("solid");
-    expect(outline.width).toBe("1px");
-    // Resolve the ring's rgb() the same way `resolvedCssVar` does, so the string
-    // comparison holds regardless of the browser's own hex<->rgb normalization.
-    expect(outline.color).toBe(edge);
-
-    // The row this once showed on the current card is gone from every card (Stop, Resume and
-    // Remove live in the right-click menu).
-    await expect(card.locator(".acts-row")).toHaveCount(0);
-    await expect(card.getByRole("button", { name: /^(Stop|End|Resume|Remove)/ })).toHaveCount(0);
-  } finally {
-    await cleanup();
   }
 });

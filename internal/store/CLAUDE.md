@@ -19,7 +19,8 @@
 - Don't test SQLite's own constraint enforcement.
 
 <!-- kb:trailer -->
-<!-- kb:hash 69b3ce3488af9cc3 -->
+<!-- kb:hash eec5d94a7be486e6 -->
+- **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
 - **groups** — Rail groups: sections, header summary and popover, select mode, filter, group create, rename, ungroup and delete, persistence. → `docs/features/groups/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`

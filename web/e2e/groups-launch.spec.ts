@@ -2,7 +2,6 @@ import { expect, test } from "./helpers/fixtures";
 import {
   createGroupViaApi,
   deleteGroupViaApi,
-  expectFocusAndNodeSurviveTick,
   filterButton,
   getGroupsState,
   groupHead,
@@ -23,14 +22,19 @@ import {
 } from "./helpers/groups";
 import { launchDialog, launchError, modelError, openLaunchDialog } from "./helpers/picker";
 import { pinViaApi, railCard } from "./helpers/railorder";
-import { launchPrimaryButton, newTab, pastSessionRow, resumeTab } from "./helpers/resume";
+import { launchPrimaryButton, pastSessionRow, resumeTab } from "./helpers/resume";
 import { browseScratchDirectory } from "./helpers/session";
 
-// Plan groups — the launch dialog's Group row on both tabs and the launch's effect on the rail:
-// the default from the focused session, New group… created with the session or not at all, a
-// launch landing at the end of its section, the filter flipping to All, and a group deleted while
-// the dialog is open. Plan acceptance E17-E19, E22 (launch half), with REQ-11, REQ-1, I4 and the
-// past-sessions Doc Delta (the Resume tab carries the same row).
+// Plan groups — the launch's effect on the rail: New group… created with the session or not at
+// all, a launch landing at the end of its section, the filter flipping to All, a resume joining
+// the group chosen, and a group deleted while the dialog is open. Plan acceptance E18, E19, E22
+// (launch half), with REQ-11, REQ-1, I4 and the past-sessions Doc Delta.
+//
+// Re-levelled 2026-10-20 (plans/_audit/relevel/groups.md): what the Group row shows for a given
+// state — its default from the focused session and its options on both tabs (E17), and the
+// select's and the name field's survival of a render tick — lives in `web/render/groups.spec.ts`
+// against the `groups-titled` fixture. The dialog opened from Tiles stays here: the view switch is
+// a prefs PUT the dashboard adopts only from the broadcast.
 //
 // Daemon shape (the plan's Fixture plan header): every test takes the per-test `daemon` fixture.
 // The launch default reads the sole focused session, and the filter-flip test asserts the
@@ -40,90 +44,6 @@ import { browseScratchDirectory } from "./helpers/session";
 // browse root (`launchTitledInBrowseRoot`) and `pickBrowseDirectory` navigates from there.
 
 const UNRECOGNIZED_MODEL = "muster-e2e-unrecognized-model";
-
-test("the launch dialog's Group row defaults to the focused session's group and lists No group, each group and New group… (REQ-11, E17)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitledInBrowseRoot(page, daemon, [
-    "e17-a1",
-    "e17-b1",
-    "e17-u1",
-  ]);
-  try {
-    const [a1, b1] = sessions;
-    if (!a1 || !b1) throw new Error("expected 3 sessions");
-    await createGroupViaApi(page, daemon, "Alpha", [a1.id]);
-    await createGroupViaApi(page, daemon, "Bravo", [b1.id]);
-    await expect(groupHead(page, "ungrouped")).toBeVisible();
-
-    await railCard(page, "e17-a1").click();
-    await expect(page.locator("#mainhead .name")).toHaveText("e17-a1");
-    const dialog = await openLaunchDialog(page);
-    await expect(groupSelect(dialog)).toBeVisible();
-    await expect.poll(() => selectedOptionLabel(groupSelect(dialog))).toBe("Alpha");
-    const labels = await optionLabels(groupSelect(dialog));
-    expect(labels[0]).toBe("No group");
-    expect(labels[labels.length - 1]).toBe("New group…");
-    expect(labels.slice(1, -1).sort()).toEqual(["Alpha", "Bravo"]);
-    // The name field belongs to New group… alone, and starts empty.
-    await expect(groupNameField(dialog)).toBeHidden();
-    await groupSelect(dialog).selectOption({ label: "New group…" });
-    await expect(groupNameField(dialog)).toBeVisible();
-    await expect(groupNameField(dialog)).toHaveValue("");
-    // The Group row sits under Title.
-    const titleBox = await dialog.getByLabel("Title").boundingBox();
-    const groupBox = await groupSelect(dialog).boundingBox();
-    expect(titleBox?.y ?? Number.POSITIVE_INFINITY).toBeLessThan(
-      groupBox?.y ?? Number.NEGATIVE_INFINITY,
-    );
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
-
-    // An ungrouped session focused: No group.
-    await railCard(page, "e17-u1").click();
-    await expect(page.locator("#mainhead .name")).toHaveText("e17-u1");
-    const reopened = await openLaunchDialog(page);
-    await expect.poll(() => selectedOptionLabel(groupSelect(reopened))).toBe("No group");
-    await expect(groupNameField(reopened)).toBeHidden();
-  } finally {
-    await cleanup();
-  }
-});
-
-test("the Resume tab carries the same Group row with the same default (REQ-11, past-sessions, E17)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitledInBrowseRoot(page, daemon, [
-    "e17r-a1",
-    "e17r-u1",
-  ]);
-  try {
-    const [a1] = sessions;
-    if (!a1) throw new Error("expected 2 sessions");
-    await createGroupViaApi(page, daemon, "Alpha", [a1.id]);
-    await railCard(page, "e17r-a1").click();
-    await expect(page.locator("#mainhead .name")).toHaveText("e17r-a1");
-
-    const dialog = await openLaunchDialog(page);
-    await resumeTab(dialog).click();
-    await expect(resumeTab(dialog)).toHaveAttribute("aria-selected", "true");
-    await expect(groupSelect(dialog)).toBeVisible();
-    await expect.poll(() => selectedOptionLabel(groupSelect(dialog))).toBe("Alpha");
-    const labels = await optionLabels(groupSelect(dialog));
-    expect(labels[0]).toBe("No group");
-    expect(labels[labels.length - 1]).toBe("New group…");
-
-    await newTab(dialog).click();
-    await expect(groupSelect(dialog)).toBeVisible();
-    await expect.poll(() => selectedOptionLabel(groupSelect(dialog))).toBe("Alpha");
-  } finally {
-    await cleanup();
-  }
-});
 
 test("a launch dialog opened from Tiles defaults the Group row to the focused session's group (edge case 27, E17)", async ({
   page,
@@ -428,56 +348,6 @@ test("launching an ungrouped session while the filter is Groups flips the filter
     await expect(page.locator("#mainhead .name")).toHaveText("e22-new");
   } finally {
     await target.cleanup();
-    await cleanup();
-  }
-});
-
-for (const tab of ["New", "Resume"] as const) {
-  test(`the ${tab} tab's Group select keeps focus, the same node and its choice across a render tick after typeahead (REQ-11)`, async ({
-    page,
-    daemon,
-  }) => {
-    await page.goto(daemon.dashboardUrl);
-    const { sessions, cleanup } = await launchTitledInBrowseRoot(page, daemon, [`tickg-${tab}-a1`]);
-    try {
-      await createGroupViaApi(page, daemon, "Zed", [sessions[0]?.id ?? -1]);
-      await createGroupViaApi(page, daemon, "Yarrow");
-      const dialog = await openLaunchDialog(page);
-      if (tab === "Resume") await resumeTab(dialog).click();
-      await expect(groupSelect(dialog)).toBeVisible();
-
-      // One typeahead key picks the option starting with it ("Yarrow"; the default was "Zed"). A
-      // control rebuilt by the render tick loses focus and its choice together
-      // (kb:lesson/select-rebuilt-every-tick-passed-selectoption).
-      await expectFocusAndNodeSurviveTick(page, groupSelect(dialog), "KeyY", async () => {
-        await expect.poll(() => selectedOptionLabel(groupSelect(dialog))).toBe("Yarrow");
-      });
-      await expect.poll(() => selectedOptionLabel(groupSelect(dialog))).toBe("Yarrow");
-    } finally {
-      await cleanup();
-    }
-  });
-}
-
-test("the New group… name field keeps focus, its node and what was typed across a render tick (REQ-11)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const { cleanup } = await launchTitledInBrowseRoot(page, daemon, ["tickn-one"]);
-  try {
-    await createGroupViaApi(page, daemon, "Existing");
-    const dialog = await openLaunchDialog(page);
-    await groupSelect(dialog).selectOption({ label: "New group…" });
-    await expect(groupNameField(dialog)).toBeVisible();
-
-    await expectFocusAndNodeSurviveTick(page, groupNameField(dialog), "KeyQ", async () => {
-      await expect(groupNameField(dialog)).toHaveValue("q");
-    });
-    await expect(groupNameField(dialog)).toHaveValue("q");
-    await expect(groupSelect(dialog)).toBeVisible();
-    expect(await selectedOptionLabel(groupSelect(dialog))).toBe("New group…");
-  } finally {
     await cleanup();
   }
 });

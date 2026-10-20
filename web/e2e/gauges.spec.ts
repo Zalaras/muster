@@ -1,21 +1,13 @@
 import { countUsageSamples, queryEvents } from "./helpers/db";
 import { expect, test } from "./helpers/fixtures";
 import {
-  cardContextHot,
   cardContextRow,
   cardContextTrack,
   mastheadBucket,
   mastheadBucketTrack,
-  mastheadBucketWarn,
   tileContextInfo,
-  tileContextTrack,
 } from "./helpers/gauges";
-import {
-  mastheadBucketResets,
-  RESETS_OTHER_DAY,
-  RESETS_SAME_DAY,
-  removedModelReadout,
-} from "./helpers/masthead";
+import { removedModelReadout } from "./helpers/masthead";
 import {
   envelopedSessionStart,
   envelopedStatusLineFull,
@@ -42,37 +34,15 @@ import { liveTile } from "./helpers/terminal";
 // (`internal/usage`), both fed exclusively by synthesized status-line POSTs to the real
 // `/ingest/<token>/status` endpoint — mirroring exactly what the real status-line script
 // would send. No real `claude` is ever launched (CLAUDE.md hard rule). Plan acceptance:
-// E1-E12.
+// the journeys E2, E6 to E11 and the in-place updates; what a known, unknown or hot gauge
+// looks like on the card, the tile and the masthead (E1, E3, E4, E5, E12) is a render test in
+// web/render/usage.spec.ts (re-levelled 2026-10-20, plans/_audit/relevel/usage.md).
 //
 // Every test takes the per-test `daemon` fixture (helpers/fixtures.ts) rather than a
 // file-shared one: account usage (the masthead gauges, the `usage_sample` table) is
 // daemon-global, so two tests sharing a daemon would stomp on each other's exact-value
 // and exact-row-count assertions the moment they run concurrently (`fullyParallel:
 // true`, playwright.config.ts), and E11 restarts its daemon outright.
-
-test("a fresh session and a fresh daemon render every gauge as unknown with no track markup (E1)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "gauge-e1-fresh" });
-    const card = sessionCard(page, "gauge-e1-fresh");
-
-    await expect(card.getByText(/ctx\s+unknown/i)).toBeVisible();
-    await expect(cardContextTrack(card)).toHaveCount(0);
-
-    await expect(mastheadBucket(page, "5h")).toContainText("5h");
-    await expect(mastheadBucket(page, "5h")).toContainText(/unknown/i);
-    await expect(mastheadBucket(page, "7d")).toContainText("7d");
-    await expect(mastheadBucket(page, "7d")).toContainText(/unknown/i);
-    await expect(mastheadBucketTrack(page, "5h")).toHaveCount(0);
-    await expect(mastheadBucketTrack(page, "7d")).toHaveCount(0);
-  } finally {
-    await cleanup();
-  }
-});
 
 test("a pre-first-response status post leaves the unknown rendering unchanged — null is not 0% (E2)", async ({
   page,
@@ -109,131 +79,6 @@ test("a pre-first-response status post leaves the unknown rendering unchanged �
     await expect(mastheadBucket(page, "5h")).toContainText(/unknown/i);
     await expect(mastheadBucket(page, "7d")).toContainText(/unknown/i);
     await expect(mastheadBucketTrack(page, "5h")).toHaveCount(0);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a full status post renders the Focus rail card's context row with track, rounded percent, and compact tokens (E3)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "gauge-e3-full" });
-    const card = sessionCard(page, "gauge-e3-full");
-    const claudeId = "claude-gauge-e3";
-
-    await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
-    });
-    await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull(claudeId, {
-        ...(await envelopeOpts(session, daemon)),
-        contextUsedPct: 42,
-        totalInputTokens: 84000,
-      }),
-    });
-
-    const row = cardContextRow(card);
-    await expect(row).toContainText("42%");
-    await expect(row).toContainText("84k");
-    await expect(cardContextTrack(card)).toHaveCount(1);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("the same status data renders in the Tiles view's tile header (E4)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "gauge-e4-tiles" });
-    const claudeId = "claude-gauge-e4";
-
-    await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
-    });
-    await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull(claudeId, {
-        ...(await envelopeOpts(session, daemon)),
-        contextUsedPct: 42,
-        totalInputTokens: 84000,
-      }),
-    });
-    await expect(sessionCard(page, "gauge-e4-tiles")).toBeVisible();
-
-    // exact: true — sanctioned repair (plan ui-text-and-focus, REQ-13/Testable UI
-    // Elements): live tile headers now host a rename trigger whose accessible name
-    // is the display title, and this test's own fixture title ("gauge-e4-tiles")
-    // contains "tiles" as a substring, so a non-exact match on the view switcher's
-    // "Tiles" button is ambiguous.
-    await page.getByRole("button", { name: "Tiles", exact: true }).click();
-
-    const tile = liveTile(page, "gauge-e4-tiles");
-    await expect(tile).toBeVisible();
-    const info = tileContextInfo(tile);
-    await expect(info).toContainText("42%");
-    await expect(info).toContainText("84k");
-    await expect(tileContextTrack(tile)).toHaveCount(1);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a full status post fills both masthead gauge bars with rounded percentages and bracketed reset suffixes, and shows no model readout (E5)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
-      directory: dir,
-      title: "gauge-e5-masthead",
-    });
-    const claudeId = "claude-gauge-e5";
-
-    await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
-    });
-    await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull(claudeId, {
-        ...(await envelopeOpts(session, daemon)),
-        fiveHourPct: 45,
-        sevenDayPct: 10,
-        model: { id: "claude-haiku-4-5-20251001", displayName: "Haiku 4.5" },
-      }),
-    });
-
-    await expect(mastheadBucket(page, "5h")).toContainText("5h");
-    await expect(mastheadBucket(page, "5h")).toContainText("45%");
-    // REQ-14 / plan masthead-indicators REQ-4: the reset suffix is present whenever the
-    // bucket is known, as `(HH:MM)` or `(HH:MM Ddd)` — which of the two depends on the
-    // wall clock, so this test asserts only that one of the bracketed forms renders (the
-    // default fixture resets are a fixed far-future instant, an other-day form).
-    await expect(mastheadBucketResets(page, "5h")).toHaveText(
-      new RegExp(`${RESETS_SAME_DAY.source}|${RESETS_OTHER_DAY.source}`),
-    );
-    await expect(mastheadBucketTrack(page, "5h")).toHaveCount(1);
-
-    await expect(mastheadBucket(page, "7d")).toContainText("7d");
-    await expect(mastheadBucket(page, "7d")).toContainText("10%");
-    await expect(mastheadBucketResets(page, "7d")).toHaveText(
-      new RegExp(`${RESETS_SAME_DAY.source}|${RESETS_OTHER_DAY.source}`),
-    );
-    await expect(mastheadBucketTrack(page, "7d")).toHaveCount(1);
-
-    // Plan masthead-indicators REQ-1: the model the status line carried no longer shows
-    // in the masthead at all.
-    await expect(removedModelReadout(page)).toHaveCount(0);
   } finally {
     await cleanup();
   }
@@ -500,43 +345,6 @@ test("after a daemon restart the masthead reads unknown until a fresh post, whil
     await expect(reloadedCard).toBeVisible();
     await expect(cardContextRow(reloadedCard)).toContainText("42%");
     await expect(cardContextTrack(reloadedCard)).toHaveCount(1);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a status post at or above 60% renders the hot context track and the warn masthead bar, but not the untouched bucket (E12)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "gauge-e12-hot" });
-    const card = sessionCard(page, "gauge-e12-hot");
-    const claudeId = "claude-gauge-e12";
-
-    await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
-    });
-    await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull(claudeId, {
-        ...(await envelopeOpts(session, daemon)),
-        contextUsedPct: 61,
-        fiveHourPct: 61,
-        sevenDayPct: 23,
-      }),
-    });
-
-    await expect(cardContextRow(card)).toContainText("61%");
-    await expect(cardContextHot(card)).toHaveCount(1);
-
-    await expect(mastheadBucket(page, "5h")).toContainText("61%");
-    await expect(mastheadBucketWarn(page, "5h")).toHaveCount(1);
-    // The 7d bucket stays under threshold — R1's honesty check: no surface renders a
-    // threshold class it hasn't earned.
-    await expect(mastheadBucketWarn(page, "7d")).toHaveCount(0);
   } finally {
     await cleanup();
   }

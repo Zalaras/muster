@@ -7,7 +7,7 @@ summary: The card's launch directory, its branch kept fresh by the repo poll, wh
 features: [card-location]
 tags: [state-machine, ux]
 go: [internal/server/reporefresh*.go, internal/session/location*.go, internal/session/repo*.go, internal/session/addeddirs*.go]
-web: []
+web: [web/render/card-location.spec.ts, web/render/helpers/card-location.ts, web/render/helpers/added-dirs.ts]
 e2e: [web/e2e/card-location.spec.ts, web/e2e/helpers/card-location.ts, web/e2e/added-dirs.spec.ts, web/e2e/helpers/added-dirs.ts]
 protocol: [ws.session]
 refs: [kb:adr/lifecycle-card-shows-launch-directory-marks-claude-elsewhere, kb:adr/lifecycle-branch-refreshed-by-repo-poll, kb:adr/lifecycle-claude-location-from-main-agent-cwd, kb:adr/lifecycle-bind-model-display-name-is-id, kb:adr/ingest-claude-cwd-read-in-interpret-only, kb:adr/focus-header-readout-sized-by-text, kb:fact/cwd-follows-claude-mid-session, kb:fact/enter-worktree-moves-project-dir, kb:fact/cwd-changed-hook, kb:fact/hook-delivery-best-effort, kb:fact/sessionstart-model-optional-string, kb:fact/status-model-is-object, kb:fact/model-switch-hooks]

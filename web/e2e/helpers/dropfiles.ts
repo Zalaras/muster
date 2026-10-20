@@ -75,6 +75,7 @@ export function expectedEscapedPath(path: string): string {
   return out;
 }
 
-/** REQ-7's cap, mirrored as a constant so a test can build a fixture exactly one byte over
- * it without hardcoding the number twice. */
-export const MAX_DROP_BYTES = 50 * 1024 * 1024;
+// REQ-7's cap is a display-side constant the render tier owns (web/render/helpers/drop.ts,
+// where the size gate's property re-levelled on 2026-10-20 reads it); re-exported here for
+// any journey that needs a fixture exactly one byte over it.
+export { MAX_DROP_BYTES } from "../../render/helpers/drop";

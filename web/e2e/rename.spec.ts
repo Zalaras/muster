@@ -1,5 +1,8 @@
 // Plan ui-text-and-focus — REQ-9 through REQ-16 (the daemon-owned title override and
-// its shared rename editor, #10). Plan acceptance: E4-E9, E11-E13.
+// its shared rename editor, #10). Plan acceptance: E4-E6, E8-E9, E11-E13. Escape
+// cancelling an open field before any PUT (E7) and a 300-character title's clipping in
+// the header are render tests in web/render/rename.spec.ts (re-levelled 2026-10-20,
+// plans/_audit/relevel/misc-core.md).
 //
 // Every test takes the per-test `daemon` fixture (helpers/fixtures.ts): the mainhead
 // rename tests rely on auto-focus of "the only session" (they never click their own
@@ -163,34 +166,6 @@ test("clearing the field reverts the title to Claude's last-known name (E6)", as
     const updated = findSession(state, session.id);
     expect(updated.title).toBe("claude's own name");
     expect(updated.titleOverride).toBeNull();
-  } finally {
-    await cleanup();
-  }
-});
-
-test("pressing Escape cancels an edit with the title unchanged and no PUT …/title request sent (E7)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "rename-e7" });
-
-    let titlePuts = 0;
-    page.on("request", (req) => {
-      if (req.method() !== "PUT") return;
-      if (/^\/api\/sessions\/\d+\/title$/.test(new URL(req.url()).pathname)) titlePuts++;
-    });
-
-    await mainheadRenameButton(page).click();
-    await mainheadRenameField(page).fill("this should never be sent");
-    await page.keyboard.press("Escape");
-
-    await expect(mainheadRenameField(page)).toHaveCount(0);
-    await expect(mainheadRenameButton(page)).toHaveText("rename-e7");
-    await expect(railCard(page, "rename-e7")).toBeVisible();
-    expect(titlePuts).toBe(0);
   } finally {
     await cleanup();
   }
@@ -758,77 +733,6 @@ test("a rename works on a dead session (REQ-16)", async ({ page, daemon }) => {
     expect(updated.title).toBe("renamed after death");
     expect(updated.titleOverride).toBe("renamed after death");
     expect(updated.alive).toBe(false);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a 300-character unbroken mainhead title ellipsises in place and never pushes End, Resume or Remove out of view at 900px and 1400px", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir });
-    const longTitle = "W".repeat(300);
-    // The daemon caps an override at 100 characters, so the 300-character title arrives
-    // the way a long one really can: as Claude's own session name on the status line.
-    const claudeId = "claude-long-title";
-    await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
-    });
-    await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull(claudeId, {
-        ...(await envelopeOpts(session, daemon)),
-        sessionName: longTitle,
-      }),
-    });
-    await expect(mainheadRenameButton(page)).toHaveText(longTitle);
-
-    for (const width of [900, 1400]) {
-      await page.setViewportSize({ width, height: 800 });
-      const layout = await page.evaluate(() => {
-        const mainhead = document.querySelector("#mainhead") as HTMLElement;
-        const acts = document.querySelector("#mainhead .acts") as HTMLElement;
-        const rename = document.querySelector("#mainhead .rename") as HTMLElement;
-        return {
-          actsRight: acts.getBoundingClientRect().right,
-          paddingBoxRight:
-            mainhead.getBoundingClientRect().right -
-            Number.parseFloat(getComputedStyle(mainhead).paddingRight),
-          viewportWidth: document.documentElement.clientWidth,
-          // Every action button, the surface switch's segments left out: the header has one
-          // Stop/Resume button and Remove since plan title-crop-stop-resume-button (REQ-5).
-          buttons: [...acts.querySelectorAll<HTMLElement>("button")]
-            .filter((button) => !button.closest(".surfseg"))
-            .map((button) => ({
-              label: button.textContent?.trim() ?? "?",
-              right: button.getBoundingClientRect().right,
-            })),
-          renameScrollWidth: rename.scrollWidth,
-          renameClientWidth: rename.clientWidth,
-        };
-      });
-      expect(
-        layout.actsRight,
-        `#mainhead .acts stays inside the mainhead's padding box at ${width}px`,
-      ).toBeLessThanOrEqual(layout.paddingBoxRight + 0.5);
-      expect(
-        layout.buttons.map((button) => button.label),
-        `the header's action buttons at ${width}px`,
-      ).toEqual(["Stop", "Remove"]);
-      for (const { label, right } of layout.buttons) {
-        expect(right, `${label} button is in view at ${width}px`).toBeLessThanOrEqual(
-          layout.viewportWidth,
-        );
-      }
-      expect(
-        layout.renameScrollWidth,
-        `#mainhead .rename is really clipped at ${width}px`,
-      ).toBeGreaterThan(layout.renameClientWidth);
-    }
   } finally {
     await cleanup();
   }

@@ -29,27 +29,15 @@ import {
   docBar,
   fileCount,
   fileEntry,
-  filesHeaderToggle,
-  filterBox,
   folderEntry,
   freshnessCue,
-  frontmatterFallback,
-  frontmatterKeyCell,
-  frontmatterKeyCells,
-  frontmatterTable,
-  frontmatterValueCell,
   getReaderFile,
   holdReaderFileResponse,
   holdReaderListingResponse,
-  navLabelLayout,
-  navOutlineSection,
   navToggle,
-  navTreeSection,
   noPlanText,
-  outlineEntries,
   outlineEntry,
   outlineHeaderToggle,
-  planHeaderRow,
   planSlotEntry,
   popOutLink,
   readerNav,
@@ -71,7 +59,22 @@ import {
 import { shellActivityIndicator } from "./helpers/shellinput";
 import { liveTileById, TerminalSocketTracker, terminalRegion } from "./helpers/terminal";
 
-// Plan markdown-viewing — REQ-1 through REQ-28, INV-1 through INV-8, acceptance E1-E29.
+// Plan markdown-viewing — REQ-1 through REQ-28, INV-1 through INV-8, acceptance E1-E29 —
+// plus plans markdown-render-fixes (REQ-1..REQ-17, INV-ONE-ARROW..INV-CUES-PER-INSTANCE,
+// E1-E16), frontmatter (REQ-8/REQ-9's /clear retention, E1/E2) and reader-expanded-persists
+// (the shared browser memory across the dashboard and its pop-out): the journeys. Every test
+// here needs the daemon and the UI together — a Write/Edit hook lighting the changed dot,
+// refreshing the cue or re-rendering the open file; a listing or file response held in
+// flight (`holdReaderListingResponse`, `holdReaderFileResponse`); a vanished directory
+// (409), a file over the cap (413), confinement (404); the transcript scan on a rebind or
+// on leaving plan mode; a daemon kill or restart; a live tmux pane; a view switch (a pref
+// round-trip); or the pop-out, a second page opened through its link. What the display
+// shows for a given listing and documents — the tree, the outline, the docbar, the rendered
+// body, frontmatter, the nav's geometry, compact mode at each density — is a render test in
+// web/render/reader.spec.ts against fixtures recorded from the daemon
+// (kb:adr/process-test-levels-journey-property-logic; plans/_audit/relevel/reader.md), and
+// the shared locators live in web/render/helpers/reader.ts.
+//
 // Fixture plan (plan.md header): every test takes the test-scoped `daemon` fixture — a
 // fresh scratch daemon per test — because auto-focus needs "the only session" in Focus,
 // and `docChanged`, the plan slot and (E28) one daemon restart are all asserted per
@@ -80,62 +83,15 @@ import { liveTileById, TerminalSocketTracker, terminalRegion } from "./helpers/t
 //
 // The daemon and tmux are real throughout (same as terminal.spec.ts); only Claude Code
 // itself is faked, via envelopedSessionStart/rawPostToolUse — no real `claude` process
-// ever runs here (CLAUDE.md hard rule). The reader feature does not exist yet: every test
-// below is new-behaviour (no REQ/INV here pins pre-existing behaviour), so this file's
-// authoring-mode gate is collection only (`npx playwright test --list`), never a live run.
+// ever runs here (CLAUDE.md hard rule).
 //
-// Plan markdown-render-fixes (this plan's REQ-1..REQ-17, INV-ONE-ARROW..INV-CUES-PER-
-// INSTANCE, acceptance E1-E16, reusing markdown-viewing's fixture plan and `daemon`
-// fixture rationale above) replaces the two-arrow pair (`navArrowHide`/`navArrowShow`)
-// with the single never-hidden `navToggle` and adds the loading cues below — its own
-// tests are grouped together, appended after the markdown-viewing tests they don't
-// touch. Every test this plan added or edited is itself new-behaviour against the
-// single-button/loading-cue design that does not exist in the tree yet, so it carries the
-// same collection-only gate as the rest of this file; none is a regression pin.
-//
-// Plan frontmatter (Fixture plan: this file's existing `daemon` fixture, unchanged — see
-// plan.md header) reverses the markdown-viewing/markdown-render-fixes "planless scan
-// clears the slot" contract (REQ-8, kb:adr/reader-plan-sticky-once-named) and adds a
-// leading-frontmatter renderer (REQ-1..REQ-10, kb:adr/reader-frontmatter-flat-table-raw-
-// fallback). Two markdown-viewing tests assert exactly the behaviour REQ-8 reverses, so
-// they are rewritten in place rather than left beside a contradicting pair: the test at
-// what was E5 ("after a /clear pair naming a planless transcript, the slot returns to no
-// plan yet") and at what was E29 (its straggler-hook counterpart) — both below, still at
-// their original position, now titled and asserting this plan's E1/E2. The three
-// frontmatter-rendering tests (E3-E5) are new and are appended in their own section near
-// the end of this file, after the markdown-render-fixes tests they don't touch. Every one
-// of the five is new-behaviour against a daemon/web tree that does not implement this
-// plan yet (the E1/E2 rewrites are new-behaviour precisely because they assert the
-// opposite of what passes today), so all five carry the same collection-only gate as the
-// rest of this file; none is a regression pin.
-
-test("Focus mainhead gains a docs segment; selecting it shows the reader and hides the Claude terminal, and selecting claude restores it (E1, REQ-1, REQ-2)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-e1" });
-    await expect(terminalRegion(page, "reader-e1")).toContainText("MUSTER-STUB-READY", {
-      timeout: 15_000,
-    });
-
-    const docsBtn = mainheadSurfaceButton(page, "docs");
-    await expect(docsBtn).toBeVisible();
-
-    await docsBtn.click();
-    await expect(readerRegion(page, "reader-e1")).toBeVisible({ timeout: 15_000 });
-    await expect(terminalRegion(page, "reader-e1")).toHaveCount(0);
-    await expect(docsBtn).toHaveAttribute("aria-pressed", "true");
-
-    await mainheadSurfaceButton(page, "claude").click();
-    await expect(terminalRegion(page, "reader-e1")).toBeVisible({ timeout: 15_000 });
-    await expect(readerRegion(page, "reader-e1")).toHaveCount(0);
-  } finally {
-    await cleanup();
-  }
-});
+// Plan frontmatter reversed the markdown-viewing/markdown-render-fixes "planless scan
+// clears the slot" contract (REQ-8, kb:adr/reader-plan-sticky-once-named). Two
+// markdown-viewing tests asserted exactly the behaviour REQ-8 reverses, so they were
+// rewritten in place rather than left beside a contradicting pair: the test at what was E5
+// ("after a /clear pair naming a planless transcript, the slot returns to no plan yet") and
+// at what was E29 (its straggler-hook counterpart) — both below, still at their original
+// position, titled and asserting that plan's E1/E2.
 
 test("in Tiles, selecting docs in one tile shows the reader there only and leaves the other tile's terminal socket and geometry untouched (E2, INV-6)", async ({
   page,
@@ -177,60 +133,6 @@ test("in Tiles, selecting docs in one tile shows the reader there only and leave
     expect(await daemon.tmuxDisplay(sessionB.tmuxTarget, "#{window_height}")).toBe(heightBefore);
   } finally {
     await Promise.all([dirA.cleanup(), dirB.cleanup()]);
-  }
-});
-
-test("a session whose transcript names an existing plan file opens it automatically with the plan badge and full path (E3, REQ-7, REQ-9, REQ-4)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "reader-e3" });
-
-    const planPath = join(daemon.dataDir, "plans", "reader-e3-slug.md");
-    await mkdir(dirname(planPath), { recursive: true });
-    await writeFile(planPath, "# The Plan\n\nDo the thing.\n");
-    const transcriptPath = join(daemon.dataDir, "transcripts", "reader-e3.jsonl");
-    await writeFakeTranscript(transcriptPath, { planFilePath: planPath });
-
-    await page.request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-reader-e3", {
-        ...(await envelopeOpts(session, daemon)),
-        transcriptPath,
-      }),
-    });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-e3");
-    await expect(region).toBeVisible({ timeout: 15_000 });
-    await expect(barPlanBadge(region)).toBeVisible({ timeout: 15_000 });
-    await expect(barFileName(region)).toHaveText("reader-e3-slug.md");
-    await expect(barPath(region)).toHaveText(planPath);
-    await expect(planSlotEntry(region)).toHaveAttribute("aria-current", "true");
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a session whose transcript names no plan shows no plan yet and lists the directory's files (E4, REQ-9)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await buildMarkdownFixtureTree(dir);
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-e4" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-e4");
-    await expect(region).toBeVisible({ timeout: 15_000 });
-    await expect(noPlanText(region)).toHaveText("no plan yet");
-    await expect(fileEntry(region, "TODO.md")).toBeVisible();
-  } finally {
-    await cleanup();
   }
 });
 
@@ -286,88 +188,6 @@ test("after a /clear pair naming a planless transcript, the plan slot still show
     await expect(barFileName(region)).toHaveText("reader-e5-old.md");
     await expect(barPath(region)).toHaveText(oldPlan);
     await expect(noPlanText(region)).toHaveCount(0);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("the tree lists exactly the fixture's markdown files, folders collapsed with counts, and expanding reveals children (E6, REQ-10)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await buildMarkdownFixtureTree(dir);
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-e6" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-e6");
-    await expect(region).toBeVisible({ timeout: 15_000 });
-
-    await expect(fileEntry(region, "TODO.md")).toBeVisible({ timeout: 15_000 });
-    await expect(folderEntry(region, "docs")).toBeVisible();
-    await expect(fileEntry(region, "notes.txt")).toHaveCount(0);
-    await expect(fileEntry(region, "secret.md")).toHaveCount(0);
-
-    await folderEntry(region, "docs").click();
-    await expect(folderEntry(region, "adr")).toBeVisible();
-    await folderEntry(region, "adr").click();
-    await expect(fileEntry(region, "x.md")).toBeVisible();
-  } finally {
-    await cleanup();
-  }
-});
-
-test("typing in the filter narrows the tree to matching files with ancestors expanded, and clearing restores the collapsed tree (E7, REQ-11)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await buildMarkdownFixtureTree(dir);
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-e7" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-e7");
-    await expect(fileEntry(region, "TODO.md")).toBeVisible({ timeout: 15_000 });
-    await expect(fileEntry(region, "x.md")).toHaveCount(0);
-
-    await filterBox(region).fill("x.md");
-    await expect(fileEntry(region, "x.md")).toBeVisible({ timeout: 15_000 });
-    await expect(fileEntry(region, "TODO.md")).toHaveCount(0);
-
-    await filterBox(region).fill("");
-    await expect(fileEntry(region, "TODO.md")).toBeVisible({ timeout: 15_000 });
-    await expect(fileEntry(region, "x.md")).toHaveCount(0);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("the open file carries aria-current, moving to whichever file is opened (E8, REQ-12)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await buildMarkdownFixtureTree(dir);
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-e8" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-e8");
-    await expect(fileEntry(region, "TODO.md")).toBeVisible({ timeout: 15_000 });
-
-    await fileEntry(region, "TODO.md").click();
-    await expect(fileEntry(region, "TODO.md")).toHaveAttribute("aria-current", "true");
-
-    await folderEntry(region, "docs").click();
-    await folderEntry(region, "adr").click();
-    await fileEntry(region, "x.md").click();
-    await expect(fileEntry(region, "x.md")).toHaveAttribute("aria-current", "true");
-    await expect(fileEntry(region, "TODO.md")).not.toHaveAttribute("aria-current", "true");
   } finally {
     await cleanup();
   }
@@ -429,26 +249,6 @@ test("rewriting the open file on disk and posting a Write hook for it re-renders
 
     await expect(renderedBody(region)).toContainText("Updated content marker", { timeout: 15_000 });
     await expect(freshnessCue(region)).toHaveText(/^changed (now|.+ ago)$/, { timeout: 15_000 });
-  } finally {
-    await cleanup();
-  }
-});
-
-test("before any write hook for the open file, no freshness cue element exists (E11, REQ-24)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await buildMarkdownFixtureTree(dir);
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-e11" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-e11");
-    await fileEntry(region, "TODO.md").click();
-    await expect(renderedBody(region)).toContainText("TODO", { timeout: 15_000 });
-    await expect(freshnessCue(region)).toHaveCount(0);
   } finally {
     await cleanup();
   }
@@ -546,265 +346,6 @@ test("with a reader open and nothing happening, no further requests reach /reade
   }
 });
 
-test("a file with a GFM table, task list and fenced code renders a table, disabled checkboxes and a code block (E15, REQ-5)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await writeFile(
-      join(dir, "gfm.md"),
-      [
-        "# GFM",
-        "",
-        "| a | b |",
-        "|---|---|",
-        "| 1 | 2 |",
-        "",
-        "- [ ] todo one",
-        "- [x] todo two",
-        "",
-        "```js",
-        "console.log('hi');",
-        "```",
-        "",
-      ].join("\n"),
-    );
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-e15" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-e15");
-    await fileEntry(region, "gfm.md").click();
-    const body = renderedBody(region);
-    await expect(body.locator("table")).toBeVisible({ timeout: 15_000 });
-    await expect(body.locator('input[type="checkbox"]')).toHaveCount(2);
-    await expect(body.locator('input[type="checkbox"]').first()).toBeDisabled();
-    await expect(body.locator("pre code")).toBeVisible();
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a file containing a script element, an onerror attribute and a javascript: link renders with none of them present (E16, REQ-22)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await writeFile(
-      join(dir, "unsafe.md"),
-      [
-        "# Unsafe",
-        "",
-        "<script>window.__readerXss = true;</script>",
-        "",
-        '<img src="x" onerror="window.__readerXss = true" />',
-        "",
-        "[click me](javascript:window.__readerXss=true)",
-        "",
-      ].join("\n"),
-    );
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-e16" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-e16");
-    await fileEntry(region, "unsafe.md").click();
-    const body = renderedBody(region);
-    await expect(body).toContainText("Unsafe", { timeout: 15_000 });
-    await expect(body.locator("script")).toHaveCount(0);
-    await expect(body.locator("[onerror]")).toHaveCount(0);
-    await expect(body.locator('a[href^="javascript:"]')).toHaveCount(0);
-    expect(
-      await page.evaluate(() => (window as unknown as { __readerXss?: boolean }).__readerXss),
-    ).toBeUndefined();
-  } finally {
-    await cleanup();
-  }
-});
-
-test("the outline lists the file's headings, clicking one scrolls the body, and scrolling moves aria-current (E17, REQ-14)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    const filler = Array.from(
-      { length: 80 },
-      (_, i) => `Paragraph line ${i} of filler text to force a scrollable body.`,
-    ).join("\n\n");
-    await writeFile(
-      join(dir, "long.md"),
-      `# Top\n\n${filler}\n\n## Middle\n\n${filler}\n\n## Bottom\n\n${filler}\n`,
-    );
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-e17" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-e17");
-    await fileEntry(region, "long.md").click();
-    await expect(outlineEntry(region, "Bottom")).toBeVisible({ timeout: 15_000 });
-
-    await outlineEntry(region, "Bottom").click();
-    await expect(outlineEntry(region, "Bottom")).toHaveAttribute("aria-current", "true", {
-      timeout: 15_000,
-    });
-
-    await renderedBody(region).evaluate((el) => {
-      el.scrollTop = 0;
-    });
-    await expect(outlineEntry(region, "Top")).toHaveAttribute("aria-current", "true", {
-      timeout: 15_000,
-    });
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a long file or folder name truncates with an ellipsis and a long heading wraps, all inside the nav (#67)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  const folder = "a-very-long-folder-name-that-overflows-the-nav";
-  const file = "a-very-long-file-name-that-overflows-the-nav-panel.md";
-  const heading = "A very long heading that is far wider than the outline panel can show";
-  try {
-    await mkdir(join(dir, folder));
-    await writeFile(join(dir, folder, file), `# Top\n\n## ${heading}\n\nBody.\n`);
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-67" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-67");
-    const nav = readerNav(region);
-    await folderEntry(region, folder).click();
-    await fileEntry(region, file).click();
-    await expect(outlineEntry(region, heading)).toBeVisible({ timeout: 15_000 });
-
-    for (const entry of [folderEntry(region, folder), fileEntry(region, file)]) {
-      const layout = await navLabelLayout(nav, entry);
-      expect(layout).toMatchObject({ textOverflow: "ellipsis", overflowX: "hidden", lines: 1 });
-      expect(layout.display).not.toMatch(/flex/);
-      expect(layout.overflowing).toBe(true);
-      expect(layout.labelRight).toBeLessThanOrEqual(layout.navRight);
-    }
-    // The folder's count sits after its name — a label that never shrinks pushes it out.
-    const navBox = await nav.boundingBox();
-    const countBox = await folderEntry(region, folder).locator(".cnt").boundingBox();
-    expect(countBox).not.toBeNull();
-    expect((countBox?.x ?? 0) + (countBox?.width ?? 0)).toBeLessThanOrEqual(
-      (navBox?.x ?? 0) + (navBox?.width ?? 0),
-    );
-
-    // The files header carries the scratch directory's full path — long, with unbroken
-    // segments — so it wraps inside the panel too.
-    const dirHeader = await navLabelLayout(nav, filesHeaderToggle(region));
-    expect(dirHeader.overflowing).toBe(false);
-    expect(dirHeader.labelRight).toBeLessThanOrEqual(dirHeader.navRight);
-
-    const outline = await navLabelLayout(nav, outlineEntry(region, heading));
-    expect(outline.lines).toBeGreaterThan(1);
-    expect(outline.overflowing).toBe(false);
-    expect(outline.labelRight).toBeLessThanOrEqual(outline.navRight);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a repeated heading gets deduplicated ids so each outline entry scrolls to its own heading (edge case 26, REQ-14)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await writeFile(join(dir, "dup.md"), "# Top\n\n## Notes\n\nFirst.\n\n## Notes\n\nSecond.\n");
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-dup" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-dup");
-    await fileEntry(region, "dup.md").click();
-
-    await expect(outlineEntry(region, "Notes")).toHaveCount(2, { timeout: 15_000 });
-    await expect(renderedBody(region).locator("#notes")).toBeVisible();
-    await expect(renderedBody(region).locator("#notes-2")).toBeVisible();
-  } finally {
-    await cleanup();
-  }
-});
-
-test("the Files and Outline header toggles fold independently, and the nav toggle hides and restores the whole nav (E18, REQ-14, REQ-4; markdown-render-fixes REQ-1..REQ-3)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await buildMarkdownFixtureTree(dir);
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-e18" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-e18");
-    await expect(fileEntry(region, "TODO.md")).toBeVisible({ timeout: 15_000 });
-
-    await filesHeaderToggle(region).click();
-    await expect(filesHeaderToggle(region)).toHaveAttribute("aria-expanded", "false");
-    await expect(fileEntry(region, "TODO.md")).toHaveCount(0);
-    await expect(outlineHeaderToggle(region)).toHaveAttribute("aria-expanded", "true");
-
-    // plan markdown-render-fixes REQ-1..REQ-3: one button, never hidden, whose glyph and
-    // aria-expanded track the nav's own state — replaces the markdown-viewing pair this
-    // test used to drive as navArrowHide/navArrowShow.
-    const toggle = navToggle(region);
-    await expect(toggle).toHaveAttribute("aria-expanded", "true");
-    await expect(toggle).toHaveText("›");
-    await toggle.click();
-    await expect(readerNav(region)).toHaveCount(0);
-    await expect(toggle).toBeVisible();
-    await expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await expect(toggle).toHaveText("‹");
-
-    await toggle.click();
-    await expect(readerNav(region)).toBeVisible();
-    await expect(toggle).toHaveAttribute("aria-expanded", "true");
-    await expect(toggle).toHaveText("›");
-  } finally {
-    await cleanup();
-  }
-});
-
-test("the last opened file is remembered across a reload (E19, REQ-7)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await buildMarkdownFixtureTree(dir);
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-e19" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-e19");
-    await expect(fileEntry(region, "TODO.md")).toBeVisible({ timeout: 15_000 });
-    await folderEntry(region, "docs").click();
-    await folderEntry(region, "adr").click();
-    await fileEntry(region, "x.md").click();
-    await expect(barFileName(region)).toHaveText("x.md");
-
-    await mainheadSurfaceButton(page, "claude").click();
-    await page.reload();
-    await mainheadSurfaceButton(page, "docs").click();
-
-    await expect(barFileName(readerRegion(page, "reader-e19"))).toHaveText("x.md", {
-      timeout: 15_000,
-    });
-  } finally {
-    await cleanup();
-  }
-});
-
 test("reader/file returns 404 for .. traversal, an outside symlink and the plan's -agent- sibling (E20, REQ-20)", async ({
   page,
   daemon,
@@ -874,45 +415,6 @@ test("the pop out link opens a second page with the reader for the same file, an
       data: rawPostToolUse(claudeId, { toolName: "Write", filePath: fx.todoPath }),
     });
     await expect(renderedBody(popRegion)).toContainText("Popout marker", { timeout: 15_000 });
-  } finally {
-    await cleanup();
-  }
-});
-
-test("on an ended session the plan block and the nav's plan header row are absent, opening a tree file still renders it, and the nav toggle still hides/restores the nav (E22, REQ-3; markdown-render-fixes E5, REQ-6)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await buildMarkdownFixtureTree(dir);
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "reader-e22" });
-    await expect(terminalRegion(page, "reader-e22")).toBeVisible({ timeout: 15_000 });
-
-    const endRes = await page.request.post(`${daemon.baseURL}/api/sessions/${session.id}/end`);
-    expect(endRes.status()).toBe(200);
-    await expect(page.locator("#dead-surface")).toBeVisible({ timeout: 15_000 });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-e22");
-    await expect(region).toBeVisible({ timeout: 15_000 });
-    await expect(planSlotEntry(region)).toHaveCount(0);
-    await expect(noPlanText(region)).toHaveCount(0);
-    // REQ-6: the plan header row is hidden with the slot it labels — no empty padded
-    // strip at the top of the nav on a dead session.
-    await expect(planHeaderRow(region)).toBeHidden();
-
-    // The nav toggle is unaffected by session liveness — still present and still works.
-    const toggle = navToggle(region);
-    await expect(toggle).toBeVisible();
-    await toggle.click();
-    await expect(readerNav(region)).toHaveCount(0);
-    await toggle.click();
-    await expect(readerNav(region)).toBeVisible();
-
-    await fileEntry(region, "TODO.md").click();
-    await expect(renderedBody(region)).toContainText("TODO", { timeout: 15_000 });
   } finally {
     await cleanup();
   }
@@ -1092,180 +594,6 @@ test("the pop-out's own status line is hidden while healthy, shows file-gone on 
       timeout: 15_000,
     });
     await expect(renderedBody(popRegion)).toContainText("TODO");
-  } finally {
-    await cleanup();
-  }
-});
-
-test("in Tiles at 3x2 the reader nav starts collapsed and the bar has no path, with the nav toggle still present and flush right; at 2x2 it starts open (E27, REQ-15; markdown-render-fixes E1, REQ-1/REQ-2, INV-ONE-ARROW, edge case 8)", async ({
-  page,
-  daemon,
-}) => {
-  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
-  try {
-    await buildMarkdownFixtureTree(dirA.path);
-    await buildMarkdownFixtureTree(dirB.path);
-    await page.goto(daemon.dashboardUrl);
-    const sessionA = await launchSession(page, daemon, {
-      directory: dirA.path,
-      title: "reader-e27-a",
-    });
-    const sessionB = await launchSession(page, daemon, {
-      directory: dirB.path,
-      title: "reader-e27-b",
-    });
-
-    await page.keyboard.press("Meta+Backslash");
-    await expect(page.locator("#view-tiles")).toBeVisible();
-
-    // 3x2: a session opened at this density starts compact — nav collapsed, no path.
-    await page.getByRole("button", { name: "3×2" }).click();
-    await expect(page.getByRole("button", { name: "3×2" })).toHaveAttribute("aria-pressed", "true");
-    await tileSurfaceButton(page, sessionA.id, "docs").click();
-    const regionA = readerRegionInTile(page, sessionA.id);
-    await expect(regionA).toBeVisible({ timeout: 15_000 });
-    await expect(readerNav(regionA)).toHaveCount(0);
-    await expect(barPath(regionA)).toHaveCount(0);
-
-    // edge case 8: the compact 3x2 tile renders neither `.path` nor the file count, but
-    // the nav toggle is unaffected — still exactly one, still visible, still flush right
-    // against the docbar's own padded edge.
-    const toggleA = navToggle(regionA);
-    await expect(toggleA).toBeVisible();
-    await expect(regionA.locator(".arr")).toHaveCount(1);
-    const [toggleABox, barABox] = await Promise.all([
-      toggleA.boundingBox(),
-      docBar(regionA).boundingBox(),
-    ]);
-    expect(toggleABox).not.toBeNull();
-    expect(barABox).not.toBeNull();
-    expect(
-      Math.abs(toggleABox!.x + toggleABox!.width - (barABox!.x + barABox!.width - 12)),
-    ).toBeLessThanOrEqual(1);
-
-    // 2x2: a session opened at this density starts with the nav open.
-    await page.getByRole("button", { name: "2×2" }).click();
-    await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
-    await tileSurfaceButton(page, sessionB.id, "docs").click();
-    const regionB = readerRegionInTile(page, sessionB.id);
-    await expect(regionB).toBeVisible({ timeout: 15_000 });
-    await expect(readerNav(regionB)).toBeVisible({ timeout: 15_000 });
-  } finally {
-    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
-  }
-});
-
-test("the reader nav sits beside the body as a right-hand column bounded by its host, in Focus and in a tile (review cycle 1 Critical 1, REQ-4/REQ-9/REQ-10/REQ-14)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    const fx = await buildLargeMarkdownFixtureTree(dir);
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
-      directory: dir,
-      title: "reader-nav-geom",
-    });
-
-    // Focus: `.reader` mounts into `#main-terminal-slot` (features/focus.ts) — that slot
-    // is the host bounding it here. Measured pre-fix at y=487, stacked below a 980px body;
-    // the grid fix puts it beside the body instead.
-    await mainheadSurfaceButton(page, "docs").click();
-    const focusRegion = readerRegion(page, "reader-nav-geom");
-    await expect(focusRegion).toBeVisible({ timeout: 15_000 });
-    await expect(readerNav(focusRegion)).toBeVisible({ timeout: 15_000 });
-
-    // Open the 30-heading file so `.rnav .outline` has content of its own to overflow —
-    // the tree overflows regardless of what's open, but the outline only ever reflects
-    // the currently open file.
-    await fileEntry(focusRegion, fx.outlineFileName).click();
-    await expect(renderedBody(focusRegion)).toContainText(fx.lastHeading, { timeout: 15_000 });
-
-    const focusHostBox = await page.locator("#main-terminal-slot").boundingBox();
-    const focusBodyBox = await renderedBody(focusRegion).boundingBox();
-    const focusNavBox = await readerNav(focusRegion).boundingBox();
-    expect(focusHostBox).not.toBeNull();
-    expect(focusBodyBox).not.toBeNull();
-    expect(focusNavBox).not.toBeNull();
-    // Right-hand column: the nav starts at or past the body's own right edge, never below it.
-    expect(focusNavBox!.x).toBeGreaterThanOrEqual(focusBodyBox!.x + focusBodyBox!.width);
-    // Bounded by its host, not overflowing past the slot it is mounted into.
-    expect(focusNavBox!.y + focusNavBox!.height).toBeLessThanOrEqual(
-      focusHostBox!.y + focusHostBox!.height + 1,
-    );
-
-    // review cycle 2 Critical 1: bounding the nav (above) exposed `.rnav .tree`/`.rnav
-    // .outline` clipping their own content — each is independently `overflow-y: auto`
-    // rather than the whole nav scrolling as one column, so reachability has to be
-    // measured by scrolling the OWNING element to its own `scrollHeight`, never the nav's.
-    // First, confirm this fixture genuinely overflows each section (so the reachability
-    // check below isn't vacuously true against content that already fit).
-    const treeSection = navTreeSection(focusRegion);
-    const outlineSection = navOutlineSection(focusRegion);
-    await expect(fileEntry(focusRegion, fx.lastFileName)).toBeAttached({ timeout: 15_000 });
-    await expect(outlineEntry(focusRegion, fx.lastHeading)).toBeAttached({ timeout: 15_000 });
-
-    expect(await treeSection.evaluate((el) => getComputedStyle(el).overflowY)).toBe("auto");
-    expect(await outlineSection.evaluate((el) => getComputedStyle(el).overflowY)).toBe("auto");
-    const treeOverflow = await treeSection.evaluate((el) => ({
-      scrollHeight: el.scrollHeight,
-      clientHeight: el.clientHeight,
-    }));
-    expect(treeOverflow.scrollHeight).toBeGreaterThan(treeOverflow.clientHeight);
-    const outlineOverflow = await outlineSection.evaluate((el) => ({
-      scrollHeight: el.scrollHeight,
-      clientHeight: el.clientHeight,
-    }));
-    expect(outlineOverflow.scrollHeight).toBeGreaterThan(outlineOverflow.clientHeight);
-
-    // Now scroll each section to its own scrollHeight and confirm the last row of each is
-    // actually reachable — this is what the fix made possible; before it, nothing scrolled
-    // (neither the section nor `.rnav` itself) and both rows sat permanently past the fold.
-    await treeSection.evaluate((el) => {
-      el.scrollTop = el.scrollHeight;
-    });
-    const treeBox = await treeSection.boundingBox();
-    const lastFileBox = await fileEntry(focusRegion, fx.lastFileName).boundingBox();
-    expect(treeBox).not.toBeNull();
-    expect(lastFileBox).not.toBeNull();
-    expect(lastFileBox!.y + lastFileBox!.height).toBeLessThanOrEqual(
-      treeBox!.y + treeBox!.height + 1,
-    );
-
-    await outlineSection.evaluate((el) => {
-      el.scrollTop = el.scrollHeight;
-    });
-    const outlineBox = await outlineSection.boundingBox();
-    const lastHeadingBox = await outlineEntry(focusRegion, fx.lastHeading).boundingBox();
-    expect(outlineBox).not.toBeNull();
-    expect(lastHeadingBox).not.toBeNull();
-    expect(lastHeadingBox!.y + lastHeadingBox!.height).toBeLessThanOrEqual(
-      outlineBox!.y + outlineBox!.height + 1,
-    );
-
-    // Same session, same live reader instance (review cycle 1 Major 1) — now hosted by a
-    // tile. The nav mounted uncollapsed in Focus, so it stays open here regardless of
-    // density (REQ-15's collapse default is mount-time only).
-    await page.keyboard.press("Meta+Backslash");
-    await expect(page.locator("#view-tiles")).toBeVisible();
-    const tile = liveTileById(page, session.id);
-    const tileRegion = readerRegionInTile(page, session.id);
-    await expect(tileRegion).toBeVisible({ timeout: 15_000 });
-    await expect(readerNav(tileRegion)).toBeVisible({ timeout: 15_000 });
-
-    const tileHostBox = await tile.boundingBox();
-    const tileBodyBox = await renderedBody(tileRegion).boundingBox();
-    const tileNavBox = await readerNav(tileRegion).boundingBox();
-    expect(tileHostBox).not.toBeNull();
-    expect(tileBodyBox).not.toBeNull();
-    expect(tileNavBox).not.toBeNull();
-    expect(tileNavBox!.x).toBeGreaterThanOrEqual(tileBodyBox!.x + tileBodyBox!.width);
-    // The worse half of Critical 1: the nav ended 25.5px past the tile's own bottom edge,
-    // painting over the chrome below.
-    expect(tileNavBox!.y + tileNavBox!.height).toBeLessThanOrEqual(
-      tileHostBox!.y + tileHostBox!.height + 1,
-    );
   } finally {
     await cleanup();
   }
@@ -1702,51 +1030,6 @@ test("keyboard-activating the plan slot, a tree file and an outline entry keeps 
   }
 });
 
-// review cycle 3 sweep: the fix restores focus by stable key across a genuinely
-// structural rebuild (expand/collapse/filter), not just across the attribute-only
-// re-renders the test above covers. Expanding a folder changes the flattened entry
-// list (kind/path/name/depth/expanded/count all feed the structural signature), which
-// destroys and replaces every tree button, including the one just clicked — proven here
-// by an element-handle identity check, not merely "a button matching the same name is
-// focused afterwards".
-test("expanding a tree folder rebuilds the section structurally and restores focus onto the new equivalent button, not the destroyed old node (review cycle 3 Major 1 sweep)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await buildMarkdownFixtureTree(dir);
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-focus-rebuild" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-focus-rebuild");
-    const folder = folderEntry(region, "docs");
-    await expect(folder).toBeVisible({ timeout: 15_000 });
-    await expect(folder).toHaveAttribute("aria-expanded", "false");
-
-    await folder.focus();
-    await expect(folder).toBeFocused();
-    const oldHandle = await folder.elementHandle();
-    if (!oldHandle) throw new Error("folder button not found");
-
-    await page.keyboard.press("Enter");
-    await expect(folderEntry(region, "adr")).toBeVisible({ timeout: 15_000 });
-
-    // The old node is gone (a genuine structural rebuild happened)...
-    expect(await page.evaluate((n) => !document.contains(n), oldHandle)).toBe(true);
-    // ...and focus is NOT still "pointing at" that removed node...
-    expect(await page.evaluate((n) => document.activeElement === n, oldHandle)).toBe(false);
-    // ...but a new button with the same accessible name and the toggled state IS focused —
-    // the restore-by-stable-key the fix implements, not mere accidental survival.
-    const newFolder = folderEntry(region, "docs");
-    await expect(newFolder).toBeFocused();
-    await expect(newFolder).toHaveAttribute("aria-expanded", "true");
-  } finally {
-    await cleanup();
-  }
-});
-
 // plan markdown-render-fixes deletes the two-arrow pair (`Hide files` / `Show files`,
 // hidden/rebuilt by review markdown-viewing cycle-4's `prepareNavArrowFocusRestore`) and
 // replaces it with a single button that is never hidden (REQ-1..REQ-4). REQ-4/E2's whole
@@ -1810,44 +1093,11 @@ test("keyboard-activating the nav toggle leaves focus on it, in both directions,
   }
 });
 
-// ─── plan markdown-render-fixes: the remaining acceptance criteria (E1, E3-E4, E6-E11,
+// ─── plan markdown-render-fixes: the remaining acceptance criteria (E3-E4, E6-E10,
 // E13-E16) not already folded into an updated markdown-viewing test above. Every held-
 // response test below copies actions.spec.ts:703-756's shape (Implementation Notes): hold
 // the real `/reader` or `/reader/file` response behind a promise gate rather than
 // fabricating a payload, so the otherwise sub-second loading window is observable.
-
-test("the reader has exactly one nav-toggle button, never hidden, whose right edge is unchanged between the nav open and collapsed (E1, REQ-1, REQ-2, INV-ONE-ARROW, INV-ARROW-FIXED)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await buildMarkdownFixtureTree(dir);
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-one-arrow" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-one-arrow");
-    const toggle = navToggle(region);
-    await expect(toggle).toBeVisible({ timeout: 15_000 });
-    await expect(region.locator(".arr")).toHaveCount(1);
-
-    const openBox = await toggle.boundingBox();
-    expect(openBox).not.toBeNull();
-
-    await toggle.click();
-    await expect(readerNav(region)).toHaveCount(0);
-    await expect(region.locator(".arr")).toHaveCount(1);
-    const collapsedBox = await toggle.boundingBox();
-    expect(collapsedBox).not.toBeNull();
-
-    expect(
-      Math.abs(openBox!.x + openBox!.width - (collapsedBox!.x + collapsedBox!.width)),
-    ).toBeLessThanOrEqual(1);
-  } finally {
-    await cleanup();
-  }
-});
 
 test("the nav toggle's right edge is unchanged after the first routed write makes the freshness cue appear (E4, REQ-5, INV-ARROW-FIXED)", async ({
   page,
@@ -2081,33 +1331,6 @@ test("a window focus event on an open plan and a routed write for an open tree f
   }
 });
 
-test("a pop-out opened with no path query settles its body on nothing open — pick a file (E11, REQ-9)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
-      directory: dir,
-      title: "reader-popout-nopath",
-    });
-
-    // No `pop out ↗` link exists to click — nothing is open, so `popOutHref` is null
-    // (helpers/reader.ts). This is the direct-navigation shape edge case 9 describes; the
-    // cookie is already set on this page/context from the dashboardUrl visit above, so no
-    // token is dropped by building the URL by hand here (unlike REQ-8's own pop-out link,
-    // which must be clicked for its own reasons — see the review cycle 3 note near the
-    // pop-out layout test above).
-    await page.goto(`${daemon.baseURL}/doc.html?session=${session.id}`);
-    const region = readerRegion(page, "reader-popout-nopath");
-    await expect(bodyPlaceholder(region)).toBeVisible({ timeout: 15_000 });
-    await expect(bodyLoadingPlaceholder(region)).toHaveCount(0);
-  } finally {
-    await cleanup();
-  }
-});
-
 test("a reader whose remembered open path was deleted before mount settles its body on nothing open — pick a file, never on loading… (E14, edge case 3)", async ({
   page,
   daemon,
@@ -2232,265 +1455,9 @@ test("with two tiles on docs, holding one tile's file response shows the loading
   }
 });
 
-// ─── plan frontmatter: the leading-frontmatter renderer (REQ-1..REQ-10). The two /clear
-// retention tests (E1, E2) live above, in place of markdown-viewing's old E5/E29 — see the
-// file header note. These three cover the rendering split itself: the flat table (E3), a
-// value carrying markup (E4), and the nested-YAML raw fallback (E5). E6 ("a file with no
-// frontmatter renders exactly as before") needs no new test — E15/E17 above already open
-// files whose first line is not `---` and are unchanged by this plan.
-
-test("opening a file with flat frontmatter shows a Frontmatter table as the body's first element with one row per key, and the outline's first entry is the document's first real heading (plan frontmatter E3, REQ-1, REQ-2, REQ-5, REQ-6, edge case 20)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await writeFile(
-      join(dir, "front.md"),
-      [
-        "---",
-        "id: reader-plan-located-by-transcript-scan",
-        "tags: [claude-code-format, store]",
-        "status: accepted",
-        "---",
-        "# Real Heading",
-        "",
-        "Body text.",
-        "",
-        "## Second Heading",
-        "",
-        "More text.",
-        "",
-      ].join("\n"),
-    );
-    // edge case 20: a file that is only frontmatter renders the table with an empty
-    // body and an empty outline.
-    await writeFile(join(dir, "only-front.md"), ["---", "solo: value", "---", ""].join("\n"));
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-fm-e3" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-fm-e3");
-    await fileEntry(region, "front.md").click();
-    const body = renderedBody(region);
-    await expect(body).toContainText("Real Heading", { timeout: 15_000 });
-
-    await expect(frontmatterKeyCells(region)).toHaveCount(3);
-    await expect(frontmatterKeyCell(region, "id")).toBeVisible();
-    await expect(frontmatterValueCell(region, "id")).toHaveText(
-      "reader-plan-located-by-transcript-scan",
-    );
-    await expect(frontmatterKeyCell(region, "tags")).toBeVisible();
-    await expect(frontmatterValueCell(region, "tags")).toHaveText("[claude-code-format, store]");
-    await expect(frontmatterKeyCell(region, "status")).toBeVisible();
-    await expect(frontmatterValueCell(region, "status")).toHaveText("accepted");
-
-    // REQ-5: the frontmatter table is the first child of the rendered body.
-    expect(await body.evaluate((el) => el.firstElementChild?.tagName)).toBe("TABLE");
-
-    // REQ-6: no outline entry for any frontmatter key; the outline starts at the
-    // document's own first real heading and has exactly the document's two headings.
-    await expect(outlineEntry(region, "id")).toHaveCount(0);
-    await expect(outlineEntry(region, "tags")).toHaveCount(0);
-    await expect(outlineEntries(region)).toHaveCount(2);
-    await expect(outlineEntries(region).first()).toHaveText("Real Heading");
-
-    // edge case 20: frontmatter-only file — table renders, outline is empty.
-    await fileEntry(region, "only-front.md").click();
-    await expect(frontmatterValueCell(region, "solo")).toHaveText("value", { timeout: 15_000 });
-    await expect(outlineEntries(region)).toHaveCount(0);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a frontmatter value carrying <img onerror> and <script> shows as literal text and no img or script element exists in the body (plan frontmatter E4, REQ-2, REQ-5, edge case 21)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await writeFile(
-      join(dir, "fm-unsafe.md"),
-      [
-        "---",
-        'title: <img src=x onerror="window.__fmXss = true">',
-        "note: <script>window.__fmXss = true;</script>",
-        "---",
-        "# Heading",
-        "",
-        "Body text.",
-        "",
-      ].join("\n"),
-    );
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-fm-e4" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-fm-e4");
-    await fileEntry(region, "fm-unsafe.md").click();
-    const body = renderedBody(region);
-    await expect(body).toContainText("Heading", { timeout: 15_000 });
-
-    await expect(frontmatterValueCell(region, "title")).toHaveText(
-      '<img src=x onerror="window.__fmXss = true">',
-    );
-    await expect(frontmatterValueCell(region, "note")).toHaveText(
-      "<script>window.__fmXss = true;</script>",
-    );
-    await expect(body.locator("img")).toHaveCount(0);
-    await expect(body.locator("script")).toHaveCount(0);
-    await expect(body.locator("[onerror]")).toHaveCount(0);
-    expect(
-      await page.evaluate(() => (window as unknown as { __fmXss?: boolean }).__fmXss),
-    ).toBeUndefined();
-  } finally {
-    await cleanup();
-  }
-});
-
-test("opening a file with nested-YAML frontmatter shows the raw block verbatim in pre.frontmatter and no body heading or outline entry contains frontmatter text (plan frontmatter E5, REQ-3, REQ-6, edge case 22, edge case 23)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    const innerText = "tags:\n  - a\n  - b\nnotes: |\n  # Not a real heading\n  just text\n";
-    const fileText = `---\n${innerText}---\n# Real Heading\n\nBody text.\n`;
-    await writeFile(join(dir, "fm-raw.md"), fileText);
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-fm-e5" });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-fm-e5");
-    await fileEntry(region, "fm-raw.md").click();
-    const body = renderedBody(region);
-    await expect(body).toContainText("Real Heading", { timeout: 15_000 });
-
-    await expect(frontmatterTable(region)).toHaveCount(0);
-    const fallback = frontmatterFallback(region);
-    await expect(fallback).toBeVisible();
-    // REQ-3's "verbatim" is exact bytes, not the whitespace-normalized comparison
-    // `toHaveText` performs — a raw `textContent()` equality check is the only oracle
-    // that can tell a preserved newline from a collapsed one.
-    await expect.poll(async () => fallback.textContent(), { timeout: 15_000 }).toBe(innerText);
-
-    // REQ-6 / edge case 23: the "# Not a real heading" line lives inside the raw block
-    // and never reaches the outline or becomes a body heading.
-    await expect(outlineEntry(region, "Not a real heading")).toHaveCount(0);
-    await expect(outlineEntries(region)).toHaveCount(1);
-    await expect(outlineEntries(region).first()).toHaveText("Real Heading");
-    await expect(body.locator("h1, h2, h3, h4, h5, h6")).toHaveCount(1);
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a long frontmatter key never forces article.md to scroll horizontally in a 3x2 tile with the file explorer open (correctness review cycle 1 coverage, REQ-10, W16, kb:adr/reader-frontmatter-key-column-may-break)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    // A fact-shaped key (the browser review's own `fact.md` example, 28 chars) and a
-    // ~60-char key (the review's Major 1 repro, measured `scrollWidth 525 > clientWidth
-    // 233` before web-impl's fix cycle 1 CSS change).
-    await writeFile(
-      join(dir, "wide-key.md"),
-      [
-        "---",
-        "verified_claude_code_version: 2.1.3",
-        "an_extremely_long_frontmatter_key_used_to_test_line_wrapping: value",
-        "---",
-        "# Heading",
-        "",
-        "Body text.",
-        "",
-      ].join("\n"),
-    );
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
-      directory: dir,
-      title: "reader-fm-wide-key",
-    });
-
-    // 3x2, explorer open: the browser review's Major 1 host (tile 425×316, article.md
-    // 233px with the nav open) — density set before the tile mounts so it starts compact
-    // (E27's `navCollapsedDefault`), then the nav toggle opens the file explorer.
-    await page.keyboard.press("Meta+Backslash");
-    await expect(page.locator("#view-tiles")).toBeVisible();
-    await page.getByRole("button", { name: "3×2" }).click();
-    await expect(page.getByRole("button", { name: "3×2" })).toHaveAttribute("aria-pressed", "true");
-    await tileSurfaceButton(page, session.id, "docs").click();
-    const region = readerRegionInTile(page, session.id);
-    await expect(region).toBeVisible({ timeout: 15_000 });
-    await expect(readerNav(region)).toHaveCount(0);
-    await navToggle(region).click();
-    await expect(readerNav(region)).toBeVisible({ timeout: 15_000 });
-
-    await fileEntry(region, "wide-key.md").click();
-    const body = renderedBody(region);
-    await expect(body).toContainText("Heading", { timeout: 15_000 });
-    await expect(frontmatterKeyCell(region, "verified_claude_code_version")).toBeVisible();
-    await expect(
-      frontmatterKeyCell(region, "an_extremely_long_frontmatter_key_used_to_test_line_wrapping"),
-    ).toBeVisible();
-
-    // REQ-10 / W16: article.md must never force horizontal scroll, whatever the key's
-    // length — the key column caps and breaks instead (the ADR's accepted trade-off).
-    // Poll re-reads scrollWidth and clientWidth together on each attempt so a layout
-    // that is still narrowing can't pass against a stale, already-captured value.
-    await expect
-      .poll(
-        async () =>
-          body.evaluate((el) => (el.scrollWidth <= el.clientWidth ? "fits" : "overflows")),
-        { timeout: 15_000 },
-      )
-      .toBe("fits");
-  } finally {
-    await cleanup();
-  }
-});
-
-// Plan reader-expanded-persists (#82, REQ-1, REQ-2): fixture plan is this file's `daemon`
-// fixture, unchanged. Red-first proof — pins a defect that exists today.
-test("expanded folders and folds survive selecting Claude and then Docs again (reader-expanded-persists REQ-1, REQ-2)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await buildMarkdownFixtureTree(dir);
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-persist" });
-    await expect(terminalRegion(page, "reader-persist")).toContainText("MUSTER-STUB-READY", {
-      timeout: 15_000,
-    });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-persist");
-    await expect(folderEntry(region, "docs")).toBeVisible({ timeout: 15_000 });
-
-    await folderEntry(region, "docs").click();
-    await expect(folderEntry(region, "adr")).toBeVisible({ timeout: 15_000 });
-
-    await outlineHeaderToggle(region).click();
-    await expect(outlineHeaderToggle(region)).toHaveAttribute("aria-expanded", "false");
-
-    await mainheadSurfaceButton(page, "claude").click();
-    await expect(terminalRegion(page, "reader-persist")).toBeVisible({ timeout: 15_000 });
-    await expect(readerRegion(page, "reader-persist")).toHaveCount(0);
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const back = readerRegion(page, "reader-persist");
-    await expect(back).toBeVisible({ timeout: 15_000 });
-    await expect(folderEntry(back, "docs")).toBeVisible({ timeout: 15_000 });
-    await expect(folderEntry(back, "adr")).toBeVisible();
-    await expect(outlineHeaderToggle(back)).toHaveAttribute("aria-expanded", "false");
-  } finally {
-    await cleanup();
-  }
-});
+// ─── plan reader-expanded-persists: the browser memory shared by the dashboard and its
+// pop-out. (Plan frontmatter's rendering split — the flat table, a value carrying markup,
+// the raw fallback — is a property of the display and lives in web/render/reader.spec.ts.)
 
 // The `muster.reader.<id>` record as THIS page's localStorage view of it. Chromium
 // propagates a localStorage write to another page's renderer asynchronously, so two hosts
@@ -2785,50 +1752,6 @@ test("a click on a pop-out's displayed-expanded adr/ collapses it and stores the
     await settleFor(popup, 1_500);
     await expect(folderEntry(popRegion, "adr")).toHaveAttribute("aria-expanded", "false");
     expect((await storedReaderMemory(page)).expanded).toEqual(["docs"]);
-  } finally {
-    await cleanup();
-  }
-});
-
-// Plan reader-expanded-persists, review cycle 2 (browser Minor 1): while a filter is
-// typed the tree shows every match expanded, so a folder click has no visible effect and
-// must not be saved either — what a later return shows is something the developer saw.
-test("a folder click while a filter is typed saves nothing that shows after switching away with the filter still typed (reader-expanded-persists REQ-3)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await buildMarkdownFixtureTree(dir);
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-filter-click" });
-    await expect(terminalRegion(page, "reader-filter-click")).toContainText("MUSTER-STUB-READY", {
-      timeout: 15_000,
-    });
-
-    await mainheadSurfaceButton(page, "docs").click();
-    const region = readerRegion(page, "reader-filter-click");
-    await expect(folderEntry(region, "docs")).toBeVisible({ timeout: 15_000 });
-
-    // The filter shows x.md under its auto-expanded ancestors.
-    await filterBox(region).click();
-    await page.keyboard.type("x");
-    await expect(fileEntry(region, "x.md")).toBeVisible({ timeout: 15_000 });
-
-    // Click the folder while filtering: no visible effect, so nothing may be saved.
-    await folderEntry(region, "docs").click();
-    await expect(fileEntry(region, "x.md")).toBeVisible();
-
-    // Switch away with the filter still typed (the instance, and the filter with it, is
-    // dropped): the return must show only what the developer saw — docs/ collapsed.
-    await mainheadSurfaceButton(page, "claude").click();
-    await expect(readerRegion(page, "reader-filter-click")).toHaveCount(0);
-    await mainheadSurfaceButton(page, "docs").click();
-    const back = readerRegion(page, "reader-filter-click");
-    await expect(back).toBeVisible({ timeout: 15_000 });
-    await expect(folderEntry(back, "docs")).toBeVisible({ timeout: 15_000 });
-    await expect(folderEntry(back, "docs")).toHaveAttribute("aria-expanded", "false");
-    await expect(folderEntry(back, "adr")).toHaveCount(0);
   } finally {
     await cleanup();
   }

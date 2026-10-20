@@ -3,14 +3,12 @@ import { basename, join } from "node:path";
 import {
   effortArg,
   effortRadio,
-  effortRadiogroup,
   headerModel,
   pickEffort,
   effText,
   wireEffort,
 } from "./helpers/effort";
-import { expect, settleFor, test } from "./helpers/fixtures";
-import { focusedNode, tagNode } from "./helpers/focus-header";
+import { expect, test } from "./helpers/fixtures";
 import {
   childEntry,
   currentCrumb,
@@ -27,9 +25,14 @@ import {
   waitForNextClockSecond,
 } from "./helpers/session";
 
-// Plan effort — the launch half: the dialog's Effort row, what a launch spawns and records, what
-// the daemon refuses, what the dialog remembers per directory, and the Resume-tab resume's effort.
-// Acceptance E2, E3, E4, E16 with REQ-1 to REQ-4, REQ-11 and the dialog's focus rules.
+// Plan effort — the launch half: what a launch spawns and records, what the daemon refuses,
+// what the dialog remembers per directory, and the Resume-tab resume's effort. Acceptance E3,
+// E4, E16 with REQ-2 to REQ-4 and REQ-11.
+//
+// The Effort row's own display — its six radios in order between Model and Start in (E2), its
+// absence on the Resume tab, a click or an arrow key moving the checked segment across a render
+// tick — is a render test in web/render/launch.spec.ts since 2026-10-20
+// (plans/_audit/relevel/launch-update.md): what the form shows needs no daemon to falsify.
 //
 // Daemon shape (the plan's Fixture plan header): every test takes the per-test `daemon` fixture —
 // each asserts recents or remembered per-directory effort, which is daemon-global.
@@ -52,79 +55,6 @@ async function startCommandOf(
   if (!session) throw new Error("unreachable: toHaveLength(1) just passed");
   return await daemon.paneStartCommand(session.tmuxTarget);
 }
-
-test("the New form shows an Effort radiogroup of default, low, medium, high, xhigh and max in that order, between Model and Start in, with default checked for a directory with no remembered effort (REQ-1, E2)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const dialog = await openLaunchDialog(page);
-
-  await expect(effortRadiogroup(dialog)).toBeVisible();
-  await expect(dialog.locator("legend", { hasText: "Effort" })).toBeVisible();
-
-  const radios = effortRadiogroup(dialog).getByRole("radio");
-  await expect(radios).toHaveCount(6);
-  for (const [i, name] of ["default", "low", "medium", "high", "xhigh", "max"].entries()) {
-    await expect(radios.nth(i)).toHaveAccessibleName(name);
-    await expect(radios.nth(i)).toHaveAttribute("name", "effort");
-  }
-  expect(
-    await radios.evaluateAll((els) => els.map((el) => (el as HTMLInputElement).value)),
-  ).toEqual(["", "low", "medium", "high", "xhigh", "max"]);
-  await expect(effortRadio(dialog, "default")).toBeChecked();
-  for (const level of ["low", "medium", "high", "xhigh", "max"] as const) {
-    await expect(effortRadio(dialog, level)).not.toBeChecked();
-  }
-
-  // After the Model row's error line and custom-model input, before Start in.
-  const inOrder = await dialog.evaluate((root) => {
-    const q = (selector: string) => {
-      const el = root.querySelector(selector);
-      if (!el) throw new Error(`no ${selector} in the dialog`);
-      return el;
-    };
-    const follows = (a: Element, b: Element) =>
-      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
-    const model = q('[role="radiogroup"][aria-label="Model"]');
-    const error = q("#model-error");
-    const custom = q("#custom-model-input");
-    const effort = q('[role="radiogroup"][aria-label="Effort"]');
-    const startIn = q('[role="radiogroup"][aria-label="Start in"]');
-    return [
-      follows(model, effort),
-      follows(error, effort),
-      follows(custom, effort),
-      follows(effort, startIn),
-    ];
-  });
-  expect(inOrder).toEqual([true, true, true, true]);
-});
-
-test("the Resume tab gains no Effort row: it hides with the rest of the New form's fields (REQ-1)", async ({
-  page,
-  daemon,
-}) => {
-  const dir = await browseScratchDirectory(daemon, "muster-e2e-effort-resume-tab-");
-  try {
-    await daemon.writeTranscript(dir.path, "past-effort-tab", {
-      title: "Say hi",
-      model: "claude-opus-4-5-20251101",
-      assistantEfforts: ["high"],
-    });
-    await page.goto(daemon.dashboardUrl);
-    const dialog = await openLaunchDialog(page);
-    await childEntry(dialog, basename(dir.path)).click();
-    await resumeTab(dialog).click();
-    await expect(pastSessionRow(dialog, "Say hi")).toBeVisible();
-
-    // Resume hides the form's fields as a block: Effort goes with Model and Start in.
-    await expect(dialog.getByRole("radiogroup", { name: "Model" })).toBeHidden();
-    await expect(effortRadiogroup(dialog)).toBeHidden();
-  } finally {
-    await dir.cleanup();
-  }
-});
 
 test("launching with high from the dialog spawns the pane with --effort high, sends effort in the request, and leaves the session's effort unreported (REQ-2, E3)", async ({
   page,
@@ -395,61 +325,24 @@ test("an effort picked before the initial restore lands stays checked, while the
   }
 });
 
-test("the arrow keys move the Effort selection with focus on the same node, it survives a render tick, and the keyboard-chosen level is what launches (REQ-1, REQ-2)", async ({
-  page,
-  daemon,
-}) => {
+// The launch half of the former "the arrow keys move the Effort selection with focus on the
+// same node, it survives a render tick, and the keyboard-chosen level is what launches"; the
+// keyboard half (focus node identity across two render ticks) is the render test.
+test("the keyboard-chosen Effort level is what launches (REQ-2)", async ({ page, daemon }) => {
   await page.goto(daemon.dashboardUrl);
   const dialog = await openLaunchDialog(page);
 
-  // Setup, not evidence: put focus on the checked segment. The keys below are the round trip.
+  // Setup, not evidence: put focus on the checked segment, then two real arrow keys choose
+  // medium.
   await effortRadio(dialog, "default").focus();
   await page.keyboard.press("ArrowRight");
-  const low = effortRadio(dialog, "low");
-  await expect(low).toBeChecked();
-  await expect(low).toBeFocused();
-  await tagNode(low, "effort-low");
-  expect(await focusedNode(page)).toEqual({ tag: "INPUT", node: "effort-low" });
-
-  // Past the 1 s render tick: the same node, still focused, still checked.
-  await settleFor(page, 1_200);
-  expect(await focusedNode(page)).toEqual({ tag: "INPUT", node: "effort-low" });
-  await expect(low).toBeChecked();
-
   await page.keyboard.press("ArrowRight");
-  const medium = effortRadio(dialog, "medium");
-  await expect(medium).toBeChecked();
-  await expect(medium).toBeFocused();
-  await expect(low).not.toBeChecked();
-  await tagNode(medium, "effort-medium");
-  await settleFor(page, 1_200);
-  expect(await focusedNode(page)).toEqual({ tag: "INPUT", node: "effort-medium" });
-  await expect(medium).toBeChecked();
+  await expect(effortRadio(dialog, "medium")).toBeChecked();
 
   await dialog.getByLabel("Title").fill("effort-keyboard-launch");
   await launchPrimaryButton(dialog).click();
   await expect(dialog).toBeHidden();
   expect(effortArg(await startCommandOf(page, daemon, "effort-keyboard-launch"))).toBe("medium");
-});
-
-test("clicking the max segment checks it, and it stays the checked one across a render tick (REQ-1)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const dialog = await openLaunchDialog(page);
-
-  await pickEffort(dialog, "max");
-  await expect(effortRadio(dialog, "max")).toBeChecked();
-  await expect(effortRadio(dialog, "default")).not.toBeChecked();
-
-  await settleFor(page, 1_200);
-  await expect(effortRadio(dialog, "max")).toBeChecked();
-  await expect(effortRadio(dialog, "default")).not.toBeChecked();
-
-  await pickEffort(dialog, "default");
-  await expect(effortRadio(dialog, "default")).toBeChecked();
-  await expect(effortRadio(dialog, "max")).not.toBeChecked();
 });
 
 // --- the Resume tab (REQ-11, E16) ---

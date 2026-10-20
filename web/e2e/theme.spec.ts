@@ -1,10 +1,5 @@
 import { expect, test } from "./helpers/fixtures";
-import {
-  envelopedSessionStart,
-  rawNotification,
-  rawStopFailure,
-  rawUserPromptSubmit,
-} from "./helpers/payloads";
+import { envelopedSessionStart } from "./helpers/payloads";
 import {
   buildMarkdownFixtureTree,
   fileEntry,
@@ -12,14 +7,7 @@ import {
   readerRegion,
   renderedBody,
 } from "./helpers/reader";
-import {
-  envelopeOpts,
-  getState,
-  launchSession,
-  scratchDirectory,
-  sessionCard,
-  stateBadge,
-} from "./helpers/session";
+import { envelopeOpts, getState, launchSession, scratchDirectory } from "./helpers/session";
 import { mainheadSurfaceButton } from "./helpers/shell";
 import { terminalRegion } from "./helpers/terminal";
 import {
@@ -29,16 +17,17 @@ import {
   openSettingsDialog,
   resolvedCssVar,
   settingsCloseButton,
-  themeLegend,
   themeRadio,
-  themeRadios,
 } from "./helpers/theme";
 
 // Plan new-ui-design-colors — REQ-7, REQ-9 through REQ-15, INV-1 through INV-4, INV-7.
-// Plan acceptance: E2-E15, plus dedicated INV-1/INV-7 regression tests. E1 (`make e2e`)
-// is the suite itself, not a spec. W* criteria (resolveTheme table, parsePrefs/
-// parseSnapshot defaults, style.css/pane.ts shape) are Vitest's job per the plan's
-// Affected Files > Tests section, not this file's.
+// Plan acceptance: E4, E6-E12, E15, plus dedicated INV-1/INV-7 regression tests. E1
+// (`make e2e`) is the suite itself, not a spec. The Settings dialog's structure (E2), what
+// a fresh prefs state paints (E3), the head hint's first paint (E5) and the per-theme
+// computed styles of the header's buttons and the cards' badges (E13, E14) are render tests
+// in web/render/theme.spec.ts (re-levelled 2026-10-20, plans/_audit/relevel/misc-core.md).
+// W* criteria (resolveTheme table, parsePrefs/parseSnapshot defaults, style.css/pane.ts
+// shape) are Vitest's job per the plan's Affected Files > Tests section, not this file's.
 //
 // The Claude Code global config file the daemon's poller reads is faked entirely via
 // `ScratchDaemonOptions.claudeConfigContent` / `ScratchDaemon.writeClaudeConfig()`
@@ -54,35 +43,6 @@ import {
 // (helpers/fixtures.ts); the five that need a scratch Claude config / fast poll
 // (E9, E10, E11, E15, INV-1) call `startDaemon(opts)` inline instead, because grouping
 // them under describes with `daemonOptions` would split the file out of its E-order.
-
-test("clicking Settings opens a dialog named Settings with exactly four radios in Follow/Instrument/Dark/Light order (E2)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const dialog = await openSettingsDialog(page);
-  await expect(dialog).toBeVisible();
-  await expect(themeLegend(dialog)).toHaveText("Theme");
-
-  const radios = themeRadios(dialog);
-  await expect(radios).toHaveCount(4);
-  await expect(radios.nth(0)).toHaveAccessibleName("Follow Claude Code");
-  await expect(radios.nth(1)).toHaveAccessibleName("Instrument");
-  await expect(radios.nth(2)).toHaveAccessibleName("Dark");
-  await expect(radios.nth(3)).toHaveAccessibleName("Light");
-});
-
-test("a fresh daemon with no config file paints Instrument/unknown and checks Follow Claude Code (E3)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  await expect.poll(() => htmlTheme(page)).toBe("instrument");
-  await expect.poll(() => htmlClaudeFamily(page)).toBe("unknown");
-
-  const dialog = await openSettingsDialog(page);
-  await expect(themeRadio(dialog, "Follow Claude Code")).toBeChecked();
-});
 
 test("choosing Dark sets html[data-theme=dark] without a reload and changes body's background from Instrument (E4)", async ({
   page,
@@ -105,37 +65,6 @@ test("choosing Dark sets html[data-theme=dark] without a reload and changes body
   expect(stateRes.status()).toBe(200);
   const state = (await stateRes.json()) as { prefs: { theme: string } };
   expect(state.prefs.theme).toBe("dark");
-});
-
-test("after choosing Dark, a reload shows data-theme=dark on the very first paint via the head hint script (E5)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-  const dialog = await openSettingsDialog(page);
-  await themeRadio(dialog, "Dark").check();
-  await expect.poll(() => htmlTheme(page)).toBe("dark");
-
-  // Tags the attribute's value at DOMContentLoaded — before the WebSocket has any
-  // chance to connect and any `snapshot` to arrive — so reading it back after
-  // navigation proves the head-inline hint script (REQ-11), not the daemon round trip,
-  // painted the first frame.
-  await page.addInitScript(() => {
-    document.addEventListener(
-      "DOMContentLoaded",
-      () => {
-        (window as unknown as { __e2eEarlyTheme?: string | null }).__e2eEarlyTheme =
-          document.documentElement.getAttribute("data-theme");
-      },
-      { once: true },
-    );
-  });
-  await page.reload();
-
-  const early = await page.evaluate(
-    () => (window as unknown as { __e2eEarlyTheme?: string | null }).__e2eEarlyTheme,
-  );
-  expect(early).toBe("dark");
 });
 
 test("after choosing Dark, a daemon restart plus reload still shows dark with the Dark radio checked (E6)", async ({
@@ -383,168 +312,6 @@ test("killing the daemon leaves both theme attributes unchanged while the banner
 // Resume), and the test focuses one and then the other in every theme. The assertion is the
 // original one — the disabled button's computed style differs from the enabled one's — and
 // the header never shows a Stop and a Resume at once.
-test("the header's disabled Resume button's computed style differs from the enabled Stop button, in each theme (E13)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const live = await launchSession(page, daemon, { directory: dirA.path, title: "enabled-e13" });
-    await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-e13", await envelopeOpts(live, daemon)),
-    });
-    const dead = await launchSession(page, daemon, { directory: dirB.path, title: "disabled-e13" });
-    // Kill the window before any hook arrives: no Claude id is ever bound, so Resume is disabled.
-    await daemon.killTmuxWindow(dead.tmuxTarget);
-    await page.reload();
-
-    const mainhead = page.locator("#mainhead");
-    const stopBtn = mainhead.getByRole("button", { name: "Stop", exact: true });
-    const resumeBtn = mainhead.getByRole("button", { name: "Resume", exact: true });
-    const focusLive = async () => {
-      await sessionCard(page, "enabled-e13").click();
-      await expect(mainhead).toContainText("enabled-e13");
-      await expect(stopBtn).toBeEnabled();
-      await expect(resumeBtn).toHaveCount(0);
-    };
-    const focusDead = async () => {
-      await sessionCard(page, "disabled-e13").click();
-      await expect(mainhead).toContainText("disabled-e13");
-      await expect(resumeBtn).toBeDisabled();
-      await expect(stopBtn).toHaveCount(0);
-    };
-
-    for (const [label, expectedTheme] of [
-      ["Instrument", "instrument"],
-      ["Dark", "dark"],
-      ["Light", "light"],
-    ] as const) {
-      const dialog = await openSettingsDialog(page);
-      await themeRadio(dialog, label).check();
-      await expect.poll(() => htmlTheme(page)).toBe(expectedTheme);
-      await settingsCloseButton(dialog).click();
-
-      await focusLive();
-      const endColor = await stopBtn.evaluate((el) => getComputedStyle(el).color);
-      const endBorder = await stopBtn.evaluate((el) => getComputedStyle(el).borderColor);
-      await focusDead();
-      const resumeColor = await resumeBtn.evaluate((el) => getComputedStyle(el).color);
-      const resumeBorder = await resumeBtn.evaluate((el) => getComputedStyle(el).borderColor);
-      const resumeCursor = await resumeBtn.evaluate((el) => getComputedStyle(el).cursor);
-
-      expect(resumeColor, `${label}: Resume color must differ from enabled Stop`).not.toBe(
-        endColor,
-      );
-      expect(resumeBorder, `${label}: Resume border-color must differ from enabled Stop`).not.toBe(
-        endBorder,
-      );
-      expect(resumeCursor, `${label}: disabled Resume must show not-allowed`).toBe("not-allowed");
-    }
-  } finally {
-    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
-  }
-});
-
-test("badge colors for Needs-Input, Failed, Planning and Working cards match their theme's token, in every theme (E14)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const dirs = await Promise.all(Array.from({ length: 4 }, () => scratchDirectory()));
-  try {
-    await page.goto(daemon.dashboardUrl);
-
-    const needsInput = await launchSession(page, daemon, {
-      directory: dirs[0]?.path ?? "",
-      title: "badge-needs-input",
-    });
-    const failed = await launchSession(page, daemon, {
-      directory: dirs[1]?.path ?? "",
-      title: "badge-failed",
-    });
-    const planning = await launchSession(page, daemon, {
-      directory: dirs[2]?.path ?? "",
-      title: "badge-planning",
-      permissionMode: "plan",
-    });
-    const working = await launchSession(page, daemon, {
-      directory: dirs[3]?.path ?? "",
-      title: "badge-working",
-    });
-
-    await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-badge-ni", await envelopeOpts(needsInput, daemon)),
-    });
-    await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit("claude-badge-ni") });
-    await request.post(daemon.ingestURL("hook"), {
-      data: rawNotification("claude-badge-ni", "p1", "permission_prompt"),
-    });
-
-    await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-badge-f", await envelopeOpts(failed, daemon)),
-    });
-    await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit("claude-badge-f") });
-    await request.post(daemon.ingestURL("hook"), { data: rawStopFailure("claude-badge-f") });
-
-    await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-badge-p", await envelopeOpts(planning, daemon)),
-    });
-    await request.post(daemon.ingestURL("hook"), {
-      data: rawUserPromptSubmit("claude-badge-p", { permissionMode: "plan" }),
-    });
-
-    await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-badge-w", await envelopeOpts(working, daemon)),
-    });
-    await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit("claude-badge-w") });
-
-    const cardNI = sessionCard(page, "badge-needs-input");
-    const cardF = sessionCard(page, "badge-failed");
-    const cardP = sessionCard(page, "badge-planning");
-    const cardW = sessionCard(page, "badge-working");
-    await expect(stateBadge(cardNI)).toHaveText(/needs input/i);
-    await expect(stateBadge(cardF)).toHaveText(/failed/i);
-    await expect(stateBadge(cardP)).toHaveText(/planning/i);
-    await expect(stateBadge(cardW)).toHaveText(/working/i);
-
-    const dialog = await openSettingsDialog(page);
-    for (const [label, expectedTheme] of [
-      ["Instrument", "instrument"],
-      ["Dark", "dark"],
-      ["Light", "light"],
-    ] as const) {
-      await themeRadio(dialog, label).check();
-      await expect.poll(() => htmlTheme(page)).toBe(expectedTheme);
-
-      const amber = await resolvedCssVar(page, "--amber");
-      const rose = await resolvedCssVar(page, "--rose");
-      const violet = await resolvedCssVar(page, "--violet");
-      const teal = await resolvedCssVar(page, "--teal");
-
-      await expect(
-        cardNI.locator(".badge"),
-        `${label}: Needs-Input badge should be amber`,
-      ).toHaveCSS("color", amber);
-      await expect(cardF.locator(".badge"), `${label}: Failed badge should be rose`).toHaveCSS(
-        "color",
-        rose,
-      );
-      await expect(cardP.locator(".badge"), `${label}: Planning badge should be violet`).toHaveCSS(
-        "color",
-        violet,
-      );
-      await expect(cardW.locator(".badge"), `${label}: Working badge should be teal`).toHaveCSS(
-        "color",
-        teal,
-      );
-    }
-  } finally {
-    await Promise.all(dirs.map((d) => d.cleanup()));
-  }
-});
-
 test("a scratch Claude config with malformed JSON yields data-claude-family=unknown with no error banner or console error (E15)", async ({
   page,
   startDaemon,

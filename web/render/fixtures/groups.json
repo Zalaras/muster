@@ -132,7 +132,7 @@
           "name": "worker"
         },
         "state": "idle",
-        "stateSince": "2026-01-01T00:01:00Z",
+        "stateSince": "2026-01-01T00:03:00Z",
         "title": null,
         "titleOverride": null,
         "tmuxTarget": "muster-2:@2",
@@ -152,7 +152,7 @@
           "usedPct": null,
           "windowSize": null
         },
-        "createdAt": "2026-01-01T00:03:00Z",
+        "createdAt": "2026-01-01T00:04:00Z",
         "directory": "/home/bob/projects/web",
         "effort": null,
         "effortWarning": null,
@@ -180,7 +180,7 @@
           "name": "web"
         },
         "state": "idle",
-        "stateSince": "2026-01-01T00:01:00Z",
+        "stateSince": "2026-01-01T00:05:00Z",
         "title": null,
         "titleOverride": null,
         "tmuxTarget": "muster-3:@3",
@@ -200,7 +200,7 @@
           "usedPct": null,
           "windowSize": null
         },
-        "createdAt": "2026-01-01T00:04:00Z",
+        "createdAt": "2026-01-01T00:06:00Z",
         "directory": "/home/bob/projects/notes",
         "effort": null,
         "effortWarning": null,
@@ -228,7 +228,7 @@
           "name": "notes"
         },
         "state": "idle",
-        "stateSince": "2026-01-01T00:01:00Z",
+        "stateSince": "2026-01-01T00:07:00Z",
         "title": null,
         "titleOverride": null,
         "tmuxTarget": "muster-4:@4",
@@ -272,7 +272,7 @@
       "id": 4,
       "isGit": true,
       "lastEffort": null,
-      "lastLaunchedAt": "2026-01-01T00:04:00Z",
+      "lastLaunchedAt": "2026-01-01T00:06:00Z",
       "lastModel": "sonnet",
       "lastPermissionMode": "default",
       "launchCount": 1,
@@ -285,7 +285,7 @@
       "id": 3,
       "isGit": true,
       "lastEffort": null,
-      "lastLaunchedAt": "2026-01-01T00:03:00Z",
+      "lastLaunchedAt": "2026-01-01T00:04:00Z",
       "lastModel": "sonnet",
       "lastPermissionMode": "default",
       "launchCount": 1,
@@ -318,6 +318,52 @@
       "name": "api",
       "path": "/home/bob/projects/api",
       "pinned": false
+    }
+  ],
+  "reader": [
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/api",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/worker",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 2
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/web",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 3
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/notes",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 4
     }
   ]
 }

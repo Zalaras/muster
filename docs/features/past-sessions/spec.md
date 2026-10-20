@@ -7,7 +7,7 @@ summary: The launch dialog's Resume tab — a directory's Claude Code sessions l
 features: [past-sessions]
 tags: [claude-code-format, ux]
 go: [internal/claudecode/launchtranscripts*.go, internal/server/launcherpast*.go]
-web: [web/src/features/launchresume*.ts, web/src/features/launchpastlist*.ts, web/src/render/launchpast*.ts]
+web: [web/src/features/launchresume*.ts, web/src/features/launchpastlist*.ts, web/src/render/launchpast*.ts, web/render/past-sessions.spec.ts, web/render/helpers/past-sessions.ts]
 e2e: [web/e2e/past-sessions.spec.ts, web/e2e/helpers/resume.ts]
 protocol: [pastsessions.list]
 refs: [kb:spec/launch, kb:adr/launch-resume-listed-from-transcripts-by-cwd, kb:adr/launch-resume-running-guard-muster-only, kb:adr/launch-resume-pending-hold-persisted, kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-in-original-mode-else-default, kb:adr/launch-resume-passes-any-recorded-mode, kb:adr/launch-resume-display-name-falls-back-to-id, kb:fact/transcript-dir-encoding, kb:fact/transcript-session-lines, kb:fact/no-running-session-signal, kb:fact/resume-restores-model-and-mode-except-plan, "#62", kb:adr/launch-group-row-moves-between-tabs]

@@ -36,6 +36,12 @@ import { browseScratchDirectory, getState, launchSession, sessionCard } from "./
 // `stubUnrecognizedModels` — the per-run env seam helpers/daemon.ts's STUB_CLAUDE_SCRIPT
 // gained for this plan, alongside the pre-existing `muster-e2e-unrecognized*` prefix —
 // since none of them assert daemon-global rail state the way the two tests above do.
+//
+// REQ-10's fail-open display (E5, "with the daemon down, opening the dialog marks and
+// disables nothing") is a render test in web/render/launch.spec.ts since 2026-10-20
+// (plans/_audit/relevel/launch-update.md): a failed verdict request leaves the store
+// untouched whether it failed at the connection or with the harness's 404, and the
+// connection-level path of `safeFetch` is launch.spec.ts's route.abort() journeys.
 
 const UNRECOGNIZED_MODEL = "muster-e2e-unrecognized-model";
 const REFUSAL_MESSAGE = `Claude Code doesn't recognise the model "${UNRECOGNIZED_MODEL}" — update Claude Code, or pick another model`;
@@ -341,39 +347,6 @@ test("navigating to a recent whose stored model is not a preset re-requests its 
   } finally {
     await dir.cleanup();
   }
-});
-
-test("with the daemon down, opening the dialog marks and disables nothing (REQ-10, E5)", async ({
-  page,
-  startDaemon,
-}) => {
-  const daemon = await startDaemon({ stubUnrecognizedModels: [UNRECOGNIZED_PRESET] });
-  await page.goto(daemon.dashboardUrl);
-  await expect(page.getByRole("status")).toHaveText(/connected/i);
-
-  await daemon.kill();
-  await expect(page.getByRole("alert")).toBeVisible({ timeout: 15_000 });
-
-  // Set up the listener before the click that triggers the dialog-open GET /api/models,
-  // so the connection-level failure (the daemon is dead, not just slow or erroring) is
-  // never missed. Waiting for this event, rather than only polling the assertions below,
-  // ties this test to the failed request actually happening — otherwise every assertion
-  // below would pass on the very first poll whether or not the request ran at all.
-  const modelsRequestFailed = page.waitForEvent("requestfailed", (request) =>
-    request.url().includes("/api/models"),
-  );
-  const dialog = await openLaunchDialog(page);
-  await modelsRequestFailed;
-
-  // REQ-10: the verdict request fails outright (no daemon to answer it), so nothing is
-  // marked or disabled — the dialog looks exactly as it would with no verdicts at all.
-  await expect(dialog.getByRole("radio", { name: UNRECOGNIZED_PRESET })).toBeEnabled();
-  await expect(dialog.getByRole("radio", { name: UNRECOGNIZED_PRESET })).not.toHaveAttribute(
-    "aria-invalid",
-    "true",
-  );
-  await expect(modelError(dialog)).toBeHidden();
-  await expect(dialog.getByRole("button", { name: "Launch" })).toBeEnabled();
 });
 
 test("a refusal that disables a focused Launch moves focus onto the invalid Custom model field, which survives a tick and keeps a following Tab inside the dialog (review cycle 1 browser Minor 1)", async ({

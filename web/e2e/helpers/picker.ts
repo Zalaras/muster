@@ -1,33 +1,23 @@
 // Locator helpers for the launch dialog's Finder-style picker, shared by launch.spec.ts
-// and tiles-launch.spec.ts since both drive the same picker.
-import type { Locator, Page } from "@playwright/test";
+// and tiles-launch.spec.ts since both drive the same picker. What is here is the browse
+// pane — crumbs, the child listing, the Launch-in readout — whose every state is a
+// `GET /api/browse` answer only a live daemon gives.
+import type { Locator } from "@playwright/test";
 
-/** The launch dialog itself — `aria-labelledby` gives it the accessible name "New
- * session" (the `⌥⌘N` kbd beside the heading text is `aria-hidden`, so it never joins the
- * accessible name). */
-export function launchDialog(page: Page): Locator {
-  return page.getByRole("dialog", { name: "New session" });
-}
-
-/** Clicks the rail's "New session" button and returns the now-open dialog locator. */
-export async function openLaunchDialog(page: Page): Promise<Locator> {
-  await page.getByRole("button", { name: "New session" }).click();
-  return launchDialog(page);
-}
-
-/** `<aside aria-label="Recent directories">`. */
-export function recentsSidebar(dialog: Locator): Locator {
-  return dialog.getByRole("complementary", { name: "Recent directories" });
-}
-
-/** A recent's button, matched on the leading `.dir-name` text — the accessible name's
- * textContent is `<name><branch-or—><age>` with no separators (Testable UI Elements),
- * so an exact match would break on the first real MRU entry with a branch or age. */
-export function recentButton(dialog: Locator, name: string): Locator {
-  return recentsSidebar(dialog).getByRole("button", {
-    name: new RegExp(`^${escapeForRegExp(name)}`),
-  });
-}
+// The dialog locator and its opener are the render tier's (web/render/helpers/shortcuts.ts,
+// where ⌥⌘N's render spec needs them); the Recent sidebar, the two error lines and the
+// regex escape are the render tier's too (web/render/helpers/launch.ts, where the dialog's
+// static properties re-levelled on 2026-10-20 read them). Re-exported so a locator is
+// written once for both tiers.
+export { launchDialog, openLaunchDialog } from "../../render/helpers/shortcuts";
+export {
+  escapeForRegExp,
+  launchError,
+  modelError,
+  recentButton,
+  recentsSidebar,
+} from "../../render/helpers/launch";
+import { escapeForRegExp } from "../../render/helpers/launch";
 
 /** `<nav id="browse-crumbs" aria-label="Path">`. */
 export function crumbsNav(dialog: Locator): Locator {
@@ -69,26 +59,6 @@ export function launchTargetPath(dialog: Locator): Locator {
  * element, same toggled-`hidden`/text-content behaviour, only the class changed. */
 export function launchTargetBranch(dialog: Locator): Locator {
   return dialog.locator("#launch-target .suffix");
-}
-
-/** `#launch-error` (role=alert). */
-export function launchError(dialog: Locator): Locator {
-  return dialog.locator("#launch-error");
-}
-
-/** `#model-error` — the Model row's invalid-field message (plan
- * maintainability-regressions REQ-8/9). Its `⚠` glyph sits in its own `aria-hidden` span,
- * so callers match its text with `toHaveText(/regex/)` (a substring test) rather than an
- * exact string, since the glyph is still part of `textContent` even though it is excluded
- * from the accessible name. */
-export function modelError(dialog: Locator): Locator {
-  return dialog.locator("#model-error");
-}
-
-/** Escapes a string for safe interpolation into a `RegExp` — directory basenames here
- * come from `mkdtemp` (word characters and hyphens only) so this is mostly defensive. */
-export function escapeForRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /** Composes `#browse-crumbs`'s full path from its ancestor `<button data-path>`s plus the

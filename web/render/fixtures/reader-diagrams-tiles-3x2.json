@@ -1,0 +1,202 @@
+{
+  "scenario": "reader-diagrams-tiles-3x2",
+  "hello": {
+    "claudeCode": {
+      "floor": "2.1.246",
+      "installed": "2.1.300",
+      "status": "verified",
+      "verified": "2.1.300"
+    },
+    "daemon": {
+      "version": "0.0.0-renderfix"
+    },
+    "protocolVersion": 2,
+    "type": "hello"
+  },
+  "snapshot": {
+    "claudeTheme": {
+      "family": "unknown"
+    },
+    "groups": [],
+    "prefs": {
+      "density": "3x2",
+      "railActivity": "turn",
+      "railDensity": "comfortable",
+      "railSort": "manual",
+      "theme": "follow",
+      "updateCheck": true,
+      "usageModel": "Fable",
+      "view": "tiles"
+    },
+    "sessions": [
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-reader",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:00:00Z",
+        "directory": "/home/bob/projects/reader-diagrams",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 1,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 0,
+        "repo": null,
+        "state": "idle",
+        "stateSince": "2026-01-01T00:01:00Z",
+        "title": "reader",
+        "titleOverride": null,
+        "tmuxTarget": "muster-1:@1",
+        "unread": true
+      }
+    ],
+    "shellsBusy": [],
+    "type": "snapshot",
+    "ungrouped": {
+      "collapsed": false,
+      "pos": 0
+    },
+    "update": {
+      "apply": {
+        "error": null,
+        "phase": "idle",
+        "version": null
+      },
+      "available": null,
+      "canCheck": false,
+      "checkedAt": null,
+      "install": "dev",
+      "installed": null,
+      "remedy": null,
+      "running": "renderfix"
+    },
+    "usage": {
+      "fiveHour": null,
+      "modelScoped": null,
+      "modelScopedAt": null,
+      "modelScopedError": null,
+      "modelScopedSource": "subscription-api",
+      "sampledAt": null,
+      "sevenDay": null,
+      "source": "subscription"
+    }
+  },
+  "repos": [
+    {
+      "branch": null,
+      "id": 1,
+      "isGit": false,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:00:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "reader-diagrams",
+      "path": "/home/bob/projects/reader-diagrams",
+      "pinned": false
+    }
+  ],
+  "reader": [
+    {
+      "files": [
+        {
+          "body": "# Broken\n\n```mermaid\nflowchart TD\n  A -->\n```\n\n```mermaid\nflowchart TD\n  C --> D\n```\n",
+          "path": "/home/bob/projects/reader-diagrams/broken.md"
+        },
+        {
+          "body": "# ELK\n\n```mermaid\n---\nconfig:\n  layout: elk\n---\nflowchart TD\n  A --> B --> C\n```\n\n```mermaid\nflowchart TD\n  X --> Y\n```\n",
+          "path": "/home/bob/projects/reader-diagrams/elk.md"
+        },
+        {
+          "body": "# Flow\n\n```mermaid\nflowchart TD\n  A --> B\n```\n",
+          "path": "/home/bob/projects/reader-diagrams/flow.md"
+        },
+        {
+          "body": "# Top\n\n## Alpha\n\nParagraph line 0 of filler text to force a scrollable body.\n\nParagraph line 1 of filler text to force a scrollable body.\n\nParagraph line 2 of filler text to force a scrollable body.\n\nParagraph line 3 of filler text to force a scrollable body.\n\nParagraph line 4 of filler text to force a scrollable body.\n\nParagraph line 5 of filler text to force a scrollable body.\n\nParagraph line 6 of filler text to force a scrollable body.\n\nParagraph line 7 of filler text to force a scrollable body.\n\nParagraph line 8 of filler text to force a scrollable body.\n\nParagraph line 9 of filler text to force a scrollable body.\n\nParagraph line 10 of filler text to force a scrollable body.\n\nParagraph line 11 of filler text to force a scrollable body.\n\nParagraph line 12 of filler text to force a scrollable body.\n\nParagraph line 13 of filler text to force a scrollable body.\n\nParagraph line 14 of filler text to force a scrollable body.\n\nParagraph line 15 of filler text to force a scrollable body.\n\nParagraph line 16 of filler text to force a scrollable body.\n\nParagraph line 17 of filler text to force a scrollable body.\n\nParagraph line 18 of filler text to force a scrollable body.\n\nParagraph line 19 of filler text to force a scrollable body.\n\nParagraph line 20 of filler text to force a scrollable body.\n\nParagraph line 21 of filler text to force a scrollable body.\n\nParagraph line 22 of filler text to force a scrollable body.\n\nParagraph line 23 of filler text to force a scrollable body.\n\nParagraph line 24 of filler text to force a scrollable body.\n\nParagraph line 25 of filler text to force a scrollable body.\n\nParagraph line 26 of filler text to force a scrollable body.\n\nParagraph line 27 of filler text to force a scrollable body.\n\nParagraph line 28 of filler text to force a scrollable body.\n\nParagraph line 29 of filler text to force a scrollable body.\n\nParagraph line 30 of filler text to force a scrollable body.\n\nParagraph line 31 of filler text to force a scrollable body.\n\nParagraph line 32 of filler text to force a scrollable body.\n\nParagraph line 33 of filler text to force a scrollable body.\n\nParagraph line 34 of filler text to force a scrollable body.\n\nParagraph line 35 of filler text to force a scrollable body.\n\nParagraph line 36 of filler text to force a scrollable body.\n\nParagraph line 37 of filler text to force a scrollable body.\n\nParagraph line 38 of filler text to force a scrollable body.\n\nParagraph line 39 of filler text to force a scrollable body.\n\n```mermaid\nflowchart TD\n  A --> B\n```\n\n## Beta\n\nParagraph line 0 of filler text to force a scrollable body.\n\nParagraph line 1 of filler text to force a scrollable body.\n\nParagraph line 2 of filler text to force a scrollable body.\n\nParagraph line 3 of filler text to force a scrollable body.\n\nParagraph line 4 of filler text to force a scrollable body.\n\nParagraph line 5 of filler text to force a scrollable body.\n\nParagraph line 6 of filler text to force a scrollable body.\n\nParagraph line 7 of filler text to force a scrollable body.\n\nParagraph line 8 of filler text to force a scrollable body.\n\nParagraph line 9 of filler text to force a scrollable body.\n\nParagraph line 10 of filler text to force a scrollable body.\n\nParagraph line 11 of filler text to force a scrollable body.\n\nParagraph line 12 of filler text to force a scrollable body.\n\nParagraph line 13 of filler text to force a scrollable body.\n\nParagraph line 14 of filler text to force a scrollable body.\n\nParagraph line 15 of filler text to force a scrollable body.\n\nParagraph line 16 of filler text to force a scrollable body.\n\nParagraph line 17 of filler text to force a scrollable body.\n\nParagraph line 18 of filler text to force a scrollable body.\n\nParagraph line 19 of filler text to force a scrollable body.\n\nParagraph line 20 of filler text to force a scrollable body.\n\nParagraph line 21 of filler text to force a scrollable body.\n\nParagraph line 22 of filler text to force a scrollable body.\n\nParagraph line 23 of filler text to force a scrollable body.\n\nParagraph line 24 of filler text to force a scrollable body.\n\nParagraph line 25 of filler text to force a scrollable body.\n\nParagraph line 26 of filler text to force a scrollable body.\n\nParagraph line 27 of filler text to force a scrollable body.\n\nParagraph line 28 of filler text to force a scrollable body.\n\nParagraph line 29 of filler text to force a scrollable body.\n\nParagraph line 30 of filler text to force a scrollable body.\n\nParagraph line 31 of filler text to force a scrollable body.\n\nParagraph line 32 of filler text to force a scrollable body.\n\nParagraph line 33 of filler text to force a scrollable body.\n\nParagraph line 34 of filler text to force a scrollable body.\n\nParagraph line 35 of filler text to force a scrollable body.\n\nParagraph line 36 of filler text to force a scrollable body.\n\nParagraph line 37 of filler text to force a scrollable body.\n\nParagraph line 38 of filler text to force a scrollable body.\n\nParagraph line 39 of filler text to force a scrollable body.\n\n```mermaid\nflowchart TD\n  C -->\n```\n\n## Gamma\n\nParagraph line 0 of filler text to force a scrollable body.\n\nParagraph line 1 of filler text to force a scrollable body.\n\nParagraph line 2 of filler text to force a scrollable body.\n\nParagraph line 3 of filler text to force a scrollable body.\n\nParagraph line 4 of filler text to force a scrollable body.\n\nParagraph line 5 of filler text to force a scrollable body.\n\nParagraph line 6 of filler text to force a scrollable body.\n\nParagraph line 7 of filler text to force a scrollable body.\n\nParagraph line 8 of filler text to force a scrollable body.\n\nParagraph line 9 of filler text to force a scrollable body.\n\nParagraph line 10 of filler text to force a scrollable body.\n\nParagraph line 11 of filler text to force a scrollable body.\n\nParagraph line 12 of filler text to force a scrollable body.\n\nParagraph line 13 of filler text to force a scrollable body.\n\nParagraph line 14 of filler text to force a scrollable body.\n\nParagraph line 15 of filler text to force a scrollable body.\n\nParagraph line 16 of filler text to force a scrollable body.\n\nParagraph line 17 of filler text to force a scrollable body.\n\nParagraph line 18 of filler text to force a scrollable body.\n\nParagraph line 19 of filler text to force a scrollable body.\n\nParagraph line 20 of filler text to force a scrollable body.\n\nParagraph line 21 of filler text to force a scrollable body.\n\nParagraph line 22 of filler text to force a scrollable body.\n\nParagraph line 23 of filler text to force a scrollable body.\n\nParagraph line 24 of filler text to force a scrollable body.\n\nParagraph line 25 of filler text to force a scrollable body.\n\nParagraph line 26 of filler text to force a scrollable body.\n\nParagraph line 27 of filler text to force a scrollable body.\n\nParagraph line 28 of filler text to force a scrollable body.\n\nParagraph line 29 of filler text to force a scrollable body.\n\nParagraph line 30 of filler text to force a scrollable body.\n\nParagraph line 31 of filler text to force a scrollable body.\n\nParagraph line 32 of filler text to force a scrollable body.\n\nParagraph line 33 of filler text to force a scrollable body.\n\nParagraph line 34 of filler text to force a scrollable body.\n\nParagraph line 35 of filler text to force a scrollable body.\n\nParagraph line 36 of filler text to force a scrollable body.\n\nParagraph line 37 of filler text to force a scrollable body.\n\nParagraph line 38 of filler text to force a scrollable body.\n\nParagraph line 39 of filler text to force a scrollable body.\n",
+          "path": "/home/bob/projects/reader-diagrams/interleaved.md"
+        },
+        {
+          "body": "# Kinds\n\n```mermaid\nC4Context\n  Person(user, \"User\")\n  System(sys, \"System\")\n  Rel(user, sys, \"Uses\")\n```\n\n```mermaid\nC4Container\n  Person(user, \"User\")\n  Container(app, \"App\", \"Go\")\n  Rel(user, app, \"Uses\")\n```\n\n```mermaid\nC4Component\n  Person(user, \"User\")\n  Component(comp, \"Component\")\n  Rel(user, comp, \"Uses\")\n```\n\n```mermaid\nclassDiagram\n  class Animal\n  Animal : +String name\n```\n\n```mermaid\nstateDiagram-v2\n  [*] --> Idle\n  Idle --> Done\n```\n\n```mermaid\nsequenceDiagram\n  Alice->>Bob: Hello\n```\n\n```mermaid\nerDiagram\n  CUSTOMER ||--o{ ORDER : places\n```\n\n```mermaid\nflowchart TD\n  E --> F\n```\n\n```Mermaid\nflowchart TD\n  G --> H\n```\n\n```mermaid title=x\nflowchart TD\n  I --> J\n```\n\n> ```mermaid\n> flowchart TD\n> K --> L\n> ```\n\n```mermaid\nflowchart TD\n  M --> N\n```\n\n```mermaid\nflowchart TD\n  M --> N\n```\n",
+          "path": "/home/bob/projects/reader-diagrams/kinds.md"
+        },
+        {
+          "body": "# Plain\n\nNo diagrams here.\n",
+          "path": "/home/bob/projects/reader-diagrams/plain.md"
+        },
+        {
+          "body": "# Unsafe\n\n```mermaid\n%%{init: {\"securityLevel\": \"loose\", \"flowchart\": {\"htmlLabels\": true}}}%%\nflowchart TD\n  A[\"<script>window.__readerXss = true;</script>\"]\n  B[\"<img src=x onerror='window.__readerXss = true' />\"]\n  A --> B\n  click A \"javascript:window.__readerXss=true\" \"click\"\n```\n",
+          "path": "/home/bob/projects/reader-diagrams/unsafe.md"
+        },
+        {
+          "body": "# Wide\n\n```mermaid\nflowchart LR\n  N0 --> N1 --> N2 --> N3 --> N4 --> N5 --> N6 --> N7 --> N8 --> N9 --> N10 --> N11 --> N12 --> N13 --> N14 --> N15 --> N16 --> N17 --> N18 --> N19 --> N20 --> N21 --> N22 --> N23 --> N24 --> N25 --> N26 --> N27 --> N28 --> N29 --> N30 --> N31 --> N32 --> N33 --> N34 --> N35 --> N36 --> N37 --> N38 --> N39\n```\n",
+          "path": "/home/bob/projects/reader-diagrams/wide.md"
+        }
+      ],
+      "listing": {
+        "directory": "/home/bob/projects/reader-diagrams",
+        "files": [
+          {
+            "path": "broken.md",
+            "writtenAt": null
+          },
+          {
+            "path": "elk.md",
+            "writtenAt": null
+          },
+          {
+            "path": "flow.md",
+            "writtenAt": null
+          },
+          {
+            "path": "interleaved.md",
+            "writtenAt": null
+          },
+          {
+            "path": "kinds.md",
+            "writtenAt": null
+          },
+          {
+            "path": "plain.md",
+            "writtenAt": null
+          },
+          {
+            "path": "unsafe.md",
+            "writtenAt": null
+          },
+          {
+            "path": "wide.md",
+            "writtenAt": null
+          }
+        ],
+        "listing": "walk",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    }
+  ]
+}

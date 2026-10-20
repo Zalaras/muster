@@ -19,7 +19,11 @@ import { TerminalSocketTracker, terminalRegion } from "./helpers/terminal";
 import { resolvedCssVar } from "./helpers/theme";
 
 // Plan m4-reconcile — REQ-5 through REQ-16 (End / Remove / Resume, dialogs, dead
-// surface). Plan acceptance: E5-E15 (E2-E4 live in reconcile.spec.ts).
+// surface). Plan acceptance: E5-E9, E11-E15 (E2-E4 live in reconcile.spec.ts). The
+// dialogs closing on Cancel and Escape before any request (E10), the "ended now" copy
+// (Major 6) and the disabled Resume of a session with no Claude id (session-lifecycle
+// E7/W3) are render tests in web/render/actions.spec.ts (re-levelled 2026-10-20,
+// plans/_audit/relevel/misc-core.md).
 //
 // Plan code-breakup's E2E split (plan.md UI Specifications → E2E split) moved this
 // file's Tiles-footer tests to tiles.spec.ts and its keyboard/hover/re-sort rail-card
@@ -119,66 +123,6 @@ test("End from the mainhead ends only the focused session; a live neighbour is u
     expect(idxB).toBeLessThan(idxA);
   } finally {
     await Promise.all([dirA.cleanup(), dirB.cleanup()]);
-  }
-});
-
-test("Cancel and Escape close both End and Remove dialogs without sending any request (E10)", async ({
-  page,
-  request,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(sharedDaemon().dashboardUrl);
-    const session = await launchSession(page, sharedDaemon(), {
-      directory: dir,
-      title: "cancel-escape-e10",
-    });
-    await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart(
-        "claude-cancel-escape-e10",
-        await envelopeOpts(session, sharedDaemon()),
-      ),
-    });
-    const card = sessionCard(page, "cancel-escape-e10");
-    await card.click();
-    const mainhead = page.locator("#mainhead");
-    await expect(mainhead).toContainText("cancel-escape-e10");
-
-    let mutations = 0;
-    page.on("request", (req) => {
-      const method = req.method();
-      if (method !== "POST" && method !== "DELETE") return;
-      const path = new URL(req.url()).pathname;
-      if (/^\/api\/sessions\/\d+(\/(end|resume))?$/.test(path)) mutations++;
-    });
-
-    const endDialog = page.getByRole("dialog", { name: "Stop session?" });
-    await mainhead.getByRole("button", { name: "Stop" }).click();
-    await expect(endDialog).toBeVisible();
-    await endDialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(endDialog).toBeHidden();
-
-    await mainhead.getByRole("button", { name: "Stop" }).click();
-    await expect(endDialog).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(endDialog).toBeHidden();
-
-    const removeDialog = page.getByRole("dialog", { name: "Remove session?" });
-    await mainhead.getByRole("button", { name: "Remove" }).click();
-    await expect(removeDialog).toBeVisible();
-    await removeDialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(removeDialog).toBeHidden();
-
-    await mainhead.getByRole("button", { name: "Remove" }).click();
-    await expect(removeDialog).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(removeDialog).toBeHidden();
-
-    const state = await getState(page, sharedDaemon());
-    expect(findSession(state, session.id).alive).toBe(true);
-    expect(mutations).toBe(0);
-  } finally {
-    await cleanup();
   }
 });
 
@@ -788,59 +732,6 @@ test("action buttons are disabled while the daemon connection is down for a dead
 // session. The fix (`formatEndedAgo`) special-cases "now" to stay bare. Assert the
 // positive ("ended now") and the absence of the old defect ("now ago") on every surface
 // the reviewer named: mainhead meta, `.endbar`, and `.endcap`.
-test("ended copy reads 'ended now', never 'ended now ago', on the mainhead and dead surface (REQ-10, REQ-13, Major 6)", async ({
-  page,
-  request,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(sharedDaemon().dashboardUrl);
-    const session = await launchSession(page, sharedDaemon(), {
-      directory: dir,
-      title: "ended-now-copy",
-    });
-    await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart(
-        "claude-ended-now-copy",
-        await envelopeOpts(session, sharedDaemon()),
-      ),
-    });
-    const card = sessionCard(page, "ended-now-copy");
-    await card.click();
-    const mainhead = page.locator("#mainhead");
-    await expect(mainhead).toContainText("ended-now-copy");
-    // Wait for real pane content before ending — an End captured against a genuinely
-    // blank buffer (the very first capture, before the stub has printed anything) hits
-    // the documented Minor 2 scope-note edge case (`storeSnapshot`'s diff-check
-    // short-circuits "" == "" so `LastSnapshotAt` never gets set) and serves 404
-    // `no_snapshot` instead of 200 text — same precondition E6/E7/INV-5 already rely on.
-    await expect(terminalRegion(page, "ended-now-copy")).toContainText("MUSTER-STUB-READY", {
-      timeout: 15_000,
-    });
-
-    const endRes = await page.request.post(
-      `${sharedDaemon().baseURL}/api/sessions/${session.id}/end`,
-    );
-    expect(endRes.status()).toBe(200);
-    const deadSurface = page.locator("#dead-surface");
-    await expect(deadSurface).toBeVisible({ timeout: 15_000 });
-
-    const meta = mainhead.locator(".meta");
-    await expect(meta).toContainText("ended now");
-    await expect(meta).not.toContainText("now ago");
-
-    const endbar = deadSurface.locator(".endbar");
-    await expect(endbar).toContainText("ended now ·");
-    await expect(endbar).not.toContainText("now ago");
-
-    const cap = deadSurface.locator(".endcap");
-    await expect(cap).toContainText("now · last state:");
-    await expect(cap).not.toContainText("now ago");
-  } finally {
-    await cleanup();
-  }
-});
-
 // review m4-reconcile fix-cycle-1 Minor 9: while `GET /api/sessions/{id}/pane` is in
 // flight, the cap used to render an empty string — indistinguishable from the confirmed
 // negative "no snapshot captured". The fix renders "loading last screen…" for that
@@ -974,43 +865,3 @@ test("a late resume SessionStart hook after End does not revive the session or o
 // uses, but that test only asserts the snapshot text; this asserts the Resume control's
 // disabled state AND its stated reason, on both surfaces that render it (mainhead,
 // dead-surface cap — sessions/card.ts's resumeDisabledReason is their one shared source).
-test("a session with no bound Claude id shows a disabled Resume control with a stated reason, on the mainhead and the dead cap (E7, W3)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
-      directory: dir,
-      title: "no-claude-id-e7",
-    });
-    // Kill the window before any hook ever arrives — claudeSessionId stays null for
-    // good (it only ever gets bound by an enveloped SessionStart).
-    await daemon.killTmuxWindow(session.tmuxTarget);
-
-    await page.reload();
-    const card = sessionCard(page, "no-claude-id-e7");
-    await card.click();
-
-    const reason = "Can't resume — this session never started a Claude conversation.";
-    const mainhead = page.locator("#mainhead");
-    const mainheadResume = mainhead.getByRole("button", { name: "Resume", exact: true });
-    await expect(mainheadResume).toBeDisabled({ timeout: 15_000 });
-    await expect(mainheadResume).toHaveAttribute("title", reason);
-    // The header's one Stop/Resume button (plan title-crop-stop-resume-button, REQ-5): a dead
-    // session's reads Resume, with no disabled Stop beside it.
-    await expect(mainhead.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
-
-    const cap = page.locator("#dead-surface .endcap");
-    const capResume = cap.getByRole("button", { name: "Resume" });
-    await expect(capResume).toBeVisible();
-    await expect(capResume).toBeDisabled();
-    await expect(capResume).toHaveAttribute("title", reason);
-
-    const state = await getState(page, daemon);
-    expect(findSession(state, session.id).claudeSessionId).toBeNull();
-  } finally {
-    await cleanup();
-  }
-});

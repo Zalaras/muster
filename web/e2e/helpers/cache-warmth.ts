@@ -1,4 +1,4 @@
-// Setup, locators and oracles for plan rail-card-organise's prompt-cache warmth (#84).
+// Setup and daemon-side oracles for plan rail-card-organise's prompt-cache warmth (#84).
 //
 // The status line's `prompt_cache` block is synthesized from kb:fact/prompt-cache-status-shape
 // (the 2.1.259-2.1.296 measurement, `ttl: "1h"`) and kb:fact/haiku-main-cache-ttl-5m-on-2-1-299
@@ -13,12 +13,30 @@
 // (`useWarmthClock`) instead of reading the wall clock. Fixed, not flowing: the remaining time is
 // then exactly what the spec computed, and moving the clock is one `setFixedTime` the 1 s render
 // tick picks up with no message arriving.
-import type { APIRequestContext, Locator, Page } from "@playwright/test";
-import { expect } from "@playwright/test";
+//
+// The DOM side — the timer, panel and header-timer locators and the tint, underline and colour
+// oracles — is pure display and lives in the render tier's helper (web/render/helpers/usage.ts,
+// where the lifetime properties re-levelled on 2026-10-20 read them); the journeys here reach
+// it through this re-export so a locator is written once for both tiers.
+import type { APIRequestContext, Page } from "@playwright/test";
 import type { ScratchDaemon } from "./daemon";
 import { envelopedStatusLineFull } from "./payloads";
 import { envelopeOpts, type SessionObject } from "./session";
-import { resolvedCssVar } from "./theme";
+
+export {
+  cardTimer,
+  cardTip,
+  colourDistance,
+  expectTimerFade,
+  expectUnderline,
+  headerTimer,
+  mixRgb,
+  type Rgb,
+  rgbOf,
+  timerRgb,
+  timerText,
+  tokenRgb,
+} from "../../render/helpers/usage";
 
 /** The fixed instant a warmth spec starts its page clock at, and the same in Unix seconds. */
 export const WARMTH_NOW_MS = Date.UTC(2026, 9, 14, 12, 0, 0);
@@ -133,91 +151,4 @@ export function trackUpserts(page: Page): {
     });
   });
   return { forSession: (id) => upserts.filter((u) => u.id === id) };
-}
-
-// --- locators ---
-
-/** A rail or strip card's state timer (`.timer`, `aria-label="time in state"`). */
-export function cardTimer(card: Locator): Locator {
-  return card.locator(".timer");
-}
-
-/** The hover panel a card timer opens (`role="tooltip"`, appended to `document.body`). */
-export function cardTip(page: Page): Locator {
-  return page.getByRole("tooltip");
-}
-
-/** The extra timer a group header's summary carries, when the section has one. */
-export function headerTimer(head: Locator): Locator {
-  return head.locator(".gsum [data-cache]");
-}
-
-// --- colour oracles ---
-
-export type Rgb = [number, number, number];
-
-/** Any CSS colour the browser can parse, as 8-bit sRGB (a canvas pixel). */
-export async function rgbOf(page: Page, css: string): Promise<Rgb> {
-  return await page.evaluate((value) => {
-    const ctx = document.createElement("canvas").getContext("2d");
-    if (!ctx) throw new Error("no 2d canvas context");
-    ctx.fillStyle = "#000";
-    ctx.fillStyle = value;
-    ctx.fillRect(0, 0, 1, 1);
-    const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-    return [r ?? 0, g ?? 0, b ?? 0] as [number, number, number];
-  }, css);
-}
-
-/** The timer's computed `color` as sRGB. */
-export async function timerRgb(page: Page, timer: Locator): Promise<Rgb> {
-  const css = await timer.evaluate((el) => getComputedStyle(el).color);
-  return await rgbOf(page, css);
-}
-
-/** A `:root` colour token resolved against the live theme, as sRGB. */
-export async function tokenRgb(page: Page, token: string): Promise<Rgb> {
-  return await rgbOf(page, await resolvedCssVar(page, token, "color"));
-}
-
-/** The largest per-channel difference between two colours. */
-export function colourDistance(a: Rgb, b: Rgb): number {
-  return Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2]));
-}
-
-/** `to + (from - to) * f`: the colour `f` of the way from `to` back to `from`, per channel. */
-export function mixRgb(from: Rgb, to: Rgb, f: number): Rgb {
-  return [0, 1, 2].map((i) => (to[i] ?? 0) + ((from[i] ?? 0) - (to[i] ?? 0)) * f) as Rgb;
-}
-
-/**
- * Asserts the timer's colour is `f` of the way from the timer's usual grey (`--fg-dim`, f = 0) to
- * the bright foreground (`--fg`, f = 1), within `tolerance` 8-bit channel levels, re-reading the
- * colour on every retry so a stale paint times out instead of passing.
- */
-export async function expectTimerFade(
-  page: Page,
-  timer: Locator,
-  f: number,
-  tolerance = 3,
-): Promise<void> {
-  const bright = await tokenRgb(page, "--fg");
-  const grey = await tokenRgb(page, "--fg-dim");
-  const want = mixRgb(bright, grey, f);
-  await expect
-    .poll(async () => colourDistance(await timerRgb(page, timer), want), {
-      message: `timer colour is ${f} of the way from --fg-dim to --fg`,
-    })
-    .toBeLessThanOrEqual(tolerance);
-}
-
-/** Asserts the timer carries the dotted underline (`on`) or no underline at all, by computed style. */
-export async function expectUnderline(timer: Locator, on: boolean): Promise<void> {
-  await expect(timer).toHaveCSS("text-decoration-line", on ? "underline" : "none");
-  if (on) await expect(timer).toHaveCSS("text-decoration-style", "dotted");
-}
-
-/** The text of a timer element, read fresh. */
-export async function timerText(timer: Locator): Promise<string> {
-  return ((await timer.textContent()) ?? "").trim();
 }

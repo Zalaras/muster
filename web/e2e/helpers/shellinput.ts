@@ -5,24 +5,17 @@
 // Affected Files assigns removing that file's pip locator to web-impl, not e2e-specs.
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { Locator, Page, WebSocket } from "@playwright/test";
+import type { Page, WebSocket } from "@playwright/test";
 import type { ScratchDaemon } from "./daemon";
 
 const execFileAsync = promisify(execFile);
 
 // ── Activity indicator ─────────────────────────────────────────────────────────────────
 
-/**
- * The shell segment's busy/done indicator — Testable UI Elements: `span.shellact` inside
- * the `shell` button, carrying `data-act="busy"` or `data-act="done"`, `aria-hidden` (the
- * button's own accessible name stays exactly "shell" in every indicator state, INV-3).
- * Presence and `data-act` are the contract, as `span.pip`'s presence was; absence
- * (`toHaveCount(0)`) is REQ-1's "no data yet"/idle state, deliberately indistinguishable
- * from "no shell has ever existed for this session".
- */
-export function shellActivityIndicator(segmentButton: Locator): Locator {
-  return segmentButton.locator("span.shellact");
-}
+// The indicator's locator is pure DOM and lives in the render tier's helper
+// (web/render/helpers/surfaces.ts, where its geometry and motion properties re-levelled on
+// 2026-10-20 read it); the journeys here reach it through this re-export.
+export { shellActivityIndicator } from "../../render/helpers/surfaces";
 
 // ── tmux oracles — never a display/state source (CLAUDE.md hard rule): these only
 // observe copy-mode and mouse state the daemon already applied via internal/tmux. ───────

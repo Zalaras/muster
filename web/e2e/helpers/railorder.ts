@@ -1,61 +1,19 @@
-// Rail-order helpers.
-//
-// The rail and strip cards share one `data-testid="session-card"` template
-// (`helpers/session.ts`'s `sessionCard`), and both copies are in the DOM whenever Tiles is
-// active (`helpers/terminal.ts`'s `stripCard`/`liveTile` comments explain why an unscoped
-// match is ambiguous) — so every locator here is scoped to the rail's own container
-// (`#sessions`).
-import type { Locator, Page } from "@playwright/test";
+// Rail-order helpers: the daemon-side pin setup. The DOM side — the rail card locator, the
+// rail and strip order oracles, the pin control, the sort select, the class check and the
+// manual-order oracle — is pure page and lives in the render tier's helper
+// (web/render/helpers/rail.ts, where the display properties re-levelled on 2026-10-20 read
+// them); the journeys here reach it through the re-export below.
+import type { Page } from "@playwright/test";
 
-/** Rail card locator, scoped to `#sessions` (the Focus rail) so a session that is both
- * known (rail) and shown elsewhere (strip) never produces a strict-mode ambiguity. */
-export function railCard(page: Page, titleOrUntitled: string): Locator {
-  return page.locator("#sessions").getByTestId("session-card").filter({ hasText: titleOrUntitled });
-}
-
-/**
- * DOM order of the rail's cards, by `data-session-id` — exactly the oracle the plan's
- * Testable UI Elements table names ("order asserted via `data-session-id` sequence").
- * Returned as numbers so callers can diff directly against a `GET /api/state` derived
- * expectation.
- */
-export async function railOrderIds(page: Page): Promise<number[]> {
-  const raw = await page
-    .locator("#sessions [data-testid='session-card']")
-    .evaluateAll((els) => els.map((el) => el.getAttribute("data-session-id")));
-  return raw.map((v) => {
-    if (v === null) throw new Error("rail card missing data-session-id");
-    return Number(v);
-  });
-}
-
-/** Same, scoped to the Tiles strip (REQ-13: same order, minus live tiles). */
-export async function stripOrderIds(page: Page): Promise<number[]> {
-  const raw = await page
-    .locator("#tiles-strip [data-testid='session-card']")
-    .evaluateAll((els) => els.map((el) => el.getAttribute("data-session-id")));
-  return raw.map((v) => {
-    if (v === null) throw new Error("strip card missing data-session-id");
-    return Number(v);
-  });
-}
-
-/**
- * The pin/unpin control inside a card's state row (Testable UI Elements: role `button`,
- * name `Pin` unpinned / `Unpin` pinned, `aria-pressed` mirroring `pinned`; plan
- * rail-card-improvements REQ-1 moved this control's container from `.r1` into `.r0`,
- * `web/src/render/sessions.ts`). The accessible name flips with state, so match either —
- * callers assert the specific name/state separately.
- */
-export function pinButton(card: Locator): Locator {
-  return card.getByRole("button", { name: /^(Pin|Unpin)$/ });
-}
-
-/** The rail-head sort toggle (Testable UI Elements: `combobox` named "Sort", options
- * Manual/Attention — a real `<select>` carries the `combobox` role implicitly). */
-export function railSortSelect(page: Page): Locator {
-  return page.getByRole("combobox", { name: "Sort" });
-}
+export {
+  expectedManualOrder,
+  hasClass,
+  pinButton,
+  railCard,
+  railOrderIds,
+  railSortSelect,
+  stripOrderIds,
+} from "../../render/helpers/rail";
 
 /**
  * Sets a session's pinned flag directly via the real `PUT /api/sessions/{id}/pin`
@@ -75,35 +33,4 @@ export async function pinViaApi(
   if (res.status() !== 204) {
     throw new Error(`pin API call failed: ${res.status()} ${await res.text()}`);
   }
-}
-
-/**
- * Exact class-token membership check via `classList.contains`, rather than a regex
- * against the `class` attribute string — `"pinned-last"` contains `"pinned"` as a
- * literal prefix, so a naive `\bpinned\b` regex matches both (a `-` is a non-word
- * character, so the word-boundary lands right after "pinned" in "pinned-last" too).
- * Distinguishing "has `pinned`" from "has `pinned-last`" needs the real token check.
- */
-export async function hasClass(locator: Locator, className: string): Promise<boolean> {
-  return await locator.evaluate((el, cls) => el.classList.contains(cls), className);
-}
-
-/**
- * REQ-6's manual-mode order, replicated from the plan's pure definition (pinned first —
- * by `railPos` ascending — then unpinned by `railPos` ascending, `id` as the final
- * tiebreak) over a `GET /api/state` snapshot. This is an *independent* oracle from the
- * rendered DOM (the daemon's own persisted truth), per the e2e-specs rule that a
- * displayed order with an independent oracle must be cross-checked against it rather
- * than merely pattern-matched. Never mutates its input.
- */
-export function expectedManualOrder(
-  sessions: ReadonlyArray<{ id: number; pinned: boolean; railPos: number }>,
-): number[] {
-  return [...sessions]
-    .sort((a, b) => {
-      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-      if (a.railPos !== b.railPos) return a.railPos - b.railPos;
-      return a.id - b.id;
-    })
-    .map((s) => s.id);
 }

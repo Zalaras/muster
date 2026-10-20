@@ -54,6 +54,13 @@ import {
 // Claude Code ingest path (edge case 34), and every Claude session used as an INV-5
 // fixture (E5/E6/E12) only needs to exist and stay alive in tmux, never to reach a
 // particular ingest-driven state.
+//
+// The two properties of the one update state every render fixture holds (`install: dev`,
+// `canCheck: false`) — Check now disabled on an empty base URL (rail-card-improvements-2
+// E12) and the dev build's readout, missing Update buttons and hidden badge (the display
+// half of E8) — are render tests in web/render/update.spec.ts since 2026-10-20
+// (plans/_audit/relevel/launch-update.md). E8 keeps its zero-`/latest`-requests half here.
+// Every other update state is a real check or apply against the fake host, so it stays.
 
 const OLD_VERSION = "0.1.0";
 const NEW_VERSION = "0.2.0";
@@ -453,7 +460,9 @@ test("each verification refusal reports Update failed and leaves the on-disk bin
   }
 });
 
-test("a dev build never checks or badges, and the dialog shows no Update buttons (E8, REQ-8)", async ({
+// The request-count half of E8; the dialog's dev-build display (the readout, the missing
+// Update buttons, the hidden badge) is the render test.
+test("a dev build never checks: zero /latest requests with a newer release published (E8, REQ-8)", async ({
   page,
   startDaemon,
 }) => {
@@ -473,13 +482,6 @@ test("a dev build never checks or badges, and the dialog shows no Update buttons
     await page.goto(daemon.dashboardUrl);
     const dialog = await openSettingsDialog(page);
     await expect(updateAvailableReadout(dialog)).toHaveText("not checked (development build)");
-    await expect(updateApplyButton(dialog)).toHaveCount(0);
-    // Both buttons stay in the DOM always (toggled via the `hidden` attribute plus its
-    // `display:none` CSS companion in style.css, never removed) — `updateRestartButton`
-    // is an id locator, not a role query, so it doesn't benefit from getByRole's default
-    // accessibility-tree exclusion of hidden elements the way updateApplyButton above
-    // does. toBeHidden() is the correct "absent" check for it (REQ-13).
-    await expect(updateRestartButton(dialog)).toBeHidden();
     await expect(settingsBadgeDot(page)).toBeHidden();
 
     await settleFor(page, 500);
@@ -969,20 +971,6 @@ test("pressing Check now against a stopped release host shows a reason in the st
     if (staged) await staged.cleanup();
     await cleanup();
   }
-});
-
-test("Check now is disabled on a daemon started with an empty update base URL (E12)", async ({
-  page,
-  startDaemon,
-}) => {
-  // No `updateBaseURL` override — every scratch daemon otherwise passes an explicit
-  // empty `-update-base-url` (helpers/daemon.ts), exactly the `canCheck` false state
-  // the plan's States section names as "the state every E2E daemon that sets an empty
-  // base URL is in".
-  const daemon = await startDaemon();
-  await page.goto(daemon.dashboardUrl);
-  const dialog = await openSettingsDialog(page);
-  await expect(updateCheckButton(dialog)).toBeDisabled();
 });
 
 // Plan maintainability-cleanup WF1 (e-note-4): `check()` used to mutate its own

@@ -7,7 +7,7 @@ summary: Focus view: mainhead, main slot, dead surface, default focus, focus mar
 features: [focus]
 tags: [ux]
 go: [internal/server/effort*.go, internal/session/effort*.go, internal/store/effort*.go]
-web: [web/src/features/focus.ts, web/src/features/effort*.ts, web/src/render/effortstrip*.ts, web/src/sessions/effort*.ts, web/src/render/mainhead*.ts, web/src/render/locationpanel*.ts, web/src/sessions/locationpanel*.ts, web/src/render/focus*.ts, web/src/render/slotmount*.ts]
+web: [web/src/features/focus.ts, web/src/features/effort*.ts, web/src/render/effortstrip*.ts, web/src/sessions/effort*.ts, web/src/render/mainhead*.ts, web/src/render/locationpanel*.ts, web/src/sessions/locationpanel*.ts, web/src/render/focus*.ts, web/src/render/slotmount*.ts, web/render/focus.spec.ts, web/render/helpers/focus.ts]
 e2e: [web/e2e/focus-marker.spec.ts, web/e2e/sessions.spec.ts, web/e2e/focus-header.spec.ts, web/e2e/helpers/focus-header.ts, web/e2e/effort-header.spec.ts, web/e2e/helpers/effort.ts]
 protocol: [sessions.effort-warning-dismiss]
 refs: [kb:adr/focus-rail-plus-one-live-pane, kb:adr/focus-rail-click-focuses-terminal, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/launch-opens-launched-session, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/launch-resume-null-model-reads-unknown, docs/design/ux-flows.md, kb:adr/focus-group-control-hides-below-640px-container-width, kb:adr/focus-header-readout-sized-by-text, kb:adr/focus-header-give-way-order-title-last, kb:adr/focus-surface-switch-pinned-with-actions, kb:adr/actions-mainhead-one-stop-resume-button, kb:adr/focus-model-never-truncates-name-blocks-give-way]

@@ -36,6 +36,13 @@ import { activeElementInsideTerminal, liveTile } from "./helpers/terminal";
 // The Resume-tab half of this plan (past sessions, resuming from the list) lives in
 // past-sessions.spec.ts; this file covers only the New tab's bypass segment and the
 // chip it leaves behind on every hosting surface.
+//
+// The display properties — the bypass face and warning before any launch (INV-2), the
+// chip and the combined note a bypass launch leaves on the card, the mainhead and a tile
+// before any hook (E2, the chip-shown half of E12) — are render tests in
+// web/render/launch.spec.ts since 2026-10-20 (plans/_audit/relevel/launch-update.md).
+// What stays here is every launch, resume and hook: E1 keeps its pre-launch face half
+// because the launch it leads into is the claim.
 
 test('checking "bypass" shows the warning and turns Launch into a danger "Launch without checks"; launching posts permissionMode: bypassPermissions and spawns the flag verbatim (REQ-1, REQ-2, E1)', async ({
   page,
@@ -88,28 +95,6 @@ test('checking "bypass" shows the warning and turns Launch into a danger "Launch
   }
 });
 
-test('unchecking "bypass" restores the ordinary "Launch" face (INV-2)', async ({
-  page,
-  daemon,
-}) => {
-  const dir = await browseScratchDirectory(daemon, "muster-e2e-bypass-uncheck-");
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const dialog = await openLaunchDialog(page);
-    await childEntry(dialog, basename(dir.path)).click();
-
-    await bypassRadio(dialog).check();
-    await expect(launchPrimaryButton(dialog)).toHaveClass(/key-danger/);
-
-    await dialog.getByRole("radio", { name: "manual" }).check();
-    await expect(bypassWarning(dialog)).toBeHidden();
-    await expect(launchPrimaryButton(dialog)).toHaveText("Launch");
-    await expect(launchPrimaryButton(dialog)).not.toHaveClass(/key-danger/);
-  } finally {
-    await dir.cleanup();
-  }
-});
-
 test("the existing Resume action relaunches a bypass-latched session with --permission-mode bypassPermissions (REQ-1)", async ({
   page,
   request,
@@ -144,39 +129,6 @@ test("the existing Resume action relaunches a bypass-latched session with --perm
     const startCommand = await daemon.paneStartCommand(resumed.tmuxTarget);
     expect(startCommand).toContain("--permission-mode bypassPermissions");
     await expect(bypassChip(card)).toBeVisible();
-  } finally {
-    await dir.cleanup();
-  }
-});
-
-test("the launched bypass session's rail card and the Focus mainhead show the bypass chip, with the bypass-warning note before any hook arrives (REQ-4, REQ-5, E2)", async ({
-  page,
-  daemon,
-}) => {
-  const dir = await browseScratchDirectory(daemon, "muster-e2e-bypass-chip-");
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const dialog = await openLaunchDialog(page);
-    await childEntry(dialog, basename(dir.path)).click();
-    await bypassRadio(dialog).check();
-    await dialog.getByLabel("Title").fill("bypass-chip-e2");
-    await launchPrimaryButton(dialog).click();
-    await expect(dialog).toBeHidden();
-
-    const card = sessionCard(page, "bypass-chip-e2");
-    await expect(bypassChip(card)).toHaveText("bypass");
-    await expect(bypassChip(page.locator("#mainhead"))).toHaveText("bypass");
-
-    // REQ-5: no SessionStart has arrived yet, and this is a first launch into a never
-    // before-seen directory — `firstLaunchHere` is true, so the note is the combined
-    // trust-prompt-then-bypass-warning form (card.ts's `firstLaunchNote`), not the plain
-    // "likely waiting on Claude Code's bypass warning" text that only applies once a
-    // directory has been launched into before.
-    await expect(
-      card.getByText(
-        "first launch here — likely waiting on Claude Code's trust prompt, then its bypass warning",
-      ),
-    ).toBeVisible();
   } finally {
     await dir.cleanup();
   }

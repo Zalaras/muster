@@ -10,27 +10,45 @@
 //
 // What is NOT measured and so is flagged in the spec's handoff: an `effort.level` outside the five
 // observed values (the contract calls it "an open string"), used by one test only.
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import type { APIRequestContext, Locator, Page } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 import { expect } from "@playwright/test";
+import { focusSession } from "../../render/helpers/focus";
 import type { ScratchDaemon } from "./daemon";
 import { envelopedSessionStart, envelopedStatusLineFull } from "./payloads";
-import { railCard } from "./railorder";
 import {
   envelopeOpts,
   type LaunchBody,
   launchSession,
-  mainheadRenameButton,
   scratchDirectory,
   type SessionObject,
 } from "./session";
 import { parseSizenote } from "./terminal";
 import { resolvedCssVar } from "./theme";
 
-/** The five levels `--effort` accepts and the dialog offers beyond `default`
- * (kb:fact/effort-flag-values). */
-export const EFFORT_LEVELS = ["low", "medium", "high", "xhigh", "max"] as const;
+// The Focus mainhead's locators and colour oracles are pure DOM and live in the render
+// tier's helper (web/render/helpers/focus.ts, where the display properties re-levelled on
+// 2026-10-20 read them), as are the launch dialog's Effort row locators
+// (web/render/helpers/launch.ts, where the dialog's static properties read them); the
+// journeys here reach them through these re-exports.
+export {
+  amberHueBand,
+  computed,
+  effortStrip,
+  effText,
+  focusSession,
+  headerEff,
+  headerModel,
+  hueOf,
+  stripDismiss,
+  stripSentence,
+} from "../../render/helpers/focus";
+export {
+  EFFORT_LEVELS,
+  effortRadio,
+  effortRadiogroup,
+  effortSegment,
+  pickEffort,
+} from "../../render/helpers/launch";
 
 /** The status line's `model` for a model that offers effort and clamps `xhigh`/`max` to `high`
  * (kb:fact/effort-levels-per-model, Opus 4.5). */
@@ -43,75 +61,6 @@ export const OPUS_5_5 = { id: "claude-opus-5-5", displayName: "Opus 5.5" };
 /** The status line's `model` for a model with no effort setting: its key is absent on every post
  * (kb:fact/status-line-effort-key, kb:fact/effort-levels-per-model). */
 export const HAIKU_4_5 = { id: "claude-haiku-4-5-20251001", displayName: "Haiku 4.5" };
-
-// --- launch dialog ---
-
-/** `<div role="radiogroup" aria-label="Effort">` — mandated like Model and Start in. */
-export function effortRadiogroup(dialog: Locator): Locator {
-  return dialog.getByRole("radiogroup", { name: "Effort" });
-}
-
-/** One Effort radio. `exact` matters: `high` is a substring of `xhigh`. */
-export function effortRadio(dialog: Locator, name: "default" | (typeof EFFORT_LEVELS)[number]) {
-  return effortRadiogroup(dialog).getByRole("radio", { name, exact: true });
-}
-
-/** The pointer target of one Effort segment: its `<label>`, which a real click lands on. */
-export function effortSegment(dialog: Locator, name: string): Locator {
-  return effortRadiogroup(dialog).locator("label", { hasText: new RegExp(`^\\s*${name}\\s*$`) });
-}
-
-/** Picks an Effort level through the dialog the way a developer does: a pointer click on its segment. */
-export async function pickEffort(dialog: Locator, name: string): Promise<void> {
-  await effortSegment(dialog, name).click();
-}
-
-// --- Focus mainhead ---
-
-/** `#mainhead .meta .model` — the display name followed by the `.eff` bracket. */
-export function headerModel(page: Page): Locator {
-  return page.locator("#mainhead .meta .model");
-}
-
-/** `.eff` inside the model: ` (<level>)` or ` (…)`; absent when there are no brackets. */
-export function headerEff(page: Page): Locator {
-  return page.locator("#mainhead .meta .model .eff");
-}
-
-/** The warning strip: a `role="status"` element naming the requested level. The terminal notice,
- * the `session ended` pill and the drop notice are `status` too, so the sentence picks it out. */
-export function effortStrip(page: Page): Locator {
-  return page.getByRole("status").filter({ hasText: /Asked for/ });
-}
-
-/** The strip's Dismiss button. */
-export function stripDismiss(page: Page): Locator {
-  return effortStrip(page).getByRole("button", { name: "Dismiss" });
-}
-
-/** The strip's sentence with the `aria-hidden` glyph and the button removed, whitespace collapsed. */
-export async function stripSentence(page: Page): Promise<string | null> {
-  const strip = effortStrip(page);
-  if ((await strip.count()) !== 1) return null;
-  return await strip.evaluate((el) => {
-    const copy = el.cloneNode(true) as HTMLElement;
-    for (const skip of copy.querySelectorAll("[aria-hidden], button")) skip.remove();
-    return (copy.textContent ?? "").replace(/\s+/g, " ").trim();
-  });
-}
-
-/** The `.eff` node's raw textContent, leading space included (plan UI Specifications). */
-export async function effText(page: Page): Promise<string | null> {
-  const eff = headerEff(page);
-  if ((await eff.count()) !== 1) return null;
-  return await eff.evaluate((el) => el.textContent);
-}
-
-/** Clicks a session's rail card and waits for the Focus header to name it. */
-export async function focusSession(page: Page, title: string): Promise<void> {
-  await railCard(page, title).click();
-  await expect(mainheadRenameButton(page)).toHaveText(title);
-}
 
 // --- payloads ---
 
@@ -323,41 +272,4 @@ export async function resolvedColour(page: Page, css: string): Promise<string> {
 /** A `:root` token resolved against the live theme, as the browser's `rgb(...)` string. */
 export async function tokenColour(page: Page, token: string): Promise<string> {
   return await resolvedCssVar(page, token, "color");
-}
-
-/**
- * An element's computed property. A node the renderer replaced between Playwright's resolve and
- * evaluate is detached and reads `""`; that is a miss to retry, never a value, so it throws.
- * Call it inside `expect.poll`.
- */
-export async function computed(
-  locator: Locator,
-  prop: "color" | "background-color" | "border-bottom-color",
-): Promise<string> {
-  const value = await locator.evaluate((el, p) => getComputedStyle(el).getPropertyValue(p), prop);
-  if (value === "") throw new Error(`computed ${prop} read "" (node detached mid-read)`);
-  return value;
-}
-
-/** The hue (0-360) of a `rgb(r, g, b)` string. */
-export function hueOf(rgb: string): number {
-  const [r = 0, g = 0, b = 0] = (rgb.match(/[\d.]+/g) ?? []).map(Number).map((v) => v / 255);
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const d = max - min;
-  if (d === 0) return 0;
-  let h: number;
-  if (max === r) h = ((g - b) / d) % 6;
-  else if (max === g) h = (b - r) / d + 2;
-  else h = (r - g) / d + 4;
-  return (h * 60 + 360) % 360;
-}
-
-/** Amber's hue band as `web/scripts/contrast-pairs.json` pins it — the band `--warn` must stay outside. */
-export async function amberHueBand(): Promise<{ min: number; max: number }> {
-  const raw = await readFile(join(process.cwd(), "scripts", "contrast-pairs.json"), "utf-8");
-  const pairs = JSON.parse(raw) as { hueBands: Record<string, { min: number; max: number }> };
-  const band = pairs.hueBands["--amber"];
-  if (!band) throw new Error("contrast-pairs.json has no --amber hue band");
-  return band;
 }

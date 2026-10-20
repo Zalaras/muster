@@ -123,5 +123,18 @@
       "path": "/home/bob/projects/a-project-folder-whose-name-runs-onabcdefghijklmnopqrstuvwxy",
       "pinned": false
     }
+  ],
+  "reader": [
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/a-project-folder-whose-name-runs-onabcdefghijklmnopqrstuvwxy",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    }
   ]
 }

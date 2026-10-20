@@ -15,7 +15,6 @@ import {
   stripCard,
   TerminalSocketTracker,
   terminalRegion,
-  tileDragHandle,
   tileStateDot,
   tilesGridOrder,
 } from "./helpers/terminal";
@@ -49,6 +48,15 @@ async function partitionByLiveTile(
 // persisted view) are global per daemon, so a test sharing a daemon with a neighbour
 // would leak into that neighbour's expected grid/density/view. Two tests also restart or
 // kill their daemon.
+//
+// The display properties — a footer button surviving a render tick, focus surviving a drag
+// reorder, the backward drag, a strip-card promotion's slot and a drag released over the
+// strip (m4-reconcile REQ-12; move-tiles REQ-1, REQ-10, E2, E6, E7, E8) — are render tests in
+// web/render/tiles.spec.ts since 2026-10-20 (plans/_audit/relevel/shortcuts-views-tiles.md):
+// tile order and membership are per-window client state, so what a drag or a click does to
+// the grid for a given snapshot needs no daemon to falsify. What stays here is every
+// journey: End and Remove round-trips, density PUTs, tmux geometry, hooks changing a tile
+// and the daemon going down.
 
 test("Tiles: End from a tile footer keeps the tile in its slot and leaves other tiles' geometry untouched (E11)", async ({
   page,
@@ -242,54 +250,6 @@ test("Tiles: Removing a dead tile backfills its slot from the strip and broadcas
   }
 });
 
-// review m4-reconcile cycle-2 Major 2, tile-footer case: same defect, different
-// surface — `renderTileFooterActions` also unconditionally rebuilt every 1s tick before
-// the Major 1 fix. Uses a private daemon (Tiles density is session-count-sensitive, per
-// this file's header) with a single live session so the tile renders at 1x1 with no
-// strip involved.
-test("a tile footer's End button survives a render tick and still opens the End dialog via a separate keyboard Enter (REQ-12, Major 1, Major 2)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
-      directory: dir,
-      title: "kbd-tick-tile-end",
-    });
-    await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-kbd-tick-tile-end", await envelopeOpts(session, daemon)),
-    });
-
-    await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-
-    const tile = liveTile(page, "kbd-tick-tile-end");
-    await expect(tile).toBeVisible();
-    const endBtn = tile.locator(".tfoot").getByRole("button", { name: "Stop" });
-    const dialog = page.getByRole("dialog", { name: "Stop session?" });
-
-    await endBtn.focus();
-    await expect(endBtn).toBeFocused();
-
-    // Outlive a render tick, then prove focus STAYED (same hold as the card test above).
-    await settleFor(page, 1_400);
-    await expect(endBtn).toBeFocused();
-
-    await page.keyboard.press("Enter");
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
-  } finally {
-    await cleanup();
-  }
-});
-
 // Plan move-tiles removes the auto-sort these two tests used to exercise together
 // (`applyDensity` re-sorting `tilesLive` by priority on every render). REQ-1's grid is now
 // slot-stable — a priority change updates chrome only (REQ-2) — and the only thing that
@@ -359,75 +319,6 @@ test("a priority change updates a live tile's chrome but never moves it in the T
 
     // ...but the DOM order is byte-for-byte the same: no `insertBefore`, no node move.
     expect(await tilesGridOrder(page)).toEqual(orderBefore);
-  } finally {
-    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
-  }
-});
-
-// review m4-reconcile cycle-4 Minor 2/3, retargeted by plan move-tiles REQ-10/E6: the only
-// thing that still moves a tile's DOM node is a user drag, so the focus-survives-a-reorder
-// contract (`captureFocusedControl`/`restoreFocusedControl` inside `reconcileTilesGrid`)
-// must now be exercised via a drop, not a priority change.
-test("a focused tile-footer action button survives a drag-drop reorder (REQ-10, E6)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const sessionA = await launchSession(page, daemon, {
-      directory: dirA.path,
-      title: "tile-drag-focus-a",
-    });
-    const sessionB = await launchSession(page, daemon, {
-      directory: dirB.path,
-      title: "tile-drag-focus-b",
-    });
-    await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-tile-drag-focus-a", await envelopeOpts(sessionA, daemon)),
-    });
-    await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-tile-drag-focus-b", await envelopeOpts(sessionB, daemon)),
-    });
-
-    await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-
-    const tileA = liveTile(page, "tile-drag-focus-a");
-    const tileB = liveTile(page, "tile-drag-focus-b");
-    await expect(tileA).toBeVisible();
-    await expect(tileB).toBeVisible();
-
-    const orderBefore = await tilesGridOrder(page);
-    expect(orderBefore).toHaveLength(2);
-
-    const endBtnB = tileB.locator(".tfoot").getByRole("button", { name: "Stop" });
-    await endBtnB.focus();
-    await expect(endBtnB).toBeFocused();
-
-    // Control: render ticks alone must not blur it (already covered by the tick test
-    // above, re-asserted here so the drop below is the only variable).
-    await settleFor(page, 1_400);
-    await expect(endBtnB).toBeFocused();
-
-    // Dragging A's header onto B moves A's node past B — B (and its focused button)
-    // shifts in the DOM, exercising the exact `insertBefore` path REQ-10 must survive.
-    await dragTileOnto(page, "tile-drag-focus-a", "tile-drag-focus-b");
-    await expect
-      .poll(() => tilesGridOrder(page), { timeout: 15_000 })
-      .toEqual(["tile-drag-focus-b", "tile-drag-focus-a"]);
-
-    // Focus survived the reorder, and the button is still operable from the keyboard.
-    await expect(endBtnB).toBeFocused();
-    await page.keyboard.press("Enter");
-    const dialog = page.getByRole("dialog", { name: "Stop session?" });
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
   } finally {
     await Promise.all([dirA.cleanup(), dirB.cleanup()]);
   }
@@ -868,126 +759,6 @@ test("dragging a tile's header onto another tile reorders forward, preserves tmu
       expect(widthAfter).toBe(widthBefore.get(t));
       expect(heightAfter).toBe(heightBefore.get(t));
     }
-  } finally {
-    await Promise.all(dirs.map((d) => d.cleanup()));
-  }
-});
-
-test("dragging a tile's header onto an earlier tile reorders backward (E2)", async ({
-  page,
-  daemon,
-}) => {
-  const dirs = await Promise.all(Array.from({ length: 4 }, () => scratchDirectory()));
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const titles = dirs.map((_, i) => `mv-bwd-${i}`);
-    for (const [i, dir] of dirs.entries()) {
-      await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" });
-    }
-
-    await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
-    for (const t of titles) {
-      await expect(liveTile(page, t)).toBeVisible();
-    }
-
-    const orderBefore = await tilesGridOrder(page);
-    expect(orderBefore).toHaveLength(4);
-    const [slot1, slot2, slot3, slot4] = orderBefore;
-    if (!slot1 || !slot2 || !slot3 || !slot4) throw new Error("expected 4 distinct tile titles");
-
-    // Edge Case 2 backward case: [A,B,C,D], drop D on B -> [A,D,B,C].
-    await dragTileOnto(page, slot4, slot2);
-
-    await expect
-      .poll(() => tilesGridOrder(page), { timeout: 15_000 })
-      .toEqual([slot1, slot4, slot2, slot3]);
-  } finally {
-    await Promise.all(dirs.map((d) => d.cleanup()));
-  }
-});
-
-test("clicking a strip card at capacity places the promoted tile into the demoted tile's former index (E7, REQ-1)", async ({
-  page,
-  daemon,
-}) => {
-  const dirs = await Promise.all(Array.from({ length: 5 }, () => scratchDirectory()));
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const titles = dirs.map((_, i) => `mv-prm-${i}`);
-    for (const [i, dir] of dirs.entries()) {
-      await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" });
-    }
-
-    await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
-
-    let strippedTitle: string | undefined;
-    for (const t of titles) {
-      if ((await liveTile(page, t).count()) === 0) strippedTitle = t;
-    }
-    if (!strippedTitle)
-      throw new Error("expected exactly one stripped title at 2x2 with 5 sessions");
-
-    const orderBefore = await tilesGridOrder(page);
-    expect(orderBefore).toHaveLength(4);
-
-    await stripCard(page, strippedTitle).click();
-    await expect(liveTile(page, strippedTitle)).toBeVisible();
-    await expect(stripCard(page, strippedTitle)).toHaveCount(0);
-
-    const orderAfter = await tilesGridOrder(page);
-    expect(orderAfter).toHaveLength(4);
-
-    // REQ-1: the promoted id lands in the demoted (worst-ranked) member's slot, and
-    // every other index is untouched — assert both halves at once by reconstructing the
-    // expected array from `orderBefore` with only the demoted slot swapped.
-    const demotedTitle = orderBefore.find((t) => !orderAfter.includes(t));
-    if (!demotedTitle) throw new Error("expected exactly one demoted title");
-    const expectedOrder = orderBefore.map((t) => (t === demotedTitle ? strippedTitle : t));
-    expect(orderAfter).toEqual(expectedOrder);
-  } finally {
-    await Promise.all(dirs.map((d) => d.cleanup()));
-  }
-});
-
-test("a drag released over the strip leaves the tile order unchanged (E8)", async ({
-  page,
-  daemon,
-}) => {
-  const dirs = await Promise.all(Array.from({ length: 5 }, () => scratchDirectory()));
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const titles = dirs.map((_, i) => `mv-strip-${i}`);
-    for (const [i, dir] of dirs.entries()) {
-      await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" });
-    }
-
-    await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
-
-    let strippedTitle: string | undefined;
-    for (const t of titles) {
-      if ((await liveTile(page, t).count()) === 0) strippedTitle = t;
-    }
-    if (!strippedTitle)
-      throw new Error("expected exactly one stripped title at 2x2 with 5 sessions");
-
-    const orderBefore = await tilesGridOrder(page);
-    expect(orderBefore).toHaveLength(4);
-    const draggedTitle = orderBefore[0];
-    if (!draggedTitle) throw new Error("expected a live tile to drag");
-
-    // Edge Case 3: `dragover` is never prevented outside `#tiles-grid`, so the browser's
-    // own `drop` never fires here — `dragTo` still completes the mouse gesture either way.
-    // The drop target is the strip card itself (outside the grid), not another tile, so
-    // this drags the raw `.thead` handle directly rather than going through
-    // `dragTileOnto` (which always targets a live tile).
-    await tileDragHandle(page, draggedTitle).dragTo(stripCard(page, strippedTitle));
-
-    await expect(page.locator("article.tile.dragging")).toHaveCount(0);
-    await expect(page.locator("article.tile.drop-target")).toHaveCount(0);
-    expect(await tilesGridOrder(page)).toEqual(orderBefore);
   } finally {
     await Promise.all(dirs.map((d) => d.cleanup()));
   }

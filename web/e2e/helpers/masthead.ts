@@ -1,111 +1,33 @@
-// Locators, oracles and a health recorder for the masthead-indicators plan: the bracketed
-// reset suffix on every usage readout (REQ-4/REQ-12) and the connection health dot
-// (REQ-6..10, INV-1). Nothing here launches a real `claude`; the specs that use it fake
-// Claude Code with synthesized status-line POSTs (helpers/payloads.ts).
-import type { Locator, Page } from "@playwright/test";
-import type { Bucket } from "./gauges";
+// Daemon-side setup, the health recorder and the dot's colour oracles for the
+// masthead-indicators plan: the bracketed reset suffix on every usage readout (REQ-4/REQ-12)
+// and the connection health dot (REQ-6..10, INV-1). Nothing here launches a real `claude`;
+// the specs that use it fake Claude Code with synthesized status-line POSTs
+// (helpers/payloads.ts).
+//
+// The DOM side — the readout, suffix and status locators, the title and suffix patterns, and
+// the page-side `(HH:MM)` / `(HH:MM Ddd)` oracle — is pure layout and lives in the render
+// tier's helper (web/render/helpers/usage.ts); the journeys here reach it through this
+// re-export so a locator is written once for both tiers.
+import type { Page } from "@playwright/test";
 
-export type Health = "ok" | "pending" | "down";
-
-/** `#connection-status` — `role="status"`, holds the dot and the screen-reader word. */
-export function connectionStatus(page: Page): Locator {
-  return page.locator("#connection-status");
-}
-
-/** The daemon-down / update-restart / confirmation banner (`role="alert"`). */
-export function connectionBanner(page: Page): Locator {
-  return page.getByRole("alert");
-}
-
-/** The element the plan removed from the masthead (REQ-1). An attribute selector, so the
- * id is never written the way a locator for the live element would be. */
-export function removedModelReadout(page: Page): Locator {
-  return page.locator("[id=usage-model]");
-}
-
-/** The reset suffix of one status-line bucket readout (`#usage-5h` / `#usage-7d`). */
-export function mastheadBucketResets(page: Page, bucket: Bucket): Locator {
-  return page.locator(`#usage-${bucket} .resets`);
-}
-
-/** Every reset suffix anywhere in the masthead. */
-export function allMastheadResets(page: Page): Locator {
-  return page.locator(".masthead .resets");
-}
-
-/** Testable UI Elements: `title` per health state. */
-export const TITLE_CONNECTED = "Connected to musterd";
-export const TITLE_CONNECTING = "Connecting to musterd…";
-export const TITLE_UPDATING = "Restarting musterd for an update…";
-export const TITLE_DOWN = "musterd unreachable — reconnecting…";
-
-/** Testable UI Elements: reset suffix patterns. */
-export const RESETS_SAME_DAY = /^\(\d{2}:\d{2}\)$/;
-export const RESETS_OTHER_DAY = /^\(\d{2}:\d{2} [A-Za-z]{2,}\.?\)$/;
-
-/** Unix epoch seconds, the `resets_at` form the status line carries on the wire. */
-export function epochSeconds(when: Date): number {
-  return Math.floor(when.getTime() / 1000);
-}
-
-/**
- * A reset a minute from now on the same local calendar day as now — or a minute back for
- * the rare run inside the day's last minute. The browser and this runner share a time zone
- * (playwright.config.ts sets no `timezoneId`), so the comparison happens in one zone.
- */
-export function sameDayResetsAt(): Date {
-  const now = new Date();
-  const forward = new Date(now.getTime() + 60_000);
-  if (forward.getDate() === now.getDate()) return forward;
-  return new Date(now.getTime() - 60_000);
-}
-
-/** Local wall-clock `hour:minute` on the day `daysFromNow` away (negative = past). */
-export function localDay(daysFromNow: number, hour: number, minute: number): Date {
-  const when = new Date();
-  when.setDate(when.getDate() + daysFromNow);
-  when.setHours(hour, minute, 0, 0);
-  return when;
-}
-
-/** The next local `weekday` (0 = Sunday) at least two days out, at `hour:minute`. */
-export function nextWeekday(weekday: number, hour: number, minute: number): Date {
-  const when = localDay(2, hour, minute);
-  while (when.getDay() !== weekday) when.setDate(when.getDate() + 1);
-  return when;
-}
-
-/**
- * REQ-4's rule, evaluated in the browser under test (so `undefined` locale and the zone
- * are the page's own) for a known posted instant: `(HH:MM)` on the same local calendar day
- * as now, `(HH:MM Ddd)` otherwise.
- */
-export async function expectedResetsText(page: Page, when: Date): Promise<string> {
-  return await page.evaluate((ms) => {
-    const at = new Date(ms);
-    const now = new Date();
-    const hh = String(at.getHours()).padStart(2, "0");
-    const mm = String(at.getMinutes()).padStart(2, "0");
-    if (at.toDateString() === now.toDateString()) return `(${hh}:${mm})`;
-    return `(${hh}:${mm} ${at.toLocaleDateString(undefined, { weekday: "short" })})`;
-  }, when.getTime());
-}
-
-/** The `HH:MM` of `when` in the page's zone, zero-padded 24-hour. */
-export async function clockText(page: Page, when: Date): Promise<string> {
-  return await page.evaluate((ms) => {
-    const at = new Date(ms);
-    return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
-  }, when.getTime());
-}
-
-/** The short weekday of `when` as `toLocaleDateString(undefined, { weekday: "short" })`. */
-export async function shortWeekday(page: Page, when: Date): Promise<string> {
-  return await page.evaluate(
-    (ms) => new Date(ms).toLocaleDateString(undefined, { weekday: "short" }),
-    when.getTime(),
-  );
-}
+export {
+  allMastheadResets,
+  clockText,
+  connectionBanner,
+  connectionStatus,
+  expectedResetsText,
+  type Health,
+  mastheadBucketResets,
+  removedModelReadout,
+  RESETS_OTHER_DAY,
+  RESETS_SAME_DAY,
+  shortWeekday,
+  TITLE_CONNECTED,
+  TITLE_CONNECTING,
+  TITLE_DOWN,
+  TITLE_UPDATING,
+} from "../../render/helpers/usage";
+import type { Health } from "../../render/helpers/usage";
 
 export interface HealthSample {
   health: string | null;

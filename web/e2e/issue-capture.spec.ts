@@ -23,9 +23,11 @@ import {
 import { envelopedSessionStart, rawStopFailure, rawUserPromptSubmit } from "./helpers/payloads";
 import { envelopeOpts, launchSession, scratchDirectory, sessionCard } from "./helpers/session";
 
-// Plan issue-capture — E1 through E8, plus REQ-1 (masthead button) and REQ-6/Edge Case
-// 20 (client-side Submit gating), which have no dedicated E-acceptance id but are
-// Must-Have requirements this suite still owes coverage. Nothing here reaches real
+// Plan issue-capture — E1 through E8, plus REQ-6/Edge Case 20 (client-side Submit
+// gating), which has no dedicated E-acceptance id but is a Must-Have requirement this
+// suite still owes coverage; the masthead button's presence in both views (REQ-1) is a
+// render test in web/render/issue.spec.ts (re-levelled 2026-10-20,
+// plans/_audit/relevel/misc-core.md). Nothing here reaches real
 // GitHub or runs a real `gh`: every daemon in this file gets `-issue-api-url` and
 // `-issue-token-file` unconditionally (helpers/daemon.ts, REQ-17) — either pointed at a
 // local `FakeGitHubAPI` (helpers/ghapi.ts) this file starts and controls, or at the
@@ -36,8 +38,8 @@ import { envelopeOpts, launchSession, scratchDirectory, sessionCard } from "./he
 // mid-test — sharing a daemon/fake pair across concurrently running tests (this config
 // is `fullyParallel`) would race those responses. Tests that point the daemon at a
 // FakeGitHubAPI spawn it through `startDaemon(opts)` (helpers/fixtures.ts) because the
-// fake's URL is only known once it has started; the four that never file (REQ-1, E6,
-// E7, REQ-6) take the plain per-test `daemon` fixture, which routes to the deny stub.
+// fake's URL is only known once it has started; the three that never file (E6, E7,
+// REQ-6) take the plain per-test `daemon` fixture, which routes to the deny stub.
 
 interface CaptureSnapshotSession {
   context: unknown;
@@ -80,17 +82,6 @@ async function openIssueDialogAndCapture(
   const capture = await capturePromise;
   return { dialog, capture };
 }
-
-test("the Issue button is visible in both Focus and Tiles (REQ-1)", async ({ page, daemon }) => {
-  await page.goto(daemon.dashboardUrl);
-
-  await expect(issueButton(page)).toBeVisible();
-  await expect(issueButton(page)).toHaveCSS("opacity", "1");
-
-  await page.getByRole("button", { name: "Tiles" }).click();
-  await expect(issueButton(page)).toBeVisible();
-  await expect(issueButton(page)).toHaveCSS("opacity", "1");
-});
 
 test("sentinel title/directory/last-assistant-message never leak into the preview, the capture response, or the posted GitHub body, with bystander sessions present (E1, INV-1)", async ({
   page,

@@ -11,13 +11,7 @@
 import { mkdir, mkdtemp, realpath, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  type APIRequestContext,
-  expect,
-  type Locator,
-  type Page,
-  type ScratchDaemon,
-} from "./fixtures";
+import { type APIRequestContext, expect, type Page, type ScratchDaemon } from "./fixtures";
 import { envelopedStatusLineFull } from "./payloads";
 import { envelopeOpts, getState, type SessionObject } from "./session";
 
@@ -116,128 +110,27 @@ export async function makeSubdirectory(parent: string, name: string): Promise<st
   return await realpath(path);
 }
 
-// --- The header's `+N` suffix. ---
-
-/** The folder line `.repo .rf` of the Focus header. */
-export function headerFolderLine(page: Page): Locator {
-  return page.locator("#mainhead .meta .loc .repo .rf");
-}
-
-/** The `+N` span: the last child of the folder line (plan Testable UI Elements). */
-export function addedCountSuffix(page: Page): Locator {
-  return headerFolderLine(page).locator(":scope > span:last-child");
-}
-
-export function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/** The folder line ends in `+N` right after the folder name (an optional ` /` may sit between). */
-export function folderLineEndingInPlus(folder: string, n: number): RegExp {
-  return new RegExp(`^${escapeRegExp(folder)}[ /]*\\+${n}$`);
-}
-
-// --- The location panel. ---
-
-/** The panel is the page's one `role="tooltip"`, appended to `document.body` while open. */
-export function locationPanel(page: Page): Locator {
-  return page.getByRole("tooltip");
-}
-
-/** The header readout the panel hangs off. */
-function readout(page: Page): Locator {
-  return page.locator("#mainhead .meta .loc");
-}
-
-/** Moves the mouse off everything, then rests it on the readout (a real pointer path). */
-export async function hoverReadout(page: Page): Promise<void> {
-  await page.mouse.move(0, 0);
-  await readout(page).hover();
-}
-
-export async function leaveReadout(page: Page): Promise<void> {
-  await page.mouse.move(0, 0);
-}
-
-export interface PanelRow {
-  folder: string;
-  /** `null`: the row shows the folder and the path alone. */
-  branch: string | null;
-  path: string;
-}
-
-export interface PanelExpectation {
-  /** The launch checkout's row. */
-  launch: PanelRow;
-  /** The `↳` row, present only while Claude is elsewhere. */
-  moved?: PanelRow;
-  /** The added directories in wire order; empty means no `Added directories` section at all. */
-  added: PanelRow[];
-}
-
-function rowPattern(row: PanelRow): string {
-  const branch = row.branch === null ? "" : ` · ${escapeRegExp(row.branch)}`;
-  // `textContent` has no whitespace between the folder line and the path line, so adjacency
-  // is `\s*`; a row with a branch the test did not expect would not match a null-branch row.
-  return `${escapeRegExp(row.folder)}${branch}\\s*${escapeRegExp(row.path)}`;
-}
-
-/**
- * The panel's whole text as one anchored pattern: the `Location` heading, the launch row, the
- * `↳` row when moved, then `Added directories · N` and one row per directory in wire order.
- * Anchored at both ends, so an extra section, a row out of order or a stray branch fails it.
- */
-export function panelPattern(expected: PanelExpectation): RegExp {
-  let source = `^\\s*Location\\s*${rowPattern(expected.launch)}\\s*`;
-  if (expected.moved) source += `↳\\s*${rowPattern(expected.moved)}\\s*`;
-  if (expected.added.length > 0) {
-    source += `Added directories · ${expected.added.length}\\s*`;
-    for (const row of expected.added) source += `${rowPattern(row)}\\s*`;
-  }
-  return new RegExp(`${source}$`);
-}
-
-/**
- * Opens the panel with the mouse and asserts its content, retrying the whole hover so a panel
- * that was opened before the data arrived is closed and opened again rather than read stale.
- * Leaves the mouse off the readout, so the panel is closed on return.
- */
-export async function expectLocationPanel(page: Page, expected: PanelExpectation): Promise<void> {
-  await expect(async () => {
-    await hoverReadout(page);
-    // Shortened from the 15 s default on purpose: each toPass attempt re-hovers, so a panel
-    // showing stale text is replaced by the next attempt instead of waited on.
-    await expect(locationPanel(page)).toHaveText(panelPattern(expected), { timeout: 2_000 });
-  }).toPass({ timeout: 15_000 });
-  await leaveReadout(page);
-  await expect(locationPanel(page)).toHaveCount(0);
-}
-
-// --- The panel's placement. ---
-
-export interface PanelGeometry {
-  viewportHeight: number;
-  readout: { top: number; bottom: number };
-  panel: { top: number; bottom: number; height: number };
-  /** Every `.dr` row of the open panel, top to bottom. */
-  rows: { top: number; bottom: number }[];
-}
-
-/** The open panel's and the readout's boxes, measured in one evaluation so they share a frame. */
-export async function panelGeometry(page: Page): Promise<PanelGeometry> {
-  return await page.evaluate(() => {
-    const box = (el: Element) => {
-      const r = el.getBoundingClientRect();
-      return { top: r.top, bottom: r.bottom, height: r.height };
-    };
-    const panel = document.querySelector('[role="tooltip"]');
-    const readout = document.querySelector("#mainhead .meta .loc");
-    if (!panel || !readout) throw new Error("the panel or the readout is not in the page");
-    return {
-      viewportHeight: window.innerHeight,
-      readout: box(readout),
-      panel: box(panel),
-      rows: [...panel.querySelectorAll(".dr")].map(box),
-    };
-  });
-}
+// The header's `+N` suffix, its drawing oracle and the location panel's locator, hover
+// path, text pattern and placement geometry are pure DOM and live in the render tier's
+// helper (web/render/helpers/added-dirs.ts, where the panel's display properties
+// re-levelled on 2026-10-20 read them); the journeys here reach them through this
+// re-export.
+export {
+  addedCountSuffix,
+  ANCHOR_GAP,
+  EDGE_GAP,
+  escapeRegExp,
+  expectLocationPanel,
+  folderLineEndingInPlus,
+  headerFolderLine,
+  hoverReadout,
+  leaveReadout,
+  locationPanel,
+  nameEllipsized,
+  type PanelExpectation,
+  type PanelGeometry,
+  panelGeometry,
+  panelPattern,
+  type PanelRow,
+  suffixProblems,
+} from "../../render/helpers/added-dirs";

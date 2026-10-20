@@ -1,7 +1,12 @@
 // Plan stale-dirs-models-branches — REQ-1 to REQ-17 (a card's branch follows checkouts, a
 // `↳` block shows where Claude is when it works in another checkout, the model name is
 // never blank or stale after a bind, and long folder and branch names wrap at the `/`).
-// Plan acceptance E1-E12; E13 lives in rail-layout.spec.ts (its E11, rewritten).
+// Plan acceptance E1-E9 and E12; E13 lives in rail-layout.spec.ts (its E11, rewritten).
+// The display properties — E10, E11, REQ-12's line heights, REQ-13's fit at every width and
+// REQ-16's tokens — are render tests in web/render/card-location.spec.ts since 2026-10-20
+// (plans/_audit/test-audit-2026-10-20-relevel.md): what the card and the Focus header show
+// for a given snapshot needs no daemon to falsify. What stays here is every journey: a
+// checkout, hook or status-line post changing a card, and resume.
 //
 // Fixture plan: `startDaemon` in every test, each passing `repoPoll: "200ms"` (via
 // `startLocationDaemon`) so a checkout shows well inside the 15 s expect timeout, with a
@@ -31,12 +36,9 @@ import {
   hoverLines,
   mainheadBranch,
   mainheadClaudeAt,
-  mainheadFitProblems,
   mainheadFolder,
   mainheadLoc,
-  mainheadMeta,
   mainheadModel,
-  mainheadTitleEllipsized,
   railCardByTitle,
   type ScratchRepo,
   scratchPlainDir,
@@ -50,7 +52,6 @@ import {
   expect,
   type Page,
   type ScratchDaemon,
-  type ScratchDaemonOptions,
   settleFor,
   test,
 } from "./helpers/fixtures";
@@ -62,7 +63,6 @@ import {
   rawUserPromptSubmit,
   sessionStartResume,
 } from "./helpers/payloads";
-import { bodyRailDensity, railDensityButton } from "./helpers/railcards";
 import {
   browseScratchDirectory,
   envelopeOpts,
@@ -76,10 +76,6 @@ import {
 } from "./helpers/session";
 import { postResume } from "./helpers/resume";
 import { liveTile } from "./helpers/terminal";
-
-// 60-character folder and 80-character branch (plan edge case 24, E11).
-const LONG_FOLDER = "long-folder-name-for-wrapping-".repeat(2);
-const LONG_BRANCH = `${"long-branch-name-for-wrapping-".repeat(3).slice(0, 79)}z`;
 
 /** Launches a session into `repo` and binds it with the enveloped `SessionStart` a real
  * `claude` posts first, carrying `cwd` = the launch directory (kb:fact/hook-payload-fields). */
@@ -267,56 +263,6 @@ test("a main-agent hook whose cwd is a worktree under .claude/worktrees shows th
     await expect(marker).toBeVisible();
     await expect(marker).toContainText("↳");
     await expect(marker).toContainText(`Claude is in ${wt.path}`);
-  } finally {
-    await repo.cleanup();
-  }
-});
-
-test("the ↳ glyph is --fg-muted and the ↳ text --fg-dim, on the rail card and in the Focus header, never a state colour (REQ-16)", async ({
-  page,
-  request,
-  startDaemon,
-}) => {
-  const repo = await scratchRepo();
-  try {
-    const daemon = await startLocationDaemon(startDaemon);
-    // The ↳ block hides first as the header narrows (REQ-2 a), and with the uncapped readout (REQ-1)
-    // the scratch repo's row no longer fits beside the cluster in the default 1280px window.
-    await page.setViewportSize({ width: 1400, height: 720 });
-    await page.goto(daemon.dashboardUrl);
-    await launchBound(page, request, daemon, repo, "loc-tokens", "claude-loc-tokens");
-    const wt = await addClaudeWorktree(repo, "tokenwt");
-    const card = railCardByTitle(page, "loc-tokens");
-    await card.click();
-
-    await hookMover(request, daemon, "claude-loc-tokens")(wt.path);
-    await expect(cardMoved(card)).toBeVisible();
-    await expect(mainheadClaudeAt(page)).toBeVisible();
-
-    // The live token, resolved by a probe element: the computed colour of
-    // `color: var(--token)` is what the page's own cascade produces for that variable.
-    const tokenColor = async (token: string) =>
-      await page.evaluate((name) => {
-        const probe = document.createElement("span");
-        probe.style.color = `var(${name})`;
-        document.body.append(probe);
-        const resolved = getComputedStyle(probe).color;
-        probe.remove();
-        return resolved;
-      }, token);
-    const colorOf = async (loc: ReturnType<typeof cardMoved>) =>
-      await loc.evaluate((el) => getComputedStyle(el).color);
-
-    const muted = await tokenColor("--fg-muted");
-    const dim = await tokenColor("--fg-dim");
-    expect(muted).not.toBe(dim);
-
-    await expect.poll(() => colorOf(cardMovedLead(card))).toBe(muted);
-    await expect.poll(() => colorOf(cardMovedFolder(card))).toBe(dim);
-    await expect.poll(() => colorOf(cardMovedBranch(card))).toBe(dim);
-    await expect.poll(() => colorOf(mainheadClaudeAt(page).locator(".lead"))).toBe(muted);
-    await expect.poll(() => colorOf(mainheadClaudeAt(page).locator(".rf"))).toBe(dim);
-    await expect.poll(() => colorOf(mainheadClaudeAt(page).locator(".rb"))).toBe(dim);
   } finally {
     await repo.cleanup();
   }
@@ -811,199 +757,6 @@ test("a resumed-from-list session with no recorded model reads unknown, then sho
   }
 });
 
-for (const density of ["comfortable", "expanded"] as const) {
-  test(`in ${density} density the rail card's folder and branch sit on two lines and each truncates at the end on its own, with the full text on hover (E10, REQ-10)`, async ({
-    page,
-    startDaemon,
-  }) => {
-    const repo = await scratchRepo(LONG_FOLDER);
-    try {
-      await git(repo.path, "checkout", "-b", LONG_BRANCH);
-      const daemon = await startLocationDaemon(startDaemon);
-      await page.goto(daemon.dashboardUrl);
-      await launchSession(page, daemon, { directory: repo.path, title: `loc-e10-${density}` });
-      if (density !== "comfortable") {
-        await railDensityButton(page, density).click();
-      }
-      await expect.poll(() => bodyRailDensity(page)).toBe(density);
-
-      const card = railCardByTitle(page, `loc-e10-${density}`);
-      await expect(cardFolder(card)).toHaveText(`${LONG_FOLDER} /`);
-      await expect(cardBranch(card)).toHaveText(LONG_BRANCH);
-
-      const geometry = async (line: ReturnType<typeof cardFolder>) =>
-        await line.evaluate((el) => {
-          const cs = getComputedStyle(el);
-          const box = el.getBoundingClientRect();
-          return {
-            textOverflow: cs.textOverflow,
-            whiteSpace: cs.whiteSpace,
-            overflow: cs.overflowX,
-            scrollWidth: el.scrollWidth,
-            clientWidth: el.clientWidth,
-            top: box.top,
-            bottom: box.bottom,
-            height: box.height,
-          };
-        });
-      await expect
-        .poll(
-          async () => {
-            const rf = await geometry(cardFolder(card));
-            const rb = await geometry(cardBranch(card));
-            return rb.top >= rf.bottom - 0.5;
-          },
-          { message: "the branch line sits below the folder line" },
-        )
-        .toBe(true);
-
-      for (const line of [cardFolder(card), cardBranch(card)]) {
-        const g = await geometry(line);
-        expect(g.textOverflow).toBe("ellipsis");
-        expect(g.whiteSpace).toBe("nowrap");
-        expect(g.overflow).toBe("hidden");
-        // Truly clipped: the full text is wider than the line that shows it.
-        expect(g.scrollWidth).toBeGreaterThan(g.clientWidth);
-      }
-
-      await expect(card.locator(".r2")).toHaveAttribute("title", `${repo.name} / ${LONG_BRANCH}`);
-    } finally {
-      await repo.cleanup();
-    }
-  });
-}
-
-test("in compact density the rail card's folder and branch stay on one line, clipped inside the card (E10, REQ-11, edge case 26)", async ({
-  page,
-  startDaemon,
-}) => {
-  const repo = await scratchRepo(LONG_FOLDER);
-  try {
-    await git(repo.path, "checkout", "-b", LONG_BRANCH);
-    const daemon = await startLocationDaemon(startDaemon);
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: repo.path, title: "loc-e10-compact" });
-    await railDensityButton(page, "compact").click();
-    await expect.poll(() => bodyRailDensity(page)).toBe("compact");
-
-    const card = railCardByTitle(page, "loc-e10-compact");
-    await expect(cardFolder(card)).toHaveText(`${LONG_FOLDER} /`);
-    await expect(cardBranch(card)).toHaveText(LONG_BRANCH);
-
-    const metrics = await card.locator(".r2").evaluate((r2) => {
-      const rf = r2.querySelector(".rf");
-      const rb = r2.querySelector(".rb");
-      if (!rf || !rb) throw new Error("missing .rf/.rb");
-      // .r2 computes `line-height: normal` (parseFloat gives NaN), so one line's height is
-      // measured from a probe in the card's own font rather than read from the style.
-      const probe = document.createElement("span");
-      probe.textContent = "x";
-      probe.style.whiteSpace = "nowrap";
-      r2.appendChild(probe);
-      const lineHeight = probe.getBoundingClientRect().height;
-      probe.remove();
-      const r2box = r2.getBoundingClientRect();
-      const rfBox = rf.getBoundingClientRect();
-      const rbBox = rb.getBoundingClientRect();
-      const clipped = [r2, rf, rb].filter(
-        (el) => getComputedStyle(el).textOverflow === "ellipsis" && el.scrollWidth > el.clientWidth,
-      ).length;
-      return {
-        lineHeight,
-        r2Height: r2box.height,
-        sameLine: rbBox.top < rfBox.bottom && rfBox.top < rbBox.bottom,
-        rbAfterRf: rbBox.left >= rfBox.right - 1,
-        rbInsideR2: rbBox.right <= r2box.right + 0.5,
-        clipped,
-      };
-    });
-    expect(metrics.sameLine).toBe(true);
-    expect(metrics.rbAfterRf).toBe(true);
-    expect(metrics.r2Height).toBeLessThanOrEqual(metrics.lineHeight * 1.5);
-    expect(metrics.rbInsideR2).toBe(true);
-    expect(metrics.clipped).toBeGreaterThan(0);
-  } finally {
-    await repo.cleanup();
-  }
-});
-
-test("with a 60-character folder and an 80-character branch at 2000x1000 the Focus header shows each line whole, uncapped, and the model is not clipped (E11, REQ-13; caps removed by plan title-crop-stop-resume-button REQ-1)", async ({
-  page,
-  request,
-  startDaemon,
-}) => {
-  const repo = await scratchRepo(LONG_FOLDER);
-  try {
-    await git(repo.path, "checkout", "-b", LONG_BRANCH);
-    expect(LONG_FOLDER).toHaveLength(60);
-    expect(LONG_BRANCH).toHaveLength(80);
-    await page.setViewportSize({ width: 2000, height: 1000 });
-    const daemon = await startLocationDaemon(startDaemon);
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
-      directory: repo.path,
-      title: "loc-e11",
-      model: "sonnet",
-    });
-    await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull("claude-loc-e11", {
-        ...(await envelopeOpts(session, daemon)),
-        model: { id: "claude-sonnet-5-5", displayName: "Sonnet 5.5" },
-      }),
-    });
-    await railCardByTitle(page, "loc-e11").click();
-
-    await expect(mainheadFolder(page)).toHaveText(`${LONG_FOLDER} /`);
-    await expect(mainheadBranch(page)).toHaveText(LONG_BRANCH);
-    await expect(mainheadModel(page)).toHaveText("Sonnet 5.5");
-
-    const model = mainheadModel(page);
-    const modelMetrics = await model.evaluate((el) => ({
-      scrollWidth: el.scrollWidth,
-      clientWidth: el.clientWidth,
-      right: el.getBoundingClientRect().right,
-      metaRight: (el.closest(".meta") as HTMLElement).getBoundingClientRect().right,
-    }));
-    expect(modelMetrics.scrollWidth).toBeLessThanOrEqual(modelMetrics.clientWidth);
-    expect(modelMetrics.right).toBeLessThanOrEqual(modelMetrics.metaRight + 0.5);
-
-    // No cap (plan title-crop-stop-resume-button, REQ-1): at a 1700 px header, with room to
-    // spare, each line is as wide as its own text. The oracle is the line's max-content
-    // width, measured on a clone in the line's own font; it is re-read with the line
-    // inside the poll, so a stale or capped display times out instead of passing.
-    const uncapped = async (cls: ".rf" | ".rb") =>
-      await mainheadMeta(page)
-        .locator(`.loc .repo ${cls}`)
-        .evaluate((el) => {
-          const probe = el.cloneNode(true) as HTMLElement;
-          probe.style.cssText =
-            "position:absolute;visibility:hidden;max-width:none;width:max-content;overflow:visible;text-overflow:clip";
-          el.after(probe);
-          const natural = probe.getBoundingClientRect().width;
-          probe.remove();
-          return {
-            actual: el.getBoundingClientRect().width,
-            natural,
-            clipped: el.scrollWidth > el.clientWidth,
-          };
-        });
-    await expect
-      .poll(async () => {
-        const rf = await uncapped(".rf");
-        const rb = await uncapped(".rb");
-        return {
-          rfClipped: rf.clipped,
-          rbClipped: rb.clipped,
-          rfWhole: rf.actual >= rf.natural - 1.5,
-          rbWhole: rb.actual >= rb.natural - 1.5,
-        };
-      })
-      .toEqual({ rfClipped: false, rbClipped: false, rfWhole: true, rbWhole: true });
-  } finally {
-    await repo.cleanup();
-  }
-});
-
 test("the Focus header's session name carries its full text as a hover title, and follows a rename (E12, REQ-17)", async ({
   page,
   startDaemon,
@@ -1064,293 +817,3 @@ test("the rename button keeps focus and node identity across a repo-poll re-rend
     await repo.cleanup();
   }
 });
-
-// The Focus header at every window width (kb:adr/focus-model-never-truncates-name-blocks-give-way,
-// kb:adr/focus-mainhead-wraps-to-second-row-when-narrow). The full model id is on the header
-// because the bind (the enveloped SessionStart `launchBound` posts) names it and no status line
-// has confirmed a display name. The invariants are asserted, never the pixel at which the
-// header wraps or a name block gives way: the model whole, every name block whole, the repo
-// block on `.loc`'s first line (the developer's decision: the header wraps before the repo
-// block drops below its floor, so narrowing never hides it), no blank `.loc` at any width
-// (review cycle 4: not for a `↳` block that gave way, nor for a folder line under the floor),
-// and End, Resume and Remove on screen.
-//
-// The title is long (66 characters) so that it is ellipsized at the narrow widths, where a
-// blank `.loc` would cost the title room; the tests prove it was clipped there.
-const FULL_MODEL_ID = "claude-haiku-4-5-20251001";
-const LONG_WORKTREE = "long-worktree-name-for-wrapping-".repeat(2).slice(0, 59).concat("z");
-const LONG_TITLE = "rework shift-swap approval for the weekend rostering rule changes";
-const SHORT_FOLDER = "muster-app";
-// Folder and branch lines under the 8-character floor (`api /`, `main`; moved, `wt /`).
-const TINY_FOLDER = "api";
-
-interface NameSet {
-  folder: string;
-  /** Undefined keeps the scratch repo on `main`. */
-  branch: string | undefined;
-  worktree: string;
-  label: string;
-}
-const NAME_SETS: Record<"long" | "short" | "tiny", NameSet> = {
-  long: {
-    folder: LONG_FOLDER,
-    branch: LONG_BRANCH,
-    worktree: LONG_WORKTREE,
-    label: "60-character folder and 80-character branch names",
-  },
-  short: {
-    folder: SHORT_FOLDER,
-    branch: undefined,
-    worktree: "probe-wt",
-    label: "short folder and branch names",
-  },
-  tiny: {
-    folder: TINY_FOLDER,
-    branch: undefined,
-    worktree: "wt",
-    label: "folder and branch lines under the 8-character floor",
-  },
-};
-type FitState = "unmoved" | "moved" | "ended";
-type StartDaemon = (opts?: ScratchDaemonOptions) => Promise<ScratchDaemon>;
-
-/** Launches a bound session on a scratch repo with `names` and the long title, Focus view open. */
-async function openFitSession(
-  page: Page,
-  request: APIRequestContext,
-  startDaemon: StartDaemon,
-  names: NameSet,
-  repo: ScratchRepo,
-) {
-  if (names.branch !== undefined) await git(repo.path, "checkout", "-b", names.branch);
-  await page.setViewportSize({ width: 1280, height: 800 });
-  const daemon = await startLocationDaemon(startDaemon);
-  await page.goto(daemon.dashboardUrl);
-  const session = await launchBound(page, request, daemon, repo, LONG_TITLE, "claude-loc-fit");
-  await railCardByTitle(page, LONG_TITLE).click();
-  await expect(mainheadFolder(page)).toHaveText(`${repo.name} /`);
-  await expect(mainheadBranch(page)).toHaveText(names.branch ?? "main");
-  await expect(mainheadModel(page)).toHaveText(`${FULL_MODEL_ID} (…)`);
-  return { daemon, session };
-}
-
-/** Puts the session into `state` at the 1280 px viewport, before any narrowing. */
-async function enterFitState(
-  page: Page,
-  request: APIRequestContext,
-  daemon: ScratchDaemon,
-  session: SessionObject,
-  repo: ScratchRepo,
-  names: NameSet,
-  state: FitState,
-) {
-  if (state === "moved") {
-    const wt = await addClaudeWorktree(repo, names.worktree);
-    await hookMover(request, daemon, "claude-loc-fit")(wt.path);
-    await expect(cardMoved(railCardByTitle(page, LONG_TITLE))).toBeVisible();
-    await expect(mainheadClaudeAt(page)).not.toHaveAttribute("hidden");
-    await expect(mainheadClaudeAt(page).locator(".rf")).toHaveText(`${names.worktree} /`);
-    await expect(mainheadClaudeAt(page).locator(".rb")).toHaveText(`worktree-${names.worktree}`);
-  } else if (state === "ended") {
-    const endRes = await page.request.post(`${daemon.baseURL}/api/sessions/${session.id}/end`);
-    expect(endRes.status()).toBe(200);
-    await expect(mainheadMeta(page).locator(".ended-at")).toBeVisible();
-  } else {
-    await expect(mainheadClaudeAt(page)).toHaveAttribute("hidden");
-  }
-}
-
-async function assertFocusHeaderFits(
-  page: Page,
-  request: APIRequestContext,
-  startDaemon: StartDaemon,
-  names: NameSet,
-  width: number,
-  state: FitState,
-) {
-  const repo = await scratchRepo(names.folder);
-  try {
-    const { daemon, session } = await openFitSession(page, request, startDaemon, names, repo);
-    await enterFitState(page, request, daemon, session, repo, names, state);
-
-    await page.setViewportSize({ width, height: 800 });
-    // Plan effort REQ-6: a bound session that has posted no status line reads `(…)` after its
-    // model while alive, and a dead one that never reported reads the model alone — the
-    // brackets are part of the model that never truncates.
-    await expect(mainheadModel(page)).toHaveText(
-      state === "ended" ? FULL_MODEL_ID : `${FULL_MODEL_ID} (…)`,
-    );
-    await expect
-      .poll(() => mainheadFitProblems(page), {
-        message: `${state} header layout at ${width}px`,
-      })
-      .toEqual([]);
-    if (width <= 1024) {
-      // The blank-.loc check only means something while the title is clipped: prove it was,
-      // so the check above was not true by default. A 66-character title cannot fit beside
-      // the model, the repo block, the surface switch and the actions in 1024 px.
-      await expect
-        .poll(() => mainheadTitleEllipsized(page), {
-          message: `the title is ellipsized at ${width}px, so the blank-.loc check applied`,
-        })
-        .toBe(true);
-    }
-    // Not a pixel breakpoint: a window too narrow for one row gets a second one, so the
-    // header grows rather than a control leaving the screen.
-    // The header holds one Stop/Resume button (plan title-crop-stop-resume-button, REQ-5):
-    // the label that matches `alive`, never both.
-    const [shown, absent] = state === "ended" ? ["Resume", "Stop"] : ["Stop", "Resume"];
-    for (const action of [shown ?? "Stop", "Remove"]) {
-      await expect(
-        page.locator("#mainhead").getByRole("button", { name: action, exact: true }),
-      ).toBeInViewport({ ratio: 1 });
-    }
-    await expect(
-      page.locator("#mainhead").getByRole("button", { name: absent ?? "Resume", exact: true }),
-    ).toHaveCount(0);
-  } finally {
-    await repo.cleanup();
-  }
-}
-
-for (const width of [1280, 1024, 960, 900, 800, 700]) {
-  for (const state of ["unmoved", "moved", "ended"] as const) {
-    test(`at ${width}px the Focus header of a session that is ${state}, with 60-character folder and 80-character branch names never clips the model, keeps every name block whole and keeps End, Resume and Remove on screen (REQ-13)`, async ({
-      page,
-      request,
-      startDaemon,
-    }) => {
-      await assertFocusHeaderFits(page, request, startDaemon, NAME_SETS.long, width, state);
-    });
-
-    test(`at ${width}px the Focus header of a session that is ${state}, with short folder and branch names keeps the repo block on its first line, no blank beside an ellipsized title, the model whole and End, Resume and Remove on screen (REQ-13, review cycle 3)`, async ({
-      page,
-      request,
-      startDaemon,
-    }) => {
-      await assertFocusHeaderFits(page, request, startDaemon, NAME_SETS.short, width, state);
-    });
-
-    test(`at ${width}px the Focus header of a session that is ${state}, with folder and branch lines under the 8-character floor keeps .loc no wider than what it shows, the model whole and End, Resume and Remove on screen (REQ-13, review cycle 4)`, async ({
-      page,
-      request,
-      startDaemon,
-    }) => {
-      await assertFocusHeaderFits(page, request, startDaemon, NAME_SETS.tiny, width, state);
-    });
-  }
-}
-
-// The repo readout never comes and goes as the window changes (the developer's decision,
-// review cycle 3: "narrowing never brings it back"). One daemon, one session, the window swept
-// from wide to narrow and back in 16 px steps: at every width the same invariants hold, which
-// includes the repo block on `.loc`'s first line. The widths around where the header wraps,
-// where cycle 3's browser review saw the repo block vanish at 1024-976 and return at 975, are
-// inside the sweep without the test naming a breakpoint.
-for (const nameSet of ["long", "short", "tiny"] as const) {
-  for (const state of ["unmoved", "moved"] as const) {
-    test(`sweeping the window from 1440px to 700px and back, the Focus header of a session that is ${state}, with ${NAME_SETS[nameSet].label}, shows its repo block on its first line at every width and never leaves blank in .loc (REQ-13, review cycles 3 and 4)`, async ({
-      page,
-      request,
-      startDaemon,
-    }) => {
-      const names = NAME_SETS[nameSet];
-      const repo = await scratchRepo(names.folder);
-      try {
-        const { daemon, session } = await openFitSession(page, request, startDaemon, names, repo);
-        await enterFitState(page, request, daemon, session, repo, names, state);
-
-        const widths: number[] = [];
-        for (let w = 1440; w >= 700; w -= 16) widths.push(w);
-        const sweep = [...widths, ...[...widths].reverse()];
-        let ellipsizedAt = 0;
-        for (const width of sweep) {
-          await page.setViewportSize({ width, height: 800 });
-          await expect
-            .poll(() => mainheadFitProblems(page), {
-              message: `${state} header layout at ${width}px in the sweep`,
-            })
-            .toEqual([]);
-          if (await mainheadTitleEllipsized(page)) ellipsizedAt += 1;
-        }
-        // The blank check applied across the sweep: the title was clipped somewhere in it,
-        // so the sweep was not silent about the Minor it guards. Plan
-        // title-crop-stop-resume-button (REQ-2) makes the title give way last, after the
-        // readout is at its floor, so how much of the sweep clips it depends on how long the
-        // readout is: with the 60-character names the readout reaches its floor early and the
-        // title clips over a quarter of the sweep as before; with short names the title
-        // clips only in the narrowest windows, where the 66-character title cannot fit even
-        // on its own row.
-        expect(ellipsizedAt).toBeGreaterThan(0);
-        if (nameSet === "long") expect(ellipsizedAt).toBeGreaterThan(sweep.length / 4);
-      } finally {
-        await repo.cleanup();
-      }
-    });
-  }
-}
-
-for (const density of ["comfortable", "compact", "expanded"] as const) {
-  test(`in ${density} density the rail card's ↳ block lines are exactly as tall as the repo block's lines (REQ-12, review cycle 2 Minor 1)`, async ({
-    page,
-    request,
-    startDaemon,
-  }) => {
-    const repo = await scratchRepo();
-    try {
-      const daemon = await startLocationDaemon(startDaemon);
-      await page.goto(daemon.dashboardUrl);
-      await launchBound(
-        page,
-        request,
-        daemon,
-        repo,
-        `loc-lh-${density}`,
-        `claude-loc-lh-${density}`,
-      );
-      if (density !== "comfortable") {
-        await railDensityButton(page, density).click();
-      }
-      await expect.poll(() => bodyRailDensity(page)).toBe(density);
-      const wt = await addClaudeWorktree(repo, "lineheightwt");
-      await hookMover(request, daemon, `claude-loc-lh-${density}`)(wt.path);
-
-      const card = railCardByTitle(page, `loc-lh-${density}`);
-      await expect(cardMovedFolder(card)).toHaveText("lineheightwt /");
-      await expect(cardMovedBranch(card)).toHaveText("worktree-lineheightwt");
-      await expect(cardBranch(card)).toHaveText("main");
-
-      const heights = async () =>
-        await card.evaluate((el) => {
-          const h = (sel: string) => {
-            const node = el.querySelector(sel);
-            if (!node) throw new Error(`missing ${sel}`);
-            return node.getBoundingClientRect().height;
-          };
-          return {
-            r2: h(".r2"),
-            r2c: h(".r2c"),
-            rf: h(".r2 .rf"),
-            movedRf: h(".r2c .rf"),
-            rb: h(".r2 .rb"),
-            movedRb: h(".r2c .rb"),
-          };
-        });
-      // Re-read both sides inside the retry: a layout still settling from the density
-      // switch must time out, not pass on a stale pair.
-      await expect
-        .poll(async () => {
-          const g = await heights();
-          return {
-            block: Math.abs(g.r2c - g.r2) <= 0.5,
-            folder: Math.abs(g.movedRf - g.rf) <= 0.5,
-            branch: Math.abs(g.movedRb - g.rb) <= 0.5,
-            measured: g.r2 > 0 && g.rf > 0 && g.rb > 0,
-          };
-        })
-        .toEqual({ block: true, folder: true, branch: true, measured: true });
-    } finally {
-      await repo.cleanup();
-    }
-  });
-}

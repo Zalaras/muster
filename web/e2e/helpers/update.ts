@@ -12,11 +12,18 @@
 import { expect } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 
-/** `#settings-button .update-dot` — visible iff badged (REQ-9/INV-6). `aria-hidden`,
- * so never located by role. */
-export function settingsBadgeDot(page: Page): Locator {
-  return page.locator("#settings-button .update-dot");
-}
+// The badge dot, the Available readout and the three action buttons are pure DOM and live
+// in the render tier's helper (web/render/helpers/update.ts, where the dev-build and
+// Check-now display properties re-levelled on 2026-10-20 read them); the journeys here
+// reach them through this re-export.
+export {
+  settingsBadgeDot,
+  updateApplyButton,
+  updateAvailableReadout,
+  updateCheckButton,
+  updateRestartButton,
+} from "../../render/helpers/update";
+import { updateRestartButton } from "../../render/helpers/update";
 
 /** `fieldset#settings-update` — the Updates section as a whole; carries
  * `aria-busy="true"` while an apply phase is in flight (Text rules). */
@@ -27,11 +34,6 @@ export function updateSection(dialog: Locator): Locator {
 /** `<dd id="update-running">` — the Running readout (Text rules table). */
 export function updateRunningReadout(dialog: Locator): Locator {
   return dialog.locator("#update-running");
-}
-
-/** `<dd id="update-available">` — the Available readout (Text rules table). */
-export function updateAvailableReadout(dialog: Locator): Locator {
-  return dialog.locator("#update-available");
 }
 
 /** `#update-check-toggle` — native checkbox + `<label>` gives it the accessible name
@@ -45,26 +47,6 @@ export function updateCheckToggle(dialog: Locator): Locator {
  * carries that role). */
 export function updateStatusLine(dialog: Locator): Locator {
   return dialog.getByRole("status");
-}
-
-/** `#update-apply-button`, exact accessible name "Update" — `exact: true` so it never
- * matches "Update and restart"/"Restart now". Absent for a `dev` install (REQ-13). */
-export function updateApplyButton(dialog: Locator): Locator {
-  return dialog.getByRole("button", { name: "Update", exact: true });
-}
-
-/** Plan rail-card-improvements-2 REQ-7/REQ-10: `#update-check-button`, accessible name
- * "Check now" — the first child of `.update-actions`, ahead of `updateApplyButton`.
- * Disabled whenever `canCheck` is false or a check of its own is in flight (REQ-13). */
-export function updateCheckButton(dialog: Locator): Locator {
-  return dialog.getByRole("button", { name: "Check now", exact: true });
-}
-
-/** `#update-restart-button` — located by id rather than role+name, because its
- * accessible name changes ("Update and restart" -> "Restart now" after a swap, REQ-25).
- * Absent for a `dev` install (REQ-13). */
-export function updateRestartButton(dialog: Locator): Locator {
-  return dialog.locator("#update-restart-button");
 }
 
 /** `#update-restart-dialog`, named via its own `<h2>` "Restart musterd?"

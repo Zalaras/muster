@@ -1,11 +1,4 @@
-import {
-  type APIRequestContext,
-  expect,
-  fileDaemon,
-  type Page,
-  settleFor,
-  test,
-} from "./helpers/fixtures";
+import { expect, fileDaemon, test } from "./helpers/fixtures";
 import {
   envelopedSessionStart,
   envelopedStatusLineFull,
@@ -13,7 +6,6 @@ import {
   rawStop,
   rawUserPromptSubmit,
   runningShellTask,
-  runningSubagentTask,
 } from "./helpers/payloads";
 import { pinButton } from "./helpers/railorder";
 import {
@@ -23,12 +15,10 @@ import {
   getState,
   launchSession,
   scratchDirectory,
-  type SessionObject,
   sessionCard,
   stateBadge,
 } from "./helpers/session";
 import { cardContextRow } from "./helpers/gauges";
-import { liveTile, stripCard } from "./helpers/terminal";
 
 // Plan code-breakup's E2E split (plan.md UI Specifications → E2E split) moved these
 // tests out of actions.spec.ts: they exercise a rail card's own chrome (sort position,
@@ -54,107 +44,6 @@ import { liveTile, stripCard } from "./helpers/terminal";
 // at authoring.
 
 const sharedDaemon = fileDaemon();
-
-/** Launches a session, binds a Claude id to it (so Resume is enabled) and ends it. */
-async function launchEndedSession(
-  page: Page,
-  request: APIRequestContext,
-  dir: string,
-  title: string,
-): Promise<SessionObject> {
-  const session = await launchSession(page, sharedDaemon(), { directory: dir, title });
-  await request.post(sharedDaemon().ingestURL("hook"), {
-    data: envelopedSessionStart(`claude-${title}`, await envelopeOpts(session, sharedDaemon())),
-  });
-  const res = await page.request.post(`${sharedDaemon().baseURL}/api/sessions/${session.id}/end`);
-  expect(res.status()).toBe(200);
-  await expect(sessionCard(page, title)).toHaveClass(/ended/, { timeout: 15_000 });
-  return session;
-}
-
-test("ended sessions sort after every live session, most recently ended first (REQ-9)", async ({
-  page,
-  request,
-}) => {
-  const dirs = await Promise.all(Array.from({ length: 3 }, () => scratchDirectory()));
-  try {
-    await page.goto(sharedDaemon().dashboardUrl);
-    const titles = ["sort-req9-live", "sort-req9-ended-first", "sort-req9-ended-second"];
-    const sessions: SessionObject[] = [];
-    for (const [i, dir] of dirs.entries()) {
-      sessions.push(
-        await launchSession(page, sharedDaemon(), {
-          directory: dir.path,
-          title: titles[i] ?? "",
-        }),
-      );
-    }
-    const [live, endedFirst, endedSecond] = sessions;
-    if (!live || !endedFirst || !endedSecond) throw new Error("expected three sessions");
-
-    await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart(
-        "claude-sort-req9-live",
-        await envelopeOpts(live, sharedDaemon()),
-      ),
-    });
-
-    const endRes1 = await page.request.post(
-      `${sharedDaemon().baseURL}/api/sessions/${endedFirst.id}/end`,
-    );
-    expect(endRes1.status()).toBe(200);
-    await expect(sessionCard(page, "sort-req9-ended-first")).toHaveClass(/ended/, {
-      timeout: 15_000,
-    });
-
-    // Force a real gap between the two `endedAt` timestamps regardless of the daemon's
-    // clock resolution, so "most recently ended first" has an unambiguous answer — a
-    // deliberate hold (nothing to poll for: the second End has not happened yet).
-    await settleFor(page, 1_100);
-
-    const endRes2 = await page.request.post(
-      `${sharedDaemon().baseURL}/api/sessions/${endedSecond.id}/end`,
-    );
-    expect(endRes2.status()).toBe(200);
-    await expect(sessionCard(page, "sort-req9-ended-second")).toHaveClass(/ended/, {
-      timeout: 15_000,
-    });
-
-    // These orderings are an Attention-mode guarantee under plan order-sidebar's
-    // approved protocol delta (REQ-5 default `railSort` is "manual"; REQ-7: a state
-    // change — ending a session — never moves a card in manual mode). Switch to
-    // Attention, then wait for the resort before asserting REQ-9's ordering.
-    await page.locator("#rail-sort").selectOption("attention");
-    await expect
-      .poll(async () => {
-        const cardTexts = await page.getByTestId("session-card").allInnerTexts();
-        const indexOf = (label: string): number => cardTexts.findIndex((t) => t.includes(label));
-        const liveIdx = indexOf("sort-req9-live");
-        const firstEndedIdx = indexOf("sort-req9-ended-first");
-        const secondEndedIdx = indexOf("sort-req9-ended-second");
-        return (
-          liveIdx >= 0 &&
-          firstEndedIdx >= 0 &&
-          secondEndedIdx >= 0 &&
-          liveIdx < firstEndedIdx &&
-          liveIdx < secondEndedIdx &&
-          secondEndedIdx < firstEndedIdx
-        );
-      })
-      .toBe(true);
-    const cardTexts = await page.getByTestId("session-card").allInnerTexts();
-    const indexOf = (label: string): number => cardTexts.findIndex((t) => t.includes(label));
-    const liveIdx = indexOf("sort-req9-live");
-    const firstEndedIdx = indexOf("sort-req9-ended-first");
-    const secondEndedIdx = indexOf("sort-req9-ended-second");
-    expect(liveIdx).toBeGreaterThanOrEqual(0);
-    expect(liveIdx).toBeLessThan(firstEndedIdx);
-    expect(liveIdx).toBeLessThan(secondEndedIdx);
-    expect(secondEndedIdx).toBeLessThan(firstEndedIdx);
-  } finally {
-    await Promise.all(dirs.map((d) => d.cleanup()));
-  }
-});
 
 // review m4-reconcile fix-cycle-1 Major 5: action buttons nested in a card whose own
 // `keydown` listener used to run `event.preventDefault()` for every bubbled key, cancelling
@@ -208,169 +97,6 @@ test("the mainhead's End button activates via keyboard Enter and Space, not just
     await expect(card.getByRole("button", { name: "Stop" })).toHaveCount(0);
   } finally {
     await cleanup();
-  }
-});
-
-// Cycle-2 Major 1/2 of the same review: the 1s render tick once rebuilt every card's DOM,
-// dropping focus to <body> between a focus and its key. Focus, outlive a tick, assert the
-// same node still holds focus, then press the key as a separate action.
-test("the mainhead's End button keeps focus and node identity across a render tick and then opens the End dialog via a separate keyboard Enter (REQ-7, REQ-11, Major 1, Major 2)", async ({
-  page,
-  request,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(sharedDaemon().dashboardUrl);
-    const session = await launchSession(page, sharedDaemon(), {
-      directory: dir,
-      title: "kbd-tick-mainhead-end",
-    });
-    await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart(
-        "claude-kbd-tick-mainhead-end",
-        await envelopeOpts(session, sharedDaemon()),
-      ),
-    });
-    const card = sessionCard(page, "kbd-tick-mainhead-end");
-    await card.click();
-    const mainhead = page.locator("#mainhead");
-    await expect(mainhead).toContainText("kbd-tick-mainhead-end");
-    const endBtn = mainhead.getByRole("button", { name: "Stop", exact: true });
-    const dialog = page.getByRole("dialog", { name: "Stop session?" });
-
-    await endBtn.focus();
-    await expect(endBtn).toBeFocused();
-    await endBtn.evaluate((el) => {
-      (el as HTMLElement & { __e2eTag?: string }).__e2eTag = "original-end-btn";
-    });
-
-    // A stays-unchanged hold: the render tick itself is under test, so there is no
-    // visible outcome to poll for.
-    await settleFor(page, 1_400);
-    await expect(endBtn).toBeFocused();
-    expect(
-      await endBtn.evaluate(
-        (el) => (el as HTMLElement & { __e2eTag?: string }).__e2eTag === "original-end-btn",
-      ),
-    ).toBe(true);
-
-    await page.keyboard.press("Enter");
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
-    await expect(card.getByRole("button", { name: "Stop" })).toHaveCount(0);
-  } finally {
-    await cleanup();
-  }
-});
-
-// The nested-control half of Major 5 and Major 1/2, on the surface that replaced the ended
-// card's Remove button (plan rail-card-organise REQ-6, REQ-9): its menu's Remove… item. Focus
-// the card, open the menu with a real key, outlive a tick with node identity, then Enter and
-// Space each as their own action.
-test("an ended card's Remove… menu item keeps focus and node identity across a render tick and activates via keyboard Enter and Space (REQ-7, REQ-11, Major 1, Major 5)", async ({
-  page,
-  request,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(sharedDaemon().dashboardUrl);
-    await launchEndedSession(page, request, dir, "kbd-ended-remove");
-    const card = sessionCard(page, "kbd-ended-remove");
-    const removeItem = page
-      .getByRole("menu")
-      .getByRole("menuitem", { name: "Remove…", exact: true });
-    const dialog = page.getByRole("dialog", { name: "Remove session?" });
-
-    await card.focus();
-    await expect(card).toBeFocused();
-    await page.keyboard.press("Shift+F10");
-    await expect(page.getByRole("menu")).toBeVisible();
-    await page.keyboard.press("ArrowDown");
-    await expect(removeItem).toBeFocused();
-    await removeItem.evaluate((el) => {
-      (el as HTMLElement & { __e2eTag?: string }).__e2eTag = "original-remove-item";
-    });
-    // A stays-unchanged hold over one render tick, as above.
-    await settleFor(page, 1_400);
-    await expect(removeItem).toBeFocused();
-    expect(
-      await removeItem.evaluate(
-        (el) => (el as HTMLElement & { __e2eTag?: string }).__e2eTag === "original-remove-item",
-      ),
-    ).toBe(true);
-
-    await page.keyboard.press("Enter");
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
-
-    await card.focus();
-    await expect(card).toBeFocused();
-    await page.keyboard.press("ContextMenu");
-    await page.keyboard.press("ArrowDown");
-    await expect(removeItem).toBeFocused();
-    await page.keyboard.press("Space");
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
-  } finally {
-    await cleanup();
-  }
-});
-
-// review m4-reconcile cycle-3 Minor 2/3 pinned the ended card's hover/focus-within reveal of its
-// action row by computed opacity. Plan rail-card-organise REQ-6 removes the row (Stop, Resume and
-// Remove live in the right-click menu), so the same surface is now asserted to have nothing to
-// reveal: no row element and no action button at rest, under hover, and with the card focused.
-test("an ended rail card has no action row and no action button at rest, on hover or with focus (REQ-7, REQ-11, Minor 2/3, plan rail-card-organise REQ-6)", async ({
-  page,
-  request,
-}) => {
-  const [{ path: dir, cleanup }, otherDir] = await Promise.all([
-    scratchDirectory(),
-    scratchDirectory(),
-  ]);
-  try {
-    await page.goto(sharedDaemon().dashboardUrl);
-    await launchEndedSession(page, request, dir, "hover-reveal-acts-row");
-    const card = sessionCard(page, "hover-reveal-acts-row");
-    await expect(card).toBeVisible();
-    const actsRow = card.locator(".acts-row");
-    const anyAction = card.getByRole("button", { name: /^(Stop|End|Resume|Remove)/ });
-
-    // An ended card that is the current one used to show its row too, so make a different, live
-    // card current first: nothing about "current" may explain a missing row.
-    const other = await launchSession(page, sharedDaemon(), {
-      directory: otherDir.path,
-      title: "hover-reveal-other",
-    });
-    await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart(
-        "claude-hover-reveal-other",
-        await envelopeOpts(other, sharedDaemon()),
-      ),
-    });
-    await sessionCard(page, "hover-reveal-other").click();
-    await expect(currentRailCard(page)).toContainText("hover-reveal-other");
-    await page.mouse.move(0, 0);
-
-    await expect(actsRow).toHaveCount(0);
-    await expect(anyAction).toHaveCount(0);
-
-    await card.hover();
-    await expect(actsRow).toHaveCount(0);
-    await expect(anyAction).toHaveCount(0);
-
-    await page.mouse.move(0, 0);
-    await card.focus();
-    await expect(card).toBeFocused();
-    await expect(actsRow).toHaveCount(0);
-    await expect(anyAction).toHaveCount(0);
-    // The pin control is the one control the card keeps.
-    await expect(pinButton(card)).toBeVisible();
-  } finally {
-    await Promise.all([cleanup(), otherDir.cleanup()]);
   }
 });
 
@@ -462,85 +188,6 @@ test("a focused card control survives a rail re-sort triggered by a real priorit
   }
 });
 
-// Plan status-inconsistencies E5 (REQ-5, REQ-6, #60): a Stop that lists a running shell
-// leaves the state idle and shows a neutral line at the bottom of the card.
-test("a Stop with one running shell shows '1 background task' on an idle card (E5, REQ-5, REQ-6)", async ({
-  page,
-  request,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(sharedDaemon().dashboardUrl);
-    const session = await launchSession(page, sharedDaemon(), {
-      directory: dir,
-      title: "bgtasks-e5",
-    });
-    const claudeId = "claude-bgtasks-e5";
-    await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, await envelopeOpts(session, sharedDaemon())),
-    });
-    const card = sessionCard(page, "bgtasks-e5");
-    await expect(card.getByText(/^\d+ background tasks?$/)).toHaveCount(0);
-
-    await request.post(sharedDaemon().ingestURL("hook"), {
-      data: rawUserPromptSubmit(claudeId, { promptId: "p1" }),
-    });
-    await request.post(sharedDaemon().ingestURL("hook"), {
-      data: rawStop(claudeId, { promptId: "p1", backgroundTasks: [runningShellTask()] }),
-    });
-    await expect(stateBadge(card)).toHaveText(/idle/i);
-
-    const line = card.getByText(/^\d+ background tasks?$/);
-    await expect(line).toHaveText("1 background task");
-    await expect(line).toBeVisible();
-    // Not hover-revealed: the line is on the card at rest.
-    await expect(line).toHaveCSS("opacity", "1");
-    await expect(line).toHaveAttribute("title", "1 background task");
-    expect(findSession(await getState(page, sharedDaemon()), session.id).backgroundTasks).toBe(1);
-    // The state is unchanged by the count: still idle, no attention.
-    expect(findSession(await getState(page, sharedDaemon()), session.id).state).toBe("idle");
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a Stop listing two running tasks, one already finished, counts only the running ones and pluralises the line (E5, REQ-5, REQ-6)", async ({
-  page,
-  request,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(sharedDaemon().dashboardUrl);
-    const session = await launchSession(page, sharedDaemon(), {
-      directory: dir,
-      title: "bgtasks-e5-plural",
-    });
-    const claudeId = "claude-bgtasks-e5-plural";
-    await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, await envelopeOpts(session, sharedDaemon())),
-    });
-    await request.post(sharedDaemon().ingestURL("hook"), {
-      data: rawUserPromptSubmit(claudeId, { promptId: "p1" }),
-    });
-    await request.post(sharedDaemon().ingestURL("hook"), {
-      data: rawStop(claudeId, {
-        promptId: "p1",
-        backgroundTasks: [
-          runningShellTask("shell-1"),
-          runningSubagentTask("agent-1"),
-          { ...runningShellTask("shell-2"), status: "completed" },
-        ],
-      }),
-    });
-
-    const card = sessionCard(page, "bgtasks-e5-plural");
-    await expect(card.getByText(/^\d+ background tasks?$/)).toHaveText("2 background tasks");
-    expect(findSession(await getState(page, sharedDaemon()), session.id).backgroundTasks).toBe(2);
-  } finally {
-    await cleanup();
-  }
-});
-
 // E6: the task-notification turn that follows a finished background command ends with an
 // empty list.
 test("a later Stop with an empty background_tasks list removes the line (E6, REQ-5, REQ-6)", async ({
@@ -578,42 +225,6 @@ test("a later Stop with an empty background_tasks list removes the line (E6, REQ
     await expect(line).toHaveCount(0);
     await expect(stateBadge(card)).toHaveText(/idle/i);
     expect(findSession(await getState(page, sharedDaemon()), session.id).backgroundTasks).toBe(0);
-  } finally {
-    await cleanup();
-  }
-});
-
-// INV-C: the line is only for a live session.
-test("an ended card shows no background line even though its last Stop listed a running task (REQ-6, INV-C)", async ({
-  page,
-  request,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(sharedDaemon().dashboardUrl);
-    const session = await launchSession(page, sharedDaemon(), {
-      directory: dir,
-      title: "bgtasks-ended",
-    });
-    const claudeId = "claude-bgtasks-ended";
-    await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, await envelopeOpts(session, sharedDaemon())),
-    });
-    await request.post(sharedDaemon().ingestURL("hook"), {
-      data: rawUserPromptSubmit(claudeId, { promptId: "p1" }),
-    });
-    await request.post(sharedDaemon().ingestURL("hook"), {
-      data: rawStop(claudeId, { promptId: "p1", backgroundTasks: [runningShellTask()] }),
-    });
-    const card = sessionCard(page, "bgtasks-ended");
-    await expect(card.getByText(/^\d+ background tasks?$/)).toHaveText("1 background task");
-
-    const res = await page.request.post(`${sharedDaemon().baseURL}/api/sessions/${session.id}/end`);
-    expect(res.status()).toBe(200);
-    await expect(card).toHaveClass(/ended/, { timeout: 15_000 });
-
-    await expect(card.getByText(/^\d+ background tasks?$/)).toHaveCount(0);
-    await expect(card.locator(".bg-tasks")).toBeHidden();
   } finally {
     await cleanup();
   }
@@ -661,52 +272,6 @@ test("a live rail card has no End button, on hover and while current (E7, REQ-7,
     await expect(card.getByRole("button", { name: "Stop" })).toHaveCount(0);
   } finally {
     await cleanup();
-  }
-});
-
-// E8 (REQ-7, INV-D): a Tiles strip card is the same template, so it offers no End either.
-// Own daemon: entering Tiles persists the view pref, which would hide every later test's
-// rail cards on a shared one, and five sessions is what leaves one in the strip (two by two
-// grid, the pattern rail-layout.spec.ts's E5 uses).
-test("a live strip card in Tiles has no End button (E8, REQ-7, INV-D)", async ({
-  page,
-  daemon,
-}) => {
-  const dirs = await Promise.all(Array.from({ length: 5 }, () => scratchDirectory()));
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const titles = dirs.map((_, i) => `no-end-e8-${i}`);
-    for (const [i, dir] of dirs.entries()) {
-      await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" });
-    }
-    await page.getByRole("button", { name: "Tiles", exact: true }).click();
-    await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
-    await expect(liveTile(page, titles[0] ?? "")).toBeVisible();
-
-    let strippedTitle: string | undefined;
-    for (const t of titles) {
-      if ((await liveTile(page, t).count()) === 0) {
-        strippedTitle = t;
-        break;
-      }
-    }
-    if (!strippedTitle) throw new Error("expected one of the five sessions demoted to the strip");
-    const strip = stripCard(page, strippedTitle);
-    await expect(strip).toBeVisible();
-
-    await expect(strip.getByRole("button", { name: "Stop" })).toHaveCount(0);
-    await strip.hover();
-    await expect(strip.getByRole("button", { name: "Stop" })).toHaveCount(0);
-    await expect(strip.getByRole("button", { name: /^(End|Resume|Remove)$/ })).toHaveCount(0);
-    await expect(strip.locator(".acts-row button")).toHaveCount(0);
-    // The tile footer's End is unchanged: a live tile still offers it.
-    await expect(
-      liveTile(page, titles[0] ?? "")
-        .locator(".tfoot")
-        .getByRole("button", { name: "Stop" }),
-    ).toBeVisible();
-  } finally {
-    await Promise.all(dirs.map((d) => d.cleanup()));
   }
 });
 

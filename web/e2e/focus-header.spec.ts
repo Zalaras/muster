@@ -4,6 +4,17 @@
 // layout shift). Plan acceptance E1-E7; E6's live-session half and E8's rewrites live in
 // actions.spec.ts, theme.spec.ts, card-location.spec.ts and rename.spec.ts.
 //
+// The journeys: a real Stop, Resume or Enter swapping the one button in place (its node
+// identity through the transition), the disabled button across a WebSocket drop, a rename and
+// a Claude move lengthening the row, the surface switch's focus across a hook re-render, and
+// Tiles and back. What the header shows for a given state — the E3 give-way sweeps over the
+// state-table rows, the 35-character folder's whole line, the stacked band at 640 px, the INV-6
+// sweeps comparing the header alive with the same session ended, the cluster's order at three
+// widths and the unbound dead session's disabled Resume (E3, E5, REQ-1 to REQ-4) — moved to the
+// render tier on 2026-10-20: web/render/focus.spec.ts against the `focus-header-rows-*` and
+// `unbound-sessions` fixtures (plans/_audit/relevel/focus.md). The one E3 row left here has the
+// `shell` segment selected, which spawns a shell over the API.
+//
 // Fixture plan: `daemon` (fresh per test) in every test, as the plan's header says — each
 // launches the only session and relies on auto-focus, and the file passes `repoPoll: "200ms"`
 // through `test.use` so a checkout and a Claude move show inside the 15 s expect timeout.
@@ -14,16 +25,7 @@
 // in the scratch repo. Every shape is a builder from helpers/payloads.ts.
 //
 // The invariants are asserted by sweeps in 16 px steps, never at chosen widths
-// (kb:lesson/layout-invariant-needs-its-width-range). The plan's state table is
-// title {9, 52, 300} x folder {6, 35, 60} x branch {4, 80} x {unmoved, moved} x {alive, dead}
-// (108 cells); the sweeps below cover every value of every factor at least once, plus the
-// plan's Chromium baseline row, and skip the rest. Skipped by construction: moved x dead (a
-// dead session's `claudeLocation` is null, kb:spec/card-location). Skipped by choice: the
-// other cross-product cells; each factor value is carried by at least two of the sweeps.
-//
-// Authored before any of this is built: every test here asserts new behaviour and is
-// collection-only at authoring, except the E3 baseline row, which is run red on purpose
-// against the pre-fix tree and whose failure is the plan's required evidence.
+// (kb:lesson/layout-invariant-needs-its-width-range).
 import {
   addClaudeWorktree,
   git,
@@ -43,7 +45,6 @@ import {
   focusedNode,
   headerButton,
   headerInvariantProblems,
-  type HeaderSnapshot,
   headerStopResume,
   onTwoRows,
   rectOf,
@@ -51,9 +52,7 @@ import {
   sameBox,
   settleLayout,
   settledSnapshot,
-  stackedBandProblems,
   sweepHeader,
-  sweepWidths,
   tagNode,
 } from "./helpers/focus-header";
 import {
@@ -93,14 +92,11 @@ function exactly(text: string, n: number): string {
 }
 
 const TITLE_9 = "Game Play";
-const TITLE_29 = exactly("approve weekend shift swaps ", 29);
 const TITLE_52 = exactly("rework shift-swap approval for the weekend rostering ", 52);
-const TITLE_300 = exactly("a title that is far longer than any header can show ", 300);
 const FOLDER_6 = "abc123";
 const FOLDER_35 = "economic-game-theory-simulation-lab";
 const FOLDER_60 = "long-folder-name-for-wrapping-".repeat(2);
 const BRANCH_4 = "main";
-const BRANCH_80 = exactly("long-branch-name-for-wrapping-", 80);
 
 interface Row {
   label: string;
@@ -118,100 +114,10 @@ interface Row {
   fullModel?: boolean;
 }
 
-// The covering subset. Row 1 is the plan's Chromium baseline (35-character folder, `main`,
-// `Game Play`, grouped `Game`, alive and unmoved), the row that fails against the pre-fix build.
+// The one state-table row swept here: the `shell` segment selected while the header wraps
+// (edge case 14). Selecting it spawns a shell over the API, which the render tier cannot do;
+// the other rows are swept in web/render/focus.spec.ts.
 const ROWS: Row[] = [
-  {
-    label: "baseline: title 9, folder 35, branch 4, unmoved, alive, grouped",
-    title: TITLE_9,
-    folder: FOLDER_35,
-    branch: BRANCH_4,
-    grouped: true,
-    moved: false,
-    dead: false,
-  },
-  {
-    label: "title 9, folder 35, branch 4, moved, alive, grouped",
-    title: TITLE_9,
-    folder: FOLDER_35,
-    branch: BRANCH_4,
-    grouped: true,
-    moved: true,
-    dead: false,
-  },
-  {
-    label: "title 52, folder 35, branch 4, unmoved, alive, grouped",
-    title: TITLE_52,
-    folder: FOLDER_35,
-    branch: BRANCH_4,
-    grouped: true,
-    moved: false,
-    dead: false,
-  },
-  {
-    label: "title 300, folder 60, branch 80, moved, alive, grouped",
-    title: TITLE_300,
-    folder: FOLDER_60,
-    branch: BRANCH_80,
-    grouped: true,
-    moved: true,
-    dead: false,
-  },
-  {
-    label: "title 9, folder 6, branch 4, unmoved, alive, ungrouped",
-    title: TITLE_9,
-    folder: FOLDER_6,
-    branch: BRANCH_4,
-    grouped: false,
-    moved: false,
-    dead: false,
-  },
-  {
-    label: "title 52, folder 60, branch 80, unmoved, dead, grouped",
-    title: TITLE_52,
-    folder: FOLDER_60,
-    branch: BRANCH_80,
-    grouped: true,
-    moved: false,
-    dead: true,
-  },
-  {
-    label: "title 9, folder 6, branch 80, unmoved, dead, ungrouped",
-    title: TITLE_9,
-    folder: FOLDER_6,
-    branch: BRANCH_80,
-    grouped: false,
-    moved: false,
-    dead: true,
-  },
-  {
-    label: "title 300, folder 35, branch 4, unmoved, dead, grouped",
-    title: TITLE_300,
-    folder: FOLDER_35,
-    branch: BRANCH_4,
-    grouped: true,
-    moved: false,
-    dead: true,
-  },
-  {
-    label: "title 300, folder 6, branch 80, unmoved, alive, ungrouped",
-    title: TITLE_300,
-    folder: FOLDER_6,
-    branch: BRANCH_80,
-    grouped: false,
-    moved: false,
-    dead: false,
-  },
-  {
-    label: "title 52, folder 35, branch 80, moved, alive, grouped, bypass chip",
-    title: TITLE_52,
-    folder: FOLDER_35,
-    branch: BRANCH_80,
-    grouped: true,
-    moved: true,
-    dead: false,
-    bypass: true,
-  },
   {
     label: "title 52, folder 60, branch 4, moved, alive, ungrouped, shell segment selected",
     title: TITLE_52,
@@ -221,15 +127,6 @@ const ROWS: Row[] = [
     moved: true,
     dead: false,
     shell: true,
-  },
-  {
-    label: "title 9, folder 60, branch 4, moved, alive, grouped",
-    title: TITLE_9,
-    folder: FOLDER_60,
-    branch: BRANCH_4,
-    grouped: true,
-    moved: true,
-    dead: false,
   },
 ];
 
@@ -344,76 +241,6 @@ for (const row of ROWS) {
     }
   });
 }
-
-// The plan's pre-fix anchor (E3's "at least one row fails against the pre-fix build"): the
-// 35-character folder at a 1700 px header shows its whole line, not the 30ch cap, with the
-// width of the line's own text as the oracle. Both sides are re-read inside the poll.
-test("a 35-character folder at a 1700px header shows its whole folder line on one row (E3, REQ-1)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const repo = await scratchRepo(FOLDER_35);
-  try {
-    await page.setViewportSize({ width: 2000, height: 800 });
-    await launchBound(page, request, daemon, repo, TITLE_9, "claude-fh-whole");
-    await expect(page.locator("#mainhead .meta .loc .repo .rf")).toHaveText(`${repo.name} /`);
-    await expect
-      .poll(async () => {
-        const s = await readHeaderSnapshot(page);
-        const folder = s?.lines.find((l) => l.block === "repo" && l.kind === ".rf");
-        if (!s || !folder) return "no folder line";
-        const shown = folder.box.right - folder.box.left;
-        return {
-          oneRow: !onTwoRows(s),
-          wholeLine: shown >= folder.natural - 1,
-          widerThanTheOldCap: folder.natural > 210,
-        };
-      })
-      .toEqual({ oneRow: true, wholeLine: true, widerThanTheOldCap: true });
-  } finally {
-    await repo.cleanup();
-  }
-});
-
-// Fix wave of validate attempt 1: where the row cannot hold the title floor, the readout floor
-// and the model, the model stacks under the readout (the title and readout stay side by side,
-// REQ-2 and INV-4). The sweeps' INV-1 and INV-2 would also catch an overlap or a clipped
-// model there, but only this test proves the band is reached and that the model is under the
-// readout, whole and inside the viewport, rather than assuming it.
-test("at 640px a 300-character title keeps the readout beside it at its floor and the model stacks under the readout, whole and inside the viewport (REQ-2, REQ-3, INV-2, INV-4)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const repo = await scratchRepo(FOLDER_35);
-  try {
-    const row: Row = {
-      label: "stacked band: title 300, folder 35, branch 4, unmoved, alive, ungrouped",
-      title: TITLE_300,
-      folder: FOLDER_35,
-      branch: BRANCH_4,
-      grouped: false,
-      moved: false,
-      dead: false,
-    };
-    await openRow(page, request, daemon, repo, row, "claude-fh-stacked");
-    await page.setViewportSize({ width: 640, height: 800 });
-    await settleLayout(page);
-    await expect
-      .poll(
-        async () => {
-          const s = await readHeaderSnapshot(page);
-          if (!s) return ["a header part is missing"];
-          return [...stackedBandProblems(s), ...(await headerInvariantProblems(page))];
-        },
-        { message: "the Focus header at 640px with a 300-character title" },
-      )
-      .toEqual([]);
-  } finally {
-    await repo.cleanup();
-  }
-});
 
 // ---------------------------------------------------------------------------------------
 // E1, E2 — the one button swaps in place
@@ -550,120 +377,16 @@ test("the header's Resume keeps focus and node identity when a real Enter resume
 });
 
 // ---------------------------------------------------------------------------------------
-// INV-6 at every width — Stop and Resume move nothing (review cycle 1, browser Major 1)
+// INV-6 across a real Stop and Resume at the narrow widths (review cycle 1, browser Major 1)
 //
-// E1 and E2 above prove it at 1600 px, where the header is one row and the ended clause has
-// room, so they could not fail for the shift the review measured below 784 px (the ended
-// clause took a row of its own and pushed the cluster down 13 px), nor for the shifts web-impl
-// found at 1112-1184, 1248-1320 and 1416-1488 px (the clause beside the model made the title
-// row too wide for the cluster to stay on row one, so Stop dropped it). Each sweep below
-// measures the header alive at every 16 px width from 2000 to 600, stops the session with a
-// real click and confirm, and compares Remove, the Stop/Resume button, the surface switch and
-// the header's own box at every one of the same widths. The ended age must show under the model
-// at each of them. The comparison is state against state at one width, so the alive side is
-// recorded and the dead side is re-read inside the retry.
+// E1 and E2 above prove the swap at 1600 px, where the header is one row and the ended clause
+// has room, so they could not fail for the shift the review measured below 784 px (the ended
+// clause took a row of its own and pushed the cluster down 13 px). The 16 px sweeps comparing
+// the header alive with the same session ended at every width are render tests now
+// (web/render/focus.spec.ts); the clicks below keep the transition itself under test at the
+// widths the review measured, tagging the node so the element that read Stop is the one that
+// reads Resume.
 // ---------------------------------------------------------------------------------------
-
-const SWAP_ROWS: Row[] = [
-  {
-    label: "title 9, folder 35, branch 4, unmoved, grouped",
-    title: TITLE_9,
-    folder: FOLDER_35,
-    branch: BRANCH_4,
-    grouped: true,
-    moved: false,
-    dead: false,
-  },
-  {
-    label: "title 29, folder 35, branch 4, unmoved, grouped",
-    title: TITLE_29,
-    folder: FOLDER_35,
-    branch: BRANCH_4,
-    grouped: true,
-    moved: false,
-    dead: false,
-  },
-  {
-    label: "title 52, folder 35, branch 4, unmoved, grouped",
-    title: TITLE_52,
-    folder: FOLDER_35,
-    branch: BRANCH_4,
-    grouped: true,
-    moved: false,
-    dead: false,
-  },
-  {
-    label: "title 52, folder 35, branch 80, moved, grouped, bypass chip, full model id",
-    title: TITLE_52,
-    folder: FOLDER_35,
-    branch: BRANCH_80,
-    grouped: true,
-    moved: true,
-    dead: false,
-    bypass: true,
-    fullModel: true,
-  },
-  {
-    label: "title 300, folder 35, branch 4, unmoved, ungrouped, full model id",
-    title: TITLE_300,
-    folder: FOLDER_35,
-    branch: BRANCH_4,
-    grouped: false,
-    moved: false,
-    dead: false,
-  },
-];
-
-for (const row of SWAP_ROWS) {
-  test(`sweeping the window from 2000px to 600px in 16px steps, a Stop leaves Remove, the Stop/Resume button, the surface switch and the header where they were and shows the ended age under the model at every width: ${row.label} (E1, REQ-5, REQ-6, INV-6)`, async ({
-    page,
-    request,
-    daemon,
-  }) => {
-    const repo = await scratchRepo(row.folder);
-    try {
-      const session = await openRow(page, request, daemon, repo, row, "claude-fh-swap-sweep");
-      const widths = sweepWidths();
-      const alive = new Map<number, HeaderSnapshot>();
-      for (const w of widths) {
-        const s = await settledSnapshot(page, w);
-        expect(s.stopResumeLabels, `alive at ${w}px: exactly one Stop/Resume button`).toEqual([
-          "Stop",
-        ]);
-        expect(await endedAgeAbsentProblems(page), `alive at ${w}px`).toEqual([]);
-        alive.set(w, s);
-      }
-
-      await page.setViewportSize({ width: 1280, height: 800 });
-      await headerButton(page, "Stop").click();
-      await confirmStop(page);
-      await expect(headerButton(page, "Resume")).toBeEnabled();
-      expect(findSession(await getState(page, daemon), session.id).alive).toBe(false);
-
-      for (const w of widths) {
-        const before = alive.get(w);
-        if (!before) throw new Error(`no alive reading at ${w}px`);
-        await expect
-          .poll(
-            async () => {
-              const s = await settledSnapshot(page, w);
-              return [
-                ...(s.stopResumeLabels.join() === "Resume"
-                  ? []
-                  : [`INV-7: the Stop/Resume labels read ${JSON.stringify(s.stopResumeLabels)}`]),
-                ...clusterShiftProblems(before, s),
-                ...(await endedAgeProblems(page)),
-              ];
-            },
-            { message: `${row.label}: the header after a Stop, at ${w}px` },
-          )
-          .toEqual([]);
-      }
-    } finally {
-      await repo.cleanup();
-    }
-  });
-}
 
 const SWAP_CLICKS: { title: string; label: string; viewport: number }[] = [
   { title: TITLE_9, label: "title 9", viewport: 784 },
@@ -778,33 +501,9 @@ test("at 600px a real Enter on the header's Resume swaps the label to Stop with 
 });
 
 // ---------------------------------------------------------------------------------------
-// E5, E6 — the disabled states
+// E6 — the disabled state across a WebSocket drop (E5, the unbound dead session's disabled
+// Resume, is a render test)
 // ---------------------------------------------------------------------------------------
-
-test("a dead session with no bound Claude id shows exactly one header button reading Resume, disabled, with the existing reason as its hover title (E5, REQ-5, INV-7)", async ({
-  page,
-  daemon,
-}) => {
-  const repo = await scratchRepo();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: repo.path, title: "no-id" });
-    // Kill the window before any hook arrives: the Claude id is never bound.
-    await daemon.killTmuxWindow(session.tmuxTarget);
-    await page.reload();
-    await railCardByTitle(page, "no-id").click();
-
-    const button = headerStopResume(page);
-    await expect(button).toHaveCount(1);
-    await expect(button).toHaveText("Resume");
-    await expect(button).toBeDisabled();
-    await expect(button).toHaveAttribute("title", NO_CLAUDE_ID_REASON);
-    await expect(headerButton(page, "Stop")).toHaveCount(0);
-    expect(findSession(await getState(page, daemon), session.id).claudeSessionId).toBeNull();
-  } finally {
-    await repo.cleanup();
-  }
-});
 
 // The WebSocket is closed from outside (not by killing the daemon, whose restart sweeps a
 // dead row away) and reconnects on the client's own backoff. Resume is enabled iff connected
@@ -855,49 +554,9 @@ test("with the WebSocket closed the header's one button is disabled under its la
 });
 
 // ---------------------------------------------------------------------------------------
-// REQ-4, E4 — the right-aligned cluster
+// E4 — the right-aligned cluster stays put as the title and the readout lengthen (REQ-4's
+// order and edge at three widths is a render test)
 // ---------------------------------------------------------------------------------------
-
-for (const viewport of [2000, 1200, 800]) {
-  test(`at ${viewport}px the surface switch is inside the actions, immediately before Stop and Remove, with Remove at the header's right edge (REQ-4, INV-5)`, async ({
-    page,
-    request,
-    daemon,
-  }) => {
-    const repo = await scratchRepo();
-    try {
-      await page.setViewportSize({ width: viewport, height: 800 });
-      await launchBound(page, request, daemon, repo, "cluster", "claude-fh-cluster");
-      await expect(page.locator("#mainhead .acts .surfseg")).toHaveCount(1);
-      for (const kind of ["claude", "shell", "docs"] as const) {
-        await expect(
-          page.locator("#mainhead .acts").getByRole("button", { name: kind, exact: true }),
-        ).toBeVisible();
-      }
-      await settleLayout(page);
-      await expect
-        .poll(async () => {
-          const s = await readHeaderSnapshot(page);
-          if (!s?.surf || !s.stopResume || !s.remove) return "cluster part missing";
-          const gap = s.stopResume.left - s.surf.right;
-          return {
-            switchBeforeStop: gap >= -0.5 && gap <= 16,
-            stopBeforeRemove: s.stopResume.right <= s.remove.left + 0.5,
-            sameRow: Math.abs(s.surf.top - s.remove.top) <= s.remove.bottom - s.remove.top,
-            removeAtContentEdge: Math.abs(s.remove.right - s.contentRight) <= 1,
-          };
-        })
-        .toEqual({
-          switchBeforeStop: true,
-          stopBeforeRemove: true,
-          sameRow: true,
-          removeAtContentEdge: true,
-        });
-    } finally {
-      await repo.cleanup();
-    }
-  });
-}
 
 interface Cluster {
   surf: Box;

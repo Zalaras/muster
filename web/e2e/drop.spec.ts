@@ -1,15 +1,9 @@
 import { join } from "node:path";
 import { expect, test } from "./helpers/fixtures";
-import {
-  MAX_DROP_BYTES,
-  expectedEscapedPath,
-  uniqueContent,
-  writeFixtureFile,
-} from "./helpers/dropfiles";
-import { getState, launchSession, scratchDirectory } from "./helpers/session";
+import { expectedEscapedPath, uniqueContent, writeFixtureFile } from "./helpers/dropfiles";
+import { launchSession, scratchDirectory } from "./helpers/session";
 import {
   activeElementInsideTerminal,
-  dragoverThenDropFiles,
   dropFiles,
   dropNotice,
   dropText,
@@ -17,10 +11,13 @@ import {
   terminalRegion,
 } from "./helpers/terminal";
 
-// Plan file-drop-fix — REQ-1 (foreign-drag swallow), REQ-2/REQ-11 (locate→paste→focus),
-// REQ-4 (Terminal.app-style escaping), REQ-6 (in-flight/outcome notices), REQ-7 (size
-// cap), REQ-8 (dead/disconnected surfaces), REQ-10 (text drop).
-// Plan acceptance: E1-E9, E11. E10 (INV-3, "the existing rail/tile reorder specs keep
+// Plan file-drop-fix — REQ-2/REQ-11 (locate→paste→focus), REQ-4 (Terminal.app-style
+// escaping), REQ-6 (in-flight/outcome notices), REQ-8 (disconnected surfaces), REQ-10
+// (text drop). The client-side guards that fire before any request — the document-level
+// foreign-drag swallow (REQ-1, E5), the size cap (REQ-7, E7) and a dead surface swallowing
+// a drop (REQ-8, E9) — are render tests in web/render/drop.spec.ts (re-levelled
+// 2026-10-20, plans/_audit/relevel/misc-core.md).
+// Plan acceptance: E1-E4, E6, E8, E11. E10 (INV-3, "the existing rail/tile reorder specs keep
 // passing with the guard installed") is deliberately NOT re-authored here — it is already
 // covered by rail-order.spec.ts and the move-tiles reorder tests in views.spec.ts, which
 // this plan's Affected Files section names as the regression pin; re-running those files
@@ -223,30 +220,6 @@ test("shows a transient 'Locating …' notice while the locate request is in fli
   }
 });
 
-test("dropping a file on the masthead never navigates away and leaves the rail visible (E5, REQ-1)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "drop-e5" });
-    await expect(terminalRegion(page, "drop-e5")).toBeVisible();
-
-    const urlBefore = page.url();
-    // dragover THEN drop (not a bare dispatched drop) — Implementation Notes: this is the
-    // one case that must exercise the document-level guard's real `dragover` listener,
-    // since a plain `drop`-only dispatch would never prove the guard claims the gesture
-    // before any browser-native navigation attempt would.
-    await dragoverThenDropFiles(page.locator("#mainhead"), [{ name: "anything.png", size: 16 }]);
-
-    expect(page.url()).toBe(urlBefore);
-    await expect(page.locator("#sessions")).toBeVisible();
-  } finally {
-    await cleanup();
-  }
-});
-
 test("dropping text/plain with no files pastes the text verbatim (E6, REQ-10)", async ({
   page,
   daemon,
@@ -263,38 +236,6 @@ test("dropping text/plain with no files pastes the text verbatim (E6, REQ-10)", 
     // REQ-10: no escaping is applied to a text drop — a file drop of the same string
     // would never reach the pty verbatim like this (spaces would gain backslashes).
     await expect(region).toContainText("stub-echo:hello there", { timeout: 15_000 });
-  } finally {
-    await cleanup();
-  }
-});
-
-test("a file over 50 MiB shows the too-large notice and issues no locate request (E7)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "drop-e7" });
-    const region = terminalRegion(page, "drop-e7");
-    await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
-
-    let locateRequests = 0;
-    page.on("request", (req) => {
-      if (req.url().includes(`/api/sessions/${session.id}/locate`)) locateRequests += 1;
-    });
-
-    // Size-only fixture (no `bytes`) — REQ-7 is a client-side size check before any
-    // upload, so the actual content is irrelevant and never needs to cross the CDP wire.
-    await dropFiles(region, [{ name: "huge.bin", size: MAX_DROP_BYTES + 1 }]);
-
-    await expect(dropNotice(region)).toHaveText(
-      "huge.bin is over 50 MiB — paste its path instead",
-      {
-        timeout: 15_000,
-      },
-    );
-    expect(locateRequests).toBe(0);
   } finally {
     await cleanup();
   }
@@ -335,82 +276,6 @@ test("in Tiles, a drop on one live tile pastes only into that tile, leaving the 
     expect(await regionA.textContent()).toBe(beforeA);
   } finally {
     await Promise.all([dirA.cleanup(), dirB.cleanup()]);
-  }
-});
-
-test("a drop on a dead session's surface is swallowed silently — no notice, no request, no navigation (E9, REQ-8)", async ({
-  page,
-  daemon,
-}) => {
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "drop-e9" });
-    const region = terminalRegion(page, "drop-e9");
-    await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
-
-    // Wait for at least one pane snapshot to be captured while still alive (same trap as
-    // terminal.spec.ts's dead-surface test: killing before the first liveness-poll tick
-    // can otherwise race an empty snapshot).
-    await expect
-      .poll(
-        async () =>
-          (await page.request.get(`${daemon.baseURL}/api/sessions/${session.id}/pane`)).status(),
-        {
-          timeout: 15_000,
-        },
-      )
-      .toBe(200);
-
-    await daemon.killTmuxWindow(session.tmuxTarget);
-    await expect
-      .poll(async () => {
-        const state = await getState(page, daemon);
-        return state.sessions.find((s) => s.id === session.id)?.alive;
-      })
-      .toBe(false);
-
-    await page.reload();
-    const deadSurface = page.locator("#dead-surface");
-    await expect(deadSurface).toBeVisible({ timeout: 15_000 });
-
-    let locateRequests = 0;
-    page.on("request", (req) => {
-      if (req.url().includes("/locate")) locateRequests += 1;
-    });
-    const urlBefore = page.url();
-
-    await dragoverThenDropFiles(deadSurface, [{ name: "anything.png", size: 16 }]);
-
-    expect(page.url()).toBe(urlBefore);
-    // REQ-8: "nothing to paste into, by design" — the drop must leave no visible trace
-    // anywhere on the page, not just inside `#dead-surface`.
-    //
-    // review cycle 1, Major 3: the previous clause here, `deadSurface.locator(
-    // ".terminal-notice")` having count 0, is unfalsifiable — `.terminal-notice` is only
-    // ever created inside `TerminalSurface`'s constructor (web/src/terminal/pane.ts),
-    // which never runs for `#dead-surface`'s static markup regardless of what the
-    // implementation does, so that count is 0 by construction whether or not REQ-8 is
-    // actually honoured. What CAN fail is checking page-wide for the concrete symptom a
-    // real leak would produce: if the drop escaped the dead surface (bubbled to a
-    // differently-scoped listener, or raced a stale live `TerminalSurface` instance that
-    // hadn't unmounted yet), the dropped filename or one of the notice-outcome phrases
-    // would show up SOMEWHERE on the page — in a real `.terminal-notice` on another
-    // session's surface, or any other status text.
-    await expect(page.getByText("anything.png")).toHaveCount(0);
-    const statusTexts = await page.getByRole("status").allInnerTexts();
-    for (const text of statusTexts) {
-      // Deliberately does not match the dead surface's own unrelated, pre-existing
-      // "session ended" label (web/index.html, plan m4-reconcile) — only the phrases
-      // file-drop-fix's own notices actually use (REQ-6's exact strings elsewhere in
-      // this file), so a real leak of any of them is what fails this loop.
-      expect(text).not.toMatch(
-        /locating|can't locate|matches \d+ identical|over 50 mib|isn't connected/i,
-      );
-    }
-    expect(locateRequests).toBe(0);
-  } finally {
-    await cleanup();
   }
 });
 

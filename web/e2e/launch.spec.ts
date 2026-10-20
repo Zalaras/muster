@@ -22,7 +22,6 @@ import {
   browseScratchDirectory,
   getState,
   launchSession,
-  scratchDirectory,
   sessionCard,
   waitForNextClockSecond,
 } from "./helpers/session";
@@ -31,8 +30,15 @@ const execFileAsync = promisify(execFile);
 
 // The launch dialog is a Finder-style picker (recents sidebar + clickable breadcrumb +
 // one child listing where the listed directory *is* the selection) with segmented
-// Model/Start-in controls. The legacy Browse…/Up/Use-this-folder controls no longer exist;
-// the first test asserts their absence.
+// Model/Start-in controls. The legacy Browse…/Up/Use-this-folder controls no longer exist.
+//
+// The dialog's static properties — the Testable UI Elements and the absence of the legacy
+// controls, Escape/Cancel and the chord while open, a recent's title attribute, the
+// no-signal note on a known directory's card — are render tests in web/render/launch.spec.ts
+// since 2026-10-20 (plans/_audit/relevel/launch-update.md): what the form's own controls
+// show needs no daemon to falsify. What stays here is every journey through the browse pane
+// (each crumb, listing and Launch-in readout is a `GET /api/browse` answer), every launch,
+// and the REQ-13 failures against the real daemon.
 //
 // Every test takes the per-test `daemon` fixture (helpers/fixtures.ts): the recents list
 // is daemon-global, and the dialog opens straight onto the most recent recent (REQ-8) —
@@ -40,29 +46,16 @@ const execFileAsync = promisify(execFile);
 // neighbour test's launch on a shared daemon would break. Order/count/pressed-state
 // assertions on the sidebar need the same isolation.
 
-test("opens on the browse root with an empty sidebar when there are no recents, exposing every Testable UI Element and none of the removed legacy browse controls (REQ-2, REQ-9, REQ-10, REQ-11, REQ-16, E2)", async ({
+// The crumb half of the former "opens on the browse root with an empty sidebar when there
+// are no recents, exposing every Testable UI Element…" test; its static half is the render
+// test of the same scope.
+test("opens on the browse root with an empty sidebar when there are no recents (REQ-16, E2, INV-1)", async ({
   page,
   daemon,
 }) => {
   await page.goto(daemon.dashboardUrl);
   const dialog = await openLaunchDialog(page);
   await expect(dialog).toBeVisible();
-
-  // REQ-2: no Browse… button, no unfold panel, no Up button, no Use this folder
-  // button, no raw path field survives the rebuild. Exact names: every ancestor crumb is
-  // a button, and a scratch dir name containing "up" would match a substring.
-  await expect(dialog.getByRole("button", { name: "Browse…", exact: true })).toHaveCount(0);
-  await expect(dialog.getByRole("button", { name: "Up", exact: true })).toHaveCount(0);
-  await expect(dialog.getByRole("button", { name: "Use this folder", exact: true })).toHaveCount(0);
-  for (const removedId of [
-    "#browse-button",
-    "#browse-panel",
-    "#browse-up",
-    "#use-this-folder",
-    "#selected-directory",
-  ]) {
-    await expect(dialog.locator(removedId)).toHaveCount(0);
-  }
 
   // REQ-16: no recents -> sidebar empty state, no recent buttons at all.
   await expect(recentsSidebar(dialog).getByText("No recent directories")).toBeVisible();
@@ -76,24 +69,6 @@ test("opens on the browse root with an empty sidebar when there are no recents, 
   // INV-1 (review cycle 1 Major 5): the composed ancestor chain, not just the crumb
   // bar's basename, must equal the readout — here, opened with no recents, at root.
   expect(await composedCrumbPath(dialog)).toBe(daemon.browseRoot);
-
-  // Testable UI Elements: Title, Model group (5 options incl. fable), Start in group.
-  await expect(dialog.getByLabel("Title")).toBeVisible();
-  for (const model of ["sonnet", "opus", "haiku", "fable", "other…"]) {
-    await expect(dialog.getByRole("radio", { name: model })).toBeVisible();
-  }
-  await expect(dialog.getByLabel("Custom model")).not.toBeVisible();
-  await dialog.getByRole("radio", { name: "other…" }).check();
-  await expect(dialog.getByLabel("Custom model")).toBeVisible();
-
-  // REQ-1: renamed to Claude Code's own vocabulary, plus the new `auto` fourth radio,
-  // in Shift+Tab cycle order.
-  for (const mode of ["manual", "accept edits", "plan", "auto"]) {
-    await expect(dialog.getByRole("radio", { name: mode })).toBeVisible();
-  }
-
-  await expect(dialog.getByRole("button", { name: "Launch" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Cancel" })).toBeVisible();
 
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeHidden();
@@ -795,83 +770,6 @@ test("the child listing shows No subdirectories for an empty directory (REQ-16)"
     const dialog = await openLaunchDialog(page);
     await childEntry(dialog, basename(dir.path)).click();
     await expect(dialog.locator("#browse-dirs").getByText("No subdirectories")).toBeVisible();
-  } finally {
-    await dir.cleanup();
-  }
-});
-
-test("Escape and Cancel close the dialog; Opt+Cmd+N while already open does not reset the form (REQ-14, E15)", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(daemon.dashboardUrl);
-
-  let dialog = await openLaunchDialog(page);
-  await dialog.getByLabel("Title").fill("should-not-persist");
-  await dialog.getByRole("button", { name: "Cancel" }).click();
-  await expect(dialog).toBeHidden();
-
-  dialog = await openLaunchDialog(page);
-  await expect(dialog.getByLabel("Title")).toHaveValue(""); // fresh reset on reopen
-  await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
-
-  dialog = await openLaunchDialog(page);
-  await dialog.getByLabel("Title").fill("still-here");
-  await page.keyboard.press("Alt+Meta+KeyN");
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByLabel("Title")).toHaveValue("still-here");
-});
-
-// review cycle 1 Major 4: this regression test (card rendering, not the picker's
-// internals) was dropped by the rewrite and existed nowhere in web/e2e/ — restored
-// verbatim from 84551d5's launch.spec.ts (pre-rebuild), adapted only to this file's
-// per-test `daemon` fixture and `scratchDirectory` helper. REQ-14 promises every existing
-// launch behaviour outside the dialog's internals is unchanged; this is the one E2E
-// proof that a card for a known directory still reaches the "no signal yet" state.
-test("a card for a known (non-first-launch) directory still shows the no-signal note after ~10s (REQ-14 regression)", async ({
-  page,
-  daemon,
-}) => {
-  const dir = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-
-    // First launch seeds the repo row so the SECOND launch below has firstLaunchHere:false.
-    const seed = await launchSession(page, daemon, {
-      directory: dir.path,
-      title: "no-signal-seed",
-    });
-    expect(seed.firstLaunchHere).toBe(true);
-
-    const second = await launchSession(page, daemon, {
-      directory: dir.path,
-      title: "no-signal-second",
-    });
-    expect(second.firstLaunchHere).toBe(false);
-    expect(second.claudeSessionId).toBeNull();
-
-    const state = await getState(page, daemon);
-    const found = state.sessions.find((s) => s.id === second.id);
-    expect(found?.firstLaunchHere).toBe(false);
-
-    await page.goto(daemon.dashboardUrl);
-    const card = sessionCard(page, "no-signal-second");
-    await expect(card).toBeVisible();
-    await expect(card.getByText(/no signal yet/i)).toBeVisible({ timeout: 15_000 });
-  } finally {
-    await dir.cleanup();
-  }
-});
-
-test("a recent's title attribute is its full absolute path (REQ-18)", async ({ page, daemon }) => {
-  const dir = await browseScratchDirectory(daemon);
-  try {
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir.path, title: "title-attr-seed" });
-
-    const dialog = await openLaunchDialog(page);
-    await expect(recentButton(dialog, basename(dir.path))).toHaveAttribute("title", dir.path);
   } finally {
     await dir.cleanup();
   }

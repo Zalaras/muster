@@ -267,6 +267,17 @@ entry below is about how long one run takes, and stays open.
     format error passed every wave gate and was caught only by hand (`bbad9cf`). Add `web-lint`
     to the wave-2 case so no plan can forget it. From `plans/terminal-fixes-cleanup/`.
 
+#### Test levels
+
+- [ ] **Rule on the E2E re-levelling's borderline tests** — the 2026-10-20 re-levelling left
+  about 34 tests in E2E that could arguably be render tests. It also deleted two "with the
+  daemon down" E2E tests after porting them to the render tier. Rule on each of the seven
+  shapes in `plans/_audit/test-audit-2026-10-20-relevel.md` § Borderline. The per-batch
+  sections under `plans/_audit/relevel/` give both readings of every test. Expected: each
+  shape is either moved, kept as a journey with the reason recorded, or unblocked by the
+  harness capability it names. The two deleted tests are restored from 2018bab6 if the ruling
+  is that the connection-level failure is the claim. From `plans/_audit/`.
+
 #### What code comments cite
 
 - [ ] **Code cites external docs** — Go and TS comments (and test names) carry `kb:` citations

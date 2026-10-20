@@ -20,6 +20,7 @@ var renderfixTimeKeys = map[string]bool{
 	"resetsAt":       true,
 	"modelScopedAt":  true,
 	"lastLaunchedAt": true,
+	"writtenAt":      true,
 }
 
 // normaliseRenderFixture rewrites the parts of a recorded fixture that would differ
@@ -27,14 +28,14 @@ var renderfixTimeKeys = map[string]bool{
 // matches it byte for byte. The rules, applied to the decoded JSON tree by field name:
 //
 //   - Every string under a timestamp key (stateSince, endedAt, createdAt, since,
-//     expiresAt, sampledAt, modelScopedAt, resetsAt, lastLaunchedAt) that parses as
+//     expiresAt, sampledAt, modelScopedAt, resetsAt, lastLaunchedAt, writtenAt) that parses as
 //     RFC3339 becomes 2026-01-01T00:00:00Z plus one minute per distinct original value,
 //     numbered in first-seen order — snapshot.sessions sorted by id first, then the
 //     rest of the tree with object keys in sorted order — so equal instants stay equal
 //     and the order of events is still readable.
 //   - Every string that starts with the run's temp root has that prefix replaced by
 //     /home/bob/projects (directory, claudeLocation.directory, addedDirs[].directory,
-//     plan.path, repos[].path).
+//     plan.path, repos[].path, reader[].listing.directory, reader[].files[].path).
 //   - hello.daemon.version becomes 0.0.0-renderfix; hello.claudeCode.floor becomes
 //     2.1.246 and hello.claudeCode.verified 2.1.300, since the real range moves with
 //     every canary run.
@@ -55,6 +56,7 @@ func normaliseRenderFixture(f RenderFixture, tempRoot string) RenderFixture {
 	}
 	f.Hello = n.walk(f.Hello, "")
 	f.Repos = n.walk(f.Repos, "")
+	f.Reader = n.walk(f.Reader, "")
 	if hello, ok := f.Hello.(map[string]any); ok {
 		setRenderString(hello, "daemon", "version", "0.0.0-renderfix")
 		setRenderString(hello, "claudeCode", "floor", "2.1.246")
