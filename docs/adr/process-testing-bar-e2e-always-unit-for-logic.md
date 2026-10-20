@@ -1,7 +1,7 @@
 ---
 id: process-testing-bar-e2e-always-unit-for-logic
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-16
 summary: The testing bar is functional E2E always against a real daemon in a scratch repo, with unit tests for specific logic; neither alone is enough.
 features: []

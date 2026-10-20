@@ -17,6 +17,8 @@
     "e2e": "sh scripts/e2e-lint.sh && playwright test",
     "e2e:lint": "sh scripts/e2e-lint.sh",
     "e2e:fixture-leak-check": "node scripts/e2e-fixture-leak-check.mjs",
+    "render-test": "sh scripts/render-lint.sh && playwright test -c playwright.render.config.ts",
+    "render:lint": "sh scripts/render-lint.sh",
     "contrast": "node scripts/contrast.mjs"
   },
   "dependencies": {

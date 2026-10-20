@@ -2,6 +2,8 @@
 
 **Owns**: one `<feature>.spec.ts` per feature plus `helpers/<feature>.ts` locators and oracles. Claude Code is faked by hook and status-line POSTs from `helpers/payloads.ts`; a real `claude` runs only in `test/canary`. `helpers/fixtures.ts` and `web/playwright.config.ts` are web-impl's, never e2e-specs'. **Features**: actions, connection, drop, focus, ingest, issue, launch, lifecycle, rail, reader, rename, shortcuts, surfaces, theme, tiles, update, usage, views.
 
+**Level**: a spec here is a journey — it launches, posts hooks, restarts or kills, and asserts what the daemon and the UI show together. A property of the display for a given state (layout, token, density, chord) is a render test under `web/render/` against a generated fixture, and e2e-lint rule 6 refuses it in a new spec (kb:adr/process-test-levels-journey-property-logic).
+
 **Invariants** (review-Critical; `web/scripts/e2e-lint.sh` fails the run):
 - Daemons come only from `helpers/fixtures.ts`: `daemon` per test by default, `startDaemon(opts)` for computed options, `fileDaemon()` only when every test is title-scoped (kb:adr/process-e2e-explicit-fixtures).
 - Import `test`, `expect`, types from `./helpers/fixtures`, never `@playwright/test` (kb:adr/process-e2e-lint-mechanises-fixture-rules).

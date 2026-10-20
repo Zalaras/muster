@@ -8,10 +8,15 @@
 // releases when its stdin closes: Playwright ending normally ends the pipe in teardown, and a
 // SIGKILLed runner closes it too, so a dead run can never keep the lock. Under a caller that
 // already holds it (gates.sh, `make e2e`) the child no-ops via MUSTER_GATELOCK.
+//
+// The hold mode comes from the config's `metadata.gatelock`: the E2E config says nothing and
+// holds exclusively; the render config (web/playwright.render.config.ts) says "shared"
+// because it spawns no daemon or tmux and may run beside unit tests, never beside a sweep.
 import { execFileSync, spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { FullConfig } from "@playwright/test";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 // web/e2e/helpers -> repo root
@@ -24,15 +29,16 @@ const gatelockBin = join(repoRoot, "bin", "gatelock");
 // prefix the tool prints so a reader reruns instead of debugging a "globalSetup failure".
 const EXIT_BUSY = 75;
 
-export default async function globalSetup(): Promise<() => Promise<void>> {
+export default async function globalSetup(config: FullConfig): Promise<() => Promise<void>> {
   execFileSync("go", ["build", "-o", gatelockBin, "./tools/gatelock"], {
     cwd: repoRoot,
     stdio: "inherit",
   });
+  const mode = config.metadata?.["gatelock"] === "shared" ? "--shared" : "--exclusive";
   // MUSTER_GATELOCK_WAIT overrides the tool's 240 s default (a Go duration, e.g. `0` to
   // fail fast); unset, a run queues for one full sweep before giving up.
   const wait = process.env["MUSTER_GATELOCK_WAIT"];
-  const child = spawn(gatelockBin, ["hold", "--exclusive", ...(wait ? ["--wait", wait] : [])], {
+  const child = spawn(gatelockBin, ["hold", mode, ...(wait ? ["--wait", wait] : [])], {
     cwd: repoRoot,
     stdio: ["pipe", "pipe", "inherit"],
   });

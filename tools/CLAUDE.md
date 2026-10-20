@@ -20,9 +20,9 @@
 - Every repo-specific value the knowledge tool reads — record dirs, roles, tags, budgets (a nested `CLAUDE.md` 400 words outside kb fragments, the root 150 lines), pack scoping, the version record, the agents directory — is `kb.yaml`; upgrade the tool with `go get -tool github.com/Zalaras/kb/cmd/kb@<version>`.
 
 <!-- kb:trailer -->
-<!-- kb:hash 2ed8a1b0c35a7c34 -->
+<!-- kb:hash 6f37fc52492344b7 -->
 - **canary** — The verified Claude Code version range, canary tiers, and the fragments tools/versions regenerates. → `docs/features/canary/INDEX.md`
 - **comment-pass** — The orchestrator's comment pass — strip a plan branch's added comments, a Sonnet judge keeps the load-bearing few, a ledger the gates verify. → `docs/features/comment-pass/INDEX.md`
 - **triage** — GitHub issues into TODO.md through a program, with a Read-only proposer's bounded summary and labels, and the pre-commit link guard. → `docs/features/triage/INDEX.md`
-- 7 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 8 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

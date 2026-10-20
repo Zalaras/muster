@@ -18,9 +18,10 @@ plan or any `plan-lint` FAIL and spawns nobody; `/land` refuses a review verdict
 proposal to the user before merging (kb:adr/process-land-decides-proposed-backlog).
 
 Inside `/orchestrate`, a full-stack plan runs both tracks; a `daemon` or `web` plan drops the
-other track's two boxes, and an E2E Scope of `none` drops both E2E stages. E2E Specs authors
+other track's boxes, and an E2E Scope of `none` drops both E2E stages. E2E Specs authors
 against a feature that does not exist yet, so it gates on collection, never on a pass. Each
-tester starts when its own track is green. Before the gates the comment pass strips every added
+tester starts when its track is green; the web track has two, unit and render
+(kb:adr/process-test-levels-journey-property-logic). Before the gates the comment pass strips every added
 comment, a Sonnet judge with the plan withheld returns the load-bearing few, and reviewers file no
 finding on a comment (kb:adr/process-comment-pass-owns-code-comments). The orchestrator runs the
 gates once and then spawns three Opus reviewers in parallel —
@@ -33,8 +34,8 @@ sweep; every earlier gate ran E2E scoped to the plan's specs
 (kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion). Retry budgets and wave ordering
 live in the orchestrate skill's tables.
 
-`/retro` runs in the session that ran `/orchestrate`, while the stumbles are in context,
-and commits on the plan branch so its changes ride `/land`'s squash.
+`/retro` runs in the session that ran `/orchestrate`, while the stumbles are in context, and
+commits on the plan branch to ride `/land`'s squash.
 
 ```mermaid
 %%{init: {"layout": "dagre", "flowchart": {"curve": "stepAfter"}}}%%
@@ -49,10 +50,13 @@ flowchart TD
         S --> WI[Web Impl]
         DI --> DT[Daemon Tests]
         WI --> WT[Web Tests]
+        WI --> RT[Render Tests — generated fixtures, no daemon]
         DT -->|implementation-bug| DI
         WT -->|implementation-bug| WI
+        RT -->|implementation-bug| WI
         DT --> V[E2E Validate and Repair]
         WT --> V
+        RT --> V
         V -->|implementation-bug| DI
         V -->|implementation-bug| WI
         V --> CP[Comment pass — strip, Sonnet judge, reconstruct] --> G[Gates — orchestrator, once; E2E scoped]
@@ -77,4 +81,4 @@ flowchart TD
     LAND -.->|verdict not approved, or a proposed ADR remains| USER
 ```
 
-Doc work skips all of this; the pipeline is for anything with acceptance criteria.
+Doc work skips this; the pipeline is for anything with acceptance criteria.

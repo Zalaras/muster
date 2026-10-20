@@ -108,7 +108,8 @@ Each row's rationale is an ADR: `go tool kb ls --type adr | grep '/stack-'`.
   `render/` holds the DOM half only, taking the already-computed value as a parameter.
   When the same pure logic is genuinely about session data rather than one feature's own
   concern, it lives in `sessions/` instead.
-- E2E spec files and `web/e2e/helpers/<feature>.ts` are named for the same feature seam.
+- E2E spec files and `web/e2e/helpers/<feature>.ts`, and render specs and
+  `web/render/helpers/<feature>.ts`, are named for the same feature seam.
 
 ## Design
 
@@ -144,6 +145,21 @@ seam (the shape chosen, why, and what it reused or matched).
 
 ## Testing (both sides)
 
+- **A test lives at the cheapest level that can falsify its claim**
+  (kb:adr/process-test-levels-journey-property-logic): daemon logic in Go (`D*`), web logic in
+  Vitest (`W*`), **what the display shows for a given state** — layout, tokens, density, chords,
+  the find bar, any host view or width — in a **render test** (`R*`: `web/render/`, Playwright in
+  Chromium against a generated fixture, no daemon), and a **journey** that needs the daemon and
+  the UI together — launch, hooks changing a card, resume, restart, kill — in E2E (`E*`). If the
+  daemon is not needed to falsify it, it is not E2E; `web/scripts/e2e-lint.sh` refuses a new E2E
+  test that never touches the daemon and `--census` lists the existing ones.
+- Render fixtures are **recorded from the daemon**, never written by hand
+  (kb:adr/process-render-fixtures-generated-from-daemon): `make gen-render-fixtures` drives the
+  real server in process through scenarios in `internal/server/renderfix_scenarios.go` and writes
+  `web/render/fixtures/<scenario>.json`; `make check-render-fixtures` (in `make check` and every
+  gate) fails when a daemon change alters them. A render spec takes state only through
+  `loadFixture`, an unmocked `/api/**` answers 404, the clock is pinned to the fixture epoch, and
+  `make render-test` holds the gate lock shared under `web/playwright.render.config.ts`.
 - E2E fakes Claude Code by default: synthesize hook / status-line POSTs from the shapes
   the fact records measured — fast, free, deterministic. A **real** `claude` may
   only appear in the canary suite and interface probes (haiku-only, per CLAUDE.md).

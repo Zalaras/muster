@@ -38,7 +38,7 @@ versions:
 # (orchestrator, planner, retro). A role is what a pack is requested as, never a pipeline
 # step name. The agents section below makes `kb check` hold this list and the agent
 # directory in step, both ways.
-roles: [e2e-specs, daemon-impl, web-impl, daemon-tests, web-tests, review, doc-reconcile, orchestrator, retro, planner, review-browser, review-maintainability]
+roles: [e2e-specs, daemon-impl, web-impl, daemon-tests, web-tests, render-tests, review, doc-reconcile, orchestrator, retro, planner, review-browser, review-maintainability]
 
 agents:
   dir: .claude/agents
@@ -70,10 +70,10 @@ tree:
 # illustrative paths in their titles, and the triage corpora are quoted issue bodies —
 # adversarial ones by design — not prose about this repository.
 citations:
-  exclude: ["plans/**", "docs/history/**", "docs/research/**", "web/dist/**", "dist/**", "**/node_modules/**", "web/e2e/**/*.spec.ts", "internal/triage/testdata/**"]
+  exclude: ["plans/**", "docs/history/**", "docs/research/**", "web/dist/**", "dist/**", "**/node_modules/**", "web/e2e/**/*.spec.ts", "web/render/**/*.spec.ts", "internal/triage/testdata/**"]
 
 # Source roots under which every .go and .ts file must be owned by a feature spec's globs.
-ownership: [internal, web/src, web/e2e]
+ownership: [internal, web/src, web/e2e, web/render]
 
 # What each role's pack carries (kb:adr/knowledge-pack-sections-scoped-by-role).
 pack:
@@ -85,11 +85,11 @@ pack:
   contractless_roles: [review-browser, review-maintainability]
   # No fact records: the web roles take wire shapes from the contract slice, the two
   # non-correctness reviewers never code against the wire, doc-reconcile verifies against source.
-  factless_roles: [web-impl, web-tests, review-browser, review-maintainability, doc-reconcile]
+  factless_roles: [web-impl, web-tests, render-tests, review-browser, review-maintainability, doc-reconcile]
   # No accepted decisions: the unit-test roles test what the plan and contract state, the browser
   # reviewer measures, doc-reconcile edits specs the decisions already shaped. e2e-specs keeps
   # them deliberately as a safety net for the behaviour it asserts.
-  decisionless_roles: [daemon-tests, web-tests, review-browser, doc-reconcile]
+  decisionless_roles: [daemon-tests, web-tests, render-tests, review-browser, doc-reconcile]
   # The roles that read the feature-less (system-wide) diagrams; an implementation pack carries
   # only the diagrams naming one of its features. The maintainability reviewer judges shape
   # against the component diagrams, so it reads them too.
@@ -120,6 +120,7 @@ pack:
     web-impl: [Stack, TypeScript, Composition roots, Design, Knowledge records]
     daemon-tests: [Stack, Go, Design, Testing, Knowledge records]
     web-tests: [Design, Testing, Knowledge records]
+    render-tests: [Design, Testing, Knowledge records]
     e2e-specs: [Testing, Knowledge records]
     review: [Stack, Go, TypeScript, Composition roots, Testing, Knowledge records]
     review-browser: [Stack, TypeScript, Testing, Knowledge records]
@@ -144,7 +145,7 @@ refs:
 # kb scope: every changed file under these roots needs its owning feature in the plan's
 # Features or Touches header (kb:adr/process-touched-features-widen-without-stopping).
 scope:
-  roots: [cmd, internal, web/src, web/e2e, test]
+  roots: [cmd, internal, web/src, web/e2e, web/render, test]
   # Judged by what they mirror, not by their glob owner: a generated kb trailer rides every
   # record edit; web/src/protocol.ts mirrors docs/protocol.md, whose anchor's feature owns the
   # change, and plan-work merges it under the plan's own anchors.

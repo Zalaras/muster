@@ -142,8 +142,31 @@ refs: ## Every repo path, make target and musterd flag cited in docs or comments
 size-warn: ## Warn-only: long functions (funlen), duplicated blocks (dupl) and files over 500 lines, whole tree; never fails (the gates run it scoped to the branch)
 	.claude/skills/orchestrate/scripts/size-warn.sh
 
+# Render tests (kb:adr/process-render-fixtures-generated-from-daemon): the built dashboard in
+# Chromium with no daemon, fed fixtures tools/renderfix records from the real server code.
+# Shared gate lock: nothing here spawns a daemon or tmux, so a sweep beside it is no hazard.
+.PHONY: gen-render-fixtures
+gen-render-fixtures: ## Regenerate web/render/fixtures/*.json from the daemon code (writes only what changed)
+	go run -tags renderfix ./tools/renderfix gen
+
+.PHONY: check-render-fixtures
+check-render-fixtures: ## Fail naming any render fixture the daemon would now generate differently (run by make check)
+	go run -tags renderfix ./tools/renderfix check
+
+.PHONY: render-lint
+render-lint: ## Mechanical checks on web/render
+	cd web && npm run -s render:lint
+
+.PHONY: render-test
+render-test: $(GATELOCK) ## Render tests under the shared gate lock (builds the web first; no daemon)
+	$(GATELOCK) run --shared -- $(MAKE) web-build render-test-run
+
+.PHONY: render-test-run
+render-test-run: ## The render tests alone, no build (make render-test runs this under the lock)
+	cd web && npm run render-test
+
 .PHONY: check
-check: lint test web-lint web-test contrast e2e-lint check-versions check-kb ## Lint + test + web-lint + web-test + contrast + e2e-lint + check-versions + check-kb (which covers refs)
+check: lint test web-lint web-test contrast e2e-lint render-lint check-versions check-render-fixtures check-kb ## Lint + test + web-lint + web-test + contrast + e2e-lint + render-lint + check-versions + check-render-fixtures + check-kb (which covers refs)
 
 # Pipeline worktrees (kb:adr/process-pipeline-runs-in-sibling-worktree): every /orchestrate run
 # lives in ../<repo>-<plan> on plan/<plan>, created here before the session starts; the primary

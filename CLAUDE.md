@@ -23,8 +23,8 @@ current state.
 
 ## Commands
 
-- `make help` lists everything: `build`, `check` (lint + unit + `check-kb`, which covers `refs`), `web-test`,
-  `e2e`, `canary`, `web`.
+- `make help` lists everything: `build`, `check` (lint + unit + `check-kb`, which covers `refs`, +
+  `check-render-fixtures`), `web-test`, `render-test`, `e2e`, `canary`, `web`.
 - Frontend: `nvm use` in the repo root first (Node pinned 24.21.0); then work in `web/`.
 
 ## Workflow — the build pipeline
@@ -38,7 +38,7 @@ Feature work goes through the multi-agent pipeline, not ad-hoc editing:
 3. `/orchestrate <name>` — in its own worktree, `../muster-<name>` on `plan/<name>`, made by
    `make worktree NAME=<name>` from the primary checkout (which stays on `main` for `/land`);
    runs e2e-specs (authoring) → daemon-impl ∥ web-impl →
-   daemon-tests ∥ web-tests → e2e-validate → gates (orchestrator, once; E2E scoped to the plan's
+   daemon-tests ∥ web-tests ∥ render-tests → e2e-validate → gates (orchestrator, once; E2E scoped to the plan's
    specs) → review-work ∥ review-browser ∥ review-maintainability (Opus; merged into one computed
    verdict) → doc-reconcile → Final Validation (the one full E2E sweep), with fix waves and
    `orchestration-state.json` resume. Only a merged review verdict of `approved` reaches
@@ -107,8 +107,10 @@ Testable UI Elements table; every other change to the shipped artifact (`docs/co
 
 ## Testing bar
 
-Functional E2E always (real daemon, scratch repo); unit tests for specific logic (state
-machine, reconcile, JSON merge). `make canary` gates any Claude Code version bump — run it
+A test lives at the cheapest level that falsifies it (kb:adr/process-test-levels-journey-property-logic):
+journeys across the live daemon are E2E (real daemon, scratch repo); what the display shows for a
+state is a render test (`web/render/`, fixtures generated from the daemon, no daemon running); logic
+(state machine, reconcile, JSON merge) is unit-tested. `make canary` gates any Claude Code version bump — run it
 through `/claude-code-upgrade`; the ritual it follows is `docs/claude-code-versions.md`.
 
 ## Doc upkeep (end of every session)

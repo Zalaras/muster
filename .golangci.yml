@@ -4,6 +4,7 @@ run:
   timeout: 3m
   build-tags:
     - canary
+    - renderfix
 
 linters:
   default: standard
