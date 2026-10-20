@@ -41,7 +41,7 @@ Then read each implemented file and the existing `_test.go` files beside it, and
 
 ## Test Strategy
 
-Per conventions §Testing (`kb:adr/process-testing-bar-e2e-always-unit-for-logic`), unit tests target **specific logic** — the E2E suite covers wiring. Priorities:
+Per conventions §Testing (`kb:adr/process-test-levels-journey-property-logic`), unit tests target **specific logic** — the E2E suite covers the journeys across the live seam, the render tier what the dashboard shows. Priorities:
 
 - **Every transition the plan defines, plus the loss cases** (hooks are best-effort, at-most-once, unordered) — the state machine, reconcile and any JSON merge get the exhaustive coverage §Testing asks for.
 - **Invariants get cross-state coverage, not just per-row coverage.** When the plan or protocol

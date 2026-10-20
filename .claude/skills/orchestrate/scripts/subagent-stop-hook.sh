@@ -17,7 +17,7 @@
 in="$(cat)"
 read -r active role < <(printf '%s' "$in" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(str(d.get("stop_hook_active") is True).lower(), d.get("agent_type") or "-")' 2>/dev/null)
 [[ "$active" == true ]] && exit 0
-case "$role" in daemon-impl|web-impl|daemon-tests|web-tests|e2e-specs) ;; *) exit 0 ;; esac
+case "$role" in daemon-impl|web-impl|daemon-tests|web-tests|render-tests|e2e-specs) ;; *) exit 0 ;; esac
 cd "${CLAUDE_PROJECT_DIR:-.}" || exit 0
 if ! out="$(python3 .claude/skills/orchestrate/scripts/comment-checks.py "$role" 2>&1)"; then
   printf 'Finish blocked by the comment check for %s. Fix each line below, commit by pathspec, then finish:\n%s\n' "$role" "$out" >&2

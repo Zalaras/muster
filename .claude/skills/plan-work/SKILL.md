@@ -101,6 +101,11 @@ Work with the developer to create clear, testable requirements. Each requirement
 - Scoped to a single behavior or outcome
 - Labeled with a priority (must-have, should-have, nice-to-have)
 
+Keep **journeys** (what the developer does and then sees, across the live daemon) and
+**properties** (what is true of the display for a given state: layout, token, density, chord) as
+separate requirements rather than one that mixes both — §9 gives each its own test level
+(kb:adr/process-test-levels-journey-property-logic).
+
 ### 4. Identify Affected Files and owners
 
 Affected Files is your impact read, not a fence. Per impl track, list **existing files by exact path**
@@ -121,11 +126,15 @@ A composition root (`web/src/main.ts`, `internal/server/server.go`) may appear u
 planning whether the logic is unit-testable, route the test to the unit agent and require the logic
 to be unit-testable; where it lives and the seam's shape are the implementer's, reported as a
 `design:` line the tester reads. A seam must decide something its caller could not write as the
-same branch (kb:lesson/plan-placement-never-overrides-directory-rule). A genuinely E2E-only requirement says so and names the `E*` criterion that carries it.
+same branch (kb:lesson/plan-placement-never-overrides-directory-rule). A display property names
+render-tests and the `R*` criterion that carries it; a genuinely E2E-only requirement (a journey)
+says so and names the `E*` criterion.
 
 **Tooling/config files belong to an impl track, never to a test agent.** `web/playwright.config.ts`,
-`web/e2e/helpers/fixtures.ts` and `web/scripts/e2e-lint.sh` are **web-impl**'s (e2e-specs may not
-edit them — the agent judged by the suite cannot hold the knobs that define passing). List a needed
+`web/e2e/helpers/fixtures.ts`, `web/scripts/e2e-lint.sh`, `web/playwright.render.config.ts`,
+`web/render/helpers/harness.ts` and `web/scripts/render-lint.sh` are **web-impl**'s; a new render
+scenario (`internal/server/renderfix_scenarios.go`) is **daemon-impl**'s (the agent judged by the
+suite cannot hold the knobs that define passing). List a needed
 config change under the owning impl track's Affected Files explicitly, never in an E2E subsection
 where ownership is ambiguous (kb:lesson/plan-gave-no-single-owner).
 
@@ -243,7 +252,7 @@ daemon restart mid-session, no-data-yet nulls, tmux pane death without `SessionE
 
 **Write the late-arrival cases out:** for every rule keyed on `session_id`, one edge case per event of the `/clear` pair arriving *after* the other was applied, and one for a straggler from the previous turn arriving after the rebind.
 
-**Every numbered edge case ends with the criterion that checks it** — `→ E<n>` / `→ W<n>` / `→ D<n>` (written in §9), or `→ untested: <reason>` when it genuinely cannot be driven. An unpinned edge case is tested by nobody until the reviewer tries it; `plan-lint.sh` refuses the plan.
+**Every numbered edge case ends with the criterion that checks it** — `→ E<n>` / `→ R<n>` / `→ W<n>` / `→ D<n>` (written in §9), or `→ untested: <reason>` when it genuinely cannot be driven. An unpinned edge case is tested by nobody until the reviewer tries it; `plan-lint.sh` refuses the plan.
 
 ### 9. Acceptance Criteria
 
@@ -256,7 +265,7 @@ Define clear acceptance criteria that the review agent will check against. Write
    is four criteria — a reader who watches the build go green marks the whole thing done and
    discards the constraints most likely to be violated. If you find yourself typing `;` or `and
    also`, start a new criterion.
-2. **Number criteria uniquely across the whole section**, not per subsection. Prefix by area: `D1, D2…` (Daemon), `W1, W2…` (Web), `E1, E2…` (E2E). Restarting the count per subsection makes "criterion 12 passed" ambiguous in a review.
+2. **Number criteria uniquely across the whole section**, not per subsection. Prefix by **level**: `D1, D2…` (daemon logic, Go), `W1, W2…` (web logic, Vitest), `R1, R2…` (render: what the display shows for a given state — layout, token, density, chord, find bar, any host view or width — Playwright against a generated fixture, no daemon), `E1, E2…` (E2E: a journey that needs the daemon and the UI together — launch, hooks changing a card, resume, restart, kill). **If the daemon is not needed to falsify it, it is not `E`** (kb:adr/process-test-levels-journey-property-logic). Reviewer-Verified items are `V1, V2…`. Restarting the count per subsection makes "criterion 12 passed" ambiguous in a review. An `R*` criterion needs a scenario the **Render fixtures** header names (existing, or `new: <name> (<what it holds>)` for daemon-impl to add).
 3. **Every UI element a criterion asserts must be defined somewhere in the plan** — a Requirement, the UI Specifications, or the Testable UI Elements table. Cross-check each `E*` criterion against those sections before approval: a criterion *tests* the plan's surface, it does not introduce new surface (kb:lesson/plan-asserted-surface-nobody-defined).
 
 Then, with the developer, distil the criteria into an **Automated Checks** block: the subset where
@@ -266,7 +275,7 @@ left to a parser. Anything needing a human read stays in prose under `### Review
 non-runnable half of a split criterion is assigned rather than lost — but *no `<string>` survives in
 `<dir>`* is a negative grep and belongs in the block (`plan-lint.sh` flags it in prose).
 
-The orchestrator's gate runner executes the block **verbatim** (reviewers read its log), so every line must run from the project root with no arguments, no environment setup and no interactive prompt. Prefer the Make entry points (`make test`, `make lint`, `make web-build`, `make web-test`, `make e2e`) over ad-hoc pipelines. A bare `make e2e` line means "the e2e gate": the runner dedupes it to its own scoped run each cycle and to the whole suite at Final Validation, so it never sweeps twice.
+The orchestrator's gate runner executes the block **verbatim** (reviewers read its log), so every line must run from the project root with no arguments, no environment setup and no interactive prompt. Prefer the Make entry points (`make test`, `make lint`, `make web-build`, `make web-test`, `make render-test`, `make e2e`) over ad-hoc pipelines. A bare `make e2e` line means "the e2e gate": the runner dedupes it to its own scoped run each cycle and to the whole suite at Final Validation, so it never sweeps twice.
 
 **Negative grep checks (`! rg …`) need one authoring decision: test-file scope.** State in the
 check's prose twin (or a note beside the block) whether `_test.go` / `*.test.ts` / `e2e/` files are
@@ -306,6 +315,7 @@ Write the plan to `plans/<plan-name>/plan.md` using this structure. The template
 **Work Type**: daemon | web | full-stack
 **E2E Scope**: new-specs | harness-only | none
 **Fixture plan**: <spec>.spec.ts daemon | startDaemon | fileDaemon (<why>) [; …] | none
+**Render fixtures**: <scenario>[, new: <scenario> (<what it holds>)] | none — the web/render/fixtures the R* criteria need
 **Features**: <name>[, <name>] — each has a docs/features/<name>/spec.md
 **Touches**: <name>[, <name>] — files edited, behaviour unchanged; packs spec and contract only (omit the line when none)
 **Description**: <one-line summary>
@@ -390,21 +400,25 @@ The planner's impact read, not a fence: existing files by path, new code by feat
 
 ## Edge Cases
 
-1. <edge case and how to handle it> → E<n> | W<n> | D<n> | untested: <reason>
+1. <edge case and how to handle it> → E<n> | R<n> | W<n> | D<n> | untested: <reason>
 
 ## Acceptance Criteria
 
-IDs are unique across the whole section — `D*` daemon, `W*` web, `E*` e2e. One clause per
+IDs are unique across the whole section — `D*` daemon logic, `W*` web logic, `R*` render (what
+the display shows, no daemon), `E*` e2e (a journey across the live daemon). One clause per
 criterion; never mix a runnable command with a judgement call in one item.
 
 ### Daemon
 - **D1**: <one verifiable criterion, single clause>
 
 ### Web
-- **W1**: <one verifiable UI criterion, single clause>
+- **W1**: <one verifiable pure-logic criterion, single clause>
+
+### Render
+- **R1**: <one display property for a named fixture state — layout, token, density, chord — at the widths and host views it must hold>
 
 ### E2E
-- **E1**: <one end-to-end user flow that should work>
+- **E1**: <one end-to-end user journey that needs the daemon and the UI together>
 
 ### Automated Checks
 
@@ -419,8 +433,10 @@ D1 make test
 D2 go build ./...
 D3 make lint
 D4 ! rg -n "hook_event_name" cmd/ internal/ --glob '!internal/claudecode/**'
+D5 make check-render-fixtures
 W1 make web-build
 W2 make web-test
+R1 make render-test
 E1 make e2e
 ```
 
@@ -430,8 +446,8 @@ Criteria that are not a single exit-code check. The review agent verifies these 
 exercising the app. List them explicitly — this is where the non-runnable half of a split compound
 criterion goes, so it is assigned rather than dropped.
 
-- **W3**: no `any` types in new web code
-- **W4**: <a rendering/state claim that needs a browser>
+- **V1**: no `any` types in new web code
+- **V2**: <a claim only a reader can check>
 
 ## Doc Delta
 

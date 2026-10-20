@@ -393,10 +393,10 @@ if [[ -n "$WAVE" ]]; then
 
   echo "== wave $WAVE gate (plan $PLAN; daemon=$DAEMON_TOUCHED web=$WEB_TOUCHED)"
   case "$WAVE" in
-    1) (( DAEMON_TOUCHED )) && { run_one build "go build ./..."; run_one lint-src "lint_src"; }
+    1) (( DAEMON_TOUCHED )) && { run_one build "go build ./..."; run_one lint-src "lint_src"; run_one render-fixtures "make check-render-fixtures"; }
        (( WEB_TOUCHED ))    && { run_one web-build-src "web_build_src"; run_one features-inventory "features_inventory"; } ;;
-    2) (( DAEMON_TOUCHED )) && { run_one test "make test"; run_one lint "make lint"; }
-       (( WEB_TOUCHED ))    && { run_one web-test "make web-test"; run_one web-build "make web-build"; } ;;
+    2) (( DAEMON_TOUCHED )) && { run_one test "make test"; run_one lint "make lint"; run_one render-fixtures "make check-render-fixtures"; }
+       (( WEB_TOUCHED ))    && { run_one web-test "make web-test"; run_one web-build "make web-build"; run_one render-test "make render-test"; } ;;   # render-test holds the lock shared, as this wave does
     3) ;;   # the scoped e2e gate, below, after `--touch` has widened the header it reads
   esac
   run_one features "go tool kb scope --plan $PLAN --touch"   # a fix wave that moved code into another feature widens **Touches** itself
@@ -409,7 +409,7 @@ if [[ -n "$WAVE" ]]; then
   # Waves 1 and 2 hold the gate lock shared, so any authored Playwright line (`make e2e*` or a
   # raw `playwright test`) is skipped there rather than refused as a self-deadlock; wave 3 owns it.
   case "$WAVE" in
-    1) WAVE_SKIP='^(make test|make web-test|make e2e.*|make lint|make web-build|.*playwright.*)$' ;;
+    1) WAVE_SKIP='^(make test|make web-test|make render-test|make e2e.*|make lint|make web-build|.*playwright.*)$' ;;
     2) WAVE_SKIP='^(make e2e.*|.*playwright.*)$' ;;
     3) WAVE_SKIP='^$' ;;
   esac
@@ -427,6 +427,9 @@ PASS	make test"
   run_one lint  "make lint"
   run_one web-build "make web-build"
   run_one web-test  "make web-test"
+  run_one render-fixtures "make check-render-fixtures"   # the daemon's wire as the render tier replays it; stale means a daemon change nobody regenerated (kb:adr/process-render-fixtures-generated-from-daemon)
+  run_one render-lint "make render-lint"   # render specs take state only through loadFixture
+  run_one render-test "make render-test"   # display properties against the generated fixtures, shared lock
   run_one web-lint  "make web-lint"        # Biome lint + format over web/src, web/e2e, web/scripts
   run_one contrast  "make contrast"        # AA contrast/hue/literal gate over web/src/style.css
   run_one features-inventory "features_inventory"   # every features/*.ts named in its CLAUDE.md
@@ -438,6 +441,7 @@ PASS	make test"
   run_one comments "python3 .claude/skills/orchestrate/scripts/comment-checks.py --gates"   # plan IDs / review labels in added production lines (settings-update-failures retro, 2026-09-25)
   run_one comment-ledger "go run ./tools/commentpass verify $PLAN"   # every added production comment is a ledger keep (the comment pass ran before these gates)
   run_warn size ".claude/skills/orchestrate/scripts/size-warn.sh --changed"   # funlen/dupl/file length on this branch's files; read by the maintainability reviewer, never a failure
+  run_warn e2e-level "sh web/scripts/e2e-lint.sh --census"   # E2E tests that never touch the daemon — render-test candidates; the audit's input, never a failure
   run_e2e_gate   # scoped per cycle; `--full-e2e` at Final Validation is the one whole-suite run
 fi
 

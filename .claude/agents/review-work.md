@@ -104,7 +104,8 @@ delta; `docs/features/*/spec.md` and `docs/protocol.md` are reconciled after thi
 ### 3. Requirements Verification
 
 For each requirement in the plan, confirm from the logs and the files they name:
-- it is implemented, and tested;
+- it is implemented, and tested at the level its criteria name (`D*`/`W*` unit, `R*` render, `E*`
+  E2E — kb:adr/process-test-levels-journey-property-logic);
 - the implementation matches the Protocol Contract on both sides;
 - the diagrams are still true. For each changed file, `go tool kb for <path>` names the
   `kb:diagram/` records depicting it; read each fence (and any plan `## Diagrams` delta) against
@@ -159,9 +160,15 @@ settle:
 - Nothing tests what the platform guarantees (SQLite constraints, tmux behaviour, stdlib routing).
 - Each new spec's fixture shape (`daemon` / `startDaemon` / `fileDaemon`) matches the plan's
   **Fixture plan** header and docs/conventions.md §Testing (`fileDaemon` only when every test is
-  title-scoped).
+  title-scoped). Each new render spec takes its state only through `loadFixture` from a scenario
+  the **Render fixtures** header names; a fixture edited by hand is a Critical `[render-tests]`
+  (kb:adr/process-render-fixtures-generated-from-daemon).
+- A new E2E test asserting a property the renderer alone could falsify (a token, a layout, a chord,
+  with no launch, hook, restart or kill in its body) is a Minor `[e2e-specs]`: move it to
+  `web/render/`. Never more than Minor — the test is true, only expensive.
 - New Go tests reach subprocesses through a run-func seam.
-- `make e2e-lint` is mechanical — confirm it ran, don't re-derive it.
+- `make e2e-lint`, `make render-lint` and `make check-render-fixtures` are mechanical — confirm
+  they ran, don't re-derive them.
 - **Repairs honesty.** Read `test-specs.md`'s `## Repairs` table and verify its last column: each
   repaired assertion still verifies its requirement. A repair that deleted, skipped or weakened an
   assertion is a Critical `[e2e-specs]` issue **even if the suite is green** — a vacuous pass is

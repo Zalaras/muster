@@ -8,6 +8,7 @@ limited to the paths the role owns:
   web-impl      web/src/, not *.test.ts            plan IDs, review labels, dead references
   daemon-tests  *_test.go under cmd/ internal/     review labels, dead references
   web-tests     web/src/**/*.test.ts               review labels, dead references
+  render-tests  web/render/                        review labels, dead references
   e2e-specs     web/e2e/                           review labels, dead references
   --gates       both impl roles' paths             plan IDs, review labels (the gates' check-kb runs kb refs --all itself)
 
@@ -32,10 +33,11 @@ ROLES = {
     "web-impl":     (("web/src/",), lambda p: not p.endswith(".test.ts"), True),
     "daemon-tests": (("cmd/", "internal/"), lambda p: p.endswith("_test.go"), False),
     "web-tests":    (("web/src/",), lambda p: p.endswith(".test.ts"), False),
+    "render-tests": (("web/render/",), lambda p: True, False),
     "e2e-specs":    (("web/e2e/",), lambda p: True, False),
 }
 CODE = (".go", ".ts", ".css", ".js", ".mjs", ".html")
-PLAN_ID = re.compile(r"\b(?:REQ|INV)-\d+\b|\b[DWE]\d{1,2}\b")
+PLAN_ID = re.compile(r"\b(?:REQ|INV)-\d+\b|\b[DWRE]\d{1,2}\b")
 REVIEW_LABEL = re.compile(r"\bFix Attempt \d|\b[Rr]eview cycle \d|\b(?:Critical|Major|Minor) \d+\b|\b[Ss]oak runs?\b")
 COMMENT = re.compile(r"//(.*)$|/\*(.*)$|^\s*\*(.*)$|^\s*#(.*)$|<!--(.*)$")
 

@@ -31,12 +31,13 @@ For each directory under `plans/`, take Status and Work Type from `plan.md` and 
 | session-list-ui | in-progress | full-stack | 3/8 | daemon-tests |
 ```
 
-The pipeline has **8 steps**, in `orch-state.py`'s `STEPS` order: `e2e-specs` (authoring),
-`daemon-impl`, `web-impl`, `daemon-tests`, `web-tests`, `e2e-validate`, `review`, `doc-reconcile`.
+The pipeline has **9 steps**, in `orch-state.py`'s `STEPS` order: `e2e-specs` (authoring),
+`daemon-impl`, `web-impl`, `daemon-tests`, `web-tests`, `render-tests`, `e2e-validate`, `review`,
+`doc-reconcile`.
 
 **Missing vs skipped.** A step the plan's Work Type or E2E Scope skips (web steps for `daemon`
-plans, daemon steps for `web` plans, the E2E steps for `daemon` plans without `E*` criteria or
-with `E2E Scope: none`) is `skipped` — count it out of the total, and give the reason from
+plans, daemon steps for `web` plans, `render-tests` for a plan without `R*` criteria, the E2E
+steps for `daemon` plans without `E*` criteria or with `E2E Scope: none`) is `skipped` — count it out of the total, and give the reason from
 `completed_steps` when there is one. Any other step whose output file does not exist yet is
 `pending`.
 

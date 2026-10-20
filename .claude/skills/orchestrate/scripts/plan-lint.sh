@@ -31,12 +31,12 @@ done
 items="$(section 'Edge Cases' | awk '/^[0-9]+\. /{if(cur!="")print cur; cur=$0; next} /^[[:space:]]*$/{if(cur!="")print cur; cur=""; next} cur!=""{cur=cur" "$0} END{if(cur!="")print cur}')"
 while IFS= read -r l; do
   [[ -z "$l" ]] && continue
-  echo "$l" | grep -qE '→ *\**((E|W|D)[0-9]+|untested)' || note "edge case lacks '→ E<n>|W<n>|D<n>|untested: <why>': ${l:0:90}"
+  echo "$l" | grep -qE '→ *\**((E|R|W|D)[0-9]+|untested)' || note "edge case lacks '→ E<n>|R<n>|W<n>|D<n>|untested: <why>': ${l:0:90}"
 done <<<"$items"
 
 # 3. Every criterion an edge case cites exists.
-ids="$(section 'Acceptance Criteria' | grep -oE '\*\*(E|W|D)[0-9]+\*\*|^(E|W|D)[0-9]+ ' | tr -d '* ' | sort -u)"
-for ref in $(echo "$items" | grep -oE '→ *\**(E|W|D)[0-9]+' | grep -oE '(E|W|D)[0-9]+' | sort -u); do
+ids="$(section 'Acceptance Criteria' | grep -oE '\*\*(E|R|W|D)[0-9]+\*\*|^(E|R|W|D)[0-9]+ ' | tr -d '* ' | sort -u)"
+for ref in $(echo "$items" | grep -oE '→ *\**(E|R|W|D)[0-9]+' | grep -oE '(E|R|W|D)[0-9]+' | sort -u); do
   grep -qx "$ref" <<<"$ids" || note "edge case cites $ref but no such criterion exists"
 done
 
@@ -169,7 +169,12 @@ fi
 header="$(scope_names Features) $(scope_names Touches)"
 paths="$(section 'Affected Files' | grep -oE '`(cmd|internal|web/src|web/e2e)/[^`[:space:]]+\.[a-z]+(:[0-9]+)?`' \
   | tr -d '`' | sed -E 's/:[0-9]+$//' | grep -vE '(/CLAUDE\.md|^web/src/protocol\.ts|^web/src/style\.css)$' | sort -u)"
-named="$({ grep -E '^\*\*Fixture plan\*\*:' "$P"; section 'Acceptance Criteria'; } | grep -oE '[a-z0-9-]+\.spec\.ts' | sed 's|^|web/e2e/|' | sort -u)"
+#     A spec basename resolves under web/e2e/ unless a web/render/ file of that name exists or the
+#     plan names it there (render specs are the R* criteria's, kb:adr/process-test-levels-journey-property-logic).
+named="$({ grep -E '^\*\*Fixture plan\*\*:' "$P"; section 'Acceptance Criteria'; } | grep -oE '[a-z0-9-]+\.spec\.ts' | sort -u \
+  | while IFS= read -r s; do
+      if [[ -f "web/render/$s" ]] || grep -qF "web/render/$s" "$P"; then echo "web/render/$s"; else echo "web/e2e/$s"; fi
+    done | sort -u)"
 # A path named anywhere else in the plan (Doc upkeep, Implementation Notes) is judged by the
 # header rule only: groups named the anchors table (docs/protocol-anchors.tsv) under Doc upkeep, and `knowledge` reached
 # the header at doc-reconcile, two hours and a blocked verdict later.
@@ -251,6 +256,32 @@ done || true
 nfeat=$(scope_names Features | wc -w | tr -d ' ')
 if (( nfeat > 5 )); then
   echo "NOTE  **Features** names $nfeat features — a feature whose behaviour this plan leaves alone belongs under **Touches** (spec and contract only)"
+fi
+
+# 17. An R* criterion is a render test against a generated fixture, so the plan must say which
+#     scenario holds its state: a `### Render` subsection and a **Render fixtures** header naming
+#     scenarios that exist under web/render/fixtures/ or are marked `new:` for daemon-impl
+#     (kb:adr/process-render-fixtures-generated-from-daemon).
+if section 'Acceptance Criteria' | grep -qE '^\- \*\*R[0-9]+\*\*'; then
+  section 'Acceptance Criteria' | grep -qE '^### Render' || note "R* criteria present but no '### Render' subsection under Acceptance Criteria"
+  rf="$(grep -E '^\*\*Render fixtures\*\*:' "$P" | head -1 | sed -E 's/^\*\*Render fixtures\*\*:[[:space:]]*//')"
+  if [[ -z "$rf" || "$rf" == none ]]; then
+    note "R* criteria present but **Render fixtures** is missing or 'none' — name the scenario(s), existing or 'new: <name> (<what it holds>)'"
+  else
+    for name in $(printf '%s' "$rf" | sed -E 's/new: *([a-z0-9-]+) *\([^)]*\)/NEW/g' | tr ',' ' '); do
+      [[ "$name" == NEW ]] && continue
+      [[ -f "web/render/fixtures/$name.json" ]] || note "**Render fixtures** names '$name' but web/render/fixtures/$name.json does not exist (mark it 'new: $name (<what it holds>)')"
+    done
+  fi
+fi
+
+# 18. Warn, never fail: when E* criteria outnumber every other level, the plan is probably testing
+#     display properties at the most expensive tier — each E should be a journey that needs the
+#     daemon (kb:adr/process-test-levels-journey-property-logic).
+ne=$(section 'Acceptance Criteria' | grep -cE '^\- \*\*E[0-9]+\*\*' || true)
+nother=$(section 'Acceptance Criteria' | grep -cE '^\- \*\*(R|W|D)[0-9]+\*\*' || true)
+if (( ne > nother )); then
+  echo "NOTE  $ne E* criteria against $nother R*/W*/D* — most criteria sit at the E2E tier; check each E is a journey the daemon is needed to falsify, not a display property (R*)"
 fi
 
 # 16. The tree passes check-kb at approval, bar the plan's own new files (check 12 notes those):

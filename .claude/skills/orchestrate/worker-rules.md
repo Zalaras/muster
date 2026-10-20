@@ -1,6 +1,6 @@
 # Worker rules — what every pipeline worker follows
 
-Read by `daemon-impl`, `web-impl`, `daemon-tests`, `web-tests`, `e2e-specs` and `doc-reconcile`
+Read by `daemon-impl`, `web-impl`, `daemon-tests`, `web-tests`, `render-tests`, `e2e-specs` and `doc-reconcile`
 at the start of their step. Each agent's own file names its commit subject and its verdicts; this
 file holds what they share.
 

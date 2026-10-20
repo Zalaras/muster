@@ -75,6 +75,7 @@ Spawn each step as a subagent using the Agent tool with the step's own `subagent
 | Web implementation | `web-impl` |
 | Daemon tests | `daemon-tests` |
 | Web tests | `web-tests` |
+| Render tests | `render-tests` (web and full-stack plans; skipped when the plan has no `R*` criteria) |
 | E2E validate & repair | `e2e-specs` (validate mode) |
 | Review — correctness | `review-work` |
 | Review — browser | `review-browser` (skipped for a daemon-only plan) |
@@ -91,8 +92,8 @@ Every step ends with a `**Verdict**` in its output file. Read it from disk, then
 |---|---|---|---|
 | 1 e2e-specs | `authored` / `harness-only` | Check the Tests table (Step 1), then continue. | 1 send-back |
 | 1 e2e-specs | `pass` | The agent misread its mode — the feature cannot exist yet. Re-spawn with the mode restated. | the same 1 |
-| 3 daemon-tests / web-tests | `pass` | That track is done. | |
-| 3 daemon-tests / web-tests | `implementation-bug` | Spawn that track's impl agent in fix mode (Step 4), then re-run the tester, per Fix Wave Ordering. | 3 per track |
+| 3 daemon-tests / web-tests / render-tests | `pass` | That track is done. | |
+| 3 daemon-tests / web-tests / render-tests | `implementation-bug` | Spawn that track's impl agent in fix mode (Step 4), then re-run the tester, per Fix Wave Ordering. A render-tests `needs-scenario` Handoff line routes to daemon-impl, then render-tests re-runs. | 3 per track |
 | 5 e2e-validate | `pass` | Continue to Step 6. | |
 | 5 e2e-validate | `implementation-bug` | Route each row of the **E2E Implementation Bugs** table to the agent in its `Route` column, per Fix Wave Ordering; then re-spawn Step 5. | 2 attempts; on exhaustion `status blocked` — never review with failing E2E tests |
 | 5 e2e-validate | `authored` | The agent ignored validate mode. Re-spawn once with the mode restated. | counts against the 2 |
@@ -158,13 +159,15 @@ track's test agent (Step 3) without waiting for the other track.
 
 Spawn each track's tester the moment that track's impl agent has reported and passed its gate —
 do not hold the daemon tester for the web coder or vice versa (both in one message only if both
-impls finished together). daemon-tests writes only Go test files and web-tests only
-`web/src/**/*.test.ts`, so a tester and the other track's coder never share a file. Tell the
-tester the other coder is still running and to leave its uncommitted files alone.
+impls finished together). The web track has two testers, spawned together: web-tests and, when
+the plan carries `R*` criteria, render-tests. daemon-tests writes only Go test files, web-tests
+only `web/src/**/*.test.ts` and render-tests only `web/render/`, so no two of them and no coder
+ever share a file. Tell each tester the other coder is still running and to leave its uncommitted
+files alone.
 
-`subagent_type: "daemon-tests"` and `subagent_type: "web-tests"`, each with:
+`subagent_type: "daemon-tests"`, `"web-tests"` and `"render-tests"`, each with:
 ```
-Execute the <daemon|web> testing task for plan: <plan-name>
+Execute the <daemon|web|render> testing task for plan: <plan-name>
 Project root: <project-root>
 ```
 
@@ -302,7 +305,7 @@ cycle (kb:lesson/decision-made-inside-a-fix-wave).
 **Review Retry Logic** — on `needs-changes`, the sequence is always wave 1 → gate → wave 2 → gate
 → wave 3 → gate → review; never start a later wave before an earlier one has landed:
 
-1. Read `review.md` and bucket every tagged issue **across all three parts**: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`.
+1. Read `review.md` and bucket every tagged issue **across all three parts**: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[render-tests]`, `[e2e-specs]`.
    - `[orchestrator]` issues are yours — never spawn an agent for them; handle them in Doc-Upkeep /
      Completion. A doc-only one may be fixed while a fix wave runs iff its file set (`docs/`,
      `TODO.md`, `SPEC.md`) is disjoint from every file the wave's agents may write and each wave
@@ -370,7 +373,7 @@ gate, that side's unit test agent (wave 2), gate, Step 5 again (wave 3).
 | Wave | Tags | Gate before the next wave starts |
 |------|------|----------------------------------|
 | 1 | `[daemon-impl]`, `[web-impl]` | `gates.sh <plan> --wave 1` — must exit 0 |
-| 2 | `[daemon-tests]`, `[web-tests]` | `gates.sh <plan> --wave 2` — must exit 0 |
+| 2 | `[daemon-tests]`, `[web-tests]`, `[render-tests]` | `gates.sh <plan> --wave 2` — must exit 0 |
 | 3 | `[e2e-specs]` | `gates.sh <plan> --wave 3` (the scoped e2e gate) — must exit 0 |
 
 **Why this order.** The dependency is "who reads whose output". `daemon-tests` and `web-tests` read the implementation log and the implementation files, and are forbidden from modifying them — so a test agent run before the impl fix lands fixes the wrong thing. `e2e-specs` asserts against the rendered product, so it is downstream of both.
@@ -437,11 +440,13 @@ Every fix-wave prompt carries:
   (kb:adr/process-touched-features-widen-without-stopping).
 - **Every wave-3 prompt says "rebuild first"** — the agent definitions carry the order (`make web-build build`) and why; the harness serves prebuilt binaries, so a stale embed silently tests the previous tree.
 - **`[e2e-specs]` always lands in wave 3**, even when its issue looks self-contained. A locator repaired against pre-fix markup is worthless, and its fix mode ends in a live run — which must happen against the post-fix tree.
-- **New user-facing behaviour added by a fix wave gets E2E coverage in the same cycle.** When a
-  cycle's impl fixes *add* user-visible behaviour (an error display, marker, shortcut, field), the
-  wave-3 e2e-specs prompt includes: "read this cycle's ## Fix Attempt sections in both
-  implementation logs and assert any new user-facing behaviour they added" — and e2e-specs runs in
-  wave 3 for this **even with no tagged `[e2e-specs]` issue** (a concrete coverage task, not a spawn
+- **New user-facing behaviour added by a fix wave gets coverage in the same cycle, at its level.**
+  When a cycle's impl fixes *add* user-visible behaviour, route it by what falsifies it
+  (kb:adr/process-test-levels-journey-property-logic): a display property (an error display,
+  marker, token, layout) goes to render-tests in wave 2; a journey (a new flow across the daemon)
+  goes to e2e-specs in wave 3. The prompt includes: "read this cycle's ## Fix Attempt sections in
+  both implementation logs and assert any new user-facing behaviour they added" — and that agent
+  runs in its wave for this **even with no tagged issue** (a concrete coverage task, not a spawn
   with nothing to fix). The gap lives *between* agents and only you see all waves (kb:lesson/dom-behaviour-gap-between-test-agents).
 - **A review cycle's wave 3 can itself report `implementation-bug`** — a fix wave building
   better fixtures can uncover a new product defect, exactly as Step 5 does

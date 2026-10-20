@@ -103,7 +103,11 @@ Place new test files in `web/e2e/<feature-name>.spec.ts`, where `<feature-name>`
   markup can carry (icon-only buttons have no text content; disclosure widgets are `summary`, not
   `button`); a fresh guess does not (kb:lesson/authored-tests-never-run-before-validate).
 - To simulate Claude Code activity, POST synthesized hook / status-line payloads to the daemon the same way the real binary would, using the capture-faithful shapes. Put reusable payload builders in a shared helper module so fixtures stay consistent across specs.
-- Every must-have requirement from the plan has at least one E2E test.
+- **Every `E*` criterion has at least one E2E test, and every E2E test is a journey**: it launches,
+  posts hooks or status, restarts or kills — something only the daemon and the UI together can
+  show. A test that only reads the DOM after `goto` is a display property and belongs to
+  render-tests (`web/render/`, kb:adr/process-test-levels-journey-property-logic); e2e-lint rule 6
+  refuses it in a new spec. The CSS, layout-range and host-view rules live in that agent's file.
 - **Destructive per-session paths need a multi-session variant.** When a test kills, closes or supersedes a per-session resource on shared infrastructure, at least one test does it with ≥2 sessions live and asserts the others are unaffected (kb:lesson/detach-on-destroy-misrouted-keystrokes).
 - **A live interactive surface gets an input round-trip in every view that hosts it**, spanning at
   least one render tick — rendering in a view is not evidence it works there. **The round-trip uses
@@ -117,12 +121,10 @@ Place new test files in `web/e2e/<feature-name>.spec.ts`, where `<feature-name>`
   `/\d+×\d+/` passes on stale or fabricated data; when the daemon or tmux can be asked for the true
   value (`DisplayVar`, an API read), assert equality, re-reading **both** sides inside the retry so
   a stale display times out instead of passing (kb:lesson/tiles-never-refit-behind-pattern-match).
-- **A CSS effect a requirement names is asserted by the computed property that produces it, never by
-  a proxy that passes without it.** Playwright treats `opacity: 0` as visible, so a control the user
-  must see pairs `toBeVisible()` with `toHaveCSS("opacity", "1")` (`0` at rest, `1` on hover /
-  `:focus-within` for a reveal); an ellipsis or clamp is `text-overflow` plus `scrollWidth >
-  clientWidth`, a token colour is `getComputedStyle` against the live variable
-  (kb:lesson/shared-class-css-hid-resume-button, kb:lesson/mockup-vindicates-markup-not-cascade).
+- **When a journey must also assert a CSS effect**, assert the computed property that produces it,
+  never a proxy that passes without it (`toHaveCSS("opacity", "1")` beside `toBeVisible()`;
+  kb:lesson/shared-class-css-hid-resume-button) — but a requirement that is *only* a CSS or layout
+  effect is a render test, not yours.
 - **When a requirement names failure modes, cover each named mode distinctly.** A fulfilled 500/404
   and a connection-level failure (`route.abort()`, a killed daemon) exercise different code paths —
   `network` in a requirement means an aborted request, not an error status (kb:lesson/network-mode-covered-by-http-errors-only).

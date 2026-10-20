@@ -95,6 +95,13 @@ would *observe* instead.
 - What must the developer be able to do, and what must they see to know it worked?
 - What must be true when things go wrong? (latency, resilience to hook loss, etc.)
 
+Write **journeys** and **properties** as separate requirements: a journey is what the developer
+does and then sees across the live daemon ("launching from the dialog puts a working card in the
+rail"); a property is what is true of the display for a given state ("a moved session's card shows
+its worktree on a muted line"). The planner gives each its own test level
+(kb:adr/process-test-levels-journey-property-logic); a requirement mixing both gets tested at the
+most expensive one.
+
 Keep asking "anything else?" until the developer feels the list is complete.
 
 ### 5. Edge Cases & Considerations

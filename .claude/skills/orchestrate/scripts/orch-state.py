@@ -36,7 +36,7 @@ and the next `finish`/`done` closes it, so a re-spawned step keeps every attempt
 """
 import argparse, datetime, json, os, pathlib, re, subprocess, sys
 
-STEPS = ["e2e-specs", "daemon-impl", "web-impl", "daemon-tests", "web-tests",
+STEPS = ["e2e-specs", "daemon-impl", "web-impl", "daemon-tests", "web-tests", "render-tests",
          "e2e-validate", "review", "doc-reconcile"]
 
 def now():
@@ -117,7 +117,7 @@ def stamp_plan_status(plan_dir, value):
 
 REVIEW_PARTS = [("code", "Correctness review"), ("browser", "Browser review"),
                 ("maintainability", "Maintainability review")]
-AGENT_TAG = re.compile(r"^\d+\. \*\*(?:\[[a-z:-]+\] ?)*\[(daemon-impl|web-impl|daemon-tests|web-tests|e2e-specs)\]")  # dual tags too: "**[daemon-impl] [web-impl]**"
+AGENT_TAG = re.compile(r"^\d+\. \*\*(?:\[[a-z:-]+\] ?)*\[(daemon-impl|web-impl|daemon-tests|web-tests|render-tests|e2e-specs)\]")  # dual tags too: "**[daemon-impl] [web-impl]**"
 VERDICT_LINE = re.compile(r"^\*\*Verdict\*\*:\s*(\S+)", re.M)
 
 def part_verdict(text):

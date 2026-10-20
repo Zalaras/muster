@@ -58,6 +58,7 @@ Write `plans/<name>/plan.md`. It is a `/plan-work` plan with whole sections drop
 **Work Type**: daemon | web | full-stack
 **E2E Scope**: new-specs | none                   ← new-specs iff the Proof is an E2E spec
 **Fixture plan**: none | <spec> daemon|startDaemon|fileDaemon (<reason>)
+**Render fixtures**: none | <scenario>[, new: <scenario> (<what it holds>)]   ← iff the Proof is a render test
 **Features**: <every feature `kb for` named for the files below>
 **Description**: <one line>
 
@@ -79,10 +80,12 @@ Write `plans/<name>/plan.md`. It is a `/plan-work` plan with whole sections drop
 
 ## Proof
 <the test that is red today and green after: its file, name, the assertion that fails, and who
-writes it — daemon-tests | web-tests | e2e-specs>
+writes it — daemon-tests | web-tests | render-tests | e2e-specs, by what falsifies it: logic,
+a display property for a fixture state, or a journey across the live daemon
+(kb:adr/process-test-levels-journey-property-logic)>
 
 ## Edge Cases
-None.   | 1. <case> → D1 | W1 | E1 (a test ## Proof names) | untested: <why>
+None.   | 1. <case> → D1 | W1 | R1 | E1 (a test ## Proof names) | untested: <why>
 
 ## Acceptance Criteria
 ### Automated Checks
@@ -111,7 +114,7 @@ may not also appear in `## Symptom` prose). Show the plan; the developer approve
 git checkout -b plan/<name>
 git add plans/<name>/plan.md           # plus TODO.md / docs edits research made — by name
 git commit -m "docs(<name>): approved plan and planning-session edits"
-python3 $S <name> init --step daemon-tests     # or web-tests / e2e-specs — whichever ## Proof names
+python3 $S <name> init --step daemon-tests     # or web-tests / render-tests / e2e-specs — whichever ## Proof names
 git add plans/<name>/plan.md plans/<name>/orchestration-state.json && git commit -m "chore(<name>): init"
 ```
 
@@ -122,10 +125,10 @@ reviewer's DOC row checks it.
 
 ## 4. The test goes red first
 
-Spawn the agent `## Proof` names (`subagent_type: "daemon-tests"` | `"web-tests"` | `"e2e-specs"`):
+Spawn the agent `## Proof` names (`subagent_type: "daemon-tests"` | `"web-tests"` | `"render-tests"` | `"e2e-specs"`):
 
 ```
-Execute the <daemon|web|e2e> test task for plan: <name> — red-first.
+Execute the <daemon|web|render|e2e> test task for plan: <name> — red-first.
 Project root: <root>
 No implementation log exists and nothing is handed off: write only the test ## Proof names, run
 it, paste its red output, commit test(<name>): …, and finish authored. If it passes today, blocked.

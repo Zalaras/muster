@@ -25,7 +25,7 @@ implementing agent's — never write, build or run one.
 
 ## Tags
 
-- `[daemon-impl]` / `[web-impl]` / `[daemon-tests]` / `[web-tests]` / `[e2e-specs]` — that agent
+- `[daemon-impl]` / `[web-impl]` / `[daemon-tests]` / `[web-tests]` / `[render-tests]` / `[e2e-specs]` — that agent
   fixes it in its wave.
 - `[note]` — nobody; listed in the completion summary, never routed.
 - `[orchestrator]` — work no pipeline agent may do: `TODO.md` ticks (ticks only — follow-up worth
