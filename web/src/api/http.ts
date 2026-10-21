@@ -53,13 +53,19 @@ async function safeFetch(input: string, init: RequestInit): Promise<Response | n
   }
 }
 
-function requestInit(method: string, body?: unknown): RequestInit {
-  if (body === undefined) return { method, credentials: "same-origin" };
+export interface RequestOptions {
+  keepalive?: boolean;
+}
+
+function requestInit(method: string, body?: unknown, options: RequestOptions = {}): RequestInit {
+  const keepalive = options.keepalive === true ? { keepalive: true } : {};
+  if (body === undefined) return { method, credentials: "same-origin", ...keepalive };
   return {
     method,
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
     body: JSON.stringify(body),
+    ...keepalive,
   };
 }
 
@@ -136,8 +142,9 @@ export async function requestEmpty(
   url: string,
   successStatus: number,
   body?: unknown,
+  options?: RequestOptions,
 ): Promise<ApiResult<null>> {
-  const res = await safeFetch(url, requestInit(method, body));
+  const res = await safeFetch(url, requestInit(method, body, options));
   if (!res) return fail(method, url, networkError);
   const result = await decodeEmpty(res, successStatus);
   if (!result.ok) logApiFailure(method, url, result.error);

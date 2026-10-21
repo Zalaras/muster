@@ -598,6 +598,7 @@ var hardExclusionSentinels = []string{
 	"sentinel last activity must never leak",
 	"sentinel pane capture must never leak",
 	"sentinel model display name must never leak",
+	"sentinel session note must never leak",
 }
 
 // fullyPopulatedSession builds a *session.Session with every field set, including all
@@ -633,6 +634,7 @@ func fullyPopulatedSession(id int64) *session.Session {
 		CreatedAt:            time.Date(2026, 8, 31, 9, 4, 0, 0, time.UTC),
 		LastSnapshot:         "sentinel pane capture must never leak",
 		LastSnapshotAt:       time.Date(2026, 8, 31, 9, 19, 0, 0, time.UTC),
+		Note:                 p("sentinel session note must never leak"),
 	}
 }
 

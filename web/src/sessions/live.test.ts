@@ -38,6 +38,7 @@ function makeSession(id: number): Session {
     groupId: null,
     effort: null,
     effortWarning: null,
+    note: null,
     cache: null,
   };
 }

@@ -1,6 +1,6 @@
 # internal/server — HTTP/WS handlers, one feature type per file
 
-**Owns**: cookie-authed UI endpoints, `/ws` fanout, the ingest routes and the wire mapping from domain types to protocol JSON; `groups.go` holds the rail-group endpoints, the sessions-to-group move and the `groups` snapshot key and message; the `/api/sessions` routes are split by feature — `launchcreate.go` (create), `actions.go` (end, resume, remove, their batches, pane), `rail.go` (pin, order), `rename.go` (title), `effort.go` (effort-warning dismiss). Composition root is `server.go`: `New` builds each feature with `register(s, newXFeature(...))` and `routes()` mounts them; logic never lands there. **Features**: actions, connection, drop, ingest, issue, launch, lifecycle, rail, reader, rename, settings, surfaces, theme, update, usage, views.
+**Owns**: cookie-authed UI endpoints, `/ws` fanout, the ingest routes and the wire mapping from domain types to protocol JSON; `groups.go` holds the rail-group endpoints, the sessions-to-group move and the `groups` snapshot key and message; the `/api/sessions` routes are split by feature — `launchcreate.go` (create), `actions.go` (end, resume, remove, their batches, pane), `rail.go` (pin, order), `rename.go` (title), `effort.go` (effort-warning dismiss), `note.go` (note). Composition root is `server.go`: `New` builds each feature with `register(s, newXFeature(...))` and `routes()` mounts them; logic never lands there. **Features**: actions, connection, drop, ingest, issue, launch, lifecycle, notes, rail, reader, rename, settings, surfaces, theme, update, usage, views.
 
 **Invariants** (violations are review-Critical):
 - A handler is a method on its feature type, mounted via `mount(mux, guard)`, never on `*Server` (kb:adr/process-composition-roots-registration-only) — except `/healthz`, `GET /auth`, `GET /api/state` and `GET /ws`: they predate any feature (auth) or need every registered feature's `contribute` (`currentSnapshot`), which only the root can loop, so they stay core routes in `routes()`.
@@ -19,7 +19,7 @@
 - A fixture reshaped to stay green changes the wire (kb:lesson/stale-fixture-reshaped-the-wire).
 
 <!-- kb:trailer -->
-<!-- kb:hash b88db05d456ac3e6 -->
+<!-- kb:hash 6a03cb5c7a80e4f9 -->
 - **actions** — Stop, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **card-location** — The card's launch directory, its branch kept fresh by the repo poll, where Claude works when elsewhere, the directories added to it, and the bind's model name. → `docs/features/card-location/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
@@ -30,6 +30,7 @@
 - **issue** — Issue capture and GitHub issue creation from the dashboard. → `docs/features/issue/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`
+- **notes** — A persistent, markdown-rendered note per session, edited from the Focus header and peeked from the rail card and tile header. → `docs/features/notes/INDEX.md`
 - **past-sessions** — The launch dialog's Resume tab — a directory's Claude Code sessions listed from transcripts, the running-session guard, resume in the original mode. → `docs/features/past-sessions/INDEX.md`
 - **rail** — Rail cards, attention versus manual order, pin, drag reorder, session count. → `docs/features/rail/INDEX.md`
 - **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`

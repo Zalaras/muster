@@ -4680,3 +4680,359 @@ fieldset.seg legend {
     display: none;
   }
 }
+
+/* ── session notes (plan session-notes): the header glyph, the card and tile marker, and the
+ * note panel in both forms. Neutral tokens only (design-system §3); the one exception is the
+ * unsaved status, in the `--warn` family. ── */
+
+.sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.ng {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-dim);
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+.ng svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
+
+.ng:hover,
+.ng:focus-visible,
+.ng[aria-expanded="true"] {
+  opacity: 1;
+}
+
+.ng.has {
+  color: var(--fg);
+  opacity: 1;
+}
+
+.mk {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  color: var(--fg-muted);
+}
+
+.mk[hidden] {
+  display: none;
+}
+
+.mk svg {
+  width: 11px;
+  height: 11px;
+  display: block;
+}
+
+.r2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.r2 .rf,
+.r2 .rb {
+  grid-column: 1;
+}
+
+.r2 .mk {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  margin-left: 8px;
+}
+
+body[data-rail-density="compact"] .r2 .mk {
+  order: 2;
+  margin-left: auto;
+  padding-left: 8px;
+}
+
+.thead .mk {
+  margin-left: auto;
+}
+
+.thead .mk:not([hidden]) + .ctxinfo {
+  margin-left: 0;
+}
+
+.npanel {
+  position: fixed;
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--edge);
+  background: var(--bg-raised);
+  box-shadow: 0 8px 24px var(--scrim);
+  text-align: left;
+}
+
+.npanel[hidden] {
+  display: none;
+}
+
+.npanel.anchored {
+  width: 400px;
+  max-width: calc(100vw - 16px);
+  max-height: min(360px, calc(100vh - 110px));
+}
+
+.npanel .ph {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px 6px 12px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg);
+  touch-action: none;
+}
+
+.npanel .ph .lab {
+  flex: none;
+}
+
+.npanel .ph .who {
+  flex: 0 8 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--fg-dim);
+}
+
+.npanel .ph .st {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--warn);
+}
+
+.npanel .ph .st:not(:empty)::before {
+  content: "● ";
+  font-size: 8px;
+  vertical-align: 1px;
+}
+
+.npanel .ph .ctl {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--line-control);
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.npanel .ph .ctl[hidden] {
+  display: none;
+}
+
+.npanel .ph .ctl:hover {
+  color: var(--fg);
+  border-color: var(--fg-muted);
+}
+
+.npanel.popped .ph {
+  cursor: grab;
+}
+
+.npanel .nbody {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.npanel .bd {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  cursor: text;
+}
+
+.npanel .bd[hidden] {
+  display: none;
+}
+
+.npanel .bd:hover {
+  background: var(--bg-hover);
+}
+
+.npanel textarea {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--edge);
+  border-radius: 2px;
+  resize: none;
+  background: var(--well);
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+}
+
+.npanel.anchored textarea {
+  height: 220px;
+  flex: 0 1 auto;
+}
+
+.npanel .rz {
+  display: none;
+  position: absolute;
+  z-index: 1;
+  touch-action: none;
+}
+
+.npanel.popped .rz {
+  display: block;
+}
+
+.npanel .rz.n,
+.npanel .rz.s {
+  left: 10px;
+  right: 10px;
+  height: 4px;
+  cursor: ns-resize;
+}
+
+.npanel .rz.e,
+.npanel .rz.w {
+  top: 10px;
+  bottom: 10px;
+  width: 4px;
+  cursor: ew-resize;
+}
+
+.npanel .rz.n {
+  top: 0;
+}
+
+.npanel .rz.s {
+  bottom: 0;
+}
+
+.npanel .rz.e {
+  right: 0;
+}
+
+.npanel .rz.w {
+  left: 0;
+}
+
+.npanel .rz.ne,
+.npanel .rz.nw,
+.npanel .rz.se,
+.npanel .rz.sw {
+  width: 10px;
+  height: 10px;
+}
+
+.npanel .rz.ne,
+.npanel .rz.sw {
+  cursor: nesw-resize;
+}
+
+.npanel .rz.nw,
+.npanel .rz.se {
+  cursor: nwse-resize;
+}
+
+.npanel .rz.ne,
+.npanel .rz.nw {
+  top: 0;
+}
+
+.npanel .rz.se,
+.npanel .rz.sw {
+  bottom: 0;
+}
+
+.npanel .rz.ne,
+.npanel .rz.se {
+  right: 0;
+}
+
+.npanel .rz.nw,
+.npanel .rz.sw {
+  left: 0;
+}
+
+.nb {
+  grid-column: auto;
+  grid-row: auto;
+  padding: 8px 12px 10px;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.nb h1 {
+  font-size: 1.07rem;
+  margin: 6px 0;
+}
+
+.nb h2 {
+  font-size: 0.89rem;
+  margin: 8px 0 4px;
+}
+
+.nb p {
+  margin-bottom: 6px;
+}
+
+.nb .empty {
+  color: var(--fg-dim);
+  font-style: italic;
+}
+
+.nb.cut {
+  max-height: 12lh;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, var(--fg) 75%, transparent);
+  mask-image: linear-gradient(to bottom, var(--fg) 75%, transparent);
+}
+
+.pop.note-pop {
+  width: 320px;
+  min-width: 0;
+  padding: 6px 0 0;
+}
+
+.pop.note-pop .ph {
+  margin-bottom: 0;
+}

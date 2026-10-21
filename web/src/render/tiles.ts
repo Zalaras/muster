@@ -17,6 +17,7 @@ import {
 import { requireElement } from "../dom";
 import { renderContextRow } from "./context";
 import type { CardTip } from "./cardtip";
+import { applyNoteMarker, type NoteMarkerHover } from "./notes";
 import { type CardListOptions, type CardMenuRequest, reconcileCards } from "./sessions";
 import { buildActionButton } from "./actionbutton";
 import { attachRenameEditor, type RenameEditorController } from "./rename";
@@ -107,6 +108,7 @@ function updateTileChrome(
   where.textContent = vm.repoLine;
   where.title = vm.hover;
   applyClaudeMarker(root, vm.claudeNote);
+  applyNoteMarker(requireElement<HTMLElement>(".mk", root), session.note);
   renderContextRow(ctx, session.context, "ctxinfo");
   timer.textContent = tileHeaderTimerText(session, now);
 }
@@ -124,6 +126,7 @@ export function buildTile(
   template: HTMLTemplateElement,
   renameHandlers: TileRenameHandlers,
   onSurfaceSelect: (id: number, kind: SurfaceKind) => void,
+  noteHover?: NoteMarkerHover,
 ): TileRefs {
   const fragment = template.content.cloneNode(true) as DocumentFragment;
   const root = fragment.querySelector<HTMLElement>(".tile");
@@ -170,6 +173,8 @@ export function buildTile(
     },
   });
 
+  noteHover?.attach(requireElement<HTMLElement>(".mk", root), session.id);
+
   // Freshly attached, so never mid-edit yet.
   updateTileChrome(root, session, now, false);
 
@@ -208,6 +213,7 @@ export interface StripOptions {
   connected: boolean;
   railActivity: RailActivity;
   cardTip?: CardTip | undefined;
+  noteHover?: NoteMarkerHover | undefined;
 }
 
 /** Renders the snapshot strip: the same rail-card markup, on its side — clicking
@@ -247,6 +253,7 @@ export function renderStrip(
     currentId: null,
     railActivity: options.railActivity,
     cardTip: options.cardTip,
+    noteHover: options.noteHover,
   };
   reconcileCards(el, sessions, now, template, cardOptions);
 }

@@ -28,6 +28,12 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
+    <svg width="0" height="0" aria-hidden="true" focusable="false" class="sprite">
+      <symbol id="note-glyph" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+        <rect x="3" y="1.2" width="9.5" height="11.6" rx="1"/>
+        <path d="M1.5 4h3M1.5 7h3M1.5 10h3M6.5 5h4M6.5 7.5h4M6.5 10h2.5"/>
+      </symbol>
+    </svg>
     <div id="app">
       <header class="masthead">
         <div class="brand"><h1>Muster</h1></div>
@@ -95,6 +101,7 @@
           <div id="main-empty" class="placeholder">No sessions yet — ⌥⌘N to launch</div>
           <div id="mainhead" class="mainhead" hidden>
             <div class="idrow">
+              <button type="button" class="ng" aria-label="Note" aria-haspopup="dialog" aria-expanded="false"><svg aria-hidden="true" focusable="false"><use href="#note-glyph"/></svg></button>
               <h2 class="name"><button type="button" class="rename"></button></h2>
               <span class="chip-danger" hidden>bypass</span>
               <button type="button" class="ingroup" title="Group — click to move" aria-haspopup="menu" aria-expanded="false"><span class="ig-name"></span><span aria-hidden="true">▾</span></button>
@@ -419,7 +426,7 @@
             <span class="timer" aria-label="time in state"></span>
             <button class="pin" type="button" aria-label="Pin" aria-pressed="false" title="Pin to top"></button>
           </div>
-          <div class="r2"><span class="rf"></span></div>
+          <div class="r2"><span class="rf"></span><span class="mk" hidden><svg aria-hidden="true" focusable="false"><use href="#note-glyph"/></svg><span class="sr-only"></span></span></div>
           <div class="r2c" hidden><span class="lead" aria-hidden="true">↳</span><span class="rf"></span></div>
           <div class="r3"></div>
           <div class="activity you" hidden></div>
@@ -438,6 +445,7 @@
           <span class="chip-danger" hidden>bypass</span>
           <span class="wh"></span>
           <span class="wh-claude" hidden><span aria-hidden="true">↳</span><span class="sr-only"></span></span>
+          <span class="mk" hidden><svg aria-hidden="true" focusable="false"><use href="#note-glyph"/></svg><span class="sr-only"></span></span>
           <span class="ctxinfo"></span>
           <span class="tm"></span>
         </div>

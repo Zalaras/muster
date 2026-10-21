@@ -250,6 +250,7 @@ func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Sess
 		restoreIfUnchanged(&cur.RailPos, post.RailPos, last.RailPos)
 		restoreIfUnchanged(&cur.GroupID, post.GroupID, last.GroupID)
 		restoreIfUnchanged(&cur.TitleOverride, post.TitleOverride, last.TitleOverride)
+		restoreIfUnchanged(&cur.Note, post.Note, last.Note)
 		restoreIfUnchanged(&cur.titleDelivery, post.titleDelivery, last.titleDelivery)
 		restoreIfUnchanged(&cur.TranscriptPath, post.TranscriptPath, last.TranscriptPath)
 		restoreIfUnchanged(&cur.PlanPath, post.PlanPath, last.PlanPath)
@@ -285,7 +286,7 @@ var restoredSessionFields = []string{
 	"ClaudeSessionID", "Title", "State", "StateSince",
 	"PermissionMode", "PermissionModeSource", "Model", "Context", "Cache", "Effort", "EffortWarning", "effortRequested", "Compactions",
 	"Attention", "Failure", "LastActivity", "Alive", "EndedAt", "LastSnapshot",
-	"LastSnapshotAt", "Pinned", "RailPos", "GroupID", "TitleOverride", "titleDelivery", "TranscriptPath",
+	"LastSnapshotAt", "Pinned", "RailPos", "GroupID", "TitleOverride", "Note", "titleDelivery", "TranscriptPath",
 	"PlanPath", "PlanExists", "Unread", "LastPrompt", "BackgroundTasks", "AttentionAgent",
 	"currentPromptID", "compactionPromptID", "closedPromptIDs",
 	"pendingResumeClaudeSessionID",

@@ -103,8 +103,10 @@ function stackMeta(metaEl: HTMLElement, root: HTMLElement): void {
   if (sharesRow(metaEl, title)) return;
   metaEl.classList.add("stacked");
   const rename = requireElement<HTMLElement>(".rename", title);
-  if (rename.scrollWidth > rename.clientWidth)
-    metaEl.style.setProperty("--loc-cap", "var(--loc-floor)");
+  if (rename.scrollWidth > rename.clientWidth) {
+    const natural = metaEl.style.getPropertyValue("--loc-cap");
+    metaEl.style.setProperty("--loc-cap", `min(var(--loc-floor), ${natural})`);
+  }
 }
 
 function onOneRow(root: HTMLElement): boolean {

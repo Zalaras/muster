@@ -136,6 +136,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     groupId: null,
     effort: null,
     effortWarning: null,
+    note: null,
     cache: null,
     ...overrides,
   };
@@ -153,6 +154,11 @@ function fakeTileRoot(): HTMLElement & { className: string } {
   (whClaude as unknown as { querySelector: (s: string) => HTMLElement | null }).querySelector = (
     selector: string,
   ) => (selector === ".sr-only" ? srOnly : null);
+  const mk = fakeElement();
+  const mkText = fakeElement();
+  (mk as unknown as { querySelector: (s: string) => HTMLElement | null }).querySelector = (
+    selector: string,
+  ) => (selector === ".sr-only" ? mkText : null);
   const ctx = fakeElement();
   const tm = fakeElement();
   const dot = { ...fakeElement(), title: "" } as HTMLElement & { title: string };
@@ -161,6 +167,7 @@ function fakeTileRoot(): HTMLElement & { className: string } {
     ".chip-danger": chip,
     ".wh": wh,
     ".wh-claude": whClaude,
+    ".mk": mk,
     ".ctxinfo": ctx,
     ".tm": tm,
     ".sdot": dot,
@@ -202,6 +209,28 @@ describe("renderTileGeometry — REQ-15's tile footer: real geometry + live/stop
     expect(refs.geoEl.textContent).toBe("");
     expect(refs.markerEl.textContent).toBe("live");
     expect(refs.markerEl.className).toBe("marker live");
+  });
+});
+
+describe("updateTile — note marker (kb:spec/notes)", () => {
+  it.each([
+    ["no note", null, true, ""],
+    ["a note", "## Where I am", false, "Has a note"],
+    ["a blank-looking note kept verbatim", "  ", false, "Has a note"],
+  ])("%s", (_label, note, hidden, srText) => {
+    const root = fakeTileRoot();
+    updateTile(fakeTileRefs(root), makeSession({ id: 1, note }), NOW);
+    const mk = root.querySelector(".mk") as HTMLElement;
+    expect(mk.hidden).toBe(hidden);
+    expect((mk.querySelector(".sr-only") as HTMLElement).textContent).toBe(srText);
+  });
+
+  it("clears the marker again when the note is removed", () => {
+    const root = fakeTileRoot();
+    const refs = fakeTileRefs(root);
+    updateTile(refs, makeSession({ id: 1, note: "x" }), NOW);
+    updateTile(refs, makeSession({ id: 1, note: null }), NOW);
+    expect((root.querySelector(".mk") as HTMLElement).hidden).toBe(true);
   });
 });
 

@@ -55,15 +55,6 @@ May turn out to be a daemon-only fix rather than a feature.
   after Claude Code updates, the developer wants to restart every session onto the new version
   with each one resumed where it was, and also to restart just one session or just one group.
 
-#### What a session records (#95)
-
-- [ ] **I'd like to be able to add a note to my session** ([#95](https://github.com/Zalaras/muster/issues/95)) — The
-  author wants to attach their own persistent note to a session, separate from titles and rail
-  summaries. Expected: Each session should support a persistent user-written note that the author
-  can add and keep.
-  Filed 2026-10-15 from musterd 0.21.1 / Claude Code 2.1.293, focus view, session working.
-  Labels: enhancement, sessions, ux.
-
 #### Tiles per group
 
 - [ ] **Tiles per group** — a Tiles view scoped to one group (the grid holds that group's live sessions, the strip the rest of it), reached from the group's ⋯ menu. The grid and strip ignore groups today. The tile footer's live (Stop) versus ended (age, Resume, Remove) row shapes, and the layout shift between them, are reworked here too, matching the Focus header's single Stop/Resume button (plan `title-crop-stop-resume-button` left the footer alone, 2026-10-13).
@@ -255,6 +246,12 @@ entry below is about how long one run takes, and stays open.
 ### Releases nothing — a plan and a commit
 
 #### Gate and pipeline tooling
+
+- [ ] **Revisit every doc size budget** — filed by the developer 2026-10-21 after `session-notes`. Runs keep
+  trimming text to fit a budget (feature specs at 800 words, hand-written `CLAUDE.md` prose at 400,
+  diagram bodies at 300, record summaries at 160 characters, role packs at 30,000) and may be
+  cutting information that was useful. Each budget should be checked against what it now forces out,
+  and kept, raised or replaced so that fitting it never deletes a true, useful sentence.
 
 - [ ] **`make check` fails in a fresh clone or worktree** — `check-kb` reports `refs` entries for
   `test/rig/captures/*.jsonl` that match no file; it passes only in the developer's checkout. From `plans/maintainability-cleanup/`.

@@ -2502,3 +2502,13 @@ that the dashboard shows.
   opens, Effort can read `default` before settling on the directory's remembered level. The
   dialog should open showing the remembered level. From `plans/effort/`.
   ✅ done 2026-10-19 (plan `launch-dialog-fixes`, via `/fix`).
+
+#### What a session records (#95) ✅ done 2026-10-21 (plan `session-notes`, via `/orchestrate`; approved review cycle 4)
+
+- [x] **I'd like to be able to add a note to my session** ([#95](https://github.com/Zalaras/muster/issues/95)) — The
+  author wants to attach their own persistent note to a session, separate from titles and rail
+  summaries. Expected: Each session should support a persistent user-written note that the author
+  can add and keep.
+  Filed 2026-10-15 from musterd 0.21.1 / Claude Code 2.1.293, focus view, session working.
+  Labels: enhancement, sessions, ux.
+  ✅ done 2026-10-21 (plan `session-notes`, via `/orchestrate`).

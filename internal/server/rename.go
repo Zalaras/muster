@@ -56,24 +56,18 @@ func (f *renameFeature) handleSetTitle(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "invalid_request", "invalid JSON body")
 		return
 	}
-	if len(req.Title) == 0 {
-		// The key was absent — distinct from an explicit null (kb:anchor/sessions.title: "the title key is
-		// required (absent key != null)").
+	raw, ok := decodeNullable[string](req.Title)
+	if !ok {
 		writeJSONError(w, http.StatusBadRequest, "invalid_request", invalidTitleMessage)
 		return
 	}
 
 	var title *string
-	if string(req.Title) != "null" {
-		var raw string
-		if err := json.Unmarshal(req.Title, &raw); err != nil {
-			writeJSONError(w, http.StatusBadRequest, "invalid_request", invalidTitleMessage)
-			return
-		}
+	if raw != nil {
 		// Trimmed before validation and storage (kb:anchor/sessions.title); counted in runes, not bytes,
 		// same rule handleCreateIssue's title uses (a multi-byte-rune title the client's
 		// maxlength already allowed must not be rejected by a byte-length check).
-		trimmed := strings.TrimSpace(raw)
+		trimmed := strings.TrimSpace(*raw)
 		if trimmed == "" || utf8.RuneCountInString(trimmed) > maxSessionTitleLen {
 			writeJSONError(w, http.StatusBadRequest, "invalid_request", invalidTitleMessage)
 			return

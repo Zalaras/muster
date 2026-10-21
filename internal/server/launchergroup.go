@@ -26,7 +26,7 @@ func (l *sessionLauncher) resolveLaunchGroup(req createSessionRequest) (launchGr
 	if len(req.GroupID) == 0 {
 		return launchGroup{}, nil
 	}
-	id, ok := decodeGroupID(req.GroupID)
+	id, ok := decodeNullable[int64](req.GroupID)
 	if !ok {
 		return launchGroup{}, invalidRequest(msgGroupIDField)
 	}

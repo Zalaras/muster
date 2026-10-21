@@ -1,0 +1,360 @@
+{
+  "scenario": "notes-tiles",
+  "hello": {
+    "claudeCode": {
+      "floor": "2.1.246",
+      "installed": "2.1.300",
+      "status": "verified",
+      "verified": "2.1.300"
+    },
+    "daemon": {
+      "version": "0.0.0-renderfix"
+    },
+    "protocolVersion": 2,
+    "type": "hello"
+  },
+  "snapshot": {
+    "claudeTheme": {
+      "family": "unknown"
+    },
+    "groups": [],
+    "prefs": {
+      "density": "2x2",
+      "railActivity": "turn",
+      "railDensity": "comfortable",
+      "railSort": "manual",
+      "theme": "follow",
+      "updateCheck": true,
+      "usageModel": "Fable",
+      "view": "tiles"
+    },
+    "sessions": [
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-notes-plain",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:00:00Z",
+        "directory": "/home/bob/projects/notes-plain",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 1,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "note": null,
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 1,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "notes-plain"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:01:00Z",
+        "title": "notes-plain",
+        "titleOverride": null,
+        "tmuxTarget": "muster-1:@1",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-notes-short",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:02:00Z",
+        "directory": "/home/bob/projects/notes-short",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 2,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "note": "Waiting on review.\nNext: ask about the **retry** budget.",
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": true,
+        "plan": null,
+        "railPos": 0,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "notes-short"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:03:00Z",
+        "title": "notes-short",
+        "titleOverride": null,
+        "tmuxTarget": "muster-2:@2",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-notes-long",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:04:00Z",
+        "directory": "/home/bob/projects/notes-long",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 3,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "note": "---\ntitle: Rostering retry plan\nstatus: draft\n---\n\n# Where I am\n\nThe retry budget is the open question.\n\n```mermaid\nflowchart LR\n  A[Request] --> B{Retry?}\n  B -->|yes| A\n  B -->|no| C[Fail]\n```\n\n1. Follow-up item number 1 for the next prompt\n2. Follow-up item number 2 for the next prompt\n3. Follow-up item number 3 for the next prompt\n4. Follow-up item number 4 for the next prompt\n5. Follow-up item number 5 for the next prompt\n6. Follow-up item number 6 for the next prompt\n7. Follow-up item number 7 for the next prompt\n8. Follow-up item number 8 for the next prompt\n9. Follow-up item number 9 for the next prompt\n10. Follow-up item number 10 for the next prompt\n11. Follow-up item number 11 for the next prompt\n12. Follow-up item number 12 for the next prompt\n13. Follow-up item number 13 for the next prompt\n14. Follow-up item number 14 for the next prompt\n15. Follow-up item number 15 for the next prompt\n16. Follow-up item number 16 for the next prompt\n17. Follow-up item number 17 for the next prompt\n18. Follow-up item number 18 for the next prompt\n19. Follow-up item number 19 for the next prompt\n20. Follow-up item number 20 for the next prompt\n21. Follow-up item number 21 for the next prompt\n22. Follow-up item number 22 for the next prompt\n23. Follow-up item number 23 for the next prompt\n24. Follow-up item number 24 for the next prompt\n",
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 2,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "notes-long"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:05:00Z",
+        "title": "notes-long",
+        "titleOverride": null,
+        "tmuxTarget": "muster-3:@3",
+        "unread": true
+      },
+      {
+        "addedDirs": [],
+        "alive": false,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-notes-ended",
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:06:00Z",
+        "directory": "/home/bob/projects/notes-ended",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": "2026-01-01T00:07:00Z",
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 4,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "note": "Session ended mid-review.\nResume after the weekend.",
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 3,
+        "repo": {
+          "branch": "main",
+          "isWorktree": false,
+          "name": "notes-ended"
+        },
+        "state": "idle",
+        "stateSince": "2026-01-01T00:08:00Z",
+        "title": "notes-ended",
+        "titleOverride": null,
+        "tmuxTarget": "muster-4:@4",
+        "unread": true
+      }
+    ],
+    "shellsBusy": [],
+    "type": "snapshot",
+    "ungrouped": {
+      "collapsed": false,
+      "pos": 0
+    },
+    "update": {
+      "apply": {
+        "error": null,
+        "phase": "idle",
+        "version": null
+      },
+      "available": null,
+      "canCheck": false,
+      "checkedAt": null,
+      "install": "dev",
+      "installed": null,
+      "remedy": null,
+      "running": "renderfix"
+    },
+    "usage": {
+      "fiveHour": null,
+      "modelScoped": null,
+      "modelScopedAt": null,
+      "modelScopedError": null,
+      "modelScopedSource": "subscription-api",
+      "sampledAt": null,
+      "sevenDay": null,
+      "source": "subscription"
+    }
+  },
+  "repos": [
+    {
+      "branch": "main",
+      "id": 4,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:06:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "notes-ended",
+      "path": "/home/bob/projects/notes-ended",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 3,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:04:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "notes-long",
+      "path": "/home/bob/projects/notes-long",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 2,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:02:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "notes-short",
+      "path": "/home/bob/projects/notes-short",
+      "pinned": false
+    },
+    {
+      "branch": "main",
+      "id": 1,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:00:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "notes-plain",
+      "path": "/home/bob/projects/notes-plain",
+      "pinned": false
+    }
+  ],
+  "reader": [
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/notes-plain",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/notes-short",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 2
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/notes-long",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 3
+    },
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/notes-ended",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "truncated": false
+      },
+      "sessionId": 4
+    }
+  ]
+}

@@ -82,7 +82,7 @@ func (f *railFeature) handleSetOrder(w http.ResponseWriter, r *http.Request) {
 
 	var group *session.GroupRef
 	if len(req.GroupID) > 0 {
-		id, ok := decodeGroupID(req.GroupID)
+		id, ok := decodeNullable[int64](req.GroupID)
 		if !ok {
 			writeInvalidRequest(w, msgGroupIDField)
 			return

@@ -58,6 +58,7 @@
           "displayName": "sonnet",
           "id": "sonnet"
         },
+        "note": null,
         "permissionMode": {
           "source": "seed",
           "value": "default"
@@ -102,6 +103,7 @@
           "displayName": "sonnet",
           "id": "sonnet"
         },
+        "note": null,
         "permissionMode": {
           "source": "seed",
           "value": "default"

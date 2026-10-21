@@ -15,7 +15,7 @@
 import type { App, ConnectionStatus } from "../app";
 import { isRecord } from "../protocol/decode";
 import { DAEMON_ABSENCE_CLAUSE } from "../render/banner";
-import { readJson, removeItem, writeJson, type StorageLike } from "../storage";
+import { readJson, removeItem, safeSessionStorage, writeJson, type StorageLike } from "../storage";
 
 // 30 s since the record arrived before the banner falls back to the ordinary unreachable
 // text (the record itself stays held — only the text changes).
@@ -23,33 +23,6 @@ const RESTART_FALLBACK_MS = 30_000;
 // The confirmation shows for 3 s, then hides.
 const CONFIRMATION_MS = 3_000;
 const HANDOFF_KEY = "muster.update-restart";
-
-/** Wraps the `sessionStorage` *accessor* itself in a try, not just its methods — a
- * browser with site data blocked (observed on Chrome) throws on the global getter
- * before any `getItem`/`setItem` call is reachable, which `storage.ts`'s own
- * `readJson`/`writeJson`/`removeItem` try/catch never gets a chance to run for
- * (kb:adr/update-restart-reloads-dashboard). A throwing accessor degrades to a storage
- * whose methods also throw, tolerated the same way an explicitly disabled storage
- * already is by every `storage.ts` caller. Kept here rather than in `storage.ts` — this
- * is the one caller, and `storage.ts` is shared by the reader and theme features, outside
- * this module's own scope. */
-function safeSessionStorage(): StorageLike {
-  try {
-    return sessionStorage;
-  } catch {
-    return {
-      getItem() {
-        throw new Error("sessionStorage unavailable");
-      },
-      setItem() {
-        throw new Error("sessionStorage unavailable");
-      },
-      removeItem() {
-        throw new Error("sessionStorage unavailable");
-      },
-    };
-  }
-}
 
 interface RestartRecord {
   version: string;

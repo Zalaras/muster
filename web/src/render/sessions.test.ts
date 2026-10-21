@@ -306,6 +306,13 @@ function buildCardTemplateFragment(): FakeDomNode {
   const r2Folder = new FakeDomNode("span");
   r2Folder.className = "rf";
   r2.appendChild(r2Folder);
+  const mk = new FakeDomNode("span");
+  mk.className = "mk";
+  mk.hidden = true;
+  const mkText = new FakeDomNode("span");
+  mkText.className = "sr-only";
+  mk.appendChild(mkText);
+  r2.appendChild(mk);
   const r2c = new FakeDomNode("div");
   r2c.className = "r2c";
   r2c.hidden = true;
@@ -391,6 +398,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     groupId: null,
     effort: null,
     effortWarning: null,
+    note: null,
     cache: null,
     ...overrides,
   };
@@ -1159,9 +1167,21 @@ describe("reconcileCards — repo block and `↳` block", () => {
   }
 
   const lines = (host: FakeDomNode | null) =>
-    host?.children.map((c) => [c.className, c.textContent]).filter(([cls]) => cls !== "lead");
+    host?.children
+      .map((c) => [c.className, c.textContent])
+      .filter(([cls]) => cls !== "lead" && cls !== "mk");
   const r2 = (card: FakeDomNode) => card.querySelector(".r2");
   const r2c = (card: FakeDomNode) => card.querySelector(".r2c");
+
+  it.each([
+    ["no note", null, true, ""],
+    ["a note", "## Where I am", false, "Has a note"],
+    ["a blank-looking note kept verbatim", "  ", false, "Has a note"],
+  ])("ends the repo block in the note marker: %s", (_label, note, hidden, srText) => {
+    const mk = r2(renderCard(makeSession({ id: 1, note })))?.querySelector(".mk");
+    expect(mk?.hidden).toBe(hidden);
+    expect(mk?.querySelector(".sr-only")?.textContent).toBe(srText);
+  });
 
   it("splits the launch readout into `.rf` (folder and slash) and `.rb` (branch), with the one-line hover on `.r2`", () => {
     const card = renderCard(

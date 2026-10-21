@@ -1,0 +1,211 @@
+{
+  "plan": "session-notes",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-20T22:05:31Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 7,
+        "keep": 3,
+        "drop": 4
+      },
+      "keeps": [
+        {
+          "key": "internal/session/session.go:d47895aa912149b7",
+          "path": "internal/session/session.go",
+          "anchor": {
+            "kind": "above",
+            "text": "Note *string",
+            "line": 149
+          },
+          "lines": [
+            "// Note (kb:adr/notes-muster-owned-session-field-whole-text): the developer's own text,",
+            "// nil = no note, never an empty or whitespace-only string. Display-only — never read by",
+            "// the state machine, the status path, rebinds, resume, reconcile or liveness. Written",
+            "// only by Manager.SetNote under Manager.mu, always replaced with a fresh pointer, never",
+            "// written through, so restoreChangedFields can compare it by identity."
+          ],
+          "reason": "Without it a reader would assign through the pointer (*s.Note = text) or store an empty string at `Note *string`; that breaks the by-identity comparison in restoreChangedFields and the nil-means-no-note invariant."
+        },
+        {
+          "key": "web/src/features/reader.ts:34c07a90e0d06f40",
+          "path": "web/src/features/reader.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "private diagramPass: Promise\u003cvoid\u003e = Promise.resolve();",
+            "line": 134
+          },
+          "lines": [
+            "/** `diagramPass` is always the most recently started diagram pass — the theme observer",
+            "* chains behind it; a fresh document open simply replaces it, since a superseded pass's",
+            "* own `isCurrent` guard already keeps it from touching the new body regardless of",
+            "* ordering. Each pass (an open's `renderDiagrams` call, or a theme flip's",
+            "* `rerenderDiagrams` call) draws its own fresh id from `mintDiagramInstance` at the",
+            "* call site below — never a value fixed for this instance's lifetime. */"
+          ],
+          "reason": "Edited on `main`; still true: `private diagramPass: Promise\u003cvoid\u003e = Promise.resolve();` is the latest pass and passes draw ids via mintDiagramInstance."
+        },
+        {
+          "key": "web/src/main.ts:ca4a8fcce101c65a",
+          "path": "web/src/main.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "const views = initViews(app, { focus, tiles });",
+            "line": 74
+          },
+          "lines": [
+            "// Render phase order (behaviour-bearing — see each phase's own controller for why its",
+            "// position matters):",
+            "//  1. actions  — dead-pane tracking (registered inside initActions)",
+            "//  2. usage    — gauges/model week/model readout (initUsage)",
+            "//  3. update   — Updates section + Settings badge (initUpdate)",
+            "//  4. issue    — Issue button disabled state (initIssue)",
+            "//  5. tiles    — membership: tilesLive tracks density (initTiles)",
+            "//  6. focus    — default focusedId (initFocus)",
+            "//  7. surfaces — open/close diff over (id, kind) keys (initSurfaces)",
+            "//  8. reader   — mount/dispose diff over docs-selected sessions (initReader)",
+            "//  9. rail     — the groups chrome (filter row, Select, selection bar), the sections and",
+            "//     their cards, count, sort select (initRail, which calls `groups.renderChrome` first;",
+            "//     initGroups registers no phase of its own — it is constructed before focus, which reads it)",
+            "// 10. views    — switcher, density control, view containers' hidden, then focus (view) in",
+            "//     Focus, else tiles (view) in Tiles — registered inside initViews, since that phase is",
+            "//     inherently split across two controllers by shared state (views.ts).",
+            "// 11. notes    — the note panel, after the focus phase has settled the focused session",
+            "//     and the mainhead has laid out the glyph the anchored panel sits under (initNotes)",
+            "// 12. connection — banner text/visibility, time-based as well as status-driven",
+            "//     (initConnection, registered further down once `updateRestart` exists to supply it)"
+          ],
+          "reason": "Edited on `main`; still true: the phase order list matches the init calls such as `initViews(app, { focus, tiles })` and `initNotes(app)`."
+        }
+      ],
+      "drops": [
+        {
+          "key": "web/src/api/sessions.ts:fd36f07bd0e8b313",
+          "path": "web/src/api/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export async function putNote(",
+            "line": 66
+          },
+          "lines": [
+            "/** `PUT /api/sessions/{id}/note` (kb:anchor/sessions.note). Replaces the whole note; empty or",
+            "* whitespace-only text clears it daemon-side. `204` with no body — the stored note reaches every",
+            "* UI socket via `sessionUpsert`. `keepalive` lets the request outlive a page unload (the browser",
+            "* caps such a body at 64 KiB). Errors: `400 invalid_request` / `404 unknown_session` /",
+            "* `413 request_too_large`. */"
+          ]
+        },
+        {
+          "key": "web/src/render/diagrams.ts:ea58a48772467497",
+          "path": "web/src/render/diagrams.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function mintDiagramInstance(): number {",
+            "line": 23
+          },
+          "lines": [
+            "/** A fresh value drawn on every diagram pass, by every host (the reader, the note panel and its",
+            "* hover) — never reused across calls: a diagram's own `\u003cstyle\u003e` selects by `#id` and CSS id",
+            "* selectors aren't scoped to one subtree, so two passes that minted the same value would share",
+            "* SVG ids. */"
+          ]
+        },
+        {
+          "key": "web/src/storage.ts:1dbfd76b5e5e0a5c",
+          "path": "web/src/storage.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function guardedStorage(read: () =\u003e StorageLike): StorageLike {",
+            "line": 67
+          },
+          "lines": [
+            "/** Wraps the storage *accessor* itself in a try, not just its methods: a browser with site data",
+            "* blocked throws on the global getter before any `getItem` call is reachable. A throwing accessor",
+            "* degrades to a storage whose methods throw, tolerated like an explicitly disabled storage by",
+            "* every helper above. */"
+          ]
+        },
+        {
+          "key": "web/src/storagefakes.ts:26223699c48cdc4b",
+          "path": "web/src/storagefakes.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { StorageLike } from \"./storage\";",
+            "line": 1
+          },
+          "lines": [
+            "// In-memory storage fakes the storage-backed modules tests share (notesdrafts, notespanelstate)."
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-10-20T23:04:40Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 4,
+        "keep": 0,
+        "drop": 4
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "internal/server/nullable.go:995dcce1f11661a6",
+          "path": "internal/server/nullable.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func decodeNullable[T any](raw json.RawMessage) (value *T, ok bool) {",
+            "line": 5
+          },
+          "lines": [
+            "// decodeNullable reads a request field that must be present and may be null. ok is false for an",
+            "// empty raw (the key was absent, which is not null) and for a value of the wrong JSON type; a",
+            "// caller that treats an absent key differently checks len(raw) first."
+          ]
+        },
+        {
+          "key": "web/src/storage.ts:40c4efb12d2c2a5d",
+          "path": "web/src/storage.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface KeyedStorage extends StorageLike {",
+            "line": 12
+          },
+          "lines": [
+            "/** A storage that can also list its keys, as the browser's `Storage` does. */"
+          ]
+        },
+        {
+          "key": "web/src/storage.ts:ba7ed64c7a3bd35e",
+          "path": "web/src/storage.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function writeJson(",
+            "line": 43
+          },
+          "lines": [
+            "/** Best-effort JSON write — a throwing storage (private mode, disabled storage, quota) is",
+            "* swallowed, never surfaced, since most callers treat persistence here as an optimisation",
+            "* rather than a hard dependency of the render path that produced `value`. Returns whether",
+            "* the write landed, for the caller that must know. */"
+          ]
+        },
+        {
+          "key": "web/src/storagefakes.ts:30a8bfa9ea627e38",
+          "path": "web/src/storagefakes.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function failingAfter(writes: number): MemoryStorage {",
+            "line": 38
+          },
+          "lines": [
+            "/** Accepts the first `writes` setItem calls, then throws on every later one (a full quota);",
+            "* reads, listing and removal keep working. */"
+          ]
+        }
+      ]
+    }
+  ]
+}

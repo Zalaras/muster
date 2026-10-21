@@ -155,6 +155,11 @@ export interface SessionObject {
    * INV-E1: non-null implies `requested !== actual`.
    */
   effortWarning: { requested: string; actual: string | null; model: string | null } | null;
+  /**
+   * Plan session-notes kb:anchor/ws.session (REQ-1): the developer's note via `PUT …/note`, or
+   * `null` when none is set. Never an empty or whitespace-only string.
+   */
+  note: string | null;
 }
 
 /**

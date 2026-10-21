@@ -100,4 +100,22 @@ describe("writeThemeHint (REQ-11/REQ-12, W10)", () => {
     };
     expect(() => writeThemeHint({ theme: "dark", family: "dark" }, storage)).not.toThrow();
   });
+
+  // Default storage is safeLocalStorage(): a blocked `localStorage` global (a getter that
+  // throws SecurityError) must not escape from the snapshot listener that calls this.
+  describe("with the localStorage global blocked", () => {
+    it("does not throw when reading the localStorage global throws", () => {
+      Object.defineProperty(globalThis, "localStorage", {
+        configurable: true,
+        get() {
+          throw new Error("SecurityError");
+        },
+      });
+      try {
+        expect(() => writeThemeHint({ theme: "dark", family: "dark" })).not.toThrow();
+      } finally {
+        Reflect.deleteProperty(globalThis, "localStorage");
+      }
+    });
+  });
 });

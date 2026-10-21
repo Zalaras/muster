@@ -106,6 +106,7 @@ npx tsc --noEmit
 npm run build          # tsc + Vite
 npm run -s lint        # Biome — cognitive complexity 15 is a hard ceiling
 make size-warn         # from the project root: funlen / dupl / file length
+make check-kb          # from the project root: feature registry, CLAUDE.md word budgets
 ```
 
 A size warning on a file you touched never fails a gate, but one you trip on purpose gets its

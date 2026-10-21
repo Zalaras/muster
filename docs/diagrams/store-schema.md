@@ -4,14 +4,14 @@ type: diagram
 status: active
 date: 2026-10-15
 kind: er
-summary: Every SQLite table at its final shape after migrations 0001-0017, with the schema's two foreign keys.
+summary: Every SQLite table at its final shape after migrations 0001-0018, with the schema's two foreign keys.
 features: []
 tags: [store]
 files: [internal/store/migrations/*.sql, internal/store/*.go]
 tests: [TestMigrate_AppliesInitSchema, TestMigrate_CreatesSchemaMigrationsTableIfAbsent]
 refs: [kb:ref/data-model, kb:spec/rail, kb:adr/rail-groups-daemon-rows-whole-list-broadcast, kb:adr/rail-ungrouped-is-section-zero-on-the-wire, kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/ingest-envelope-binds-never-cwd, plans/_audit/diagrams-from-code.md]
 ---
-Final shape, with the additive `ALTER TABLE`s of 0003-0017 folded into `session`. Migrations are
+Final shape, with the additive `ALTER TABLE`s of 0003-0018 folded into `session`. Migrations are
 forward-only and purely additive: no migration has ever changed or dropped a column, and the one
 data statement is 0006's `rail_pos` backfill.
 
@@ -129,6 +129,7 @@ erDiagram
         TEXT effort_warning_actual "0016, NULL = first report had no effort setting"
         TEXT effort_warning_model "0016, model display name after the first report"
         TEXT added_dirs "0017, JSON array of added directory paths, NULL = none"
+        TEXT note "0018, the developer's note, NULL = none"
     }
 
     event {

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>session-notes — Focus header glyph options</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+/* mock-only: the anchored note panel drawn open under its glyph */
+.npop { position: absolute; z-index: 55; top: calc(100% + 6px); left: 0; width: 380px; border: 1px solid var(--edge); background: var(--bg-raised); box-shadow: 0 8px 24px var(--scrim); display: none; text-align: left; }
+.npop .ph { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: var(--fs-2xs); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg); }
+.npop .ph .po { margin-left: auto; width: 20px; height: 20px; padding: 0; border: 1px solid var(--line-control); background: transparent; color: var(--fg-muted); font-size: 11px; line-height: 18px; }
+.npop.right { left: auto; right: 0; }
+.anc { position: relative; display: inline-flex; flex: none; }
+.anc.open > .npop { display: block; }
+.frame.open { margin-bottom: 250px; }
+.name.long { max-width: 100%; }
+/* Option D: a labelled control in the action cluster */
+.btn.note { display: inline-flex; align-items: center; gap: 6px; }
+.btn.note svg { width: 12px; height: 12px; }
+.btn.note.empty { color: var(--fg-dim); }
+</style>
+</head>
+<body>
+<h1>Session notes: where the Focus header's note glyph goes</h1>
+<p class="lead">
+The same notebook glyph in four places. It is <b>muted while the note is empty</b> and in the
+<b>foreground colour once the note has text</b>. Clicking it opens the note panel anchored under it; the
+panel's top-right control pops it out (see <code>panel.html</code>). Each option is shown with no note,
+with a note, with the panel open, with a long title, and at a 640px header. The rail and tile marker is a
+separate choice (<code>marker-options.html</code>).
+</p>
+<nav><a href="#a">A · before the title</a><a href="#b">B · after the title</a><a href="#c">C · boxed, leading</a><a href="#d">D · in the actions</a></nav>
+
+<div id="out"></div>
+
+<script>
+const NB = `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true"><rect x="3" y="1.2" width="9.5" height="11.6" rx="1"/><path d="M1.5 4h3M1.5 7h3M1.5 10h3M6.5 5h4M6.5 7.5h4M6.5 10h2.5"/></svg>`;
+const NOTE = `<div class="nb"><div class="fm">ticket: #95 · next: ask about the 413</div>
+<h2>Where I am</h2><p>Plan written; mockups for the glyph next. Waiting on the <code>notes</code> spec review.</p>
+<ul><li>ask Claude to rerun <code>make render-test</code></li><li>check the 640px header</li></ul></div>`;
+
+function panel(right) {
+  return `<div class="npop${right ? " right" : ""}"><div class="ph">Note<button class="po" title="Pop out">⧉</button></div>${NOTE}</div>`;
+}
+
+function glyph(opt, has, open) {
+  const cls = `ng${has ? " has" : ""}${opt === "c" ? " boxed" + (open ? " on" : "") : ""}`;
+  const label = has ? "Note" : "Note (empty)";
+  if (opt === "d") {
+    return `<span class="anc${open ? " open" : ""}"><button class="btn note${has ? "" : " empty"}" aria-label="${label}">${NB}note</button>${panel(true)}</span>`;
+  }
+  return `<span class="anc${open ? " open" : ""}"><button class="${cls}" aria-label="${label}" title="${label}">${NB}</button>${panel(false)}</span>`;
+}
+
+function header(opt, { has = false, open = false, long = false, narrow = false, dead = false } = {}) {
+  const title = long ? "hunting the flaky e2e spec that only fails under the full sweep on a cold cache" : "flaky-e2e-hunt";
+  const name = `<h2 class="name${long ? " long" : ""}">${title}</h2>`;
+  const g = glyph(opt, has, open);
+  const lead = opt === "a" || opt === "c" ? g : "";
+  const after = opt === "b" ? g : "";
+  const inActs = opt === "d" ? g : "";
+  return `<div class="frame${narrow ? " narrow" : ""}${open ? " open" : ""}">
+  <div class="mainhead">
+    <div class="idrow">
+      ${lead}${name}${after}
+      ${narrow ? "" : `<span class="ingroup">reviews ▾</span>`}
+      <span class="meta"><span class="loc"><span class="repo"><span class="rf">muster /</span><span class="rb">plan/session-notes</span></span><span class="sep">·</span></span>
+        <span class="model">Opus 5 (high)${dead ? "<br>ended 2h ago" : ""}</span></span>
+    </div>
+    <div class="acts">
+      ${inActs}
+      <span class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></span>
+      <button class="btn stop-resume">${dead ? "Resume" : "Stop"}</button>
+      <button class="btn">Remove</button>
+    </div>
+  </div>
+  <div class="well"></div>
+</div>`;
+}
+
+const opts = [
+  ["a", "A · Bare glyph before the title",
+   "What the spec describes. A 13px glyph leads the row, before the name, with the row's normal gap. <b>Pro:</b> always at the same spot, so the eye finds it, and it never moves when the title is renamed or truncated. <b>Con:</b> it is quiet, so a muted empty glyph is easy to miss, and it nudges the title off the header's left edge."],
+  ["b", "B · Bare glyph after the title",
+   "The glyph follows the name (after the bypass chip when shown), before the group control. <b>Pro:</b> the title keeps the left edge and reads like 'this session's note'. <b>Con:</b> its position moves with the title's length, and on a truncated title it sits right after the ellipsis."],
+  ["c", "C · Boxed glyph before the title",
+   "A's position with the bordered 24px square of the rail head's icon controls, so it reads as a button. It takes the hover background while the panel is open. <b>Pro:</b> the clearest click affordance of the bare options. <b>Con:</b> the heaviest thing on the left of the header; next to the bold title it competes a little."],
+  ["d", "D · Labelled 'note' button in the action cluster",
+   "A <b>note</b> button with the glyph sits left of the surface switch, so it moves with the actions when they drop to row two. The panel anchors under it, right-aligned. <b>Pro:</b> labelled, never confused with the title, and costs the title no width. <b>Con:</b> far from the name; it adds ~7ch to the cluster, which then drops to row two sooner."],
+];
+
+let html = "";
+for (const [id, title, cap] of opts) {
+  html += `<h2 id="${id}">${title}</h2><p class="cap">${cap}</p>`;
+  html += `<div class="label">no note (muted)</div>` + header(id);
+  html += `<div class="label">note has text (foreground)</div>` + header(id, { has: true });
+  html += `<div class="label">panel open</div>` + header(id, { has: true, open: true });
+  html += `<div class="label">long title, truncated</div>` + header(id, { has: true, long: true });
+  html += `<div class="label">ended session, 640px header</div>` + header(id, { has: true, narrow: true, dead: true });
+}
+document.getElementById("out").innerHTML = html;
+</script>
+</body>
+</html>

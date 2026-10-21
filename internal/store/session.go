@@ -93,6 +93,8 @@ type SessionRow struct {
 	// wins over Title in the wire "title" (internal/session.Session.DisplayTitle()).
 	TitleOverride *string
 
+	Note *string
+
 	// TranscriptPath/PlanPath/PlanExists (docs/features/reader/spec.md): the latest
 	// transcript path a routed hook named, and the plan derived from it. Display-only,
 	// never read by the state machine. TranscriptPath is NULL until a hook sets it.
@@ -336,7 +338,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 			attention_reason = ?, attention_since = ?, failure_error = ?, failure_message = ?,
 			last_activity = ?, alive = ?, ended_at = ?, first_launch_here = ?,
 			context_used_pct = ?, context_total_input_tokens = ?, context_window_size = ?,
-			last_snapshot = ?, last_snapshot_at = ?, pinned = ?, rail_pos = ?, title_override = ?,
+			last_snapshot = ?, last_snapshot_at = ?, pinned = ?, rail_pos = ?, title_override = ?, note = ?,
 			transcript_file = ?, plan_path = ?, plan_exists = ?, unread = ?, last_prompt = ?,
 			pending_resume_claude_session_id = ?, background_tasks = ?, attention_agent = ?, claude_dir = ?,
 			added_dirs = ?, group_id = ?, cache_expires_at = ?, cache_ttl_seconds = ?, cache_requests = ?,
@@ -351,7 +353,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		row.AttentionReason, attentionSince, row.FailureError, row.FailureMessage,
 		row.LastActivity, boolToInt(row.Alive), endedAt, boolToInt(row.FirstLaunchHere),
 		row.ContextUsedPct, row.ContextTotalInputTokens, row.ContextWindowSize,
-		row.LastSnapshot, lastSnapshotAt, boolToInt(row.Pinned), row.RailPos, row.TitleOverride,
+		row.LastSnapshot, lastSnapshotAt, boolToInt(row.Pinned), row.RailPos, row.TitleOverride, row.Note,
 		row.TranscriptPath, row.PlanPath, boolToInt(row.PlanExists), boolToInt(row.Unread), row.LastPrompt,
 		row.PendingResumeClaudeSessionID, row.BackgroundTasks, row.AttentionAgent, row.ClaudeDir,
 		addedDirs, row.GroupID, cacheExpiresAt, row.CacheTTLSeconds, row.CacheRequests, cacheReportedExpiresAt,
@@ -371,7 +373,7 @@ const sessionColumns = `
 	model_display_name, compactions, attention_reason, attention_since, failure_error,
 	failure_message, last_activity, alive, ended_at, first_launch_here, created_at,
 	context_used_pct, context_total_input_tokens, context_window_size,
-	last_snapshot, last_snapshot_at, pinned, rail_pos, title_override,
+	last_snapshot, last_snapshot_at, pinned, rail_pos, title_override, note,
 	transcript_file, plan_path, plan_exists, unread, last_prompt,
 	pending_resume_claude_session_id, background_tasks, attention_agent, claude_dir, added_dirs, group_id,
 	cache_expires_at, cache_ttl_seconds, cache_requests, cache_reported_expires_at,
@@ -484,7 +486,7 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 		&r.ModelDisplayName, &r.Compactions, &r.AttentionReason, &attentionSince, &r.FailureError,
 		&r.FailureMessage, &r.LastActivity, &alive, &endedAt, &firstHere, &createdAt,
 		&r.ContextUsedPct, &r.ContextTotalInputTokens, &r.ContextWindowSize,
-		&r.LastSnapshot, &lastSnapshotAt, &pinned, &r.RailPos, &r.TitleOverride,
+		&r.LastSnapshot, &lastSnapshotAt, &pinned, &r.RailPos, &r.TitleOverride, &r.Note,
 		&r.TranscriptPath, &r.PlanPath, &planExists, &unread, &r.LastPrompt,
 		&r.PendingResumeClaudeSessionID, &r.BackgroundTasks, &r.AttentionAgent, &r.ClaudeDir, &addedDirs, &r.GroupID,
 		&cacheExpiresAt, &r.CacheTTLSeconds, &r.CacheRequests, &cacheReportedExpiresAt,

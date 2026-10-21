@@ -174,6 +174,7 @@ export interface Session {
   // Required on every wire Session, same "daemon and client shipped it together" reasoning as
   // pinned/railPos above.
   titleOverride: string | null;
+  note: string | null;
   // kb:anchor/ws.session: additive, no protocol bump
   // (kb:adr/connection-protocol-bumps-only-on-shape-change) — but required on every wire
   // Session all the same, same "daemon and client shipped it together" reasoning as
@@ -354,6 +355,7 @@ export function parseSession(value: unknown): Session | null {
   const pinned = value["pinned"];
   const railPos = value["railPos"];
   const titleOverride = value["titleOverride"];
+  const note = value["note"];
   const rawPlan = value["plan"];
   const unread = value["unread"];
   const lastPrompt = value["lastPrompt"];
@@ -412,6 +414,7 @@ export function parseSession(value: unknown): Session | null {
   if (typeof pinned !== "boolean") return null;
   if (typeof railPos !== "number") return null;
   if (!isNullableString(titleOverride)) return null;
+  if (!isNullableString(note)) return null;
 
   const plan = parseNullable(rawPlan, parseSessionPlan);
   if (plan === undefined) return null;
@@ -452,6 +455,7 @@ export function parseSession(value: unknown): Session | null {
     pinned,
     railPos,
     titleOverride,
+    note,
     plan,
     unread,
     lastPrompt,

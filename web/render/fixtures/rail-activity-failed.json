@@ -61,6 +61,7 @@
           "displayName": "claude-sonnet-4-5-20250929",
           "id": "claude-sonnet-4-5-20250929"
         },
+        "note": null,
         "permissionMode": {
           "source": "hook",
           "value": "default"

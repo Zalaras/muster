@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>session-notes — the note panel, anchored and popped out</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+/* NEW: the note panel — one component, two forms */
+.npanel { position: absolute; z-index: 55; display: flex; flex-direction: column; border: 1px solid var(--edge); background: var(--bg-raised); box-shadow: 0 8px 24px var(--scrim); text-align: left; }
+.npanel.anchored { top: calc(100% + 6px); left: 0; width: 400px; max-height: 360px; }
+.npanel .ph { flex: none; display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 12px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: var(--fs-2xs); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg); }
+.npanel .ph .who { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--fg-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.npanel .ph .st { margin-left: auto; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--fg-dim); white-space: nowrap; }
+.npanel .ph .st.unsaved { color: var(--amber-note); }
+.npanel .ph .st.unsaved::before { content: "● "; font-size: 8px; vertical-align: 1px; }
+.npanel .ph .ctl { flex: none; width: 20px; height: 20px; padding: 0; border: 1px solid var(--line-control); background: transparent; color: var(--fg-muted); font-size: 11px; line-height: 18px; text-align: center; }
+.npanel .ph .st + .ctl, .npanel .ph .ctl:first-of-type { margin-left: 6px; }
+.npanel .ph .grow { margin-left: auto; }
+.npanel .bd { flex: 1; min-height: 0; overflow: auto; cursor: text; }
+.npanel .bd:hover { background: var(--bg-hover); }
+.npanel textarea { flex: 1; min-height: 0; margin: 0; padding: 8px 12px; border: 0; outline: 1px solid var(--teal-line); outline-offset: -1px; resize: none; background: var(--well); color: var(--fg); font-family: var(--mono); font-size: var(--fs-xs); line-height: 1.55; }
+.npanel.anchored textarea { height: 220px; flex: none; }
+/* popped out: draggable header, resize from edges and corners */
+.npanel.popped { cursor: default; }
+.npanel.popped .ph { cursor: grab; }
+.npanel.popped::after { content: ""; position: absolute; right: 1px; bottom: 1px; width: 9px; height: 9px; background: linear-gradient(135deg, transparent 50%, var(--edge) 50%, var(--edge) 60%, transparent 60%, transparent 75%, var(--edge) 75%, var(--edge) 85%, transparent 85%); }
+.anc { position: relative; display: inline-flex; flex: none; }
+.frame.open { margin-bottom: 380px; }
+
+/* mock-only: a cut-down dashboard so the popped panel is shown inside its host */
+.app { width: 1040px; height: 560px; border: 1px solid var(--line); display: grid; grid-template-columns: 250px 1fr; grid-template-rows: 38px 1fr; position: relative; }
+.masthead { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--bg-raised); font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); }
+.masthead b { color: var(--fg); font-family: var(--disp); font-size: var(--fs-md); }
+.app .rail { width: auto; border: 0; border-right: 1px solid var(--line); }
+.main { position: relative; display: flex; flex-direction: column; min-width: 0; }
+.main .mainhead { flex: none; }
+.term { flex: 1; background: var(--well); font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-muted); padding: 10px 14px; line-height: 1.6; }
+.term .cur { display: inline-block; width: 7px; height: 13px; background: var(--fg); vertical-align: -2px; }
+.slotline { position: absolute; border: 1px dashed var(--edge); pointer-events: none; }
+.slotline span { position: absolute; top: -16px; left: 0; font-family: var(--mono); font-size: 9px; color: var(--edge); letter-spacing: 0.08em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<h1>Session notes: the note panel</h1>
+<p class="lead">
+One panel in two forms. <b>Anchored</b> under the header glyph (option A): click-away, the glyph or Escape
+closes it. <b>Popped out</b>: floats over the main slot, never over the rail, masthead or Focus header, and only
+its close button (×), pop-in (⧠) or Escape with focus inside it close it, so you can type in the terminal with
+it open. The header always names the session the note belongs to. One click on the rendered note edits the
+raw text, and leaving edit mode (Escape, or a click outside the text) renders it again. Saving is automatic and
+says nothing while it works. The header reads <b>unsaved</b> only while a save can't reach musterd.
+</p>
+
+<div id="out"></div>
+
+<script>
+const NB = `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true"><rect x="3" y="1.2" width="9.5" height="11.6" rx="1"/><path d="M1.5 4h3M1.5 7h3M1.5 10h3M6.5 5h4M6.5 7.5h4M6.5 10h2.5"/></svg>`;
+const RAW = `---
+ticket: "#95"
+next: ask about the 413
+---
+## Where I am
+Plan written; mockups for the glyph next. Waiting on the \`notes\` spec review.
+
+- ask Claude to rerun \`make render-test\`
+- check the 640px header`;
+const RENDERED = `<div class="nb"><div class="fm">ticket: #95 · next: ask about the 413</div>
+<h2>Where I am</h2><p>Plan written; mockups for the glyph next. Waiting on the <code>notes</code> spec review.</p>
+<ul><li>ask Claude to rerun <code>make render-test</code></li><li>check the 640px header</li></ul></div>`;
+const EMPTY = `<div class="nb"><span class="empty">No note yet. Click to write one (markdown).</span></div>`;
+
+function head(form, { unsaved = false } = {}) {
+  const st = unsaved ? `<span class="st unsaved">unsaved, musterd unreachable</span>` : `<span class="grow"></span>`;
+  const ctl = form === "anchored"
+    ? `<button class="ctl" aria-label="Pop out note" title="Pop out">⧉</button>`
+    : `<button class="ctl" aria-label="Pop in note" title="Pop in">⧠</button><button class="ctl" aria-label="Close note" title="Close">×</button>`;
+  return `<div class="ph">Note<span class="who">· flaky-e2e-hunt</span>${st}${ctl}</div>`;
+}
+
+function body(mode) {
+  if (mode === "edit") return `<textarea aria-label="Note text" spellcheck="false">${RAW}</textarea>`;
+  if (mode === "empty") return `<div class="bd">${EMPTY}</div>`;
+  return `<div class="bd">${RENDERED}</div>`;
+}
+
+function anchoredHeader(mode, opts = {}) {
+  const has = mode !== "empty";
+  return `<div class="frame open"><div class="mainhead"><div class="idrow">
+    <span class="anc"><button class="ng${has ? " has" : ""}" aria-label="Note" aria-expanded="true">${NB}</button>
+      <div class="npanel anchored" role="dialog" aria-label="Note">${head("anchored", opts)}${body(mode)}</div></span>
+    <h2 class="name">flaky-e2e-hunt</h2><span class="ingroup">reviews ▾</span>
+    <span class="meta"><span class="loc"><span class="repo"><span class="rf">muster /</span><span class="rb">plan/session-notes</span></span><span class="sep">·</span></span><span class="model">Opus 5 (high)</span></span>
+  </div><div class="acts"><span class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></span><button class="btn stop-resume">Stop</button><button class="btn">Remove</button></div></div>
+  <div class="well"></div></div>`;
+}
+
+function card(title, state, badge, has, cur) {
+  return `<div class="card ${state}"${cur ? ` style="background:var(--bg-hover)"` : ""}><span class="stripe"></span><div class="card-in">
+    <div class="r1"><span class="name">${title}</span></div>
+    <div class="r0"><span class="badge">${badge}</span><span class="timer">4m</span><span class="pin">⌃</span></div>
+    <div class="r2" style="display:flex;gap:8px"><span style="overflow:hidden;text-overflow:ellipsis;min-width:0">muster / plan/session-notes</span>${has ? `<span class="mk" style="margin-left:auto">${NB}</span>` : ""}</div>
+    <div class="r3"><span class="ctx"><i style="width:38%"></i></span>76k</div></div></div>`;
+}
+
+function popped(mode, opts = {}) {
+  return `<div class="app">
+    <div class="masthead"><b>muster</b><span>focus · tiles</span><span style="margin-left:auto">New session</span></div>
+    <div class="rail"><div class="cards">${card("flaky-e2e-hunt", "s-work", "working", true, true)}${card("say hi", "s-idle", "idle", false)}</div></div>
+    <div class="main">
+      <div class="mainhead"><div class="idrow"><button class="ng has" aria-label="Note" aria-expanded="true">${NB}</button><h2 class="name">flaky-e2e-hunt</h2>
+        <span class="meta"><span class="loc"><span class="repo"><span class="rf">muster /</span><span class="rb">plan/session-notes</span></span><span class="sep">·</span></span><span class="model">Opus 5 (high)</span></span></div>
+        <div class="acts"><span class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></span><button class="btn stop-resume">Stop</button><button class="btn">Remove</button></div></div>
+      <div class="term">❯ rerun make render-test and tell me which spec fails<br><br>⏺ Running the render tier…<br><br>❯ <span class="cur"></span></div>
+      <div class="slotline" style="left:0;right:0;top:58px;bottom:0"><span>main slot — the panel's bounds</span></div>
+      <div class="npanel popped" role="dialog" aria-label="Note" style="right:28px;top:96px;width:360px;height:300px">${head("popped", opts)}${body(mode)}</div>
+    </div></div>`;
+}
+
+let html = "";
+html += `<h2>Anchored · rendered (the glyph turns foreground once the note has text)</h2>` + anchoredHeader("view");
+html += `<h2>Anchored · empty note</h2>` + anchoredHeader("empty");
+html += `<h2>Anchored · editing (one click on the note; Escape or a click outside the text renders it again)</h2>` + anchoredHeader("edit");
+html += `<h2>Anchored · editing while musterd is down</h2>` + anchoredHeader("edit", { unsaved: true });
+html += `<h2>Popped out · rendered: drag by the header, resize from edges and corners; the terminal keeps the keyboard</h2>` + popped("view");
+html += `<h2 style="margin-top:34px">Popped out · editing</h2>` + popped("edit");
+document.getElementById("out").innerHTML = html;
+</script>
+</body>
+</html>

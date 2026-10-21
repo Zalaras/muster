@@ -95,6 +95,7 @@ sits on the line before each `##`/`###` heading, and code and docs cite a sectio
 | `POST /api/sessions/{id}/locate` | Resolve a dropped file's bytes to its original on-disk path (`kb:anchor/sessions.locate`) |
 | `PUT /api/sessions/{id}/title` | Set or clear a session's title override (`kb:anchor/sessions.title`) |
 | `DELETE /api/sessions/{id}/effort-warning` | Dismiss a session's launch-mismatch effort warning (`kb:anchor/sessions.effort-warning-dismiss`) |
+| `PUT /api/sessions/{id}/note` | Set or clear a session's note (`kb:anchor/sessions.note`) |
 | `POST /api/sessions/{id}/shell` | Ensure a plain shell is running for a session, spawning it if absent (`kb:anchor/sessions.shell`) |
 | `GET /api/sessions/{id}/reader` | List a session's readable markdown and its plan slot; runs the plan scan (`kb:anchor/sessions.reader`) |
 | `GET /api/sessions/{id}/reader/file` | Serve one confined markdown file as `text/markdown` (`kb:anchor/sessions.reader-file`) |
@@ -704,7 +705,7 @@ subtracting keys from a whole-object shape:
 **Never** on the wire here: prompt text, hook payload bodies, raw status-line JSON, pane
 captures, `lastActivity`, `failure.message` (it *is* the last assistant message),
 `title` (it refreshes from the status line's auto-generated session name — `kb:anchor/ws.session`),
-`directory`, `branch`, `isWorktree`, the repo name, `claudeLocation`, the `claudeSessionId` value, and every
+`directory`, `branch`, `isWorktree`, the repo name, `claudeLocation`, the `claudeSessionId` value, `note`, and every
 account-usage field of `kb:anchor/ws.usage`. `Zalaras/muster` may be open-sourced; this list is the
 boundary. Unknown values render the word `unknown` in `snapshotMarkdown`, never `0` (`kb:anchor/conventions`).
 
@@ -1033,6 +1034,28 @@ other session is touched (kb:adr/focus-effort-mismatch-warning-persisted-per-ses
 **Errors:**
 - 404 `unknown_session`: `{"error": {"code": "unknown_session", "message": "unknown session id"}}`
 
+<!-- kb:anchor sessions.note -->
+### `PUT /api/sessions/{id}/note`
+
+**Auth**: UI cookie (401 `unauthorized` without it). Backs the Focus header's note panel
+(kb:spec/notes). **Request:** `{ "note": "## Where I am\nPlan written…" }`. The `note` key is
+**required**, a string or `null`; an absent key is not a clear
+(kb:adr/connection-absent-vs-null-json-fields-decode-as-raw-message). A string that is empty or all
+whitespace is stored as `null`, the same as an explicit `null`; any other string is stored verbatim,
+untrimmed. The note has no length limit; the request body is bounded at 20 MiB, the ingest
+ceiling, as a transport guard. → `204`, no body. Every UI socket receives one `sessionUpsert` iff
+the stored note changed; a request that leaves it as it was is a `204` with no broadcast. The
+session's `alive` flag is not consulted (a dead session's note can be set). Concurrent writes: the
+last request the daemon applies wins.
+
+**Errors** (envelope per `kb:anchor/transport`):
+
+- `400 invalid_request` — body not JSON, `note` key missing, `note` neither string nor null:
+  `{"error": {"code": "invalid_request", "message": "note must be a string or null"}}`
+- `404 unknown_session`: `{"error": {"code": "unknown_session", "message": "unknown session id"}}`
+- `413 request_too_large` — body over 20 MiB:
+  `{"error": {"code": "request_too_large", "message": "note is too large to save"}}`
+
 <!-- kb:anchor ingest -->
 ## HTTP endpoints — ingest (Claude Code → daemon)
 
@@ -1221,6 +1244,10 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
                                     //   Never touched by rebinds, resume or reconcile; a status post clears it once it has reached
                                     //   Claude Code and Claude Code reports a different name. INV: title == titleOverride
                                     //   whenever titleOverride is non-null.
+  "note": null,                     // string | null, required key — the developer's note, as last saved via kb:anchor/sessions.note;
+                                    //   null = no note (never an empty or whitespace-only string). Muster-owned, display-only: never read
+                                    //   or written by the state machine, the status path, ingest, rebinds (/clear), resume, reconcile or
+                                    //   liveness; deleted with the row by Remove or by the start-up sweep of an already-ended row. Never in an issue snapshot (kb:anchor/issue.captures).
   "state": "working",                // "started"|"planning"|"working"|"needs_input"|"failed"|"idle"
   "stateSince": "2026-08-20T09:15:00Z",
   "alive": true,                     // liveness is ORTHOGONAL to state (kb:anchor/state.liveness); false = pane gone, card greys out, offers resume

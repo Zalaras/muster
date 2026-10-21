@@ -146,6 +146,13 @@ type Session struct {
 
 	TitleOverride *string
 
+	// Note (kb:adr/notes-muster-owned-session-field-whole-text): the developer's own text,
+	// nil = no note, never an empty or whitespace-only string. Display-only — never read by
+	// the state machine, the status path, rebinds, resume, reconcile or liveness. Written
+	// only by Manager.SetNote under Manager.mu, always replaced with a fresh pointer, never
+	// written through, so restoreChangedFields can compare it by identity.
+	Note *string
+
 	titleDelivery titleDelivery
 
 	// TranscriptPath/PlanPath/PlanExists (kb:spec/reader): the latest transcript path a

@@ -34,6 +34,7 @@ const validSession = {
   groupId: null,
   effort: { level: "high" },
   effortWarning: null,
+  note: null,
   cache: { expiresAt: "2026-08-22T01:00:00Z", ttlSeconds: 3600 },
 };
 // The measured "no data yet" shape (docs/history/spikes/canary-fields.md): a session that has just
@@ -71,6 +72,7 @@ const freshLaunchSession = {
   groupId: null,
   effort: { level: "high" },
   effortWarning: null,
+  note: null,
   cache: null,
 };
 describe("parseSession — full kb:anchor/ws.session shape", () => {
@@ -584,6 +586,36 @@ describe("parseSession — effort / effortWarning (plan effort)", () => {
 
   it.each(["effort", "effortWarning"])("rejects a session missing %s entirely", (key) => {
     const { [key]: _omitted, ...rest } = validSession as Record<string, unknown>;
+    expect(parseSession(rest)).toBeNull();
+  });
+});
+
+// kb:anchor/ws.session `note` (plan session-notes W1): required on every wire Session; a string
+// is kept exactly as written, `null` is "no note", an absent key or another type rejects the
+// whole message.
+describe("parseSession — note (plan session-notes)", () => {
+  it.each([
+    ["null", null],
+    ["a string", "## Where I am"],
+    ["an empty string (kept as given, the daemon normalises)", ""],
+    ["whitespace, untrimmed", "  \n  "],
+    ["a very long string", "x".repeat(200_000)],
+  ])("decodes a note that is %s and keeps it verbatim", (_label, note) => {
+    expect(parseSession({ ...validSession, note })?.note).toBe(note);
+  });
+
+  it.each([
+    ["a number", 3],
+    ["a boolean", false],
+    ["an object", { text: "x" }],
+    ["an array", ["x"]],
+    ["undefined", undefined],
+  ])("rejects a note that is %s", (_label, note) => {
+    expect(parseSession({ ...validSession, note })).toBeNull();
+  });
+
+  it("rejects a session whose note key is missing entirely", () => {
+    const { note: _omitted, ...rest } = validSession as Record<string, unknown>;
     expect(parseSession(rest)).toBeNull();
   });
 });

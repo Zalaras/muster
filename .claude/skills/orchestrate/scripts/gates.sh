@@ -98,7 +98,7 @@ PLAN_FILE="plans/$PLAN/plan.md"
 # yet authored would make Playwright exit 1 on "no tests found". The set is approximate by design
 # — a shared-package edit can break a spec no feature link reaches — which is why the full sweep
 # still runs once (--full-e2e).
-E2E_HARNESS_WIDE='^(web/playwright\.config\.ts|web/package(-lock)?\.json|web/vite\.config\.ts|web/tsconfig[^/]*\.json|web/scripts/e2e-lint\.sh|web/index\.html|Makefile|\.nvmrc|internal/webui/)'
+E2E_HARNESS_WIDE='^(web/playwright\.config\.ts|web/package(-lock)?\.json|web/vite\.config\.ts|web/tsconfig[^/]*\.json|web/scripts/e2e-lint\.sh|Makefile|\.nvmrc|internal/webui/)'
 
 changed_files() {              # committed range from main plus the working tree, one path per line
   local base; base="$(git merge-base main HEAD 2>/dev/null || true)"

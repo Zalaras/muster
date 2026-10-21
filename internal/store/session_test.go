@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -484,6 +485,65 @@ func TestUpdateSession_TitleOverrideRoundTrip(t *testing.T) {
 	cleared, err := st.GetSession(ctx, row.ID)
 	require.NoError(t, err)
 	assert.Nil(t, cleared.TitleOverride, "clearing the override must persist a NULL, not survive as a stale value")
+}
+
+// TestSession_NoteColumnDefaultsNilAndRoundTripsTextByteForByte covers REQ-1/D5 at the
+// store: a fresh row has a NULL note; whitespace, newlines, frontmatter and a multi-megabyte
+// text come back exactly; a row with no note scans as nil, never as an empty string; and one
+// session's note write never touches another's.
+func TestSession_NoteColumnDefaultsNilAndRoundTripsTextByteForByte(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	repoID := seedTestRepo(t, st)
+	insert := func() SessionRow {
+		row, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default"})
+		require.NoError(t, err)
+		return row
+	}
+	row, other := insert(), insert()
+	require.Nil(t, row.Note, "a fresh row has no note")
+
+	otherText := "other session's note"
+	other.Note = &otherText
+	require.NoError(t, st.UpdateSession(ctx, other))
+
+	texts := []string{
+		"plain",
+		"  leading and trailing \n\t ",
+		"---\ntitle: x\n---\n\n```mermaid\ngraph TD\n```\n",
+		"a\r\nb\r\n",
+		"naïve ✓ 日本語",
+		strings.Repeat("a line of the developer's own text\n", 100_000),
+	}
+	for _, text := range texts {
+		row.Note = &text
+		require.NoError(t, st.UpdateSession(ctx, row))
+
+		got, err := st.GetSession(ctx, row.ID)
+		require.NoError(t, err)
+		require.NotNil(t, got.Note)
+		assert.Equal(t, text, *got.Note)
+	}
+
+	row.Note = nil
+	require.NoError(t, st.UpdateSession(ctx, row))
+	cleared, err := st.GetSession(ctx, row.ID)
+	require.NoError(t, err)
+	assert.Nil(t, cleared.Note, "clearing persists a NULL, not an empty string")
+
+	untouched, err := st.GetSession(ctx, other.ID)
+	require.NoError(t, err)
+	require.NotNil(t, untouched.Note)
+	assert.Equal(t, otherText, *untouched.Note)
+
+	rows, err := st.ListSessions(ctx)
+	require.NoError(t, err)
+	notes := map[int64]*string{}
+	for _, r := range rows {
+		notes[r.ID] = r.Note
+	}
+	assert.Nil(t, notes[row.ID])
+	assert.Equal(t, &otherText, notes[other.ID], "ListSessions scans the note too")
 }
 
 // TestInsertSession_ReaderFieldsDefaultNilAndFalse covers plan markdown-viewing's Schema

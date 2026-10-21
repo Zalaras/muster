@@ -83,6 +83,7 @@
           "displayName": "claude-sonnet-4-5-20250929",
           "id": "claude-sonnet-4-5-20250929"
         },
+        "note": null,
         "permissionMode": {
           "source": "hook",
           "value": "default"
@@ -131,6 +132,7 @@
           "displayName": "claude-sonnet-4-5-20250929",
           "id": "claude-sonnet-4-5-20250929"
         },
+        "note": null,
         "permissionMode": {
           "source": "hook",
           "value": "default"
@@ -182,6 +184,7 @@
           "displayName": "claude-sonnet-4-5-20250929",
           "id": "claude-sonnet-4-5-20250929"
         },
+        "note": null,
         "permissionMode": {
           "source": "seed",
           "value": "default"
@@ -235,6 +238,7 @@
           "displayName": "Haiku 4.5",
           "id": "claude-haiku-4-5-20251001"
         },
+        "note": null,
         "permissionMode": {
           "source": "hook",
           "value": "default"
@@ -291,6 +295,7 @@
           "displayName": "Haiku 4.5",
           "id": "claude-haiku-4-5-20251001"
         },
+        "note": null,
         "permissionMode": {
           "source": "seed",
           "value": "default"
@@ -339,6 +344,7 @@
           "displayName": "claude-sonnet-4-5-20250929",
           "id": "claude-sonnet-4-5-20250929"
         },
+        "note": null,
         "permissionMode": {
           "source": "seed",
           "value": "default"
@@ -387,6 +393,7 @@
           "displayName": "claude-sonnet-4-5-20250929",
           "id": "claude-sonnet-4-5-20250929"
         },
+        "note": null,
         "permissionMode": {
           "source": "seed",
           "value": "default"
@@ -440,6 +447,7 @@
           "displayName": "Haiku 4.5",
           "id": "claude-haiku-4-5-20251001"
         },
+        "note": null,
         "permissionMode": {
           "source": "hook",
           "value": "default"
@@ -496,6 +504,7 @@
           "displayName": "Haiku 4.5",
           "id": "claude-haiku-4-5-20251001"
         },
+        "note": null,
         "permissionMode": {
           "source": "seed",
           "value": "default"
@@ -549,6 +558,7 @@
           "displayName": "Haiku 4.5",
           "id": "claude-haiku-4-5-20251001"
         },
+        "note": null,
         "permissionMode": {
           "source": "hook",
           "value": "default"
@@ -602,6 +612,7 @@
           "displayName": "Haiku 4.5",
           "id": "claude-haiku-4-5-20251001"
         },
+        "note": null,
         "permissionMode": {
           "source": "hook",
           "value": "default"

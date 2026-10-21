@@ -17,8 +17,9 @@ terminal pane, under the persistent masthead (kb:adr/focus-rail-plus-one-live-pa
 docs/design/ux-flows.md "Shape — Focus"). It answers "who needs me, and let me deal with
 them".
 
-Above the pane sits the mainhead: the session name with its inline rename trigger
-(kb:spec/rename), a danger `bypass` chip after the name while the session's last-known
+Above the pane sits the mainhead: the note glyph (kb:spec/notes), muted while the session's
+note is empty and opening the note panel, which never gives way as the header narrows, then the
+session name with its inline rename trigger (kb:spec/rename), a danger `bypass` chip after the name while the session's last-known
 permission mode is bypass (kb:adr/launch-bypass-offered-with-danger-guardrails), the session's group as
 a control that offers the groups, New group… and No group (kb:spec/groups), a meta line of
 the repo readout (folder over branch, each line as wide as its text, kb:adr/focus-header-readout-sized-by-text; the

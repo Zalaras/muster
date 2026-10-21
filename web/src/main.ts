@@ -30,6 +30,7 @@ import { initGroups } from "./features/groups";
 import { initRail } from "./features/rail";
 import { initRailMenu } from "./features/railmenu";
 import { initViews } from "./features/views";
+import { initNotes } from "./features/notes";
 import { initRename } from "./features/rename";
 import { initTheme } from "./features/theme";
 import { initLaunch } from "./features/launch";
@@ -86,9 +87,12 @@ initRail(app, { actions, surfaces, groups, railMenu });
 // 10. views    — switcher, density control, view containers' hidden, then focus (view) in
 //     Focus, else tiles (view) in Tiles — registered inside initViews, since that phase is
 //     inherently split across two controllers by shared state (views.ts).
-// 11. connection — banner text/visibility, time-based as well as status-driven
+// 11. notes    — the note panel, after the focus phase has settled the focused session
+//     and the mainhead has laid out the glyph the anchored panel sits under (initNotes)
+// 12. connection — banner text/visibility, time-based as well as status-driven
 //     (initConnection, registered further down once `updateRestart` exists to supply it)
 const views = initViews(app, { focus, tiles });
+initNotes(app);
 initTheme(app);
 const launch = initLaunch(app, { focus, surfaces });
 initSettings(app);

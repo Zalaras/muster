@@ -9,6 +9,11 @@ export interface StorageLike {
   removeItem(key: string): void;
 }
 
+export interface KeyedStorage extends StorageLike {
+  readonly length: number;
+  key(index: number): string | null;
+}
+
 /** Reads `key`, parses it as JSON and hands the result to `parse`. Returns `fallback` for a
  * throwing storage, a missing/empty value, invalid JSON, or a `parse` that rejects the
  * shape (returns `null`) — never throws. */
@@ -35,18 +40,16 @@ export function readJson<T>(
   return result === null ? fallback : result;
 }
 
-/** Best-effort JSON write — a throwing storage (private mode, disabled storage, quota) is
- * swallowed, never surfaced, since every caller treats persistence here as an optimisation
- * rather than a hard dependency of the render path that produced `value`. */
 export function writeJson(
   storage: Pick<StorageLike, "setItem">,
   key: string,
   value: unknown,
-): void {
+): boolean {
   try {
     storage.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
-    // best-effort only — see doc comment above.
+    return false;
   }
 }
 
@@ -58,4 +61,43 @@ export function removeItem(storage: Pick<StorageLike, "removeItem">, key: string
   } catch {
     // best-effort only — see writeJson's doc comment above.
   }
+}
+
+export function listKeys(storage: Pick<KeyedStorage, "length" | "key">): string[] {
+  const keys: string[] = [];
+  try {
+    for (let i = 0; i < storage.length; i += 1) {
+      const key = storage.key(i);
+      if (key !== null) keys.push(key);
+    }
+  } catch {
+    return [];
+  }
+  return keys;
+}
+
+function unavailable(): never {
+  throw new Error("storage unavailable");
+}
+
+function guardedStorage(read: () => KeyedStorage): KeyedStorage {
+  try {
+    return read();
+  } catch {
+    return {
+      getItem: unavailable,
+      setItem: unavailable,
+      removeItem: unavailable,
+      length: 0,
+      key: () => null,
+    };
+  }
+}
+
+export function safeSessionStorage(): KeyedStorage {
+  return guardedStorage(() => sessionStorage);
+}
+
+export function safeLocalStorage(): KeyedStorage {
+  return guardedStorage(() => localStorage);
 }

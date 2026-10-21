@@ -3,7 +3,12 @@
 // (kb:adr/reader-diagram-failure-keeps-source-with-reason). Runs strictly after
 // `renderMarkdown` has produced the fragment and assigned heading ids (`features/reader.ts`
 // calls this right after `setReaderBody`) and touches nothing but mermaid fences.
-import { diagramErrorText, diagramId, isMermaidLanguageClass } from "../reader/mermaid";
+import {
+  diagramErrorText,
+  diagramId,
+  isMermaidLanguageClass,
+  mermaidThemeFor,
+} from "../reader/mermaid";
 import { type MermaidTheme, renderDiagramSvg } from "./mermaid";
 
 /** Retained per rendered figure, for the theme re-render
@@ -12,6 +17,16 @@ import { type MermaidTheme, renderDiagramSvg } from "./mermaid";
  * replaced (a fresh `renderDiagrams` pass on a new body) drops its entry for free when
  * garbage collected. */
 const sourceByFigure = new WeakMap<Element, string>();
+
+let nextDiagramInstanceId = 0;
+
+export function mintDiagramInstance(): number {
+  return nextDiagramInstanceId++;
+}
+
+export function currentDiagramTheme(): MermaidTheme {
+  return mermaidThemeFor(document.documentElement.dataset["theme"] ?? null);
+}
 
 export interface DiagramPassOptions {
   /** A caller-minted value that must be unique to this call, unique per reader instance

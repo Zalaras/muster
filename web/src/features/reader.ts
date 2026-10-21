@@ -28,13 +28,18 @@ import {
   withOpened,
   type ReaderMemory,
 } from "../reader/memory";
-import { mermaidThemeFor } from "../reader/mermaid";
 import { classifyDocChanged, deriveNotice, UNKNOWN_SESSION_TEXT } from "../reader/notice";
 import { loadingText } from "../reader/paths";
 import { buildTree, filterTree, flattenTree, type FlatTreeEntry } from "../reader/tree";
 import { visibleIds } from "../sessions/live";
 import { basename } from "../sessions/paths";
-import { renderDiagrams, rerenderDiagrams } from "../render/diagrams";
+import { safeLocalStorage } from "../storage";
+import {
+  currentDiagramTheme,
+  mintDiagramInstance,
+  renderDiagrams,
+  rerenderDiagrams,
+} from "../render/diagrams";
 import { focusIsOnSwitchOrPage } from "../render/surfaceseg";
 import {
   attachScrollSpy,
@@ -85,23 +90,6 @@ export interface ReaderHandle {
 const FILE_GONE_PREFIX = "file no longer exists — ";
 const PLACEHOLDER_TEXT = "nothing open — pick a file";
 
-/** A fresh value drawn on every diagram pass — unique per reader instance *and* per pass —
- * never reused across calls: two instances rendering the same fence (the same file open in
- * two tiles), or two passes of one instance (a fresh open racing a still in-flight one, or
- * a later theme re-render), must mint distinct SVG ids, since a diagram's own `<style>`
- * selects by `#id` and CSS id selectors aren't scoped to one subtree (`render/diagrams.ts`'s
- * `DiagramPassOptions.instance`). Minting one value per instance's whole lifetime instead
- * used to let two concurrent passes (open file A, switch to B before A's render returns)
- * mint the same id. */
-let nextDiagramInstanceId = 0;
-
-/** Reads the dashboard's current theme straight off the root — the one place both the
- * initial diagram pass and the theme-change re-render read it from, so they can never
- * disagree about which mermaid theme is current. */
-function currentMermaidTheme(): "dark" | "default" {
-  return mermaidThemeFor(document.documentElement.dataset["theme"] ?? null);
-}
-
 class ReaderInstance {
   private readonly sessionId: number;
   private readonly standalonePath: string | null;
@@ -148,7 +136,7 @@ class ReaderInstance {
    * chains behind it; a fresh document open simply replaces it, since a superseded pass's
    * own `isCurrent` guard already keeps it from touching the new body regardless of
    * ordering. Each pass (an open's `renderDiagrams` call, or a theme flip's
-   * `rerenderDiagrams` call) draws its own fresh id from `nextDiagramInstanceId` at the
+   * `rerenderDiagrams` call) draws its own fresh id from `mintDiagramInstance` at the
    * call site below — never a value fixed for this instance's lifetime. */
   private diagramPass: Promise<void> = Promise.resolve();
 
@@ -167,7 +155,7 @@ class ReaderInstance {
     this.isStandalone = opts.isStandalone;
     this.navCollapsed = opts.navCollapsedDefault;
     this.requestRender = opts.requestRender;
-    this.memory = loadMemory(window.localStorage, sessionId);
+    this.memory = loadMemory(safeLocalStorage(), sessionId);
     this.refs = buildReader(template, {
       onSelectPath: (path) => this.selectRelative(path),
       onSelectPlan: () => this.selectPlan(),
@@ -224,14 +212,14 @@ class ReaderInstance {
   }
 
   private commitMemory(transition: (memory: ReaderMemory) => ReaderMemory): void {
-    const next = transition(loadMemory(window.localStorage, this.sessionId, this.memory));
+    const next = transition(loadMemory(safeLocalStorage(), this.sessionId, this.memory));
     this.memory = next;
-    saveMemory(window.localStorage, this.sessionId, next);
+    saveMemory(safeLocalStorage(), this.sessionId, next);
   }
 
   handleStorage(event: StorageEvent): void {
     if (!isMemoryWrite(event.key, event.newValue, this.sessionId)) return;
-    this.memory = loadMemory(window.localStorage, this.sessionId, this.memory);
+    this.memory = loadMemory(safeLocalStorage(), this.sessionId, this.memory);
     this.requestRender();
   }
 
@@ -332,9 +320,9 @@ class ReaderInstance {
     // fenced source stays visible while it's in flight, and a superseded open is caught by
     // its own `isCurrent` guard rather than by blocking this method on it.
     this.diagramPass = renderDiagrams(this.refs.body, {
-      instance: nextDiagramInstanceId++,
+      instance: mintDiagramInstance(),
       isCurrent: () => !this.disposed && seq === this.fetchSeq,
-      theme: currentMermaidTheme(),
+      theme: currentDiagramTheme(),
     });
     void this.diagramPass.then(() => this.refindAfterDiagrams(seq));
     this.find.fileOpened(opts.showLoading);
@@ -428,9 +416,9 @@ class ReaderInstance {
    * `app.on("themeChanged", ...)` for every mounted instance — the one theme-change signal
    * every surface (this reader, every live terminal) reacts to on its own account. */
   handleThemeChange(): void {
-    const theme = currentMermaidTheme();
+    const theme = currentDiagramTheme();
     const seq = this.fetchSeq;
-    const instance = nextDiagramInstanceId++;
+    const instance = mintDiagramInstance();
     this.diagramPass = this.diagramPass
       .catch(() => {})
       .then(() =>
@@ -663,7 +651,7 @@ export function initReader(
       instances.get(id)?.dispose();
       instances.delete(id);
       // Reader memory is created/saved/forgotten only by this feature.
-      forget(window.localStorage, id);
+      forget(safeLocalStorage(), id);
     });
   }
 

@@ -32,11 +32,11 @@ imports nothing back, so no loop closes back up.
 This opens the Dashboard box of kb:diagram/containers; the daemon and `localStorage` stay on
 that diagram and the module descriptions say which module reaches them. Three modules talk to
 the daemon, matching kb:adr/connection-commands-http-ws-push-only: `api/` holds the only
-`fetch`, `ws.ts` the server-to-client state socket, and `terminal/pane.ts` the one WebSocket
+`fetch`, `ws.ts` the state socket, and `terminal/pane.ts` the one WebSocket
 constructed outside `ws.ts`, per live terminal. `localStorage` is reached through one seam,
-`storage.ts`'s `readJson`/`writeJson`, by the reader's per-session memory and the first-paint
-theme hint, never session state; `sessionStorage` through the same seam, by the update
-restart handoff only (kb:adr/update-restart-reloads-dashboard). `protocol/` is imported by every layer for wire types,
+`storage.ts`'s `readJson`/`writeJson`, by reader memory, the first-paint theme hint and
+unsaved note drafts, never session state; `sessionStorage` by the update restart handoff
+(kb:adr/update-restart-reloads-dashboard) and the note panel's per-tab geometry. `protocol/` is imported by every layer for wire types,
 so those seven wires sit on its box rather than drawn. `dragmime.ts` is the other root-level
 leaf: the drag-reorder MIME marker `render/dragreorder.ts` sets and `terminal/pane.ts`
 checks, owned by neither.
@@ -47,13 +47,13 @@ C4Component
 
     Container_Boundary(dashboard, "Dashboard") {
         Boundary(ctl, "Entries and controllers") {
-            Component(main, "main.ts", "entry", "Dashboard composition root: inits 20 controllers, owns render order")
-            Component(features, "features/", "38 modules", "19 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload), 1 stateless handle (effort: the strip's dismiss call, wired by focus), 5 sub-controllers handed their elements by their owner (launch: launchresume, launchgroup; groups: groupsselect, groupsdialogs; reader: readerfind), plus 13 DOM-free helpers each owned by one controller")
+            Component(main, "main.ts", "entry", "Dashboard composition root: inits 21 controllers, owns render order")
+            Component(features, "features/", "44 modules", "20 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload), 1 stateless handle (effort: the strip's dismiss call, wired by focus), 5 sub-controllers handed their elements by their owner (launch: launchresume, launchgroup; groups: groupsselect, groupsdialogs; reader: readerfind), plus 18 DOM-free helpers each owned by one controller")
             Component(doc, "doc.ts", "entry", "Pop-out reader composition root")
             Component(wsapp, "wsapp.ts", "mapping", "The WS-to-app mapping both entries register, then layer their own handlers on top of")
         }
         Boundary(rnd, "Render and seam") {
-            Component(render, "render/", "43 modules", "DOM only — view-model in, DOM out; one menu builder serves every menu")
+            Component(render, "render/", "45 modules", "DOM only — view-model in, DOM out; one menu builder serves every menu")
             Component(app, "app.ts", "seam", "Session store, shared state (incl. ConnectionStatus), typed event bus, render phases")
         }
         Boundary(leaves, "Leaves") {
@@ -96,7 +96,7 @@ C4Component
 
     Rel(render, api, "snapshot load")
     Rel(render, terminal, "segment types")
-    Rel(render, reader, "tree types, find matcher")
+    Rel(render, reader, "tree types, find matcher, markdown render")
     Rel(render, sessions, "view-models")
     Rel(render, app, "status type")
     Rel(render, dragmime, "sets on dragstart")
@@ -106,7 +106,7 @@ C4Component
     Rel(reader, app, "connection state")
     Rel(reader, storage, "per-session memory")
     Rel(theme, storage, "first-paint hint")
-    Rel(features, storage, "restart handoff")
+    Rel(features, storage, "restart handoff, note drafts, panel memory")
     Rel(app, sessions, "SessionStore")
     Rel(app, terminal, "SurfaceKind type")
 

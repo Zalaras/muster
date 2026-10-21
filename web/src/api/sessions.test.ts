@@ -6,6 +6,7 @@ import {
   endSession,
   endSessions,
   fetchPane,
+  putNote,
   putSessionOrder,
   putSessionsGroup,
   removeSession,
@@ -45,6 +46,7 @@ const validSession: Session = {
   groupId: null,
   effort: null,
   effortWarning: null,
+  note: null,
   cache: null,
 };
 
@@ -550,6 +552,67 @@ describe.each([
   it("resolves to network_error rather than throwing when fetch rejects", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
     const result = await call([1]);
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "network_error", message: "Could not reach musterd." },
+    });
+  });
+});
+
+describe("sessions — putNote (PUT /api/sessions/{id}/note, kb:anchor/sessions.note)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends the whole text verbatim under `note` and decodes 204 as success", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(204));
+    const text = "  ## Where I am\n\n  untrimmed  ";
+    expect(await putNote(7, text)).toEqual({ ok: true, value: null });
+    expect(fetchMock).toHaveBeenCalledWith("/api/sessions/7/note", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ note: text }),
+    });
+  });
+
+  it("sends an empty string as an empty string (the daemon decides it is no note)", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(204));
+    await putNote(1, "");
+    expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string)).toEqual({ note: "" });
+  });
+
+  it.each([
+    ["keepalive set", { keepalive: true }, true],
+    ["keepalive false", { keepalive: false }, false],
+    ["no options", undefined, false],
+  ])("%s -> keepalive on the request is %s", async (_label, options, expected) => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(204));
+    await putNote(1, "x", options);
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect("keepalive" in init).toBe(expected);
+    if (expected) expect(init.keepalive).toBe(true);
+  });
+
+  it.each([
+    [404, "unknown_session", "unknown session id"],
+    [400, "invalid_request", "note must be a string or null"],
+    [413, "request_too_large", "note is too large to save"],
+  ])("decodes a %s %s envelope", async (status, code, message) => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(status, { error: { code, message } }));
+    expect(await putNote(1, "x")).toEqual({ ok: false, error: { code, message } });
+  });
+
+  it("returns network_error instead of throwing when the daemon is unreachable", async () => {
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    const result = await putNote(1, "x");
     expect(result).toEqual({
       ok: false,
       error: { code: "network_error", message: "Could not reach musterd." },

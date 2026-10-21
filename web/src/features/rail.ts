@@ -9,6 +9,7 @@ import { requireElement, requireElements } from "../dom";
 import { installDragReorder } from "../render/dragreorder";
 import type { FocusedControl } from "../render/focuskeep";
 import { createCardTip } from "../render/cardtip";
+import { createNoteMarkerHover } from "../render/notes";
 import { createGroupPopover } from "../render/grouppopover";
 import {
   createRailSections,
@@ -59,6 +60,7 @@ export function initRail(app: App, deps: RailDeps): void {
   const sessionCardTemplate = requireElement<HTMLTemplateElement>("#session-card-template");
   const popover = createGroupPopover();
   const cardTip = createCardTip();
+  const noteHover = createNoteMarkerHover((id) => app.store.get(id)?.note ?? null);
   const railSections = createRailSections(
     sessionsEl,
     sessionCardTemplate,
@@ -198,9 +200,11 @@ export function initRail(app: App, deps: RailDeps): void {
         currentId: app.state.focusedId,
         railActivity: app.state.railActivity,
         cardTip,
+        noteHover,
       },
     });
     cardTip.refresh();
+    noteHover.refresh();
     pendingRailFocus = null;
     railCountEl.textContent = railCountText(
       shownCount(sections, filter),

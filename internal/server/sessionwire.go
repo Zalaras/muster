@@ -13,6 +13,7 @@ type sessionWire struct {
 	ID            int64                 `json:"id"`
 	Title         *string               `json:"title"`
 	TitleOverride *string               `json:"titleOverride"`
+	Note          *string               `json:"note"`
 	State         string                `json:"state"`
 	StateSince    string                `json:"stateSince"`
 	Alive         bool                  `json:"alive"`
@@ -151,6 +152,7 @@ func toWireSession(s *session.Session) sessionWire {
 		ID:              s.ID,
 		Title:           s.DisplayTitle(), // kb:adr/rename-muster-owned-title-override-wins: the display title, not the raw Title column
 		TitleOverride:   s.TitleOverride,
+		Note:            s.Note,
 		State:           string(s.State),
 		StateSince:      wireTime(s.StateSince),
 		Alive:           s.Alive,

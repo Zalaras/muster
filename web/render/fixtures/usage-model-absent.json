@@ -60,6 +60,7 @@
           "displayName": "Haiku 4.5",
           "id": "claude-haiku-4-5-20251001"
         },
+        "note": null,
         "permissionMode": {
           "source": "seed",
           "value": "default"

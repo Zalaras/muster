@@ -1,0 +1,7 @@
+# Decision: review-cycle-exhaustion-theme-storage
+
+**Outcome**: A — Grant one extra review cycle (cycle 4) and fix it in this run — web-impl wave 1, an e2e/render regression test, gates, delta re-review — so the branch lands with REQ-10 holding under blocked storage.
+**Reached by**: consensus (advocate-b conceded in turn 2)
+**Decisive argument**: advocate-a, turn 2: "`rg -n '\blocalStorage\b|\bsessionStorage\b' web/src` outside tests returns exactly six unguarded sites: `theme.ts:49` and `reader.ts:157,214,216,221,653` … Each becomes `safeLocalStorage()`, the helper this plan added … The invariant is checkable: that `rg` returns only `storage.ts`. Bus isolation is the reviewer's alternative ("or"), not a requirement; A takes the narrower branch and leaves the bus untouched." No requirement text is amended — REQ-10 was measured failing as written — and B would only defer the same work against the developer's instruction to finish the run.
+**Dissent to honour**: the reviewer's one-line fix is incomplete — `reader.ts:653` throws inside `sessionRemoved` before notes' cleanup — so the fix wave must cover all six sites, and the regression coverage must include a remove-while-blocked assertion, not only the reconnect journey. The event bus's failure semantics stay unchanged (no listener isolation).
+**Landed in**: this file; docs/adr/notes-blocked-storage-fixed-in-run-cycle-four.md; the cycle-4 fix-wave prompts.

@@ -30,6 +30,7 @@
 3.27	groups.collapsed
 3.28	groups.delete
 3.29	sessions.effort-warning-dismiss
+3.30	sessions.note
 4	ingest
 4.1	ingest.transport
 4.2	ingest.envelope

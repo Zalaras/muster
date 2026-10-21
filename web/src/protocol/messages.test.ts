@@ -71,6 +71,7 @@ const validSession = {
   groupId: null,
   effort: { level: "high" },
   effortWarning: null,
+  note: null,
   cache: { expiresAt: "2026-08-22T01:00:00Z", ttlSeconds: 3600 },
 };
 // The measured "no data yet" shape (docs/history/spikes/canary-fields.md): a session that has just
@@ -108,6 +109,7 @@ const freshLaunchSession = {
   groupId: null,
   effort: null,
   effortWarning: null,
+  note: null,
   cache: null,
 };
 describe("parseMessage — snapshot", () => {
@@ -325,6 +327,22 @@ describe("parseMessage — sessionUpsert", () => {
     expect(parseMessage(message)).toEqual(message);
     const { addedDirs: _omitted, ...withoutKey } = validSession;
     expect(parseMessage({ type: "sessionUpsert", session: withoutKey })).toBeNull();
+  });
+
+  it.each([
+    ["a note", "## Where I am"],
+    ["no note", null],
+  ])("carries %s through a sessionUpsert and a snapshot", (_label, note) => {
+    const upsert = { type: "sessionUpsert", session: { ...validSession, note } };
+    expect(parseMessage(upsert)).toEqual(upsert);
+    const snapshot = { ...validSnapshot, sessions: [{ ...validSession, note }] };
+    expect(parseMessage(snapshot)).toEqual(snapshot);
+  });
+
+  it("rejects a sessionUpsert and a snapshot whose session lacks the note key", () => {
+    const { note: _omitted, ...withoutNote } = validSession;
+    expect(parseMessage({ type: "sessionUpsert", session: withoutNote })).toBeNull();
+    expect(parseMessage({ ...validSnapshot, sessions: [withoutNote] })).toBeNull();
   });
 
   it("rejects a sessionUpsert whose session is malformed", () => {

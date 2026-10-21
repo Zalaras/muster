@@ -288,6 +288,10 @@ func TestPersistFailure_RollsBackEveryMutationUniformly(t *testing.T) {
 			_, err := mgr.SetTitle(ctx, sess.ID, &title)
 			return err
 		}},
+		{"SetNote", func(ctx context.Context, mgr *Manager, sess *Session) error {
+			_, err := mgr.SetNote(ctx, sess.ID, &title)
+			return err
+		}},
 		{"MarkSeen", func(ctx context.Context, mgr *Manager, sess *Session) error {
 			// Unread must actually be true, or MarkSeen no-ops before ever reaching the
 			// store (manager.go:1035-1038) and this row would prove nothing.

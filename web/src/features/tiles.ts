@@ -29,6 +29,7 @@ import {
   type TileRenameHandlers,
 } from "../render/tiles";
 import { createCardTip } from "../render/cardtip";
+import { createNoteMarkerHover } from "../render/notes";
 import { installDragReorder } from "../render/dragreorder";
 import type { CardMenuRequest } from "../render/sessions";
 import { captureFocusedControl, type FocusedControl } from "../render/focuskeep";
@@ -92,6 +93,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   const tileTemplate = requireElement<HTMLTemplateElement>("#tile-template");
   const sessionCardTemplate = requireElement<HTMLTemplateElement>("#session-card-template");
   const cardTip = createCardTip();
+  const noteHover = createNoteMarkerHover((id) => app.store.get(id)?.note ?? null);
 
   let tilesLive: number[] = [];
   // Tiles' mounted chrome per live session id — kept across render passes so the 1s tick
@@ -267,8 +269,13 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
         // A freshly built tile's `bodySlot` starts empty (its template has no children
         // there), so `mountSlotRoot`'s own firstElementChild diff already mounts on the
         // first pass — no separate "is this a new tile" force-mount flag needed.
-        refs = buildTile(session, now, tileTemplate, deps.renameHandlers, (id, kind) =>
-          deps.getSurfaces().select(id, kind, () => deadSurfaceRefsFor(id)),
+        refs = buildTile(
+          session,
+          now,
+          tileTemplate,
+          deps.renameHandlers,
+          (id, kind) => deps.getSurfaces().select(id, kind, () => deadSurfaceRefsFor(id)),
+          noteHover,
         );
         tileElements.set(session.id, refs);
         // renderTileBody's refit needs a laid-out container (FitAddon.fit() silently
@@ -326,8 +333,10 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
       connected,
       railActivity: app.state.railActivity,
       cardTip,
+      noteHover,
     });
     cardTip.refresh();
+    noteHover.refresh();
   }
 
   return {

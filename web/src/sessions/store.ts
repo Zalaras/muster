@@ -24,6 +24,10 @@ export class SessionStore {
     this.sessions.delete(id);
   }
 
+  get(id: number): Session | undefined {
+    return this.sessions.get(id);
+  }
+
   values(): Session[] {
     return Array.from(this.sessions.values());
   }

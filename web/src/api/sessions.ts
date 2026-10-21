@@ -3,7 +3,7 @@
 import { parseBatchResult, type BatchResult } from "../protocol/batch";
 import { parseSession, type Session } from "../protocol/session";
 import { isRecord } from "../protocol/decode";
-import { requestEmpty, requestJson, type ApiResult } from "./http";
+import { requestEmpty, requestJson, type ApiResult, type RequestOptions } from "./http";
 
 /** `POST /api/sessions/{id}/end` (kb:anchor/sessions.end). `200` + the Session object
  * (`alive:false`, `endedAt` set); errors `404 unknown_session` / `409 not_alive`. */
@@ -57,6 +57,14 @@ export async function fetchPane(id: number): Promise<ApiResult<PaneSnapshot>> {
  * `400 invalid_request` / `404 unknown_session`. */
 export async function putTitle(id: number, title: string | null): Promise<ApiResult<null>> {
   return requestEmpty("PUT", `/api/sessions/${id}/title`, 204, { title });
+}
+
+export async function putNote(
+  id: number,
+  note: string,
+  options?: RequestOptions,
+): Promise<ApiResult<null>> {
+  return requestEmpty("PUT", `/api/sessions/${id}/note`, 204, { note }, options);
 }
 
 /** The `200` body of `POST /api/sessions/{id}/shell` (kb:anchor/sessions.shell). */

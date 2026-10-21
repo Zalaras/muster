@@ -43,6 +43,7 @@ classDiagram
         alive
         permission_mode: default, acceptEdits, plan, auto
         title, title_override
+        note: the developer's own text, Muster-owned
         branch, is_worktree
         pane snapshot when dead
         pinned, position

@@ -1,6 +1,6 @@
 # web/src/render — pure DOM builders, no state
 
-**Owns**: the DOM half of every view: rail cards, tiles and strip, mainhead, masthead, dead surface, confirm dialogs, inline rename editor, drag wiring, drop guard, the reader, its diagram pass (`diagrams.ts`, `mermaid.ts`, `diagramdialog.ts`) and find bar (`readerfind.ts`), and the rail's group sections, menus, hover popovers, selection bar and dialogs (`railsections.ts`, `menu.ts`, `grouppopover.ts`, `cardtip.ts`, `hovertip.ts`, `selectbar.ts`, `groupdialogs.ts`, with `anchored.ts` placing those overlays and `options.ts` filling a select's options). No cross-call state here (render-state rule below); session/reader derivation lives in `sessions/`/`reader/`, wiring in `features/`. A DOM-free decision only one controller calls lives in `features/`, not here — a builder takes the computed value, never the raw data (docs/conventions.md § Composition roots). **Features**: actions, connection, drop, focus, launch, rail, reader, rename, tiles, update, usage.
+**Owns**: the DOM half of every view: rail cards, tiles and strip, mainhead, masthead, dead surface, confirm dialogs, inline rename editor, drag wiring, drop guard, the reader, its diagram pass (`diagrams.ts`, `mermaid.ts`, `diagramdialog.ts`) and find bar (`readerfind.ts`), and the rail's group sections, menus, hover popovers, selection bar and dialogs (`railsections.ts`, `menu.ts`, `grouppopover.ts`, `cardtip.ts`, `hovertip.ts`, `selectbar.ts`, `groupdialogs.ts`) and the session note (`notes.ts`, `notespanel.ts`), with `anchored.ts` placing those overlays and `options.ts` filling a select's options). No cross-call state here (render-state rule below); session/reader derivation lives in `sessions/`/`reader/`, wiring in `features/`. A DOM-free decision only one controller calls lives in `features/`, not here — a builder takes the computed value, never the raw data (docs/conventions.md § Composition roots). **Features**: actions, connection, drop, focus, launch, notes, rail, reader, rename, tiles, update, usage.
 
 **Render-state rule**: a builder holds only its own instance's state — never state keyed across calls by an external id; that belongs to the caller, which holds refs built once (`masthead.ts`'s model-week `<select>`, not a module-level `Map`).
 
@@ -17,13 +17,13 @@
 - `insertBefore` on a mounted node detaches it and Chrome blurs the focused descendant; `focuskeep.ts` snapshots and restores, and `keyedreorder.ts` shares it across rail, strip and grid.
 - A `[hidden]` element with an author `display` rule stays visible (kb:lesson/display-rule-overrides-hidden-attribute).
 - A shared class carries its CSS along: `.acts-row` hover-opacity hid the dead surface's Resume (kb:lesson/shared-class-css-hid-resume-button).
-- `dead.ts` renders in two hosts, Focus's `#dead-surface` and every tile clone; change the builder, not one host.
+- `dead.ts` renders in Focus's `#dead-surface` and every tile clone; change the builder, not one host.
 - `railsections.ts` indexes every card first, so a card changing section is adopted, not rebuilt.
-- `reader.ts` rebuilds its tree/outline only when their flattened signature (in the container's `dataset`) changes, so the tick never steals focus.
-- `diagramdialog.ts`'s backdrop-close is `event.target === dialogEl` (a `::backdrop` isn't a node), so its children must fill the whole box.
+- `reader.ts` rebuilds its tree/outline only when their flattened signature changes, so the tick never steals focus.
+- `diagramdialog.ts`'s backdrop-close is `event.target === dialogEl` (a `::backdrop` isn't a node), so its children must fill the box.
 
 <!-- kb:trailer -->
-<!-- kb:hash c440abe7e1dee3ce -->
+<!-- kb:hash 66069f8adaffab3c -->
 - **actions** — Stop, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
@@ -31,6 +31,7 @@
 - **groups** — Rail groups: sections, header summary and popover, select mode, filter, group create, rename, ungroup and delete, persistence. → `docs/features/groups/INDEX.md`
 - **issue** — Issue capture and GitHub issue creation from the dashboard. → `docs/features/issue/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
+- **notes** — A persistent, markdown-rendered note per session, edited from the Focus header and peeked from the rail card and tile header. → `docs/features/notes/INDEX.md`
 - **past-sessions** — The launch dialog's Resume tab — a directory's Claude Code sessions listed from transcripts, the running-session guard, resume in the original mode. → `docs/features/past-sessions/INDEX.md`
 - **rail** — Rail cards, attention versus manual order, pin, drag reorder, session count. → `docs/features/rail/INDEX.md`
 - **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`

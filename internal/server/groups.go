@@ -86,20 +86,6 @@ func writeBodyError(w http.ResponseWriter, err error, fieldMessages map[string]s
 	writeInvalidRequest(w, "invalid JSON body")
 }
 
-// decodeGroupID reads a request's groupId, which may be an integer or null. ok is false for
-// any other JSON type and for an empty raw, which is a key the body did not carry; a caller
-// that treats an absent key differently checks len(raw) first.
-func decodeGroupID(raw json.RawMessage) (id *int64, ok bool) {
-	if string(raw) == "null" {
-		return nil, true
-	}
-	var v int64
-	if err := json.Unmarshal(raw, &v); err != nil {
-		return nil, false
-	}
-	return &v, true
-}
-
 // groupsFeature owns the rail-group endpoints, the sessions-to-group move and the
 // snapshot's groups and ungrouped.
 // teardown is actionsFeature.teardownRemoved: delete-group's remove disposition tears down
@@ -144,7 +130,7 @@ func (f *groupsFeature) handleSetSessionsGroup(w http.ResponseWriter, r *http.Re
 		writeInvalidRequest(w, msgSessionGroupIDs)
 		return
 	}
-	groupID, ok := decodeGroupID(req.GroupID)
+	groupID, ok := decodeNullable[int64](req.GroupID)
 	if !ok {
 		writeInvalidRequest(w, "groupId is required and must be an integer or null")
 		return

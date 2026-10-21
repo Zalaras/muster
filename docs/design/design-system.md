@@ -231,6 +231,10 @@ both. In **select mode** (plan `groups`) every card gains a leading checkbox in 
 column's gutter (`Select <title>`) and hides its pin; only a selected card stays draggable, and
 dragging it carries the whole selection (kb:adr/rail-cards-drag-in-both-sort-modes-selection-together); a selected card
 carries `.selected` — a neutral `--fg` stripe on `--bg-hover` ground, never a state colour (§3).
+While the session has a note (plan `session-notes`) the repo line ends in a small notebook
+**marker** (`.mk`, `--fg-muted`, never a state colour; its accessible name `Has a note`); hovering
+it opens the shared hover tip with the note rendered read-only and cut off under a fade. The Tiles
+strip card is the same component and carries it too.
 
 **Section header** (`.ghead`, plan `groups`; reference `mockups/groups/a-sections-select-mode.html`) —
 sticky over its section's cards: caret button, a select-mode checkbox, the name (mono
@@ -260,8 +264,13 @@ header's title is also a **rename trigger** (plan `ui-text-and-focus`, REQ-13, t
 editor the Focus mainhead uses): a click-and-release opens it, a click-and-drag still
 reorders the grid; while an edit is open that header is `draggable="false"` so typing never
 starts a drag.
+While the session has a note the header carries the same notebook **marker** as the rail card,
+immediately before the context readout, with the same hover.
 
-**Focus mainhead** — the session name (a rename trigger whose hover `title` is the full name),
+**Focus mainhead** — a fixed-width notebook **glyph** button (`.ng`, `Note`) leads the name: `--fg-dim`
+at reduced opacity while the session has no note, `--fg` once it has one, on live and dead sessions; it
+never gives way, and the give-way below runs with its width added before the title. It opens the
+**Note panel**. Then the session name (a rename trigger whose hover `title` is the full name),
 then the meta row: the same repo block as the rail card, each line as wide as its text with no
 character cap (kb:adr/focus-header-readout-sized-by-text), the `↳` block while Claude is elsewhere
 — drawn only when the whole header, right cluster included, fits on one row, otherwise removed
@@ -311,6 +320,22 @@ a newer release is known and not yet installed, the masthead **Settings** button
 6px dot in `--fg-muted` and the name `Settings, update available`: the dot is a neutral cue,
 never `--amber` or `--rose`, because an available update is information, not a session state
 (§3). Reference: the Settings modal in `mockups/a-instrument.html`.
+
+**Note panel** (`render/notespanel.ts`, plan `session-notes`; reference
+`plans/session-notes/mockups/panel.html`) — `--bg-raised`, 1px `--edge` border; a header reading
+`Note · <title>` (`--fg` label, `--fg-dim` title) with its controls as small `--line-control` boxes at
+the top right, and an **unsaved** status in `--warn` once a save has failed to reach musterd, until one succeeds; in a
+narrow panel the title gives way first, then the status shortens with an ellipsis, its full text the
+hover `title`, so the controls always stay inside the box
+(kb:adr/theme-warn-tokens-not-amber). The body shows the note rendered as the docs reader renders
+markdown (frontmatter and mermaid included); one click edits the raw text in a standard **Form
+field** textarea, saved automatically. Two forms: **anchored** under the glyph, closed by a click
+away, the glyph or Escape from inside it; and **popped out**, a free-floating panel over the main slot,
+dragged by its header and resized from 4px edge and 10px corner handles inside its box, that stays
+open while the terminal has focus and hides in Tiles
+(kb:adr/notes-popout-hidden-in-tiles-geometry-per-tab). It opens at 360×300, inset 24px from the
+slot's top right, and never shrinks below 260×150. The anchored header carries the pop-out control;
+the popped-out one carries Pop in, then Close.
 
 **Menu** (`render/menu.ts`, plan `groups`; kb:adr/web-menu-component-single-builder) — a
 `role="menu"` panel of `role="menuitem"` buttons anchored below its opener, or opened at the

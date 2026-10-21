@@ -58,6 +58,7 @@
           "displayName": "claude-sonnet-4-5-20250929",
           "id": "claude-sonnet-4-5-20250929"
         },
+        "note": null,
         "permissionMode": {
           "source": "hook",
           "value": "default"
@@ -106,6 +107,7 @@
           "displayName": "claude-opus-4-1-20250805",
           "id": "claude-opus-4-1-20250805"
         },
+        "note": null,
         "permissionMode": {
           "source": "seed",
           "value": "acceptEdits"
@@ -157,6 +159,7 @@
           "displayName": "claude-sonnet-4-5-20250929",
           "id": "claude-sonnet-4-5-20250929"
         },
+        "note": null,
         "permissionMode": {
           "source": "seed",
           "value": "plan"

@@ -63,6 +63,7 @@ describe("renderDeadSurface — assigns deadSurfaceText's output to the endbar/s
       groupId: null,
       effort: null,
       effortWarning: null,
+      note: null,
       cache: null,
       ...overrides,
     };
@@ -248,6 +249,7 @@ describe("renderDeadSurface — Resume disabled reason (REQ-17/W3)", () => {
       groupId: null,
       effort: null,
       effortWarning: null,
+      note: null,
       cache: null,
       ...overrides,
     };

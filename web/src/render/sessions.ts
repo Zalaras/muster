@@ -11,6 +11,7 @@ import {
 import { requireElement } from "../dom";
 import type { CardTip } from "./cardtip";
 import { renderContextRow } from "./context";
+import { applyNoteMarker, type NoteMarkerHover } from "./notes";
 import { renderRepoLines } from "./repolines";
 import { captureFocusedControl, type FocusedControl } from "./focuskeep";
 import { reconcileKeyedOrder, type KeyedReorderEntry } from "./keyedreorder";
@@ -45,6 +46,7 @@ export interface CardOptions {
   railActivity: RailActivity;
   selection?: CardSelection | undefined;
   cardTip?: CardTip | undefined;
+  noteHover?: NoteMarkerHover | undefined;
 }
 
 export interface CardSelection {
@@ -81,10 +83,11 @@ interface CardRenderOptions extends CardOptions {
 /** The card's repo block (`.r2`) and, while Claude is in another checkout, the `↳` block
  * (`.r2c`) that follows it. `.r2`'s hover is the one-line `<repo> / <branch>` the two split
  * lines no longer show together; `.r2c`'s is where Claude is. */
-function applyRepoBlocks(card: HTMLElement, vm: CardViewModel): void {
+function applyRepoBlocks(card: HTMLElement, vm: CardViewModel, session: Session): void {
   const repo = requireElement<HTMLElement>(".r2", card);
   renderRepoLines(repo, vm.repo);
   repo.title = vm.repoLine;
+  applyNoteMarker(requireElement<HTMLElement>(".mk", repo), session.note);
 
   const claude = requireElement<HTMLElement>(".r2c", card);
   claude.hidden = vm.claudeAt === null;
@@ -112,7 +115,7 @@ function applyCardText(card: HTMLElement, vm: CardViewModel, session: Session): 
   timer.setAttribute("aria-description", vm.warmth.hover);
   applyWarmth(timer, vm.warmth);
 
-  applyRepoBlocks(card, vm);
+  applyRepoBlocks(card, vm, session);
 
   renderContextRow(requireElement<HTMLElement>(".r3", card), session.context, "r3");
 
@@ -277,6 +280,7 @@ function buildSessionCardElement(
   updateSessionCardContent(card, session, now, options);
 
   options.cardTip?.attach(card, requireElement<HTMLElement>(".timer", card));
+  options.noteHover?.attach(requireElement<HTMLElement>(".r2 .mk", card), session.id);
 
   // Wired once, like the click/keydown listeners below — reconcileCards never
   // rebuilds an existing card, so this never double-attaches on a later render tick.

@@ -31,7 +31,8 @@ kb:spec/launch).
 Tiles reorder by dragging the tile header onto another tile, which inserts and shifts, never
 swaps, with no daemon involvement (kb:adr/tiles-drag-reorder-header-handle-insert-shift).
 Order and membership are per-window, client-only state and are never persisted
-(kb:adr/tiles-order-ephemeral-per-window).
+(kb:adr/tiles-order-ephemeral-per-window). A tile with a note shows the note marker before its context
+readout (kb:spec/notes).
 
 Density (`prefs.density`, 2×2 or 3×2) sets N and every tile's geometry; each tile states
 its real geometry. A tile carries the title (with inline rename), a danger `bypass` chip after it while the
