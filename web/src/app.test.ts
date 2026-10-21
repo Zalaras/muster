@@ -108,6 +108,26 @@ describe("event bus fan-out and registration order (REQ-3)", () => {
     expect(calls).toEqual(["first", "first", "added-during-emit"]);
   });
 
+  it("a listener that throws does not stop the listeners after it, and the error is reported", () => {
+    const app = createApp();
+    const calls: string[] = [];
+    const errors: unknown[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => errors.push(args);
+    try {
+      app.on("cancelRenames", () => calls.push("first"));
+      app.on("cancelRenames", () => {
+        throw new Error("boom");
+      });
+      app.on("cancelRenames", () => calls.push("third"));
+      expect(() => app.emit("cancelRenames")).not.toThrow();
+    } finally {
+      console.error = original;
+    }
+    expect(calls).toEqual(["first", "third"]);
+    expect(errors).toHaveLength(1);
+  });
+
   it("keeps calling every registered listener, in order, across repeated emits", () => {
     const app = createApp();
     const calls: string[] = [];

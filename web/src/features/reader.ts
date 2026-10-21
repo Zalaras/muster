@@ -117,6 +117,7 @@ class ReaderInstance {
   private writtenAt = new Map<string, string>();
   private openPath: string | null = null;
   private outline: OutlineEntry[] = [];
+  private readonly storage = safeLocalStorage();
   private filterQuery = "";
   private navCollapsed: boolean;
   private currentHeadingId: string | null = null;
@@ -155,7 +156,7 @@ class ReaderInstance {
     this.isStandalone = opts.isStandalone;
     this.navCollapsed = opts.navCollapsedDefault;
     this.requestRender = opts.requestRender;
-    this.memory = loadMemory(safeLocalStorage(), sessionId);
+    this.memory = loadMemory(this.storage, sessionId);
     this.refs = buildReader(template, {
       onSelectPath: (path) => this.selectRelative(path),
       onSelectPlan: () => this.selectPlan(),
@@ -212,14 +213,14 @@ class ReaderInstance {
   }
 
   private commitMemory(transition: (memory: ReaderMemory) => ReaderMemory): void {
-    const next = transition(loadMemory(safeLocalStorage(), this.sessionId, this.memory));
+    const next = transition(loadMemory(this.storage, this.sessionId, this.memory));
     this.memory = next;
-    saveMemory(safeLocalStorage(), this.sessionId, next);
+    saveMemory(this.storage, this.sessionId, next);
   }
 
   handleStorage(event: StorageEvent): void {
     if (!isMemoryWrite(event.key, event.newValue, this.sessionId)) return;
-    this.memory = loadMemory(safeLocalStorage(), this.sessionId, this.memory);
+    this.memory = loadMemory(this.storage, this.sessionId, this.memory);
     this.requestRender();
   }
 
@@ -560,6 +561,7 @@ export function initReader(
 ): ReaderHandle {
   const template = requireElement<HTMLTemplateElement>("#reader-template");
   const instances = new Map<number, ReaderInstance>();
+  const storage = safeLocalStorage();
 
   function newInstance(id: number, standaloneTarget?: StandaloneTarget): ReaderInstance {
     // Mount-time only: the "starts collapsed" default, unlike `compact` itself (now a
@@ -651,7 +653,7 @@ export function initReader(
       instances.get(id)?.dispose();
       instances.delete(id);
       // Reader memory is created/saved/forgotten only by this feature.
-      forget(safeLocalStorage(), id);
+      forget(storage, id);
     });
   }
 

@@ -75,6 +75,13 @@ Each row's rationale is an ADR: `go tool kb ls --type adr | grep '/stack-'`.
   interpolated data.
 - Handle the three states every view has: no data yet (**render "unknown", never an
   empty gauge** — `kb:adr/usage-unknown-renders-word-not-track`), data, and daemon-down.
+- Browser storage only through `safeLocalStorage()` / `safeSessionStorage()` in
+  `web/src/storage.ts`, never the bare global. The accessor re-resolves the global on every
+  call, so resolving it once at init and holding it is the pattern
+  (`kb:adr/connection-storage-accessor-resolves-per-call`).
+- An `app.on` listener that throws is reported and skipped; the bus still calls the rest
+  (`kb:adr/connection-event-bus-isolates-throwing-listener`). Never rely on a throw to stop
+  later listeners.
 - Unit-test logic (protocol decoding, state derivation, formatting) with Vitest;
   interaction and rendering are Playwright's job.
 - **Biome is the lint + format gate** (`make web-lint`, write half `make web-fmt`;

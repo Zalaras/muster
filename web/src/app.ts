@@ -126,7 +126,14 @@ export function createApp(): App {
   function emit<E extends keyof AppEvents>(event: E, ...args: Parameters<AppEvents[E]>): void {
     const list = listeners.get(event);
     if (!list) return;
-    for (const fn of list.slice()) (fn as (...args: Parameters<AppEvents[E]>) => void)(...args);
+    // Each listener is isolated: one that throws is reported and the rest still run.
+    for (const fn of list.slice()) {
+      try {
+        (fn as (...args: Parameters<AppEvents[E]>) => void)(...args);
+      } catch (error) {
+        console.error(`${event} listener failed:`, error);
+      }
+    }
   }
 
   function onRender(phase: (frame: RenderFrame) => void): void {

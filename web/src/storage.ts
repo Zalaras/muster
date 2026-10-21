@@ -1,8 +1,9 @@
-// The one localStorage seam and safe-JSON helper pair: theme.ts's first-paint hint and
-// reader/memory.ts's per-session memory each read and write JSON under a storage that can
-// throw (private mode, disabled storage) or hold a foreign shape (an older build,
-// hand-edited storage). This module owns the try/catch-parse-validate sequence; each
-// caller still owns what its own JSON shape means.
+// The only place in web/src that touches the localStorage or sessionStorage global, and the
+// safe-JSON helpers over them: callers read and write JSON under a storage that can throw
+// (private mode, disabled storage) or hold a foreign shape (an older build, hand-edited
+// storage). This module owns the try/catch-parse-validate sequence; each caller still owns
+// what its own JSON shape means. The accessors re-resolve the global on every call, so a
+// caller may hold one from init: storage blocked at first use is not unavailable for good.
 export interface StorageLike {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
@@ -81,17 +82,22 @@ function unavailable(): never {
 }
 
 function guardedStorage(read: () => KeyedStorage): KeyedStorage {
-  try {
-    return read();
-  } catch {
-    return {
-      getItem: unavailable,
-      setItem: unavailable,
-      removeItem: unavailable,
-      length: 0,
-      key: () => null,
-    };
-  }
+  const current = (): KeyedStorage | null => {
+    try {
+      return read();
+    } catch {
+      return null;
+    }
+  };
+  return {
+    getItem: (key) => (current() ?? unavailable()).getItem(key),
+    setItem: (key, value) => (current() ?? unavailable()).setItem(key, value),
+    removeItem: (key) => (current() ?? unavailable()).removeItem(key),
+    get length() {
+      return current()?.length ?? 0;
+    },
+    key: (index) => current()?.key(index) ?? null,
+  };
 }
 
 export function safeSessionStorage(): KeyedStorage {
