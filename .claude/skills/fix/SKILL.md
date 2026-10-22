@@ -1,20 +1,21 @@
 ---
 name: fix
 description: "The small track, as a sweep: takes any number of Bugs and Tweaks from TODO.md, researches them all, asks every question once, then runs them in batches as fresh `claude -p` processes that land on local main. One push at the end, through /land --sweep."
-argument-hint: "[<sweep-name>] --bugs | --tweaks | --all | #N … | \"<entry title>\" … [--max N] [--parallel N]"
+argument-hint: "[<sweep-name>] --bugs | --tweaks | --all | #N … | \"<entry title>\" … [--max N] [--parallel N] [--batch-size N]"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Agent, AskUserQuestion
 ---
 
 > Maintainer note: a skill in the main session — it researches, stops **once** for the developer,
 > and starts a loop of fresh processes. The batches run `/fix-batch`, which is `/orchestrate` with
 > the parallel tracks removed; this file never implements anything
-> (kb:adr/process-fix-sweep-fresh-process-per-batch).
+> (kb:adr/process-fix-sweep-soft-batch-cap).
 
 Invoked with: **$ARGUMENTS**. The first token is the sweep name when it is kebab-case and not a
 selector; otherwise the name is `sweep-<YYYY-MM-DD>` (a second sweep the same day gets `-b`).
 Selectors, any mix: `--bugs` (every open entry under `## Bugs`), `--tweaks`, `--all` (both),
 `#N` (the entry whose link is issue N), a quoted entry title. `--max N` caps the entries taken, in
-TODO order. `--parallel N` is how many batches run at once (default 1). No selector → ask for one.
+TODO order. `--parallel N` is how many batches run at once (default 1). `--batch-size N` raises or lowers the
+per-batch entry cap (default 4). No selector → ask for one.
 
 **Routing.** Only `## Bugs` and `## Tweaks` are sweepable. An entry whose research shows a
 protocol change, a new feature spec or a new UI surface is not small-track work: it is raised at
@@ -69,7 +70,8 @@ Tell the developer, per entry, in plain words without paths or pipeline terms: t
 two sentences, what research found if it differs, the fix in one sentence, and its questions. Then
 list the entries routed `not-small-track`, with why. Ask everything in prose, in one message —
 **not** an `AskUserQuestion` menu, and nothing is asked again after this. The developer answers
-per entry: go, a changed wording, an answer to each question, or drop. Record each answer
+per entry: go, a changed wording, an answer to each question, or drop; and may set the batch
+size here as well. Record each answer
 verbatim in `plans/<sweep>/research/<id>.md` under `## Answers`; an entry with an unanswered
 question is not in the sweep. This is the last message before the run; everything a batch could
 need to ask is asked here, and a batch that still has to ask is a retro item
@@ -81,7 +83,8 @@ From the research files:
 
 1. Two entries that touch the same file are in the same batch, always.
 2. Otherwise group by work type, then by a shared feature.
-3. Fill batches in TODO order, at most four entries each; a batch of one is fine.
+3. Fill batches in TODO order, at most the batch size each (`--batch-size`, or what the developer
+   set at the stop; default 4, a soft cap; rule 1 may exceed it). A batch of one is fine.
 4. Number them `1..k` in the order the first entry of each appears in TODO.
 
 ## 5. Write the sweep and start it

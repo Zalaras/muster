@@ -1,7 +1,7 @@
 ---
 id: process-fix-sweep-fresh-process-per-batch
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-22
 summary: /fix takes any number of Bugs and Tweaks, asks everything once, then a loop runs them as fresh claude -p batches landed on local main; /land --sweep pushes.
 features: []

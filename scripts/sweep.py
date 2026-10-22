@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""sweep.py — the /fix sweep loop (kb:adr/process-fix-sweep-fresh-process-per-batch).
+"""sweep.py — the /fix sweep loop (kb:adr/process-fix-sweep-soft-batch-cap).
 
   scripts/sweep.py start  <sweep> [--parallel N]   run every pending batch, N at a time, land each
   scripts/sweep.py resume <sweep> [--parallel N]   failed → pending, then start

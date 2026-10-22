@@ -44,9 +44,9 @@ Feature work goes through the multi-agent pipeline, not ad-hoc editing:
    verdict) → doc-reconcile → Final Validation (the one full E2E sweep), with fix waves and
    `orchestration-state.json` resume. Only a merged review verdict of `approved` reaches
    doc-reconcile, and only its `reconciled` plus a green full sweep completes the run.
-4. `/fix --bugs | --tweaks | #N … | "<title>" … [--max N] [--parallel N]` — the small track as a
-   sweep over `## Bugs` and `## Tweaks`: research every entry in parallel, **one stop** for every
-   diagnosis and question, batches (same file → same batch; at most four), then
+4. `/fix --bugs | --tweaks | #N … | "<title>" … [--max N] [--parallel N] [--batch-size N]` — the small
+   track as a sweep over `## Bugs` and `## Tweaks`: research every entry in parallel, **one stop** for every
+   diagnosis and question, batches (same file → same batch; four by default), then
    `scripts/sweep.py` runs each batch as a fresh `claude -p "/fix-batch <sweep> <n>"` in its own
    worktree — red test → green, gates, the reviewers the diff needs, reconcile, Final
    Validation, retro — and squash-merges each completed branch onto local `main`, ticking its
@@ -79,7 +79,7 @@ harness wakes only the **main session**, so agents run gates in the foreground (
 The pipeline buys parallel daemon∥web tracks behind a protocol contract. Use `/orchestrate` when
 the work changes the daemon↔UI protocol, adds a feature spec, or adds a UI surface that needs a
 Testable UI Elements table; every other change to the shipped artifact (`docs/conventions.md`
-§ Commits) is `/fix` (kb:adr/process-fix-sweep-fresh-process-per-batch). Work that releases nothing —
+§ Commits) is `/fix` (kb:adr/process-fix-sweep-soft-batch-cap). Work that releases nothing —
 `tools/`, `internal/triage`, `kb.yaml`, skills, agents, docs — is a plan and a commit.
 
 ## Hard rules

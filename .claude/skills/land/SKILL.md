@@ -24,7 +24,7 @@ reworked. So `/orchestrate` records the issue numbers and **you** put them in th
 ## Sweep mode — `/land --sweep <sweep>`
 
 A `/fix` sweep's loop has already squash-merged each completed batch onto local `main` with its
-`closes` subject and ticked the entries (kb:adr/process-fix-sweep-fresh-process-per-batch);
+`closes` subject and ticked the entries (kb:adr/process-fix-sweep-soft-batch-cap);
 nothing was pushed. Here the skill is only steps 2, 4 and 5, plus the state file:
 
 1. `scripts/sweep.py status <sweep>` — every batch `landed`, or `failed` with an error the

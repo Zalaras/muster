@@ -6,7 +6,7 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Agent
 ---
 
 > Maintainer note: `/orchestrate` with the parallel tracks removed, driven from `scripts/sweep.py`
-> (kb:adr/process-fix-sweep-fresh-process-per-batch). It runs with no developer present: every
+> (kb:adr/process-fix-sweep-soft-batch-cap). It runs with no developer present: every
 > decision it needs was made at `/fix`'s one stop and sits in the research files. It lands nothing
 > — the loop squash-merges a completed branch and ticks the entries.
 
