@@ -319,11 +319,12 @@ func fakeGitWedgingIn(t *testing.T) {
 // (here two wedged checkouts; a few hundred slow ones do the same) leaves the launch
 // directory's reading trusted (ok true, its moved branch applies), keeps the readable
 // siblings, and leaves the unread directories out so they keep their last-known reading.
-// It shortens repoReadTimeout; safe because t.Setenv keeps it out of the parallel phase.
+// It shortens addedReadTimeout alone, so the launch read keeps its production deadline under
+// a loaded race run; safe because t.Setenv keeps it out of the parallel phase.
 func TestReadRepoState_WedgedAddedDirectoryKeepsTheLaunchReading(t *testing.T) {
-	old := repoReadTimeout
-	repoReadTimeout = 1500 * time.Millisecond
-	t.Cleanup(func() { repoReadTimeout = old })
+	old := addedReadTimeout
+	addedReadTimeout = 1500 * time.Millisecond
+	t.Cleanup(func() { addedReadTimeout = old })
 	launch := newGitCheckout(t, "muster")
 	bobGit(t, launch, "checkout", "-q", "-b", "moved")
 	infra := newGitCheckout(t, "infra")
@@ -337,7 +338,7 @@ func TestReadRepoState_WedgedAddedDirectoryKeepsTheLaunchReading(t *testing.T) {
 	state, ok := readRepoState(context.Background(), target)
 	elapsed := time.Since(start)
 
-	require.GreaterOrEqual(t, elapsed, repoReadTimeout-time.Second, "fixture: the added read ran to its deadline")
+	require.GreaterOrEqual(t, elapsed, addedReadTimeout-time.Second, "fixture: the added read ran to its deadline")
 	assert.True(t, ok, "the added read's deadline does not discard the launch directory's reading")
 	require.NotNil(t, state.Branch)
 	assert.Equal(t, "moved", *state.Branch)

@@ -15,9 +15,13 @@ import (
 	"github.com/Zalaras/muster/internal/session"
 )
 
-// repoReadTimeout bounds one session's git reads in a repo-poll tick, so a wedged checkout
-// cannot stall the loop for every other session. A var so a test can shorten it.
-var repoReadTimeout = 5 * time.Second
+// repoReadTimeout bounds one session's launch-directory git reads in a repo-poll tick, and
+// addedReadTimeout its added directories' reads, so a wedged checkout cannot stall the loop
+// for every other session. Vars so a test can shorten one without the other.
+var (
+	repoReadTimeout  = 5 * time.Second
+	addedReadTimeout = 5 * time.Second
+)
 
 const addedReadWorkers = 8
 
@@ -121,7 +125,7 @@ func readRepoState(ctx context.Context, t session.RepoTarget) (state session.Rep
 	if launchCtx.Err() != nil || !isDir(t.Directory) {
 		return state, false
 	}
-	addedCtx, cancelAdded := context.WithTimeout(ctx, repoReadTimeout)
+	addedCtx, cancelAdded := context.WithTimeout(ctx, addedReadTimeout)
 	defer cancelAdded()
 	state.AddedRepos = readAddedRepos(addedCtx, t.AddedDirs)
 	return state, ctx.Err() == nil && isDir(t.Directory)
