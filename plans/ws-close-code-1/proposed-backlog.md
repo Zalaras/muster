@@ -12,3 +12,7 @@ Proposed, not filed: the developer files what they want into `TODO.md`.
   `repoReadTimeout` to 1.5 s, and the launch directory's read runs under that same deadline
   through the `$PATH` git shim. (Final Validation gate, this batch; pre-existing — the branch does
   not touch the repo poll or its tests)
+
+## Decisions (the developer, 2026-10-22)
+
+- The wedged-directory repo-poll test flakes under the full race suite: already done: 701e2273 gives the added reads their own deadline, so the test no longer shortens the launch read. Not filed.
