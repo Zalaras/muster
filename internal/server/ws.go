@@ -95,7 +95,7 @@ func (h *wsHub) closeAll() {
 	drainOutboxes(clients, h.log)
 
 	for c := range clients {
-		_ = c.Close(websocket.StatusNormalClosure, "musterd shutting down")
+		_ = c.Close(websocket.StatusGoingAway, "musterd shutting down")
 	}
 }
 

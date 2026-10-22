@@ -25,8 +25,8 @@ acceptEdits`:
 - **`--allowedTools "Bash,Agent"` is enough.** `python3 -c 'print("py-ok")'` — on no allow list
   anywhere — ran and printed `py-ok`; `echo sh-ok` ran. Nothing was denied, so the sweep loop
   passes the tool names on the command line and relies on no project allow entry.
-- **Skills, CLAUDE.md and hooks load.** `claude -p "/ping"` with a project skill
-  `.claude/skills/ping/SKILL.md` and a `CLAUDE.md` naming a codeword answered
+- **Skills, CLAUDE.md and hooks load.** `claude -p "/ping"` with a project skill named `ping`
+  under the scratch repo's `.claude/skills/` and a `CLAUDE.md` naming a codeword answered
   `ping-skill-loaded mango`; the project `SubagentStop` hook fired in the same workspace
   (kb:fact/print-mode-spawns-subagents-and-fires-subagent-stop).
 - `--output-format json` returns `result`, `total_cost_usd`, `num_turns`, `duration_ms`. With

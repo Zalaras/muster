@@ -1166,6 +1166,8 @@ is the production path, not an edge case.
 - The client reconnects with backoff (one WS client module owns this — conventions). A
   dead socket **is** the "daemon down" signal: the UI switches to the full-width banner
   (ux-flows §3.5) until `hello` arrives again.
+- At daemon shutdown the server closes every open `/ws` socket with close code 1001 (going
+  away, reason `musterd shutting down`).
 
 Every message: `{"type": "<name>", …}`. Unknown types are ignored.
 
@@ -1653,7 +1655,7 @@ Frames:
   UI shows a click-to-reclaim overlay; nothing auto-reconnects on 4000 (no flap loop).
 - `4001` `pane_ended` — PTY EOF: the tmux session/pane is gone. The daemon also nudges
   the liveness poll, so a `sessionUpsert` with `alive:false` follows shortly.
-- Normal close (1001) on daemon shutdown.
+- Going away (1001) on daemon shutdown.
 
 **One-live-client law, enforced server-side** (`kb:adr/surfaces-one-live-client-per-attach-target`): at most one terminal socket
 per session; a new connection for the same session **takes over** — the daemon closes the
@@ -1713,7 +1715,7 @@ A `scroll` frame on `kb:anchor/terminal.ws` is an unknown text frame there — i
 never fatal — and the dashboard never sends one from a Claude surface.
 
 **Close codes**: `4000` `superseded`, `4001` `pane_ended` (the shell exited — `exit`, or an
-external kill), normal close (1001) on daemon shutdown. Unlike `kb:anchor/terminal.ws`'s `4001`, this one does
+external kill), going away (1001) on daemon shutdown. Unlike `kb:anchor/terminal.ws`'s `4001`, this one does
 **not** nudge the liveness poll: a shell's death is not its session's death, and a live session
 must never take a liveness flap because a shell under it exited.
 

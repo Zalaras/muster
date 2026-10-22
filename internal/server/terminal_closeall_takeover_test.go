@@ -115,7 +115,7 @@ func TestTerminalRegistry_TakeoverAfterCloseAllClosesNewConnWithShutdownCode(t *
 
 	select {
 	case ce := <-closeInfo:
-		assert.Equal(t, websocket.StatusNormalClosure, ce.Code, "the same shutdown code closeAll itself uses (terminal.go's closeAll loop)")
+		assert.Equal(t, websocket.StatusGoingAway, ce.Code, "the same shutdown code closeAll itself uses (terminal.go's closeAll loop)")
 		assert.Equal(t, "musterd shutting down", ce.Reason)
 	case <-time.After(2 * time.Second):
 		t.Fatal("the new connection was never closed — it must not be left dangling once closeAll has run")
@@ -171,7 +171,7 @@ func TestAttachAndPump_RegistryAlreadyClosedGetsShutdownCloseFrame(t *testing.T)
 	_, _, readErr := c.Read(context.Background())
 	var ce websocket.CloseError
 	require.ErrorAs(t, readErr, &ce, "the client must see a close frame, not a bare connection drop")
-	assert.Equal(t, websocket.StatusNormalClosure, ce.Code, "the same shutdown code closeAll and takeover's second check both use")
+	assert.Equal(t, websocket.StatusGoingAway, ce.Code, "the same shutdown code closeAll and takeover's second check both use")
 	assert.Equal(t, "musterd shutting down", ce.Reason)
 	assert.False(t, attachCalled.Load(), "takeover's first closed check must refuse before attach ever runs")
 }

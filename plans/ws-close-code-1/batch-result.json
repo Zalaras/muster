@@ -1,0 +1,2 @@
+{"status": "completed", "subject": "fix(server): close every socket with 1001 going away at daemon shutdown",
+ "closes": [], "error": null, "question": null}

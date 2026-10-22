@@ -1,0 +1,50 @@
+{
+  "plan": "ws-close-code-1",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-22T15:54:50Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 2,
+        "keep": 2,
+        "drop": 0
+      },
+      "keeps": [
+        {
+          "key": "internal/server/terminal.go:ad87d04ae3740101",
+          "path": "internal/server/terminal.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func closeShutdown(ws *websocket.Conn) {",
+            "line": 125
+          },
+          "lines": [
+            "// closeShutdown closes ws with the daemon-shutdown going-away code (1001) — the one",
+            "// implementation shared by takeover's second closed check, closeAll's teardown loop, and",
+            "// attachAndPump's errRegistryClosed handling (kb:anchor/terminal.ws)."
+          ],
+          "reason": "Edited on `main`; still true: `_ = ws.Close(websocket.StatusGoingAway, \"musterd shutting down\")` closes with going-away 1001 and is called from takeover, closeAll and attachAndPump."
+        },
+        {
+          "key": "internal/server/terminal.go:9abc21b4c7872156",
+          "path": "internal/server/terminal.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *terminalRegistry) closeAll() {",
+            "line": 233
+          },
+          "lines": [
+            "// closeAll closes every live terminal socket (daemon shutdown — going away 1001,",
+            "// kb:anchor/terminal.ws), clears the map, and marks the registry closed — so a takeover",
+            "// racing shutdown can't re-close an already-closed conn it still thinks is live, and a",
+            "// takeover whose attach finishes after this point closes its new connection instead of",
+            "// installing it (see takeover's own doc comment)."
+          ],
+          "reason": "Edited on `main`; still true: `r.closed = true` and the swapped-out map in `func (r *terminalRegistry) closeAll()` close every socket with the shutdown code, clear the map and mark the registry closed."
+        }
+      ],
+      "drops": null
+    }
+  ]
+}

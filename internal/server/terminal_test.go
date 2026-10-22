@@ -686,7 +686,10 @@ func TestHandleTerminal_ShutdownClosesOpenTerminalSocketsNormally(t *testing.T) 
 
 	select {
 	case err := <-readErr:
-		require.Error(t, err, "client read must fail once Shutdown closes the terminal socket")
+		var ce websocket.CloseError
+		require.ErrorAs(t, err, &ce, "client read must fail with a close frame once Shutdown closes the terminal socket")
+		assert.Equal(t, websocket.StatusGoingAway, ce.Code)
+		assert.Equal(t, "musterd shutting down", ce.Reason)
 	case <-time.After(5 * time.Second):
 		t.Fatal("terminal socket was not closed by Shutdown")
 	}

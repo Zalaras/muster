@@ -122,11 +122,11 @@ func newTerminalRegistry() *terminalRegistry {
 // socket never lingers with no close frame at all.
 var errRegistryClosed = errors.New("terminal registry closed")
 
-// closeShutdown closes ws with the daemon-shutdown normal-close code — the one
+// closeShutdown closes ws with the daemon-shutdown going-away code (1001) — the one
 // implementation shared by takeover's second closed check, closeAll's teardown loop, and
 // attachAndPump's errRegistryClosed handling (kb:anchor/terminal.ws).
 func closeShutdown(ws *websocket.Conn) {
-	_ = ws.Close(websocket.StatusNormalClosure, "musterd shutting down")
+	_ = ws.Close(websocket.StatusGoingAway, "musterd shutting down")
 }
 
 // takeover evicts whatever connection is currently registered for key — closing its
@@ -233,7 +233,7 @@ func (r *terminalRegistry) closeSessionAndShell(sessionID int64) {
 	r.closeSurface(terminalKey{sessionID: sessionID, surface: surfaceShell})
 }
 
-// closeAll closes every live terminal socket (daemon shutdown — normal close 1001,
+// closeAll closes every live terminal socket (daemon shutdown — going away 1001,
 // kb:anchor/terminal.ws), clears the map, and marks the registry closed — so a takeover
 // racing shutdown can't re-close an already-closed conn it still thinks is live, and a
 // takeover whose attach finishes after this point closes its new connection instead of

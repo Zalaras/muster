@@ -294,7 +294,10 @@ func TestServerShutdown_ClosesOpenWSConnections(t *testing.T) {
 
 	select {
 	case err := <-readErr:
-		require.Error(t, err, "client read must fail once the server closes the connection on Shutdown")
+		var ce websocket.CloseError
+		require.ErrorAs(t, err, &ce, "client read must fail with a close frame once the server closes the connection on Shutdown")
+		assert.Equal(t, websocket.StatusGoingAway, ce.Code)
+		assert.Equal(t, "musterd shutting down", ce.Reason)
 	case <-time.After(5 * time.Second):
 		t.Fatal("client connection was not closed by Shutdown")
 	}
