@@ -20,7 +20,9 @@ MUSTER_SESSION variable: a session launched from inside a Claude session or a Mu
 would otherwise report its hooks as the parent's. A fresh tree is an untrusted workspace, which
 ignores the project's permissions.allow list, so the tools are allowed on the command line
 (kb:fact/print-mode-untrusted-workspace-loads-skills-but-not-allow-list); stdin is /dev/null
-because print mode otherwise waits 3 s for piped input.
+because print mode otherwise waits 3 s for piped input. Print mode stops background subagents after
+10 min of idle waiting once the main turn ends, and a batch routinely waits longer than that on its
+reviewers, so the child gets a longer ceiling (kb:fact/print-mode-background-wait-ceiling).
 """
 import argparse
 import datetime as dt
@@ -36,6 +38,7 @@ import time
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 POLL_SECONDS = 30
 LOCK_WAIT = "45m"          # a queued batch waits for another's Playwright sweep, never times out on it
+BG_WAIT_CEILING_MS = "3600000"  # print mode's idle wait on background subagents; its 10 min default kills reviewers
 ALLOWED_TOOLS = "Bash,Read,Edit,Write,Glob,Grep,Agent,ToolSearch,SendMessage,TaskStop,WebFetch"
 
 
@@ -136,6 +139,7 @@ def child_env():
     env = {k: v for k, v in os.environ.items()
            if not k.startswith("CLAUDE") and k != "MUSTER_SESSION"}
     env["GATES_LOCK_WAIT"] = LOCK_WAIT
+    env["CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"] = BG_WAIT_CEILING_MS
     return env
 
 
