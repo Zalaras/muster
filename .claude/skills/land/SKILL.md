@@ -97,9 +97,10 @@ checked out in that tree, so a `git checkout plan/<plan>` here is refused). With
 `git checkout plan/<plan>` here, edit, commit, `git checkout main`, and the two checks below run
 from this checkout:
 
-- File only what the developer chose. Each yes → `TODO.md`, in the section they name, else at the end of **Pre-v1**, under a
-  `Filed <date> by the developer from the plans' proposed-backlog.md files` lead line: `- [ ] **Title** — body … From \`plans/<plan>/\`.` An
-  entry that would reverse an accepted ADR names it.
+- File only what the developer chose. Each yes → `TODO.md`, at the end of the section they name
+  (`## Features`, `## Enhancements`, `## Bugs`, `## Tweaks`, `## Tooling and docs`, `## Post v1` —
+  its preamble defines them; ask when the answer names none): `- [ ] **Title** — body … From
+  \`plans/<plan>/\`.` An entry that would reverse an accepted ADR names it.
 - Every decision → one line in a `## Decisions (the developer, <date>)` section appended to its
   file: `filed: TODO.md § <section>, "<title>"`, `not doing`, `already done: <evidence>. Not
   filed.`, or `deferred`.

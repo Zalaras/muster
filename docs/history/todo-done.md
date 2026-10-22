@@ -2512,3 +2512,10 @@ that the dashboard shows.
   Filed 2026-10-15 from musterd 0.21.1 / Claude Code 2.1.293, focus view, session working.
   Labels: enhancement, sessions, ux.
   ✅ done 2026-10-21 (plan `session-notes`, via `/orchestrate`).
+
+## Tooling and docs
+
+- [x] **Clean up `TODO.md`'s structure and how the backlog is worked** ✅ done 2026-10-22 (a plan and a commit, in the session that restructured the file) — which sections exist,
+  how entries group and rank, and what `/triage` appends where; for now every new entry files
+  under `## Issues` and is moved by hand. Filed 2026-10-15 by the developer during the triage
+  rework.

@@ -146,7 +146,7 @@ permits it.
 | Document | What it is |
 |---|---|
 | [`SPEC.md`](SPEC.md) | **Authoritative spec.** Features, roadmap, tech stack, risks |
-| [`TODO.md`](TODO.md) | Backlog (issues, pre-v1, v1 release, post-v1) and open questions |
+| [`TODO.md`](TODO.md) | Backlog (features, enhancements, bugs, tweaks, tooling, v1 release, post-v1) |
 | [`docs/protocol.md`](docs/protocol.md) | The daemon↔dashboard protocol contract |
 | [`docs/claude-code-versions.md`](docs/claude-code-versions.md) | The verified version range and the upgrade rituals |
 | [`spikes/FINDINGS.md`](spikes/FINDINGS.md) | Measured Claude Code interface facts |
