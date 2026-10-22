@@ -1,0 +1,28 @@
+{
+  "sweep": "ws-close-code",
+  "parallel": 1,
+  "started_at": "2026-10-22T15:38:27Z",
+  "updated_at": "2026-10-22T16:44:51Z",
+  "batches": [
+    {
+      "n": 1,
+      "name": "ws-close-code-1",
+      "entries": [
+        "e1"
+      ],
+      "work_type": "daemon",
+      "status": "landed",
+      "worktree": "/Users/damian/Documents/code/Projects/muster-ws-close-code-1",
+      "branch": "plan/ws-close-code-1",
+      "pid": 39023,
+      "log": "plans/ws-close-code/batch-1.log",
+      "started_at": "2026-10-22T15:38:47Z",
+      "finished_at": "2026-10-22T16:44:48Z",
+      "subject": "fix(server): close every socket with 1001 going away at daemon shutdown",
+      "closes": [],
+      "landed_sha": "dfde08f0",
+      "error": null,
+      "question": null
+    }
+  ]
+}
