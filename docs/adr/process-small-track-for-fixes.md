@@ -1,7 +1,7 @@
 ---
 id: process-small-track-for-fixes
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-06
 summary: Fixes, perf changes, refactors and chores go through /fix — a small-shape plan on an in-place branch through the pipeline's own parts, red test first.
 features: []

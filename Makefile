@@ -190,6 +190,25 @@ worktree-rm: ## Remove ../<repo>-$(NAME); refuses a dirty tree, unlanded content
 worktrees: ## List every worktree (branch, ahead, landed, dirty) and which plan branches touch the same files
 	scripts/worktree.sh list
 
+# /fix sweeps (kb:adr/process-fix-sweep-fresh-process-per-batch): each batch is a fresh
+# `claude -p "/fix-batch <sweep> <n>"` in its own worktree; the loop lands completed batches on
+# local main and ticks their entries. Nothing here pushes — /land --sweep does.
+PARALLEL ?= 1
+.PHONY: sweep
+sweep: ## Run the pending batches of plans/$(NAME)/sweep.json, $(PARALLEL) at a time, landing each on local main (NAME=<sweep>)
+	@test -n "$(NAME)" || { echo "usage: make sweep NAME=<sweep> [PARALLEL=1]"; exit 2; }
+	python3 scripts/sweep.py start "$(NAME)" --parallel "$(PARALLEL)"
+
+.PHONY: sweep-resume
+sweep-resume: ## Re-run the failed batches of a sweep (NAME=<sweep>)
+	@test -n "$(NAME)" || { echo "usage: make sweep-resume NAME=<sweep> [PARALLEL=1]"; exit 2; }
+	python3 scripts/sweep.py resume "$(NAME)" --parallel "$(PARALLEL)"
+
+.PHONY: sweep-status
+sweep-status: ## One line per batch of a sweep (NAME=<sweep>)
+	@test -n "$(NAME)" || { echo "usage: make sweep-status NAME=<sweep>"; exit 2; }
+	python3 scripts/sweep.py status "$(NAME)"
+
 .PHONY: hooks
 hooks: ## Arm the commit-msg + pre-commit guards (.githooks/) and the blame-ignore list for this clone — docs/conventions.md § Commits
 	git config core.hooksPath .githooks

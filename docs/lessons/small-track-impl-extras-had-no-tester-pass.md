@@ -7,7 +7,7 @@ summary: The first /fix run made the post-green tester pass optional; the impl's
 features: []
 tags: [pipeline]
 roles: [orchestrator]
-files: [.claude/skills/fix/SKILL.md]
+files: [.claude/skills/fix-batch/SKILL.md]
 tests: []
 refs: [plan:launch-inflight-guard, plans/launch-inflight-guard/review.code.cycle1.md, kb:adr/process-small-track-for-fixes]
 ---

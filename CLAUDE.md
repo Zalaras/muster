@@ -44,10 +44,14 @@ Feature work goes through the multi-agent pipeline, not ad-hoc editing:
    verdict) → doc-reconcile → Final Validation (the one full E2E sweep), with fix waves and
    `orchestration-state.json` resume. Only a merged review verdict of `approved` reaches
    doc-reconcile, and only its `reconciled` plus a green full sweep completes the run.
-4. `/fix <name> "<desc>"` — the small track for a fix, perf change, refactor or chore: research
-   with evidence, the developer confirms the diagnosis, a small-shape `plans/<name>/plan.md` on
-   an in-place `plan/<name>` branch, the test agent writes the regression test red, the impl
-   agent makes it green, gates, review-work (+browser/maintainability when due), then `/land`.
+4. `/fix --bugs | --tweaks | #N … | "<title>" … [--max N] [--parallel N]` — the small track as a
+   sweep over `## Bugs` and `## Tweaks`: research every entry in parallel, **one stop** for every
+   diagnosis and question, batches (same file → same batch; at most four), then
+   `scripts/sweep.py` runs each batch as a fresh `claude -p "/fix-batch <sweep> <n>"` in its own
+   worktree — red test → green, gates, the reviewers the diff needs, reconcile, Final
+   Validation, retro — and squash-merges each completed branch onto local `main`, ticking its
+   entries. A batch never asks; a missed question fails it with the question written out, and
+   `resume` re-runs it. Then `/land --sweep <sweep>`.
 5. `/work-status [name]` — where things stand.
 6. `/triage [N|--all|--audit]` — pulls open GitHub issues into `TODO.md` (a `bug` under
    `## Bugs`, anything else under `## Tweaks`, with a validated summary and labels) and audits the two lists. An issue is triaged iff its
@@ -55,7 +59,8 @@ Feature work goes through the multi-agent pipeline, not ad-hoc editing:
    issue, and commits its `TODO.md` edit (`docs(triage): …`, no push).
 7. `/land <name>` — squash-merges the approved `plan/<name>` branch to `main` with a
    conventional subject carrying `closes #N`, pushes (cutting a release, which closes the
-   issues), and deletes the branch.
+   issues), and deletes the branch. `/land --sweep <sweep>` is the one push for a sweep the
+   loop already landed, with every batch's proposals put to the developer.
 8. `/retro <name>` — run in the session that ran `/orchestrate`, once it completes and before
    step 7's `/land` merges the branch away: names what the run cost and proposes the smallest
    pipeline-doc change (net ≤ 0 lines) that would have prevented it, or says nothing needs
@@ -74,7 +79,7 @@ harness wakes only the **main session**, so agents run gates in the foreground (
 The pipeline buys parallel daemon∥web tracks behind a protocol contract. Use `/orchestrate` when
 the work changes the daemon↔UI protocol, adds a feature spec, or adds a UI surface that needs a
 Testable UI Elements table; every other change to the shipped artifact (`docs/conventions.md`
-§ Commits) is `/fix` (kb:adr/process-small-track-for-fixes). Work that releases nothing —
+§ Commits) is `/fix` (kb:adr/process-fix-sweep-fresh-process-per-batch). Work that releases nothing —
 `tools/`, `internal/triage`, `kb.yaml`, skills, agents, docs — is a plan and a commit.
 
 ## Hard rules

@@ -1,232 +1,120 @@
 ---
 name: fix
-description: "The small track: a bug fix, perf change, small refactor or chore that changes the shipped artifact without a protocol delta. Researches with evidence, stops for the developer, writes a small-shape plan, red test → green, gates, review, then hands to /land."
-argument-hint: "<name> \"<description>\" | <name> #<issue>"
+description: "The small track, as a sweep: takes any number of Bugs and Tweaks from TODO.md, researches them all, asks every question once, then runs them in batches as fresh `claude -p` processes that land on local main. One push at the end, through /land --sweep."
+argument-hint: "[<sweep-name>] --bugs | --tweaks | --all | #N … | \"<entry title>\" … [--max N] [--parallel N]"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Agent, AskUserQuestion
 ---
 
-> Maintainer note: a skill in the main session — it stops for the developer after research and
-> spawns agents in the foreground. It is `/orchestrate` with the parallel tracks removed, not a
-> second pipeline (kb:adr/process-small-track-for-fixes).
+> Maintainer note: a skill in the main session — it researches, stops **once** for the developer,
+> and starts a loop of fresh processes. The batches run `/fix-batch`, which is `/orchestrate` with
+> the parallel tracks removed; this file never implements anything
+> (kb:adr/process-fix-sweep-fresh-process-per-batch).
 
-Invoked with: **$ARGUMENTS** — `<name>` kebab-case, then a quoted description, an issue number, or
-a `TODO.md` entry title. With no arguments, ask for them.
+Invoked with: **$ARGUMENTS**. The first token is the sweep name when it is kebab-case and not a
+selector; otherwise the name is `sweep-<YYYY-MM-DD>` (a second sweep the same day gets `-b`).
+Selectors, any mix: `--bugs` (every open entry under `## Bugs`), `--tweaks`, `--all` (both),
+`#N` (the entry whose link is issue N), a quoted entry title. `--max N` caps the entries taken, in
+TODO order. `--parallel N` is how many batches run at once (default 1). No selector → ask for one.
 
-**Routing.** Work needs `/orchestrate` when it changes the daemon↔UI protocol, adds a feature spec,
-or adds a UI surface that needs a Testable UI Elements table. Anything else that changes the shipped
-artifact is yours; the developer may route either way. Nothing here changes the daemon↔UI protocol —
-if research shows it must, stop and say so: that is a `/plan-work` plan.
+**Routing.** Only `## Bugs` and `## Tweaks` are sweepable. An entry whose research shows a
+protocol change, a new feature spec or a new UI surface is not small-track work: it is raised at
+the stop (step 3) and dropped from the sweep unless the developer says otherwise — never parked
+mid-run. Nothing in a sweep changes the daemon↔UI protocol.
 
-`S=.claude/skills/orchestrate/scripts/orch-state.py` throughout. Every rule in CLAUDE.md § Hard
-rules, `docs/conventions.md` and `.claude/skills/orchestrate/worker-rules.md` binds here too.
+Every rule in CLAUDE.md § Hard rules, `docs/conventions.md` and
+`.claude/skills/orchestrate/worker-rules.md` binds here and in every batch.
 
 ## 0. Pre-flight
 
 The primary checkout, on `main`, `git status --porcelain` empty apart from untracked strays nothing
-references (leave them; never `git add -A`, never stash), and `git rev-parse --verify plan/<name>`
-fails. A live main session that needs the primary makes this a worktree run: after step 2,
-`make worktree NAME=<name>` from here, then `EnterWorktree` with `path: ../muster-<name>` (never a
-`name`; a plain `cd` is reset after each command — kb:adr/process-session-enters-worktree-in-place).
-Every agent prompt's `Project root:` and every script path is then the tree's; the rest is
-identical, and step 8 ends with `ExitWorktree` (`keep`) so `/land` runs from the primary.
+references (leave them; never `git add -A`, never stash). `plans/<sweep>/` does not exist. No other
+sweep is running (`ls plans/*/sweep-state.json`, any batch `running` with a live pid). This
+session stays in the primary: the batches get their own trees.
 
-## 1. Research, then stop
+## 1. Select
 
-The entry can be wrong — a TODO line or an issue describes a symptom from memory, and the plan is
-built on what you measured, not on what it says. Before any change:
+Read `TODO.md`. Resolve the selectors to open entries in their TODO order, each with its section,
+title, issue number if linked, and its block verbatim. Give each an id `e1`, `e2`, …. Print the
+list and the count; `--max` trims it here.
 
-- Read the entry in full: the `TODO.md` block, the issue (`gh issue view <N>`), the description.
-- `go tool kb for <path>` on every file you suspect — its features, ADRs, facts and diagrams
-  are the context; read the spec and the code they name.
-- Reproduce. A unit test run, a `curl` against a scratch daemon (`dev-loop` skill), an E2E spec,
-  a `tmux capture-pane` — and paste the output. A real `claude` launch costs the developer's
-  subscription: `--model claude-haiku-4-5-20251001`, trivial prompt, killed when done.
-- Say which holds: the claim held as written; it held with a different cause or scope; it did
-  not hold. The evidence goes in the plan's `## Findings`.
+## 2. Research, all at once
 
-Then **stop** and tell the developer, per entry, in plain words without paths or pipeline terms:
-the problem in two sentences, your fix in one. They confirm, correct, or drop it.
+One `general-purpose` agent per entry, all spawned in one message, each told: the entry block
+verbatim; the hard rules; **no edits, no commits** — research only; write
+`plans/<sweep>/research/<id>.md`; and to return exactly these headings:
 
-## 2. The small-shape plan
+- **Reproduced** — the command and its pasted output (a unit test run, a `curl` against a scratch
+  daemon via the `dev-loop` skill, an E2E spec, a `tmux capture-pane`; a real `claude` only with
+  `--model claude-haiku-4-5-20251001`, a trivial prompt, killed after).
+- **Holds** — the claim held as written; held with a different cause or scope; did not hold.
+- **Cause** — `file:line`, in one paragraph.
+- **Files** — every file the fix touches, and `go tool kb for <path>` for each (its features,
+  ADRs, facts, diagrams).
+- **Work type** — `daemon` | `web` | `full-stack`.
+- **Proof** — the test that is red today and green after: level
+  (kb:adr/process-test-levels-journey-property-logic), file, name, the failing assertion, and
+  which test agent writes it.
+- **Route** — `fix` | `perf` | `refactor` | `chore`, or `not-small-track: <protocol | spec |
+  ui-surface>`.
+- **Questions** — what the developer must decide before this can be implemented unattended:
+  an ambiguous expected behaviour, a choice between two fixes, an ADR the fix would reverse.
+  "None" is the common answer.
 
-Write `plans/<name>/plan.md`. It is a `/plan-work` plan with whole sections dropped, never renamed
-— the agents, `plan-lint.sh`, `gates.sh` and `/land` read these names:
+Read each file as it lands. An agent that edited anything or returned no pasted output is
+re-spawned once with the omission quoted.
 
-```markdown
-# Plan: <name>
+## 3. The one stop
 
-**Status**: Approved
-**Shape**: fix | perf | refactor | chore          ← the squash commit's type (docs/conventions.md § Commits)
-**Work Type**: daemon | web | full-stack
-**E2E Scope**: new-specs | none                   ← new-specs iff the Proof is an E2E spec
-**Fixture plan**: none | <spec> daemon|startDaemon|fileDaemon (<reason>)
-**Render fixtures**: none | <scenario>[, new: <scenario> (<what it holds>)]   ← iff the Proof is a render test
-**Features**: <every feature `kb for` named for the files below>
-**Description**: <one line>
+Tell the developer, per entry, in plain words without paths or pipeline terms: the problem in
+two sentences, what research found if it differs, the fix in one sentence, and its questions. Then
+list the entries routed `not-small-track`, with why. Ask everything in prose, in one message —
+**not** an `AskUserQuestion` menu, and nothing is asked again after this. The developer answers
+per entry: go, a changed wording, an answer to each question, or drop. Record each answer
+verbatim in `plans/<sweep>/research/<id>.md` under `## Answers`; an entry with an unanswered
+question is not in the sweep. This is the last message before the run; everything a batch could
+need to ask is asked here, and a batch that still has to ask is a retro item
+(kb:lesson/decision-made-inside-a-fix-wave).
 
-## Symptom
-<the entry verbatim, with its issue link; what the developer sees>
+## 4. Batch
 
-## Findings
-<step 1's evidence: what was reproduced, what the cause is, where (file:line), what did not hold>
+From the research files:
 
-## Requirements
-### Must Have
-- **REQ-1**: <observable behaviour after the change>      (a refactor: "behaviour unchanged: …")
+1. Two entries that touch the same file are in the same batch, always.
+2. Otherwise group by work type, then by a shared feature.
+3. Fill batches in TODO order, at most four entries each; a batch of one is fine.
+4. Number them `1..k` in the order the first entry of each appears in TODO.
 
-## Affected Files
-### Daemon (daemon-impl)   / ### Web (web-impl)
-- `internal/<pkg>/<file>.go` — REQ-1: <what changes>
-### Existing tests this breaks
-- none | `<file>`: <why>
+## 5. Write the sweep and start it
 
-## Proof
-<the test that is red today and green after: its file, name, the assertion that fails, and who
-writes it — daemon-tests | web-tests | render-tests | e2e-specs, by what falsifies it: logic,
-a display property for a fixture state, or a journey across the live daemon
-(kb:adr/process-test-levels-journey-property-logic)>
+`plans/<sweep>/sweep.json`:
 
-## Edge Cases
-None.   | 1. <case> → D1 | W1 | R1 | E1 (a test ## Proof names) | untested: <why>
-
-## Acceptance Criteria
-### Automated Checks
-```checks
-D1 go test -count=1 -run 'TestX' ./internal/<pkg>/      ← the Proof command, always its own line
-D2 make lint
-```
-### Reviewer-Verified
-- <what only a reader can check, or "None">
-
-## Doc Delta
-No doc change.   | **<feature>** — becomes true: … / stops being true: …
-
-## Out of scope
-Nothing.   | - <follow-up the developer may file>
+```json
+{"sweep": "<name>", "created_at": "<iso>", "selector": "<the arguments>", "parallel": <N>,
+ "entries": [{"id": "e1", "title": "<exact TODO title>", "issue": 97, "section": "Bugs",
+              "work_type": "web", "features": ["rail"], "files": ["web/src/…"],
+              "route": "fix", "research": "plans/<sweep>/research/e1.md", "batch": 1}],
+ "batches": [{"n": 1, "entries": ["e1", "e3"], "work_type": "web"}]}
 ```
 
-Omitted on purpose: Overview, Protocol Contract, Schema Changes, Diagrams, UI Specifications,
-Implementation Notes. Then `.claude/skills/orchestrate/scripts/plan-lint.sh <name>` — fix every
-`FAIL` here (the ownership check reads `## Affected Files` by name; an `! rg` string in a checks line
-may not also appear in `## Symptom` prose). Show the plan; the developer approves it.
-
-## 3. Branch and state
+Commit `plans/<sweep>/` on `main`: `docs(<sweep>): sweep of <k> batches over <n> entries`
+(every batch tree branches from `main` and reads this file). Then start the loop in the
+background and let it run:
 
 ```bash
-git checkout -b plan/<name>
-git add plans/<name>/plan.md           # plus TODO.md / docs edits research made — by name
-git commit -m "docs(<name>): approved plan and planning-session edits"
-python3 $S <name> init --step daemon-tests     # or web-tests / render-tests / e2e-specs — whichever ## Proof names
-git add plans/<name>/plan.md plans/<name>/orchestration-state.json && git commit -m "chore(<name>): init"
+scripts/sweep.py start <sweep> --parallel <N>        # make sweep NAME=<sweep> PARALLEL=<N>
 ```
 
-`init` stamps `plan.md` `**Status**: in-progress`; committed here, the agents start on a clean tree
-instead of each reporting the dirt. Tick the entry now, per `.claude/skills/orchestrate/doc-upkeep.md` bullet 1 (tick, `✅ done` line,
-move the block to `docs/history/todo-done.md`), and commit it `docs(<name>): tick <entry>` — the
-reviewer's DOC row checks it.
+Per batch it runs `make worktree NAME=<sweep>-<n>`, then `claude -p "/fix-batch <sweep> <n>"`
+in that tree (log: `plans/<sweep>/batch-<n>.log`), reads the batch's
+`plans/<sweep>-<n>/batch-result.json`, squash-merges a completed branch onto local `main` with
+the subject the batch composed, ticks its entries into `docs/history/todo-done.md`, and removes
+the tree and branch. It never pushes. State: `plans/<sweep>/sweep-state.json`;
+`scripts/sweep.py status <sweep>` prints it; `resume` re-runs anything failed.
 
-## 4. The test goes red first
+## 6. Report
 
-Spawn the agent `## Proof` names (`subagent_type: "daemon-tests"` | `"web-tests"` | `"render-tests"` | `"e2e-specs"`):
-
-```
-Execute the <daemon|web|render|e2e> test task for plan: <name> — red-first.
-Project root: <root>
-No implementation log exists and nothing is handed off: write only the test ## Proof names, run
-it, paste its red output, commit test(<name>): …, and finish authored. If it passes today, blocked.
-```
-
-`authored` with the red assertion pasted is the diagnosis holding. `blocked` means the test passes
-on the current tree: the plan is wrong — stop and report. The agent files define the mode.
-
-## 5. Green
-
-Spawn `subagent_type: "daemon-impl"` or `"web-impl"` (both for full-stack, one message):
-
-```
-Execute the <daemon|web> implementation task for plan: <name>
-Project root: <root>
-Small track (plan header **Shape**: <shape>). The plan has no Protocol Contract, no UI
-Specifications and no test-specs.md; its ## Requirements and ## Affected Files are the whole
-brief. plans/<name>/<daemon|web>-tests.md (or test-specs.md) holds a regression test that is red
-by design and that you may not edit — you are done when it is green. Your commit subject type is
-<shape>(<name>). <web-impl, Proof ≠ e2e-specs:> Write **E2E smoke**: no spec authored.
-```
-
-Then run the Proof line from the checks block yourself and read the result — no agent needed to
-re-run one test. Green: read the impl log's `## Decisions`; a `Measured:` line or a behaviour the
-plan's REQs never named (launch-inflight-guard's focus hand-back after a refusal) has no test yet,
-and the review will send it back for one — spawn the Proof agent now in its ordinary mode
-(`Execute the <side> test task for plan: <name>`, reading the impl log's Handoff), expected `pass`,
-a few minutes against a twenty-minute cycle. Red: re-spawn the same agent once in FIX MODE
-(`Execute in FIX MODE for plan: <name>` … `This is fix attempt 2 of 2.` … `Read the test output at
-plans/<name>/<side>-tests.md` … `Read the change log at plans/<name>/<side>-implementation.md`),
-re-run, and if still red `python3 $S <name> status blocked --step <side>-impl` and report. Spawn the
-test agent again only when the test itself must change, or a second regression is worth pinning.
-For an E2E Proof whose fix is a flake, spawn `e2e-specs` in VALIDATE MODE after green.
-
-## 6. Doc upkeep, comments, gates
-
-1. `doc-upkeep.md` bullets 3–5: an ADR for every `deviation:` line in the impl log (write it
-   `accepted` — the developer is here), a fact record for any measured Claude Code fact, every
-   diagram `kb for <path>` names for a changed file still true or updated. `make gen-kb`.
-2. The comment pass, exactly as `/orchestrate` Step 6 item 1: `go run ./tools/commentpass strip
-   <name> --out $TMPDIR/comment-pass-<name>-c1`, `comment-judge` if candidates > 0, `apply`.
-   Skipping this turns the `comment-ledger` gate red on the first added comment.
-3. Gates, in the foreground (`timeout: 600000`; exit 75 is a busy lock — rerun, never poll):
-   ```bash
-   GATES_LOG_DIR=$TMPDIR/gates-<name>-c1 .claude/skills/orchestrate/scripts/gates.sh <name>
-   ```
-   Its e2e line is scoped to the specs the fix can affect (the `NOTE  e2e scope` line); the whole
-   suite runs once, at step 8 (kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion).
-   Never `--baseline-only`: it skips the checks block, where the Proof line lives. If the
-   `features` gate widened `**Touches**`, commit `docs(<name>): touch <owner>` before any re-run —
-   the ledger fingerprints a dirty tree as a new one. Note the summary's `<F> failed`.
-
-## 7. Review
-
-`python3 $S <name> start review`. Reviewer set: `review-work` always; `review-browser` when
-`**Work Type**` is not `daemon` and the branch changed `web/src` outside `*.test.ts`;
-`review-maintainability` when `**Shape**` is `refactor`. Spawn them in one message with
-`/orchestrate` Step 6 item 3's prompt (`This is review cycle 1. GATES_LOG_DIR: … (<F> failed
-lines). Write your part file only; do not commit`). Then:
-
-```bash
-python3 $S <name> merge-review --gates-failed <F>        # review.md, computed verdict; the code part alone is enough
-git add plans/<name>/review*.md && git commit -m "review(<name>): cycle 1"
-python3 $S <name> reviewed "$(git rev-parse HEAD)"
-```
-
-`needs-changes`: one fix wave — `python3 $S <name> archive review.md`, then `archive
-review.<part>.md` for each part file, then `retry review`; the agent each issue's tag names in FIX
-MODE with the issues quoted verbatim and `(review cycle 2)` as its commit suffix (an `[e2e-specs]`
-prompt adds: "skip Validate step 5's soak unless the plan fixes a flake — the gates run is the
-sweep"); gates again (ledger reuse is fine); a delta re-review per Step 6 item 3; merge and
-commit as `cycle 2`. Still not approved: `status blocked --step review`, report the open
-issues, and ask the developer. A `[orchestrator]`-tagged Minor is yours to fix in a `docs(<name>)`
-commit, as in `/orchestrate`.
-
-## 8. Reconcile and complete
-
-1. When `## Doc Delta` is not "No doc change." or any log carries a `doc-delta:` line: seed
-   `plans/<name>/doc-delta.md` from the plan, fold the log lines in, `python3 $S <name> start
-   doc-reconcile`, spawn `doc-reconcile` with the plan name and root, require `reconciled`.
-   Otherwise record the skip in one line.
-2. `go tool kb ls --feature <f> --status proposed` for every Features/Touches name shows no
-   record with `refs: plan:<name>` (flip any to `accepted`, `date:` today). `make gen-kb && make
-   check-kb`.
-3. Final Validation — the one full sweep, after reconcile so it sees the tree that lands, in the
-   foreground (`timeout: 600000`, ~7 min):
-   ```bash
-   .claude/skills/orchestrate/scripts/gates.sh <name> --full-e2e   # --no-e2e when **E2E Scope**: none
-   ```
-   Everything but the e2e line is a ledger reuse. A red spec outside the fix's scope is a
-   regression the fix caused: one more fix wave as in step 7, this run again, a delta re-review.
-4. `python3 $S <name> closes <N> …` — run it with no numbers when the plan closes nothing.
-5. `python3 $S <name> status completed` (refused unless `review.md` says approved and step 3's
-   run was green on this tree), commit the state file `chore(<name>): complete`, `git checkout main`.
-
-Report: what the entry claimed against what research found; the Proof test (red output, then
-green); what shipped, per file; the gates summary; the review verdict and cycles; doc-reconcile's
-verdict or the skip; the issues `closes` recorded; anything proposed for the backlog
-(`plans/<name>/proposed-backlog.md`, the developer files it). Then: run `/land <name>`.
+When the loop exits: the status table; for each batch its landed SHA and subject, or its error
+or the question it wrote; the batches' retro commits (`git log --grep 'docs(retro)'`). A batch
+that failed on a question is the interview's miss — say what should have been asked. Then:
+`scripts/sweep.py resume <sweep>` once the failure is addressed, and `/land --sweep <sweep>` for
+the one push and the proposals.

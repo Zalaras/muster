@@ -21,6 +21,26 @@ the commit. Nothing earlier qualifies — a review verdict of `approved` is the 
 of the work, not the developer's acceptance of it, and a plan branch can still be rejected or
 reworked. So `/orchestrate` records the issue numbers and **you** put them in the subject.
 
+## Sweep mode — `/land --sweep <sweep>`
+
+A `/fix` sweep's loop has already squash-merged each completed batch onto local `main` with its
+`closes` subject and ticked the entries (kb:adr/process-fix-sweep-fresh-process-per-batch);
+nothing was pushed. Here the skill is only steps 2, 4 and 5, plus the state file:
+
+1. `scripts/sweep.py status <sweep>` — every batch `landed`, or `failed` with an error the
+   developer has read (name each). Refuse while any batch is `running`. A `failed` batch is not
+   landed: say so and offer `scripts/sweep.py resume <sweep>` first; the developer may still push
+   what landed.
+2. `git add plans/<sweep>/sweep-state.json` and commit `docs(<sweep>): sweep state` — the run's
+   record rides `main`.
+3. Step 2 as written: the sweep over `plans/*/proposed-backlog.md` on `main` now includes every
+   batch's file; decisions are filed on `main` directly (there is no plan branch left).
+4. Step 4's print, for the whole sweep: `git log --oneline origin/main..main`, the issues the
+   subjects close, the predicted release (the widest type wins; several `fix` commits cut one
+   patch).
+5. `git push` — the one prompt. Then step 7's report per batch; the loop already removed the
+   trees and branches (any it kept are named in the status table's note).
+
 ## 1. Preflight — refuse, don't warn
 
 Check all of these before touching anything. If any fails, stop and say exactly which:
