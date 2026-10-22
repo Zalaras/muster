@@ -31,7 +31,8 @@ as a `question`, the batch fails, the developer answers in the research file, `r
 proposals pass. Red test first, the comment pass, scoped gates and one full sweep per batch
 are unchanged; reviewers are chosen from the diff.
 
-**Consequences.** To measure on the first run: a `-p` process spawns subagents and fires
-`SubagentStop` as an interactive one does, and `--allowedTools` with the project allowlist
-covers the pipeline's commands. Parallel batches queue on the gate lock (`GATES_LOCK_WAIT`
+**Consequences.** Measured on 2.1.308: a `-p` process spawns subagents and fires
+`SubagentStop` (kb:fact/print-mode-spawns-subagents-and-fires-subagent-stop); a fresh tree is
+an untrusted workspace, so `--allowedTools Bash` carries the permissions, not the project list
+(kb:fact/print-mode-untrusted-workspace-loads-skills-but-not-allow-list). Parallel batches queue on the gate lock (`GATES_LOCK_WAIT`
 raised). Landing refuses on a dirty primary.

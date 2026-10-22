@@ -44,7 +44,12 @@ forced from inside a session; a subagent cannot spawn the pipeline's agents.
 - `python3 scripts/sweep.py tick` dry-run on two real entries moved both blocks under the right
   `## ` headings in the history file with the ✅ stamp after the issue link (restored after).
 - `python3 -m py_compile scripts/sweep.py`; `make check-kb` green.
-- The first real sweep measures the two `-p` unknowns the ADR names and records them as facts.
+- A Haiku `claude -p` probe from a scratch repo (2026-10-22, 2.1.308, two runs, $0.08):
+  nested launch with the env scrub works; a subagent spawns and the project `SubagentStop`
+  hook fires with `agent_type` and `cwd`; `--allowedTools Bash` runs an unlisted command while
+  the untrusted workspace ignores the project allow list; a project skill and `CLAUDE.md` load.
+  Recorded as `kb:fact/print-mode-spawns-subagents-and-fires-subagent-stop` and
+  `kb:fact/print-mode-untrusted-workspace-loads-skills-but-not-allow-list`.
 
 ## Out of scope
 

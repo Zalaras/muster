@@ -17,7 +17,10 @@ history file, remove the tree and the branch. Nothing here pushes — /land --sw
 
 Runs from the primary checkout, on main. The child environment drops every CLAUDE* and
 MUSTER_SESSION variable: a session launched from inside a Claude session or a Muster-managed pane
-would otherwise report its hooks as the parent's.
+would otherwise report its hooks as the parent's. A fresh tree is an untrusted workspace, which
+ignores the project's permissions.allow list, so the tools are allowed on the command line
+(kb:fact/print-mode-untrusted-workspace-loads-skills-but-not-allow-list); stdin is /dev/null
+because print mode otherwise waits 3 s for piped input.
 """
 import argparse
 import datetime as dt
