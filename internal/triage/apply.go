@@ -14,11 +14,19 @@ import (
 // leave it for HistoryFile, which is read alongside it (ReadTracked) and never written.
 const TodoFile = "TODO.md"
 
-// DefaultSection is where a new entry lands unless a decision says otherwise. Ranking is the
-// developer's judgement and happens by hand afterwards; the run never stops to ask.
-const DefaultSection = "Issues"
+// SectionForKind is where a new entry lands unless a decision says otherwise: a bug under
+// Bugs, every other kind under Tweaks. An `enhancement` label cannot say whether the ask is a
+// small change or a large one, so the program never files into Enhancements or Features;
+// moving an entry up is the developer's judgement, by hand afterwards. The run never stops
+// to ask.
+func SectionForKind(kind string) string {
+	if kind == "bug" {
+		return "Bugs"
+	}
+	return "Tweaks"
+}
 
-// Decision pairs an issue with the section it files into: DefaultSection, the run's
+// Decision pairs an issue with the section it files into: SectionForKind, the run's
 // `--section`, or a per-issue override from a decisions file.
 type Decision struct {
 	Number  int

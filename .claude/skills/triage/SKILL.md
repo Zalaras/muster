@@ -46,7 +46,7 @@ Invoked with: **$ARGUMENTS**
 | `<N>` | Triage issue #N specifically (`fetch --issue N`), even if already triaged; `apply` skips an issue the backlog already carries. |
 | `--all` | Re-examine every open issue, triaged or not. |
 | `--audit` | Run only `go run ./tools/triage audit` (§ 4) — reads the tracker and the two files, writes nothing. |
-| `--section NAME` | File this run's entries under `## NAME` instead of `## Issues`. |
+| `--section NAME` | File this run's entries under `## NAME` instead of by kind (`bug` → `## Bugs`, else `## Tweaks`). |
 | `--no-labels` | Skip `gh issue edit` for this run. |
 | `--no-comment` | Skip the triage comment on each issue handled (it is on by default). |
 
@@ -92,7 +92,9 @@ go run ./tools/triage apply --artifacts <dir> --proposals <dir> [--section NAME]
 
 `apply` validates every proposal against its artifact (labels from closed lists, two bounded
 summary fields, the verbatim quote, the ack, the tripwire over the summary), renders one entry
-per issue, splices each at the end of `## Issues` (or `--section`), stages only `TODO.md`, makes
+per issue, splices each at the end of `## Bugs` for a `bug` and `## Tweaks` for every other kind
+(or `--section`; an `enhancement` label does not say whether the ask is small, so the developer
+moves a Tweak up to `## Enhancements` or `## Features` by hand), stages only `TODO.md`, makes
 one commit (`docs(triage): file #12 and #14 into the backlog`), then runs `gh issue edit` with
 the validated labels. It never pushes. A rejected proposal holds its issue rather than falling
 back to a guess. `--dry-run` prints the entries and touches nothing; use it when unsure.

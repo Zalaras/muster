@@ -7,7 +7,7 @@ summary: apply labels each filed issue through gh with names from closed lists a
 features: [triage]
 tags: [pipeline, user-decision]
 files: [internal/triage/labels.go, internal/triage/apply.go, tools/triage/main.go, docs/conventions.md]
-tests: [TestLabelNamesAppearInConventions, TestLabel, TestApplyDefaultsToIssues]
+tests: [TestLabelNamesAppearInConventions, TestLabel, TestApplyFilesByKind]
 refs: [kb:adr/issue-daemon-creates-issues-only, kb:adr/triage-state-derived-from-todo]
 supersedes: []
 ---

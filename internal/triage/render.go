@@ -89,7 +89,7 @@ const unverifiedPrefix = "Summary of an unverified report: "
 // from closed lists.
 //
 // The guarantee that matters is structural, not textual. Markdown survives sanitisation by
-// design, so a title can still read "## Issues"; spliced in raw that would forge a section
+// design, so a title can still read "## Bugs"; spliced in raw that would forge a section
 // heading and break the next run's scanner. Containing that is this function's job: no
 // continuation line it emits begins at column 0, the header stays on one line however long
 // the title, and the pre-commit hook asserts the header's shape.

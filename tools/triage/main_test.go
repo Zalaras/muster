@@ -14,15 +14,17 @@ import (
 
 const todoSeed = `# Muster backlog
 
-## Pre-v1
+## Features
 
 - [ ] **something** ([#1](https://github.com/Zalaras/muster/issues/1))
   — a thing.
 
-## Issues
+## Bugs
 
 - [x] **done** ([#2](https://github.com/Zalaras/muster/issues/2))
   — fixed.
+
+## Tweaks
 
 ## Post v1
 
@@ -225,7 +227,7 @@ func assertApplyPhase(t *testing.T, root, artDir string, gh *stubGH, out *string
 	}
 	write(t, filepath.Join(propDir, "56.json"), proposalJSON(t, 56, nonce56, "bug", []string{"install"}, nil,
 		"Nothing renders after launch; musterd cannot bind its port.", "The dashboard should come up, or the log should say which port is taken.",
-		"cannot bind port 7777", "Issues"))
+		"cannot bind port 7777", "Bugs"))
 	// Issue 9 is the OWNER-filed one: normal, so its entry carries no unverified prefix.
 	write(t, filepath.Join(propDir, "9.json"), proposalJSON(t, 9, nonce9, "enhancement", []string{"usage"}, nil,
 		"Usage shows nothing under API-key auth.", "Usage should show spend under API-key auth.", "", "Post v1"))
@@ -250,8 +252,8 @@ func assertApplyPhase(t *testing.T, root, artDir string, gh *stubGH, out *string
 	if !strings.Contains(got, `"cannot bind port 7777"`) {
 		t.Errorf("the quoted error did not survive:\n%s", got)
 	}
-	// #56 took the run's default section, #9 its override; both land where asked.
-	assertSection(t, got, "Issues", 56)
+	// #56 filed by its kind (bug), #9 by its override; both land where asked.
+	assertSection(t, got, "Bugs", 56)
 	assertSection(t, got, "Post v1", 9)
 	// Labels: validated names only, one edit per filed issue, none for the held #55.
 	want := []string{
@@ -337,7 +339,7 @@ func TestApplyRefusesHeldIssue(t *testing.T) {
 		t.Fatal(err)
 	}
 	decFile := filepath.Join(root, "d.json")
-	write(t, decFile, `{"55":"Issues"}`)
+	write(t, decFile, `{"55":"Bugs"}`)
 
 	err := run([]string{"apply", "--artifacts", artDir, "--proposals", propDir, "--decisions", decFile}, &out, gh.run)
 	if err == nil || !strings.Contains(err.Error(), "held") {
@@ -373,7 +375,7 @@ func fetchOne(t *testing.T, root string, gh *stubGH) (artDir, propDir string) {
 		t.Fatal(err)
 	}
 	write(t, filepath.Join(propDir, "56.json"), proposalJSON(t, 56, index[0].Nonce, "bug", []string{"install"}, []string{"ux"},
-		"Nothing renders.", "Something should.", "", "Pre-v1"))
+		"Nothing renders.", "Something should.", "", "Features"))
 	return artDir, propDir
 }
 
@@ -387,9 +389,10 @@ func benignIssue(t *testing.T) *stubGH {
 	}
 }
 
-// No decisions file: the entry lands in ## Issues, not in the proposer's hint, and the run
-// never stops to ask. --section moves the whole run; --no-labels keeps gh out of it.
-func TestApplyDefaultsToIssues(t *testing.T) {
+// No decisions file: the entry lands by its kind — a bug under ## Bugs — not in the
+// proposer's hint, and the run never stops to ask. --section moves the whole run;
+// --no-labels keeps gh out of it.
+func TestApplyFilesByKind(t *testing.T) {
 	root := stubRepo(t)
 	gh := benignIssue(t)
 	artDir, propDir := fetchOne(t, root, gh)
@@ -398,10 +401,24 @@ func TestApplyDefaultsToIssues(t *testing.T) {
 		t.Fatalf("apply: %v", err)
 	}
 	todo, _ := os.ReadFile(filepath.Join(root, "TODO.md"))
-	assertSection(t, string(todo), "Issues", 56)
+	assertSection(t, string(todo), "Bugs", 56)
 	if len(gh.labels) != 0 {
 		t.Errorf("--no-labels still labelled: %v", gh.labels)
 	}
+
+	// Any other kind lands under ## Tweaks: an enhancement label does not say whether the ask
+	// is small, so the program never files into Enhancements or Features.
+	root = stubRepo(t)
+	gh = benignIssue(t)
+	artDir, propDir = fetchOne(t, root, gh)
+	index, _ := readIndex(t, artDir)
+	write(t, filepath.Join(propDir, "56.json"), proposalJSON(t, 56, index[0].Nonce, "enhancement", []string{"install"}, nil,
+		"Nothing renders.", "Something should.", "", "Enhancements"))
+	if err := run([]string{"apply", "--artifacts", artDir, "--proposals", propDir, "--no-labels"}, &out, gh.run); err != nil {
+		t.Fatalf("apply enhancement: %v", err)
+	}
+	todo, _ = os.ReadFile(filepath.Join(root, "TODO.md"))
+	assertSection(t, string(todo), "Tweaks", 56)
 
 	root = stubRepo(t)
 	gh = benignIssue(t)
@@ -428,7 +445,7 @@ func TestApplyDryRunWritesNothing(t *testing.T) {
 	if err := run([]string{"apply", "--artifacts", artDir, "--proposals", propDir, "--dry-run"}, &out, gh.run); err != nil {
 		t.Fatalf("apply --dry-run: %v", err)
 	}
-	if !strings.Contains(out.String(), "→ ## Issues\n- [ ] **port bind fails** ([#56]") {
+	if !strings.Contains(out.String(), "→ ## Bugs\n- [ ] **port bind fails** ([#56]") {
 		t.Errorf("dry run did not print the entry:\n%s", out.String())
 	}
 	todo, _ := os.ReadFile(filepath.Join(root, "TODO.md"))

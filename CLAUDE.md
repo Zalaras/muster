@@ -48,8 +48,8 @@ Feature work goes through the multi-agent pipeline, not ad-hoc editing:
    an in-place `plan/<name>` branch, the test agent writes the regression test red, the impl
    agent makes it green, gates, review-work (+browser/maintainability when due), then `/land`.
 5. `/work-status [name]` — where things stand.
-6. `/triage [N|--all|--audit]` — pulls open GitHub issues into `TODO.md` (under `## Issues`,
-   with a validated summary and labels) and audits the two lists. An issue is triaged iff its
+6. `/triage [N|--all|--audit]` — pulls open GitHub issues into `TODO.md` (a `bug` under
+   `## Bugs`, anything else under `## Tweaks`, with a validated summary and labels) and audits the two lists. An issue is triaged iff its
    `issues/N` link is in `TODO.md` or `docs/history/todo-done.md`; triage never closes an
    issue, and commits its `TODO.md` edit (`docs(triage): …`, no push).
 7. `/land <name>` — squash-merges the approved `plan/<name>` branch to `main` with a

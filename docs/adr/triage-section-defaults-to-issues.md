@@ -1,13 +1,13 @@
 ---
 id: triage-section-defaults-to-issues
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-15
 summary: Every new entry files under the Issues section unless --section or a decisions override says otherwise; the run never asks, and ranking is a hand edit after.
 features: [triage]
 tags: [pipeline, user-decision]
 files: [internal/triage/apply.go, tools/triage/main.go, TODO.md]
-tests: [TestApplyDefaultsToIssues]
+tests: [TestApplyFilesByKind]
 refs: [kb:adr/process-backlog-entries-are-the-users-to-file, kb:adr/triage-state-derived-from-todo]
 supersedes: []
 ---

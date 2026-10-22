@@ -89,8 +89,9 @@ One JSON object. No prose before it, none after it, no explanation:
   the error the report names. Copy it exactly; do not tidy, translate or reconstruct it.
   If the report quotes no error, use `""`. An invented or edited quote is rejected, and
   rejection holds the issue.
-- `section_hint` — one of: `Issues`, `Pre-v1`, `Post v1`. A hint only; entries file into
-  `Issues` and the developer re-ranks by hand.
+- `section_hint` — one of: `Features`, `Enhancements`, `Bugs`, `Tweaks`, `Post v1`. A hint
+  only; a `bug` files into `Bugs`, everything else into `Tweaks`, and the developer re-sorts by
+  hand.
 
 A vague report still gets a `symptom` — say what little it says. Every field you return is
 checked: a wrong label is rejected, a summary that trips the injection tripwire holds the

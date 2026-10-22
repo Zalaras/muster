@@ -358,9 +358,6 @@ func applyFlags(args []string) (applyOptions, error) {
 	if o.section, err = flagValue(args, "--section"); err != nil {
 		return o, err
 	}
-	if o.section == "" {
-		o.section = triage.DefaultSection
-	}
 	o.noLabels = hasFlag(args, "--no-labels")
 	o.dryRun = hasFlag(args, "--dry-run")
 	if o.artDir == "" || o.propDir == "" {
@@ -386,7 +383,8 @@ func readDecisions(decFile string) (map[string]string, error) {
 }
 
 // resolveSections pairs every non-held artifact with its validated proposal and a section:
-// the per-issue override when one exists, otherwise the run's default. A bad override key,
+// the per-issue override when one exists, otherwise the run's `--section`, otherwise the
+// proposal's kind decides (triage.SectionForKind). A bad override key,
 // an unknown artifact, an unknown section or a held issue named in the overrides aborts the
 // whole pass; a proposal that fails the schema (or is missing) only holds its own issue, and
 // is returned in held rather than guessed at.
@@ -395,7 +393,7 @@ func resolveSections(index []triage.Artifact, arts map[int]triage.Artifact, prop
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if !inSections(section) {
+	if section != "" && !inSections(section) {
 		return nil, nil, nil, fmt.Errorf("section %q is not one of %s", section, strings.Join(triage.Sections, ", "))
 	}
 	props := map[int]triage.Proposal{}
@@ -413,6 +411,9 @@ func resolveSections(index []triage.Artifact, arts map[int]triage.Artifact, prop
 			continue
 		}
 		s := section
+		if s == "" {
+			s = triage.SectionForKind(p.Kind)
+		}
 		if o, ok := overrides[a.Number]; ok {
 			s = o
 		}

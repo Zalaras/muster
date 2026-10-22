@@ -48,8 +48,9 @@ and the tripwire over the summary — and renders one entry on every route
 (kb:adr/triage-every-entry-carries-the-header-safe-title): the title through `HeaderSafe`, the
 summary (prefixed "Summary of an unverified report:" when the issue was not the owner's clean
 one), the quoted error, a fact line from the filing date and the validated snapshot leaves, and
-the labels. Entries splice at the end of `## Issues` unless `--section` or a decisions file says
-otherwise (kb:adr/triage-section-defaults-to-issues); `apply` stages `TODO.md` alone and commits
+the labels. Entries splice at the end of `## Bugs` when the kind is `bug` and of `## Tweaks`
+otherwise, unless `--section` or a decisions file says where
+(kb:adr/triage-section-by-kind); `apply` stages `TODO.md` alone and commits
 it, then labels each filed issue through `gh issue edit` with validated names only
 (kb:adr/triage-labels-from-validated-names). `--dry-run` prints the entries and touches nothing.
 The triage comment stays a manual, prompted `gh issue comment` in the skill; `audit` compares

@@ -66,7 +66,7 @@ func TestApply(t *testing.T) {
 	g := &gitStub{hooksPath: ".githooks", staged: "TODO.md\n"}
 	decisions := []Decision{
 		{Number: 78, Section: "Post v1"},
-		{Number: 77, Section: "Issues"},
+		{Number: 77, Section: "Bugs"},
 	}
 	subject, filed, err := Apply(context.Background(), g.run, root, "Zalaras/muster", decisions, arts, props)
 	if err != nil {
@@ -102,7 +102,7 @@ func TestApply(t *testing.T) {
 }
 
 func TestApplyRefuses(t *testing.T) {
-	decisions := []Decision{{Number: 77, Section: "Issues"}}
+	decisions := []Decision{{Number: 77, Section: "Bugs"}}
 
 	cases := []struct {
 		name string
@@ -144,7 +144,7 @@ func TestApplySkipsAlreadyTriaged(t *testing.T) {
 	g := &gitStub{hooksPath: ".githooks", staged: "TODO.md\n"}
 	// Issue 4 already has an entry in the fixture.
 	subject, filed, err := Apply(context.Background(), g.run, root, "Zalaras/muster",
-		[]Decision{{Number: 4, Section: "Issues"}}, arts, props)
+		[]Decision{{Number: 4, Section: "Bugs"}}, arts, props)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
@@ -189,7 +189,7 @@ func TestDryRun(t *testing.T) {
 	root, arts, props := applyFixture(t)
 	arts[4] = Artifact{Number: 4, Body: "x"}
 	props[4] = props[77]
-	out, err := DryRun(root, "Zalaras/muster", []Decision{{Number: 78, Section: "Post v1"}, {Number: 4, Section: "Issues"}}, arts, props)
+	out, err := DryRun(root, "Zalaras/muster", []Decision{{Number: 78, Section: "Post v1"}, {Number: 4, Section: "Bugs"}}, arts, props)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -8,11 +8,13 @@ import (
 	"strings"
 )
 
-// Sections the proposer may hint at. A hint only: apply defaults to Issues and the
-// developer re-ranks by hand.
+// Sections the proposer may hint at. A hint only: apply files by kind (SectionForKind) and
+// the developer re-sorts by hand.
 var Sections = []string{
-	"Issues",
-	"Pre-v1",
+	"Features",
+	"Enhancements",
+	"Bugs",
+	"Tweaks",
 	"Post v1",
 }
 

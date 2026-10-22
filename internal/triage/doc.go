@@ -36,7 +36,7 @@
 // Escaping the three HTML characters makes a tag impossible by construction, which a
 // tag denylist never achieves. Markdown headings, lists, emphasis, code fences and
 // tables survive untouched, because none of them use those characters — which is the
-// point, and also a hazard: a body may still contain a line reading "## Issues".
+// point, and also a hazard: a body may still contain a line reading "## Bugs".
 // Spliced into TODO.md that would forge a section heading. Containing
 // it is [RenderEntry]'s job, not this file's.
 //

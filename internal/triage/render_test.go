@@ -235,7 +235,7 @@ func TestPreCommitHookAcceptsARenderedNormalEntry(t *testing.T) {
 		require.NoError(t, cerr, "git %v: %s", args, out)
 	}
 	git("init", "-q")
-	require.NoError(t, os.WriteFile(filepath.Join(repo, "TODO.md"), []byte("## Issues\n\n"+entry), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "TODO.md"), []byte("## Bugs\n\n"+entry), 0o644))
 	git("add", "--", "TODO.md")
 
 	cmd := exec.Command(hook)
