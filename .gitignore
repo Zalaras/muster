@@ -31,6 +31,10 @@ internal/webui/assets/*
 # Interface-probe rig captured payloads (instances live in /tmp/muster-probe)
 /test/rig/captures/
 
+# /fix sweep batch logs: a batch's raw `claude -p` event stream (scripts/sweep.py). /retro reads
+# it from disk; nothing commits it, and it may carry prompt text.
+/plans/*/batch-*.log
+
 # Local, machine-specific
 .DS_Store
 .env
