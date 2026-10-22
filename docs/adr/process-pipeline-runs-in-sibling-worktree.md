@@ -1,7 +1,7 @@
 ---
 id: process-pipeline-runs-in-sibling-worktree
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-26
 summary: Every /orchestrate run lives in a sibling worktree on plan/<plan>, created by make worktree before the session starts; the primary stays on main for /land.
 features: []

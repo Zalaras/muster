@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# worktree.sh — the pipeline's worktree lifecycle (kb:adr/process-pipeline-runs-in-sibling-worktree).
+# worktree.sh — the pipeline's worktree lifecycle (kb:adr/process-session-enters-worktree-in-place).
 # Every /orchestrate run happens in its own tree, ../<repo>-<plan> on branch plan/<plan>, created
 # here BEFORE the session starts (a session cannot move into one: hooks and subagents key off the
 # directory it started in). The primary checkout stays on main and is where /land merges.

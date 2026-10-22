@@ -168,7 +168,7 @@ render-test-run: ## The render tests alone, no build (make render-test runs this
 .PHONY: check
 check: lint test web-lint web-test contrast e2e-lint render-lint check-versions check-render-fixtures check-kb ## Lint + test + web-lint + web-test + contrast + e2e-lint + render-lint + check-versions + check-render-fixtures + check-kb (which covers refs)
 
-# Pipeline worktrees (kb:adr/process-pipeline-runs-in-sibling-worktree): every /orchestrate run
+# Pipeline worktrees (kb:adr/process-session-enters-worktree-in-place): every /orchestrate run
 # lives in ../<repo>-<plan> on plan/<plan>, created here before the session starts; the primary
 # stays on main for /land. scripts/worktree.sh holds the logic and its refusals.
 BASE ?= main

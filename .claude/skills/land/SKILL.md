@@ -51,9 +51,11 @@ Check all of these before touching anything. If any fails, stop and say exactly 
             <(git diff --name-only --diff-filter=A main...plan/<plan> -- internal/store/migrations/ | grep -oE '/[0-9]+_' | sort)
    ```
 6. The plan's worktree is there and idle: `make worktrees` lists `../muster-<plan>` on
-   `plan/<plan>` (kb:adr/process-pipeline-runs-in-sibling-worktree), and no `claude` has it as
+   `plan/<plan>` (kb:adr/process-session-enters-worktree-in-place), and no `claude` has it as
    its cwd (`lsof -a -d cwd -c claude -Fn` prints no `n<that path>` line) — end that session
-   first; this command runs from the primary checkout, on `main`. A plan from before worktrees,
+   first. If *this* session entered the tree with `EnterWorktree`, leave it first with
+   `ExitWorktree` (`keep`): this command runs from the primary checkout, on `main`
+   (`git rev-parse --git-common-dir` prints `.git`). A plan from before worktrees,
    or a `/fix` plan (a `**Shape**` header) that `make worktrees` does not list, has no tree: then
    step 2 and preflight 7 use `git checkout plan/<plan>` here instead, which needs preflight 3
    strictly clean, and step 6 skips the worktree removal.

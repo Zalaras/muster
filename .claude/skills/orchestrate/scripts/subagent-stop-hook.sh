@@ -14,11 +14,17 @@
 # Parse as JSON, top level only: the payload's background_tasks[] carries every running agent's own
 # agent_type, and a greedy grep picked the last one, so a parallel sibling's role was checked and the
 # wrong agent blocked (interface probe on 2.1.284, 2026-09-29, capture-3; kb:fact/background-tasks-field).
+#
+# The payload's cwd comes before CLAUDE_PROJECT_DIR: a session that entered a sibling worktree
+# with EnterWorktree has its agents working there (kb:adr/process-session-enters-worktree-in-place),
+# and the check must read that tree's diff, not the primary's.
 in="$(cat)"
-read -r active role < <(printf '%s' "$in" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(str(d.get("stop_hook_active") is True).lower(), d.get("agent_type") or "-")' 2>/dev/null)
+read -r active role cwd < <(printf '%s' "$in" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(str(d.get("stop_hook_active") is True).lower(), d.get("agent_type") or "-", d.get("cwd") or "-")' 2>/dev/null)
 [[ "$active" == true ]] && exit 0
 case "$role" in daemon-impl|web-impl|daemon-tests|web-tests|render-tests|e2e-specs) ;; *) exit 0 ;; esac
-cd "${CLAUDE_PROJECT_DIR:-.}" || exit 0
+root="${CLAUDE_PROJECT_DIR:-.}"
+[[ "$cwd" != "-" && -d "$cwd" ]] && root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || echo "$root")"
+cd "$root" || exit 0
 if ! out="$(python3 .claude/skills/orchestrate/scripts/comment-checks.py "$role" 2>&1)"; then
   printf 'Finish blocked by the comment check for %s. Fix each line below, commit by pathspec, then finish:\n%s\n' "$role" "$out" >&2
   exit 2

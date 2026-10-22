@@ -38,14 +38,18 @@ If no plan name was provided, list available plans from the `plans/` directory a
    - `none` → skip Steps 1 and 5
 4. Determine the project root (the directory containing `.claude/`)
 4a. **Worktree.** The pipeline never commits on `main` and never runs in the primary checkout
-   (kb:adr/process-pipeline-runs-in-sibling-worktree). This session must be running in
+   (kb:adr/process-session-enters-worktree-in-place). This session must be in
    `../muster-<plan-name>` on `plan/<plan-name>`: `git rev-parse --show-toplevel` ends in
    `muster-<plan-name>`, `git rev-parse --abbrev-ref HEAD` prints `plan/<plan-name>`, and
-   `git rev-parse --git-common-dir` is not `.git`. Otherwise **stop**: `make worktree NAME=<plan-name>`
-   from the primary creates the tree (branching from `main`, committing the planning-session edits
-   onto the branch, copying the local files, building) and the `/orchestrate` session is started
-   *there* — a session cannot move into a tree, its hooks and subagents key off the directory it
-   started in. In the tree, `git status --short` shows nothing but untracked strays nothing
+   `git rev-parse --git-common-dir` is not `.git`. Otherwise get there yourself: `make worktree
+   NAME=<plan-name>` from the primary creates the tree (branching from `main`, committing the
+   planning-session edits onto the branch, copying the local files, building), then
+   `EnterWorktree` with `path: ../muster-<plan-name>` moves this session into it — never with a
+   `name`, which nests a locked tree inside the checkout (kb:fact/worktree-flag-defaults). A plain
+   `cd` is reset after each command (kb:fact/cwd-follows-claude-mid-session). From here on every
+   agent prompt's `Project root:` is the tree and every script is the tree's own copy; `/land`
+   runs from the primary, so leave with `ExitWorktree` (`keep`) when the run completes. In the
+   tree, `git status --short` shows nothing but untracked strays nothing
    references: leave them, tell every agent to leave them alone, never `git add` them, list them in
    the completion summary; never `git add -A`, never stash (kb:lesson/tree-not-clean-at-pipeline-start).
    Run `make worktrees` and carry any `overlap` line (another plan branch touching the same files)

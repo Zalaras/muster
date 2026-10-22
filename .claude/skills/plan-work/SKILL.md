@@ -488,7 +488,8 @@ When the developer explicitly approves the plan, in this order:
 4. Write each decision the plan makes as a `status: proposed` ADR in `docs/adr/`
    (`refs: [plan:<plan-name>]`, one decision each).
 5. `make gen-kb && make check-kb`.
-6. Hand the developer the next two commands, verbatim: `make worktree NAME=<plan-name>` from this
-   primary checkout (it commits these planning edits onto `plan/<plan-name>` and builds
-   `../muster-<plan-name>`), then start the `/orchestrate <plan-name>` session **in that directory** —
-   orchestrate pre-flight refuses to run anywhere else (kb:adr/process-pipeline-runs-in-sibling-worktree).
+6. Tell the developer what comes next: `make worktree NAME=<plan-name>` from this primary
+   checkout (it commits these planning edits onto `plan/<plan-name>` and builds
+   `../muster-<plan-name>`), then `/orchestrate <plan-name>`, which enters that tree itself with
+   `EnterWorktree` (kb:adr/process-session-enters-worktree-in-place). If they say to go on, run
+   both from this session; no second session is needed.

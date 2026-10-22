@@ -25,8 +25,10 @@ rules, `docs/conventions.md` and `.claude/skills/orchestrate/worker-rules.md` bi
 The primary checkout, on `main`, `git status --porcelain` empty apart from untracked strays nothing
 references (leave them; never `git add -A`, never stash), and `git rev-parse --verify plan/<name>`
 fails. A live main session that needs the primary makes this a worktree run: after step 2,
-`make worktree NAME=<name>` from here and start the `/fix` session in `../muster-<name>` — the rest
-is identical.
+`make worktree NAME=<name>` from here, then `EnterWorktree` with `path: ../muster-<name>` (never a
+`name`; a plain `cd` is reset after each command — kb:adr/process-session-enters-worktree-in-place).
+Every agent prompt's `Project root:` and every script path is then the tree's; the rest is
+identical, and step 8 ends with `ExitWorktree` (`keep`) so `/land` runs from the primary.
 
 ## 1. Research, then stop
 
