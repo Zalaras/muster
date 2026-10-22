@@ -1,0 +1,192 @@
+{
+ "sweep": "bugs-one-batch",
+ "created_at": "2026-10-22T20:30:35Z",
+ "selector": "bugs-one-batch #97 #111 #109 #105 \"\\\"Could not reach musterd.\\\" stays after the daemon is back\" \"The pop-out reader keeps the old dashboard after Update and restart\" \"A card shows alive for up to 5 s after Claude exits\" \"A hard wheel flick swallows the next wheel the other way\" \"Check the Focus view's first-attach terminal height\" --batch-size 9 --parallel 1 (e3 #105 dropped at the stop)",
+ "parallel": 1,
+ "entries": [
+  {
+   "id": "e1",
+   "title": "A card shows alive for up to 5 s after Claude exits",
+   "issue": null,
+   "section": "Bugs",
+   "work_type": "daemon",
+   "features": [
+    "lifecycle",
+    "ingest"
+   ],
+   "files": [
+    "internal/session/liveness.go",
+    "internal/session/apply.go",
+    "internal/server/ingest.go",
+    "internal/session/manager_test.go",
+    "docs/protocol.md",
+    "docs/features/lifecycle/spec.md"
+   ],
+   "route": "fix",
+   "research": "plans/bugs-one-batch/research/e1.md",
+   "batch": 1
+  },
+  {
+   "id": "e2",
+   "title": "Right click menu with multiple select only applies action to one",
+   "issue": 97,
+   "section": "Bugs",
+   "work_type": "web",
+   "features": [
+    "rail",
+    "groups",
+    "actions"
+   ],
+   "files": [
+    "web/src/features/railmenu.ts",
+    "web/src/features/railmenuitems.ts",
+    "web/src/features/groups.ts",
+    "web/src/main.ts",
+    "web/e2e/rail-menu.spec.ts",
+    "docs/adr/",
+    "docs/features/rail/spec.md",
+    "docs/features/groups/spec.md",
+    "docs/features/actions/spec.md"
+   ],
+   "route": "fix",
+   "research": "plans/bugs-one-batch/research/e2.md",
+   "batch": 1
+  },
+  {
+   "id": "e4",
+   "title": "Closing notes should take focus back to Claude typing",
+   "issue": 111,
+   "section": "Bugs",
+   "work_type": "web",
+   "features": [
+    "notes"
+   ],
+   "files": [
+    "web/src/features/notes.ts",
+    "web/src/main.ts",
+    "web/render/notes.spec.ts",
+    "docs/features/notes/spec.md"
+   ],
+   "route": "fix",
+   "research": "plans/bugs-one-batch/research/e4.md",
+   "batch": 1
+  },
+  {
+   "id": "e5",
+   "title": "I don't want my position in the doc reset on swapping sessions",
+   "issue": 109,
+   "section": "Bugs",
+   "work_type": "web",
+   "features": [
+    "reader"
+   ],
+   "files": [
+    "web/src/reader/memory.ts",
+    "web/src/reader/memory.test.ts",
+    "web/src/features/reader.ts",
+    "web/src/render/reader.ts",
+    "web/render/reader.spec.ts",
+    "docs/features/reader/spec.md"
+   ],
+   "route": "fix",
+   "research": "plans/bugs-one-batch/research/e5.md",
+   "batch": 1
+  },
+  {
+   "id": "e6",
+   "title": "Check the Focus view's first-attach terminal height",
+   "issue": null,
+   "section": "Bugs",
+   "work_type": "web",
+   "features": [
+    "focus",
+    "surfaces"
+   ],
+   "files": [
+    "web/src/render/focusview.test.ts",
+    "web/e2e/terminal.spec.ts"
+   ],
+   "route": "chore",
+   "research": "plans/bugs-one-batch/research/e6.md",
+   "batch": 1
+  },
+  {
+   "id": "e7",
+   "title": "A hard wheel flick swallows the next wheel the other way",
+   "issue": null,
+   "section": "Bugs",
+   "work_type": "web",
+   "features": [
+    "surfaces"
+   ],
+   "files": [
+    "web/src/terminal/shellkeys.ts",
+    "web/src/terminal/shellkeys.test.ts"
+   ],
+   "route": "fix",
+   "research": "plans/bugs-one-batch/research/e7.md",
+   "batch": 1
+  },
+  {
+   "id": "e8",
+   "title": "\"Could not reach musterd.\" stays after the daemon is back",
+   "issue": null,
+   "section": "Bugs",
+   "work_type": "web",
+   "features": [
+    "actions",
+    "connection"
+   ],
+   "files": [
+    "web/src/features/actions.ts",
+    "web/src/api/http.ts",
+    "web/e2e/effort-header.spec.ts",
+    "docs/features/actions/spec.md"
+   ],
+   "route": "fix",
+   "research": "plans/bugs-one-batch/research/e8.md",
+   "batch": 1
+  },
+  {
+   "id": "e9",
+   "title": "The pop-out reader keeps the old dashboard after Update and restart",
+   "issue": null,
+   "section": "Bugs",
+   "work_type": "web",
+   "features": [
+    "reader",
+    "update",
+    "connection"
+   ],
+   "files": [
+    "web/src/doc.ts",
+    "web/src/wsapp.ts",
+    "web/src/wsapp.test.ts",
+    "web/src/features/updaterestart.ts",
+    "web/e2e/update.spec.ts",
+    "docs/diagrams/web-components.md",
+    "docs/features/update/spec.md",
+    "docs/features/reader/spec.md"
+   ],
+   "route": "fix",
+   "research": "plans/bugs-one-batch/research/e9.md",
+   "batch": 1
+  }
+ ],
+ "batches": [
+  {
+   "n": 1,
+   "entries": [
+    "e1",
+    "e2",
+    "e4",
+    "e5",
+    "e6",
+    "e7",
+    "e8",
+    "e9"
+   ],
+   "work_type": "full-stack"
+  }
+ ]
+}
