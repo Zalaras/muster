@@ -70,6 +70,12 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
 
 ## Enhancements
 
+- [ ] **Search the directory picker in the launch dialog** — filed by the developer 2026-10-22.
+  The launch dialog's Finder-style picker (`docs/features/launch/spec.md`: a Recent sidebar, a
+  breadcrumb and one child listing) only lets you descend one directory at a time. Typing in the
+  picker should search the directory you are in, so a deep checkout is reached by name rather than
+  by clicking down through each level.
+
 - [ ] **Tiles per group** — a Tiles view scoped to one group (the grid holds that group's live sessions, the strip the rest of it), reached from the group's ⋯ menu. The grid and strip ignore groups today. The tile footer's live (Stop) versus ended (age, Resume, Remove) row shapes, and the layout shift between them, are reworked here too, matching the Focus header's single Stop/Resume button (plan `title-crop-stop-resume-button` left the footer alone, 2026-10-13).
 
 - [ ] **Resizable side panels** ([#37](https://github.com/Zalaras/muster/issues/37)) — the
