@@ -1,8 +1,9 @@
 #!/bin/sh
-# Two guards, armed per clone by `make hooks` (same as commit-msg).
+# Three guards, armed per clone by `make hooks` (same as commit-msg).
 #
 #   1. Identity — refuses to commit while this repo carries a repo-local git identity.
 #   2. TODO.md entry links — refuses an added backlog entry whose issue link is forged.
+#   3. Records — refuses a commit staging docs/ or .claude/ while `go tool kb check` fails.
 #
 # Why (1): 2026-09-10 a pipeline agent ran `git config user.email test@example.invalid`
 # inside a scratch `git worktree` of this repo. Worktrees SHARE .git/config, so the
@@ -22,6 +23,11 @@
 # continuation lines: 321 lines of TODO.md carry em-dashes and entries legitimately end
 # in "✅ done <date> (plan …)", so anything stricter would block ordinary hand edits.
 # The narrow half is the half that holds against an adversary.
+#
+# Why (3): 2026-10-22 a fact record reached main with a dead cited path, and the next
+# session's retro commit went in red too, because `make check-kb | tail` hid the exit code.
+# The rule to run check-kb before committing was broken twice in one sweep. The check reads
+# the working tree, not the index, so it may refuse over an unstaged edit — fix or stash it.
 
 fail() {
   echo "pre-commit guard: $1" >&2
@@ -62,6 +68,14 @@ if git diff --cached --name-only | grep -qx 'TODO.md'; then
   markup=$(printf '%s\n' "$added" | grep '[<>]')
   if [ -n "$markup" ]; then
     fail "TODO.md entry contains an angle bracket — it did not come through tools/triage" "$markup"
+  fi
+fi
+
+# 3. Records. Only runs when docs/ or .claude/ is staged.
+if git diff --cached --name-only | grep -qE '^(docs|\.claude)/'; then
+  if ! out=$(go tool kb check 2>&1); then
+    fail "go tool kb check fails — run make gen-kb && make check-kb and fix what it names" \
+      "$(printf '%s\n' "$out" | tail -10)"
   fi
 fi
 

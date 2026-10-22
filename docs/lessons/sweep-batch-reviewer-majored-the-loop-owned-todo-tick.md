@@ -1,7 +1,7 @@
 ---
 id: sweep-batch-reviewer-majored-the-loop-owned-todo-tick
 type: lesson
-status: active
+status: retired
 date: 2026-10-22
 summary: A sweep batch's reviewer raised a Major for the unticked TODO.md entry; a batch never ticks it, the loop does on main, so the DOC row was wrong by design.
 features: []
@@ -9,7 +9,7 @@ tags: [pipeline]
 roles: [review]
 files: [.claude/skills/fix-batch/SKILL.md, scripts/sweep.py]
 tests: []
-refs: [plan:ws-close-code-1, plans/ws-close-code-1/review.code.md, kb:adr/process-fix-sweep-fresh-process-per-batch]
+refs: [plan:ws-close-code-1, plans/ws-close-code-1/review.code.md, kb:adr/process-fix-sweep-fresh-process-per-batch, .claude/agents/review-work.md]
 ---
 **What happened.** `/fix-batch ws-close-code 1` ran unattended. Review cycle 1 approved the
 diff but marked the DOC row FAIL and wrote Major 1 `[orchestrator]`: the `TODO.md` entry the

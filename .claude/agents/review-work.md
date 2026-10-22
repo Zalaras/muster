@@ -91,7 +91,8 @@ Also verify the plan's `### Reviewer-Verified` list explicitly, item by item —
 those items.
 
 Doc upkeep (`TODO.md` tick, an ADR for every `deviation:` line, fact records) was done by the
-orchestrator before you were spawned: report it as one `DOC pass | FAIL — <what is missing>` row of
+orchestrator before you were spawned; a sweep batch (`plans/<sweep>-<n>/`) leaves its tick to
+the loop on `main`, so an open entry there is no FAIL: report it as one `DOC pass | FAIL — <what is missing>` row of
 `## Acceptance Checks`. A `DOC FAIL` is `[orchestrator]` work and does not block approval; its
 Majors are in §7.
 
