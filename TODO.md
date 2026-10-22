@@ -317,6 +317,56 @@ Filed 2026-10-19 by the developer from the plans' proposed-backlog.md files:
   the session's list. Expected: each shape measured with `/interface-probe` and recorded as a fact,
   and the list behaves as measured. From `plans/see-added-dirs/`.
 
+- [ ] **5h gauge showing 100% after reset** ([#105](https://github.com/Zalaras/muster/issues/105)) — The
+  5h usage gauge still shows 100% after the limit window reset, and neither the refresh button
+  beside the gauge nor a browser page reload updates it. Expected: The 5h gauge should show the
+  reset usage value after the window resets, and the refresh button or a page reload should update
+  it.
+  Filed 2026-10-20 from musterd 0.24.0 / Claude Code 2.1.304, focus view, session failed.
+  Labels: bug, usage.
+
+- [ ] **Problem with overlap for new note** ([#106](https://github.com/Zalaras/muster/issues/106)) — Hovering
+  the note on a rail card shows it, then about a second later the file path and branch hover appears
+  and overlaps the top of the note. Expected: The file and branch hover should only trigger over the
+  file and branch, not over the note, or the note should be isolated from it.
+  Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.293, focus view, session idle.
+  Labels: bug, rail, ux.
+
+- [ ] **running musterd on one profile blocks another** ([#107](https://github.com/Zalaras/muster/issues/107)) — With
+  two user profiles on one laptop, musterd running under one profile prevents it from running under
+  the other, and the installation cannot be updated from one user despite both being admins.
+  Expected: Each user profile should run its own musterd in isolation, and the installation should
+  be updatable from either admin user.
+  Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.306, focus view, session idle.
+  Labels: bug, process, install.
+
+- [ ] **I'd like to be able to add group level notes that persist with the group** ([#108](https://github.com/Zalaras/muster/issues/108)) — The
+  author wants to add notes at the group level that persist with the group, which cannot be done
+  today. Expected: A group should carry a persistent note that the author can add and that stays
+  with the group.
+  Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.306, focus view, session working.
+  Labels: enhancement, rail.
+
+- [ ] **I don't want my position in the doc reset on swapping sessions** ([#109](https://github.com/Zalaras/muster/issues/109)) — Switching
+  between sessions, or between tabs such as docs, shell and claude, resets the scroll position in
+  the document being read. Expected: The scroll position in a document should be preserved when
+  swapping sessions or tabs and coming back.
+  Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.306, focus view, session started.
+  Labels: bug, documents, ux.
+
+- [ ] **planning status dropped after last message** ([#110](https://github.com/Zalaras/muster/issues/110)) — A
+  session in plan mode went to idle after the main session replied that it was waiting on two
+  subagents, instead of staying in its planning status. Expected: A session in plan mode that is
+  waiting on subagents should keep showing its planning status rather than dropping to idle.
+  Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.306, focus view, session idle.
+  Labels: bug, lifecycle.
+
+- [ ] **Closing notes should take focus back to Claude typing** ([#111](https://github.com/Zalaras/muster/issues/111)) — After
+  closing the session note with Esc, keyboard focus does not return to the Claude typing area.
+  Expected: Closing the note with Esc should give focus back to Claude typing.
+  Filed 2026-10-22 from musterd 0.25.1 / Claude Code 2.1.308, focus view, session idle.
+  Labels: bug, focus.
+
 ## Pre-v1
 
 Everything below is blocking a v1 release (the developer, 2026-09-12: no v1 until all of it is
