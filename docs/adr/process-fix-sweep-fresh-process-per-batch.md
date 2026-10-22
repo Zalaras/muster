@@ -27,12 +27,11 @@ and feature; at most four) and commits `plans/<sweep>/sweep.json`. `scripts/swee
 `--parallel N` batches, each `claude -p "/fix-batch <sweep> <n>"` in `../<repo>-<sweep>-<n>`
 with an empty context and no `CLAUDE*` or `MUSTER_SESSION` in its environment, and
 squash-merges each completed branch onto local `main` serially, ticking the entries itself. A batch never asks: a missed decision is written to `batch-result.json`
-as a `question`, the batch fails, the developer answers in the research file and `resume`
-re-runs it; the batch's own `/retro` records the miss. `/land --sweep` is the one push and the
+as a `question`, the batch fails, the developer answers in the research file, `resume` re-runs it; the batch's own `/retro` records the miss. `/land --sweep` is the one push and the
 proposals pass. Red test first, the comment pass, scoped gates and one full sweep per batch
 are unchanged; reviewers are chosen from the diff.
 
 **Consequences.** To measure on the first run: a `-p` process spawns subagents and fires
 `SubagentStop` as an interactive one does, and `--allowedTools` with the project allowlist
 covers the pipeline's commands. Parallel batches queue on the gate lock (`GATES_LOCK_WAIT`
-raised). Landing refuses on a dirty primary rather than reset it.
+raised). Landing refuses on a dirty primary.
