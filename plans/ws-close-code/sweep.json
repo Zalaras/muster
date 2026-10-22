@@ -1,0 +1,6 @@
+{"sweep": "ws-close-code", "created_at": "2026-10-22T15:38:23Z", "selector": "ws-close-code \"Shutdown's `/ws` close code disagrees with the protocol\" --parallel 1", "parallel": 1,
+ "entries": [{"id": "e1", "title": "Shutdown's `/ws` close code disagrees with the protocol", "issue": null, "section": "Bugs",
+              "work_type": "daemon", "features": ["surfaces", "connection"],
+              "files": ["internal/server/terminal.go", "internal/server/terminal_closeall_takeover_test.go", "internal/server/terminal_test.go", "internal/server/ws.go", "internal/server/ws_test.go", "docs/protocol.md"],
+              "route": "fix", "research": "plans/ws-close-code/research/e1.md", "batch": 1}],
+ "batches": [{"n": 1, "entries": ["e1"], "work_type": "daemon"}]}
