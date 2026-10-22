@@ -2519,3 +2519,8 @@ that the dashboard shows.
   how entries group and rank, and what `/triage` appends where; for now every new entry files
   under `## Issues` and is moved by hand. Filed 2026-10-15 by the developer during the triage
   rework.
+
+## Bugs
+
+- [x] **Shutdown's `/ws` close code disagrees with the protocol** ✅ done 2026-10-22 (plan `ws-close-code-1`, via `/fix`) — musterd closes dashboard
+  sockets with 1000 at shutdown; `docs/protocol.md` says 1001. From `plans/maintainability-cleanup/`.

@@ -211,9 +211,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   windows reload onto the new version; an open pop-out should too. From
   `plans/settings-update-failures/`.
 
-- [ ] **Shutdown's `/ws` close code disagrees with the protocol** — musterd closes dashboard
-  sockets with 1000 at shutdown; `docs/protocol.md` says 1001. From `plans/maintainability-cleanup/`.
-
 - [ ] **A subdirectory's folder name differs between the Location row and the Added list** — a
   session launched in a subdirectory of a checkout shows that subdirectory's own name (`sub0`) in the
   location panel's Location row, while an added directory in a subdirectory shows its checkout's
