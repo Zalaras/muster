@@ -165,8 +165,8 @@ Fix only what the failure or review issue needs and **append** a `## Fix Attempt
 your existing log.
 
 1. **Fix the category, not the reviewer's example.** For each Critical/Major, enumerate in your Fix Attempt every code path/element that exhibits the defect and state how each is closed — when a finding names a pattern ("every conditionally-hidden element…"), sweep for all instances rather than patching the cited one (kb:lesson/fix-closed-one-cause-of-two).
-2. **Measure the blast radius of anything shared before you change it.** A CSS class, selector or
-   exported function usually has more consumers than the surface you are fixing. Before editing,
+2. **Measure the blast radius of anything shared before you change it.** A class, selector,
+   constructor option or exported function has consumers never shown on screen. Before editing,
    `rg` every consumer (`rg -n '\.acts-row' web/src web/index.html`) and paste the list; after
    editing, re-measure **each** consumer surface in a real browser, not just the one the issue named
    (kb:lesson/shared-class-css-hid-resume-button).

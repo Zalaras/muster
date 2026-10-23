@@ -156,8 +156,8 @@ whose fix is a flake, spawn `e2e-specs` in VALIDATE MODE after green.
 2. The comment pass, exactly as `/orchestrate` Step 6 item 1: `go run ./tools/commentpass strip
    <sweep>-<n> --out $TMPDIR/comment-pass-<sweep>-<n>-c1`, `comment-judge` if candidates > 0,
    `apply`.
-3. Gates, in the foreground (`timeout: 600000`; exit 75 is a busy lock — rerun, never poll; the
-   loop sets `GATES_LOCK_WAIT` high enough to outwait another batch's sweep):
+3. Gates, backgrounded (`timeout: 3600000`, stdout to a file: a cold run outlasts the foreground
+   cap; exit 75 is a busy lock, rerun, never poll; the loop's `GATES_LOCK_WAIT` outwaits a sweep):
    ```bash
    GATES_LOG_DIR=$TMPDIR/gates-<sweep>-<n>-c1 .claude/skills/orchestrate/scripts/gates.sh <sweep>-<n>
    ```
@@ -180,9 +180,9 @@ git add plans/<sweep>-<n>/review*.md && git commit -m "review(<sweep>-<n>): cycl
 python3 $S <sweep>-<n> reviewed "$(git rev-parse HEAD)"
 ```
 
-`needs-changes`: fix waves as `/orchestrate` Step 6 — `archive review.md`, then `archive
-review.<part>.md` per part, `retry review`; the tagged agent in FIX MODE with the issues quoted
-verbatim and `(review cycle <c>)` as its commit suffix; gates again; a delta re-review; merge and
+`needs-changes`: fix waves as `/orchestrate` Step 6 — the tagged agent in FIX MODE with the issues
+quoted verbatim and `(review cycle <c>)` as its commit suffix; gates again; then `archive
+review.md`, `archive review.<part>.md` per part, `retry review`; a delta re-review; merge and
 commit as `cycle <c>`. Budget: three cycles. An `[orchestrator:decision]` item goes to the
 `decide` skill before the wave (two per batch); an `[orchestrator:user-decision]` item, or a
 fourth cycle still not approved, is `failed` with that item as the `question` (or the open issues
