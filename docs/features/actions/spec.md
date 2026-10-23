@@ -10,12 +10,12 @@ go: [internal/server/actions*.go]
 web: [web/src/features/actions*.ts, web/src/features/batchplan*.ts, web/src/render/confirm.ts, web/src/render/dead*.ts, web/src/render/actionerror*.ts, web/render/actions.spec.ts, web/render/helpers/actions.ts]
 e2e: [web/e2e/actions.spec.ts]
 protocol: [sessions.end, sessions.resume, sessions.remove, sessions.pane, ws.session-removed, sessions.end-many, sessions.remove-many]
-refs: [kb:adr/actions-bulk-stop-remove-are-daemon-batches, kb:adr/rail-card-right-click-menu-holds-session-actions, kb:adr/actions-mainhead-one-stop-resume-button, kb:adr/actions-pane-snapshot-display-only, kb:adr/actions-remove-allowed-on-live-session, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/theme-danger-tokens-not-rose, kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-pending-hold-persisted, kb:fact/resume-keeps-session-identity]
+refs: [kb:adr/actions-bulk-stop-remove-are-daemon-batches, kb:adr/rail-card-menu-on-selected-card-acts-on-selection, kb:adr/actions-mainhead-one-stop-resume-button, kb:adr/actions-pane-snapshot-display-only, kb:adr/actions-remove-allowed-on-live-session, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/theme-danger-tokens-not-rose, kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-pending-hold-persisted, kb:fact/resume-keeps-session-identity]
 ---
 Three actions apply to a session: Stop, Resume and Remove. They live in the Focus mainhead
 above the terminal, in tile footers, and in the right-click menu of rail and strip cards; no card
 renders an action button. That menu opens at the pointer, or just under the card from the keyboard,
-and is named `Actions for <title>` (kb:adr/rail-card-right-click-menu-holds-session-actions). Stop and
+and is named `Actions for <title>`, or `Actions for N sessions` on a selected card in Select mode (kb:adr/rail-card-menu-on-selected-card-acts-on-selection). Stop and
 Remove sit behind a confirm dialog; Resume acts at once. In the Focus mainhead Stop and Resume are one button, labelled by
 whether the session is alive, that keeps its box across the swap
 (kb:adr/actions-mainhead-one-stop-resume-button); tile footers keep their separate buttons. Destructive
@@ -58,11 +58,11 @@ session and caches the result. Dead sessions ended in an earlier daemon lifetime
 at the next start (kb:adr/lifecycle-ended-rows-swept-next-start), so a Resume chance is one
 daemon lifetime long.
 
-**Batches.** Stop and Remove also apply to a rail selection, and Stop to a group's members through
+**Batches.** Stop and Remove also apply to a rail selection, from the select bar or the menu of a selected card, and Stop to a group's members through
 its header's Stop all…, by `kb:anchor/sessions.end-many` and `kb:anchor/sessions.remove-many`: daemon
 batches that run each id under its own lock and report done, skipped and failed, never a dashboard
 loop (kb:adr/actions-bulk-stop-remove-are-daemon-batches). Each batch confirms with its count; a bulk
-Remove of live sessions says it stops them first; a partial result shows in the action-error line.
+Remove of live sessions says it stops them first; a partial result shows in the action-error line. That line clears a `Could not reach musterd.` message at the next hello and keeps any other message until the next action replaces or clears it.
 Deleting a group can stop and remove its members the same way (kb:spec/groups).
 
 Session-focusing shortcuts are inert while a confirm dialog is open. There is no undo for Remove.

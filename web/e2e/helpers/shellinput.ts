@@ -106,6 +106,31 @@ export class WsByteRecorder {
 }
 
 /**
+ * Records the `scroll` text frames a surface sends on a socket whose URL contains
+ * `urlSubstring` (`{ "type": "scroll", "lines": N }`, docs/protocol.md's terminal.ws
+ * scroll frame) — the direct oracle for whether a wheel gesture reached the daemon. Same
+ * construction rule as `WsByteRecorder`: build it before the socket opens.
+ */
+export class WsScrollRecorder {
+  readonly lines: number[] = [];
+
+  constructor(page: Page, urlSubstring: string) {
+    page.on("websocket", (ws: WebSocket) => {
+      if (!ws.url().includes(urlSubstring)) return;
+      ws.on("framesent", (frame) => {
+        if (typeof frame.payload !== "string") return;
+        try {
+          const msg = JSON.parse(frame.payload) as { type?: string; lines?: number };
+          if (msg.type === "scroll" && typeof msg.lines === "number") this.lines.push(msg.lines);
+        } catch {
+          // a non-JSON text frame is not a scroll frame
+        }
+      });
+    });
+  }
+}
+
+/**
  * xterm.js's own default CSI-u encoding for Option+Left/Right (spike S7:
  * "xterm.js emits ESC[1;3D for Option+Left ... Cmd+Arrow emits nothing at all today") —
  * the raw bytes a Claude surface must still send, unchanged by this plan (INV-1).

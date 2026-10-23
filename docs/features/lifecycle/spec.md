@@ -52,7 +52,7 @@ rebind (kb:adr/lifecycle-compaction-end-monotonic); on the bound id it records t
 next prompt (kb:adr/lifecycle-early-interrupt-gap-accepted,
 kb:fact/interrupt-before-output-leaves-no-trace). `backgroundTasks` counts the background work the
 latest `Stop` reported running, never a state input (kb:adr/lifecycle-background-tasks-count-not-state).
-`SessionEnd` changes no state and never writes `alive` (kb:fact/sessionend-reason-ambiguous). The permission mode is a last-known latch seeded by the launch form and overwritten by any **main-agent** event that
+`SessionEnd` changes no state and writes no `alive` itself (kb:fact/sessionend-reason-ambiguous). The permission mode is a last-known latch seeded by the launch form and overwritten by any **main-agent** event that
 carries the field; events without it never reset it, and a subagent's never move it
 (kb:fact/permission-mode-presence-split, kb:adr/lifecycle-mode-latch-main-agent-only,
 kb:fact/subagent-declared-mode-on-hooks). A subagent's `StopFailure` changes nothing
@@ -141,18 +141,18 @@ for an event (`kb:anchor/state.ordering`).
 
 ## Liveness, reconcile, shutdown
 
-`alive` is decided by pane existence on the muster socket, polled and nudged by PTY EOF and End
+`alive` is decided by pane existence on the muster socket, polled and nudged by PTY EOF, End and a non-clear `SessionEnd` (a ~3 s pane re-check)
 (kb:adr/lifecycle-liveness-from-pane-existence, `kb:anchor/state.liveness`). Once shutdown
-begins, the poll and the PTY-EOF nudge stop persisting `alive=false`; the on-exit policy or the
-next reconcile decides (kb:adr/lifecycle-liveness-writes-stop-at-shutdown). Reconcile at start runs before the
+begins, the poll and every nudge stop persisting `alive=false`; the on-exit policy or the
+next reconcile decides (kb:adr/lifecycle-liveness-writes-stop-at-shutdown). Reconcile runs before the
 first snapshot: ended rows are deleted, live rows whose pane is gone are marked ended and kept
 for one resume, unknown `muster-` names are logged, never adopted; shells are killed
 (kb:adr/lifecycle-reconcile-before-first-snapshot, kb:adr/lifecycle-ended-rows-swept-next-start).
-Resume relaunches a dead session with `--resume` in a fresh pane under the same row;
+Resume relaunches a dead session with `--resume` in a fresh pane, same row;
 its `SessionStart` rebinds it into `idle`
 (kb:adr/lifecycle-resume-rebinds-existing-session, kb:fact/resume-keeps-session-identity).
 Shutdown leaves sessions running by default; `-on-exit` offers ask, leave and kill; kill also
-kills every shell, leave leaves them running (kb:adr/lifecycle-shutdown-leaves-sessions-running,
+kills every shell (kb:adr/lifecycle-shutdown-leaves-sessions-running,
 kb:adr/surfaces-shell-dies-at-kill-shutdown-too).
 
 ## Wire

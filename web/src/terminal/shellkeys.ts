@@ -81,7 +81,8 @@ export interface WheelAccumulation {
 }
 
 export function accumulateWheelDelta(accumDeltaY: number, eventDeltaY: number): WheelAccumulation {
-  const sum = accumDeltaY + eventDeltaY;
+  const reversed = eventDeltaY !== 0 && Math.sign(eventDeltaY) === -Math.sign(accumDeltaY);
+  const sum = (reversed ? 0 : accumDeltaY) + eventDeltaY;
   const lines = wheelDeltaToScrollLines(sum);
   if (lines === 0) return { accumDeltaY: sum, lines };
   return { accumDeltaY: sum + lines * PIXELS_PER_LINE, lines };

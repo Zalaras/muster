@@ -71,6 +71,7 @@ export class TerminalSurface {
   private readonly onShellEnded: (() => void) | undefined;
   private term: Terminal | null = null;
   private fitAddon: FitAddon | null = null;
+  private opened = false;
   private socket: WebSocket | null = null;
   private resizeTimer: ReturnType<typeof setTimeout> | undefined;
   private lastSentCols = 0;
@@ -125,6 +126,11 @@ export class TerminalSurface {
     const term = new Terminal({
       // design-system §7.4 / kb:anchor/terminal.ws: tmux owns scrollback, never xterm.
       scrollback: 0,
+      // xterm sizes the alternate buffer's line list from these rows when it is built and
+      // only ever grows it while that buffer is still empty; starting at the minimum lets
+      // the first fit grow it to exactly the fitted rows, so a shrink from the 24-row
+      // default never leaves the buffer a scroll range that eats the first wheel event.
+      rows: 2,
       // Type roles §2: terminal text is --mono at 12.5px/1.65 — read from the token so
       // nothing here hard-codes a font stack.
       fontFamily: cssVar("--mono", "monospace"),
@@ -140,7 +146,6 @@ export class TerminalSurface {
     });
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
-    term.open(this.bodyEl);
     term.onData((data) => {
       if (this.socket?.readyState === WebSocket.OPEN) {
         this.socket.send(new TextEncoder().encode(data));
@@ -257,7 +262,7 @@ export class TerminalSurface {
   }
 
   canPasteNow(): boolean {
-    return this.term !== null && this.socket?.readyState === WebSocket.OPEN;
+    return this.opened && this.socket?.readyState === WebSocket.OPEN;
   }
 
   /** Pastes `text` through xterm's own paste routine (normalises line endings, wraps in
@@ -290,8 +295,10 @@ export class TerminalSurface {
    * sessions whose live surface changed are ever resized).
    */
   refit(immediate = false): void {
-    if (!this.term || !this.fitAddon) return;
+    if (!this.term || !this.fitAddon || !this.openIfLaidOut(this.term)) return;
     try {
+      const proposed = this.fitAddon.proposeDimensions();
+      if (!proposed || !Number.isFinite(proposed.cols) || !Number.isFinite(proposed.rows)) return;
       this.fitAddon.fit();
     } catch {
       return; // container not yet laid out (zero size) — nothing to fit
@@ -312,10 +319,18 @@ export class TerminalSurface {
     else this.resizeTimer = setTimeout(send, RESIZE_DEBOUNCE_MS);
   }
 
+  private openIfLaidOut(term: Terminal): boolean {
+    if (this.opened) return true;
+    if (this.bodyEl.clientWidth <= 0 || this.bodyEl.clientHeight <= 0) return false;
+    term.open(this.bodyEl);
+    this.opened = true;
+    return true;
+  }
+
   /** The pane's own fitted geometry, consumed by the sizenote / tile footer, or `null`
    * before the terminal has ever been laid out (a dead session never gets one). */
   get geometry(): TerminalSurfaceGeometry | null {
-    if (!this.term) return null;
+    if (!this.term || !this.opened) return null;
     return { cols: this.term.cols, rows: this.term.rows };
   }
 
@@ -337,8 +352,8 @@ export class TerminalSurface {
    * surface (`term` is null — never had a terminal to focus) and for a disposed surface.
    * Never opens, closes or otherwise touches the socket. */
   focus(): void {
-    if (this.disposed || !this.term) return;
-    this.term.focus();
+    if (this.disposed || !this.opened) return;
+    this.term?.focus();
   }
 
   /** Called after the daemon connection is restored (`hello`): reattaches only if this

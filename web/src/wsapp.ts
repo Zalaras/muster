@@ -1,9 +1,3 @@
-// The WS-to-App mapping: every WS message's app-side effect (store write, emit, render).
-// `coreWsHandlers` is what both `main.ts` and `doc.ts` register unchanged; `dashboardWsHandlers`
-// layers the dashboard-only messages on top (session-removed/usage/update/shell-activity/
-// mismatch/hello-arrived), which the pop-out has no feature to receive. Connection-status handling itself
-// stays owned by `features/connection.ts` — this module only calls into whatever
-// `WsAppConnection` the caller already built.
 import type { App } from "./app";
 import type { ClaudeCodeInfo } from "./protocol/hello";
 import type { WsClientHandlers } from "./ws";
@@ -26,8 +20,6 @@ export interface DashboardConnection extends WsAppConnection {
   claudeCodeChanged(claudeCode: ClaudeCodeInfo): void;
 }
 
-/** Exactly what `doc.ts` registers verbatim; `dashboardWsHandlers` below spreads the
- * dashboard's own additional handlers over the result. */
 export function coreWsHandlers(app: App, connection: WsAppConnection): WsClientHandlers {
   return {
     onConnecting: () => connection.disconnected(),
@@ -63,6 +55,20 @@ export function coreWsHandlers(app: App, connection: WsAppConnection): WsClientH
   };
 }
 
+function updateWsHandlers(app: App): Pick<WsClientHandlers, "onUpdate" | "onHelloArrived"> {
+  return {
+    onUpdate: (update) => {
+      app.emit("update", update);
+      app.render();
+    },
+    onHelloArrived: () => app.emit("helloArrived"),
+  };
+}
+
+export function popoutWsHandlers(app: App, connection: WsAppConnection): WsClientHandlers {
+  return { ...coreWsHandlers(app, connection), ...updateWsHandlers(app) };
+}
+
 /** The dashboard's full handler set: `coreWsHandlers` plus the messages only `main.ts`'s
  * features receive (the pop-out has no feature for any of these). Kept here, not in
  * `main.ts`, so every WS message's app-side effect lives in one module — `main.ts`'s
@@ -74,6 +80,7 @@ export function dashboardWsHandlers(
 ): WsClientHandlers {
   return {
     ...coreWsHandlers(app, connection),
+    ...updateWsHandlers(app),
     onSessionRemoved: (id) => actions.handleRemoved(id),
     onUsage: (usage) => {
       app.emit("usage", usage);
@@ -83,15 +90,7 @@ export function dashboardWsHandlers(
       app.emit("shellActivity", sessionId, busy);
       app.render();
     },
-    onUpdate: (update) => {
-      app.emit("update", update);
-      app.render();
-    },
     onClaudeCode: (claudeCode) => connection.claudeCodeChanged(claudeCode),
     onProtocolMismatch: () => connection.showProtocolMismatch(),
-    // features/updaterestart.ts's own `app.on("helloArrived", ...)` decides what to do
-    // with it (kb:adr/update-restart-reloads-dashboard) — this module only relays the
-    // raw WS signal onto the event bus, same as every other message above.
-    onHelloArrived: () => app.emit("helloArrived"),
   };
 }

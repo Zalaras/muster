@@ -208,17 +208,14 @@ test("the tmux oracle's window geometry matches the terminal's own fitted size (
     const sizenote = page.getByText(/one live client/i);
     await expect(sizenote).toBeVisible();
 
-    // Re-read the sizenote on every poll attempt rather than parsing it once: main.ts's
-    // render pass calls `surface.refit()` (main.ts:175) on every render tick BEFORE the
-    // sizenote line is first unhidden, so the very first fit can measure the terminal
-    // slot at its pre-sizenote height (one row taller than its steady state); the next
-    // tick's refit (main.ts's documented "1s tick keeps ... geometry ... current")
-    // corrects both the sizenote text and the resize frame sent to tmux to the settled
-    // value. Parsing the sizenote exactly once right after it appears can therefore
-    // capture that transient value and then poll forever for a tmux geometry the app
-    // never intended to converge on. Re-parsing each attempt lets both sides settle
-    // together, which is what E4 actually asserts: the two stay equal once both are
-    // read fresh, not that a single early snapshot survives unchanged.
+    // Re-read the sizenote on every poll attempt rather than parsing it once. The size note
+    // reserves its row before the first fit (a non-breaking space placeholder), so the first
+    // fit already sees the steady-state slot height and sends the settled row count; the
+    // reserved row is not a transient this poll waits out. The re-parse per attempt is for
+    // load: under a fully parallel suite the 1 s tick's refit and tmux's resize can land a
+    // moment apart, and re-reading both sides inside the retry lets them be compared fresh,
+    // which is what E4 asserts: the two stay equal once both are read together, not that a
+    // single early snapshot survives unchanged.
     await expect
       .poll(
         async () => {

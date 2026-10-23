@@ -23,7 +23,7 @@
 - `diagramdialog.ts`'s backdrop-close is `event.target === dialogEl` (a `::backdrop` isn't a node), so its children must fill the box.
 
 <!-- kb:trailer -->
-<!-- kb:hash 66069f8adaffab3c -->
+<!-- kb:hash d5ef09e4d04ac340 -->
 - **actions** — Stop, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
@@ -42,5 +42,5 @@
 - **tiles** — Tiles view: slot-stable grid, strip, tile drag, density, snapshot-not-live rule. → `docs/features/tiles/INDEX.md`
 - **update** — Release check, minisign-verified apply, in-place restart with sessions re-adopted. → `docs/features/update/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 54 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 53 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

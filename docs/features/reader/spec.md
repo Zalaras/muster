@@ -7,15 +7,14 @@ summary: The docs surface — a sanitized markdown reader for a session's plan a
 features: [reader]
 tags: [ux, security, claude-code-format]
 go: [internal/claudecode/plan*.go, internal/claudecode/files*.go, internal/server/reader*.go, internal/reader/**, internal/session/reader*.go]
-web: [web/src/reader/**, web/src/features/reader.ts, web/src/render/reader.ts, web/src/render/frontmatter*.ts, web/src/render/diagrams.ts, web/src/render/diagramdialog.ts, web/src/render/mermaid.ts, web/src/doc.ts, web/doc.html, web/render/reader.spec.ts, web/render/helpers/reader.ts]
+web: [web/src/reader/**, web/src/features/reader.ts, web/src/features/readerscroll*.ts, web/src/render/reader.ts, web/src/render/frontmatter*.ts, web/src/render/diagrams.ts, web/src/render/diagramdialog.ts, web/src/render/mermaid.ts, web/src/doc.ts, web/doc.html, web/render/reader.spec.ts, web/render/helpers/reader.ts]
 e2e: [web/e2e/reader.spec.ts, web/e2e/reader-mermaid.spec.ts, web/e2e/helpers/reader.ts]
 protocol: [sessions.reader, sessions.reader-file, ws.doc-changed, ws.session]
 refs: [plan:markdown-viewing, plan:markdown-render-fixes, plan:mermaid-support, kb:fact/plan-file-path-in-transcript, kb:fact/plan-mode-hook-sequence, kb:adr/issue-preview-is-the-leak-check, kb:adr/surfaces-shell-control-in-tile-footer, kb:adr/connection-banner-only-after-first-hello, kb:spec/surfaces, docs/design/design-system.md]
 ---
 A session's third surface. The `claude | shell` segment in the Focus mainhead and every tile
 footer gains `docs`; selecting it replaces the pane with a reader for the plan the session wrote
-in plan mode and for every `.md` under the session's directory. The reader is read-only and
-leaves room in its bar for the plan-approval controls a later feature adds. Its find bar is kb:spec/reader-find.
+in plan mode and for every `.md` under the session's directory. The reader is read-only and its find bar is kb:spec/reader-find.
 
 ## Locating the plan
 
@@ -48,10 +47,10 @@ nothing it serves (kb:adr/issue-preview-is-the-leak-check).
 ## The reader
 
 Bar (plan badge, basename, absolute path, freshness cue, pop-out link, nav toggle), sanitized GFM
-body on the `--well` ground, and a right-hand nav: the plan slot pinned on top, a filterable tree
+body and a right-hand nav: the plan slot pinned on top, a filterable tree
 of files with folders collapsed and counted, and an outline of the open file's headings with
 scroll-spy. A long file or folder name ends in an ellipsis inside the panel, with its path on
-hover; a long heading or files-header path wraps. The nav toggle is one button, last in the
+hover. The nav toggle is one button, last in the
 bar and pinned to its right edge in every state (kb:adr/reader-nav-toggle-is-one-fixed-button); it is never hidden, reports the nav on
 `aria-expanded`, and is the bar's only auto margin, so nothing re-aligns when the freshness cue
 comes and goes. A user-initiated open greys the reading area out and names the file on the status
@@ -66,9 +65,9 @@ follow the dashboard theme and re-render when it changes, and each enlarges into
 zoom and pan. The sanitized output enters the DOM as a fragment, never through `innerHTML`. A leading YAML
 frontmatter block renders as a key/value table above the body (raw when not flat) and never
 reaches the outline. The last open file, cleared dots, expanded
-folders and the Files and Outline folds are remembered per session in the browser; the pop-out
+folders, the Files and Outline folds and each document's reading position are remembered per session in the browser. A position applies on any open with the loading cue and again after the diagram pass, never on a silent re-fetch. The pop-out
 (`/doc.html`) is a second page sharing the component, the socket client and that memory live — a
-change in one window shows in the other without a switch or reload. The pop-out's status line shows `connecting…`
+change in one window shows in the other without a switch or reload, except that a `storage` event never scrolls a reader already showing. It reloads after an update restart. The pop-out's status line shows `connecting…`
 until its first `hello`, the unreachable text after a lost connection, and its theme follows
 the dashboard's live broadcasts (kb:adr/connection-banner-only-after-first-hello). Compact in
 a tile; nav collapsed at 3×2. Works on a dead session with the plan slot — and the nav's plan

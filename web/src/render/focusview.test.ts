@@ -58,6 +58,13 @@ describe("renderSizenote — REQ-15's '<cols>×<rows> · one live client · geom
     expect(el.textContent).toBe("210×52 · one live client · geometry owned by this pane");
   });
 
+  it("a reserving null-geometry call stays visible and holds exactly one NBSP (measured non-bug guard)", () => {
+    const el = fakeElement();
+    renderSizenote(el, null, { reserving: true });
+    expect(el.hidden).toBe(false);
+    expect(el.textContent).toBe("\u00a0");
+  });
+
   it("re-shows a previously-hidden line once geometry arrives", () => {
     const el = fakeElement();
     renderSizenote(el, null);

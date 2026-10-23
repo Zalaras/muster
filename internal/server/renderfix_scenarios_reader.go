@@ -33,10 +33,11 @@ func init() {
 		// A tree taller than the nav: twenty files and a thirty-heading document.
 		renderScenario{"reader-docs-large", driveReaderDocsLarge},
 		renderScenario{"reader-docs-large-tiles-2x2", withPrefs(driveReaderDocsLarge, map[string]any{"view": "tiles"})},
+		renderScenario{"reader-docs-large-pair", driveReaderPair([2]string{"reader-large-a", "reader-large-b"}, readerLargeDocs)},
 		// The mermaid documents, on their own checkout: `unsafe.md` exists in both trees.
 		renderScenario{"reader-diagrams", driveReaderDiagrams},
 		renderScenario{"reader-diagrams-tiles-3x2", withPrefs(driveReaderDiagrams, map[string]any{"view": "tiles", "density": "3x2"})},
-		renderScenario{"reader-diagrams-pair-2x2", withPrefs(driveReaderDiagramsPair, map[string]any{"view": "tiles"})},
+		renderScenario{"reader-diagrams-pair-2x2", withPrefs(driveReaderPair([2]string{"reader-a", "reader-b"}, readerMermaidDocs), map[string]any{"view": "tiles"})},
 	)
 }
 
@@ -110,15 +111,15 @@ func driveReaderDiagrams(ctx context.Context, r *renderRig) error {
 	return err
 }
 
-// driveReaderDiagramsPair is two mermaid sessions, `reader-a` and `reader-b`, each on its own
-// checkout — the two-tile-readers state (mermaid E9).
-func driveReaderDiagramsPair(ctx context.Context, r *renderRig) error {
-	for _, name := range []string{"reader-a", "reader-b"} {
-		if _, err := driveReaderSession(ctx, r, name, name, readerMermaidDocs()); err != nil {
-			return err
+func driveReaderPair(names [2]string, docs func() []findDoc) func(ctx context.Context, r *renderRig) error {
+	return func(ctx context.Context, r *renderRig) error {
+		for _, name := range names {
+			if _, err := driveReaderSession(ctx, r, name, name, docs()); err != nil {
+				return err
+			}
 		}
+		return nil
 	}
-	return nil
 }
 
 // driveReaderSession writes docs into a plain directory named dirName and binds one idle

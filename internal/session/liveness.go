@@ -11,25 +11,30 @@ import (
 
 // Start begins the liveness poll loop. Call once, after LoadAll.
 func (m *Manager) Start() {
-	ctx, cancel := context.WithCancel(context.Background())
-	m.cancel = cancel
+	m.spawn(m.pollLoop)
+}
+
+func (m *Manager) spawn(run func(ctx context.Context)) {
+	m.spawnMu.Lock()
+	defer m.spawnMu.Unlock()
+	if m.stopped.Load() {
+		return
+	}
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
-		m.pollLoop(ctx)
+		run(m.runCtx)
 	}()
 }
 
-// Stop cancels the poll loop and waits for it to exit, giving up when ctx is done. Also
-// flags checkOneLiveness's opportunistic callers (see the stopped field doc) to stop
-// persisting — set first, so it takes effect for a Nudge racing this call regardless of
-// how long the poll-loop wait below takes.
 func (m *Manager) Stop(ctx context.Context) {
+	m.spawnMu.Lock()
 	m.stopped.Store(true)
+	m.spawnMu.Unlock()
 	if m.cancel != nil {
 		m.cancel()
 	}
-	boundedwait.Wait(ctx, &m.wg, m.log, "session manager liveness poll did not stop before shutdown deadline")
+	boundedwait.Wait(ctx, &m.wg, m.log, "session manager background loops did not stop before shutdown deadline")
 }
 
 // Snapshot returns id's last captured pane screen, if any (kb:anchor/sessions.pane's
@@ -143,17 +148,50 @@ func (m *Manager) checkLiveness(ctx context.Context) {
 // next poll tick (kb:anchor/terminal.ws: a PTY EOF should promptly flip alive:false — "the daemon
 // also nudges the liveness poll" — rather than lagging up to the ~5s interval).
 func (m *Manager) Nudge(ctx context.Context, sessionID int64) {
-	m.mu.Lock()
-	sess, ok := m.sessions[sessionID]
-	var target string
-	if ok {
-		target = sess.TmuxTarget
-	}
-	m.mu.Unlock()
-	if !ok || target == "" {
+	target, ok := m.tmuxTargetOf(sessionID)
+	if !ok {
 		return
 	}
 	m.checkOneLiveness(ctx, sessionID, target, false)
+}
+
+func (m *Manager) tmuxTargetOf(id int64) (target string, ok bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	sess, exists := m.sessions[id]
+	if !exists || sess.TmuxTarget == "" {
+		return "", false
+	}
+	return sess.TmuxTarget, true
+}
+
+func (m *Manager) watchPaneAfterSessionEnd(ctx context.Context, id int64) {
+	ticker := time.NewTicker(sessionEndRecheckEvery)
+	defer ticker.Stop()
+	deadline := time.NewTimer(sessionEndRecheckFor)
+	defer deadline.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-deadline.C:
+			return
+		case <-ticker.C:
+		}
+		if m.stopped.Load() {
+			return
+		}
+		target, ok := m.tmuxTargetOf(id)
+		if !ok {
+			return
+		}
+		checkCtx, cancel := context.WithTimeout(ctx, endRemoveTmuxTimeout)
+		m.checkOneLiveness(checkCtx, id, target, false)
+		cancel()
+		if sess, ok := m.Get(id); !ok || !sess.Alive {
+			return
+		}
+	}
 }
 
 // checkOneLiveness is checkLiveness/Nudge/End's shared body: check one target's pane,

@@ -119,6 +119,9 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 		return nil, fmt.Errorf("persisting session %d: %w", musterSessionID, err)
 	}
 	m.nudgeRepoPoll(dirChanged)
+	if input.Kind == claudecode.KindDeathHint {
+		m.spawn(func(runCtx context.Context) { m.watchPaneAfterSessionEnd(runCtx, musterSessionID) })
+	}
 	return *result, nil
 }
 

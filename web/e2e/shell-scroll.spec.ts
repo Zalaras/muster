@@ -1,11 +1,13 @@
-import { expect, type Locator, type Page, test } from "./helpers/fixtures";
-import { launchSession, scratchDirectory } from "./helpers/session";
+import { expect, type Locator, type Page, settleFor, test } from "./helpers/fixtures";
+import { buildMarkdownFixtureTree } from "./helpers/reader";
+import { launchSession, scratchDirectory, sessionCard } from "./helpers/session";
 import { mainheadSurfaceButton, shellSurfaceRegion, shellTmuxTarget } from "./helpers/shell";
 import {
   lastNonBlankLine,
   tmuxCapturePane,
   tmuxMouseOption,
   waitForAnimationFrame,
+  WsScrollRecorder,
 } from "./helpers/shellinput";
 
 // Plan terminal-fixes-cleanup — REQ-7 through REQ-12, INV-2. Fixture plan: `daemon` per
@@ -226,6 +228,237 @@ test("a slow trackpad-shaped wheel gesture — many sub-line deltas, one flush p
       })
       .not.toBe("0");
   } finally {
+    await cleanup();
+  }
+});
+
+/** xterm's own vertical scrollbar on a surface: the slider's height against its track's.
+ * Equal means the terminal has no scroll range of its own (tmux owns scrollback, xterm's
+ * `scrollback` is 0); a shorter slider is a range the first wheel-up gets eaten by. */
+async function xtermScrollbarHeights(
+  region: Locator,
+): Promise<{ track: number; slider: number } | null> {
+  return region.evaluate((el) => {
+    const track = el.querySelector(".scrollbar.vertical");
+    const slider = track?.querySelector(".slider");
+    if (!track || !slider) return null;
+    return {
+      track: track.getBoundingClientRect().height,
+      slider: slider.getBoundingClientRect().height,
+    };
+  });
+}
+
+test("after a flick that clamps, the very first reversed wheel notch scrolls the shell at once, and xterm itself holds no scroll range (REQ-8)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    // 690 tall: the fit lands on 23 rows, one short of the 24 xterm is built for, which is
+    // the shape that left the shell a one-row scroll range (at 1280x720 it fits 24 rows
+    // and the defect never showed).
+    await page.setViewportSize({ width: 1280, height: 690 });
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "shell-scroll-reverse",
+    });
+    await mainheadSurfaceButton(page, "shell").click();
+    const shellRegion = shellSurfaceRegion(page, "shell-scroll-reverse");
+    await expect(shellRegion).toBeVisible({ timeout: 15_000 });
+    await fillShellHistory(shellRegion);
+
+    // The cause, pinned directly: the slider fills its track, so xterm has nothing to scroll
+    // by itself and cannot consume a wheel event that belongs to tmux.
+    await expect
+      .poll(
+        async () => {
+          const bars = await xtermScrollbarHeights(shellRegion);
+          return bars !== null && bars.track > 0 && bars.slider === bars.track;
+        },
+        {
+          message: "the shell xterm's scrollbar slider must fill its track (no scroll range)",
+        },
+      )
+      .toBe(true);
+
+    const target = shellTmuxTarget(session.id);
+    // The flick: a hard downward wheel at the live bottom, clamped away entirely.
+    await wheelOverRegion(page, shellRegion, 10_000);
+    // One flush per gesture: the reversed notch must land in a later frame, as a real flick
+    // and a real reversal do, or the two would simply sum.
+    await waitForAnimationFrame(page);
+    await expect
+      .poll(() => daemon.tmuxDisplay(target, "#{pane_in_mode}"), {
+        message: "the clamped flick leaves the pane out of copy-mode",
+      })
+      .toBe("0");
+
+    // One reversed notch: this single event must reach tmux. Once `scroll_position` reads 5
+    // a second notch has not been needed to get here.
+    await wheelOverRegion(page, shellRegion, -100);
+    await expect
+      .poll(() => daemon.tmuxDisplay(target, "#{pane_in_mode}"), {
+        message: "the first reversed notch after a flick must enter copy-mode",
+      })
+      .toBe("1");
+    await expect
+      .poll(() => daemon.tmuxDisplay(target, "#{scroll_position}"), {
+        message: "one notch is five lines",
+      })
+      .toBe("5");
+    // A scrollbar that is gone reads null here and fails: no undefined === undefined pass.
+    const bars = await xtermScrollbarHeights(shellRegion);
+    expect(bars).not.toBeNull();
+    expect(bars?.track).toBeGreaterThan(0);
+    expect(bars?.slider).toBe(bars?.track);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a background shell keeps its fitted tmux window size while docs is showing and across a switch to another session and back (REQ-8)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  const other = await scratchDirectory();
+  try {
+    await buildMarkdownFixtureTree(dir);
+    await page.goto(daemon.dashboardUrl);
+    const a = await launchSession(page, daemon, { directory: dir, title: "shell-bg-size-a" });
+    await launchSession(page, daemon, { directory: other.path, title: "shell-bg-size-b" });
+    await sessionCard(page, "shell-bg-size-a").click();
+    await mainheadSurfaceButton(page, "shell").click();
+    await expect(shellSurfaceRegion(page, "shell-bg-size-a")).toBeVisible({ timeout: 15_000 });
+
+    // The Focus fit lands the shell's tmux window on the pane's real size, not the 80
+    // columns an unfitted terminal would report; read it once fitted.
+    const target = shellTmuxTarget(a.id);
+    const windowSize = async () =>
+      `${await daemon.tmuxDisplay(target, "#{window_width}")}x${await daemon.tmuxDisplay(
+        target,
+        "#{window_height}",
+      )}`;
+    await expect
+      .poll(async () => (await windowSize()).split("x")[0], {
+        message: "waiting for the Focus fit to resize the shell window past the default 80 columns",
+      })
+      .not.toBe("80");
+    const fitted = await windowSize();
+
+    // Docs replaces the shell on A; the shell's terminal is no longer mounted anywhere.
+    await mainheadSurfaceButton(page, "docs").click();
+    await expect(mainheadSurfaceButton(page, "docs")).toHaveAttribute("aria-pressed", "true", {
+      timeout: 15_000,
+    });
+    await expect(shellSurfaceRegion(page, "shell-bg-size-a")).toHaveCount(0);
+    expect(await windowSize()).toBe(fitted);
+
+    // Away to B and back to A: the shell stays unmounted, docs still selected on A.
+    await sessionCard(page, "shell-bg-size-b").click();
+    await expect(sessionCard(page, "shell-bg-size-b")).toHaveAttribute("aria-current", "true");
+    await sessionCard(page, "shell-bg-size-a").click();
+    await expect(sessionCard(page, "shell-bg-size-a")).toHaveAttribute("aria-current", "true");
+    await expect(mainheadSurfaceButton(page, "docs")).toHaveAttribute("aria-pressed", "true");
+    await expect(shellSurfaceRegion(page, "shell-bg-size-a")).toHaveCount(0);
+
+    // A debounced resize from the unmounted shell would land after a short hold, never
+    // before it; the defect read 80x5 here (the constructor's geometry, clamped).
+    await settleFor(page, 1500);
+    expect(await windowSize()).toBe(fitted);
+  } finally {
+    await other.cleanup();
+    await cleanup();
+  }
+});
+
+test("a shell built while docs was showing, then reselected after a switch to another session and back, has no xterm scroll range and its first flick and first reversed notch reach tmux (REQ-8)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  const other = await scratchDirectory();
+  try {
+    await buildMarkdownFixtureTree(dir);
+    const scrolls = new WsScrollRecorder(page, "/ws/shell/");
+    await page.goto(daemon.dashboardUrl);
+    const a = await launchSession(page, daemon, { directory: dir, title: "shell-bg-scroll-a" });
+    await launchSession(page, daemon, { directory: other.path, title: "shell-bg-scroll-b" });
+    await sessionCard(page, "shell-bg-scroll-a").click();
+    await mainheadSurfaceButton(page, "shell").click();
+    const shellRegion = shellSurfaceRegion(page, "shell-bg-scroll-a");
+    await expect(shellRegion).toBeVisible({ timeout: 15_000 });
+    await fillShellHistory(shellRegion);
+
+    // Docs replaces the shell, then away to B and back to A: the shell stays unmounted.
+    await mainheadSurfaceButton(page, "docs").click();
+    await expect(mainheadSurfaceButton(page, "docs")).toHaveAttribute("aria-pressed", "true", {
+      timeout: 15_000,
+    });
+    await expect(shellRegion).toHaveCount(0);
+    await sessionCard(page, "shell-bg-scroll-b").click();
+    await expect(sessionCard(page, "shell-bg-scroll-b")).toHaveAttribute("aria-current", "true");
+    await sessionCard(page, "shell-bg-scroll-a").click();
+    await expect(sessionCard(page, "shell-bg-scroll-a")).toHaveAttribute("aria-current", "true");
+    await expect(mainheadSurfaceButton(page, "docs")).toHaveAttribute("aria-pressed", "true");
+
+    // Select Shell again; no new output is produced from here on.
+    await mainheadSurfaceButton(page, "shell").click();
+    await expect(shellRegion).toBeVisible({ timeout: 15_000 });
+    await expect(shellRegion).toContainText("hist-line-200");
+
+    // The cause, pinned directly: the rebuilt xterm's slider fills its track. A surface built
+    // against a detached body was left with a 2-row range (slider 20 of track 48).
+    await expect
+      .poll(
+        async () => {
+          const bars = await xtermScrollbarHeights(shellRegion);
+          return bars !== null && bars.track > 0 && bars.slider === bars.track;
+        },
+        {
+          message: "the reselected shell xterm's scrollbar slider must fill its track",
+        },
+      )
+      .toBe(true);
+
+    const target = shellTmuxTarget(a.id);
+    // The flick, clamped at the live bottom, still reaches the daemon as one scroll frame.
+    await wheelOverRegion(page, shellRegion, 10_000);
+    await waitForAnimationFrame(page);
+    await expect
+      .poll(() => scrolls.lines, { message: "the flick's scroll frame must reach the daemon" })
+      .toEqual([-200]);
+    await expect
+      .poll(() => daemon.tmuxDisplay(target, "#{pane_in_mode}"), {
+        message: "the clamped flick leaves the pane out of copy-mode",
+      })
+      .toBe("0");
+
+    // The first reversed notch: its frame and tmux's copy-mode, with no second notch needed.
+    await wheelOverRegion(page, shellRegion, -100);
+    await expect
+      .poll(() => scrolls.lines, {
+        message: "the first reversed notch's frame follows the flick's",
+      })
+      .toEqual([-200, 5]);
+    await expect
+      .poll(() => daemon.tmuxDisplay(target, "#{pane_in_mode}"), {
+        message: "the first reversed notch after the reselect must enter copy-mode",
+      })
+      .toBe("1");
+    await expect
+      .poll(() => daemon.tmuxDisplay(target, "#{scroll_position}"), {
+        message: "one notch is five lines",
+      })
+      .toBe("5");
+    const bars = await xtermScrollbarHeights(shellRegion);
+    expect(bars).not.toBeNull();
+    expect(bars?.track).toBeGreaterThan(0);
+    expect(bars?.slider).toBe(bars?.track);
+  } finally {
+    await other.cleanup();
     await cleanup();
   }
 });

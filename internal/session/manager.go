@@ -61,6 +61,11 @@ var (
 // defaultPollInterval is kb:anchor/state.liveness's "~5s" liveness poll.
 const defaultPollInterval = 5 * time.Second
 
+const (
+	sessionEndRecheckEvery = 200 * time.Millisecond
+	sessionEndRecheckFor   = 3 * time.Second
+)
+
 // endRemoveTmuxTimeout bounds every tmux invocation endLocked/removeLocked/
 // RepairOwnedSession make: all three run under a per-session-id lock acquired by
 // End/Remove/Resume (kb:adr/actions-serialized-per-session), so a wedged tmux there no
@@ -212,8 +217,10 @@ type Manager struct {
 	// needs to land after every existing one, not at a contiguous next value.
 	nextRailPos int64
 
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
+	runCtx  context.Context
+	cancel  context.CancelFunc
+	wg      sync.WaitGroup
+	spawnMu sync.Mutex
 
 	// stopped is set by Stop and read only by checkOneLiveness's opportunistic callers
 	// (checkLiveness's poll tick, Nudge) — never by End's. terminal.go's PTY-EOF Nudge
@@ -266,7 +273,10 @@ func NewManager(cfg Config) *Manager {
 	if interval <= 0 {
 		interval = defaultPollInterval
 	}
+	runCtx, cancel := context.WithCancel(context.Background())
 	return &Manager{
+		runCtx:           runCtx,
+		cancel:           cancel,
 		store:            cfg.Store,
 		log:              cfg.Logger,
 		paneChecker:      cfg.PaneChecker,

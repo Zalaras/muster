@@ -17,7 +17,7 @@ import {
 import { requireElement } from "../dom";
 import { renderActionError } from "../render/actionerror";
 import { initConfirmDialogs, type ConfirmDialogs } from "../render/confirm";
-import type { ApiResult } from "../api/http";
+import { type ApiResult, networkError } from "../api/http";
 import type { BatchResult } from "../protocol/batch";
 import {
   END_CONFIRM_LABEL,
@@ -84,6 +84,7 @@ export function initActions(app: App): ActionsHandle {
   const previousAlive = new Map<number, boolean>();
   const actionErrorEl = requireElement<HTMLElement>("#action-error");
   const inFlight = new Set<number>();
+  let shownMessage: string | null = null;
 
   function track<T>(ids: readonly number[], request: Promise<T>): Promise<T> {
     for (const id of ids) inFlight.add(id);
@@ -95,8 +96,15 @@ export function initActions(app: App): ActionsHandle {
   /** The one path that touches `#action-error` — a failed Stop/Resume/Remove
    * writes its message, the next successful one of the three clears it. */
   function showActionError(message: string | null): void {
+    shownMessage = message;
     renderActionError(actionErrorEl, message);
   }
+
+  // The line says the daemon was unreachable, which stops being true at the next hello; a
+  // refusal or a partial batch report stays until an action replaces it.
+  app.on("helloArrived", () => {
+    if (shownMessage === networkError.message) showActionError(null);
+  });
 
   function ensurePaneFetch(id: number): void {
     if (deadPaneCache.has(id)) return;

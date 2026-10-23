@@ -7,6 +7,7 @@ export interface ReaderMemory {
   expanded: readonly string[];
   filesFolded: boolean;
   outlineFolded: boolean;
+  scroll: Readonly<Record<string, number>>;
 }
 
 const EMPTY_MEMORY: ReaderMemory = {
@@ -15,6 +16,7 @@ const EMPTY_MEMORY: ReaderMemory = {
   expanded: [],
   filesFolded: false,
   outlineFolded: false,
+  scroll: {},
 };
 
 function keyFor(sessionId: number): string {
@@ -24,6 +26,11 @@ function keyFor(sessionId: number): string {
 function isClearedAtShape(value: unknown): value is Record<string, string> {
   if (!isRecord(value)) return false;
   return Object.values(value).every((v) => typeof v === "string");
+}
+
+function isScrollShape(value: unknown): value is Record<string, number> {
+  if (!isRecord(value)) return false;
+  return Object.values(value).every((v) => typeof v === "number" && Number.isFinite(v));
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -41,6 +48,7 @@ function parseMemory(value: unknown): ReaderMemory | null {
     expanded,
     filesFolded: value["filesFolded"] === true,
     outlineFolded: value["outlineFolded"] === true,
+    scroll: isScrollShape(value["scroll"]) ? value["scroll"] : {},
   };
 }
 
@@ -107,6 +115,19 @@ export function withFilesFolded(memory: ReaderMemory, folded: boolean): ReaderMe
 
 export function withOutlineFolded(memory: ReaderMemory, folded: boolean): ReaderMemory {
   return { ...memory, outlineFolded: folded };
+}
+
+export function withScroll(memory: ReaderMemory, path: string, top: number): ReaderMemory {
+  return { ...memory, scroll: { ...memory.scroll, [path]: top } };
+}
+
+export function withScrollPruned(
+  memory: ReaderMemory,
+  listedPaths: readonly string[],
+): ReaderMemory {
+  const listed = new Set(listedPaths);
+  const kept = Object.entries(memory.scroll).filter(([path]) => listed.has(path));
+  return { ...memory, scroll: Object.fromEntries(kept) };
 }
 
 export function isMemoryWrite(

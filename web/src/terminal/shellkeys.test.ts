@@ -157,4 +157,15 @@ describe("accumulateWheelDelta — sub-line wheel accumulation across frames (re
     expect(second.lines).toBe(50);
     expect(second.accumDeltaY).toBe(0);
   });
+
+  it.each([
+    ["a clamped downward flick", 10000, -100, 5],
+    ["a clamped upward flick", -5000, 100, -5],
+  ])(
+    "a wheel the other way after %s scrolls the new direction at once",
+    (_name, flick, reverse, lines) => {
+      const carried = accumulateWheelDelta(0, flick).accumDeltaY;
+      expect(accumulateWheelDelta(carried, reverse).lines).toBe(lines);
+    },
+  );
 });

@@ -1643,8 +1643,8 @@ Frames:
   the dashboard restyles nothing inside a pane; `scrollback: 0`.
 - **Binary client→server**: raw input bytes (keystrokes/paste).
 - **Text frames**: JSON control, client→server only (no server→client text frames):
-  `{"type":"resize","cols":210,"rows":52}` — client sends one immediately after open
-  (the attach PTY starts at 80×24 until it arrives), then debounced ~100 ms; the daemon
+  `{"type":"resize","cols":210,"rows":52}` — client sends one on open once the surface has a layout
+  (a shell kept behind Docs, never mounted, sends none until it is mounted; the attach PTY starts at 80×24 until it arrives), then debounced ~100 ms; the daemon
   applies `pty.Setsize` **then** `tmux resize-window`, in that order, never the
   pane-level primitive (FINDINGS §7(d)). `cols` clamped to [20, 500], `rows` to
   [5, 300]; an unparseable or unknown text frame is ignored and logged, never fatal.
@@ -1852,9 +1852,9 @@ The state machine and these guards get exhaustive table-driven unit tests (conve
 ### Liveness
 
 `alive` is decided by **tmux pane existence on the muster socket** — polled (~5 s) and
-event-nudged (PTY EOF, End). A pane is believed gone only when the tmux server
+event-nudged (PTY EOF, End, and a non-clear `SessionEnd`'s bounded pane re-check — about every 200 ms for up to 3 s). A pane is believed gone only when the tmux server
 itself is reachable: a server-level failure is transient and leaves every session as it was,
-rather than reading as N simultaneous deaths. `SessionEnd` never writes `alive`
+rather than reading as N simultaneous deaths. `SessionEnd` itself never writes `alive`
 (`kill -9` emits nothing; `reason` can't distinguish crash from clean exit). A dead
 session keeps its last `state`, greys out, sorts last, and offers Resume/Remove.
 

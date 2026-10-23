@@ -92,7 +92,7 @@ initRail(app, { actions, surfaces, groups, railMenu });
 // 12. connection — banner text/visibility, time-based as well as status-driven
 //     (initConnection, registered further down once `updateRestart` exists to supply it)
 const views = initViews(app, { focus, tiles });
-initNotes(app);
+initNotes(app, { surfaces });
 initTheme(app);
 const launch = initLaunch(app, { focus, surfaces });
 initSettings(app);

@@ -26,6 +26,8 @@ import {
   withFolderExpanded,
   withOutlineFolded,
   withOpened,
+  withScroll,
+  withScrollPruned,
   type ReaderMemory,
 } from "../reader/memory";
 import { classifyDocChanged, deriveNotice, UNKNOWN_SESSION_TEXT } from "../reader/notice";
@@ -54,6 +56,7 @@ import {
 } from "../render/reader";
 import { getSurfaceState, type SurfaceSwitchState } from "../terminal/surfaceswitch";
 import { initReaderFind, type ReaderFindHandle } from "./readerfind";
+import { initReaderScroll, type ReaderScrollHandle } from "./readerscroll";
 
 // `tiles` and `surfaces` are both already constructed by the time `reader` is (main.ts's
 // init order), so both fields below are real values passed straight through — `tilesLive`
@@ -102,6 +105,7 @@ class ReaderInstance {
   private compact = false;
   private readonly refs: ReaderRefs;
   private readonly find: ReaderFindHandle;
+  private readonly scroll: ReaderScrollHandle;
   private readonly requestRender: () => void;
   private memory: ReaderMemory;
   private listing: ReaderListing | null = null;
@@ -180,6 +184,9 @@ class ReaderInstance {
         requestRender: () => this.requestRender(),
       },
     );
+    this.scroll = initReaderScroll(this.refs.body, {
+      save: (path, top) => this.commitMemory((m) => withScroll(m, path, top)),
+    });
     // `render()` (called immediately after construction in both the mount and
     // reconcile paths — see `initReader`) sets the `compact` class from its own
     // parameter; nothing here needs to guess a value that will be overwritten before
@@ -209,6 +216,7 @@ class ReaderInstance {
     this.disposed = true;
     this.disposeScrollSpy?.();
     this.find.dispose();
+    this.scroll.dispose();
     this.refs.root.remove();
   }
 
@@ -243,6 +251,7 @@ class ReaderInstance {
       return;
     }
     this.listing = result.value;
+    this.pruneScrollMemory(result.value);
     if (result.value.plan?.writtenAt)
       this.writtenAt.set(result.value.plan.path, result.value.plan.writtenAt);
     for (const file of result.value.files) {
@@ -251,6 +260,13 @@ class ReaderInstance {
     }
     this.decideInitialOpen(result.value);
     this.requestRender();
+  }
+
+  private pruneScrollMemory(listing: ReaderListing): void {
+    const listed = listing.files.map((f) => `${listing.directory}/${f.path}`);
+    if (listing.plan) listed.push(listing.plan.path);
+    if (this.standalonePath) listed.push(this.standalonePath);
+    this.commitMemory((m) => withScrollPruned(m, listed));
   }
 
   /** Memory wins when set; otherwise the plan opens iff it resolves; otherwise nothing
@@ -316,6 +332,7 @@ class ReaderInstance {
     this.currentHeadingId = outline[0]?.id ?? null;
     this.bodyRendered = true;
     setReaderBody(this.refs, { kind: "fragment", fragment, frontmatter });
+    if (opts.showLoading) this.scroll.opened(absPath, this.memory.scroll[absPath] ?? 0);
     // Runs after the fragment is in the DOM and `renderMarkdown` has already assigned
     // heading ids — a no-op for a document with no mermaid fence. Never awaited here: the
     // fenced source stays visible while it's in flight, and a superseded open is caught by
@@ -433,7 +450,9 @@ class ReaderInstance {
   }
 
   private refindAfterDiagrams(seq: number): void {
-    if (!this.disposed && seq === this.fetchSeq) this.find.diagramsSettled();
+    if (this.disposed || seq !== this.fetchSeq) return;
+    this.scroll.diagramsSettled();
+    this.find.diagramsSettled();
   }
 
   /** A plan that appears after mount (ExitPlanMode's `sessionUpsert`) opens

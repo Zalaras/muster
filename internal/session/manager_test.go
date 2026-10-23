@@ -937,6 +937,160 @@ func TestApply_SessionEndAfterStopKeepsResumeChance(t *testing.T) {
 	assert.Equal(t, 0, report.Swept)
 }
 
+func (f *fakePaneChecker) callCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.calls
+}
+
+// TestApply_NonClearSessionEndEndsSessionPromptlyOnceThePaneDies covers REQ-1 (e1): a
+// non-clear SessionEnd applied while its pane still exists (the hook beats the process
+// exit) arms a bounded re-check, so the card flips alive:false within a second of the pane
+// dying instead of waiting for the next poll tick (held at an hour here so only the
+// re-check can end it).
+func TestApply_NonClearSessionEndEndsSessionPromptlyOnceThePaneDies(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+	pc := newFakePaneChecker()
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, pc, rec.record, withPollInterval(time.Hour))
+	sess := launchedSession(t, mgr, "muster-1:@1")
+	pc.setExists("muster-1:@1", true)
+
+	_, err := mgr.Apply(ctx, sess.ID, "c1", nil, claudecode.StateInput{Kind: claudecode.KindDeathHint}, true)
+	require.NoError(t, err)
+	got, ok := mgr.Get(sess.ID)
+	require.True(t, ok)
+	require.True(t, got.Alive, "the death hint alone is not a liveness verdict")
+
+	pc.setExists("muster-1:@1", false)
+
+	// The in-memory flip Manager.Get sees is made before the store write and the broadcast
+	// (the write ticket's order), so each observable is polled inside the same 1 s bound.
+	require.Eventually(t, func() bool {
+		persisted, err := st.GetSession(ctx, sess.ID)
+		if err != nil || persisted.Alive {
+			return false
+		}
+		all := rec.all()
+		return len(all) > 0 && !all[len(all)-1].Alive
+	}, 1*time.Second, 20*time.Millisecond, "the pane died; the persisted row and the sessionUpsert must carry alive:false without a poll tick")
+
+	got, ok = mgr.Get(sess.ID)
+	require.True(t, ok)
+	assert.False(t, got.Alive)
+	assert.NotNil(t, got.EndedAt)
+}
+
+// TestApply_SessionEndRecheckEndsOnceTheSessionReadsDead pins the watch's exit on a dead
+// reading: after the flip no further pane checks run, so the loop does not outlive the
+// session it was watching.
+func TestApply_SessionEndRecheckEndsOnceTheSessionReadsDead(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+	pc := newFakePaneChecker()
+	mgr := newTestManager(t, st, pc, nil, withPollInterval(time.Hour))
+	sess := launchedSession(t, mgr, "muster-4:@1")
+	pc.setExists("muster-4:@1", true)
+
+	_, err := mgr.Apply(ctx, sess.ID, "c1", nil, claudecode.StateInput{Kind: claudecode.KindDeathHint}, true)
+	require.NoError(t, err)
+	pc.setExists("muster-4:@1", false)
+	require.Eventually(t, func() bool {
+		got, ok := mgr.Get(sess.ID)
+		return ok && !got.Alive
+	}, 1*time.Second, 20*time.Millisecond)
+
+	time.Sleep(2 * sessionEndRecheckEvery) // let any in-flight pass finish
+	settled := pc.callCount()
+	assert.Never(t, func() bool { return pc.callCount() != settled },
+		3*sessionEndRecheckEvery, 20*time.Millisecond, "the watch must stop checking once the session reads dead")
+}
+
+// TestApply_SessionEndRecheckExpiresAtTheCapWithThePaneAlive pins the cap: a non-clear
+// SessionEnd whose pane never dies (edge case 2) is re-checked for sessionEndRecheckFor and
+// then left alone, and the death hint alone never ends the session.
+func TestApply_SessionEndRecheckExpiresAtTheCapWithThePaneAlive(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+	pc := newFakePaneChecker()
+	mgr := newTestManager(t, st, pc, nil, withPollInterval(time.Hour))
+	sess := launchedSession(t, mgr, "muster-5:@1")
+	pc.setExists("muster-5:@1", true)
+	before := pc.callCount()
+
+	_, err := mgr.Apply(ctx, sess.ID, "c1", nil, claudecode.StateInput{Kind: claudecode.KindDeathHint}, true)
+	require.NoError(t, err)
+
+	time.Sleep(sessionEndRecheckFor + 2*sessionEndRecheckEvery)
+	settled := pc.callCount()
+	assert.Greater(t, settled-before, 3, "the watch re-checked the live pane while armed")
+	assert.Never(t, func() bool { return pc.callCount() != settled },
+		3*sessionEndRecheckEvery, 20*time.Millisecond, "the watch must stop at the cap")
+	got, ok := mgr.Get(sess.ID)
+	require.True(t, ok)
+	assert.True(t, got.Alive, "a live pane keeps the session alive past the cap")
+}
+
+// TestApply_ClearSessionEndStartsNoPaneRecheck covers REQ-2's first half: a clear
+// SessionEnd (the old conversation ending in a live pane) arms no watch, so the pane
+// check count stays put across several re-check cadences and a pane that then dies is left
+// to the ordinary poll. Passes today on purpose: it guards behaviour the fix must keep.
+func TestApply_ClearSessionEndStartsNoPaneRecheck(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+	pc := newFakePaneChecker()
+	mgr := newTestManager(t, st, pc, nil, withPollInterval(time.Hour))
+	sess := launchedSession(t, mgr, "muster-2:@1")
+	pc.setExists("muster-2:@1", true)
+	before := pc.callCount()
+
+	_, err := mgr.Apply(ctx, sess.ID, "c1", nil, claudecode.StateInput{Kind: claudecode.KindClearDeathHint}, true)
+	require.NoError(t, err)
+	pc.setExists("muster-2:@1", false)
+
+	assert.Never(t, func() bool {
+		got, ok := mgr.Get(sess.ID)
+		return !ok || !got.Alive
+	}, 700*time.Millisecond, 20*time.Millisecond, "a clear SessionEnd must not start a re-check")
+	assert.Equal(t, before, pc.callCount(), "no pane check ran")
+}
+
+// TestApply_SessionEndRecheckDoesNotPersistAfterStop covers REQ-2's second half: a watch
+// armed by a non-clear SessionEnd that finds the pane gone after Manager.Stop has begun
+// hits checkOneLiveness's stopped guard and persists nothing, mirroring
+// TestCheckOneLiveness_StoppedGuard_PeriodicPollAndNudgeSkipPersistAfterStop for the
+// re-check path. May pass today (nothing re-checks yet); it guards the stopped guard once
+// the re-check exists.
+func TestApply_SessionEndRecheckDoesNotPersistAfterStop(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+	pc := newFakePaneChecker()
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, pc, rec.record, withPollInterval(time.Hour))
+	sess := launchedSession(t, mgr, "muster-3:@1")
+	pc.setExists("muster-3:@1", true)
+
+	_, err := mgr.Apply(ctx, sess.ID, "c1", nil, claudecode.StateInput{Kind: claudecode.KindDeathHint}, true)
+	require.NoError(t, err)
+
+	stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	mgr.Stop(stopCtx)
+	pc.setExists("muster-3:@1", false)
+	before := len(rec.all())
+
+	assert.Never(t, func() bool {
+		got, ok := mgr.Get(sess.ID)
+		return !ok || !got.Alive
+	}, 700*time.Millisecond, 20*time.Millisecond, "a re-check after Stop must not flip alive")
+	assert.Len(t, rec.all(), before, "no persist means no broadcast either")
+
+	persisted, err := st.GetSession(ctx, sess.ID)
+	require.NoError(t, err)
+	assert.True(t, persisted.Alive, "the store row must be untouched by a post-Stop re-check")
+}
+
 // TestApplyStatus_PersistsAndBroadcastsOnAChange covers REQ-4's happy path: a status
 // post carrying new title/model/context data persists the row and broadcasts once.
 func TestApplyStatus_PersistsAndBroadcastsOnAChange(t *testing.T) {

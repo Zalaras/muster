@@ -19,8 +19,8 @@ no barrel (`docs/conventions.md`).
 Two Vite entries (`web/vite.config.ts`), each a composition root that only wires
 (kb:adr/process-composition-roots-registration-only): `main.ts` for the dashboard,
 `doc.ts` for the pop-out reader, which is a second page rather than a route
-(kb:adr/reader-popout-is-a-second-page). Both now register the same `wsapp.ts` mapping
-(`coreWsHandlers`) instead of hand-copying it, and no feature imports another: the mutual
+(kb:adr/reader-popout-is-a-second-page). Both register `wsapp.ts`'s mapping (the pop-out's set
+adds the update relays), and no feature imports another: the mutual
 needs of actions, tiles, focus and surfaces are resolved through thunks in `main.ts`. The
 graph is acyclic but no longer a single line down: `render/`, `terminal/`, `reader/` and
 `api/` all sit below `features/`, and `render/`/`terminal/`/`features/` each reach `api/`
@@ -48,7 +48,7 @@ C4Component
     Container_Boundary(dashboard, "Dashboard") {
         Boundary(ctl, "Entries and controllers") {
             Component(main, "main.ts", "entry", "Dashboard composition root: inits 21 controllers, owns render order")
-            Component(features, "features/", "44 modules", "20 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload), 1 stateless handle (effort: the strip's dismiss call, wired by focus), 5 sub-controllers handed their elements by their owner (launch: launchresume, launchgroup; groups: groupsselect, groupsdialogs; reader: readerfind), plus 18 DOM-free helpers each owned by one controller")
+            Component(features, "features/", "45 modules", "20 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload), 1 stateless handle (effort: the strip's dismiss call, wired by focus), 6 sub-controllers handed their elements by their owner (launch: launchresume, launchgroup; groups: groupsselect, groupsdialogs; reader: readerfind, readerscroll), plus 18 DOM-free helpers each owned by one controller")
             Component(doc, "doc.ts", "entry", "Pop-out reader composition root")
             Component(wsapp, "wsapp.ts", "mapping", "The WS-to-app mapping both entries register, then layer their own handlers on top of")
         }
@@ -76,7 +76,7 @@ C4Component
     Rel(main, wsapp, "registers")
     Rel(main, app, "creates")
     Rel(main, render, "drop guard")
-    Rel(doc, features, "reader, connection, theme")
+    Rel(doc, features, "reader, connection, theme, update")
     Rel(doc, ws, "constructs")
     Rel(doc, wsapp, "registers")
     Rel(doc, dom, "mounts host")

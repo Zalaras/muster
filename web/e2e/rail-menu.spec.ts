@@ -1,5 +1,6 @@
 import { expect, settleFor, test } from "./helpers/fixtures";
 import {
+  bulkStopDialog,
   createGroupViaApi,
   getGroupsState,
   launchTitled,
@@ -421,7 +422,7 @@ test("Shift+F10 and the ContextMenu key open the focused card's menu with its fi
   }
 });
 
-test("right-clicking a card in Select mode opens the same single-session menu and the selection stays as it was (REQ-7)", async ({
+test("right-clicking a selected card in Select mode applies the menu's action to the whole selection, and an unselected card keeps its own single-card menu (REQ-3, REQ-4, #97)", async ({
   page,
   daemon,
 }) => {
@@ -432,16 +433,17 @@ test("right-clicking a card in Select mode opens the same single-session menu an
     "menu-e18-c",
   ]);
   try {
-    const [a, b] = sessions;
-    if (!a || !b) throw new Error("expected 3 sessions");
+    const [a, b, c] = sessions;
+    if (!a || !b || !c) throw new Error("expected 3 sessions");
     await createGroupViaApi(page, daemon, "review", [a.id, b.id]);
     await selectToggle(page).click();
     await cardCheckbox(page, "menu-e18-a").check();
     await cardCheckbox(page, "menu-e18-b").check();
     await expect(selectBarCount(page)).toHaveText("2 selected");
 
-    // An unselected card: its own menu, nothing selected by the click.
+    // An unselected card: its own single-card menu, nothing selected by the click.
     await openCardMenu(page, railCard(page, "menu-e18-c"));
+    await expect(cardMenu(page)).toHaveAccessibleName("Actions for menu-e18-c");
     expect(await menuItemLabels(page)).toEqual([
       "Stop…",
       "review",
@@ -453,21 +455,98 @@ test("right-clicking a card in Select mode opens the same single-session menu an
     await expect(selectBarCount(page)).toHaveText("2 selected");
     await expect(cardCheckbox(page, "menu-e18-c")).not.toBeChecked();
 
-    // A selected card: the menu still acts on that one session only.
+    // A selected card: the menu is the selection's, named by its count, with no Pin or Resume.
     await openCardMenu(page, railCard(page, "menu-e18-a"));
-    expect(await menuItemLabels(page)).toEqual([
-      "Stop…",
-      "review",
-      "New group…",
-      "No group",
-      "Pin",
-    ]);
+    await expect.soft(cardMenu(page)).toHaveAccessibleName("Actions for 2 sessions");
+    expect.soft(await menuItemLabels(page)).toEqual(["Stop…", "review", "New group…", "No group"]);
     await cardMenuItem(page, "No group").click();
     await expect.poll(async () => (await stateSession(page, daemon, a.id)).groupId).toBeNull();
-    expect((await stateSession(page, daemon, b.id)).groupId).not.toBeNull();
+    await expect.poll(async () => (await stateSession(page, daemon, b.id)).groupId).toBeNull();
+    // Select mode and both selections stay on; the bystander is untouched.
     await expect(selectBarCount(page)).toHaveText("2 selected");
     await expect(cardCheckbox(page, "menu-e18-a")).toBeChecked();
     await expect(cardCheckbox(page, "menu-e18-b")).toBeChecked();
+    await expect(cardCheckbox(page, "menu-e18-c")).not.toBeChecked();
+    expect((await stateSession(page, daemon, c.id)).groupId).toBeNull();
+  } finally {
+    await cleanup();
+  }
+});
+
+test("right-clicking the one selected card names its menu for one session, not 'sessions' (REQ-3)", async ({
+  page,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  const { cleanup } = await launchTitled(page, daemon, ["menu-e18b-a", "menu-e18b-b"]);
+  try {
+    await selectToggle(page).click();
+    await cardCheckbox(page, "menu-e18b-a").check();
+    await expect(selectBarCount(page)).toHaveText("1 selected");
+
+    await openCardMenu(page, railCard(page, "menu-e18b-a"));
+    await expect(cardMenu(page)).toHaveAccessibleName("Actions for 1 session");
+    await page.keyboard.press("Escape");
+    await expect(cardMenu(page)).toHaveCount(0);
+
+    // A second selection moves the same menu to the plural form.
+    await cardCheckbox(page, "menu-e18b-b").check();
+    await expect(selectBarCount(page)).toHaveText("2 selected");
+    await openCardMenu(page, railCard(page, "menu-e18b-a"));
+    await expect(cardMenu(page)).toHaveAccessibleName("Actions for 2 sessions");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("Stop… from a selected card in Select mode opens the count confirm and ends every selected session in one batch, leaving the unselected card alive and Select mode on (REQ-3, REQ-4, #97)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  const { sessions, cleanup } = await launchTitled(page, daemon, [
+    "menu-e19-a",
+    "menu-e19-b",
+    "menu-e19-c",
+  ]);
+  try {
+    const [a, b, c] = sessions;
+    if (!a || !b || !c) throw new Error("expected 3 sessions");
+    for (const [s, title] of [
+      [a, "menu-e19-a"],
+      [b, "menu-e19-b"],
+      [c, "menu-e19-c"],
+    ] as const) {
+      await bindClaude(request, daemon, s, `claude-${title}`);
+    }
+    await selectToggle(page).click();
+    await cardCheckbox(page, "menu-e19-a").check();
+    await cardCheckbox(page, "menu-e19-b").check();
+    await expect(selectBarCount(page)).toHaveText("2 selected");
+    const net = trackMutations(page);
+
+    await openCardMenu(page, railCard(page, "menu-e19-a"));
+    await cardMenuItem(page, "Stop…").click();
+    const dialog = bulkStopDialog(page, 2);
+    await expect(dialog).toBeVisible();
+    await expect(cardMenu(page)).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Stop 2", exact: true }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect(railCard(page, "menu-e19-a")).toHaveClass(/ended/);
+    await expect(railCard(page, "menu-e19-b")).toHaveClass(/ended/);
+    await expect(railCard(page, "menu-e19-c")).not.toHaveClass(/ended/);
+    const state = await getState(page, daemon);
+    expect(findSession(state, a.id).alive).toBe(false);
+    expect(findSession(state, b.id).alive).toBe(false);
+    expect(findSession(state, c.id).alive).toBe(true);
+    expect(await daemon.tmuxPaneExists(c.tmuxTarget)).toBe(true);
+    expect(net.requests().filter((r) => r.endsWith("/end"))).toEqual(["POST /api/sessions/end"]);
+    // Select mode and the selection stay on after the batch.
+    await expect(selectBarCount(page)).toHaveText("2 selected");
+    await expect(cardCheckbox(page, "menu-e19-a")).toBeChecked();
+    await expect(cardCheckbox(page, "menu-e19-b")).toBeChecked();
   } finally {
     await cleanup();
   }

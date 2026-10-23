@@ -23,25 +23,22 @@ Claude Code, the activity line, the title or an issue snapshot
 The note is a field on the session row, carried whole on the Session object as `note`, a string or
 `null`, in the snapshot and every `sessionUpsert` (`kb:anchor/ws.session`). It is set only by
 `kb:anchor/sessions.note`, which replaces the whole text. Empty or whitespace-only text is no note;
-any other text is kept exactly as written. A note has no length limit. No hook, status post,
+any other text is kept exactly as written. No hook, status post,
 transcript scan, `/clear` rebind, resume, reconcile or liveness change touches it. An ended session
-keeps its note, readable and editable, until Remove or the next daemon start. Stop and resume keep
-it. A restart keeps the note of every row reconcile keeps (a live session, and one whose pane died
-while musterd was down); the start-up sweep of an already-ended row deletes its note with the row
+keeps its note, readable and editable, until Remove or the next daemon start. A restart keeps the note of every row reconcile keeps; the start-up sweep of an already-ended row deletes its note with the row
 (kb:adr/lifecycle-reconcile-converges-with-the-socket), as Remove does. When two windows save the same note, the last write wins.
 
 ## The header glyph and the panel
 
 The Focus header's first item is a notebook glyph button named `Note`, before the session name. It
-is muted while the note is empty and in the foreground colour once it has text, on live and ended
-sessions alike. It never gives way as the header narrows.
+is muted while the note is empty and in the foreground colour once it has text. It never gives way as the header narrows.
 
 The glyph opens the note panel anchored under it. Its header reads `Note · <title>` and holds a
 pop-out control. The body shows the note rendered as the docs reader renders markdown, frontmatter
 and mermaid included, and malformed input renders as the reader shows it (kb:spec/reader). An empty
 note reads `No note yet. Click to write one (markdown).` The glyph again, a click outside the panel,
 or Escape inside it closes the anchored panel. A click on a link in the rendered note opens it in a
-new tab and does not start editing. Focusing another session closes it.
+new tab and does not start editing. Focusing another session closes it. Closing by Escape, the popped panel's close control or the glyph returns focus to the selected terminal, or to the glyph when none shows (Docs selected, an ended session).
 
 One click on the rendered note, or Enter on it, edits the raw text in a plain text field with the
 browser's own editing, undo and redo included. Escape, or a click elsewhere in the panel, renders

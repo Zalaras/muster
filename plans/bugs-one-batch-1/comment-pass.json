@@ -1,0 +1,243 @@
+{
+  "plan": "bugs-one-batch-1",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-22T21:29:25Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 8,
+        "keep": 2,
+        "drop": 6
+      },
+      "keeps": [
+        {
+          "key": "web/src/doc.ts:4093aceb25644513",
+          "path": "web/src/doc.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import { createApp } from \"./app\";",
+            "line": 1
+          },
+          "lines": [
+            "// The pop-out page's composition root (kb:adr/reader-popout-is-a-second-page) — a second",
+            "// Vite entry, not a hash route inside `index.html`'s own composition root. Builds the same",
+            "// `App` + `WsClient` shape `main.ts` does; there is no masthead, rail, banner or any other",
+            "// feature here. `mountStandaloneReader` (features/reader.ts) owns finding `#reader-host`,",
+            "// choosing the unknown-session notice over a real reader, and mounting the reader's root —",
+            "// this module only builds `app`, registers the reader/theme/update-restart/connection",
+            "// controllers and the client, and starts the tick.",
+            "//",
+            "// `onSessionRemoved`/`onUsage`/`onShellActivity`/`onProtocolMismatch` are deliberately not",
+            "// wired — no feature on this page reads any of them — but `onUpdate`/`onHelloArrived` are",
+            "// (`popoutWsHandlers`, wsapp.ts), so an open pop-out reloads after an update restart like the",
+            "// dashboard. It has no banner, so the restart banner and `Updated to` confirmation go unread."
+          ],
+          "reason": "Edited on `main`; still true: `popoutWsHandlers(app, connection)` registers the update handlers and the file builds the reader, theme, update-restart and connection controllers it describes."
+        },
+        {
+          "key": "web/src/features/actions.ts:d07af7fe27d7e4c7",
+          "path": "web/src/features/actions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "app.on(\"helloArrived\", () =\u003e {",
+            "line": 103
+          },
+          "lines": [
+            "// The line says the daemon was unreachable, which stops being true at the next hello; a",
+            "// refusal or a partial batch report stays until an action replaces it."
+          ],
+          "reason": "Without it a reader would make the helloArrived handler clear the action-error line unconditionally; that would wipe refusals and partial batch reports at `if (shownMessage === networkError.message) showActionError(null);`."
+        }
+      ],
+      "drops": [
+        {
+          "key": "web/src/features/groups.ts:2830fa28806d0afd",
+          "path": "web/src/features/groups.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "moveToEntries(sessions: readonly Session[], disabled: boolean): MenuEntry[];",
+            "line": 77
+          },
+          "lines": [
+            "/** Move to for `sessions`, `No group` in place of Ungrouped. */"
+          ]
+        },
+        {
+          "key": "web/src/features/reader.ts:5e895b9995efa8f1",
+          "path": "web/src/features/reader.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "private pruneScrollMemory(listing: ReaderListing): void {",
+            "line": 265
+          },
+          "lines": [
+            "/** Scroll positions are kept only for documents the listing still names (the plan included) and",
+            "* the one open in the pop-out. */"
+          ]
+        },
+        {
+          "key": "web/src/wsapp.ts:190d339ae67007a2",
+          "path": "web/src/wsapp.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { App } from \"./app\";",
+            "line": 1
+          },
+          "lines": [
+            "// The WS-to-App mapping: every WS message's app-side effect (store write, emit, render).",
+            "// `coreWsHandlers` is what both pages build on; `updateWsHandlers` adds the two signals",
+            "// `features/updaterestart.ts` reads (update, hello-arrived), so every window reloads after an update",
+            "// restart — `popoutWsHandlers` is core plus those two, `dashboardWsHandlers` layers the",
+            "// dashboard-only messages (session-removed/usage/shell-activity/claude-code/mismatch) on top, which",
+            "// the pop-out has no feature to receive. Connection-status handling itself",
+            "// stays owned by `features/connection.ts` — this module only calls into whatever",
+            "// `WsAppConnection` the caller already built."
+          ]
+        },
+        {
+          "key": "web/src/wsapp.ts:6b28342768515a58",
+          "path": "web/src/wsapp.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function coreWsHandlers(app: App, connection: WsAppConnection): WsClientHandlers {",
+            "line": 23
+          },
+          "lines": [
+            "/** What both pages register; `popoutWsHandlers` and `dashboardWsHandlers` below spread their",
+            "* own additional handlers over the result. */"
+          ]
+        },
+        {
+          "key": "web/src/wsapp.ts:42bcf1d063bb7de9",
+          "path": "web/src/wsapp.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function updateWsHandlers(app: App): Pick\u003cWsClientHandlers, \"onUpdate\" | \"onHelloArrived\"\u003e {",
+            "line": 58
+          },
+          "lines": [
+            "/** The two signals `features/updaterestart.ts` reads, relayed onto the event bus. Its own",
+            "* `app.on(\"helloArrived\", ...)` decides what to do with the hello",
+            "* (kb:adr/update-restart-reloads-dashboard) — this module only relays the raw WS signal, same",
+            "* as every other message here. */"
+          ]
+        },
+        {
+          "key": "web/src/wsapp.ts:ea062d94d722b497",
+          "path": "web/src/wsapp.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function popoutWsHandlers(app: App, connection: WsAppConnection): WsClientHandlers {",
+            "line": 68
+          },
+          "lines": [
+            "/** The pop-out's handler set: `coreWsHandlers` plus the update-restart signals, so an open",
+            "* pop-out reloads onto the new version like every dashboard window. */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-10-22T23:14:35Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 4,
+        "keep": 1,
+        "drop": 3
+      },
+      "keeps": [
+        {
+          "key": "web/src/terminal/pane.ts:8668dbc2a4f8b7f3",
+          "path": "web/src/terminal/pane.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "rows: 2,",
+            "line": 128
+          },
+          "lines": [
+            "// xterm sizes the alternate buffer's line list from these rows when it is built and",
+            "// only ever grows it while that buffer is still empty; starting at the minimum lets",
+            "// the first fit grow it to exactly the fitted rows, so a shrink from the 24-row",
+            "// default never leaves the buffer a scroll range that eats the first wheel event."
+          ],
+          "reason": "Without it a reader would raise `rows: 2` to a normal size or drop it as an arbitrary magic number; that gives the alternate buffer a scroll range that eats the first wheel event at `rows: 2,`."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/session/liveness.go:41f7a793c3f325df",
+          "path": "internal/session/liveness.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) spawn(run func(ctx context.Context)) {",
+            "line": 17
+          },
+          "lines": [
+            "// spawn runs run on m.runCtx, tracked on m.wg so Stop cancels and waits for it. Once Stop",
+            "// has begun it starts nothing, so a late caller (an Apply arriving during shutdown) never",
+            "// adds to a WaitGroup Stop is already waiting on."
+          ]
+        },
+        {
+          "key": "internal/session/liveness.go:55d2d89a69ccd865",
+          "path": "internal/session/liveness.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) Stop(ctx context.Context) {",
+            "line": 30
+          },
+          "lines": [
+            "// Stop cancels the poll loop and any SessionEnd pane watch and waits for them to exit,",
+            "// giving up when ctx is done. Also flags checkOneLiveness's opportunistic callers (see the",
+            "// stopped field doc) to stop persisting — set first, so it takes effect for a Nudge racing",
+            "// this call regardless of how long the wait below takes."
+          ]
+        },
+        {
+          "key": "internal/session/manager.go:6b5c6de7043681e2",
+          "path": "internal/session/manager.go",
+          "anchor": {
+            "kind": "above",
+            "text": "runCtx context.Context",
+            "line": 220
+          },
+          "lines": [
+            "// runCtx is the lifetime of every goroutine the Manager starts (spawn); Stop cancels it",
+            "// and waits on wg. Written once by NewManager; spawnMu orders spawn's wg.Add against",
+            "// Stop's flip of stopped, so no Add can race Stop's Wait."
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 4,
+      "at": "2026-10-23T01:42:53Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 1,
+        "keep": 0,
+        "drop": 1
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "web/src/terminal/pane.ts:ce34fe0b241e98dc",
+          "path": "web/src/terminal/pane.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "private openIfLaidOut(term: Terminal): boolean {",
+            "line": 322
+          },
+          "lines": [
+            "/** Opens xterm into the body the first time the body has a layout, so xterm measures",
+            "* its cells and sizes its scroll area against a laid-out element instead of a detached",
+            "* one (a surface built while unmounted receives its first output unopened, and the",
+            "* later open sees it at the fitted size). Returns whether the terminal is open. */"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -74,7 +74,7 @@ export interface GroupsHandle {
   newGroup(): void;
   /** The Focus header's control: the Move to menu for `session`, `No group` in place of Ungrouped. */
   openMoveMenu(opener: HTMLElement, session: Session): void;
-  moveToEntries(session: Session, disabled: boolean): MenuEntry[];
+  moveToEntries(sessions: readonly Session[], disabled: boolean): MenuEntry[];
   moveSessions(ids: readonly number[], groupId: number | null): void;
   reorderSection(ids: readonly number[], pinnedCount: number, groupId: number | null): void;
   /** `sessionId` is about to be focused: the filter resets to All if it hides that session's
@@ -479,7 +479,7 @@ export function initGroups(app: App, deps: GroupsDeps): GroupsHandle {
     toggleSelected: select.toggle,
     newGroup,
     openMoveMenu: (opener, session) => openMoveMenuFor(opener, [session], MENU_LABELS.noGroup),
-    moveToEntries: (session, disabled) => moveToEntries([session], MENU_LABELS.noGroup, disabled),
+    moveToEntries: (sessions, disabled) => moveToEntries(sessions, MENU_LABELS.noGroup, disabled),
     moveSessions,
     reorderSection,
     reveal(sessionId, expand) {

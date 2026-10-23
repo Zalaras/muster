@@ -1,7 +1,7 @@
 ---
 id: rail-card-right-click-menu-holds-session-actions
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-14
 summary: A rail or strip card renders no Stop, Resume or Remove button; its right-click menu holds them with Move to and Pin, and the pin control stays on the card.
 features: [rail, actions, groups]

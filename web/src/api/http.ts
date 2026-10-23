@@ -40,7 +40,7 @@ const genericError: ApiErrorBody = {
 // request): a rejected `fetch` must never propagate — every exported function in
 // `web/src/api/` routes its fetch through this so the "errors never throw" contract
 // actually holds for every call site, not just JSON-decoding failures.
-const networkError: ApiErrorBody = {
+export const networkError: ApiErrorBody = {
   code: "network_error",
   message: "Could not reach musterd.",
 };

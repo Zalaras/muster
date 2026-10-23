@@ -25,6 +25,7 @@ import {
   type Locator,
   type Page,
   RENDER_ORIGIN,
+  settleFor,
   type RenderFixture,
   test,
 } from "./helpers/harness";
@@ -1268,4 +1269,129 @@ test("a flowchart naming layout: elk in frontmatter and one naming no layout bot
   await expect(diagramFigure(region, 0).locator("svg")).toBeVisible();
   await expect(diagramFigure(region, 1).locator("svg")).toBeVisible();
   await expect(keptMermaidSource(region)).toHaveCount(0);
+});
+
+// ── reading position survives surface and session switches and a reload (plan bugs-one-batch-1
+// R2, REQ-6; #109) ───────────────────────────────────────────────────────────────────────────
+
+const LARGE_PAIR = "reader-docs-large-pair";
+const READING_OFFSET = 600;
+
+/** Opens `0-outline.md` in the docs reader of the session titled `title` and scrolls its rendered
+ * body to the reading offset. */
+async function scrollOutlineTo(page: Page, title: string): Promise<void> {
+  const region = readerRegion(page, title);
+  await expect(region).toBeVisible();
+  await fileEntry(region, LARGE_TREE.outlineFileName).click();
+  await expect(renderedBody(region)).toContainText(LARGE_TREE.lastHeading);
+  await renderedBody(region).evaluate((el, top) => {
+    el.scrollTop = top;
+  }, READING_OFFSET);
+  await expect
+    .poll(() => renderedBody(region).evaluate((el) => el.scrollTop))
+    .toBeGreaterThan(READING_OFFSET - 2);
+}
+
+async function expectScrolledBack(page: Page, title: string): Promise<void> {
+  const region = readerRegion(page, title);
+  await expect(region).toBeVisible();
+  await expect(renderedBody(region)).toContainText(LARGE_TREE.lastHeading);
+  await expect
+    .poll(() => renderedBody(region).evaluate((el) => Math.round(el.scrollTop)))
+    .toBeGreaterThanOrEqual(READING_OFFSET - 1);
+  await expect
+    .poll(() => renderedBody(region).evaluate((el) => Math.round(el.scrollTop)))
+    .toBeLessThanOrEqual(READING_OFFSET + 1);
+}
+
+test("the reading position in an open document survives selecting Claude and then Docs again (R2, REQ-6, #109)", async ({
+  page,
+  dashboard,
+}) => {
+  await openFocusReader(page, dashboard, LARGE);
+  await scrollOutlineTo(page, TITLE);
+
+  await mainheadSurfaceButton(page, "claude").click();
+  await expect(terminalRegion(page, TITLE)).toBeVisible();
+  await expect(readerRegion(page, TITLE)).toHaveCount(0);
+  await mainheadSurfaceButton(page, "docs").click();
+
+  await expectScrolledBack(page, TITLE);
+});
+
+test("the reading position in an open document is remembered across a reload (R2, REQ-6, #109; beside E19)", async ({
+  page,
+  dashboard,
+}) => {
+  await openFocusReader(page, dashboard, LARGE);
+  await scrollOutlineTo(page, TITLE);
+
+  await mainheadSurfaceButton(page, "claude").click();
+  await page.reload();
+  await railCardByTitle(page, TITLE).click();
+  await mainheadSurfaceButton(page, "docs").click();
+
+  await expectScrolledBack(page, TITLE);
+});
+
+test("the reading position survives switching to another session's card and back (R2, REQ-6, #109)", async ({
+  page,
+  dashboard,
+}) => {
+  const fixture = await dashboard.open(LARGE_PAIR);
+  expect(fixture.snapshot.sessions.map((s) => s.title).sort()).toEqual([
+    "reader-large-a",
+    "reader-large-b",
+  ]);
+  await railCardByTitle(page, "reader-large-a").click();
+  await mainheadSurfaceButton(page, "docs").click();
+  await scrollOutlineTo(page, "reader-large-a");
+
+  await railCardByTitle(page, "reader-large-b").click();
+  await expect(readerRegion(page, "reader-large-a")).toHaveCount(0);
+  await railCardByTitle(page, "reader-large-a").click();
+
+  await expectScrolledBack(page, "reader-large-a");
+});
+
+// ── the restore policy: which opens restore, and what a reader's own input does to a pending one
+// (plan bugs-one-batch-1 R2, REQ-6; web-implementation Decisions) ─────────────────────────────
+
+test("a wheel on the body after the restore moves the reading position and nothing jumps it back (R2, REQ-6)", async ({
+  page,
+  dashboard,
+}) => {
+  await openFocusReader(page, dashboard, LARGE);
+  await scrollOutlineTo(page, TITLE);
+  await mainheadSurfaceButton(page, "claude").click();
+  await expect(readerRegion(page, TITLE)).toHaveCount(0);
+  await mainheadSurfaceButton(page, "docs").click();
+  await expectScrolledBack(page, TITLE);
+
+  const body = renderedBody(readerRegion(page, TITLE));
+  await body.hover();
+  await page.mouse.wheel(0, -300);
+  await expect
+    .poll(() => body.evaluate((el) => Math.round(el.scrollTop)))
+    .toBeLessThan(READING_OFFSET - 100);
+  const moved = await body.evaluate((el) => Math.round(el.scrollTop));
+  await settleFor(page, 600);
+  expect(await body.evaluate((el) => Math.round(el.scrollTop))).toBe(moved);
+});
+
+test("a document with no stored position opens at the top, and a nav click on one with a stored position returns to it (R2, REQ-6)", async ({
+  page,
+  dashboard,
+}) => {
+  await openFocusReader(page, dashboard, LARGE);
+  await scrollOutlineTo(page, TITLE);
+  const region = readerRegion(page, TITLE);
+
+  await fileEntry(region, LARGE_TREE.lastFileName).click();
+  await expect(renderedBody(region)).toContainText("Body text for file 20.");
+  await expect(renderedBody(region)).not.toContainText(LARGE_TREE.lastHeading);
+  await expect.poll(() => renderedBody(region).evaluate((el) => el.scrollTop)).toBe(0);
+
+  await fileEntry(region, LARGE_TREE.outlineFileName).click();
+  await expectScrolledBack(page, TITLE);
 });

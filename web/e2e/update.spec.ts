@@ -1,12 +1,13 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmod, mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { buildVersionedMusterd, type StagedBinary, stageBinary } from "./helpers/daemon";
 import { expect, settleFor, test } from "./helpers/fixtures";
 import { archiveAssetName, FakeReleaseServer, goArch, type TamperKind } from "./helpers/releases";
+import { renderedBody, readerStatusLine } from "./helpers/reader";
 import { launchSession, scratchDirectory, sessionCard } from "./helpers/session";
 import { createShellViaApi, shellTmuxTarget } from "./helpers/shell";
 import { terminalRegion } from "./helpers/terminal";
@@ -1005,7 +1006,13 @@ test("Check now disables the button the instant it starts and shows its result t
 
     // Freezes the page's own clock from here on — main.ts's periodic `app.render()`
     // tick cannot fire again until this test explicitly advances it (it never does).
-    await page.clock.pauseAt(new Date());
+    // The target is read off the page's own fake clock plus a margin, never Node's wall
+    // clock: `pauseAt` refuses a target behind the fake clock ("Cannot fast-forward to
+    // the past"), and the two clocks differ by a few milliseconds either way. Jumping
+    // forward fires any due timers once, which is harmless before the click; nothing
+    // can fire after the pause.
+    const fakeNow = await page.evaluate(() => Date.now());
+    await page.clock.pauseAt(fakeNow + 2000);
     fakeServer.hold();
     await updateCheckButton(dialog).click();
 
@@ -1559,4 +1566,97 @@ test("a window holding a restart record reloads on a mismatched-protocol reconne
   expect(beforeUnload.length).toBeGreaterThan(0);
   const flashed = beforeUnload.filter((e) => !e.mismatchHidden || e.appHidden);
   expect(flashed).toEqual([]);
+});
+
+test("an open pop-out reader holding a restart record reloads on its first reconnect, keeping its document, while an ordinary reconnect before the record does not reload it (REQ-10, edge case 10)", async ({
+  page,
+  daemon,
+}) => {
+  // The pop-out (/doc.html) is its own window: it must reload onto the new dashboard after an
+  // update restart as the dashboard window does. As in the mismatched-protocol test above the
+  // restart record is armed with a synthetic `update` broadcast over a routed `/ws` (no real
+  // apply), and the server side of the socket is closed to force the reconnect. The routed
+  // handler is re-entered for every socket the pop-out opens, so the page-side senders are
+  // re-pointed at the newest connection each time.
+  const dir = await scratchDirectory();
+  try {
+    const docPath = join(await realpath(dir.path), "README.md");
+    await writeFile(docPath, "# Popout restart doc\n\nReload marker body.\n");
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, { directory: dir.path, title: "popout-e9" });
+
+    const wsRoute: {
+      sendToPage: ((raw: string) => void) | null;
+      closeServer: (() => Promise<void>) | null;
+      connections: number;
+    } = { sendToPage: null, closeServer: null, connections: 0 };
+    await page.routeWebSocket("**/ws", (ws) => {
+      wsRoute.connections += 1;
+      wsRoute.sendToPage = (raw) => ws.send(raw);
+      const server = ws.connectToServer();
+      wsRoute.closeServer = () => server.close();
+      server.onMessage((message) => ws.send(message));
+    });
+
+    await page.goto(
+      `${daemon.baseURL}/doc.html?session=${session.id}&path=${encodeURIComponent(docPath)}`,
+    );
+    const host = page.locator("#reader-host");
+    await expect(renderedBody(host)).toContainText("Reload marker body.", { timeout: 15_000 });
+    await expect(readerStatusLine(host)).toBeHidden();
+    await page.evaluate(() => {
+      (window as unknown as { __e2eMarker?: string }).__e2eMarker = "before-restart";
+    });
+    const loadTimes: number[] = [];
+    page.on("load", () => loadTimes.push(Date.now()));
+
+    // An ordinary reconnect (no restart record held): the pop-out reconnects and stays put.
+    if (!wsRoute.closeServer) throw new Error("expected the WS route to be active");
+    const before = wsRoute.connections;
+    await wsRoute.closeServer();
+    await expect.poll(() => wsRoute.connections).toBe(before + 1);
+    await expect(readerStatusLine(host)).toBeHidden();
+    await settleFor(page, 1500);
+    expect(loadTimes).toEqual([]);
+    expect(
+      await page.evaluate(() => (window as unknown as { __e2eMarker?: string }).__e2eMarker),
+    ).toBe("before-restart");
+
+    // Now the restart record: a synthetic `update` broadcast with apply.phase "restarting".
+    if (!wsRoute.sendToPage || !wsRoute.closeServer) {
+      throw new Error("expected the WS route to be active");
+    }
+    wsRoute.sendToPage(
+      JSON.stringify({
+        type: "update",
+        update: {
+          running: "0.1.0",
+          install: "installer",
+          remedy: null,
+          canCheck: true,
+          available: "0.2.0",
+          checkedAt: null,
+          installed: null,
+          apply: { phase: "restarting", version: "0.2.0", error: null },
+        },
+      }),
+    );
+    const reloaded = page.waitForEvent("load", { timeout: 10_000 });
+    await wsRoute.closeServer();
+    await reloaded;
+    expect(loadTimes.length).toBeGreaterThan(0);
+    expect(
+      await page.evaluate(() => (window as unknown as { __e2eMarker?: string }).__e2eMarker),
+    ).toBeUndefined();
+
+    // The reloaded pop-out reconnects and reopens the same document from its query.
+    await expect(readerStatusLine(host)).toBeHidden({ timeout: 15_000 });
+    await expect(renderedBody(host)).toContainText("Reload marker body.", { timeout: 15_000 });
+    const url = new URL(page.url());
+    expect(url.pathname).toBe("/doc.html");
+    expect(url.searchParams.get("session")).toBe(String(session.id));
+    expect(url.searchParams.get("path")).toBe(docPath);
+  } finally {
+    await dir.cleanup();
+  }
 });

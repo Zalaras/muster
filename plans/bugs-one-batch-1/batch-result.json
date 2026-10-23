@@ -1,0 +1,3 @@
+{"status": "completed", "subject": "fix(dashboard): end dead panes fast; selection menu, note focus, reader place, pop-out (closes #97, closes #109, closes #111)",
+ "closes": [97, 109, 111], "error": null,
+ "question": null}

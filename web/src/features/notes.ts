@@ -45,7 +45,11 @@ async function sendNote(id: number, text: string, options: SendOptions): Promise
   return outcomeOf(await putNote(id, text, { keepalive: options.keepalive && small }));
 }
 
-export function initNotes(app: App): void {
+export interface NotesDeps {
+  surfaces: { focusSelected(id: number): void };
+}
+
+export function initNotes(app: App, deps: NotesDeps): void {
   const glyph = requireElement<HTMLButtonElement>("#mainhead .ng");
   const mainEl = requireElement<HTMLElement>(".main");
   const mainheadEl = requireElement<HTMLElement>("#mainhead");
@@ -194,6 +198,7 @@ export function initNotes(app: App): void {
 
   function close(returnFocus: boolean): void {
     if (form === "closed") return;
+    const closedId = shownId;
     if (shownId !== null) flushShown(shownId);
     const hadFocus = refs.root.contains(document.activeElement);
     document.removeEventListener("pointerdown", onOutsidePointerDown, true);
@@ -204,7 +209,9 @@ export function initNotes(app: App): void {
     shownId = null;
     renderedText = null;
     syncGlyph();
-    if (returnFocus || hadFocus) glyph.focus({ preventScroll: true });
+    if (returnFocus && closedId !== null) deps.surfaces.focusSelected(closedId);
+    const unfocused = document.activeElement === null || document.activeElement === document.body;
+    if (returnFocus ? unfocused : hadFocus) glyph.focus({ preventScroll: true });
   }
 
   function closeByUser(): void {

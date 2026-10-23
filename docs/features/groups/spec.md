@@ -22,7 +22,7 @@ Each group is a collapsible section under a sticky header of caret, name, summar
 group exists the remaining sessions sit in an Ungrouped section of the same shape, which cannot be
 renamed or deleted; with no group the rail has no header, no filter and no Ungrouped section.
 
-Sections keep their place in both sort modes, so a state change in a collapsed group moves nothing.
+Sections keep their place in both sort modes.
 Inside a section the sort mode orders the cards, with its own pinned block, and the pinned-first
 invariant holds per section (kb:adr/rail-pin-invariant-scoped-per-section, kb:spec/rail). A section
 is reordered by dragging its header in either mode. In either sort mode a card dropped on a header or
@@ -66,7 +66,7 @@ remove that leaves a member behind keeps the group (kb:spec/actions).
 Select in the rail head shows a checkbox per card and per header and a bar at the rail's foot with
 Move to, Ungroup, Stop…, Remove…, All and Done. A click toggles a card instead of focusing it;
 dragging a selected card carries the whole selection and an unselected card does not drag. Select
-all in a header's menu turns the mode on with that group's members selected. A bar action keeps
+all in a header's menu turns the mode on with that group's members selected. A bar action or the card menu on a selected card keeps
 the mode and the surviving selection; Done, Escape, switching to Tiles and an empty rail end it
 (kb:adr/rail-select-mode-persists-across-bar-actions). While the daemon is down every bar button
 and both kinds of checkbox are disabled and selection changes nothing; Escape still leaves.

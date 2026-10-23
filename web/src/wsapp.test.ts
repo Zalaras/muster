@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { createApp } from "./app";
 import { parseMessage } from "./protocol/messages";
-import { WsClient } from "./ws";
-import { coreWsHandlers, type WsAppConnection } from "./wsapp";
+import { WsClient, type WsClientHandlers } from "./ws";
+import {
+  coreWsHandlers,
+  dashboardWsHandlers,
+  popoutWsHandlers,
+  type WsAppConnection,
+} from "./wsapp";
 
 // The groups half of the WS-to-App mapping (plan groups, kb:anchor/ws.groups): a `groups` message and
 // a snapshot both reach the bus whole, so every window redraws from the daemon's list and never
@@ -87,5 +92,55 @@ describe("coreWsHandlers — groups", () => {
     receive({ ...snapshotFrame, groups: wireGroups, ungrouped: { pos: 1, collapsed: false } });
     receive({ ...snapshotFrame, groups: [wireGroups[0]], ungrouped: { pos: 1, collapsed: false } });
     expect(groupsSeen.at(-1)?.groups).toEqual([wireGroups[0]]);
+  });
+});
+
+// REQ-10: the update-restart signals are relayed by the pop-out's set as well as the dashboard's, so
+// an open pop-out reloads onto the new version (kb:adr/update-restart-reloads-dashboard).
+describe("update relays — popoutWsHandlers and dashboardWsHandlers share them", () => {
+  const updateInfo = { available: true } as never;
+  const sets: Array<[string, (app: ReturnType<typeof createApp>) => WsClientHandlers]> = [
+    ["popout", (app) => popoutWsHandlers(app, connection)],
+    [
+      "dashboard",
+      (app) =>
+        dashboardWsHandlers(
+          app,
+          { ...connection, showProtocolMismatch: () => {}, claudeCodeChanged: () => {} },
+          { handleRemoved: () => {} },
+        ),
+    ],
+  ];
+
+  it.each(sets)(
+    "%s: onUpdate emits update with the bare object, then renders once",
+    (_n, build) => {
+      const app = createApp();
+      const seen = vi.fn();
+      const render = vi.fn();
+      app.on("update", seen);
+      app.onRender(render);
+      build(app).onUpdate?.(updateInfo);
+      expect(seen).toHaveBeenCalledWith(updateInfo);
+      expect(render).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(sets)("%s: onHelloArrived emits helloArrived and does not render", (_n, build) => {
+    const app = createApp();
+    const seen = vi.fn();
+    const render = vi.fn();
+    app.on("helloArrived", seen);
+    app.onRender(render);
+    build(app).onHelloArrived?.();
+    expect(seen).toHaveBeenCalledTimes(1);
+    expect(render).not.toHaveBeenCalled();
+  });
+
+  it("the pop-out set carries no dashboard-only handler", () => {
+    const h = popoutWsHandlers(createApp(), connection);
+    expect(h.onSessionRemoved).toBeUndefined();
+    expect(h.onUsage).toBeUndefined();
+    expect(h.onProtocolMismatch).toBeUndefined();
   });
 });

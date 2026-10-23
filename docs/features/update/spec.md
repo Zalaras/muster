@@ -48,10 +48,10 @@ the command line and exits.
 never consults the on-exit policy and kills no session, then execs the new binary in place
 under the same PID and arguments; reconcile re-adopts every Claude session on the way up
 (kb:adr/update-restart-is-in-place-reexec-not-shutdown). Shell surfaces do not survive, so
-the Update-and-restart confirm names them from `kb:anchor/update.restart-impact`. Every
-window that saw the restart shows the banner as updating while the daemon is down, falling
-back to the ordinary unreachable text after 30 s; it reloads on its first reconnect — even
-one that speaks a different protocol version — and confirms `Updated to v…` for 3 s when
+the Update-and-restart confirm names them from `kb:anchor/update.restart-impact`. The
+dashboard shows the banner as updating while the daemon is down, falling
+back to the ordinary unreachable text after 30 s; every window, the pop-out included, reloads on its first reconnect — even
+one that speaks a different protocol version — and the dashboard confirms `Updated to v…` for 3 s when
 the daemon it reached runs that version (kb:adr/update-restart-reloads-dashboard).
 
 **Dashboard.** The Settings dialog's Updates section shows running and available versions,

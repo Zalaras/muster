@@ -31,7 +31,7 @@ env (kb:adr/surfaces-scroll-speed-via-launch-env, kb:fact/scroll-speed-env-prese
 
 ## Sizing and the one-live-client law
 
-The client sends a resize frame on open and then debounced; the daemon applies the PTY
+The client sends its first resize frame on open once the surface has a layout (a shell kept behind Docs sends none until mounted), then debounced; the daemon applies the PTY
 size and then resizes the tmux window, never the pane-level primitive
 (kb:adr/surfaces-shared-attach-single-pty). A session is live on exactly one surface at one
 geometry at a time; every other rendering is a static snapshot

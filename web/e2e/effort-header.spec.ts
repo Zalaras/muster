@@ -590,12 +590,15 @@ test("with the daemon killed the header keeps its effort and the strip stays, a 
   // The connection-level failure: the request never gets an answer.
   await stripDismiss(page).click();
   await expect(page.locator("#action-error")).toBeVisible();
-  await expect(page.locator("#action-error")).not.toHaveText("");
+  await expect(page.locator("#action-error")).toHaveText("Could not reach musterd.");
   await expect(effortStrip(page)).toHaveCount(1);
   await expect(headerEff(page)).toHaveClass(/\bwarn\b/);
 
   await daemon.restart();
   await expect(page.getByRole("alert").filter({ hasText: /musterd unreachable/i })).toBeHidden();
+  // The unreachable message goes with the outage: the line clears when the connection returns,
+  // before any later action replaces it (#e8, REQ-9).
+  await expect(page.locator("#action-error")).toBeHidden();
   await expect(effortStrip(page)).toHaveCount(1);
   await stripDismiss(page).click();
   await expect(effortStrip(page)).toHaveCount(0);
@@ -628,6 +631,34 @@ test("a Dismiss the daemon answers with a 500 leaves the strip and the tint and 
   await stripDismiss(page).click();
   await expect(effortStrip(page)).toHaveCount(0);
   await expect(headerEff(page)).not.toHaveClass(/\bwarn\b/);
+});
+
+test("a daemon refusal shown in the action-error line survives the daemon going away and coming back (REQ-9)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  await warnedSession(page, request, daemon, "effort-refusal-survives");
+  await page.route("**/api/sessions/*/effort-warning", (route) =>
+    route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ error: { code: "internal", message: "boom" } }),
+    }),
+  );
+
+  await stripDismiss(page).click();
+  await expect(page.locator("#action-error")).toHaveText("boom");
+
+  await daemon.kill();
+  await expect(page.getByRole("alert").filter({ hasText: /musterd unreachable/i })).toBeVisible();
+  await daemon.restart();
+  await expect(page.getByRole("alert").filter({ hasText: /musterd unreachable/i })).toBeHidden();
+  // A refusal is not about reachability: it stays after the reconnect's hello.
+  await settleFor(page, 1000);
+  await expect(page.locator("#action-error")).toHaveText("boom");
+  await expect(effortStrip(page)).toHaveCount(1);
 });
 
 test("a Dismiss whose request is aborted before any answer leaves the strip and the tint and reports the failure in the action-error line (REQ-9)", async ({

@@ -22,6 +22,11 @@ import {
   shownMarker,
   tokenColor,
 } from "./helpers/notes";
+import {
+  activeElementInsideTerminal,
+  mainheadSurfaceButton,
+  terminalRegion,
+} from "./helpers/surfaces";
 import { liveTile } from "./helpers/tiles";
 
 const MARKER_TEXT = "Has a note";
@@ -591,4 +596,102 @@ test("the glyph opens the panel on Enter and on Space from keyboard focus (R13, 
     await page.keyboard.press("Escape");
     await expect(notePanel(page)).toBeHidden();
   }
+});
+
+// ── closing the note returns focus (plan bugs-one-batch-1 R1, REQ-5; #111) ─────────────────────
+
+test("Escape in the anchored panel returns keyboard focus to the Claude terminal (R1, REQ-5)", async ({
+  page,
+  dashboard,
+}) => {
+  await dashboard.open("notes");
+  await focusSession(page, "notes-short");
+  await expect(terminalRegion(page, "notes-short")).toBeVisible();
+  await noteGlyph(page).click();
+  await expect(notePanel(page)).toBeVisible();
+  await notePanel(page).getByRole("button", { name: "Pop out note" }).focus();
+
+  await page.keyboard.press("Escape");
+  await expect(notePanel(page)).toBeHidden();
+  await expect.poll(() => activeElementInsideTerminal(page, "notes-short")).toBe(true);
+});
+
+test("a second click on the note glyph closes the anchored panel and returns keyboard focus to the Claude terminal (R1, REQ-5)", async ({
+  page,
+  dashboard,
+}) => {
+  await dashboard.open("notes");
+  await focusSession(page, "notes-short");
+  await expect(terminalRegion(page, "notes-short")).toBeVisible();
+  await noteGlyph(page).click();
+  await expect(notePanel(page)).toBeVisible();
+
+  await noteGlyph(page).click();
+  await expect(notePanel(page)).toBeHidden();
+  await expect.poll(() => activeElementInsideTerminal(page, "notes-short")).toBe(true);
+});
+
+test("Escape in the popped panel returns keyboard focus to the Claude terminal (R1, REQ-5)", async ({
+  page,
+  dashboard,
+}) => {
+  await dashboard.open("notes");
+  await focusSession(page, "notes-short");
+  await expect(terminalRegion(page, "notes-short")).toBeVisible();
+  await noteGlyph(page).click();
+  await popOutNote(page).click();
+  await expect(popInNote(page)).toBeVisible();
+  await popInNote(page).focus();
+
+  await page.keyboard.press("Escape");
+  await expect(notePanel(page)).toBeHidden();
+  await expect.poll(() => activeElementInsideTerminal(page, "notes-short")).toBe(true);
+});
+
+test("the popped panel's close button returns keyboard focus to the Claude terminal (R1, REQ-5)", async ({
+  page,
+  dashboard,
+}) => {
+  await dashboard.open("notes");
+  await focusSession(page, "notes-short");
+  await expect(terminalRegion(page, "notes-short")).toBeVisible();
+  await noteGlyph(page).click();
+  await popOutNote(page).click();
+  await expect(popInNote(page)).toBeVisible();
+
+  await notePanel(page).getByRole("button", { name: "Close note" }).click();
+  await expect(notePanel(page)).toBeHidden();
+  await expect.poll(() => activeElementInsideTerminal(page, "notes-short")).toBe(true);
+});
+
+test("closing the note on an ended session, where no terminal takes focus, lands on the note glyph and not body (R1, REQ-5)", async ({
+  page,
+  dashboard,
+}) => {
+  await dashboard.open("notes");
+  await focusSession(page, "notes-ended");
+  await noteGlyph(page).click();
+  await expect(notePanel(page)).toBeVisible();
+  await notePanel(page).getByRole("button", { name: "Pop out note" }).focus();
+
+  await page.keyboard.press("Escape");
+  await expect(notePanel(page)).toBeHidden();
+  await expect(noteGlyph(page)).toBeFocused();
+});
+
+test("closing the note with Docs the selected surface lands on the note glyph, not body (R1, REQ-5)", async ({
+  page,
+  dashboard,
+}) => {
+  await dashboard.open("notes");
+  await focusSession(page, "notes-short");
+  await mainheadSurfaceButton(page, "docs").click();
+  await expect(noteGlyph(page)).toBeVisible();
+  await noteGlyph(page).click();
+  await expect(notePanel(page)).toBeVisible();
+  await notePanel(page).getByRole("button", { name: "Pop out note" }).focus();
+
+  await page.keyboard.press("Escape");
+  await expect(notePanel(page)).toBeHidden();
+  await expect(noteGlyph(page)).toBeFocused();
 });

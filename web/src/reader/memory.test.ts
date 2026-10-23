@@ -14,6 +14,8 @@ import {
   withFolderExpanded,
   withOpened,
   withOutlineFolded,
+  withScroll,
+  withScrollPruned,
   type ReaderMemory,
 } from "./memory";
 import type { StorageLike } from "../storage";
@@ -24,6 +26,7 @@ const EMPTY: ReaderMemory = {
   expanded: [],
   filesFolded: false,
   outlineFolded: false,
+  scroll: {},
 };
 
 function mem(over: Partial<ReaderMemory> = {}): ReaderMemory {
@@ -415,5 +418,78 @@ describe("forget (REQ-17/W4: clears muster.reader.<id> on sessionRemoved)", () =
 
   it("does not throw when the storage accessor throws (private window / blocked site data — W4's specific case)", () => {
     expect(() => forget(throwingStorage(), 1)).not.toThrow();
+  });
+});
+
+// Plan bugs-one-batch-1 (REQ-6, W2). Names assumed from the plan: `scroll` on ReaderMemory,
+// `withScroll(memory, path, top)` and `withScrollPruned(memory, listedPaths)`.
+describe("withScroll (REQ-6: a per-path scroll position)", () => {
+  it("records the offset for a path and leaves every other field alone", () => {
+    const memory = mem({ openPath: "a.md", expanded: ["docs"], scroll: { "b.md": 5 } });
+    expect(withScroll(memory, "a.md", 600)).toEqual(
+      mem({ openPath: "a.md", expanded: ["docs"], scroll: { "a.md": 600, "b.md": 5 } }),
+    );
+  });
+
+  it("replaces an earlier offset for the same path", () => {
+    expect(withScroll(mem({ scroll: { "a.md": 10 } }), "a.md", 20).scroll).toEqual({ "a.md": 20 });
+  });
+
+  it("is pure - never mutates the input memory", () => {
+    const memory = mem({ scroll: { "a.md": 1 } });
+    withScroll(memory, "a.md", 2);
+    expect(memory).toEqual(mem({ scroll: { "a.md": 1 } }));
+  });
+
+  it("round-trips through saveMemory and loadMemory", () => {
+    const storage = fakeStorage();
+    saveMemory(storage, 3, withScroll(mem({ openPath: "a.md" }), "a.md", 600));
+    expect(loadMemory(storage, 3).scroll).toEqual({ "a.md": 600 });
+  });
+});
+
+describe("withScrollPruned (REQ-6: bounded to paths still in the listing)", () => {
+  it("drops offsets for paths no longer listed and keeps the rest", () => {
+    const memory = mem({ scroll: { "a.md": 1, "gone.md": 2, "b.md": 3 } });
+    expect(withScrollPruned(memory, ["a.md", "b.md"]).scroll).toEqual({ "a.md": 1, "b.md": 3 });
+  });
+
+  it("an empty listing clears every offset", () => {
+    expect(withScrollPruned(mem({ scroll: { "a.md": 1 } }), []).scroll).toEqual({});
+  });
+
+  it("is pure and leaves other fields alone", () => {
+    const memory = mem({ openPath: "a.md", scroll: { "gone.md": 2 } });
+    const next = withScrollPruned(memory, ["a.md"]);
+    expect(next).toEqual(mem({ openPath: "a.md" }));
+    expect(memory.scroll).toEqual({ "gone.md": 2 });
+  });
+});
+
+describe("loadMemory - scroll field (REQ-6: old-shape JSON still parses)", () => {
+  it("JSON written by the previous build (no scroll field) parses to an empty scroll map", () => {
+    const storage = fakeStorage({
+      "muster.reader.1": JSON.stringify({
+        openPath: "TODO.md",
+        clearedAt: {},
+        expanded: ["docs"],
+        filesFolded: true,
+        outlineFolded: false,
+      }),
+    });
+    expect(loadMemory(storage, 1)).toEqual(
+      mem({ openPath: "TODO.md", expanded: ["docs"], filesFolded: true }),
+    );
+  });
+
+  it.each([
+    ["a string", "nope"],
+    ["an array", [1]],
+    ["a non-number value", { "a.md": "600" }],
+  ])("a scroll field that is %s falls back to {}", (_n, scroll) => {
+    const storage = fakeStorage({
+      "muster.reader.1": JSON.stringify({ openPath: "a.md", scroll }),
+    });
+    expect(loadMemory(storage, 1)).toEqual(mem({ openPath: "a.md" }));
   });
 });
