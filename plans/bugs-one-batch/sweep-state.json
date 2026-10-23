@@ -1,0 +1,39 @@
+{
+  "sweep": "bugs-one-batch",
+  "parallel": 1,
+  "started_at": "2026-10-22T20:30:39Z",
+  "updated_at": "2026-10-23T02:40:13Z",
+  "batches": [
+    {
+      "n": 1,
+      "name": "bugs-one-batch-1",
+      "entries": [
+        "e1",
+        "e2",
+        "e4",
+        "e5",
+        "e6",
+        "e7",
+        "e8",
+        "e9"
+      ],
+      "work_type": "full-stack",
+      "status": "landed",
+      "worktree": "/Users/damian/Documents/code/Projects/muster-bugs-one-batch-1",
+      "branch": "plan/bugs-one-batch-1",
+      "pid": 17229,
+      "log": "plans/bugs-one-batch/batch-1.log",
+      "started_at": "2026-10-22T22:08:28Z",
+      "finished_at": "2026-10-23T02:39:02Z",
+      "subject": "fix(dashboard): end dead panes fast; selection menu, note focus, reader place, pop-out (closes #97, closes #109, closes #111)",
+      "closes": [
+        97,
+        109,
+        111
+      ],
+      "landed_sha": "4d2b36e2",
+      "error": null,
+      "question": null
+    }
+  ]
+}
