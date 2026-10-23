@@ -137,16 +137,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.306, focus view, session idle.
   Labels: bug, lifecycle.
 
-- [ ] **A card shows alive for up to 5 s after Claude exits** when no terminal is attached. From
-  `plans/maintainability-cleanup/`.
-
-- [ ] **Right click menu with multiple select only applies action to one** ([#97](https://github.com/Zalaras/muster/issues/97)) — With
-  several items selected, the right click menu applies its action to only one item instead of all of
-  the selected items. Expected: The right click menu should apply its action to all selected items
-  rather than just the one under the pointer.
-  Filed 2026-10-15 from musterd 0.21.2 / Claude Code 2.1.300, focus view, session working.
-  Labels: bug, rail, ux.
-
 - [ ] **5h gauge showing 100% after reset** ([#105](https://github.com/Zalaras/muster/issues/105)) — The
   5h usage gauge still shows 100% after the limit window reset, and neither the refresh button
   beside the gauge nor a browser page reload updates it. Expected: The 5h gauge should show the
@@ -162,19 +152,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.293, focus view, session idle.
   Labels: bug, rail, ux.
 
-- [ ] **Closing notes should take focus back to Claude typing** ([#111](https://github.com/Zalaras/muster/issues/111)) — After
-  closing the session note with Esc, keyboard focus does not return to the Claude typing area.
-  Expected: Closing the note with Esc should give focus back to Claude typing.
-  Filed 2026-10-22 from musterd 0.25.1 / Claude Code 2.1.308, focus view, session idle.
-  Labels: bug, focus.
-
-- [ ] **I don't want my position in the doc reset on swapping sessions** ([#109](https://github.com/Zalaras/muster/issues/109)) — Switching
-  between sessions, or between tabs such as docs, shell and claude, resets the scroll position in
-  the document being read. Expected: The scroll position in a document should be preserved when
-  swapping sessions or tabs and coming back.
-  Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.306, focus view, session started.
-  Labels: bug, documents, ux.
-
 - [ ] **running musterd on one profile blocks another** ([#107](https://github.com/Zalaras/muster/issues/107)) — With
   two user profiles on one laptop, musterd running under one profile prevents it from running under
   the other, and the installation cannot be updated from one user despite both being admins.
@@ -187,29 +164,11 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   on the Focus header's effort-mismatch strip with the keyboard hides the strip and leaves focus
   on the page itself. Focus should land somewhere sensible in the header. From `plans/effort/`.
 
-- [ ] **Check the Focus view's first-attach terminal height** — the size note's reserved row
-  was restored; confirm the terminal is not a row short on first attach. From
-  `plans/maintainability-cleanup/`.
-
-- [ ] **A hard wheel flick swallows the next wheel the other way** — after a hard downward
-  flick over a shell surface, the next several wheel-ups do nothing before the pane starts
-  scrolling up. Reversing direction should scroll the other way straight away. From
-  `plans/shell-pane-fixes/`.
-
-- [ ] **"Could not reach musterd." stays after the daemon is back** — after an action fails while
-  musterd is down, the action-error line keeps that message once the connection returns, until
-  the next action replaces it. It should clear when the daemon is reachable again. From
-  `plans/effort/`.
-
 - [ ] **Review how menus behave while the daemon is down** — an open card right-click menu
   closes at each reconnect attempt (about 2 s, 4 s and 8 s) while musterd is unreachable; the
   other menus, popovers and dialogs may do the same. Decide how each should behave while the
   daemon is down and make them consistent — a decision for the developer before it can be fixed.
   From `plans/rail-card-organise/`.
-
-- [ ] **The pop-out reader keeps the old dashboard after Update and restart** — dashboard
-  windows reload onto the new version; an open pop-out should too. From
-  `plans/settings-update-failures/`.
 
 - [ ] **A subdirectory's folder name differs between the Location row and the Added list** — a
   session launched in a subdirectory of a checkout shows that subdirectory's own name (`sub0`) in the
