@@ -85,6 +85,7 @@ C4Component
     Rel(cmd, webui, "serves")
     Rel(cmd, locate, "constructs")
     Rel(cmd, selfupd, "classifies, re-execs")
+    Rel(cmd, atomicfile, "saved port")
 
     Rel(server, session, "applies inputs")
     Rel(server, usage, "records samples")

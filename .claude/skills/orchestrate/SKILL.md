@@ -471,7 +471,7 @@ Completion steps in order.
 ### Final Validation
 
 Run the baseline gates and the plan's authored checks **fresh, via the bundled runner** — never a
-hand-rolled loop, never a cached agent verdict — **after Step 7**, so the sweep sees the tree that
+hand-rolled loop, never a cached agent verdict — **after Step 7 and Completion step 4**, so the sweep sees the tree that
 will land, in the foreground with `timeout: 600000` (~7 min; the harness backgrounds it and wakes you):
 
 ```bash

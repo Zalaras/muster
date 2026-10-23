@@ -1,0 +1,37 @@
+{
+  "plan": "custom-port",
+  "cycles": [
+    {
+      "cycle": 2,
+      "at": "2026-10-23T10:13:56Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 1,
+        "keep": 0,
+        "drop": 1
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "cmd/musterd/stdin.go:442df8cedf2d17f0",
+          "path": "cmd/musterd/stdin.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type lineInput struct {",
+            "line": 11
+          },
+          "lines": [
+            "// lineInput is the daemon's one reader of terminal stdin. run constructs it once and",
+            "// hands it to the two prompts that read a line — the save-port prompt while serving and",
+            "// the -on-exit prompt at shutdown — which never overlap: run ends the first",
+            "// (stopSavePrompt) before shutdown starts the second. mu guards pending, the only field",
+            "// written after construction; the bufio.Reader is touched by one read goroutine at a time",
+            "// because a new one starts only once pending is cleared. A read an earlier prompt gave up",
+            "// on stays in flight, and the next readLine collects its line instead of starting a",
+            "// second reader on the same file."
+          ]
+        }
+      ]
+    }
+  ]
+}

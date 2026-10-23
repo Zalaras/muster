@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -98,15 +99,15 @@ func TestRunTmuxPreflight_OKPrintsNothing(t *testing.T) {
 	assert.Empty(t, stderr.String(), "an all-clear preflight must print nothing (REQ-13)")
 }
 
-// freeAddr returns an address that is momentarily bound then released, so a caller can
-// pass it to run() and independently prove afterward that nothing is listening on it.
-func freeAddr(t *testing.T) string {
+// freePort returns a port that is momentarily bound then released, so a caller can
+// pass it to run() as -port and independently prove afterward that nothing is listening on it.
+func freePort(t *testing.T) string {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	addr := ln.Addr().String()
+	port := strconv.Itoa(ln.Addr().(*net.TCPAddr).Port)
 	require.NoError(t, ln.Close())
-	return addr
+	return port
 }
 
 // TestRun_FailedPreflightLeavesNoSideEffects covers D4: with tmux absent, run() must
@@ -116,10 +117,10 @@ func TestRun_FailedPreflightLeavesNoSideEffects(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 
 	dataDir := filepath.Join(t.TempDir(), "not-yet-created")
-	addr := freeAddr(t)
+	port := freePort(t)
 
 	err := run([]string{
-		"-addr", addr,
+		"-port", port,
 		"-data-dir", dataDir,
 	}, nil, io.Discard, io.Discard)
 
@@ -129,7 +130,7 @@ func TestRun_FailedPreflightLeavesNoSideEffects(t *testing.T) {
 	_, statErr := os.Stat(dataDir)
 	assert.True(t, os.IsNotExist(statErr), "D4: the data dir must not be created when the preflight fails")
 
-	ln, listenErr := net.Listen("tcp", addr)
+	ln, listenErr := net.Listen("tcp", net.JoinHostPort("127.0.0.1", port))
 	require.NoError(t, listenErr, "D4: the listen address must remain unbound after a failed preflight")
 	_ = ln.Close()
 }

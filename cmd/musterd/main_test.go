@@ -33,7 +33,7 @@ func TestResolveOnExit_AskWithNonTTYStdinIsLeave(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = r.Close(); _ = w.Close() })
 
-	got := resolveOnExit("ask", r, io.Discard, 2, 0, "muster")
+	got := resolveOnExit("ask", newLineInput(r, isTerminal(r)), io.Discard, 2, 0, "muster")
 
 	assert.Equal(t, onExitLeave, got)
 }
@@ -48,7 +48,7 @@ func TestResolveOnExit_InvalidFlagValueFallsThroughToTheAskPath(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = r.Close(); _ = w.Close() })
 
-	got := resolveOnExit("bogus", r, io.Discard, 1, 0, "muster")
+	got := resolveOnExit("bogus", newLineInput(r, isTerminal(r)), io.Discard, 1, 0, "muster")
 
 	assert.Equal(t, onExitLeave, got, "an unrecognized value must never silently resolve to kill")
 }
@@ -124,7 +124,7 @@ func TestAskKillPrompt(t *testing.T) {
 			require.NoError(t, w.Close())
 
 			var stderr bytes.Buffer
-			got := askKillPrompt(r, &stderr, 3, 0, "muster")
+			got := askKillPrompt(newLineInput(r, false), &stderr, 3, 0, "muster")
 
 			assert.Equal(t, tt.want, got)
 			assert.Contains(t, stderr.String(), "3 live sessions and 0 shells on tmux socket muster")
@@ -141,7 +141,7 @@ func TestAskKillPrompt_EOFWithNoInputAnswersLeave(t *testing.T) {
 	t.Cleanup(func() { _ = r.Close() })
 	require.NoError(t, w.Close()) // EOF immediately, no bytes ever written
 
-	got := askKillPrompt(r, io.Discard, 1, 0, "muster")
+	got := askKillPrompt(newLineInput(r, false), io.Discard, 1, 0, "muster")
 
 	assert.Equal(t, onExitLeave, got)
 }
@@ -150,7 +150,7 @@ func TestAskKillPrompt_EOFWithNoInputAnswersLeave(t *testing.T) {
 // resolveOnExit: an unrecognized -on-exit value must fail fast at startup rather than
 // silently falling back to a default policy.
 func TestRun_InvalidOnExitValueIsRejected(t *testing.T) {
-	err := run([]string{"-on-exit", "bogus", "-addr", "127.0.0.1:0"}, nil, io.Discard, io.Discard)
+	err := run([]string{"-on-exit", "bogus", "-port", "0"}, nil, io.Discard, io.Discard)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "-on-exit")

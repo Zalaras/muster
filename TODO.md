@@ -152,14 +152,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.293, focus view, session idle.
   Labels: bug, rail, ux.
 
-- [ ] **running musterd on one profile blocks another** ([#107](https://github.com/Zalaras/muster/issues/107)) — With
-  two user profiles on one laptop, musterd running under one profile prevents it from running under
-  the other, and the installation cannot be updated from one user despite both being admins.
-  Expected: Each user profile should run its own musterd in isolation, and the installation should
-  be updatable from either admin user.
-  Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.306, focus view, session idle.
-  Labels: bug, process, install.
-
 - [ ] **Focus lands nowhere after a keyboard Dismiss of the effort warning** — pressing Dismiss
   on the Focus header's effort-mismatch strip with the keyboard hides the strip and leaves focus
   on the page itself. Focus should land somewhere sensible in the header. From `plans/effort/`.
@@ -256,6 +248,8 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   diagram bodies at 300, record summaries at 160 characters, role packs at 30,000) and may be
   cutting information that was useful. Each budget should be checked against what it now forces out,
   and kept, raised or replaced so that fitting it never deletes a true, useful sentence.
+  Already over one: `docs/features/connection/spec.md` is 837 words after `custom-port`, so its next
+  change needs a split-or-raise decision first. From `plans/custom-port/`.
 
 - [ ] **The E2E sweep takes about nine minutes and is most of the gate's time** — 1,001 tests
   ran in 8.7 min at 4 workers (2026-10-19; 715 in 5.9 min on 2026-10-06). The median test is

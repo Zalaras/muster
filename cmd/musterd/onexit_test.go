@@ -182,7 +182,7 @@ func spawnDaemon(t *testing.T, onExit string, stdin *os.File) *spawnedDaemon {
 	tmuxSocket := tmuxtest.Socket(t)
 
 	args := []string{
-		"-addr", "127.0.0.1:0",
+		"-port", "0",
 		"-data-dir", dataDir,
 		"-web-dist", webDist,
 		"-claude-bin", newSleepStubClaude(t),
@@ -489,7 +489,7 @@ func TestAskKillPrompt_NamesBothCountsPluralFixed(t *testing.T) {
 	require.NoError(t, w.Close()) // EOF immediately: this test only cares about the prompt text
 
 	var stderr bytes.Buffer
-	askKillPrompt(r, &stderr, 2, 1, "muster")
+	askKillPrompt(newLineInput(r, false), &stderr, 2, 1, "muster")
 
 	assert.Contains(t, stderr.String(), "2 live sessions and 1 shells on tmux socket muster — kill them? [y/N] ")
 }

@@ -1,6 +1,6 @@
 # cmd/musterd — daemon entry point, wiring only
 
-**Owns**: flag parsing, the startup order (tmux preflight, data dir, store, tokens, server, listener, update check, browser open) and shutdown (on-exit policy, in-place re-exec). Logic lives in `internal/`; this package renders results and wires packages together. **Features**: connection.
+**Owns**: flag parsing, the startup order (tmux preflight, data dir, store, tokens, port resolve, bind, server, update check, browser open, save-port prompt) and shutdown (on-exit policy, in-place re-exec). Logic lives in `internal/`; this package renders results and wires packages together. **Features**: connection.
 
 **Invariants** (violations are review-Critical):
 - tmux preflight runs before the data dir or listener exists; a broken tmux is fatal with the remedy on stderr (kb:adr/surfaces-tmux-preflight-at-startup).
@@ -8,6 +8,7 @@
 - The installed Claude Code is classified, never refused (kb:adr/connection-installed-claude-classified-never-refused).
 - Shutdown leaves sessions running unless the on-exit flag says otherwise (kb:adr/lifecycle-shutdown-leaves-sessions-running).
 - The browser opens only when stdin is a real terminal; that condition, not a flag, keeps tests browser-free (kb:adr/connection-dashboard-auto-opens-on-terminal).
+- The port is `-port`, else the data dir's saved port, else 8765, on `127.0.0.1` only; a busy port fails startup, never falls back. The save prompt runs after serving starts, only on a terminal and never on a restart (kb:adr/connection-port-saved-per-profile-on-prompt).
 - `run()` returns an `errRestart` sentinel; only `main` calls `syscall.Exec`. Tests never replace their own process image.
 
 **Exemplar**: `preflight.go` — a thin renderer over an injected `func(ctx) Result`; copy this shape for any new startup step.
@@ -20,7 +21,7 @@
 - Run `golangci-lint --tests=false` too while a test file is broken (kb:lesson/sanctioned-test-break-blinds-lint).
 
 <!-- kb:trailer -->
-<!-- kb:hash 3e5803ea294e9556 -->
+<!-- kb:hash fd62b8afe3a25419 -->
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
-- 25 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 27 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

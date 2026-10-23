@@ -747,8 +747,8 @@ export class ScratchDaemon {
    * flag list reads as one thing and the spawn/await logic as another. */
   private buildArgs(): string[] {
     const args = [
-      "-addr",
-      `127.0.0.1:${this.port}`,
+      "-port",
+      String(this.port),
       "-data-dir",
       this.dataDir,
       "-claude-bin",

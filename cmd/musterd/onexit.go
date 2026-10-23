@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/mattn/go-isatty"
@@ -43,7 +41,7 @@ const onExitPromptTimeout = 10 * time.Second
 // budget starts — the ask prompt has its own 10s timeout (onExitPromptTimeout), separate
 // from shutdownTimeout's budget for the rest of teardown. With zero live sessions and zero
 // shells neither branch prints anything.
-func shutdownGracefully(f *cliFlags, srv *server.Server, httpServer *http.Server, stdin *os.File, stderr io.Writer, log zerolog.Logger) {
+func shutdownGracefully(f *cliFlags, srv *server.Server, httpServer *http.Server, in *lineInput, stderr io.Writer, log zerolog.Logger) {
 	stopPollCtx, stopPollCancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	srv.StopLivenessPoll(stopPollCtx)
 	stopPollCancel()
@@ -63,7 +61,7 @@ func shutdownGracefully(f *cliFlags, srv *server.Server, httpServer *http.Server
 	}
 
 	if live > 0 || shells > 0 {
-		switch resolveOnExit(f.onExit, stdin, stderr, live, shells, srv.TmuxSocket()) {
+		switch resolveOnExit(f.onExit, in, stderr, live, shells, srv.TmuxSocket()) {
 		case onExitKill:
 			// Bounded: an unbounded context here would let a wedged tmux kill-session
 			// hang shutdown indefinitely, outside shutdownTimeout's own budget for the
@@ -114,17 +112,17 @@ const (
 // real terminal (isTerminal) — and otherwise resolves to "leave" without printing
 // anything. Callers only invoke this once they already know liveSessions > 0 || shells >
 // 0: zero of both gets no prompt and no log line at all.
-func resolveOnExit(flagValue string, stdin *os.File, stderr io.Writer, liveSessions, shells int, tmuxSocket string) onExitDecision {
+func resolveOnExit(flagValue string, in *lineInput, stderr io.Writer, liveSessions, shells int, tmuxSocket string) onExitDecision {
 	switch flagValue {
 	case "kill":
 		return onExitKill
 	case "leave":
 		return onExitLeave
 	}
-	if !isTerminal(stdin) {
+	if !in.tty {
 		return onExitLeave
 	}
-	return askKillPrompt(stdin, stderr, liveSessions, shells, tmuxSocket)
+	return askKillPrompt(in, stderr, liveSessions, shells, tmuxSocket)
 }
 
 // isTerminal reports whether f is attached to a real terminal, via
@@ -147,25 +145,13 @@ func isTerminal(f *os.File) bool {
 // must never be silently killed. The grammar is deliberately plural-fixed ("1 shells") —
 // the developer accepted it (2026-09-16) to keep the prompt text a single fixed format
 // string rather than branching on count.
-func askKillPrompt(stdin *os.File, stderr io.Writer, liveSessions, shells int, tmuxSocket string) onExitDecision {
-	fmt.Fprintf(stderr, "%d live sessions and %d shells on tmux socket %s — kill them? [y/N] ", liveSessions, shells, tmuxSocket)
+func askKillPrompt(in *lineInput, stderr io.Writer, liveSessions, shells int, tmuxSocket string) onExitDecision {
+	ctx, cancel := context.WithTimeout(context.Background(), onExitPromptTimeout)
+	defer cancel()
 
-	answer := make(chan string, 1)
-	go func() {
-		line, _ := bufio.NewReader(stdin).ReadString('\n')
-		answer <- strings.TrimSpace(line)
-	}()
-
-	select {
-	case a := <-answer:
-		switch strings.ToLower(a) {
-		case "y", "yes":
-			return onExitKill
-		default:
-			return onExitLeave
-		}
-	case <-time.After(onExitPromptTimeout):
-		fmt.Fprintln(stderr)
-		return onExitLeave
+	prompt := fmt.Sprintf("%d live sessions and %d shells on tmux socket %s — kill them? [y/N] ", liveSessions, shells, tmuxSocket)
+	if in.confirm(ctx, stderr, prompt) {
+		return onExitKill
 	}
+	return onExitLeave
 }

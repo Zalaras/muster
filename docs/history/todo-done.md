@@ -2565,3 +2565,11 @@ that the dashboard shows.
 - [x] **The pop-out reader keeps the old dashboard after Update and restart** ✅ done 2026-10-23 (plan `bugs-one-batch-1`, via `/fix`) — dashboard
   windows reload onto the new version; an open pop-out should too. From
   `plans/settings-update-failures/`.
+
+- [x] **running musterd on one profile blocks another** ([#107](https://github.com/Zalaras/muster/issues/107)) ✅ done 2026-10-23 (plan `custom-port`, via `/orchestrate`) — With
+  two user profiles on one laptop, musterd running under one profile prevents it from running under
+  the other, and the installation cannot be updated from one user despite both being admins.
+  Expected: Each user profile should run its own musterd in isolation, and the installation should
+  be updatable from either admin user.
+  Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.306, focus view, session idle.
+  Labels: bug, process, install.

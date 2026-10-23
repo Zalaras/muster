@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -82,7 +83,7 @@ func main() {
 // cliFlags is every -flag musterd accepts, already parsed and validated by parseFlags.
 type cliFlags struct {
 	showVersion         bool
-	addr                string
+	port                portFlag
 	dataDir             string
 	webDist             string
 	debug               bool
@@ -138,8 +139,12 @@ func parseFlags(args []string, stderr io.Writer) (*cliFlags, error) {
 	}
 
 	var f cliFlags
+	var portArg *string
 	fset.BoolVar(&f.showVersion, "version", false, "print version and exit")
-	fset.StringVar(&f.addr, "addr", "127.0.0.1:8765", "listen address (localhost only by design)")
+	fset.Func("port", "port to listen on, always on 127.0.0.1: 0-65535 or \"default\" (8765); without it the port saved for this data dir, else 8765. On a terminal, a port different from that offers to save it", func(s string) error {
+		portArg = &s
+		return nil
+	})
 	fset.StringVar(&f.dataDir, "data-dir", defaultDataDir, "directory for the database, tokens and other daemon-local state")
 	fset.StringVar(&f.webDist, "web-dist", "", "serve the dashboard from this directory instead of the embedded copy (dev override; empty uses the binary's embedded dashboard)")
 	fset.BoolVar(&f.debug, "debug", false, "debug logging")
@@ -167,6 +172,12 @@ func parseFlags(args []string, stderr io.Writer) (*cliFlags, error) {
 	if err := fset.Parse(args); err != nil {
 		return nil, err
 	}
+
+	port, err := portFromArg(portArg)
+	if err != nil {
+		return nil, err
+	}
+	f.port = port
 
 	switch f.onExit {
 	case "ask", "leave", "kill":
@@ -284,6 +295,8 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	// never logs dashboardURL itself. A restarted daemon skips this too — stdin is still
 	// the original TTY, so without the check a restart would pop a second browser tab.
 	maybeOpenDashboard(ctx, f, stdin, restarted, serving.dashboardURL, log)
+	input := newLineInput(stdin, isTerminal(stdin))
+	stopSavePrompt := maybeOfferSavePort(ctx, f, input, restarted, serving, stderr, log)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -307,7 +320,8 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		return &errRestart{exe: exePath}
 	}
 
-	shutdownGracefully(f, srv, httpServer, stdin, stderr, log)
+	stopSavePrompt()
+	shutdownGracefully(f, srv, httpServer, input, stderr, log)
 	return nil
 }
 
@@ -356,6 +370,7 @@ type servingEnv struct {
 	ingestToken      string
 	listener         net.Listener
 	port             int
+	offerSavePort    bool
 	dashboardURL     string
 	hookScript       string
 	statusLineScript string
@@ -368,10 +383,16 @@ func prepareServing(ctx context.Context, f *cliFlags, st *store.Store, log zerol
 		return nil, fmt.Errorf("bootstrapping tokens: %w", err)
 	}
 
-	var lc net.ListenConfig
-	ln, err := lc.Listen(ctx, "tcp", f.addr)
+	choice, err := resolvePort(f.port, f.dataDir)
 	if err != nil {
-		return nil, fmt.Errorf("listening on %s: %w", f.addr, err)
+		return nil, err
+	}
+
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(choice.listen))
+	var lc net.ListenConfig
+	ln, err := lc.Listen(ctx, "tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("listening on %s: %w; choose another port with -port N", addr, err)
 	}
 
 	port := 0
@@ -399,6 +420,7 @@ func prepareServing(ctx context.Context, f *cliFlags, st *store.Store, log zerol
 		ingestToken:      ingestToken,
 		listener:         ln,
 		port:             port,
+		offerSavePort:    choice.offerSave,
 		dashboardURL:     dashboardURL,
 		hookScript:       hookScript,
 		statusLineScript: statusLineScript,

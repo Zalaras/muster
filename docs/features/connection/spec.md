@@ -16,9 +16,10 @@ Connection is the daemon's front door and the dashboard's link to it.
 
 ## Transport and auth
 
-The daemon binds `127.0.0.1` on one port (`-addr`) and serves the dashboard, the UI API,
-the state WebSocket, the terminal WebSockets, ingest and an unauthenticated health check
-(`kb:anchor/transport`, `kb:anchor/http`). The dashboard is embedded in the binary; a
+The daemon binds `127.0.0.1` on `-port`, else the profile's saved port (`<data-dir>/port`),
+else 8765; on a terminal it offers to save a differing flag-given port, and saving
+`-port default` clears it. It serves the dashboard, UI API, state and terminal WebSockets,
+ingest and an unauthenticated health check (`kb:anchor/transport`, `kb:anchor/http`). The dashboard is embedded in the binary; a
 directory flag overrides it for development, and a binary with neither exits at startup
 naming both remedies (kb:adr/connection-dashboard-embedded-in-binary,
 kb:adr/connection-missing-web-build-fails-fast).
@@ -29,9 +30,9 @@ HTTP-only cookie; it stays valid at that endpoint for the install's life
 (kb:adr/connection-ui-token-reusable-not-one-time). Every API, socket and static request
 without the cookie is refused, and a WebSocket upgrade with a foreign Origin is rejected.
 The ingest token is separate and lives in the hook URL path
-(kb:adr/ingest-separate-token-in-url-path). There is no auth beyond this: the accepted
+(kb:adr/ingest-separate-token-in-url-path). Nothing else authenticates: the accepted
 residual risk is same-user malware reading the token file, which could read Claude
-Code's credentials directly anyway. Secrets stay out of any file Muster writes into a
+Code's credentials anyway. Secrets stay out of any file Muster writes into a
 repository, and hook payloads are never logged where they are world-readable.
 
 ## The state stream

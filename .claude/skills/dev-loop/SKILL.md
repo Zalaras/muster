@@ -18,7 +18,7 @@ This builds `bin/musterd` and the dashboard assets (`internal/webui/assets/`), t
 the daemon against the **real** data dir (`~/Library/Application Support/Muster`) serving
 those assets from disk (`-web-dist internal/webui/assets` — the dev override, so the
 edit-TS → `make web-build` → reload loop needs no Go relink), listening on
-`127.0.0.1:8765`. The startup log line includes `dashboard_url` — that URL (with the UI
+`127.0.0.1:8765` (or the port saved for this profile). The startup log line includes `dashboard_url` — that URL (with the UI
 token baked in) is what to open in the browser.
 
 Because `make run` occupies the terminal, launch it in the background
@@ -43,7 +43,7 @@ startup log line regardless.
 
 ## Custom instances
 
-Flags: `-addr` (default `127.0.0.1:8765`), `-data-dir`, `-web-dist` (default `""` —
+Flags: `-port N|default` (host is always `127.0.0.1`; without it, the port saved in the data dir, else 8765 — on a terminal a flag-given port is offered for saving with a y/N prompt), `-data-dir`, `-web-dist` (default `""` —
 empty serves the dashboard embedded in the binary at build time; non-empty serves that
 directory from disk, as `make run` does with `internal/webui/assets`), `-debug`. For a throwaway instance that must not touch the real data dir,
 pass a scratch `-data-dir` (that is exactly what the E2E harness does — prefer
@@ -53,7 +53,7 @@ pass a scratch `-data-dir` (that is exactly what the E2E harness does — prefer
 
 Send SIGINT/SIGTERM (Ctrl-C in the foreground, `kill <pid>` otherwise) — shutdown is
 graceful: contexts cancelled, ingest queue drained, DB closed. Keep `kill -9` for a wedged
-daemon; find a stray instance with `lsof -i @127.0.0.1:8765`.
+daemon; find a stray instance with `lsof -i @127.0.0.1:8765` (or its custom port).
 
 **Sessions survive daemon shutdown by policy** (`-on-exit`, default `ask` on a TTY —
 `kb:adr/lifecycle-shutdown-leaves-sessions-running`): the `muster` socket and every `claude` it launched outlive musterd

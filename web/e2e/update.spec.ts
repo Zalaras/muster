@@ -668,7 +668,7 @@ test("Update and restart returns the dashboard on the same port and data dir (E1
     const newBinary = await buildVersionedMusterd(NEW_VERSION);
     await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
     fakeServer.setLatest(NEW_TAG);
-    // Every scratch daemon already runs on its own freshly allocated `-addr` and a
+    // Every scratch daemon already runs on its own freshly allocated `-port` and a
     // scratch `-data-dir`/`-tmux-socket` (helpers/daemon.ts's spawnAndWait) — i.e. every
     // daemon this harness starts already IS "non-default" by construction. INV-7's
     // proof is that all three survive the re-exec verbatim, observed here as "the same

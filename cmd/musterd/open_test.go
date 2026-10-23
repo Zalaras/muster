@@ -39,12 +39,12 @@ func newRecordingStub(t *testing.T, recordFile string) (path, env string) {
 	return path, "MUSTER_TEST_OPEN_RECORD=" + recordFile
 }
 
-// newPTYStdin opens a real pseudo-terminal (creack/pty, D8's "a pty from creack/pty")
-// and returns its slave end for use as a subprocess's Stdin — isatty.IsTerminal reports
-// true for it, unlike a pipe or /dev/null. Both ends are kept open and cleaned up
-// together; closing the master before the child exits would give the child a broken
-// slave.
-func newPTYStdin(t *testing.T) *os.File {
+// newPTYPair opens a real pseudo-terminal (creack/pty) and returns both ends: tty is the
+// slave end for use as a subprocess's Stdin — isatty.IsTerminal reports true for it, unlike
+// a pipe or /dev/null — and ptmx is the master a test writes an answer into. Both ends are
+// kept open and cleaned up together; closing the master before the child exits would give
+// the child a broken slave.
+func newPTYPair(t *testing.T) (ptmx, tty *os.File) {
 	t.Helper()
 	ptmx, tty, err := pty.Open()
 	require.NoError(t, err)
@@ -52,6 +52,13 @@ func newPTYStdin(t *testing.T) *os.File {
 		_ = ptmx.Close()
 		_ = tty.Close()
 	})
+	return ptmx, tty
+}
+
+// newPTYStdin returns the slave end of a fresh pty (D8's "a pty from creack/pty").
+func newPTYStdin(t *testing.T) *os.File {
+	t.Helper()
+	_, tty := newPTYPair(t)
 	return tty
 }
 
@@ -74,7 +81,7 @@ func openTestDaemonArgs(t *testing.T, extra ...string) (args []string, dataDir s
 	tmuxSocket := tmuxtest.Socket(t)
 
 	args = []string{
-		"-addr", "127.0.0.1:0",
+		"-port", "0",
 		"-data-dir", dataDir,
 		"-web-dist", webDist,
 		"-tmux-socket", tmuxSocket,

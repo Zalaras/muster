@@ -20,8 +20,8 @@ Muster is four things. musterd, one Go process bound to 127.0.0.1, which starts 
 server on the dedicated `muster` socket. The dashboard, compiled into the binary and served
 to the default browser, which musterd opens at startup; it holds a cookie exchanged for the
 UI token and speaks HTTP for commands, one WebSocket for the state stream and one per live
-terminal. The SQLite file. And the data directory beside it, holding the tokens file and
-the hook wrapper scripts.
+terminal. The SQLite file. And the data directory beside it, holding the tokens file,
+the hook wrapper scripts and any saved port.
 
 Claude Code never addresses musterd itself. musterd launches it inside a new tmux session
 with the Muster session id in the pane environment; on every hook and status-line refresh
@@ -56,7 +56,7 @@ C4Container
         Container(dashboard, "Dashboard", "TypeScript, Vite, xterm.js, in the default browser", "index.html and the doc.html pop-out; embedded in and served by musterd")
         Container(musterd, "musterd", "Go, net/http", "Daemon on 127.0.0.1: routes, state machine, ingest queue, PTY bridge, pollers")
         ContainerDb(sqlite, "SQLite", "muster.db, pure-Go driver, WAL", "event, session, repo, kv and usage tables")
-        ContainerDb(datadir, "Data directory", "Files", "tokens.json and the wrapper scripts (hook, status line, legacy), written by musterd at startup")
+        ContainerDb(datadir, "Data directory", "Files", "tokens.json and the wrapper scripts (hook, status line, legacy), written by musterd at startup; the saved port file")
     }
 
     Boundary(agent, "Where sessions run") {

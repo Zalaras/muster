@@ -53,10 +53,10 @@ socket inside a scratch directory you delete, and you `kill-server` it when done
 omits, implement the minimal version and log it as a `deviation:` line in `## Decisions`.
 
 **Design is yours to choose and yours to report** (`docs/conventions.md` § Design — the plan says
-*what*, never the shape). Before adding a type, helper or package, `rg` for one that already does it
+*what*, never the shape). Before writing or copying any type, helper or package, `rg` for one that does it
 and paste the grep in `## Decisions`; name the sibling in the package whose shape you matched, or say
-none fit and why. A pattern is named by the problem it solves here, never by its label. Shared state
-names its writers and its guard where it is declared. The maintainability reviewer reads your
+none fit and why. A pattern is named by the problem it solves here, never by its label. Shared state,
+stdin included, names its writers and its guard. The maintainability reviewer reads your
 `design:` lines with the sibling files open — a reported divergence is a decision, an unreported one
 is a finding. The plan's Affected Files is its impact read, not a fence, and its Implementation Notes
 Hints are non-binding: take or drop each, saying which in a `design:` line.
