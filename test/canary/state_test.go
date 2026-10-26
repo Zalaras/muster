@@ -116,8 +116,9 @@ func TestPromptCacheIdleFollowsRegime(t *testing.T) {
 			"expires_at moved only %s over %s of idle: keep-alives no longer push it on, so the hour-of-keep-alives prediction would be wrong",
 			moved.Round(time.Second), atCompact.at.Sub(first.at).Round(time.Second))
 	case 3600:
-		// A post just after a request can read a second later than the next one, so the hold allows 2 s.
-		assert.LessOrEqual(t, moved.Abs(), 2*time.Second,
+		// expires_at jitters by a second or two around the request (2 s seen on 2.1.310); 10 s stays
+		// well clear of the 25 s a 5m keep-alive moves it over the same idle.
+		assert.LessOrEqual(t, moved.Abs(), 10*time.Second,
 			"expires_at moved %s over %s of idle on a 1h ttl: something now sends keep-alives in the 1h regime",
 			moved.Round(time.Second), atCompact.at.Sub(first.at).Round(time.Second))
 	default:
