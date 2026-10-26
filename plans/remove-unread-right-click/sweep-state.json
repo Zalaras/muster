@@ -1,0 +1,35 @@
+{
+ "sweep": "remove-unread-right-click",
+ "parallel": 1,
+ "started_at": "2026-10-26T14:13:46Z",
+ "updated_at": "2026-10-26T18:42:11Z",
+ "batches": [
+  {
+   "n": 1,
+   "name": "remove-unread-right-click-1",
+   "entries": [
+    "e1",
+    "e2",
+    "e3",
+    "e4"
+   ],
+   "work_type": "full-stack",
+   "status": "landed",
+   "worktree": "/Users/damian/Documents/code/Projects/muster-remove-unread-right-click-1",
+   "branch": "plan/remove-unread-right-click-1",
+   "pid": 55342,
+   "log": "plans/remove-unread-right-click/batch-1.log",
+   "started_at": "2026-10-26T14:14:07Z",
+   "finished_at": "2026-10-26T18:42:11Z",
+   "subject": "feat(rail): mark read/unread, Remove live sessions, Focus header \u22ef, clean note hover (closes #103, closes #104, closes #106)",
+   "closes": [
+    103,
+    104,
+    106
+   ],
+   "landed_sha": "bdcfa48e",
+   "error": "landed by hand: loop's subject check refuses feat; the developer chose to land the feat subject as is",
+   "question": null
+  }
+ ]
+}
