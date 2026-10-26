@@ -36,7 +36,11 @@ type UsageWindow struct {
 // never distinguishes "no limits key" from "limits present but empty" from "every entry
 // filtered out"; all three produce a nil slice, and it is the caller's job (the poller)
 // to represent "a successful fetch happened" as a non-nil (possibly empty) list.
+// FiveHour and SevenDay are the top-level windows; each is nil when missing, null or
+// unparseable.
 type UsageReport struct {
+	FiveHour    *StatusBucket
+	SevenDay    *StatusBucket
 	ModelScoped []UsageWindow
 }
 
@@ -44,7 +48,14 @@ type UsageReport struct {
 // reads. Many other top-level keys exist in the real response (amber_ladder,
 // seven_day_opus, extra_usage, …) and are deliberately ignored (canary-fields.md).
 type usageAPIResponse struct {
-	Limits []usageAPILimit `json:"limits"`
+	FiveHour json.RawMessage `json:"five_hour"`
+	SevenDay json.RawMessage `json:"seven_day"`
+	Limits   []usageAPILimit `json:"limits"`
+}
+
+type usageAPIWindow struct {
+	Utilization *float64        `json:"utilization"`
+	ResetsAt    json.RawMessage `json:"resets_at"`
 }
 
 type usageAPILimit struct {
@@ -98,7 +109,8 @@ func FetchUsage(ctx context.Context, client *http.Client, baseURL, token string)
 }
 
 // InterpretUsageReport is the pure decode InterpretStatus mirrors for the status line —
-// it never does I/O. Only `kind == "weekly_scoped"` entries carrying a non-empty
+// it never does I/O. The top-level five_hour and seven_day windows become buckets
+// (kb:fact/usage-api-oauth-shape). Only `kind == "weekly_scoped"` entries carrying a non-empty
 // `scope.model.display_name` become a UsageWindow (kb:fact/usage-api-oauth-shape); a
 // missing `limits` key, other kinds, a null/empty display_name, an unparseable resets_at
 // on one entry, and unknown top-level keys are all ignored rather than erroring — an
@@ -110,7 +122,7 @@ func InterpretUsageReport(body []byte) (UsageReport, error) {
 		return UsageReport{}, fmt.Errorf("decoding usage response: %w", err)
 	}
 
-	var out UsageReport
+	out := UsageReport{FiveHour: interpretWindow(resp.FiveHour), SevenDay: interpretWindow(resp.SevenDay)}
 	for _, l := range resp.Limits {
 		if l.Kind != "weekly_scoped" {
 			continue
@@ -131,6 +143,29 @@ func InterpretUsageReport(body []byte) (UsageReport, error) {
 	return out, nil
 }
 
+func interpretWindow(raw json.RawMessage) *StatusBucket {
+	var w usageAPIWindow
+	if err := json.Unmarshal(raw, &w); err != nil || w.Utilization == nil {
+		return nil
+	}
+	resetsAt, err := parseResetsAt(w.ResetsAt)
+	if err != nil {
+		return nil
+	}
+	return &StatusBucket{UsedPct: *w.Utilization, ResetsAt: resetsAt}
+}
+
+// ceilToSecond rounds t up to the next whole second (an instant already on one is
+// unchanged), so an API reset reads as the same instant the status line states in epoch
+// seconds (kb:adr/usage-call-resets-rounded-up-to-the-second).
+func ceilToSecond(t time.Time) time.Time {
+	floor := t.Truncate(time.Second)
+	if floor.Equal(t) {
+		return t
+	}
+	return floor.Add(time.Second)
+}
+
 // parseResetsAt accepts resets_at either as an RFC3339(Nano)-with-offset string
 // (kb:fact/usage-api-oauth-shape's measured live shape, e.g.
 // "2026-09-01T13:59:59.522599+00:00") or an integer epoch seconds, since the endpoint is
@@ -142,7 +177,7 @@ func parseResetsAt(raw json.RawMessage) (time.Time, error) {
 		if err != nil {
 			return time.Time{}, fmt.Errorf("parsing resets_at %q: %w", s, err)
 		}
-		return t.UTC(), nil
+		return ceilToSecond(t.UTC()), nil
 	}
 	var epoch int64
 	if err := json.Unmarshal(raw, &epoch); err == nil {

@@ -201,8 +201,8 @@ func (q *ingestQueue) processStatus(ctx context.Context, sessionID int64, payloa
 	// invent Muster's own source label.
 	acct := update.Account
 	sample := usage.Sample{
-		FiveHour: usage.Bucket{UsedPct: acct.FiveHour.UsedPct, ResetsAt: acct.FiveHour.ResetsAt},
-		SevenDay: usage.Bucket{UsedPct: acct.SevenDay.UsedPct, ResetsAt: acct.SevenDay.ResetsAt},
+		FiveHour: toUsageBucket(acct.FiveHour),
+		SevenDay: toUsageBucket(acct.SevenDay),
 		Model:    usage.Model{ID: acct.Model.ID, DisplayName: acct.Model.DisplayName},
 	}
 	if err := q.usage.Record(ctx, sample); err != nil {

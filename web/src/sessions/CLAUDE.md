@@ -18,7 +18,7 @@
 - `rename.ts` compares the trimmed input against the daemon's precedence-resolved `title`; `titleOverride` only decides what empty means (kb:adr/rename-muster-owned-title-override-wins).
 
 <!-- kb:trailer -->
-<!-- kb:hash 4ab6f9001cccc6c3 -->
+<!-- kb:hash fb63aa431bfca828 -->
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
 - **groups** — Rail groups: sections, header summary and popover, select mode, filter, group create, rename, ungroup and delete, persistence. → `docs/features/groups/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
@@ -26,5 +26,5 @@
 - **rail** — Rail cards, attention versus manual order, pin, drag reorder, session count. → `docs/features/rail/INDEX.md`
 - **rename** — Muster-owned session title override, inline rename in the mainhead and tiles. → `docs/features/rename/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 32 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 33 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

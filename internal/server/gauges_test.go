@@ -58,7 +58,10 @@ func TestIngestStatusLine_UpdatesSessionAndRecordsUsageSample(t *testing.T) {
 	assert.Equal(t, 42.0, got.Context.UsedPct)
 	assert.Equal(t, int64(84000), got.Context.TotalInputTokens)
 
-	require.Eventually(t, func() bool { return countUsageSampleRows(t, srv) == 1 }, 2*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool {
+		snap := srv.usage.aggregator.Current()
+		return countUsageSampleRows(t, srv) == 1 && snap.FiveHour != nil && snap.SevenDay != nil
+	}, 2*time.Second, 10*time.Millisecond, "the row is persisted before the snapshot is committed, so wait for both")
 
 	snap := srv.usage.aggregator.Current()
 	require.NotNil(t, snap.FiveHour)

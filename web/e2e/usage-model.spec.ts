@@ -32,7 +32,18 @@ const FAKE_TOKEN = "MUSTER-E2E-FAKE-OAUTH-TOKEN-4f19bd2c";
 // The measured `resets_at` form (docs/history/spikes/canary-fields.md: RFC3339 with micros and a
 // `+00:00` offset) — reused across fixtures so every test exercises the same shape the
 // real endpoint actually sends (REQ-4/edge case 12).
-const RESETS_AT = "2026-09-01T13:59:59.522599+00:00";
+//
+// A far-future instant, not the capture's 2026-09-01: plan usage-bar-consistency REQ-5
+// renders any readout whose reset is past as `unknown`, so a past reset would hide the very
+// values these journeys assert. It is still an other-day instant, so the bracketed form is
+// unchanged.
+const RESETS_AT = "2099-09-01T13:59:59.522599+00:00";
+
+// The reset the dashboard shows for a usage-call window is the call's instant rounded UP to
+// the whole second (kb:adr/usage-call-resets-rounded-up-to-the-second, plan
+// usage-bar-consistency REQ-9): 13:59:59.522599 reads 14:00:00, the minute the limit really
+// rolls over, not the one before it. Derived from the raw instant, never hardcoded.
+const RESETS_INSTANT_ROUNDED = new Date(Math.ceil(Date.parse(RESETS_AT) / 1000) * 1000);
 
 // Every test needs its own daemon: `modelScoped`/`modelScopedError`/the `usageModel`
 // pref are all daemon-global state (mirrors gauges.spec.ts's/views.spec.ts's rationale
@@ -65,10 +76,10 @@ test("with the fake endpoint returning a Fable 61% window, the readout shows the
     await expect(mastheadModelSelect(page).locator("option")).toHaveText("Fable");
     await expect(mastheadModelWeekWarn(page)).toHaveCount(1);
     await expect(mastheadModelWeekTrack(page)).toHaveCount(1);
-    // RESETS_AT (2026-09-01) is a past, other-day instant: the bracketed (HH:MM Ddd)
+    // RESETS_AT (2099-09-01) is a future, other-day instant: the bracketed (HH:MM Ddd)
     // form, evaluated for that exact instant in the page's own zone (plan
     // masthead-indicators REQ-4/REQ-12), with the HH:MM also in the hover title.
-    const resetsInstant = new Date(RESETS_AT);
+    const resetsInstant = RESETS_INSTANT_ROUNDED;
     await expect(mastheadModelWeekResets(page)).toHaveText(
       await expectedResetsText(page, resetsInstant),
     );
@@ -196,7 +207,7 @@ test("the fake endpoint switched to 401 marks the readout stale while keeping th
     // Plan masthead-indicators E2: the stale readout keeps its last-good reset text, in
     // the bracketed format.
     await expect(mastheadModelWeekResets(page)).toHaveText(
-      await expectedResetsText(page, new Date(RESETS_AT)),
+      await expectedResetsText(page, RESETS_INSTANT_ROUNDED),
     );
 
     api.setResponse(

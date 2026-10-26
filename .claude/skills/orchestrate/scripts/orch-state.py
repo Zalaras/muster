@@ -8,7 +8,9 @@ Usage (run from the project root):
                                                      reports; leaves completed_steps/current_step alone
   orch-state.py <plan> done <step> --next STEP       mark <step> completed, move on; e2e-specs is refused while an
                                                      authoring Tests row is marked neither run nor collection-only
-  orch-state.py <plan> retry <step>                  bump retry_counts[<step>]
+  orch-state.py <plan> retry <step>                  bump retry_counts[<step>]; `retry review` is refused while an impl
+                                                     fix since the last review has no later render-tests/e2e-specs
+                                                     attempt, unless --no-new-behaviour REASON
   orch-state.py <plan> status <in-progress|blocked|completed> [--step STEP]
                                                      completed is refused unless review.md says **Verdict**: approved
                                                      and gates.sh's last full run on this tree had 0 failed
@@ -272,6 +274,24 @@ def unmarked_authoring_rows(plan_dir):
                 rows.append(line[:90])
     return rows
 
+def uncovered_impl_fix(s):
+    """An impl fix attempt since the last review reported, with no render-tests or e2e-specs attempt
+    started after it. Why (usage-bar-consistency retro, 2026-10-26): the Fix Wave Ordering rule that
+    a fix wave's new user-facing behaviour gets coverage in the same cycle had two edits and was
+    still skipped, costing a red gates run and a late wave."""
+    att = s.get("step_attempts") or {}
+    since = max((a.get("finish") or a["start"] for a in att.get("review", [])), default=None)
+    if since is None:
+        return None
+    fixes = [a.get("finish") or a["start"] for k in ("daemon-impl", "web-impl")
+             for a in att.get(k, []) if a["start"] > since]
+    if not fixes:
+        return None
+    last = max(fixes)
+    if any(a["start"] >= last for k in ("render-tests", "e2e-specs") for a in att.get(k, [])):
+        return None
+    return last
+
 def fmt(td):
     m, sec = divmod(int(td.total_seconds()), 60)
     return f"{m}m{sec:02d}s"
@@ -287,6 +307,9 @@ def main():
     ap.add_argument("--next")
     ap.add_argument("--reset-retries", action="store_true",
                     help="reopen only: zero the step's retry count (a fresh budget the user granted)")
+    ap.add_argument("--no-new-behaviour", metavar="REASON",
+                    help="retry review only: this cycle's impl fixes added no user-facing behaviour, so no "
+                         "render-tests/e2e-specs wave followed them; the reason is recorded in the state")
     ap.add_argument("--gates-failed", type=int, default=0,
                     help="merge-review only: failed lines in the orchestrator's gate run (any > 0 forces needs-changes)")
     a = ap.parse_args()
@@ -338,6 +361,12 @@ def main():
         elif a.cmd == "retry":
             if (s.get("step_attempts") or {}).get(a.arg, [{}])[-1].get("finish", 0) is None:
                 close_attempt(s, a.arg)  # a retry means the step just reported
+            if a.arg == "review" and (at := uncovered_impl_fix(s)):
+                if not a.no_new_behaviour:
+                    sys.exit(f"an impl fix reported at {at} and no render-tests or e2e-specs attempt followed it — "
+                             "run that coverage wave (SKILL.md § Fix Wave Ordering › Rules), or pass "
+                             "--no-new-behaviour '<why the fix added no user-facing behaviour>'")
+                s.setdefault("no_new_behaviour", {})[str(review_cycle(s))] = a.no_new_behaviour
             if a.arg == "review":  # the cycle number survives --reset-retries (groups retro, 2026-10-05)
                 # Read the cycle before the retry count moves: with no counter yet, review_cycle()
                 # derives it from that count, and the first retry landed on 3 (launch-inflight-guard, 2026-10-06).

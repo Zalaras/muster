@@ -1,7 +1,7 @@
 ---
 id: usage-model-window-polled-from-oauth-api
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-30
 summary: The per-model weekly window comes from the daemon polling Claude Code's OAuth usage endpoint on a timer plus a coalesced manual refresh, not the status line.
 features: [usage]

@@ -33,9 +33,6 @@ type UsageConfig struct {
 	KeychainUser string
 }
 
-// usageFeature owns both usage sources — the status-line Aggregator (fed by the ingest
-// worker) and the per-model poller — plus POST /api/usage/refresh and the snapshot's
-// usage object.
 type usageFeature struct {
 	aggregator  *usage.Aggregator
 	modelScoped *usage.ModelScoped
@@ -50,6 +47,7 @@ func newUsageFeature(cfg UsageConfig, httpClient *http.Client, st *store.Store, 
 		Logger: log,
 		OnChange: func(snap usage.Snapshot) {
 			hub.broadcast(usageMessage{Type: "usage", Usage: toWireUsage(snap, f.modelScoped.Current())})
+			f.notifyPoller()
 		},
 	})
 
@@ -61,6 +59,7 @@ func newUsageFeature(cfg UsageConfig, httpClient *http.Client, st *store.Store, 
 		Logger: log,
 		OnChange: func(msnap usage.ModelSnapshot) {
 			hub.broadcast(usageMessage{Type: "usage", Usage: toWireUsage(f.aggregator.Current(), msnap)})
+			f.notifyPoller()
 		},
 	})
 
@@ -72,7 +71,7 @@ func newUsageFeature(cfg UsageConfig, httpClient *http.Client, st *store.Store, 
 		} else {
 			tokenReader = claudecode.KeychainTokenReader(cfg.KeychainUser)
 		}
-		f.poller = newUsagePoller(httpClient, cfg.APIURL, tokenReader, cfg.Poll, f.modelScoped, log)
+		f.poller = newUsagePoller(httpClient, cfg.APIURL, tokenReader, cfg.Poll, f.aggregator, f.modelScoped, log)
 	case cfg.Poll > 0:
 		// Misconfiguration, not a code path main.go can ever hit (it always passes the
 		// flag's non-empty default): fail toward no polling rather than toward a silent
@@ -81,6 +80,12 @@ func newUsageFeature(cfg UsageConfig, httpClient *http.Client, st *store.Store, 
 	}
 
 	return f
+}
+
+func (f *usageFeature) notifyPoller() {
+	if f.poller != nil {
+		f.poller.notify()
+	}
 }
 
 func (f *usageFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
@@ -104,8 +109,8 @@ func (f *usageFeature) contribute(_ context.Context, snap *Snapshot) {
 }
 
 // handleUsageRefresh is POST /api/usage/refresh (kb:anchor/usage.refresh): wakes the
-// per-model usage poller for an immediate fetch, coalesced server-side by usagePoller
-// itself (kb:adr/usage-model-window-polled-from-oauth-api). 404 not_found when polling is
+// usage poller for an immediate fetch, coalesced server-side by usagePoller itself
+// (kb:adr/usage-all-windows-polled-and-refetched-at-reset). 404 not_found when polling is
 // disabled (Poll <= 0 — the poller was never constructed).
 func (f *usageFeature) handleUsageRefresh(w http.ResponseWriter, _ *http.Request) {
 	if f.poller == nil {

@@ -17,20 +17,55 @@ export interface FakeUsageWindow {
   resetsAt: string;
 }
 
+/** A top-level `five_hour` / `seven_day` window of the response (plan usage-bar-consistency
+ * REQ-1): `utilization` is the measured percent-scale float, `resetsAt` the measured RFC3339
+ * string with microseconds and an offset (kb:fact/usage-api-oauth-shape). */
+export interface FakeUsageBucket {
+  utilization: number;
+  resetsAt: string;
+}
+
+export interface FakeUsageBuckets {
+  /** Omitted: the capture's own `{utilization: 7.0, resets_at: 2026-08-30…}` (a reset long
+   * past, so the daemon refuses it — plan usage-bar-consistency REQ-3). `null`: the window
+   * is JSON null, which the capture shows for `seven_day_opus` and the like. */
+  fiveHour?: FakeUsageBucket | null;
+  sevenDay?: FakeUsageBucket | null;
+}
+
+const MEASURED_PAST_BUCKET: FakeUsageBucket = {
+  utilization: 7.0,
+  resetsAt: "2026-08-30T13:39:59.522275+00:00",
+};
+
+function bucketBody(bucket: FakeUsageBucket | null | undefined): unknown {
+  if (bucket === null) return null;
+  const b = bucket ?? MEASURED_PAST_BUCKET;
+  return { utilization: b.utilization, resets_at: b.resetsAt };
+}
+
+/** A reset far in the future, in the measured string form — never "past" against any
+ * real clock, so a test that is not about resets never trips plan usage-bar-consistency's
+ * past-reset refusal. */
+export const FAR_FUTURE_RESETS_AT = "2099-01-01T00:00:00.000000+00:00";
+
 /**
  * Builds a capture-faithful 200 body for `GET /api/oauth/usage`
- * (docs/history/spikes/canary-fields.md): top-level `five_hour`/`seven_day` windows (present in the
- * real response but unused by musterd's decode — REQ-4 only reads `limits[]`), one
+ * (docs/history/spikes/canary-fields.md): top-level `five_hour`/`seven_day` windows
+ * (settable through `buckets`; the default is the capture's past-reset pair), one
  * `weekly_scoped` `limits[]` entry per window with the full measured field set
  * (`kind`/`group`/`percent`/`severity`/`resets_at`/`scope`/`is_active`), and one
  * feature-flag-noise top-level key (`amber_ladder`, named in the capture) to exercise
  * REQ-4's "unknown keys ignored" the way the real response actually looks — never an
  * invented shape.
  */
-export function weeklyScopedUsageResponse(windows: FakeUsageWindow[]): unknown {
+export function weeklyScopedUsageResponse(
+  windows: FakeUsageWindow[],
+  buckets: FakeUsageBuckets = {},
+): unknown {
   return {
-    five_hour: { utilization: 7.0, resets_at: "2026-08-30T13:39:59.522275+00:00" },
-    seven_day: { utilization: 7.0, resets_at: "2026-08-30T13:39:59.522275+00:00" },
+    five_hour: bucketBody(buckets.fiveHour),
+    seven_day: bucketBody(buckets.sevenDay),
     seven_day_opus: null,
     seven_day_sonnet: null,
     seven_day_oauth_apps: null,
@@ -72,6 +107,9 @@ export class FakeUsageAPI {
   private readonly server: Server;
   port = 0;
   requestCount = 0;
+  /** `Date.now()` at each request's arrival, in order — lets a test assert a call was
+   * made after an instant (plan usage-bar-consistency E2), not merely that one was made. */
+  readonly requestTimes: number[] = [];
   private response: PendingResponse = { status: 200, body: { limits: [] } };
   private held = false;
   private pendingResponses: ServerResponse[] = [];
@@ -110,6 +148,7 @@ export class FakeUsageAPI {
       return;
     }
     this.requestCount += 1;
+    this.requestTimes.push(Date.now());
     if (this.held) {
       this.pendingResponses.push(res);
       return;

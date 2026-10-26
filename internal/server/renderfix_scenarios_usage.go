@@ -403,7 +403,7 @@ func driveUsageModel(ctx context.Context, r *renderRig) error {
 	}
 	r.freshSecond()
 	defer r.stepDone()
-	poller := newUsagePoller(api.Client(), api.URL, claudecode.FileTokenReader(tokenFile), time.Minute, r.srv.usage.modelScoped, r.srv.log)
+	poller := newUsagePoller(api.Client(), api.URL, claudecode.FileTokenReader(tokenFile), time.Minute, r.srv.usage.aggregator, r.srv.usage.modelScoped, r.srv.log)
 	poller.tick(ctx)
 	if r.srv.usage.modelScoped.Current().Windows == nil {
 		return errUsageModelNotRecorded

@@ -725,25 +725,90 @@ test.describe("in the UTC zone, where the fixture's resets fall minutes after mi
   });
 });
 
-test("a stale resetsAt already in the past renders verbatim in the other-day form (REQ-4, edge case 5)", async ({
+const secondsAfterEpoch = (at: Date): number => Math.round((at.getTime() - EPOCH_MS) / 1000);
+
+async function expectUnknownBucket(page: Page, bucket: "5h" | "7d"): Promise<void> {
+  await expect(mastheadBucket(page, bucket)).toContainText("unknown");
+  await expect(mastheadBucket(page, bucket)).not.toContainText("%");
+  await expect(mastheadBucketTrack(page, bucket)).toHaveCount(0);
+  await expect(mastheadBucketResets(page, bucket)).toHaveCount(0);
+}
+
+test("a bucket whose reset has passed reads unknown with no track and no reset suffix (R1, REQ-5, INV-1)", async ({
   page,
   dashboard,
 }) => {
   const fixture = await dashboard.open("usage-known");
-  // Three days after the resets: both are in the past, on another day in any zone.
-  await pinClock(page, 3 * DAY_S);
+  const later = Math.max(
+    secondsAfterEpoch(resetsOf(fixture, "fiveHour")),
+    secondsAfterEpoch(resetsOf(fixture, "sevenDay")),
+  );
+  // The fixture's wire still carries both percentages; only the clock moves.
+  expect(knownBucket(fixture, "fiveHour").usedPct).toBeGreaterThan(0);
+  await pinClock(page, later + 1);
+
+  await expectUnknownBucket(page, "5h");
+  await expectUnknownBucket(page, "7d");
+  // Three days on is still unknown, never the stale percentage in the other-day form.
+  await pinClock(page, later + 3 * DAY_S);
+  await expectUnknownBucket(page, "5h");
+  await expectUnknownBucket(page, "7d");
+});
+
+test("between the two resets only the earlier bucket reads unknown (R2, REQ-5, INV-1)", async ({
+  page,
+  dashboard,
+}) => {
+  const fixture = await dashboard.open("usage-known");
+  const five = secondsAfterEpoch(resetsOf(fixture, "fiveHour"));
+  const seven = secondsAfterEpoch(resetsOf(fixture, "sevenDay"));
+  expect(five).toBeLessThan(seven);
+  await pinClock(page, five + 1);
+
+  await expectUnknownBucket(page, "5h");
+  await expect(mastheadBucket(page, "7d")).toContainText(
+    `${Math.round(knownBucket(fixture, "sevenDay").usedPct)}%`,
+  );
+  await expect(mastheadBucketTrack(page, "7d")).toHaveCount(1);
+  await expect(mastheadBucketResets(page, "7d")).toHaveText(
+    await expectedResetsText(page, resetsOf(fixture, "sevenDay")),
+  );
+});
+
+test("a reset equal to the clock is not past: the percentage stays (W2, edge case 10, REQ-5)", async ({
+  page,
+  dashboard,
+}) => {
+  const fixture = await dashboard.open("usage-known");
+  const five = secondsAfterEpoch(resetsOf(fixture, "fiveHour"));
+  await pinClock(page, five);
 
   await expect(mastheadBucket(page, "5h")).toContainText(
     `${Math.round(knownBucket(fixture, "fiveHour").usedPct)}%`,
   );
-  for (const [bucket, at] of [
-    ["5h", resetsOf(fixture, "fiveHour")],
-    ["7d", resetsOf(fixture, "sevenDay")],
-  ] as const) {
-    const expected = await expectedResetsText(page, at);
-    expect(expected).toMatch(RESETS_OTHER_DAY);
-    await expect(mastheadBucketResets(page, bucket)).toHaveText(expected);
-  }
+  await expect(mastheadBucketTrack(page, "5h")).toHaveCount(1);
+});
+
+test("the per-model bar reads unknown once its own reset has passed, while it keeps its value before (R3, REQ-5)", async ({
+  page,
+  dashboard,
+}) => {
+  const fixture = await dashboard.open("usage-model");
+  const window = fixture.snapshot.usage.modelScoped?.[0];
+  if (!window) throw new Error("fixture usage-model has no model window");
+  const modelReset = secondsAfterEpoch(new Date(window.resetsAt));
+  const fiveReset = secondsAfterEpoch(resetsOf(fixture, "fiveHour"));
+  expect(fiveReset).toBeLessThan(modelReset);
+
+  // Between the two resets the 5h bar is unknown but the model bar still shows its percentage.
+  await pinClock(page, fiveReset + 1);
+  await expectUnknownBucket(page, "5h");
+  await expect(mastheadModelWeekPercent(page)).toContainText("%");
+
+  await pinClock(page, modelReset + 1);
+  await expect(mastheadModelWeekPercent(page)).toHaveText("unknown");
+  await expect(mastheadModelWeekTrack(page)).toHaveCount(0);
+  await expect(mastheadModelWeekResets(page)).toHaveCount(0);
 });
 
 test("each reset suffix carries a title with the weekday, date and the HH:MM it shows (E8, REQ-12)", async ({

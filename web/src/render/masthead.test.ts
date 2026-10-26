@@ -274,17 +274,17 @@ describe("buildUsageBucket + renderUsageBucket — honesty rule: null renders 'u
 
   it("renders a rounded percentage, bar and resets text when the bucket is present", () => {
     const { container, refs } = bucketRefs("5h");
-    renderUsageBucket(refs, { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" }, now);
+    renderUsageBucket(refs, { usedPct: 61.2, resetsAt: "2026-08-23T11:00:00Z" }, now);
     expect(container.querySelector(".num")?.textContent).toBe("61%");
     const resets = container.querySelector(".resets");
-    expect(resets?.textContent).toBe(formatResets("2026-08-20T11:00:00Z", now));
+    expect(resets?.textContent).toBe(formatResets("2026-08-23T11:00:00Z", now));
     expect(resets?.textContent).toMatch(/^\(\d{2}:\d{2}( \S+)?\)$/);
-    expect(resets?.title).toBe(formatResetsTitle("2026-08-20T11:00:00Z"));
+    expect(resets?.title).toBe(formatResetsTitle("2026-08-23T11:00:00Z"));
   });
 
   it("removes an existing bar/resets on a known -> unknown transition (self-healing, e.g. a daemon restart)", () => {
     const { container, refs } = bucketRefs("5h");
-    renderUsageBucket(refs, { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" }, now);
+    renderUsageBucket(refs, { usedPct: 61.2, resetsAt: "2026-08-23T11:00:00Z" }, now);
     expect(container.querySelector(".bar")).not.toBeNull();
 
     renderUsageBucket(refs, null, now);
@@ -329,7 +329,7 @@ describe("renderUsageBucket — element order matches the reference render (Majo
   it("orders children lbl, bar, num, resets for a known bucket — bar reads before the number", () => {
     const container = new FakeDomNode("div");
     const refs = buildUsageBucket(container as unknown as HTMLElement, "5h");
-    const bucket = { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" };
+    const bucket = { usedPct: 61.2, resetsAt: "2026-08-23T11:00:00Z" };
 
     renderUsageBucket(refs, bucket, now);
 
@@ -344,12 +344,12 @@ describe("renderUsageBucket — element order matches the reference render (Majo
   it("applies the 'warn' modifier at or above the 60% threshold and omits it below", () => {
     const warnContainer = new FakeDomNode("div");
     const warnRefs = buildUsageBucket(warnContainer as unknown as HTMLElement, "5h");
-    renderUsageBucket(warnRefs, { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" }, now);
+    renderUsageBucket(warnRefs, { usedPct: 61.2, resetsAt: "2026-08-23T11:00:00Z" }, now);
     expect(warnContainer.querySelector(".bar")?.className).toBe("bar warn");
 
     const plainContainer = new FakeDomNode("div");
     const plainRefs = buildUsageBucket(plainContainer as unknown as HTMLElement, "5h");
-    renderUsageBucket(plainRefs, { usedPct: 23, resetsAt: "2026-08-20T11:00:00Z" }, now);
+    renderUsageBucket(plainRefs, { usedPct: 23, resetsAt: "2026-08-23T11:00:00Z" }, now);
     expect(plainContainer.querySelector(".bar")?.className).toBe("bar");
   });
 });

@@ -17,7 +17,6 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/claudecode/claudecodetest"
 	"github.com/Zalaras/muster/internal/store"
-	"github.com/Zalaras/muster/internal/usage"
 )
 
 // fakeTokenReader builds a claudecode.TokenReader from a plain func — the D8-style
@@ -40,6 +39,8 @@ var oneFableWindowBody = claudecodetest.UsageAPIBody(claudecodetest.UsageWindowO
 type usageAPIStub struct {
 	mu       sync.Mutex
 	mode     string // "success" | "success-empty" | "401" | "500"
+	body     string // the "success" response body; oneFableWindowBody when empty
+	hits     []time.Time
 	srv      *httptest.Server
 	requests int32
 }
@@ -49,8 +50,12 @@ func newUsageAPIStub(mode string) *usageAPIStub {
 	s.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		atomic.AddInt32(&s.requests, 1)
 		s.mu.Lock()
-		mode := s.mode
+		mode, body := s.mode, s.body
+		s.hits = append(s.hits, time.Now())
 		s.mu.Unlock()
+		if body == "" {
+			body = oneFableWindowBody
+		}
 		switch mode {
 		case "401":
 			w.WriteHeader(http.StatusUnauthorized)
@@ -61,7 +66,7 @@ func newUsageAPIStub(mode string) *usageAPIStub {
 			_, _ = w.Write([]byte(`{"limits": []}`))
 		default:
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(oneFableWindowBody))
+			_, _ = w.Write([]byte(body))
 		}
 	}))
 	return s
@@ -71,6 +76,21 @@ func (s *usageAPIStub) setMode(mode string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.mode = mode
+}
+
+func (s *usageAPIStub) setBody(body string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.body = body
+}
+
+func (s *usageAPIStub) lastHit() time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.hits) == 0 {
+		return time.Time{}
+	}
+	return s.hits[len(s.hits)-1]
 }
 
 func (s *usageAPIStub) reqCount() int32 { return atomic.LoadInt32(&s.requests) }
@@ -84,8 +104,8 @@ func alwaysOKTokenReader(_ context.Context) (string, error) { return "tok", nil 
 func TestUsagePoller_Tick_SuccessRecordsWindows(t *testing.T) {
 	stub := newUsageAPIStub("success")
 	defer stub.Close()
-	ms := usage.NewModelScoped(usage.ModelScopedConfig{Store: newPollerTestStore(t), Logger: zerolog.Nop()})
-	p := newUsagePoller(stub.srv.Client(), stub.srv.URL, fakeTokenReader(alwaysOKTokenReader), time.Hour, ms, zerolog.Nop())
+	agg, ms := newPollerHolders(t, nil)
+	p := newUsagePoller(stub.srv.Client(), stub.srv.URL, fakeTokenReader(alwaysOKTokenReader), time.Hour, agg, ms, zerolog.Nop())
 
 	p.tick(context.Background())
 
@@ -103,9 +123,9 @@ func TestUsagePoller_Tick_SuccessRecordsWindows(t *testing.T) {
 func TestUsagePoller_Tick_NoCredentialsSetsErrorKeepsListNil(t *testing.T) {
 	stub := newUsageAPIStub("success")
 	defer stub.Close()
-	ms := usage.NewModelScoped(usage.ModelScopedConfig{Store: newPollerTestStore(t), Logger: zerolog.Nop()})
+	agg, ms := newPollerHolders(t, nil)
 	failingReader := fakeTokenReader(func(_ context.Context) (string, error) { return "", claudecode.ErrNoCredentials })
-	p := newUsagePoller(stub.srv.Client(), stub.srv.URL, failingReader, time.Hour, ms, zerolog.Nop())
+	p := newUsagePoller(stub.srv.Client(), stub.srv.URL, failingReader, time.Hour, agg, ms, zerolog.Nop())
 
 	p.tick(context.Background())
 
@@ -123,8 +143,8 @@ func TestUsagePoller_Tick_NoCredentialsSetsErrorKeepsListNil(t *testing.T) {
 func TestUsagePoller_Tick_UnauthorizedKeepsLastGoodListAndAt(t *testing.T) {
 	stub := newUsageAPIStub("success")
 	defer stub.Close()
-	ms := usage.NewModelScoped(usage.ModelScopedConfig{Store: newPollerTestStore(t), Logger: zerolog.Nop()})
-	p := newUsagePoller(stub.srv.Client(), stub.srv.URL, fakeTokenReader(alwaysOKTokenReader), time.Hour, ms, zerolog.Nop())
+	agg, ms := newPollerHolders(t, nil)
+	p := newUsagePoller(stub.srv.Client(), stub.srv.URL, fakeTokenReader(alwaysOKTokenReader), time.Hour, agg, ms, zerolog.Nop())
 
 	p.tick(context.Background())
 	good := ms.Current()
@@ -146,8 +166,8 @@ func TestUsagePoller_Tick_UnauthorizedKeepsLastGoodListAndAt(t *testing.T) {
 func TestUsagePoller_Tick_5xxMapsToUnreachable(t *testing.T) {
 	stub := newUsageAPIStub("500")
 	defer stub.Close()
-	ms := usage.NewModelScoped(usage.ModelScopedConfig{Store: newPollerTestStore(t), Logger: zerolog.Nop()})
-	p := newUsagePoller(stub.srv.Client(), stub.srv.URL, fakeTokenReader(alwaysOKTokenReader), time.Hour, ms, zerolog.Nop())
+	agg, ms := newPollerHolders(t, nil)
+	p := newUsagePoller(stub.srv.Client(), stub.srv.URL, fakeTokenReader(alwaysOKTokenReader), time.Hour, agg, ms, zerolog.Nop())
 
 	p.tick(context.Background())
 
@@ -163,8 +183,8 @@ func TestUsagePoller_Tick_ConnectionRefusedMapsToUnreachable(t *testing.T) {
 	stub := newUsageAPIStub("success")
 	closedURL := stub.srv.URL
 	stub.Close() // now nothing is listening
-	ms := usage.NewModelScoped(usage.ModelScopedConfig{Store: newPollerTestStore(t), Logger: zerolog.Nop()})
-	p := newUsagePoller(http.DefaultClient, closedURL, fakeTokenReader(alwaysOKTokenReader), time.Hour, ms, zerolog.Nop())
+	agg, ms := newPollerHolders(t, nil)
+	p := newUsagePoller(http.DefaultClient, closedURL, fakeTokenReader(alwaysOKTokenReader), time.Hour, agg, ms, zerolog.Nop())
 
 	p.tick(context.Background())
 
@@ -181,8 +201,8 @@ func TestUsagePoller_Tick_ConnectionRefusedMapsToUnreachable(t *testing.T) {
 func TestUsagePoller_Tick_EmptyLimitsIsARecordedEmptySuccess(t *testing.T) {
 	stub := newUsageAPIStub("success-empty")
 	defer stub.Close()
-	ms := usage.NewModelScoped(usage.ModelScopedConfig{Store: newPollerTestStore(t), Logger: zerolog.Nop()})
-	p := newUsagePoller(stub.srv.Client(), stub.srv.URL, fakeTokenReader(alwaysOKTokenReader), time.Hour, ms, zerolog.Nop())
+	agg, ms := newPollerHolders(t, nil)
+	p := newUsagePoller(stub.srv.Client(), stub.srv.URL, fakeTokenReader(alwaysOKTokenReader), time.Hour, agg, ms, zerolog.Nop())
 
 	p.tick(context.Background())
 
@@ -197,8 +217,8 @@ func TestUsagePoller_Tick_EmptyLimitsIsARecordedEmptySuccess(t *testing.T) {
 // Refresh() coalescing contract at the channel level (Edge Case 7): any number of
 // concurrent calls collapse into at most one pending signal.
 func TestUsagePoller_Refresh_ChannelCoalescesToOneBufferedSignal(t *testing.T) {
-	ms := usage.NewModelScoped(usage.ModelScopedConfig{Store: newPollerTestStore(t), Logger: zerolog.Nop()})
-	p := newUsagePoller(http.DefaultClient, "http://unused.invalid", fakeTokenReader(alwaysOKTokenReader), time.Hour, ms, zerolog.Nop())
+	agg, ms := newPollerHolders(t, nil)
+	p := newUsagePoller(http.DefaultClient, "http://unused.invalid", fakeTokenReader(alwaysOKTokenReader), time.Hour, agg, ms, zerolog.Nop())
 
 	p.Refresh()
 	p.Refresh()
@@ -239,8 +259,8 @@ func TestUsagePoller_Refresh_ConcurrentRefreshesWhileATickIsInFlightCoalesceToOn
 	}))
 	defer srv.Close()
 
-	ms := usage.NewModelScoped(usage.ModelScopedConfig{Store: newPollerTestStore(t), Logger: zerolog.Nop()})
-	p := newUsagePoller(srv.Client(), srv.URL, fakeTokenReader(alwaysOKTokenReader), time.Hour, ms, zerolog.Nop())
+	agg, ms := newPollerHolders(t, nil)
+	p := newUsagePoller(srv.Client(), srv.URL, fakeTokenReader(alwaysOKTokenReader), time.Hour, agg, ms, zerolog.Nop())
 
 	p.Start()
 	defer p.Stop(context.Background())
@@ -266,8 +286,8 @@ func TestUsagePoller_Refresh_ConcurrentRefreshesWhileATickIsInFlightCoalesceToOn
 func TestUsagePoller_StartStop_LoopExitsPromptly(t *testing.T) {
 	stub := newUsageAPIStub("success")
 	defer stub.Close()
-	ms := usage.NewModelScoped(usage.ModelScopedConfig{Store: newPollerTestStore(t), Logger: zerolog.Nop()})
-	p := newUsagePoller(stub.srv.Client(), stub.srv.URL, fakeTokenReader(alwaysOKTokenReader), time.Hour, ms, zerolog.Nop())
+	agg, ms := newPollerHolders(t, nil)
+	p := newUsagePoller(stub.srv.Client(), stub.srv.URL, fakeTokenReader(alwaysOKTokenReader), time.Hour, agg, ms, zerolog.Nop())
 
 	p.Start()
 	require.Eventually(t, func() bool { return stub.reqCount() >= 1 }, time.Second, 5*time.Millisecond)

@@ -137,14 +137,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.306, focus view, session idle.
   Labels: bug, lifecycle.
 
-- [ ] **5h gauge showing 100% after reset** ([#105](https://github.com/Zalaras/muster/issues/105)) — The
-  5h usage gauge still shows 100% after the limit window reset, and neither the refresh button
-  beside the gauge nor a browser page reload updates it. Expected: The 5h gauge should show the
-  reset usage value after the window resets, and the refresh button or a page reload should update
-  it.
-  Filed 2026-10-20 from musterd 0.24.0 / Claude Code 2.1.304, focus view, session failed.
-  Labels: bug, usage.
-
 - [ ] **Focus lands nowhere after a keyboard Dismiss of the effort warning** — pressing Dismiss
   on the Focus header's effort-mismatch strip with the keyboard hides the strip and leaves focus
   on the page itself. Focus should land somewhere sensible in the header. From `plans/effort/`.

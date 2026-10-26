@@ -29,11 +29,6 @@ type ModelScopedConfig struct {
 	OnChange func(ModelSnapshot)
 }
 
-// ModelScoped holds the daemon's per-model weekly usage windows in memory — the second,
-// independent usage holder kb:adr/usage-no-source-interface calls for, so Aggregator's
-// single-writer assumption (aggregator.go's Record) stays true: each holder keeps exactly
-// one writer (the status-line ingest path for Aggregator, musterd's own poller for this
-// one).
 type ModelScoped struct {
 	store    *store.Store
 	log      zerolog.Logger

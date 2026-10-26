@@ -53,6 +53,35 @@ func TestToWireUsage_PopulatedSnapshotFormatsEveryFieldPerTheProtocol(t *testing
 	assert.Equal(t, "subscription", got.Source)
 }
 
+// TestToWireUsage_BucketsMapIndependentlyAndSampledAtIsNullIffBothNull covers the contract's
+// "independent of sevenDay" and "sampledAt null iff both buckets null": a snapshot with one
+// known bucket carries it, keeps the other null, and still carries sampledAt.
+func TestToWireUsage_BucketsMapIndependentlyAndSampledAtIsNullIffBothNull(t *testing.T) {
+	bucket := &usage.Bucket{UsedPct: 61, ResetsAt: time.Date(2099, 8, 23, 11, 0, 0, 0, time.UTC)}
+	at := time.Date(2099, 8, 23, 9, 0, 0, 0, time.UTC)
+	cases := []struct {
+		name        string
+		snap        usage.Snapshot
+		fiveKnown   bool
+		sevenKnown  bool
+		sampledAtIs bool
+	}{
+		{"neither", usage.Snapshot{Source: "subscription"}, false, false, false},
+		{"five only", usage.Snapshot{FiveHour: bucket, SampledAt: &at, Source: "subscription"}, true, false, true},
+		{"seven only", usage.Snapshot{SevenDay: bucket, SampledAt: &at, Source: "subscription"}, false, true, true},
+		{"both", usage.Snapshot{FiveHour: bucket, SevenDay: bucket, SampledAt: &at, Source: "subscription"}, true, true, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := toWireUsage(tc.snap, usage.ModelSnapshot{Source: "subscription-api"})
+
+			assert.Equal(t, tc.fiveKnown, got.FiveHour != nil)
+			assert.Equal(t, tc.sevenKnown, got.SevenDay != nil)
+			assert.Equal(t, tc.sampledAtIs, got.SampledAt != nil)
+		})
+	}
+}
+
 // TestToWireUsage_ResetsAtConvertsToUTCEvenFromANonUTCTime guards against a caller
 // passing a Bucket.ResetsAt in a non-UTC location — the wire must always render UTC.
 func TestToWireUsage_ResetsAtConvertsToUTCEvenFromANonUTCTime(t *testing.T) {

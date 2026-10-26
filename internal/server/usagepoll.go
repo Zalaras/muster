@@ -12,46 +12,92 @@ import (
 	"github.com/Zalaras/muster/internal/usage"
 )
 
-// usagePoller polls Claude Code's per-model weekly usage endpoint
-// (internal/claudecode.FetchUsage) on an interval, mapping each successful fetch into
-// internal/usage.ModelScoped — the seam ingest.go's processStatus is for the
-// status-line half of the `usage` message. Refresh wakes it early
-// (kb:anchor/usage.refresh), coalesced to at most one extra fetch. Embeds bgLoop
-// (bgloop.go) for its Start/Stop/loop shape; tick below is its own.
 type usagePoller struct {
 	client      *http.Client
 	baseURL     string
 	tokenReader claudecode.TokenReader
 	interval    time.Duration
+	aggregator  *usage.Aggregator
 	modelScoped *usage.ModelScoped
 	log         zerolog.Logger
 
 	refresh chan struct{}
+	changed chan struct{}
 	bg      bgLoop
+	watch   bgLoop
 }
 
-func newUsagePoller(client *http.Client, baseURL string, tokenReader claudecode.TokenReader, interval time.Duration, ms *usage.ModelScoped, log zerolog.Logger) *usagePoller {
+func newUsagePoller(client *http.Client, baseURL string, tokenReader claudecode.TokenReader, interval time.Duration, agg *usage.Aggregator, ms *usage.ModelScoped, log zerolog.Logger) *usagePoller {
 	return &usagePoller{
 		client:      client,
 		baseURL:     baseURL,
 		tokenReader: tokenReader,
 		interval:    interval,
+		aggregator:  agg,
 		modelScoped: ms,
 		log:         log,
 		refresh:     make(chan struct{}, 1),
+		changed:     make(chan struct{}, 1),
 	}
 }
 
 // Start begins the poll loop with an immediate first fetch
-// (kb:adr/usage-model-window-polled-from-oauth-api). Call once.
+// (kb:adr/usage-all-windows-polled-and-refetched-at-reset) and the reset watcher. Call once.
 func (p *usagePoller) Start() {
 	p.bg.start(func(ctx context.Context) { runTicked(ctx, p.interval, p.refresh, p.tick) })
+	p.watch.start(p.watchResets)
 }
 
-// Stop cancels the poll loop and waits for it to exit, giving up when ctx is done
-// (mirrors session.Manager.Stop / the ingest queue's Stop).
 func (p *usagePoller) Stop(ctx context.Context) {
+	p.watch.stop(ctx, p.log, "usage reset watcher did not stop before shutdown deadline")
 	p.bg.stop(ctx, p.log, "usage poller did not stop before shutdown deadline")
+}
+
+func (p *usagePoller) notify() {
+	select {
+	case p.changed <- struct{}{}:
+	default:
+	}
+}
+
+func (p *usagePoller) watchResets(ctx context.Context) {
+	for {
+		timer := time.NewTimer(time.Hour)
+		var wake <-chan time.Time
+		next, ok := nextReset(time.Now(), p.aggregator.Current(), p.modelScoped.Current().Windows)
+		if ok {
+			timer.Reset(time.Until(next))
+			wake = timer.C
+		}
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-p.changed:
+		case <-wake:
+			p.Refresh()
+		}
+		timer.Stop()
+	}
+}
+
+func nextReset(now time.Time, snap usage.Snapshot, windows []usage.ModelWindow) (time.Time, bool) {
+	var next time.Time
+	consider := func(t time.Time) {
+		if t.After(now) && (next.IsZero() || t.Before(next)) {
+			next = t
+		}
+	}
+	if snap.FiveHour != nil {
+		consider(snap.FiveHour.ResetsAt)
+	}
+	if snap.SevenDay != nil {
+		consider(snap.SevenDay.ResetsAt)
+	}
+	for _, w := range windows {
+		consider(w.ResetsAt)
+	}
+	return next, !next.IsZero()
 }
 
 // Refresh wakes the poller for an immediate fetch (kb:anchor/usage.refresh). Coalesced: a
@@ -92,6 +138,8 @@ func (p *usagePoller) tick(ctx context.Context) {
 		return
 	}
 
+	p.recordBuckets(ctx, report)
+
 	// A successful fetch is represented as a non-nil (possibly empty) slice even when
 	// report.ModelScoped itself is nil — "an empty list is a valid, distinct successful
 	// result" depends on this construction, not on InterpretUsageReport's own (ambiguous)
@@ -103,6 +151,24 @@ func (p *usagePoller) tick(ctx context.Context) {
 	if err := p.modelScoped.Record(ctx, windows); err != nil {
 		p.log.Warn().Err(err).Msg("recording usage model-scoped windows failed")
 	}
+}
+
+func (p *usagePoller) recordBuckets(ctx context.Context, report claudecode.UsageReport) {
+	if err := p.aggregator.RecordFetch(ctx, toOptionalUsageBucket(report.FiveHour), toOptionalUsageBucket(report.SevenDay)); err != nil {
+		p.log.Warn().Err(err).Msg("recording usage buckets failed")
+	}
+}
+
+func toUsageBucket(b claudecode.StatusBucket) usage.Bucket {
+	return usage.Bucket{UsedPct: b.UsedPct, ResetsAt: b.ResetsAt}
+}
+
+func toOptionalUsageBucket(b *claudecode.StatusBucket) *usage.Bucket {
+	if b == nil {
+		return nil
+	}
+	converted := toUsageBucket(*b)
+	return &converted
 }
 
 // usageErrorKind maps a poll failure to the wire's modelScopedError vocabulary

@@ -153,7 +153,7 @@ func parseFlags(args []string, stderr io.Writer) (*cliFlags, error) {
 	fset.StringVar(&f.browseRoot, "browse-root", "", "root of the launch modal's folder browser — GET /api/browse's no-param default and its Up ceiling (empty = the user's home directory; E2E passes its scratch dir)")
 	fset.StringVar(&f.claudeProjectsDir, "claude-projects-dir", defaultClaudeProjectsDir, "Claude Code's transcript store — GET /api/past-sessions' and a resume-from-list launch's one read root, read-only (default: Claude Code's own projects directory; E2E passes its scratch dir)")
 	fset.StringVar(&f.onExit, "on-exit", "ask", "what to do with live sessions on shutdown: ask (default, prompts once if stdin is a TTY) | leave | kill")
-	fset.DurationVar(&f.usagePoll, "usage-poll", defaultUsagePoll, "how often musterd polls Claude Code's per-model weekly usage endpoint; 0 disables polling (POST /api/usage/refresh then 404s)")
+	fset.DurationVar(&f.usagePoll, "usage-poll", defaultUsagePoll, "how often musterd polls Claude Code's usage endpoint for the 5h, 7d and per-model weekly bars; 0 disables polling (POST /api/usage/refresh then 404s)")
 	fset.StringVar(&f.usageAPIURL, "usage-api-url", "https://api.anthropic.com", "base URL for the per-model usage endpoint — a test seam like -claude-bin")
 	fset.StringVar(&f.usageTokenFile, "usage-token-file", "", "read the Claude Code OAuth token from this file instead of the macOS Keychain — a test seam like -claude-bin (empty = the daemon's usual Keychain lookup)")
 	fset.StringVar(&f.issueRepo, "issue-repo", "Zalaras/muster", "GitHub repo (owner/name) the Issue button files issues against")

@@ -301,10 +301,10 @@ func driveUsageKnown(ctx context.Context, r *renderRig) error {
 		UsedPct:          &used,
 		TotalInputTokens: 75000,
 		FiveHourPct:      61,
-		FiveHourResetsAt: 1767229200,
+		FiveHourResetsAt: 4070912400,
 		SevenDayPct:      23,
-		SevenDayResetsAt: 1767657600,
-		PromptCache:      &claudecodetest.PromptCacheOpts{ExpiresAt: 1767226500, TTL: "5m"},
+		SevenDayResetsAt: 4071340800,
+		PromptCache:      &claudecodetest.PromptCacheOpts{ExpiresAt: 4070909700, TTL: "5m"},
 	})); err != nil {
 		return err
 	}

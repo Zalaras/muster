@@ -33,6 +33,44 @@ describe("buildUsageBucketViewModel — honesty rule 1 (design-system §6.1): nu
   });
 });
 
+describe("buildUsageBucketViewModel — a reset in the past reads unknown (kb:adr/usage-past-reset-reads-unknown)", () => {
+  const UNKNOWN = {
+    percentText: "unknown",
+    warn: false,
+    fillPercent: null,
+    resetsText: null,
+    resetsTitle: null,
+  };
+
+  it("W1: is unknown with no fill, resets or warn when resetsAt is before now, whatever the percentage", () => {
+    for (const usedPct of [0, 42, 61.2, 100]) {
+      const past = bucket({ usedPct, resetsAt: new Date(NOW.getTime() - 1).toISOString() });
+      expect(buildUsageBucketViewModel(past, NOW)).toEqual(UNKNOWN);
+    }
+  });
+
+  it.each([
+    ["equal to now", 0],
+    ["one second after now", 1000],
+    ["hours after now", 2 * 3600 * 1000],
+  ])("W2: stays a percentage when resetsAt is %s", (_label, offsetMs) => {
+    const vm = buildUsageBucketViewModel(
+      bucket({ usedPct: 61.2, resetsAt: new Date(NOW.getTime() + offsetMs).toISOString() }),
+      NOW,
+    );
+    expect(vm.percentText).toBe("61%");
+    expect(vm.fillPercent).toBe(61);
+    expect(vm.warn).toBe(true);
+    expect(vm.resetsText).not.toBeNull();
+  });
+
+  it("turns unknown as the clock passes the reset: same bucket, later now", () => {
+    const b = bucket({ resetsAt: new Date(NOW.getTime() + 1000).toISOString() });
+    expect(buildUsageBucketViewModel(b, NOW).percentText).toBe("42%");
+    expect(buildUsageBucketViewModel(b, new Date(NOW.getTime() + 1001))).toEqual(UNKNOWN);
+  });
+});
+
 describe("buildUsageBucketViewModel — known bucket", () => {
   it("rounds usedPct for display and carries formatResets' bracketed text, with no '· ' prefix, and the hover title", () => {
     const source = bucket({ usedPct: 61.2 });

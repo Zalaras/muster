@@ -75,7 +75,7 @@ sits on the line before each `##`/`###` heading, and code and docs cite a sectio
 | `GET /api/browse` | Folder-browser directory listing (`kb:anchor/browse.get`) |
 | `GET /api/past-sessions` | A directory's Claude Code sessions, from its transcripts (`kb:anchor/pastsessions.list`) |
 | `PUT /api/prefs` | Persist UI preferences (view + density + usageModel) |
-| `POST /api/usage/refresh` | Force an immediate per-model usage fetch |
+| `POST /api/usage/refresh` | Force an immediate usage fetch |
 | `PUT /api/sessions/{id}/pin` | Pin or unpin a session, renumbering `railPos` (`kb:anchor/sessions.pin`) |
 | `PUT /api/sessions/{id}/unread` | Mark a session read or unread (`kb:anchor/sessions.unread`) |
 | `PUT /api/sessions/order` | Reorder the rail and set the pinned block in one atomic call (`kb:anchor/sessions.order`) |
@@ -471,8 +471,8 @@ row is **not** deleted).
 <!-- kb:anchor usage.refresh -->
 ### `POST /api/usage/refresh`
 
-**Auth**: UI cookie (401 `unauthorized`). No body. Wakes the per-model usage poller
-(`kb:anchor/ws.usage` `modelScoped`) for an immediate fetch; concurrent requests coalesce into at most one
+**Auth**: UI cookie (401 `unauthorized`). No body. Wakes the usage poller for an
+immediate fetch, whose result feeds `modelScoped` and the `fiveHour`/`sevenDay` buckets (`kb:anchor/ws.usage`); concurrent requests coalesce into at most one
 in-flight fetch. → `202`, no body; the result arrives as a `usage` message. Errors:
 `404 not_found` — polling disabled (`musterd -usage-poll 0`).
 
@@ -1449,35 +1449,41 @@ Value semantics (within the nullability rules above):
 
 ```jsonc
 { "type": "usage", "usage": {
-    "fiveHour": { "usedPct": 61.2, "resetsAt": "2026-08-20T11:00:00Z" },  // null until the first post-boot sample → masthead "unknown"
-    "sevenDay": { "usedPct": 23.0, "resetsAt": "2026-08-22T06:00:00Z" },  // wire name seven_day; null as above
-    "sampledAt": "2026-08-20T09:15:31Z",   // null iff buckets null
+    "fiveHour": { "usedPct": 61.2, "resetsAt": "2026-08-20T11:00:00Z" },  // null until the first adopted value since daemon start, from either source; independent of sevenDay → masthead "unknown"
+    "sevenDay": { "usedPct": 23.0, "resetsAt": "2026-08-22T06:00:00Z" },  // wire name seven_day; null as fiveHour, independently
+    "sampledAt": "2026-08-20T09:15:31Z",   // when the last change was adopted; null iff both buckets null
     "source": "subscription",              // the kb:adr/usage-no-source-interface seam: "api"/"otel" later
     "modelScoped": [                        // per-model weekly windows from GET /api/oauth/usage; null until the first successful fetch, then the full list sorted by displayName ([] is a valid, distinct result)
-      { "displayName": "Fable", "usedPct": 61.0, "resetsAt": "2026-09-01T13:59:59Z" } ],
+      { "displayName": "Fable", "usedPct": 61.0, "resetsAt": "2026-09-01T14:00:00Z" } ],
     "modelScopedAt": "2026-08-30T10:00:00Z", // null iff modelScoped null — last successful fetch
     "modelScopedError": null,               // null after a successful fetch; "no-credentials" | "unauthorized" | "unreachable" after a failed one — modelScoped keeps the last-good list
     "modelScopedSource": "subscription-api" } } // constant in v1
 ```
 
 Percentages arrive as floats; the client rounds for display. The daemon records a sample
-only when bucket values or model **changed** — `sampledAt` advancing alone is not a
+only when bucket values or model **changed**, whichever source offered them — `sampledAt` advancing alone is not a
 change — so the measured ~435 ms pair posts (identical values) produce one `usage`
 broadcast and one `usage_sample` row, not two. **No hydration**: after a daemon restart
-the buckets are null until the next status post — per-session
+the buckets are null until the first adopted value, normally the start-up fetch's — per-session
 context, by contrast, lives on the session row and survives restarts like title/state. A
-sample is recorded only from a **routed** status post (valid envelope) carrying both
+status post feeds the buckets only when **routed** (valid envelope) and carrying both
 buckets and the model in the same payload; anything less persists as an event and feeds
-nothing. The model is kept for the `usage_sample` history only and is not on the wire
+nothing. A `usage_sample` row is written only while both buckets are known; a fetch-sourced
+row carries `source` `subscription-api` and the last status-line model, or an empty one. The model is kept for the `usage_sample` history only and is not on the wire
 (kb:adr/usage-masthead-shows-no-model), so a change in the model alone records a row and sends a
 `usage` message identical to the previous one apart from `sampledAt`, which the daemon re-stamps for
 every recorded sample; clients replace the object whole.
 
-**Two sources, one object**: the `fiveHour`/`sevenDay`/`sampledAt`
-half comes from routed status posts as above; the `modelScoped*` half comes from musterd's
-own poll of Claude Code's `/api/oauth/usage` endpoint (default every 5 min, plus `kb:anchor/usage.refresh`),
-because the status line filters the per-model window out (`spikes/FINDINGS.md`
-2026-08-30 addendum). Each half has its own change detection; a `usage` message is sent
+**Two sources, one object**: routed status posts (`rate_limits`) and musterd's own fetch of
+Claude Code's `/api/oauth/usage` endpoint (its `five_hour`/`seven_day`) both offer
+`fiveHour`/`sevenDay` values. Each bucket takes the most recently arrived value, except that a
+value whose `resetsAt` is at or before its arrival is never adopted; a failed fetch never clears
+or changes a bucket. The `modelScoped*` half comes from the fetch alone, because the status line
+filters the per-model window out (`spikes/FINDINGS.md` 2026-08-30 addendum). The fetch runs at
+daemon start, every `-usage-poll` interval (default 5 min), on `kb:anchor/usage.refresh`, and at
+the instant any known bucket's or `modelScoped` window's `resetsAt` passes. A bucket or window
+still on the wire with a `resetsAt` before the client's clock is stale; clients render it
+unknown until a fresh value arrives. Each half has its own change detection; a `usage` message is sent
 whenever **either** changes (or `modelScopedError` changes) and always carries the merged
 full object built at send time. Neither half hydrates across a daemon restart. The
 `usageModel` pref (`kb:anchor/prefs.put`) selects which `modelScoped` entry the masthead renders.

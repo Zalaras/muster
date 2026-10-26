@@ -2522,6 +2522,14 @@ that the dashboard shows.
 
 ## Bugs
 
+- [x] **5h gauge showing 100% after reset** ([#105](https://github.com/Zalaras/muster/issues/105)) ✅ done 2026-10-26 (plan `usage-bar-consistency`) — The
+  5h usage gauge still shows 100% after the limit window reset, and neither the refresh button
+  beside the gauge nor a browser page reload updates it. Expected: The 5h gauge should show the
+  reset usage value after the window resets, and the refresh button or a page reload should update
+  it.
+  Filed 2026-10-20 from musterd 0.24.0 / Claude Code 2.1.304, focus view, session failed.
+  Labels: bug, usage.
+
 - [x] **Shutdown's `/ws` close code disagrees with the protocol** ✅ done 2026-10-22 (plan `ws-close-code-1`, via `/fix`) — musterd closes dashboard
   sockets with 1000 at shutdown; `docs/protocol.md` says 1001. From `plans/maintainability-cleanup/`.
 

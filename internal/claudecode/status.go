@@ -93,8 +93,6 @@ type CacheLifetime struct {
 
 const keepAliveHorizon = time.Hour
 
-// StatusBucket is one neutral usage-limit readout (five-hour or seven-day) with the
-// wire's epoch reset time already converted to UTC (kb:fact/rate-limits-wire-shape).
 type StatusBucket struct {
 	UsedPct  float64
 	ResetsAt time.Time

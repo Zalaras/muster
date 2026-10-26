@@ -21,8 +21,8 @@ it through the signals Claude Code sends back and the files it writes; it never 
 terminal to learn state. Sessions live in tmux, which keeps them alive when the dashboard
 or the daemon is gone. Muster launches into the user's repositories and writes its hook
 settings there. GitHub receives the issues filed from the dashboard and serves the
-releases Muster updates itself from. The Anthropic usage API answers the per-model usage
-poll, with the Claude Code token Muster reads from the Keychain and never keeps. Three
+releases Muster updates itself from. The Anthropic usage API answers the usage call
+for the five-hour, seven-day and per-model bars, with the Claude Code token Muster reads from the Keychain and never keeps. Three
 local command lines do small jobs: git reads repo state and lists a checkout's files, gh
 supplies the GitHub token, and Spotlight finds a dropped file.
 
@@ -39,7 +39,7 @@ C4Context
     Person(user, "User", "Runs 3–6 Claude Code sessions at once")
     System(muster, "Muster", "Launches, watches and drives Claude Code sessions from one dashboard")
     System_Ext(github, "GitHub", "Issues and Releases")
-    System_Ext(anthropic, "Anthropic usage API", "Reports per-model weekly usage")
+    System_Ext(anthropic, "Anthropic usage API", "Reports five-hour, seven-day and per-model weekly usage")
 
     Boundary(local, "Command lines Muster runs") {
         System_Ext(git, "git", "Version control command line")

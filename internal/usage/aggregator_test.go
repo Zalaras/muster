@@ -45,11 +45,12 @@ func newTestAggregator(st *store.Store, onChange func(Snapshot)) *Aggregator {
 
 // fullSample returns a complete Sample (both buckets, a model, source) — the shape
 // Record only ever receives, since InterpretStatus never produces a partial one
-// (REQ-3/REQ-5). SampledAt is left zero; Record stamps it itself.
+// (REQ-3/REQ-5). Resets sit in 2099: an arrival whose reset has passed is refused
+// (kb:adr/usage-past-reset-reads-unknown). SampledAt is left zero; Record stamps it itself.
 func fullSample(fiveHourPct, sevenDayPct float64) Sample {
 	return Sample{
-		FiveHour: Bucket{UsedPct: fiveHourPct, ResetsAt: time.Date(2026, 8, 23, 11, 0, 0, 0, time.UTC)},
-		SevenDay: Bucket{UsedPct: sevenDayPct, ResetsAt: time.Date(2026, 8, 25, 6, 0, 0, 0, time.UTC)},
+		FiveHour: Bucket{UsedPct: fiveHourPct, ResetsAt: time.Date(2099, 8, 23, 11, 0, 0, 0, time.UTC)},
+		SevenDay: Bucket{UsedPct: sevenDayPct, ResetsAt: time.Date(2099, 8, 25, 6, 0, 0, 0, time.UTC)},
 		Model:    Model{ID: "claude-haiku-4-5-20251001", DisplayName: "Haiku 4.5"},
 		Source:   "subscription",
 	}
@@ -260,8 +261,8 @@ func TestAggregator_Record_PersistsExactRowValues(t *testing.T) {
 	assert.Equal(t, "Haiku 4.5", modelDisplayName)
 	assert.Equal(t, 61.0, fiveHourPct)
 	assert.Equal(t, 23.0, sevenDayPct)
-	assert.Equal(t, "2026-08-23T11:00:00Z", fiveHourResetsAt)
-	assert.Equal(t, "2026-08-25T06:00:00Z", sevenDayResetsAt)
+	assert.Equal(t, "2099-08-23T11:00:00Z", fiveHourResetsAt)
+	assert.Equal(t, "2099-08-25T06:00:00Z", sevenDayResetsAt)
 	assert.Equal(t, "subscription", source)
 }
 

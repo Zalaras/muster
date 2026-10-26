@@ -21,21 +21,13 @@ type Model struct {
 	DisplayName string
 }
 
-// Sample is one neutral usage reading. SampledAt is stamped by Aggregator.Record, not by
-// the caller (mirrors internal/store's own received_at/at stamping) — a caller-supplied
-// value here would be ignored.
 type Sample struct {
-	FiveHour  Bucket
-	SevenDay  Bucket
-	Model     Model
-	SampledAt time.Time
-	Source    string // "subscription" in v1
+	FiveHour Bucket
+	SevenDay Bucket
+	Model    Model
+	Source   string
 }
 
-// Snapshot is the aggregator's exposed state. Every field is nil until the first
-// post-boot sample lands (kb:adr/usage-no-hydration-across-restart: no hydration from
-// persisted usage_sample rows across a daemon restart) — Source is the one field that is
-// never null, matching the wire shape.
 type Snapshot struct {
 	FiveHour  *Bucket
 	SevenDay  *Bucket

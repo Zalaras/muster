@@ -8,9 +8,9 @@ features: [usage]
 tags: [claude-code-format]
 go: [internal/server/usage*.go, internal/server/gauges_test.go, internal/usage/**, internal/claudecode/status*.go, internal/claudecode/usageapi*.go, internal/claudecode/credentials*.go, internal/store/usage*.go, internal/session/cache*.go]
 web: [web/src/features/usage.ts, web/src/render/masthead*.ts, web/src/render/context*.ts, web/src/sessions/context*.ts, web/src/sessions/usage*.ts, web/src/sessions/cache*.ts, web/src/render/warmth*.ts, web/render/usage.spec.ts, web/render/helpers/usage.ts]
-e2e: [web/e2e/gauges.spec.ts, web/e2e/usage-model.spec.ts, web/e2e/helpers/gauges.ts, web/e2e/helpers/usageapi.ts, web/e2e/masthead-indicators.spec.ts, web/e2e/helpers/masthead.ts, web/e2e/cache-warmth.spec.ts, web/e2e/helpers/cache-warmth.ts]
+e2e: [web/e2e/gauges.spec.ts, web/e2e/usage-model.spec.ts, web/e2e/usage-reset.spec.ts, web/e2e/helpers/gauges.ts, web/e2e/helpers/usageapi.ts, web/e2e/masthead-indicators.spec.ts, web/e2e/helpers/masthead.ts, web/e2e/cache-warmth.spec.ts, web/e2e/helpers/cache-warmth.ts]
 protocol: [usage.refresh, ws.usage]
-refs: [kb:adr/usage-context-gauge-shows-tokens-and-compactions, kb:adr/usage-masthead-narrow-width-shrinks-bars, kb:adr/usage-unknown-renders-word-not-track, kb:adr/usage-masthead-shows-no-model, kb:adr/usage-masthead-one-selectable-model-window, kb:adr/usage-model-window-polled-from-oauth-api, kb:adr/usage-keychain-token-read-only, kb:adr/usage-sample-dedup-by-value, kb:adr/usage-no-hydration-across-restart, kb:adr/usage-history-persisted-not-rendered, kb:adr/usage-no-source-interface, kb:adr/usage-cache-warmth-kept-until-clear-read-against-client-clock, kb:fact/prompt-cache-status-shape, kb:fact/haiku-main-cache-ttl-5m-on-2-1-299, kb:fact/resume-reads-prior-prompt-cache, kb:fact/context-window-shape, kb:fact/rate-limits-wire-shape, kb:fact/unknown-before-first-response, kb:fact/status-line-has-no-model-bucket, kb:fact/usage-api-oauth-shape, kb:fact/oauth-token-in-keychain, kb:fact/status-posts-arrive-in-pairs, kb:fact/refresh-interval-seconds, kb:ref/data-model, docs/design/design-system.md]
+refs: [kb:adr/usage-context-gauge-shows-tokens-and-compactions, kb:adr/usage-masthead-narrow-width-shrinks-bars, kb:adr/usage-unknown-renders-word-not-track, kb:adr/usage-masthead-shows-no-model, kb:adr/usage-masthead-one-selectable-model-window, kb:adr/usage-model-window-polled-from-oauth-api, kb:adr/usage-keychain-token-read-only, kb:adr/usage-sample-dedup-by-value, kb:adr/usage-no-hydration-across-restart, kb:adr/usage-all-windows-polled-and-refetched-at-reset, kb:adr/usage-past-reset-reads-unknown, kb:adr/usage-call-resets-rounded-up-to-the-second, kb:adr/usage-history-persisted-not-rendered, kb:adr/usage-no-source-interface, kb:adr/usage-cache-warmth-kept-until-clear-read-against-client-clock, kb:fact/prompt-cache-status-shape, kb:fact/haiku-main-cache-ttl-5m-on-2-1-299, kb:fact/resume-reads-prior-prompt-cache, kb:fact/context-window-shape, kb:fact/rate-limits-wire-shape, kb:fact/unknown-before-first-response, kb:fact/status-line-has-no-model-bucket, kb:fact/usage-api-oauth-shape, kb:fact/oauth-token-in-keychain, kb:fact/status-posts-arrive-in-pairs, kb:fact/refresh-interval-seconds, kb:ref/data-model, docs/design/design-system.md]
 ---
 Usage answers two of the success criteria: how much of the account's limits are used, and
 how much context each session has consumed.
@@ -50,7 +50,9 @@ changing while a session sends nothing
 ## Account-level bars
 
 The masthead shows a five-hour bar and a seven-day bar, each with a used percentage and its
-reset time, from the status line's rate-limit buckets (kb:fact/rate-limits-wire-shape). The
+reset time, from the status line's rate-limit buckets (kb:fact/rate-limits-wire-shape) and the
+usage call below (kb:fact/usage-api-oauth-shape); each bucket takes the newest value whose reset
+is still ahead. The
 reset reads `(HH:MM)` when it falls today and `(HH:MM Ddd)` otherwise, with the full local date
 and time on hover; the third bar below uses the same format. The masthead shows no model; the
 model shows per session only (kb:adr/usage-masthead-shows-no-model). The status line's model is
@@ -59,16 +61,18 @@ and broadcast only when bucket values or the model changed, and the paired posts
 emits produce one row (kb:adr/usage-sample-dedup-by-value, kb:fact/status-posts-arrive-in-pairs);
 samples are persisted as history but no history view is built
 (kb:adr/usage-history-persisted-not-rendered, kb:ref/data-model). After a daemon restart the
-buckets are unknown until the next status post (kb:adr/usage-no-hydration-across-restart).
+buckets are unknown until the start-up usage call or a status post
+(kb:adr/usage-no-hydration-across-restart).
 A session that is idle posts nothing unless the status line's refresh interval is set
 (kb:fact/refresh-interval-seconds). The masthead holds one row at a 14" laptop width: nothing in
 it wraps and the bars narrow below 1840px (kb:adr/usage-masthead-narrow-width-shrinks-bars).
 
 A third bar shows one per-model weekly window, which the status line does not carry
-(kb:fact/status-line-has-no-model-bucket). The daemon polls Claude Code's OAuth usage
-endpoint on the `-usage-poll` interval, where zero disables it, and a masthead refresh
-control wakes it early through `kb:anchor/usage.refresh`, coalesced to one in-flight fetch
-(kb:adr/usage-model-window-polled-from-oauth-api, kb:fact/usage-api-oauth-shape). The wire
+(kb:fact/status-line-has-no-model-bucket). The daemon calls Claude Code's OAuth usage
+endpoint at start, on the `-usage-poll` interval (zero disables it), at each bar's reset, and
+when the masthead refresh control asks through `kb:anchor/usage.refresh`, coalesced to one
+in-flight call (kb:adr/usage-model-window-polled-from-oauth-api,
+kb:adr/usage-all-windows-polled-and-refetched-at-reset). The wire
 carries every window; the masthead shows the one selected by `prefs.usageModel`
 (kb:adr/usage-masthead-one-selectable-model-window). A failed poll keeps the last-good list
 and marks it stale with an error kind; the readout says so.
@@ -85,8 +89,9 @@ threat model is unchanged: a same-user attacker already had the Keychain item.
 
 Unknown renders as the word unknown with no track drawn, never as an empty or zero gauge
 (kb:adr/usage-unknown-renders-word-not-track, docs/design/design-system.md "Honesty
-rules"). Rate limits are unknown before a session's first response and absent entirely under
-API-key authentication. Both halves of the Usage object (`kb:anchor/ws.usage`) have their
+rules"). A bar whose reset has passed reads unknown until a fresh value arrives
+(kb:adr/usage-past-reset-reads-unknown). Rate limits are absent entirely under API-key
+authentication. Both halves of the Usage object (`kb:anchor/ws.usage`) have their
 own change detection and always travel merged.
 
 ## Does not

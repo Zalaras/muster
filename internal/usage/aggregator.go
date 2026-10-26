@@ -3,6 +3,7 @@ package usage
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -19,6 +20,8 @@ const defaultSource = "subscription"
 // instead of keeping its own copy of the literal.
 const DefaultSource = defaultSource
 
+const fetchSource = defaultModelScopedSource
+
 // Config wires an Aggregator. OnChange broadcasts the `usage` WS message; nil in tests.
 type Config struct {
 	Store    *store.Store
@@ -26,71 +29,80 @@ type Config struct {
 	OnChange func(Snapshot)
 }
 
-// Aggregator holds the daemon's single, account-global usage reading in memory. It
-// starts unknown at construction — no hydration from persisted usage_sample rows across a
-// daemon restart (kb:adr/usage-no-hydration-across-restart). Record is its single writer
-// (only the ingest worker goroutine calls it, so no second Record can interleave); mu
-// guards current for Current()'s readers on other goroutines against that one writer.
 type Aggregator struct {
 	store    *store.Store
 	log      zerolog.Logger
 	onChange func(Snapshot)
 
-	mu      sync.Mutex
-	current *Sample
+	writeMu sync.Mutex
+
+	mu   sync.Mutex
+	snap Snapshot
 }
 
 // NewAggregator builds an Aggregator. Nothing here does I/O until Record is called.
 func NewAggregator(cfg Config) *Aggregator {
-	return &Aggregator{store: cfg.Store, log: cfg.Logger, onChange: cfg.OnChange}
+	return &Aggregator{store: cfg.Store, log: cfg.Logger, onChange: cfg.OnChange, snap: Snapshot{Source: defaultSource}}
 }
 
-// Record applies one new sample: updates in-memory state, persists a usage_sample row,
-// and invokes OnChange — but only when the bucket values or model changed since the last
-// recorded sample (kb:adr/usage-sample-dedup-by-value). sampledAt advancing alone is
-// never a change, which is why it's stamped here rather than accepted from the caller:
-// the ~435 ms pair posts (kb:fact/status-posts-arrive-in-pairs) carry identical
-// bucket/model values and must collapse to one broadcast and one row, not two.
 func (a *Aggregator) Record(ctx context.Context, s Sample) error {
-	s.SampledAt = time.Now().UTC()
 	if s.Source == "" {
 		s.Source = defaultSource
 	}
+	return a.adopt(ctx, &s.FiveHour, &s.SevenDay, &s.Model, s.Source)
+}
 
-	a.mu.Lock()
-	if a.current != nil && unchanged(*a.current, s) {
-		a.mu.Unlock()
+func (a *Aggregator) RecordFetch(ctx context.Context, fiveHour, sevenDay *Bucket) error {
+	return a.adopt(ctx, fiveHour, sevenDay, nil, fetchSource)
+}
+
+func (a *Aggregator) adopt(ctx context.Context, fiveHour, sevenDay *Bucket, model *Model, source string) error {
+	a.writeMu.Lock()
+	defer a.writeMu.Unlock()
+
+	now := time.Now().UTC()
+	prev := a.snap
+	next := prev
+	next.FiveHour = adoptBucket(prev.FiveHour, fiveHour, now)
+	next.SevenDay = adoptBucket(prev.SevenDay, sevenDay, now)
+	modelChanged := model != nil && (prev.Model == nil || *prev.Model != *model)
+	if modelChanged {
+		next.Model = model
+	}
+
+	if !modelChanged && sameBucket(prev.FiveHour, next.FiveHour) && sameBucket(prev.SevenDay, next.SevenDay) {
 		a.log.Debug().Msg("usage sample unchanged, skipping persist and broadcast")
 		return nil
 	}
-	a.mu.Unlock()
+	if next.FiveHour != nil || next.SevenDay != nil {
+		next.SampledAt = &now
+	}
 
-	// Persist BEFORE the in-memory commit: if the row write fails, Current() must keep
-	// reporting the previous sample, so snapshots never carry values that have no row —
-	// and because a.current has not advanced, the next post with the same values retries
-	// persistence instead of being deduped away. Dropping the lock across the write is
-	// safe: Record only ever runs on the single ingest worker goroutine, so no second
-	// Record can interleave — the mutex guards Current() readers on other goroutines.
-	if err := a.store.InsertUsageSample(ctx, store.UsageSampleRow{
-		ModelID:          s.Model.ID,
-		ModelDisplayName: s.Model.DisplayName,
-		FiveHourPct:      s.FiveHour.UsedPct,
-		FiveHourResetsAt: s.FiveHour.ResetsAt,
-		SevenDayPct:      s.SevenDay.UsedPct,
-		SevenDayResetsAt: s.SevenDay.ResetsAt,
-		Source:           s.Source,
-	}); err != nil {
-		a.log.Error().Err(err).Msg("persisting usage sample failed")
-		return fmt.Errorf("persisting usage sample: %w", err)
+	if next.FiveHour != nil && next.SevenDay != nil {
+		var rowModel Model
+		if next.Model != nil {
+			rowModel = *next.Model
+		}
+		if err := a.store.InsertUsageSample(ctx, store.UsageSampleRow{
+			ModelID:          rowModel.ID,
+			ModelDisplayName: rowModel.DisplayName,
+			FiveHourPct:      next.FiveHour.UsedPct,
+			FiveHourResetsAt: next.FiveHour.ResetsAt,
+			SevenDayPct:      next.SevenDay.UsedPct,
+			SevenDayResetsAt: next.SevenDay.ResetsAt,
+			Source:           source,
+		}); err != nil {
+			a.log.Error().Err(err).Msg("persisting usage sample failed")
+			return fmt.Errorf("persisting usage sample: %w", err)
+		}
 	}
 
 	a.mu.Lock()
-	a.current = &s
-	snap := a.snapshotLocked()
+	a.snap = next
 	a.mu.Unlock()
 
-	if a.onChange != nil {
-		a.onChange(snap)
+	if a.onChange != nil && next.SampledAt != nil {
+		a.onChange(next)
 	}
 	return nil
 }
@@ -100,30 +112,22 @@ func (a *Aggregator) Record(ctx context.Context, s Sample) error {
 func (a *Aggregator) Current() Snapshot {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.snapshotLocked()
+	return a.snap
 }
 
-func (a *Aggregator) snapshotLocked() Snapshot {
-	if a.current == nil {
-		return Snapshot{Source: defaultSource}
+func adoptBucket(current, offered *Bucket, now time.Time) *Bucket {
+	if offered == nil || !offered.ResetsAt.After(now) {
+		return current
 	}
-	fiveHour, sevenDay, model, sampledAt := a.current.FiveHour, a.current.SevenDay, a.current.Model, a.current.SampledAt
-	return Snapshot{
-		FiveHour:  &fiveHour,
-		SevenDay:  &sevenDay,
-		Model:     &model,
-		SampledAt: &sampledAt,
-		Source:    a.current.Source,
-	}
+	adopted := *offered
+	return &adopted
 }
 
-// unchanged reports whether next carries the same bucket values and model as prev —
-// the value-level de-dup kb:adr/usage-sample-dedup-by-value requires (sampledAt is
-// deliberately excluded).
-func unchanged(prev, next Sample) bool {
-	return prev.FiveHour.UsedPct == next.FiveHour.UsedPct &&
-		prev.FiveHour.ResetsAt.Equal(next.FiveHour.ResetsAt) &&
-		prev.SevenDay.UsedPct == next.SevenDay.UsedPct &&
-		prev.SevenDay.ResetsAt.Equal(next.SevenDay.ResetsAt) &&
-		prev.Model == next.Model
+const usedPctTolerance = 1e-9
+
+func sameBucket(a, b *Bucket) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return math.Abs(a.UsedPct-b.UsedPct) <= usedPctTolerance && a.ResetsAt.Equal(b.ResetsAt)
 }

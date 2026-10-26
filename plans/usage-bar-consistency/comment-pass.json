@@ -1,0 +1,1486 @@
+{
+  "plan": "usage-bar-consistency",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-26T15:04:19Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 61,
+        "keep": 40,
+        "drop": 21
+      },
+      "keeps": [
+        {
+          "key": "internal/claudecode/doc.go:cc1e5ff4793835f5",
+          "path": "internal/claudecode/doc.go",
+          "anchor": {
+            "kind": "above",
+            "text": "package claudecode",
+            "line": 1
+          },
+          "lines": [
+            "// Package claudecode is the adapter boundary for everything Claude-Code-specific:",
+            "// hook payloads, the status-line payload, CLI invocation and version pinning.",
+            "//",
+            "// The boundary rule (kb:spec/canary, kb:adr/process-testing-bar-e2e-always-unit-for-logic): no package above this one may know",
+            "// that the managed agent is Claude Code. They deal in Muster's own domain types — sessions,",
+            "// states, usage samples — so that a Claude Code interface change is a one-package fix, and",
+            "// supporting another agent CLI later means adding a sibling adapter rather than editing the",
+            "// daemon.",
+            "//",
+            "// Two measured facts shape everything here. Both come from the step-1 spikes against 2.1.233",
+            "// and are recorded in docs/history/spikes/canary-fields.md:",
+            "//",
+            "//   - Hook payloads carry no timestamp and no sequence number. Ordering must come from a",
+            "//     monotonic per-session seq assigned at ingest; prompt_id and tool_use_id are the only",
+            "//     correlation keys available.",
+            "//   - Hook delivery is best-effort and at-most-once. A dropped event is dropped permanently,",
+            "//     with no retry and no replay, so every consumer must tolerate gaps rather than assume a",
+            "//     complete event stream.",
+            "//",
+            "// Every hook Muster registers, including SessionStart and the status line, is a",
+            "// type:\"command\" wrapper script rather than a plain HTTP hook (kb:adr/ingest-all-hooks-command-wrappers)",
+            "// — Claude Code's own type:\"http\" transport left an unmanaged session's failures visible",
+            "// inline and a stopped daemon noisy on every tool call. The wrapper exits 0 silently in",
+            "// both cases (kb:anchor/ingest.transport). Wire shapes on /ingest/* are unchanged.",
+            "//",
+            "// theme.go also owns Claude Code's own global config file (name, location, and its",
+            "// \"theme\" key) — read-only, polled for the theme family that grounds the terminal pane",
+            "// and drives the dashboard's \"Follow Claude Code\" preference (kb:adr/theme-claude-theme-read-only-poll).",
+            "//",
+            "// Interpret also reads a background subagent's agent marker",
+            "// (kb:fact/subagent-hooks-carry-agent-id) and exposes it to internal/session only as",
+            "// StateInput.FromSubagent — a neutral bool, never the payload key name."
+          ],
+          "reason": "Edited on `main`; still true: the package doc's boundary and wrapper-script description matches the adapter's role, and nothing shown contradicts it."
+        },
+        {
+          "key": "internal/claudecode/launch.go:96d35d69dc9832a4",
+          "path": "internal/claudecode/launch.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func BuildArgv(binary string, p LaunchParams) []string {",
+            "line": 59
+          },
+          "lines": [
+            "// BuildArgv returns the full argv (binary included) for launching `claude` with p.",
+            "// Every non-empty PermissionMode is sent as an explicit flag verbatim, \"default\"",
+            "// included: with no flag at all Claude Code starts in its own configured default, which",
+            "// the 2026-09-23 probe measured as auto on the developer's machine, not manual",
+            "// (kb:fact/permission-mode-no-flag-follows-configured-default) — omitting the flag for",
+            "// \"default\" no longer means manual. BuildArgv trusts the string outright rather than",
+            "// re-validating it against ValidPermissionMode a second time (validation, or its",
+            "// deliberate absence, is the caller's job, per LaunchParams' own doc): a resume-from-list",
+            "// passes its transcript's recorded mode through unchanged even when it names one the",
+            "// launch form itself never offers, such as dontAsk (kb:adr/launch-resume-passes-any-recorded-mode).",
+            "// An empty PermissionMode — never produced by any of this package's own callers today —",
+            "// omits the flag."
+          ],
+          "reason": "Edited on `main`; still true: `BuildArgv` sends every non-empty PermissionMode verbatim and omits the flag when empty, as `if p.PermissionMode != \"\"` does."
+        },
+        {
+          "key": "internal/claudecode/settings.go:7425115b286b857c",
+          "path": "internal/claudecode/settings.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func stripMusterAllowedURLs(doc map[string]json.RawMessage) error {",
+            "line": 271
+          },
+          "lines": [
+            "// stripMusterAllowedURLs removes every Muster-owned entry from doc's existing",
+            "// allowedHttpHookUrls array in place, preserving foreign entries and their relative",
+            "// order (sort.Strings keeps the result unchanged, and so idempotent, when foreign",
+            "// entries remain), and deletes the key entirely once nothing foreign is left: a file",
+            "// that had no key never gains one, and a file whose array becomes empty loses the key",
+            "// rather than keeping an empty array. Elements that don't parse as a URL are treated as",
+            "// foreign (kept) — MergeSettings has no business judging a value it doesn't understand."
+          ],
+          "reason": "Edited on `main`; still true: `stripMusterAllowedURLs` keeps foreign entries sorted and deletes the key when `len(kept) == 0`."
+        },
+        {
+          "key": "internal/claudecode/usageapi.go:14aaf26df0bc1a7b",
+          "path": "internal/claudecode/usageapi.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type UsageReport struct {",
+            "line": 34
+          },
+          "lines": [
+            "// UsageReport is the neutral result of interpreting one /api/oauth/usage response.",
+            "// ModelScoped is nil when the response carried no weekly_scoped entries — InterpretUsageReport",
+            "// never distinguishes \"no limits key\" from \"limits present but empty\" from \"every entry",
+            "// filtered out\"; all three produce a nil slice, and it is the caller's job (the poller)",
+            "// to represent \"a successful fetch happened\" as a non-nil (possibly empty) list.",
+            "// FiveHour and SevenDay are the top-level windows; each is nil when missing, null or",
+            "// unparseable."
+          ],
+          "reason": "Edited on `main`; still true: `UsageReport` carries `FiveHour`, `SevenDay` and `ModelScoped`, each nil when absent."
+        },
+        {
+          "key": "internal/claudecode/usageapi.go:4ebe790a3c09c9b9",
+          "path": "internal/claudecode/usageapi.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func InterpretUsageReport(body []byte) (UsageReport, error) {",
+            "line": 104
+          },
+          "lines": [
+            "// InterpretUsageReport is the pure decode InterpretStatus mirrors for the status line —",
+            "// it never does I/O. The top-level five_hour and seven_day windows become buckets",
+            "// (kb:fact/usage-api-oauth-shape). Only `kind == \"weekly_scoped\"` entries carrying a non-empty",
+            "// `scope.model.display_name` become a UsageWindow (kb:fact/usage-api-oauth-shape); a",
+            "// missing `limits` key, other kinds, a null/empty display_name, an unparseable resets_at",
+            "// on one entry, and unknown top-level keys are all ignored rather than erroring — an",
+            "// undocumented, evolving endpoint must not be able to break the whole poll over one",
+            "// unexpected entry."
+          ],
+          "reason": "Edited on `main`; still true: `InterpretUsageReport` does no I/O and skips non-weekly_scoped or unparseable entries with `continue`."
+        },
+        {
+          "key": "internal/selfupdate/failure.go:a0bdef5359197d19",
+          "path": "internal/selfupdate/failure.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func DescribeApplyFailure(err error) string {",
+            "line": 87
+          },
+          "lines": [
+            "// DescribeApplyFailure composes the one-sentence, URL-free `apply.error` wire text from",
+            "// Apply's returned error. A download-shaped failure (*DownloadError/*MissingSignatureError,",
+            "// both introduced for this composition) is classified here into its own wire sentence,",
+            "// distinct from and never reusing that type's own log-only Error() text. Anything else —",
+            "// a verification refusal or install error (verify.go's pre-existing sentinels, or an",
+            "// installBinary failure) — falls through to err.Error() unchanged: those sentinels were",
+            "// already written as complete, static UI sentences (internal/selfupdate/CLAUDE.md's",
+            "// \"Sentinel error text is user-facing\" gotcha), so they need no classification here. A new",
+            "// selfupdate failure that needs to name something the caller only learns at the call site",
+            "// (a path, a status code, a cause word) takes the typed-error-plus-classification shape",
+            "// this function and DescribeCheckFailure both use; only a failure whose entire sentence is",
+            "// static text known in advance may stay a plain sentinel."
+          ],
+          "reason": "Edited on `main`; still true: `DescribeApplyFailure` classifies the typed download errors and returns `err.Error()` for anything else."
+        },
+        {
+          "key": "internal/server/issue.go:a6aa210b4ca8e020",
+          "path": "internal/server/issue.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *issueFeature) fileIssue(ctx context.Context, captureID, title, note string) (number int, htmlURL, scope string, err error) {",
+            "line": 165
+          },
+          "lines": [
+            "// fileIssue is POST /api/issues' whole capture-to-GitHub lifecycle: reserve the capture,",
+            "// post it, and consume or release depending on the outcome. handleCreateIssue delegates",
+            "// to this one call rather than running reserve/release/consume inline (docs/conventions.md",
+            "// § Go, \"handlers decode, delegate, encode\"). err is errCaptureUnusable, or *ghissue.Client's",
+            "// own ErrAuthFailed/ErrPostFailed unchanged — the caller's error mapping is unaffected by",
+            "// this move."
+          ],
+          "reason": "Edited on `main`; still true: `fileIssue` reserves, posts, then consumes or releases the capture, returning `errCaptureUnusable` or the client's error."
+        },
+        {
+          "key": "internal/server/launcherpast.go:33e10eb9dbd222fe",
+          "path": "internal/server/launcherpast.go",
+          "anchor": {
+            "kind": "above",
+            "text": "repo, created, err := l.store.TouchRepo(ctx, store.TouchRepoParams{Path: dir, Name: filepath.Base(dir), IsGit: isGit})",
+            "line": 91
+          },
+          "lines": [
+            "// TouchRepo, not UpsertRepo: this form carries no model or Start-in choice of its",
+            "// own, so the remembered-model/mode-unchanged guarantee (TouchRepo's own doc) needs the sibling call",
+            "// that never writes those columns."
+          ],
+          "reason": "Edited on `main`; still true: `l.store.TouchRepo(...)` is called, not an upsert."
+        },
+        {
+          "key": "internal/server/launcherpast.go:997482922a51f50a",
+          "path": "internal/server/launcherpast.go",
+          "anchor": {
+            "kind": "above",
+            "text": "permMode := claudecode.PermissionDefault",
+            "line": 102
+          },
+          "lines": [
+            "// The transcript's mode, verbatim, or default when it recorded none",
+            "// (kb:adr/launch-resume-passes-any-recorded-mode) — always sent explicitly, never",
+            "// omitted, since omitting it follows Claude Code's own configured default rather",
+            "// than a value this row can seed and correct",
+            "// (kb:fact/permission-mode-no-flag-follows-configured-default). A mode the launch",
+            "// form itself never offers (e.g. dontAsk) still reaches argv unchanged; only an",
+            "// absent recording falls back to default."
+          ],
+          "reason": "Edited on `main`; still true: `permMode` defaults to `claudecode.PermissionDefault` and takes `*found.PermissionMode` when recorded."
+        },
+        {
+          "key": "internal/server/respond.go:8019f8eb5af60eb3",
+          "path": "internal/server/respond.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type errorResponse struct {",
+            "line": 17
+          },
+          "lines": [
+            "// errorResponse is the error envelope every non-2xx JSON response shares",
+            "// (kb:anchor/transport): {\"error\": {\"code\", \"message\"}}. Paths is the `ambiguous` route's",
+            "// one extra field (kb:anchor/sessions.locate); ID is already_open's",
+            "// (kb:anchor/sessions.create). Every other caller leaves both nil, which omitempty",
+            "// drops, keeping their wire shape unchanged."
+          ],
+          "reason": "Edited on `main`; still true: `errorResponse` has code/message plus optional `Paths` and `ID` with omitempty."
+        },
+        {
+          "key": "internal/server/shells.go:cfda19532455677a",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type shellTextFrame struct {",
+            "line": 324
+          },
+          "lines": [
+            "// shellTextFrame is the shell socket's client→server JSON: everything resizeFrame",
+            "// accepts, plus `scroll` (kb:anchor/terminal.shell-ws). The Claude socket keeps decoding",
+            "// into resizeFrame/applyResizeFrame unchanged — this type and pumpShellSocketToPTY below",
+            "// are reached only from GET /ws/shell/{id}."
+          ],
+          "reason": "Edited on `main`; still true: `shellTextFrame` adds `Lines` for scroll beside the resize `Cols`/`Rows`."
+        },
+        {
+          "key": "internal/server/updatemanager.go:fc88882ba92685da",
+          "path": "internal/server/updatemanager.go",
+          "anchor": {
+            "kind": "above",
+            "text": "Reclassify reclassifyFunc",
+            "line": 64
+          },
+          "lines": [
+            "// Reclassify re-derives installer/unmanaged at the start of every check",
+            "// (kb:adr/update-install-rechecked-on-every-check) — see reclassifyFunc's doc comment",
+            "// for why cmd/musterd builds and threads this closure rather than the constructor",
+            "// defaulting it. Nil (every existing same-package test that doesn't care about",
+            "// reclassification) defaults to returning Install unchanged."
+          ],
+          "reason": "Edited on `main`; still true: `newUpdateManager` defaults a nil `cfg.Reclassify` to returning `cfg.Install`."
+        },
+        {
+          "key": "internal/server/usage.go:c1693e09587f4200",
+          "path": "internal/server/usage.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *usageFeature) handleUsageRefresh(w http.ResponseWriter, _ *http.Request) {",
+            "line": 111
+          },
+          "lines": [
+            "// handleUsageRefresh is POST /api/usage/refresh (kb:anchor/usage.refresh): wakes the",
+            "// usage poller for an immediate fetch, coalesced server-side by usagePoller itself",
+            "// (kb:adr/usage-all-windows-polled-and-refetched-at-reset). 404 not_found when polling is",
+            "// disabled (Poll \u003c= 0 — the poller was never constructed)."
+          ],
+          "reason": "Edited on `main`; still true: `handleUsageRefresh` returns 404 not_found when `f.poller == nil` and otherwise calls `f.poller.Refresh()`."
+        },
+        {
+          "key": "internal/server/usagepoll.go:b8e342163a0fa1fc",
+          "path": "internal/server/usagepoll.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (p *usagePoller) Start() {",
+            "line": 44
+          },
+          "lines": [
+            "// Start begins the poll loop with an immediate first fetch",
+            "// (kb:adr/usage-all-windows-polled-and-refetched-at-reset) and the reset watcher. Call once."
+          ],
+          "reason": "Edited on `main`; still true: `Start` begins the poll loop and the reset watcher via `p.bg.start` and `p.watch.start`."
+        },
+        {
+          "key": "internal/session/apply.go:315d4bbf733b987a",
+          "path": "internal/session/apply.go",
+          "anchor": {
+            "kind": "above",
+            "text": "addedChanged := !addedDirsEqual(beforeAdded, sess.AddedDirs)",
+            "line": 182
+          },
+          "lines": [
+            "// A status post that only refreshed Claude's name while an override is set persists",
+            "// the row (Title changed, above — applyStatusUpdate reported it) but must not",
+            "// broadcast — the wire object (DisplayTitle()/model/context) is unchanged, and",
+            "// kb:anchor/ws.session's no-no-op-upserts rule stands",
+            "// (kb:adr/rename-muster-owned-title-override-wins)."
+          ],
+          "reason": "Edited on `main`; still true: `broadcast` compares only display title, model, context, cache, effort and added dirs, so a Title-only change persists without broadcasting."
+        },
+        {
+          "key": "internal/session/interrupt.go:22ab6b507e7cfe4d",
+          "path": "internal/session/interrupt.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) sweepInterrupts(ctx context.Context) {",
+            "line": 19
+          },
+          "lines": [
+            "// sweepInterrupts asks the injected checker, for every alive session with an open turn,",
+            "// whether its transcript records an interrupt of the current prompt, and lands those that",
+            "// do in idle (kb:adr/lifecycle-interrupt-read-from-transcript). An interrupt emits no hook,",
+            "// so the transcript is the only place it shows. The checker runs outside m.mu; Apply",
+            "// re-validates the prompt under the lock, so a turn that closed meanwhile is left alone.",
+            "// A checker error leaves the session unchanged until the next tick. A nil checker",
+            "// disables the sweep."
+          ],
+          "reason": "Edited on `main`; still true: `sweepInterrupts` returns when `m.interruptChecker == nil` and applies `KindTurnInterrupted` for interrupted open turns."
+        },
+        {
+          "key": "internal/session/machine.go:547993231d5570c5",
+          "path": "internal/session/machine.go",
+          "anchor": {
+            "kind": "above",
+            "text": "sess.clearAttention()",
+            "line": 139
+          },
+          "lines": [
+            "// kb:anchor/ws.session's attention-iff-needs_input / failure-iff-failed invariants",
+            "// are unconditional: no bind — clear-rebind or a plain re-bind with an unchanged",
+            "// claude session id (e.g. SessionStart(source:\"resume\"), which per",
+            "// kb:fact/resume-keeps-session-identity reuses the original session_id and so never",
+            "// reaches the escalation above) — may land on `started` while still carrying a",
+            "// previous turn's blocked-or-failed note. This reset covers both the clear-rebind",
+            "// and the plain re-bind path, not just clear-rebind."
+          ],
+          "reason": "Edited on `main`; still true: `sess.clearAttention()` and `sess.Failure = nil` run for every bind in `applyBind`."
+        },
+        {
+          "key": "internal/session/title.go:637967b08f6dcd44",
+          "path": "internal/session/title.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) SetTitle(ctx context.Context, id int64, title *string) (bool, error) {",
+            "line": 8
+          },
+          "lines": [
+            "// SetTitle applies kb:anchor/sessions.title's PUT .../title mutation",
+            "// (kb:adr/rename-muster-owned-title-override-wins): sets or clears id's title override",
+            "// under the lock and persists+broadcasts iff the wire title or the override itself",
+            "// changed — a request that would leave both unchanged neither writes nor broadcasts.",
+            "// Returns ErrUnknownSession for a missing id (the server maps it to 404",
+            "// unknown_session)."
+          ],
+          "reason": "Edited on `main`; still true: `SetTitle` returns `ErrUnknownSession` for a missing id and returns `false, nil` without persisting when nothing changed."
+        },
+        {
+          "key": "internal/session/writeorder.go:b6fbb7be65146e60",
+          "path": "internal/session/writeorder.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Session) {",
+            "line": 165
+          },
+          "lines": [
+            "// restoreChangedFields returns finishWrite's restore func for one write on id: prev is",
+            "// sess's clone from immediately before this write's mutation, post its clone from",
+            "// immediately after (both taken in the same locked section, so nothing else could have",
+            "// touched sess in between) — the pair identifies exactly this write's own diff. On",
+            "// failure, each field this write changed is reverted only if cur still reads as post for",
+            "// it, i.e. nobody else's write has changed it since (a field a write queued behind this",
+            "// one has already moved on from is left alone) — but the value it reverts *to* is",
+            "// m.lastPersisted[id]'s field, the last row this id's write chain actually got into the",
+            "// DB, falling back to prev only when nothing has persisted for id yet (a fresh session, or",
+            "// this manager's own first write on it).",
+            "//",
+            "// Reverting to prev itself, rather than the last persisted row, would be wrong once any",
+            "// write is queued behind another on the same id: an earlier write in the turnstile can",
+            "// already have persisted and broadcast a live-read row that carries this write's own",
+            "// still-in-flight field (wholeRowPersist builds its row from live memory at its own turn,",
+            "// not from a value frozen at mutation time), and reverting past that committed value on",
+            "// this write's failure would leave memory disagreeing with both the DB and the last",
+            "// broadcast — not just with this write's own failed mutation. With no write racing on the",
+            "// same id, m.lastPersisted[id] already equals prev, so the effect on a single in-flight",
+            "// write is identical to the old copy-prev-back behaviour; this is a refinement of it, not a",
+            "// different policy, for any queue depth or mix of success/failure:",
+            "//",
+            "//   - earlier write succeeds, later write (same or a different field) fails: the later",
+            "//     write's restore target is the earlier write's own committed value, not this write's",
+            "//     stale prev — memory ends up matching the DB and the last broadcast.",
+            "//   - earlier write fails, later write succeeds: the earlier write's restore leaves the",
+            "//     later write's already-mutated field alone (post-comparison unchanged), same as",
+            "//     before.",
+            "//   - both fail: neither committed anything, so m.lastPersisted[id] never moved — both",
+            "//     restores land on the same pre-chain value prev already held, matching the DB, which",
+            "//     never saw either write.",
+            "//   - a rail batch write behind a plain setter, or vice versa, on the same id: the shared",
+            "//     m.lastPersisted[id] makes no distinction between a whole-row and a rail write: it is",
+            "//     an update to id, not to a particular setter's shape.",
+            "//",
+            "// Only fields some setter can actually mutate after creation are listed — ID, RepoID,",
+            "// Directory, FirstLaunchHere and CreatedAt never change once a session exists, so there's",
+            "// nothing to restore there. currentPromptID/closedPromptIDs are",
+            "// in-memory-only guard fields (session.go's doc), never part of SessionRow, but Apply is",
+            "// still the only writer that ever touches them, and a failed Apply must roll every field it",
+            "// touched back together, guard fields included, or memory would disagree with itself about",
+            "// which fields a rejected Apply call actually took effect for — so they go through the same",
+            "// CAS as every state-machine field. See mustCoverEverySessionField below for what keeps",
+            "// this list, and the immutable list above it, honest against Session's own field set."
+          ],
+          "reason": "Edited on `main`; still true: `restoreChangedFields` reverts to `m.lastPersisted[id]` falling back to `prev`, per field only if it still equals post."
+        },
+        {
+          "key": "internal/session/writeorder.go:4c0b289643d3c348",
+          "path": "internal/session/writeorder.go",
+          "anchor": {
+            "kind": "above",
+            "text": "restoreIfUnchanged(\u0026cur.Model, post.Model, last.Model)",
+            "line": 187
+          },
+          "lines": [
+            "// Model/Context/Cache/Attention/Failure compare by pointer identity: a real change",
+            "// always allocates a fresh pointer rather than writing through the old one",
+            "// (applyBind's doc, machine.go; Session.Clone's own contract), so pointer",
+            "// equality is exactly \"unchanged since post\"."
+          ],
+          "reason": "Edited on `main`; still true: `restoreIfUnchanged(\u0026cur.Model, post.Model, last.Model)` compares pointers."
+        },
+        {
+          "key": "internal/session/writeorder.go:1ac0adb09659918d",
+          "path": "internal/session/writeorder.go",
+          "anchor": {
+            "kind": "above",
+            "text": "if slices.Equal(cur.closedPromptIDs, post.closedPromptIDs) {",
+            "line": 222
+          },
+          "lines": [
+            "// closedPromptIDs is a []string, not comparable, so it can't go through",
+            "// restoreIfUnchanged's generic — slices.Equal is its \"unchanged since post\" test."
+          ],
+          "reason": "Edited on `main`; still true: `slices.Equal(cur.closedPromptIDs, post.closedPromptIDs)` handles the non-comparable slice."
+        },
+        {
+          "key": "internal/tmux/tmux.go:04da6066321e85ff",
+          "path": "internal/tmux/tmux.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func isConnectionFailure(err error) bool {",
+            "line": 559
+          },
+          "lines": [
+            "// isConnectionFailure reports whether err's message carries tmux's own \"error connecting",
+            "// to \u003csocket\u003e (Permission denied)\" diagnostic (kb:adr/actions-kill-is-idempotent) — a",
+            "// socket that exists and could hold a live server, but this process lacks",
+            "// permission to reach it, as opposed to tmux reaching the socket and reporting the",
+            "// target absent. run folds stdout and stderr together into the returned error (tmux.go's",
+            "// run doc comment), so the fragment is available on err.Error() without a second",
+            "// command.",
+            "//",
+            "// EACCES and EPERM are distinct errnos with distinct",
+            "// strerror wording — \"Permission denied\" is EACCES; a sandboxed denial (sandbox-exec, an",
+            "// MDM profile, the app sandbox) can instead deny with EPERM, which tmux reports as",
+            "// \"Operation not permitted\". Measured under sandbox-exec with the tmux",
+            "// server alive throughout: matching only EACCES left the original \"unreachable socket",
+            "// reads as gone\" defect reachable unchanged through that second errno. Both wordings are",
+            "// matched; nothing else.",
+            "//",
+            "// Deliberately narrow — matches only the two reasons actually measured, not every",
+            "// \"error connecting to\" shape tmux can produce. \"No such file or directory\" (no tmux",
+            "// server has ever bound this socket, or one exited cleanly and removed its own socket",
+            "// file) is the ordinary, load-bearing \"no server yet\" reading ListSessions' own doc",
+            "// comment already names, and every check-before-first-spawn in this codebase depends on",
+            "// it; \"Socket operation on non-socket\" (a plain file at the socket path) is a fixture",
+            "// defect, not tmux-server absence; \"no server running on \u003cpath\u003e\" (a real socket, server",
+            "// already exited) is likewise not a live server. None of these three may newly read as",
+            "// \"the session might still be alive\" — a scratch-copy experiment that widened this match",
+            "// to bare \"error connecting to\" broke seven then-green tests on exactly these three",
+            "// shapes. Widening further is real future work (a crashed server's stale socket refusing",
+            "// connections is the same \"couldn't ask\" shape in principle) but needs its own measured",
+            "// repro and its own test, not a guess bundled into this fix.",
+            "//",
+            "// Never matches tmux's target-not-found wording (which does vary and would make this",
+            "// fail-unsafe in the wrong direction to depend on): if",
+            "// tmux's own wording for \"permission denied\"/\"operation not permitted\" ever changes, this",
+            "// degrades to the pre-fix behaviour (an unreachable socket reads as \"gone\") rather than to",
+            "// a false positive that would treat a live, reachable session as unreachable."
+          ],
+          "reason": "Edited on `main`; still true: `isConnectionFailure` matches only `error connecting to` with Permission denied or Operation not permitted."
+        },
+        {
+          "key": "internal/usage/modelscoped.go:abc24affdc2f88f0",
+          "path": "internal/usage/modelscoped.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *ModelScoped) Record(ctx context.Context, windows []ModelWindow) error {",
+            "line": 49
+          },
+          "lines": [
+            "// Record applies one successful fetch: dedups against the current list sorted by",
+            "// DisplayName — callers pass a non-nil, possibly empty, slice to distinguish \"fetched, no",
+            "// windows\" from \"never fetched\" — persists one usage_model_sample row per window before",
+            "// committing to memory when the list changed, and always clears a standing error — a",
+            "// success after a failure must broadcast even when the list itself is unchanged, since",
+            "// modelScopedError changed."
+          ],
+          "reason": "Edited on `main`; still true: `Record` dedups via `windowsEqual`, persists before commit when `listChanged`, and sets `m.errKind = nil`."
+        },
+        {
+          "key": "web/src/api/sessions.ts:d8637140ef727be5",
+          "path": "web/src/api/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export async function resumeSession(id: number): Promise\u003cApiResult\u003cSession\u003e\u003e {",
+            "line": 14
+          },
+          "lines": [
+            "/** `POST /api/sessions/{id}/resume` (kb:anchor/sessions.resume). `200` + the Session object",
+            "* (`state` unchanged until the enveloped `SessionStart(source:\"resume\")` arrives); errors",
+            "* `404 unknown_session` / `409 not_resumable` / `409 directory_missing` /",
+            "* `500 launch_failed`. */"
+          ],
+          "reason": "Edited on `main`; still true: `resumeSession` posts to `/api/sessions/${id}/resume` and parses a Session."
+        },
+        {
+          "key": "web/src/dom.ts:94b82fa786f6a8f3",
+          "path": "web/src/dom.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function setText(el: HTMLElement, text: string): void {",
+            "line": 40
+          },
+          "lines": [
+            "/** Writes `text` only when it differs, so an unchanged value across the 1s render tick does not",
+            "* replace the node's text and reset selection or hover state on it. */"
+          ],
+          "reason": "Edited on `main`; still true: `setText` writes only `if (el.textContent !== text)`."
+        },
+        {
+          "key": "web/src/features/launch.ts:8a58845e5b407204",
+          "path": "web/src/features/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "void navigateUp().then((result) =\u003e {",
+            "line": 703
+          },
+          "lines": [
+            "// `null` means there was no parent crumb — a genuine no-op — so focus stays put",
+            "// instead of re-anchoring to the (unchanged) first entry."
+          ],
+          "reason": "Edited on `main`; still true: `if (result !== null) focusFirstEntry();` skips refocus when navigateUp returned null."
+        },
+        {
+          "key": "web/src/features/tiles.ts:330ae81d00ec14e1",
+          "path": "web/src/features/tiles.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { App, RenderFrame } from \"../app\";",
+            "line": 1
+          },
+          "lines": [
+            "// Tiles grid reconcile, strip, tile drag, density application, and promote. Owns",
+            "// `tilesLive` — per-window, ephemeral, client-only membership/order state (never synced",
+            "// across windows, never a prefs field; kb:adr/tiles-order-ephemeral-per-window).",
+            "//",
+            "// `deps.getSurfaces` is a thunk: `surfaces` is constructed after `tiles` (main.ts's init",
+            "// order — `surfaces` needs `tiles.liveIds` at its own render time), so this closes over",
+            "// its later `const` rather than taking a real value now; it's only ever called from",
+            "// `renderView`, invoked well after every controller exists. `rename` is constructed",
+            "// before `tiles`, so `deps.renameHandlers` is a real value.",
+            "//",
+            "// This module tracks its own `lastView`/`lastDensity` (redundant with `app.state`,",
+            "// deliberately) because its `prefs` handler reads `prefs.view`/`prefs.density` off the",
+            "// incoming message, not off `app.state` — see views.ts's header comment for why: by the",
+            "// time this handler might run, `views.ts`'s own handler could already have overwritten",
+            "// `app.state.view`/`density` with the new values, which would make an",
+            "// against-`app.state` comparison always report \"unchanged\".",
+            "// `deps` below is typed structurally rather than by importing",
+            "// `ActionsHandle`/`SurfacesHandle`/`RenameHandle` from their owning sibling modules."
+          ],
+          "reason": "Edited on `main`; still true: `lastView`/`lastDensity` are tracked and `getSurfaces` is a thunk in `TilesDeps`."
+        },
+        {
+          "key": "web/src/protocol/messages.ts:8fa92e7eb933d808",
+          "path": "web/src/protocol/messages.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "if (\"shellsBusy\" in rec) {",
+            "line": 128
+          },
+          "lines": [
+            "// Present-only, same pattern as protocol/usage.ts's `model` field — an",
+            "// absent key stays absent on the parsed object rather than gaining a synthesized `[]`,",
+            "// so an older daemon's payload (and every existing snapshot fixture that predates this field)",
+            "// round-trips unchanged. Real callers read `snapshot.shellsBusy ?? []`",
+            "// (`features/surfaces.ts`), same as every other present-only field's read site."
+          ],
+          "reason": "Edited on `main`; still true: `if (\"shellsBusy\" in rec)` only sets the field when present."
+        },
+        {
+          "key": "web/src/reader/frontmatter.ts:99616384f173519e",
+          "path": "web/src/reader/frontmatter.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function splitFrontmatter(text: string): SplitFrontmatterResult {",
+            "line": 33
+          },
+          "lines": [
+            "/** Strips a leading frontmatter block (optional BOM, `---`, lines, `---`) off `text`.",
+            "* Returns `frontmatter: null` and the input unchanged when there is no opening fence on",
+            "* the first line or no closing fence follows — in both cases nothing was found to strip,",
+            "* so the original bytes pass through untouched. */"
+          ],
+          "reason": "Edited on `main`; still true: `splitFrontmatter` returns `frontmatter: null` and `body: text` when no open or close fence matches."
+        },
+        {
+          "key": "web/src/reader/tree.ts:8f4ef16484bd3237",
+          "path": "web/src/reader/tree.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function filterTree(tree: readonly TreeEntry[], query: string): TreeEntry[] {",
+            "line": 147
+          },
+          "lines": [
+            "/** A case-insensitive substring match on the relative path, keeping only",
+            "* matching files and expanding every ancestor folder that leads to one. An empty (or",
+            "* whitespace-only) query returns `tree` unchanged — clearing the filter box \"restores",
+            "* the collapsed tree\" because features/reader.ts also drops its own manual-expand set",
+            "* back to empty whenever the query goes back to empty, not because this function",
+            "* remembers anything. */"
+          ],
+          "reason": "Edited on `main`; still true: `filterTree` returns `tree` when `trimmed === \"\"`."
+        },
+        {
+          "key": "web/src/render/dead.ts:5669f935b44760dc",
+          "path": "web/src/render/dead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function showDeadSurfaceNotice(refs: DeadSurfaceRefs, text: string | null): void {",
+            "line": 84
+          },
+          "lines": [
+            "/** Shows (or, given `null`, clears) the dead surface's own `role=\"status\"` notice —",
+            "* mirrors `TerminalSurface.showNotice` (`terminal/pane.ts`) exactly (same 5s auto-hide",
+            "* convention, same \"a new outcome replaces whatever text was there\" behaviour), for the",
+            "* one case that has no live `TerminalSurface` to route a notice through: a shell",
+            "* spawn-failure message when the session whose `shell` spawn failed is currently showing",
+            "* this dead surface for `claude`, not a live pane. Takes the same `DeadSurfaceRefs` every",
+            "* other dead-surface function here takes, rather than making its caller",
+            "* (features/surfaces.ts) reach into `.noticeEl` itself — every caller here is a failure",
+            "* outcome, so this never passes `\"inflight\"`, keeping the always-5s-auto-hide contract",
+            "* `dead.test.ts` already asserts unchanged. */"
+          ],
+          "reason": "Edited on `main`; still true: `showDeadSurfaceNotice` delegates to `showNotice(refs.noticeEl, text)`."
+        },
+        {
+          "key": "web/src/render/masthead.ts:501bac75a1a65ad9",
+          "path": "web/src/render/masthead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function renderUsageModelWeek(",
+            "line": 217
+          },
+          "lines": [
+            "/** `kb:adr/usage-masthead-one-selectable-model-window`: the third masthead usage readout,",
+            "* `#usage-model-week` — the per-model weekly window",
+            "* musterd fetches itself from `/api/oauth/usage`, unlike the two status-line buckets",
+            "* above.",
+            "*",
+            "* Unlike the two sibling readouts, this one's label is a real `\u003cselect\u003e` — it was once",
+            "* destroyed and rebuilt every 1s render tick, which meant it",
+            "* could never be operated by keyboard and its dropdown could never stay open. `refs.select`",
+            "* (and its trailing bucket siblings) persist in the caller-held `refs` object across",
+            "* render passes; this function only touches the select's position in the DOM again when",
+            "* the option-name sequence actually changes, or when whether a placeholder option is",
+            "* needed flips even though the resulting name sequence is unchanged (see",
+            "* `UsageModelWeekRefs.placeholderNeeded`'s doc comment). See",
+            "* `buildUsageModelWeek`'s doc comment for why even a same-node `replaceChildren` call",
+            "* isn't safe once the node is attached.",
+            "*",
+            "* The `\u003cselect\u003e` lists every `modelScoped[].displayName` (value = displayName); when the",
+            "* list is null or empty it instead renders a single, disabled option reading the current",
+            "* pref, so the readout always shows a model name even before the first fetch lands",
+            "* (States \u003e \"No data yet\"). When the list is non-null but doesn't contain the pref name,",
+            "* a disabled placeholder option for the pref name is prepended",
+            "* so the control shows that name instead of rendering blank — the honest \"unknown\" state",
+            "* (below) is unaffected either way.",
+            "*",
+            "* Honesty rules (design-system §6, `kb:adr/usage-unknown-renders-word-not-track`):",
+            "* \"unknown\" with zero track markup when the selected",
+            "* model has no matching window — null list, empty list, or a pref pointing",
+            "* at a name the list doesn't contain, all take this same path via a failed `.find`.",
+            "* `modelScopedError` non-null adds `.stale` + `title` = the error word without discarding",
+            "* the last-good bucket (`kb:adr/usage-masthead-one-selectable-model-window`'s \"a failed",
+            "* fetch leaves the last good bar labelled stale rather than hiding it\") — `renderUsageBucket`",
+            "* keeping the existing bar/resets nodes (rather than clearing them) is what \"keeps the",
+            "* last-good bar\" means concretely.",
+            "*/"
+          ],
+          "reason": "Edited on `main`; still true: `renderUsageModelWeek` reuses the select when `reuse` holds and rebuilds only when names or placeholderNeeded change."
+        },
+        {
+          "key": "web/src/render/sessions.ts:88a676e68acd8e9a",
+          "path": "web/src/render/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function applyCardText(card: HTMLElement, vm: CardViewModel, session: Session): void {",
+            "line": 98
+          },
+          "lines": [
+            "/** Writes the card's per-render text into the slots the template already built. Every",
+            "* slot is required — `session-card-template` (index.html) always carries the full set,",
+            "* shared unchanged by the rail card and the strip card. */"
+          ],
+          "reason": "Edited on `main`; still true: `applyCardText` fills slots via `requireElement` on the template-built card."
+        },
+        {
+          "key": "web/src/render/sessions.ts:6629215d307678ac",
+          "path": "web/src/render/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "const pinBtn = requireElement\u003cHTMLButtonElement\u003e(\".pin\", card);",
+            "line": 241
+          },
+          "lines": [
+            "// The pin button's aria-label/aria-pressed/title follow `pinned` on",
+            "// every pass. `data-action`/`data-id` let it participate in the existing",
+            "// `captureFocusedControl`/`restoreFocusedControl` contract unchanged",
+            "// (render/focuskeep.ts: \"an action button (data-action + data-id)\") — its focus",
+            "// survival needs no new code path, just this button carrying the same two attributes",
+            "// `buildActionButton` sets."
+          ],
+          "reason": "Edited on `main`; still true: the pin button sets `data-action` and `data-id` and its aria-label, pressed and title follow `vm.pinned`."
+        },
+        {
+          "key": "web/src/sessions/railorder.ts:238a59bc7cc23e57",
+          "path": "web/src/sessions/railorder.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { RailSort } from \"../protocol/prefs\";",
+            "line": 1
+          },
+          "lines": [
+            "// Pure drop math for manual rail reordering",
+            "// (kb:adr/rail-order-daemon-owned-per-session-fields). No DOM, no socket —",
+            "// render/dragreorder.ts's delegated listeners call this via features/rail.ts.",
+            "// The insert-and-shift reorder itself is `sessions/reorder.ts`'s `insertAtDragTarget`,",
+            "// shared with `sessions/live.ts`'s `moveTile` for the Tiles grid; this module adds the rail's",
+            "// own `pinnedCount` derivation and the move between sections on top.",
+            "//",
+            "// The pinned-before-unpinned invariant holds within a section",
+            "// (kb:adr/rail-pin-invariant-scoped-per-section), so a drop is computed against the target",
+            "// card's own section only. `ordered` is every card in manual display order",
+            "// (sessions/sections.ts's `buildSections(..., \"manual\")` flattened), each section a pinned",
+            "// block then an unpinned block. Removing the dragged entry preserves that two-block shape, and",
+            "// re-inserting it immediately beside the target — the target's own block membership unchanged —",
+            "// merges the dragged entry into the target's block. `pinnedCount` is therefore always the size of a",
+            "// genuine prefix of the resulting `ids`, which is exactly the shape `PUT /api/sessions/order`",
+            "// (kb:anchor/sessions.order) expects."
+          ],
+          "reason": "Edited on `main`; still true: `moveCard` computes `pinnedCount` from the target's section via `insertAtDragTarget`."
+        },
+        {
+          "key": "web/src/sessions/usage.ts:9f0755efd31b34cc",
+          "path": "web/src/sessions/usage.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { UsageBucket } from \"../protocol/usage\";",
+            "line": 1
+          },
+          "lines": [
+            "// Pure derivation for one masthead usage bucket's readout (design-system §5 \"Gauge",
+            "// thresholds\"; §6.1 honesty rule) — one derivation, one renderer (render/masthead.ts's",
+            "// `renderUsageBucket`), matching `sessions/context.ts`'s `buildContextRowViewModel` /",
+            "// `render/context.ts` pair for the context gauge. `#usage-5h`,",
+            "// `#usage-7d` and `#usage-model-week`'s own percent/bar/resets slice all share this same",
+            "// shape — a `UsageBucket` and a `ModelWindow` (protocol/usage.ts) carry the same",
+            "// `usedPct`/`resetsAt` pair, just from two different daemon sources; `ModelWindow` is",
+            "// structurally a `UsageBucket` plus `displayName`, so both pass here unchanged."
+          ],
+          "reason": "Edited on `main`; still true: `buildUsageBucketViewModel` takes a `UsageBucket` shape shared by 5h, 7d and model-week readouts."
+        },
+        {
+          "key": "web/src/terminal/drop.ts:932387c16df39862",
+          "path": "web/src/terminal/drop.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "const ESCAPED_CHARS = new Set([",
+            "line": 7
+          },
+          "lines": [
+            "/** Terminal.app-style path escaping — a backslash is prefixed to every space and",
+            "* to every character in this set; everything else (including non-ASCII) passes through",
+            "* unchanged. */"
+          ],
+          "reason": "Edited on `main`; still true: `escapePath` prefixes a backslash for chars in `ESCAPED_CHARS` and passes others through."
+        },
+        {
+          "key": "web/src/terminal/pane.ts:fb48880166489a87",
+          "path": "web/src/terminal/pane.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export class TerminalSurface {",
+            "line": 44
+          },
+          "lines": [
+            "/**",
+            "* One live terminal surface — the Claude pane (`/ws/terminal/{id}`, kb:anchor/terminal.ws) or",
+            "* a session's plain shell (`/ws/shell/{id}`, kb:anchor/terminal.shell-ws,",
+            "* kb:adr/surfaces-shell-is-attach-target-not-session). `kind` picks the WS path and the",
+            "* aria-label prefix; every other behaviour — drop handling, resize, overlays, theming — is",
+            "* shared unchanged. Constructing a `\"claude\"` surface for an already-dead session",
+            "* (`alive: false`) never opens a socket — it renders the \"session ended\" overlay directly",
+            "* and stops there. A `\"shell\"` surface is never constructed for a session with no running",
+            "* shell (features/surfaces.ts only mounts one after `POST .../shell` succeeds), so it has",
+            "* no equivalent dead-on-arrival check — the shell route never consults `alive` either.",
+            "*/"
+          ],
+          "reason": "Edited on `main`; still true: the constructor sets the `ended` overlay for a dead claude surface and `attach()` picks `shell` or `terminal` path by kind."
+        },
+        {
+          "key": "web/src/terminal/shellkeys.ts:1c1ba496a658d300",
+          "path": "web/src/terminal/shellkeys.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function shellKeyBytes(chord: ShellKeyChord): Uint8Array\u003cArrayBuffer\u003e | null {",
+            "line": 27
+          },
+          "lines": [
+            "/** `null` for every chord but the four `shellKeyBytes` translates — xterm.js's own",
+            "* handling (or lack of it) applies unchanged for everything else, including",
+            "* Shift-combinations and any other modifier this function does not touch. Return type",
+            "* pinned to",
+            "* `Uint8Array\u003cArrayBuffer\u003e` (rather than the bare `Uint8Array`, which TypeScript's lib",
+            "* types as `Uint8Array\u003cArrayBufferLike\u003e`) so the result satisfies `WebSocket.send`'s",
+            "* `BufferSource` at the call site without a cast. */"
+          ],
+          "reason": "Edited on `main`; still true: `shellKeyBytes` returns null except the four Option/Cmd+Arrow chords."
+        },
+        {
+          "key": "web/src/wsapp.ts:68f11e9cffcb7dbe",
+          "path": "web/src/wsapp.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface WsAppConnection {",
+            "line": 6
+          },
+          "lines": [
+            "/** The slice of `ConnectionHandle`/`ConnectionState` (`features/connection.ts`) this",
+            "* mapping needs. `ConnectionState.connected()` takes no argument — TS's function",
+            "* subtyping (fewer parameters is a subtype of more) accepts it here unchanged; it simply",
+            "* ignores the `claudeCode` `main.ts`'s `ConnectionHandle` renders a version readout from. */"
+          ],
+          "reason": "Edited on `main`; still true: `WsAppConnection` has `connected(claudeCode)` and `disconnected()`."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/claudecode/claudecodetest/claudecodetest.go:db733bebf35c4fbe",
+          "path": "internal/claudecode/claudecodetest/claudecodetest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type UsageBucketOpt struct {",
+            "line": 664
+          },
+          "lines": [
+            "// UsageBucketOpt is the response's top-level five-hour or seven-day window for",
+            "// UsageAPIBucketsBody. ResetsAt is RFC3339; Percent is the utilization."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/claudecodetest.go:ee672865db28a168",
+          "path": "internal/claudecode/claudecodetest/claudecodetest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func UsageAPIBucketsBody(fiveHour, sevenDay *UsageBucketOpt, windows ...UsageWindowOpt) string {",
+            "line": 669
+          },
+          "lines": [
+            "// UsageAPIBucketsBody is UsageAPIBody plus the top-level five-hour and seven-day windows;",
+            "// a nil bucket omits its key, as the endpoint does when it has no such window."
+          ]
+        },
+        {
+          "key": "internal/claudecode/status.go:ad89d63725c607c3",
+          "path": "internal/claudecode/status.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type StatusBucket struct {",
+            "line": 96
+          },
+          "lines": [
+            "// StatusBucket is one neutral usage-limit readout (five-hour or seven-day) with the",
+            "// wire's reset time already converted to UTC (kb:fact/rate-limits-wire-shape); the usage",
+            "// call's five_hour/seven_day windows read into it too (UsageReport)."
+          ]
+        },
+        {
+          "key": "internal/claudecode/usageapi.go:7e023aa10f87e571",
+          "path": "internal/claudecode/usageapi.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func interpretWindow(raw json.RawMessage) *StatusBucket {",
+            "line": 131
+          },
+          "lines": [
+            "// interpretWindow reads one top-level five_hour/seven_day window; anything that is not an",
+            "// object with a numeric utilization and a parseable resets_at yields nil."
+          ]
+        },
+        {
+          "key": "internal/server/usage.go:b92129f13f57b260",
+          "path": "internal/server/usage.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type usageFeature struct {",
+            "line": 36
+          },
+          "lines": [
+            "// usageFeature owns both usage holders — the Aggregator (fed by the ingest worker and the",
+            "// poller) and ModelScoped (fed by the poller) — plus POST /api/usage/refresh and the",
+            "// snapshot's usage object."
+          ]
+        },
+        {
+          "key": "internal/server/usagepoll.go:5795a990e4863f26",
+          "path": "internal/server/usagepoll.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type usagePoller struct {",
+            "line": 15
+          },
+          "lines": [
+            "// usagePoller calls Claude Code's usage endpoint (internal/claudecode.FetchUsage) on an",
+            "// interval and at every known reset instant, mapping each successful fetch into",
+            "// internal/usage.Aggregator (the 5h and 7d buckets) and internal/usage.ModelScoped — the",
+            "// seam ingest.go's processStatus is for the status-line half of the `usage` message.",
+            "// Refresh wakes it early (kb:anchor/usage.refresh), coalesced to at most one extra fetch;",
+            "// the reset watcher wakes it through Refresh too. Embeds bgLoop (bgloop.go) for its",
+            "// Start/Stop/loop shape; tick below is its own."
+          ]
+        },
+        {
+          "key": "internal/server/usagepoll.go:78fad47bcbd1959c",
+          "path": "internal/server/usagepoll.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (p *usagePoller) Stop(ctx context.Context) {",
+            "line": 49
+          },
+          "lines": [
+            "// Stop cancels the poll loop and the reset watcher and waits for both to exit, giving up",
+            "// when ctx is done (mirrors session.Manager.Stop / the ingest queue's Stop)."
+          ]
+        },
+        {
+          "key": "internal/server/usagepoll.go:d245c17a60ab5f68",
+          "path": "internal/server/usagepoll.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (p *usagePoller) notify() {",
+            "line": 54
+          },
+          "lines": [
+            "// notify tells the reset watcher that a usage holder took a new value, so the instant it",
+            "// is waiting for may have moved. Coalesced like Refresh."
+          ]
+        },
+        {
+          "key": "internal/server/usagepoll.go:9f5ec19df8b3adf9",
+          "path": "internal/server/usagepoll.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (p *usagePoller) watchResets(ctx context.Context) {",
+            "line": 61
+          },
+          "lines": [
+            "// watchResets calls Refresh at each known reset instant: it waits for the earliest reset",
+            "// still ahead among the 5h and 7d buckets and every per-model window, and starts over",
+            "// whenever a holder changes. A reset that has passed is never waited for again, so each",
+            "// instant wakes the poller once."
+          ]
+        },
+        {
+          "key": "internal/server/usagepoll.go:a7e1497c9737c608",
+          "path": "internal/server/usagepoll.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func nextReset(now time.Time, snap usage.Snapshot, windows []usage.ModelWindow) (time.Time, bool) {",
+            "line": 82
+          },
+          "lines": [
+            "// nextReset is the earliest reset instant strictly after now among the buckets and windows."
+          ]
+        },
+        {
+          "key": "internal/server/usagepoll.go:a7ce732b3ccb75cb",
+          "path": "internal/server/usagepoll.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (p *usagePoller) recordBuckets(ctx context.Context, report claudecode.UsageReport) {",
+            "line": 154
+          },
+          "lines": [
+            "// recordBuckets offers the call's 5h and 7d windows to the aggregator, mapping the",
+            "// adapter's neutral StatusBucket into usage.Bucket at the seam (mirrors processStatus)."
+          ]
+        },
+        {
+          "key": "internal/usage/aggregator.go:e85d4904972e40a4",
+          "path": "internal/usage/aggregator.go",
+          "anchor": {
+            "kind": "above",
+            "text": "const fetchSource = defaultModelScopedSource",
+            "line": 22
+          },
+          "lines": [
+            "// fetchSource labels a usage_sample row whose buckets came from the usage call."
+          ]
+        },
+        {
+          "key": "internal/usage/aggregator.go:9383c7b4eae22384",
+          "path": "internal/usage/aggregator.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type Aggregator struct {",
+            "line": 31
+          },
+          "lines": [
+            "// Aggregator holds the daemon's account-global 5h and 7d usage buckets in memory. It",
+            "// starts unknown at construction — no hydration from persisted usage_sample rows across a",
+            "// daemon restart (kb:adr/usage-no-hydration-across-restart). Two goroutines write it, the",
+            "// ingest worker (Record) and the usage poller (RecordFetch); writeMu serialises them",
+            "// across persist and broadcast, and mu guards the state for Current()'s readers."
+          ]
+        },
+        {
+          "key": "internal/usage/aggregator.go:cb8dbe0326c15f31",
+          "path": "internal/usage/aggregator.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type arrival struct {",
+            "line": 49
+          },
+          "lines": [
+            "// arrival is one source's offer: a nil bucket or model is one that source did not carry."
+          ]
+        },
+        {
+          "key": "internal/usage/aggregator.go:82c1c33d5e0b4348",
+          "path": "internal/usage/aggregator.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (a *Aggregator) Record(ctx context.Context, s Sample) error {",
+            "line": 61
+          },
+          "lines": [
+            "// Record offers one status-line sample (both buckets and the model)."
+          ]
+        },
+        {
+          "key": "internal/usage/aggregator.go:62e40b1ea0c1ccac",
+          "path": "internal/usage/aggregator.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (a *Aggregator) RecordFetch(ctx context.Context, fiveHour, sevenDay *Bucket) error {",
+            "line": 68
+          },
+          "lines": [
+            "// RecordFetch offers the buckets a usage call carried; either may be nil."
+          ]
+        },
+        {
+          "key": "internal/usage/aggregator.go:2e4d085f54cb01c9",
+          "path": "internal/usage/aggregator.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (a *Aggregator) adopt(ctx context.Context, in arrival) error {",
+            "line": 72
+          },
+          "lines": [
+            "// adopt takes each offered bucket that is still ahead of its reset, and persists, commits",
+            "// and broadcasts only when a bucket value or the status-line model changed",
+            "// (kb:adr/usage-sample-dedup-by-value); a usage_sample row is written only while both",
+            "// buckets are known. sampledAt is stamped here, so advancing alone is never a change."
+          ]
+        },
+        {
+          "key": "internal/usage/aggregator.go:8763a17d0ff3a720",
+          "path": "internal/usage/aggregator.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func adoptBucket(current, offered *Bucket, now time.Time) *Bucket {",
+            "line": 136
+          },
+          "lines": [
+            "// adoptBucket returns the offered bucket when it is still ahead of its reset at now,",
+            "// otherwise the current one (kb:adr/usage-past-reset-reads-unknown)."
+          ]
+        },
+        {
+          "key": "internal/usage/modelscoped.go:a1ad347d6b0fd6a6",
+          "path": "internal/usage/modelscoped.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type ModelScoped struct {",
+            "line": 32
+          },
+          "lines": [
+            "// ModelScoped holds the daemon's per-model weekly usage windows in memory — the second,",
+            "// independent usage holder kb:adr/usage-no-source-interface calls for; musterd's own",
+            "// poller is its only writer."
+          ]
+        },
+        {
+          "key": "internal/usage/usage.go:e22fcc5ddcb8132c",
+          "path": "internal/usage/usage.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type Snapshot struct {",
+            "line": 35
+          },
+          "lines": [
+            "// Snapshot is the aggregator's exposed state. Every field is nil until the first",
+            "// post-boot value is adopted (kb:adr/usage-no-hydration-across-restart: no hydration from",
+            "// persisted usage_sample rows across a daemon restart); the buckets become known",
+            "// independently, Model only from a status-line sample, and SampledAt is nil exactly while",
+            "// both buckets are. Source is the one field that is never null, matching the wire shape."
+          ]
+        },
+        {
+          "key": "web/src/sessions/usage.ts:f29596600f7d86a6",
+          "path": "web/src/sessions/usage.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "percentText: string;",
+            "line": 5
+          },
+          "lines": [
+            "/** `\"42%\"`, or `\"unknown\"` — design-system §6.1: never a percentage guessed from a",
+            "* stale or absent sample; a bucket whose `resetsAt` is strictly before `now` is stale",
+            "* (kb:adr/usage-past-reset-reads-unknown). */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-10-26T16:50:59Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 22,
+        "keep": 2,
+        "drop": 20
+      },
+      "keeps": [
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:0501261f51df4b4d",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type StatusLineFullOpts struct {",
+            "line": 48
+          },
+          "lines": [
+            "// StatusLineFullOpts overrides EnvelopedStatusLineFull's defaults (musterSession 1, model",
+            "// \"claude-haiku-4-5-20251001\"/\"Haiku 4.5\", 42% context used / 84000 input tokens / 200000",
+            "// window, 61% five-hour / 23% seven-day usage, both resetting at a fixed far-future epoch).",
+            "// TmuxPane has no default: left empty, it omits the envelope's tmuxPane field (the headless",
+            "// shape) rather than filling one in. Every default is fixed and non-wall-clock-dependent so",
+            "// two zero-value calls are byte-identical, which dedup tests depend on."
+          ],
+          "reason": "Without it a reader would make the defaults wall-clock based (e.g. time.Now() in place of `const farFutureResetsAt = 4070908800`); that breaks the byte-identical zero-value calls the dedup tests depend on."
+        },
+        {
+          "key": "internal/claudecode/usageapi.go:bb5634c261a95082",
+          "path": "internal/claudecode/usageapi.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func ceilToSecond(t time.Time) time.Time {",
+            "line": 158
+          },
+          "lines": [
+            "// ceilToSecond rounds t up to the next whole second (an instant already on one is",
+            "// unchanged), so an API reset reads as the same instant the status line states in epoch",
+            "// seconds (kb:adr/usage-call-resets-rounded-up-to-the-second)."
+          ],
+          "reason": "Without it a reader would swap the round-up for a plain Truncate in `func ceilToSecond(t time.Time) time.Time {`; that makes an API reset differ by a second from the status line's epoch-second reset."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:6b393c20691766b8",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func statusLineBase(sessionID string) map[string]any {",
+            "line": 3
+          },
+          "lines": [
+            "// statusLineBase builds the status-line fields every status-line payload carries",
+            "// regardless of shape (session_id/transcript_path/cwd/version/workspace/output_style/",
+            "// thinking/fast_mode/exceeds_200k_tokens) — the part EnvelopedStatusLinePreFirstResponse",
+            "// and statusLineFullPayload would otherwise write out twice."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:dcae6756e2c8042e",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type StatusLinePreFirstResponseOpts struct {",
+            "line": 17
+          },
+          "lines": [
+            "// StatusLinePreFirstResponseOpts overrides EnvelopedStatusLinePreFirstResponse's",
+            "// defaults (musterSession 1), the same options shape StatusLineFullOpts uses."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:db04a955f10af14e",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "TmuxPane string",
+            "line": 19
+          },
+          "lines": [
+            "// TmuxPane, left empty, omits the envelope's tmuxPane field (the headless shape)."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:c9b6beb9043455ba",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "SessionName string",
+            "line": 20
+          },
+          "lines": [
+            "// SessionName, when non-empty, adds the status line's session_name field."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:28bed39e29e61e22",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func EnvelopedStatusLinePreFirstResponse(sessionID string, opts StatusLinePreFirstResponseOpts) string {",
+            "line": 24
+          },
+          "lines": [
+            "// EnvelopedStatusLinePreFirstResponse returns an enveloped status-line body in the",
+            "// pre-first-API-response shape: context_window's percentages/current_usage are null",
+            "// and rate_limits is entirely absent (canary-fields.md's measured pre-response state)."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:db04a955f10af14e",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "TmuxPane string",
+            "line": 50
+          },
+          "lines": [
+            "// TmuxPane, left empty, omits the envelope's tmuxPane field (the headless shape)."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:52da24dff73799ea",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "SessionName string",
+            "line": 51
+          },
+          "lines": [
+            "// SessionName, when non-empty, adds the status line's session_name field (title",
+            "// refresh)."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:bb3f13ae6c3f57df",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "UsedPct *float64",
+            "line": 54
+          },
+          "lines": [
+            "// UsedPct/TotalInputTokens/WindowSize are context_window's fields (the non-null",
+            "// \"post-first-response\" shape). UsedPct is a pointer so a genuine 0% reading (a real",
+            "// zero, not the null/absent case) can be expressed; nil means \"use",
+            "// the 42% default\", not \"send zero\"."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:02b9eb830cea0216",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "FiveHourPct float64",
+            "line": 57
+          },
+          "lines": [
+            "// FiveHourPct/SevenDayPct/*ResetsAt are rate_limits' two buckets. ResetsAt",
+            "// values are Unix epoch seconds, matching the wire's integer shape (canary-fields.md",
+            "// correction #2)."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:5eaedc6deaf2ed7c",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "CurrentDir string",
+            "line": 63
+          },
+          "lines": [
+            "// CurrentDir, when non-empty, replaces the payload's default working directory",
+            "// (\"/tmp\") in `cwd` and `workspace.current_dir`/`project_dir` — the launch directory a",
+            "// real status line reports while Claude works in it."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:6c212e64268605ec",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "AddedDirs []string",
+            "line": 64
+          },
+          "lines": [
+            "// AddedDirs, when non-nil, is `workspace.added_dirs` verbatim — the live directory list",
+            "// a real status line carries, led by the launch directory as typed",
+            "// (kb:fact/added-dirs-in-status-line). Nil keeps the default empty list."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:e283bc070a2b8140",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "const farFutureResetsAt = 4070908800",
+            "line": 72
+          },
+          "lines": [
+            "// farFutureResetsAt is a fixed, non-wall-clock-dependent Unix epoch second",
+            "// (2099-01-01T00:00:00Z) used as StatusLineFullOpts' default reset time."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:b11764bf6c4f0c1d",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func EnvelopedStatusLineFull(sessionID string, opts StatusLineFullOpts) string {",
+            "line": 74
+          },
+          "lines": [
+            "// EnvelopedStatusLineFull returns an enveloped status-line body in the",
+            "// post-first-API-response shape: real context_window percentages/current_usage and",
+            "// both rate_limits buckets present (canary-fields.md's measured post-response state) —",
+            "// the counterpart to EnvelopedStatusLinePreFirstResponse. A zero-value",
+            "// StatusLineFullOpts reproduces the fixed default fixture byte-for-byte."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:cf01c57e17bf2491",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func RawStatusLineFull(sessionID string, opts StatusLineFullOpts) string {",
+            "line": 79
+          },
+          "lines": [
+            "// RawStatusLineFull returns the same post-first-API-response status-line shape as",
+            "// EnvelopedStatusLineFull, but as Claude Code itself would emit it on stdin to the",
+            "// status-line command — no musterSession/tmuxPane envelope (m4-hook-quoting",
+            "// Implementation Notes: the real wrapper script adds the envelope itself from the pane",
+            "// environment, so a test driving the wrapper script end-to-end via `sh -c` needs the",
+            "// bare payload, not the pre-enveloped shape the ingest handler expects directly).",
+            "// opts.MusterSession/TmuxPane are ignored here since there is no envelope to carry them."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/statusline.go:9d792e4f44ca8db7",
+          "path": "internal/claudecode/claudecodetest/statusline.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func statusLineFullPayload(sessionID string, opts StatusLineFullOpts) map[string]any {",
+            "line": 83
+          },
+          "lines": [
+            "// statusLineFullPayload builds the inner status-line payload map shared by",
+            "// EnvelopedStatusLineFull and RawStatusLineFull, applying StatusLineFullOpts' documented",
+            "// defaults."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/usageapi.go:89dcbcace1a28c14",
+          "path": "internal/claudecode/claudecodetest/usageapi.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type UsageWindowOpt struct {",
+            "line": 3
+          },
+          "lines": [
+            "// UsageWindowOpt is one weekly-scoped window for UsageAPIBody's fixture. ResetsAt,",
+            "// left empty, defaults to farFutureResetsAt encoded as a bare epoch number — exercising",
+            "// the adapter's \"RFC3339 or epoch seconds\" dual format for free; pass an RFC3339 string",
+            "// explicitly to test that branch instead."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/usageapi.go:4a37d6791fa5f1e8",
+          "path": "internal/claudecode/claudecodetest/usageapi.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func UsageAPIBody(windows ...UsageWindowOpt) string {",
+            "line": 9
+          },
+          "lines": [
+            "// UsageAPIBody returns a GET /api/oauth/usage-shaped response body (measured live",
+            "// 2026-08-30, docs/history/spikes/canary-fields.md \"GET /api/oauth/usage measured live 2026-08-30\")",
+            "// carrying the given weekly-scoped windows plus the session/weekly_all noise the real",
+            "// endpoint always returns alongside them. Tests outside internal/claudecode must never",
+            "// spell out this endpoint's own wire vocabulary (the boundary check behind",
+            "// kb:adr/ingest-wire-shaped-fixtures-via-claudecodetest) — this is the sanctioned way to get a realistic body, mirroring",
+            "// EnvelopedSessionStart's role for hook payloads above."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/usageapi.go:d7ac07626f14e6bc",
+          "path": "internal/claudecode/claudecodetest/usageapi.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func OAuthCredentialsBody(token string) string {",
+            "line": 45
+          },
+          "lines": [
+            "// OAuthCredentialsBody returns the Keychain-item/scratch-token-file JSON shape musterd",
+            "// reads its OAuth token from — the same sanctioned-fixture reasoning as UsageAPIBody."
+          ]
+        },
+        {
+          "key": "internal/usage/usage.go:e1f0abad49fce59d",
+          "path": "internal/usage/usage.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type Sample struct {",
+            "line": 24
+          },
+          "lines": [
+            "// Sample is one neutral usage reading. The Aggregator stamps the snapshot's SampledAt",
+            "// itself (mirrors internal/store's own received_at/at stamping)."
+          ]
+        },
+        {
+          "key": "internal/usage/usage.go:2850c78c34705efc",
+          "path": "internal/usage/usage.go",
+          "anchor": {
+            "kind": "on",
+            "text": "Source string",
+            "line": 28
+          },
+          "lines": [
+            "// \"subscription\" in v1"
+          ]
+        }
+      ]
+    }
+  ]
+}
