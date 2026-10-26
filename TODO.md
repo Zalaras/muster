@@ -189,6 +189,11 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Filed 2026-10-19 from musterd 0.23.0 / Claude Code 2.1.303, focus view, session idle.
   Labels: enhancement, lifecycle, ux.
 
+- [ ] **Remove the Stop and Remove buttons from the Focus header** — filed by the developer
+  2026-10-26: "remove the Stop and Remove buttons from the top right in the focus header". Expected:
+  the header's top right holds no Stop, Resume or Remove button; a single always-visible ⋯ opens the
+  same menu as right-clicking the session's rail card.
+
 - [ ] **Should select mode be disabled after an action?** ([#98](https://github.com/Zalaras/muster/issues/98)) — After
   selecting several sessions and removing them, it is unclear whether the dashboard should stay in
   select mode or leave it. Expected: Select mode should end after an action, or stay on depending on

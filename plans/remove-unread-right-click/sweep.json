@@ -1,0 +1,107 @@
+{
+ "sweep": "remove-unread-right-click",
+ "created_at": "2026-10-26T14:13:41Z",
+ "selector": "remove-unread-right-click \"Add mark unread right click option\" \"Add the remove option without me having to Stop\" + Focus header Stop/Remove removal (filed at the stop) + \"Problem with overlap for new note\" (added at the stop); e1 kept despite not-small-track: protocol, by the developer, delta settled in research/e1.md; single batch",
+ "parallel": 1,
+ "entries": [
+  {
+   "id": "e1",
+   "title": "Add mark unread right click option",
+   "issue": 103,
+   "section": "Tweaks",
+   "work_type": "full-stack",
+   "features": [
+    "rail",
+    "lifecycle"
+   ],
+   "files": [
+    "web/src/features/railmenuitems.ts",
+    "web/src/features/railmenu.ts",
+    "web/src/sessions/card.ts",
+    "web/src/features/actions.ts",
+    "web/src/api/",
+    "internal/server/rail.go",
+    "internal/session/manager_rail.go",
+    "docs/protocol.md",
+    "docs/features/rail/spec.md"
+   ],
+   "route": "fix",
+   "research": "plans/remove-unread-right-click/research/e1.md",
+   "batch": 1
+  },
+  {
+   "id": "e2",
+   "title": "Add the remove option without me having to Stop",
+   "issue": 104,
+   "section": "Tweaks",
+   "work_type": "web",
+   "features": [
+    "rail",
+    "actions"
+   ],
+   "files": [
+    "web/src/features/railmenuitems.ts",
+    "web/src/features/railmenuitems.test.ts",
+    "docs/features/rail/spec.md"
+   ],
+   "route": "fix",
+   "research": "plans/remove-unread-right-click/research/e2.md",
+   "batch": 1
+  },
+  {
+   "id": "e3",
+   "title": "Remove the Stop and Remove buttons from the Focus header",
+   "issue": null,
+   "section": "Tweaks",
+   "work_type": "web",
+   "features": [
+    "focus",
+    "actions",
+    "rail"
+   ],
+   "files": [
+    "web/index.html",
+    "web/src/features/focus.ts",
+    "web/src/render/mainhead.ts",
+    "web/src/style.css",
+    "web/src/features/railmenu.ts",
+    "docs/features/focus/spec.md",
+    "docs/features/actions/spec.md",
+    "docs/design/design-system.md"
+   ],
+   "route": "fix",
+   "research": "plans/remove-unread-right-click/research/e3.md",
+   "batch": 1
+  },
+  {
+   "id": "e4",
+   "title": "Problem with overlap for new note",
+   "issue": 106,
+   "section": "Bugs",
+   "work_type": "web",
+   "features": [
+    "rail",
+    "notes"
+   ],
+   "files": [
+    "web/src/render/sessions.ts",
+    "web/render/notes.spec.ts"
+   ],
+   "route": "fix",
+   "research": "plans/remove-unread-right-click/research/e4.md",
+   "batch": 1
+  }
+ ],
+ "batches": [
+  {
+   "n": 1,
+   "entries": [
+    "e1",
+    "e2",
+    "e3",
+    "e4"
+   ],
+   "work_type": "full-stack"
+  }
+ ]
+}
