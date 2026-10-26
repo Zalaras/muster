@@ -59,7 +59,7 @@ type earlyInterruptRun struct {
 // runO takes one real turn so there is something to compact, runs the local /context command
 // and waits for the idle_prompt that follows it, then runs /compact and waits for the
 // SessionStart it ends with and the idle_prompt after that. The status posts it captures through
-// that idle stretch carry the turn's keep-alive (TestPromptCacheKeepAliveMovesExpiry).
+// that idle stretch carry the turn's idle cache behaviour (TestPromptCacheIdleFollowsRegime).
 func (f *fixture) runO(ctx context.Context) error {
 	argv := claudecode.BuildArgv(claudeBin, claudecode.LaunchParams{Model: haikuModel, PermissionMode: "default"})
 	target, started, _, err := f.startInteractive(ctx, compactTmuxID, sessionCompact, argv, nil)

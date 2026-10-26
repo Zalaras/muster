@@ -66,14 +66,17 @@ func TestLocalCommandOrphanIdlePrompt(t *testing.T) {
 	t.Logf("idle_prompt %s after /context", idle.at.Sub(f.compact.contextAt).Round(time.Second))
 }
 
-// TestPromptCacheKeepAliveMovesExpiry guards kb:fact/prompt-cache-5m-keepalive, the premise of
-// kb:adr/usage-cache-warmth-follows-keepalive-horizon: an idle session on a 5m ttl keeps its cache
-// warm with keep-alives that move expires_at without counting as requests. Run O's first turn
-// ends, the session idles through /context's wait, and the last status post before /compact's
-// PreCompact, over 30 s after Stop, carries the same requests as the first post after Stop,
-// warm true, and an expires_at at least 25 s later. A turn whose ttl is not 5m fails by naming
-// that regime: the prediction was measured only on 5m.
-func TestPromptCacheKeepAliveMovesExpiry(t *testing.T) {
+// TestPromptCacheIdleFollowsRegime guards the idle behaviour of whichever cache regime the server
+// gives run O's main thread (kb:fact/main-cache-ttl-selected-per-model-off-binary,
+// kb:adr/canary-cache-test-follows-live-regime), so one run exercises only the live one. Run O's
+// first turn ends, the session idles through /context's wait, and the last status post before
+// /compact's PreCompact, over 30 s after Stop, carries the same ttl and requests as the first post
+// after Stop and warm true. On a 5m ttl its expires_at is at least 25 s later, moved on by
+// keep-alives (kb:fact/prompt-cache-5m-keepalive, the premise of
+// kb:adr/usage-cache-warmth-follows-keepalive-horizon); on a 1h ttl it has held still, since
+// nothing is sent (kb:fact/prompt-cache-1h-no-keepalive-warm-flips-at-expiry). Any other ttl fails
+// by naming it: no regime but these two has been measured.
+func TestPromptCacheIdleFollowsRegime(t *testing.T) {
 	f := harness(t)
 	r := f.compact
 	require.NoError(t, r.err, "run O did not complete")
@@ -94,25 +97,34 @@ func TestPromptCacheKeepAliveMovesExpiry(t *testing.T) {
 		atCompact, compactCache = &c, cache
 	}
 	require.NotNil(t, first, "no status post between Stop and PreCompact carried a prompt_cache the interpreter accepts")
-	require.Equal(t, int64(300), firstCache.TTLSeconds,
-		"the turn's ttl is %ds, not 5m: this install is in another cache regime, which the keep-alive prediction was not measured on (kb:fact/prompt-cache-5m-keepalive)", firstCache.TTLSeconds)
-	require.Equal(t, int64(300), compactCache.TTLSeconds, "the ttl left the 5m regime between Stop and /compact: %ds", compactCache.TTLSeconds)
+	require.Equal(t, firstCache.TTLSeconds, compactCache.TTLSeconds,
+		"the ttl changed regime between Stop and /compact: %ds, then %ds", firstCache.TTLSeconds, compactCache.TTLSeconds)
 
 	idle := atCompact.at.Sub(r.stopAt)
 	require.Greater(t, idle, 30*time.Second,
-		"the post at /compact arrived only %s after Stop, so there was no keep-alive to see; posts %s apart", idle.Round(time.Second), atCompact.at.Sub(first.at).Round(time.Second))
+		"the post at /compact arrived only %s after Stop, too soon to judge the idle behaviour; posts %s apart", idle.Round(time.Second), atCompact.at.Sub(first.at).Round(time.Second))
 	require.NotNil(t, firstCache.Requests, "the first post after Stop carries no integer requests")
 	require.NotNil(t, compactCache.Requests, "the post at /compact carries no integer requests")
 	assert.Equal(t, *firstCache.Requests, *compactCache.Requests,
-		"keep-alives do not count as requests: the post at /compact (%s after Stop) must carry the first post's count", idle.Round(time.Second))
+		"an idle session makes no counted request: the post at /compact (%s after Stop) must carry the first post's count", idle.Round(time.Second))
 	assert.True(t, promptCacheWarm(atCompact), "the post at /compact must say warm true, since nothing has been missed")
 
 	moved := compactCache.ExpiresAt.Sub(firstCache.ExpiresAt)
-	assert.GreaterOrEqual(t, moved, 25*time.Second,
-		"expires_at moved only %s over %s of idle: keep-alives no longer push it on, so the hour-of-keep-alives prediction would be wrong",
-		moved.Round(time.Second), atCompact.at.Sub(first.at).Round(time.Second))
-	t.Logf("5m regime: requests %d at both posts, expires_at moved %s over %s idle (Stop to /compact %s)",
-		*firstCache.Requests, moved.Round(time.Second), atCompact.at.Sub(first.at).Round(time.Second), idle.Round(time.Second))
+	switch firstCache.TTLSeconds {
+	case 300:
+		assert.GreaterOrEqual(t, moved, 25*time.Second,
+			"expires_at moved only %s over %s of idle: keep-alives no longer push it on, so the hour-of-keep-alives prediction would be wrong",
+			moved.Round(time.Second), atCompact.at.Sub(first.at).Round(time.Second))
+	case 3600:
+		// A post just after a request can read a second later than the next one, so the hold allows 2 s.
+		assert.LessOrEqual(t, moved.Abs(), 2*time.Second,
+			"expires_at moved %s over %s of idle on a 1h ttl: something now sends keep-alives in the 1h regime",
+			moved.Round(time.Second), atCompact.at.Sub(first.at).Round(time.Second))
+	default:
+		t.Fatalf("the turn's ttl is %ds, neither 5m nor 1h: an unmeasured cache regime (kb:fact/main-cache-ttl-selected-per-model-off-binary)", firstCache.TTLSeconds)
+	}
+	t.Logf("%ds regime: requests %d at both posts, expires_at moved %s over %s idle (Stop to /compact %s)",
+		firstCache.TTLSeconds, *firstCache.Requests, moved.Round(time.Second), atCompact.at.Sub(first.at).Round(time.Second), idle.Round(time.Second))
 }
 
 // promptCacheWarm is the capture's prompt_cache.warm when it is a JSON boolean, else false.

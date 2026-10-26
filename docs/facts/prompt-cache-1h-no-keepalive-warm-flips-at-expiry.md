@@ -9,8 +9,8 @@ tags: [claude-code-format]
 files: []
 tests: []
 refs: [test/rig/captures/capture-5.jsonl, kb:fact/prompt-cache-status-shape, kb:fact/main-cache-ttl-selected-per-model-off-binary, kb:fact/prompt-cache-5m-keepalive]
-verified: 2.1.308..2.1.308
-guard: none
+verified: 2.1.308..canary
+guard: TestPromptCacheIdleFollowsRegime
 ---
 With `ttl: "1h"`, each main-thread request sets `expires_at` to that request plus 3600 s
 (within a second). Between requests nothing moves it: two Haiku sessions idled a full hour
@@ -21,7 +21,8 @@ no keep-alive, and the hour is real at the API: a turn after 7.5 minutes idle re
 
 At expiry the first status post at or after `expires_at` reports `warm: false`, with
 `expires_at` unchanged (2 of 2: posts 0.2 s and 0.4 s after the expiry second). This settles the
-flip kb:fact/prompt-cache-status-shape could not observe.
+flip kb:fact/prompt-cache-status-shape could not observe. The guard covers only the held
+`expires_at`; the flip needs an hour and stays unguarded.
 
 The next turn after expiry read nothing from cache (`cache_read_input_tokens: 0`), rewrote the
 whole prefix at 1h (42 095 tokens) and posted `misses: 1`, `miss_recache_tokens: 42095`,

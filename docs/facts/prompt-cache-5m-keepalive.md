@@ -10,7 +10,7 @@ files: []
 tests: []
 refs: [test/rig/captures/capture-2.jsonl, kb:fact/prompt-cache-status-shape, kb:fact/haiku-main-cache-ttl-5m-on-2-1-299, kb:fact/prompt-cache-outage-goes-cold-after-ttl, "#92"]
 verified: 2.1.300..2.1.300
-guard: TestPromptCacheKeepAliveMovesExpiry
+guard: TestPromptCacheIdleFollowsRegime
 ---
 While a session with `ttl: "5m"` sits idle, Claude Code sends a keep-alive about every 30 s
 and `prompt_cache.expires_at` moves to that keep-alive plus 300 s. The keep-alives add no
