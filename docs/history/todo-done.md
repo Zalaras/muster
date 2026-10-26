@@ -2573,3 +2573,30 @@ that the dashboard shows.
   be updatable from either admin user.
   Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.306, focus view, session idle.
   Labels: bug, process, install.
+
+- [x] **Problem with overlap for new note** ([#106](https://github.com/Zalaras/muster/issues/106)) ✅ done 2026-10-26 (plan `remove-unread-right-click-1`, via `/fix`) — Hovering
+  the note on a rail card shows it, then about a second later the file path and branch hover appears
+  and overlaps the top of the note. Expected: The file and branch hover should only trigger over the
+  file and branch, not over the note, or the note should be isolated from it.
+  Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.293, focus view, session idle.
+  Labels: bug, rail, ux.
+
+## Tweaks
+
+- [x] **Add mark unread right click option** ([#103](https://github.com/Zalaras/muster/issues/103)) ✅ done 2026-10-26 (plan `remove-unread-right-click-1`, via `/fix`) — There
+  is no right-click option to mark a session as unread or read. Expected: A right-click menu option
+  should let the user mark a session as unread or read.
+  Filed 2026-10-19 from musterd 0.23.0 / Claude Code 2.1.303, focus view, session idle.
+  Labels: enhancement, rail, ux.
+
+- [x] **Add the remove option without me having to Stop** ([#104](https://github.com/Zalaras/muster/issues/104)) ✅ done 2026-10-26 (plan `remove-unread-right-click-1`, via `/fix`) — In
+  the right-click menu a session must be stopped before the Remove option becomes available.
+  Expected: The right-click menu should offer Remove directly, without requiring the session to be
+  stopped first.
+  Filed 2026-10-19 from musterd 0.23.0 / Claude Code 2.1.303, focus view, session idle.
+  Labels: enhancement, lifecycle, ux.
+
+- [x] **Remove the Stop and Remove buttons from the Focus header** ✅ done 2026-10-26 (plan `remove-unread-right-click-1`, via `/fix`) — filed by the developer
+  2026-10-26: "remove the Stop and Remove buttons from the top right in the focus header". Expected:
+  the header's top right holds no Stop, Resume or Remove button; a single always-visible ⋯ opens the
+  same menu as right-clicking the session's rail card.
