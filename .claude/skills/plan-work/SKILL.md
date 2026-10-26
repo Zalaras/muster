@@ -301,7 +301,8 @@ end of a run.
 
 A plan that changes no doc claim writes `No doc change.` — `plan-lint` fails on an absent or empty
 section, never on an honest one. The Protocol Contract (§5) stays where it is; this section covers
-the prose the contract does not generate.
+the prose the contract does not generate. A claim in any other doc (`docs/design/`, `SPEC.md`) goes
+in the owning impl agent's Affected Files, not here — doc-reconcile never edits it.
 
 ## Plan Document Format
 
