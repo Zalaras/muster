@@ -9,7 +9,8 @@
 // every recorded fixture holds (the render rig has no Claude config to poll). The journeys
 // — the PUT persisting, the poll reading a real config file, the restart, the kill, the
 // pop-out — stay in web/e2e/theme.spec.ts.
-import { focusSession, headerButton, sessionCard, stateBadge } from "./helpers/focus";
+import { deadCap } from "./helpers/actions";
+import { focusSession, headerMore, sessionCard, stateBadge } from "./helpers/focus";
 import { expect, type Page, test } from "./helpers/harness";
 import { tokenColor } from "./helpers/style";
 import {
@@ -92,24 +93,22 @@ const THEMES = [
   ["Light", "light", "-light"],
 ] as const;
 
-test("the header's disabled Resume button's computed style differs from the enabled Stop button, in each theme (E13)", async ({
+test("the dead surface's disabled Resume button's computed style differs from the header's enabled Session actions button, in each theme (E13)", async ({
   page,
   dashboard,
 }) => {
   const mainhead = page.locator("#mainhead");
-  const stopBtn = headerButton(page, "Stop");
-  const resumeBtn = headerButton(page, "Resume");
+  const stopBtn = headerMore(page);
+  const resumeBtn = deadCap(page).getByRole("button", { name: "Resume" });
   const focusLive = async () => {
     await focusSession(page, "enabled-e13");
     await expect(mainhead).toContainText("enabled-e13");
     await expect(stopBtn).toBeEnabled();
-    await expect(resumeBtn).toHaveCount(0);
   };
   const focusDead = async () => {
     await focusSession(page, "disabled-e13");
     await expect(mainhead).toContainText("disabled-e13");
     await expect(resumeBtn).toBeDisabled();
-    await expect(stopBtn).toHaveCount(0);
   };
 
   for (const [label, expectedTheme, suffix] of THEMES) {
@@ -128,10 +127,14 @@ test("the header's disabled Resume button's computed style differs from the enab
     const resumeBorder = await resumeBtn.evaluate((el) => getComputedStyle(el).borderColor);
     const resumeCursor = await resumeBtn.evaluate((el) => getComputedStyle(el).cursor);
 
-    expect(resumeColor, `${label}: Resume color must differ from enabled Stop`).not.toBe(endColor);
-    expect(resumeBorder, `${label}: Resume border-color must differ from enabled Stop`).not.toBe(
-      endBorder,
-    );
+    expect(
+      resumeColor,
+      `${label}: Resume color must differ from the enabled actions button`,
+    ).not.toBe(endColor);
+    expect(
+      resumeBorder,
+      `${label}: Resume border-color must differ from the enabled actions button`,
+    ).not.toBe(endBorder);
     expect(resumeCursor, `${label}: disabled Resume must show not-allowed`).toBe("not-allowed");
   }
 });

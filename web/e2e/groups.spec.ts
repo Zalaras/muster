@@ -48,6 +48,7 @@ import {
 } from "./helpers/groups";
 import { rawNotification } from "./helpers/payloads";
 import { launchDialog } from "./helpers/picker";
+import { removeFromCardMenu } from "./helpers/rail-menu";
 import { pinViaApi, railCard, railOrderIds, railSortSelect } from "./helpers/railorder";
 
 // Plan groups — the rail's sections: creating, renaming, collapsing, deleting, ungrouping and
@@ -317,12 +318,8 @@ test("deleting the last session of a group leaves the group with a 0 count, the 
     const head = groupHead(page, group.id);
     await expect(summaryCount(head)).toHaveText("1");
 
-    // The real single Remove, from the mainhead.
-    await railCard(page, "e4-member").click();
-    await page.locator("#mainhead").getByRole("button", { name: "Remove", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: "Remove session?" });
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "Remove", exact: true }).click();
+    // The real single Remove, from the card's menu (the Focus header holds no Remove button).
+    await removeFromCardMenu(page, railCard(page, "e4-member"));
 
     await expect(railCard(page, "e4-member")).toHaveCount(0);
     await expect(head).toBeVisible();

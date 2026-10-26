@@ -15,6 +15,7 @@ import {
   sessionCard,
   stateBadge,
 } from "./helpers/session";
+import { cardMenu, cardMenuItem, menuItemLabels, openCardMenu } from "./helpers/rail-menu";
 import { TerminalSocketTracker, terminalRegion } from "./helpers/terminal";
 import { resolvedCssVar } from "./helpers/theme";
 
@@ -43,7 +44,7 @@ import { resolvedCssVar } from "./helpers/theme";
 
 const sharedDaemon = fileDaemon();
 
-test("End from the mainhead ends only the focused session; a live neighbour is unaffected (E5, INV-2)", async ({
+test("Stop… from the focused session's card menu ends only that session; a live neighbour is unaffected (E5, INV-2)", async ({
   page,
   request,
 }) => {
@@ -75,11 +76,10 @@ test("End from the mainhead ends only the focused session; a live neighbour is u
       "#{session_attached}",
     );
 
-    // exact: true — sanctioned repair (plan ui-text-and-focus, REQ-13/Testable UI
-    // Elements): the mainhead heading now also hosts a rename trigger whose accessible
-    // name is the display title, and this test's own fixture title ("end-mainhead-a")
-    // contains "end" as a substring, so a non-exact match is ambiguous.
-    await mainhead.getByRole("button", { name: "Stop", exact: true }).click();
+    // The Focus header holds no Stop button (plan remove-unread-right-click-1, REQ-4): a
+    // session is stopped from its card's menu.
+    await openCardMenu(page, cardA);
+    await cardMenuItem(page, "Stop…").click();
     const dialog = page.getByRole("dialog", { name: "Stop session?" });
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText("end-mainhead-a");
@@ -543,15 +543,12 @@ test("Removing a live session ends it first, warns in the dialog copy, and moves
     const mainhead = page.locator("#mainhead");
     await expect(mainhead).toContainText("remove-live-a");
 
-    // Live cards carry only End (REQ-11) — Remove for a live session comes from the
-    // mainhead only (REQ-10's "always enabled").
+    // A live card carries no action button; its menu offers Remove… beside Stop…
+    // (plan remove-unread-right-click-1, REQ-3), and the Focus header holds none.
     await expect(cardA.getByRole("button", { name: "Remove" })).toHaveCount(0);
-
-    // exact: true — sanctioned repair (plan ui-text-and-focus, REQ-13/Testable UI
-    // Elements): the mainhead's rename trigger's accessible name is the display
-    // title, and this test's own fixture title ("remove-live-a") contains "remove"
-    // as a substring, so a non-exact match is ambiguous.
-    await mainhead.getByRole("button", { name: "Remove", exact: true }).click();
+    await openCardMenu(page, cardA);
+    expect((await menuItemLabels(page)).slice(0, 2)).toEqual(["Stop…", "Remove…"]);
+    await cardMenuItem(page, "Remove…").click();
     const dialog = page.getByRole("dialog", { name: "Remove session?" });
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText(/ends the session first/i);
@@ -595,7 +592,7 @@ test("Removing a live session ends it first, warns in the dialog copy, and moves
   }
 });
 
-test("action buttons are disabled while the daemon connection is down (E14)", async ({
+test("the card menu's Stop… and Remove… are disabled while the daemon connection is down, from the card and from the header's ⋯ alike (E14)", async ({
   page,
   request,
   daemon,
@@ -619,29 +616,38 @@ test("action buttons are disabled while the daemon connection is down (E14)", as
     const banner = page.getByRole("alert");
     await expect(banner).toBeVisible({ timeout: 15_000 });
 
-    // One Stop/Resume button (plan title-crop-stop-resume-button, REQ-5): a live session's
-    // reads Stop, and it is the only one of the two in the header.
-    await expect(mainhead.getByRole("button", { name: "Stop", exact: true })).toBeDisabled();
-    await expect(mainhead.getByRole("button", { name: "Resume", exact: true })).toHaveCount(0);
-    await expect(mainhead.getByRole("button", { name: "Remove" })).toBeDisabled();
-    // REQ-7 (plan status-inconsistencies): a live card offers no End at all, so there is
-    // nothing on it to disable — the mainhead's End above is the one that goes disabled.
-    await expect(card.getByRole("button", { name: "Stop" })).toHaveCount(0);
+    // The header holds no Stop, Resume or Remove button (plan remove-unread-right-click-1,
+    // REQ-4); the same actions live in the card menu, which opens while disconnected with
+    // every item disabled — from the card and from the header's ⋯ alike (REQ-5).
+    await openCardMenu(page, card);
+    await expect(cardMenuItem(page, "Stop…")).toBeDisabled();
+    await expect(cardMenuItem(page, "Remove…")).toBeDisabled();
+    await expect(cardMenuItem(page, "Resume")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(cardMenu(page)).toHaveCount(0);
+
+    await mainhead.getByRole("button", { name: "Session actions" }).click();
+    await expect(cardMenu(page)).toHaveAccessibleName("Actions for down-e14");
+    await expect(cardMenuItem(page, "Stop…")).toBeDisabled();
+    await expect(cardMenuItem(page, "Remove…")).toBeDisabled();
+    await page.keyboard.press("Escape");
+    await expect(cardMenu(page)).toHaveCount(0);
 
     await daemon.restart();
     await expect(banner).toBeHidden({ timeout: 15_000 });
+    await openCardMenu(page, card);
+    await expect(cardMenuItem(page, "Stop…")).toBeEnabled();
+    await expect(cardMenuItem(page, "Remove…")).toBeEnabled();
   } finally {
     await cleanup();
   }
 });
 
-// review m4-reconcile fix-cycle-1 Major 4: E14 above only ever puts a LIVE focused
-// session on screen, where End is disabled by `alive` regardless of connection and the
-// incidental terminal-socket-close re-render masks Major 3's actual defect (a missing
-// `render()` call from `onDisconnected`/`setStatus`). Mainhead Resume/Remove and the
-// `.endcap` Resume only ever become *enabled* for a DEAD focused session, so only this
-// case can prove the daemon-down disable (and reconnect re-enable) actually reaches them.
-test("action buttons are disabled while the daemon connection is down for a dead focused session, and re-enable on reconnect (E14, Major 4)", async ({
+// The live-session test above never puts an enabled Resume or Remove… on screen, and the
+// terminal socket closing re-renders the page on its own. A dead focused session has no
+// terminal socket, so only its menu and cap can show that the connection state alone disables
+// Resume and Remove… on a drop and re-enables them on reconnect.
+test("the card menu's Resume and Remove… and the cap's Resume are disabled while the daemon connection is down for a dead focused session, and re-enable on reconnect (E14)", async ({
   page,
   request,
 }) => {
@@ -684,12 +690,15 @@ test("action buttons are disabled while the daemon connection is down for a dead
     await expect(deadSurface).toBeVisible({ timeout: 15_000 });
     const cap = deadSurface.locator(".endcap");
 
-    // Sanity: while connected, a dead focused session has Resume/Remove enabled on the
-    // mainhead and Resume enabled in the cap. The header's one Stop/Resume button reads
-    // Resume now (plan title-crop-stop-resume-button, REQ-5): no Stop beside it.
-    await expect(mainhead.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
-    await expect(mainhead.getByRole("button", { name: "Resume", exact: true })).toBeEnabled();
-    await expect(mainhead.getByRole("button", { name: "Remove" })).toBeEnabled();
+    // Sanity: while connected, a dead focused session's card menu offers Resume and Remove…
+    // enabled (and no Stop…), and the cap's Resume is enabled. The Focus header holds none of
+    // the three (plan remove-unread-right-click-1, REQ-4).
+    await openCardMenu(page, card);
+    await expect(cardMenuItem(page, "Stop…")).toHaveCount(0);
+    await expect(cardMenuItem(page, "Resume")).toBeEnabled();
+    await expect(cardMenuItem(page, "Remove…")).toBeEnabled();
+    await page.keyboard.press("Escape");
+    await expect(cardMenu(page)).toHaveCount(0);
     await expect(cap.getByRole("button", { name: "Resume" })).toBeEnabled();
 
     // Force-close the routed WebSocket rather than killing/restarting the daemon
@@ -708,19 +717,23 @@ test("action buttons are disabled while the daemon connection is down for a dead
     // This dead session's mainhead/cap have no terminal socket at all (REQ-13/INV-5),
     // so nothing incidentally re-renders them — only `setStatus`'s own `render()` call
     // can be responsible for these flipping to disabled.
-    await expect(mainhead.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
-    await expect(mainhead.getByRole("button", { name: "Resume", exact: true })).toBeDisabled();
-    await expect(mainhead.getByRole("button", { name: "Remove" })).toBeDisabled();
     await expect(cap.getByRole("button", { name: "Resume" })).toBeDisabled();
+    await openCardMenu(page, card);
+    await expect(cardMenuItem(page, "Stop…")).toHaveCount(0);
+    await expect(cardMenuItem(page, "Resume")).toBeDisabled();
+    await expect(cardMenuItem(page, "Remove…")).toBeDisabled();
+    await page.keyboard.press("Escape");
+    await expect(cardMenu(page)).toHaveCount(0);
 
     // No further action needed to "reconnect" — `wsRoute`'s own registration stays
     // active for the whole page lifetime, so the client's own backoff-driven retry
     // (ws.ts, 500ms-8s) opens a fresh WebSocket that is routed and proxied to the same
     // real (never-killed) daemon.
     await expect(banner).toBeHidden({ timeout: 15_000 });
-    await expect(mainhead.getByRole("button", { name: "Resume", exact: true })).toBeEnabled();
-    await expect(mainhead.getByRole("button", { name: "Remove" })).toBeEnabled();
     await expect(cap.getByRole("button", { name: "Resume" })).toBeEnabled();
+    await openCardMenu(page, card);
+    await expect(cardMenuItem(page, "Resume")).toBeEnabled();
+    await expect(cardMenuItem(page, "Remove…")).toBeEnabled();
   } finally {
     await cleanup();
   }

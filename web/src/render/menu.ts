@@ -26,7 +26,7 @@ export type MenuEntry =
   | { kind: "header"; label: string };
 
 export interface MenuOpenOptions {
-  at?: { x: number; y: number };
+  at?: { x: number; y: number } | undefined;
   label?: string;
 }
 

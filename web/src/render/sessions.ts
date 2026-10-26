@@ -19,8 +19,8 @@ import { applyWarmth } from "./warmth";
 
 export interface CardMenuRequest {
   id: number;
-  card: HTMLElement;
-  at: { x: number; y: number };
+  opener: HTMLElement;
+  at?: { x: number; y: number };
 }
 
 /** The card/rail options every render function in this module needs,
@@ -299,7 +299,7 @@ function buildSessionCardElement(
   card.addEventListener("click", () => onClick(session.id, "pointer"));
   card.addEventListener("contextmenu", (event) => {
     event.preventDefault();
-    options.onMenu({ id: session.id, card, at: { x: event.clientX, y: event.clientY } });
+    options.onMenu({ id: session.id, opener: card, at: { x: event.clientX, y: event.clientY } });
   });
   card.addEventListener("keydown", (event) => {
     // This listener is on `.card`, but the pin button nests inside it and its own keydown
@@ -310,7 +310,7 @@ function buildSessionCardElement(
     if (isMenuKey(event)) {
       event.preventDefault();
       const box = card.getBoundingClientRect();
-      options.onMenu({ id: session.id, card, at: { x: box.left + 16, y: box.bottom + 4 } });
+      options.onMenu({ id: session.id, opener: card, at: { x: box.left + 16, y: box.bottom + 4 } });
     } else if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       onClick(session.id, "keyboard");

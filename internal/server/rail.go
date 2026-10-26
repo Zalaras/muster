@@ -29,6 +29,7 @@ func (f *railFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Ha
 	// so "order" is never parsed as {id} even though the {id} routes live in other features.
 	mux.Handle("PUT /api/sessions/order", guard(http.HandlerFunc(f.handleSetOrder)))
 	mux.Handle("PUT /api/sessions/{id}/pin", guard(http.HandlerFunc(f.handlePinSession)))
+	mux.Handle("PUT /api/sessions/{id}/unread", guard(http.HandlerFunc(f.handleUnreadSession)))
 }
 
 // pinSessionRequest is PUT /api/sessions/{id}/pin's request body (kb:anchor/sessions.pin).
@@ -55,6 +56,38 @@ func (f *railFeature) handlePinSession(w http.ResponseWriter, r *http.Request) {
 			writeUnknownSession(w)
 		default:
 			f.log.Error().Err(err).Int64("session_id", id).Msg("pinning session failed")
+			writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// unreadSessionRequest is PUT /api/sessions/{id}/unread's request body (kb:anchor/sessions.unread).
+type unreadSessionRequest struct {
+	Unread *bool `json:"unread"`
+}
+
+// handleUnreadSession is PUT /api/sessions/{id}/unread (kb:anchor/sessions.unread).
+func (f *railFeature) handleUnreadSession(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseSessionID(w, r)
+	if !ok {
+		return
+	}
+
+	var req unreadSessionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Unread == nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid_request", "unread is required and must be a boolean")
+		return
+	}
+
+	if err := f.manager.SetUnread(context.WithoutCancel(r.Context()), id, *req.Unread); err != nil {
+		switch {
+		case errors.Is(err, session.ErrUnknownSession):
+			writeUnknownSession(w)
+		default:
+			f.log.Error().Err(err).Int64("session_id", id).Msg("setting session unread failed")
 			writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
 		}
 		return

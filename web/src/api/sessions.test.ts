@@ -12,6 +12,7 @@ import {
   removeSession,
   removeSessions,
   resumeSession,
+  setSessionUnread,
 } from "./sessions";
 import { fakeResponse, fakeResponseThatThrows, fakeStatusResponse } from "./testfakes";
 
@@ -502,6 +503,34 @@ describe("sessions — putSessionsGroup (PUT /api/sessions/group, kb:anchor/sess
     expect(await putSessionsGroup([4, 4], 3)).toEqual({ ok: false, error: bad });
   });
 });
+
+describe.each([true, false])(
+  "sessions — setSessionUnread (PUT /api/sessions/{id}/unread, kb:anchor/sessions.unread), unread=%s",
+  (unread) => {
+    let fetchMock: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("sends the flag for that id and treats 204 as success", async () => {
+      fetchMock.mockResolvedValue(fakeStatusResponse(204));
+      expect(await setSessionUnread(7, unread)).toEqual({ ok: true, value: null });
+      expect(fetchMock).toHaveBeenCalledWith("/api/sessions/7/unread", jsonCall("PUT", { unread }));
+    });
+
+    it("decodes a 404 unknown_session", async () => {
+      const missing = { code: "unknown_session", message: "unknown session" };
+      fetchMock.mockResolvedValue(fakeStatusResponse(404, { error: missing }));
+      expect(await setSessionUnread(99, unread)).toEqual({ ok: false, error: missing });
+    });
+  },
+);
 
 // kb:anchor/sessions.end-many and kb:anchor/sessions.remove-many share one request and report shape.
 describe.each([

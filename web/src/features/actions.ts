@@ -1,6 +1,6 @@
-// Stop/Resume/Remove/Pin dispatcher, their confirm dialogs, and the dead-pane snapshot
-// cache (kb:adr/process-one-name-per-feature: "actions"). Every mainhead,
-// rail card, tile footer and dead-surface cap routes through `dispatch`. This module
+// Stop/Resume/Remove/Pin/Mark dispatcher, their confirm dialogs, and the dead-pane snapshot
+// cache (kb:adr/process-one-name-per-feature: "actions"). Every card menu (rail, strip, the Focus
+// header ⋯), tile footer and dead-surface cap routes through `dispatch`. This module
 // carries no dead-surface API of its own — `features/focus.ts` and `features/tiles.ts`
 // each hand `surfaces.select` their own `deadSurfaceRefsFor` lookup directly, since each
 // is the only one that knows what a dead surface looks like in its own view.
@@ -13,6 +13,7 @@ import {
   removeSession,
   removeSessions,
   resumeSession,
+  setSessionUnread,
 } from "../api/sessions";
 import { requireElement } from "../dom";
 import { renderActionError } from "../render/actionerror";
@@ -225,6 +226,8 @@ export function initActions(app: App): ActionsHandle {
       });
     } else if (action === "pin") {
       doPin(session.id, !session.pinned);
+    } else if (action === "markRead" || action === "markUnread") {
+      void setSessionUnread(id, action === "markUnread");
     } else {
       void doResume(id);
     }

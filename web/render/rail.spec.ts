@@ -266,7 +266,7 @@ test("Opt+Cmd+1 selects the pinned card in Attention mode, ahead of the neediest
 
 // ═══ web/e2e/rail-menu.spec.ts — plan rail-card-organise (#56) ═══
 
-test("right-clicking a live rail card opens a menu at the pointer with Stop…, each group in rail order, New group…, No group and Pin, and no Resume or Remove…, and the browser's own menu is cancelled (REQ-1, REQ-2, E1)", async ({
+test("right-clicking a live rail card opens a menu at the pointer with Stop…, Remove…, each group in rail order, New group…, No group, Pin and the two Mark entries, and no Resume, and the browser's own menu is cancelled (REQ-1, REQ-2, E1; REQ-2, REQ-3 of remove-unread-right-click-1)", async ({
   page,
   dashboard,
 }) => {
@@ -281,9 +281,18 @@ test("right-clicking a live rail card opens a menu at the pointer with Stop…, 
   if (!cardBox) throw new Error("the card has no layout box");
   const menu = await openCardMenu(page, card, { x: 24, y: 12 });
 
-  expect(await menuItemLabels(page)).toEqual(["Stop…", ...names, "New group…", "No group", "Pin"]);
+  expect(await menuItemLabels(page)).toEqual([
+    "Stop…",
+    "Remove…",
+    ...names,
+    "New group…",
+    "No group",
+    "Pin",
+    "Mark as read",
+    "Mark as unread",
+  ]);
   await expect(cardMenuItem(page, "Resume")).toHaveCount(0);
-  await expect(cardMenuItem(page, "Remove…")).toHaveCount(0);
+  await expect(cardMenuItem(page, "Remove…")).toBeEnabled();
   await expect(cardMenuItem(page, "Stop…")).toBeEnabled();
   // The ticked entry is the session's own group; No group is not ticked while it is grouped.
   await expect(cardMenuItem(page, "Alpha")).toHaveAttribute("aria-current", "true");
@@ -322,6 +331,8 @@ test("right-clicking an ended resumable rail card offers Resume, Remove…, the 
     "New group…",
     "No group",
     "Pin",
+    "Mark as read",
+    "Mark as unread",
   ]);
   await expect(cardMenuItem(page, "Stop…")).toHaveCount(0);
   await expect(cardMenuItem(page, "Resume")).toBeEnabled();
@@ -333,7 +344,11 @@ test("right-clicking an ended resumable rail card offers Resume, Remove…, the 
   await expect(cardMenu(page)).toHaveCount(0);
 
   await openCardMenu(page, railCard(page, "menu-pinned"));
-  expect((await menuItemLabels(page)).at(-1)).toBe("Unpin");
+  const pinnedLabels = await menuItemLabels(page);
+  // Unpin sits where Pin does, ahead of the Mark as read/unread entries (REQ-2).
+  expect(pinnedLabels).toContain("Unpin");
+  expect(pinnedLabels).not.toContain("Pin");
+  expect(pinnedLabels.indexOf("Unpin")).toBeLessThan(pinnedLabels.indexOf("Mark as read"));
   await expect(cardMenuItem(page, "Stop…")).toHaveCount(0);
 });
 
@@ -435,7 +450,7 @@ test("the same menu opens on Tiles strip cards, live and ended, and no strip car
   await openCardMenu(page, stripCard(page, liveStrip));
   await expect(cardMenuItem(page, "Stop…")).toBeEnabled();
   await expect(cardMenuItem(page, "Resume")).toHaveCount(0);
-  await expect(cardMenuItem(page, "Remove…")).toHaveCount(0);
+  await expect(cardMenuItem(page, "Remove…")).toBeEnabled();
   await expect(cardMenuItem(page, "No group")).toBeVisible();
   await expect(cardMenuItem(page, "Pin")).toBeVisible();
   await page.keyboard.press("Escape");
@@ -571,7 +586,7 @@ test("ended sessions sort after every live session, most recently ended first (R
 // The 1s render tick once rebuilt every card's DOM, dropping focus to <body> between a focus
 // and its key. Focus, outlive a tick, assert the same node still holds focus, then press the
 // key as a separate action.
-test("the mainhead's End button keeps focus and node identity across a render tick and then opens the End dialog via a separate keyboard Enter (REQ-7, REQ-11, Major 1, Major 2)", async ({
+test("the Focus header's Session actions button keeps focus and node identity across a render tick and then opens the card menu via a separate keyboard Enter, whose Stop… opens the Stop dialog (REQ-4, REQ-5, REQ-7, REQ-11)", async ({
   page,
   dashboard,
 }) => {
@@ -581,26 +596,30 @@ test("the mainhead's End button keeps focus and node identity across a render ti
   await card.click();
   const mainhead = page.locator("#mainhead");
   await expect(mainhead).toContainText("menu-live");
-  const endBtn = mainhead.getByRole("button", { name: "Stop", exact: true });
+  await expect(mainhead.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
+  const moreBtn = mainhead.getByRole("button", { name: "Session actions", exact: true });
   const dialog = page.getByRole("dialog", { name: "Stop session?" });
 
-  await endBtn.focus();
-  await expect(endBtn).toBeFocused();
-  await endBtn.evaluate((el) => {
-    (el as HTMLElement & { __e2eTag?: string }).__e2eTag = "original-end-btn";
+  await moreBtn.focus();
+  await expect(moreBtn).toBeFocused();
+  await moreBtn.evaluate((el) => {
+    (el as HTMLElement & { __e2eTag?: string }).__e2eTag = "original-more-btn";
   });
 
   // A stays-unchanged hold: the render tick itself is under test, so there is no
   // visible outcome to poll for.
   await settleFor(page, 1_400);
-  await expect(endBtn).toBeFocused();
+  await expect(moreBtn).toBeFocused();
   expect(
-    await endBtn.evaluate(
-      (el) => (el as HTMLElement & { __e2eTag?: string }).__e2eTag === "original-end-btn",
+    await moreBtn.evaluate(
+      (el) => (el as HTMLElement & { __e2eTag?: string }).__e2eTag === "original-more-btn",
     ),
   ).toBe(true);
 
   await page.keyboard.press("Enter");
+  await expect(cardMenu(page)).toBeVisible();
+  await expect(moreBtn).toHaveAttribute("aria-expanded", "true");
+  await cardMenuItem(page, "Stop…").click();
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeHidden();

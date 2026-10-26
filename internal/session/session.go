@@ -166,11 +166,13 @@ type Session struct {
 	PlanExists     bool
 
 	// Unread (kb:adr/rail-unread-inferred-from-live-terminal-client): true iff the turn
-	// closed with no terminal client attached to this session, since cleared. The
-	// invariant Unread implies State == idle is enforced by setState — the one place
-	// every applyInput arm routes through. Set by Manager.Apply after a turn_closed
-	// input per the watcher's answer; cleared by Manager.MarkSeen (attach on either
-	// surface). Display-only, independent of Alive, survives a restart.
+	// closed with no terminal client attached to this session, since cleared, or the
+	// developer's own mark. Written by Manager.Apply (set after a turn_closed input per
+	// the watcher's answer) and by Manager.SetUnread (the developer's request, set or
+	// clear; MarkSeen, the attach on either surface, clears through it). The invariant
+	// Unread implies State == idle is kept in two places: setState for a transition,
+	// SetUnread for a request that causes none (it refuses to set the flag on a
+	// non-idle session). Display-only, independent of Alive, survives a restart.
 	Unread bool
 
 	// LastPrompt (kb:adr/rail-activity-line-turn-aware-default-with-pref): the user's most

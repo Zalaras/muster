@@ -111,7 +111,7 @@ test.describe("daemon resilience", () => {
 // pop-out never shows unreachable before its first hello). Each test kills or routes its own
 // daemon's socket, so each takes the test-scoped `daemon` fixture.
 
-test("focus returns to the mainhead End button by node identity after a daemon drop and reconnect (E1, REQ-7, INV-FOCUS)", async ({
+test("focus stays on the header's Session actions ⋯ by node identity through a daemon drop and reconnect (E1, REQ-7, INV-FOCUS)", async ({
   page,
   daemon,
 }) => {
@@ -122,25 +122,26 @@ test("focus returns to the mainhead End button by node identity after a daemon d
     await sessionCard(page, "focus-restore-e1").click();
 
     const mainhead = page.locator("#mainhead");
-    const endBtn = mainhead.getByRole("button", { name: "Stop" });
-    await endBtn.focus();
-    await expect(endBtn).toBeFocused();
+    const more = mainhead.getByRole("button", { name: "Session actions" });
+    await more.focus();
+    await expect(more).toBeFocused();
     // Node identity, not merely a re-resolved locator match (docs/conventions.md
-    // §Testing / kb:lesson/select-rebuilt-every-tick-passed-selectoption): the render
-    // that re-enables the button on reconnect must hand focus back to this exact DOM
-    // node, not a same-role-and-name replacement.
-    const endHandle = await endBtn.elementHandle();
-    if (!endHandle) throw new Error("mainhead End button not found");
+    // §Testing / kb:lesson/select-rebuilt-every-tick-passed-selectoption): the renders
+    // the drop and the reconnect each run must leave focus on this exact DOM node, not a
+    // same-role-and-name replacement. The ⋯ stays enabled while disconnected — its menu
+    // opens with every item disabled (plan remove-unread-right-click-1, edge case 5).
+    const moreHandle = await more.elementHandle();
+    if (!moreHandle) throw new Error("header Session actions button not found");
 
     await daemon.kill();
     const banner = page.getByRole("alert");
     await expect(banner).toBeVisible({ timeout: 15_000 });
-    await expect(endBtn).toBeDisabled();
+    expect(await page.evaluate((n) => document.activeElement === n, moreHandle)).toBe(true);
 
     await daemon.restart();
     await expect(banner).toBeHidden({ timeout: 15_000 });
-    await expect(endBtn).toBeEnabled();
-    expect(await page.evaluate((n) => document.activeElement === n, endHandle)).toBe(true);
+    await expect(more).toBeEnabled();
+    expect(await page.evaluate((n) => document.activeElement === n, moreHandle)).toBe(true);
   } finally {
     await cleanup();
   }

@@ -100,6 +100,10 @@ export async function pinSession(id: number, pinned: boolean): Promise<ApiResult
   return requestEmpty("PUT", `/api/sessions/${id}/pin`, 204, { pinned });
 }
 
+export async function setSessionUnread(id: number, unread: boolean): Promise<ApiResult<null>> {
+  return requestEmpty("PUT", `/api/sessions/${id}/unread`, 204, { unread });
+}
+
 /** `PUT /api/sessions/order` (kb:anchor/sessions.order). Same no-optimistic-update shape
  * as `pinSession` above — the rail redraws from the
  * resulting `sessionUpsert`s. `groupId` (a number, or `null` for Ungrouped) makes every listed

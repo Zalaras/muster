@@ -9,17 +9,17 @@ tags: [ux]
 go: [internal/server/rail*.go, internal/session/railorder*.go]
 web: [web/src/features/rail.ts, web/src/render/sessions*.ts, web/src/sessions/testfixtures*.ts, web/src/render/repolines*.ts, web/src/render/actionbutton*.ts, web/src/render/dragreorder*.ts, web/src/render/keyedreorder*.ts, web/src/sessions/card*.ts, web/src/sessions/railorder*.ts, web/src/sessions/reorder*.ts, web/src/sessions/format*.ts, web/src/sessions/paths*.ts, web/src/sessions/sort*.ts, web/src/dragmime*.ts, web/src/features/railmenu*.ts, web/src/render/cardtip*.ts, web/render/rail.spec.ts, web/render/helpers/rail.ts]
 e2e: [web/e2e/rail-order.spec.ts, web/e2e/rail-cards.spec.ts, web/e2e/rail-unread.spec.ts, web/e2e/rail-layout.spec.ts, web/e2e/rail-activity.spec.ts, web/e2e/helpers/railorder.ts, web/e2e/helpers/railcards.ts, web/e2e/rail-menu.spec.ts, web/e2e/helpers/rail-menu.ts, web/e2e/rail-drag-groups.spec.ts]
-protocol: [sessions.pin, sessions.order]
-refs: [kb:adr/rail-user-owned-manual-order-default, kb:adr/rail-attention-order-your-turn-before-active, kb:adr/rail-order-daemon-owned-per-session-fields, kb:adr/rail-whole-card-drag-drop-decides-pin, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/focus-rail-click-focuses-terminal, kb:adr/usage-context-gauge-shows-tokens-and-compactions, kb:adr/drop-reorder-drag-mime-custom-type, kb:adr/rail-card-title-leads-and-density-ramp-corrected, kb:adr/rail-activity-line-turn-aware-default-with-pref, kb:adr/rail-unread-inferred-from-live-terminal-client, kb:adr/rail-unread-marker-neutral-dot, kb:adr/rail-card-title-foreground-token, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/rail-card-menu-on-selected-card-acts-on-selection, kb:adr/rail-cards-drag-in-both-sort-modes-selection-together, kb:adr/rail-timer-tinted-wherever-cache-warmth-known, docs/design/ux-flows.md, docs/design/design-system.md, kb:adr/rail-pin-invariant-scoped-per-section]
+protocol: [sessions.pin, sessions.order, sessions.unread]
+refs: [kb:adr/rail-user-owned-manual-order-default, kb:adr/rail-attention-order-your-turn-before-active, kb:adr/rail-order-daemon-owned-per-session-fields, kb:adr/rail-whole-card-drag-drop-decides-pin, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/focus-rail-click-focuses-terminal, kb:adr/usage-context-gauge-shows-tokens-and-compactions, kb:adr/drop-reorder-drag-mime-custom-type, kb:adr/rail-card-title-leads-and-density-ramp-corrected, kb:adr/rail-activity-line-turn-aware-default-with-pref, kb:adr/rail-unread-inferred-from-live-terminal-client, kb:adr/rail-unread-marker-neutral-dot, kb:adr/rail-card-title-foreground-token, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/rail-card-menu-offers-remove-and-marks-whatever-the-state, kb:adr/rail-unread-also-marked-by-hand, kb:adr/rail-cards-drag-in-both-sort-modes-selection-together, kb:adr/rail-timer-tinted-wherever-cache-warmth-known, docs/design/ux-flows.md, docs/design/design-system.md, kb:adr/rail-pin-invariant-scoped-per-section]
 ---
 The rail is the session list in the Focus view; the Tiles strip is the same list laid on
 its side (kb:spec/tiles). Every session has a card.
 
 ## Card
 
-A card is a title that wraps, above a state row of badge, time in the current state and
+A card is a wrapping title above a state row of badge, time in the current state and
 pin, then the repo block of the launch directory: the folder (`<repo> /`) over the branch, each
-line truncated at its end (one line in compact), with a worktree marker when the directory is a
+line truncated at its end (one in compact), with a worktree marker when the directory is a
 linked worktree and the directory's name alone when it is not a git checkout
 (kb:adr/focus-header-readout-sized-by-text), the context gauge with absolute
 tokens and the compaction counter (kb:adr/usage-context-gauge-shows-tokens-and-compactions),
@@ -32,10 +32,10 @@ card whose last-known permission mode is bypass carries a danger `bypass` chip a
 the title, in every state (kb:adr/launch-bypass-offered-with-danger-guardrails).
 A reason line follows: the attention reason for `needs_input`, the raw error for `failed`, and the
 first-launch or no-signal note for `started` (docs/design/ux-flows.md "Rail card",
-"Degraded and honest states"). Unknown context renders the word unknown, never an empty gauge. While background work runs, `1 background task` (or `<n> background tasks`) is the card's last
+"Degraded and honest states"). Unknown context reads unknown, never an empty gauge. While background work runs, `1 background task` (or `<n> background tasks`) is the card's last
 line. A dead card greys out. No card renders a Stop, Resume or Remove button: a right-click, the
-context-menu key or Shift+F10 opens the session's menu, Stop or Resume and Remove, then Move to and
-Pin or Unpin; in Select mode a selected card opens the selection's menu instead (`Actions for N sessions`, `1 session` at one): Stop…, Remove… and Move to, no Resume or Pin (kb:spec/actions, kb:adr/rail-card-menu-on-selected-card-acts-on-selection). Where cache warmth
+context-menu key or Shift+F10 opens the session's menu: Stop… or Resume, Remove… (live sessions too), Move to,
+Pin or Unpin, then Mark as read and Mark as unread, always. In Select mode a selected card opens the selection's menu instead (`Actions for N sessions`, `1 session` at one): Stop…, Remove…, Move to and the marks, no Resume or Pin (kb:spec/actions, kb:adr/rail-card-menu-offers-remove-and-marks-whatever-the-state). Where cache warmth
 is known the timer fades from the foreground to grey over the cache's lifetime, is underlined in its
 last 15% and names the warmth in a hover panel, on the Tiles strip card too (kb:spec/usage,
 kb:adr/rail-timer-tinted-wherever-cache-warmth-known). The panel opens 350 ms after the pointer enters the
@@ -44,7 +44,8 @@ the card; the text is the timer's accessible description, not a native title.
 
 An idle session that finished a turn while no window had its terminal open is unread until
 one attaches — the daemon infers this from its terminal registry
-(kb:adr/rail-unread-inferred-from-live-terminal-client). An unread card shows a neutral dot
+(kb:adr/rail-unread-inferred-from-live-terminal-client), or the developer marked it so
+(kb:adr/rail-unread-also-marked-by-hand). An unread card shows a neutral dot
 before the title; a read idle title renders muted, on every surface
 (kb:adr/rail-unread-marker-neutral-dot, kb:adr/rail-card-title-foreground-token).
 
@@ -54,11 +55,9 @@ title to one line and drops the activity line, expanded lets the activity line r
 as many lines as it needs; the Tiles strip
 follows the same density (kb:adr/rail-card-title-leads-and-density-ramp-corrected, kb:spec/settings).
 
-A pointer click on a card focuses that session and its terminal;
-keyboard activation and the number chords only select
+A pointer click focuses the session and its terminal; keyboard activation and the number chords only select
 (kb:adr/focus-rail-click-focuses-terminal). The card whose session the Focus pane shows
-carries a neutral current marker and `aria-current`; the Tiles strip renders none (kb:adr/rail-current-marker-means-shown-in-focus). The rail
-head shows the sort select, the session count and the density control, then a second row of
+carries a neutral current marker and `aria-current`; the Tiles strip renders none (kb:adr/rail-current-marker-means-shown-in-focus). The rail head shows the sort select, the session count and the density control, then a second row of
 Select, a ⋯ menu and, while a group exists, the filter (kb:spec/groups).
 
 ## Order
@@ -79,7 +78,7 @@ kb:adr/rail-cards-drag-in-both-sort-modes-selection-together). In manual mode th
 insert-and-shift and its position decides pin state, and a pin control lifts a card into the pinned
 block (kb:adr/rail-whole-card-drag-drop-decides-pin). That drop commits through
 `kb:anchor/sessions.order` in one atomic call; the pin control uses `kb:anchor/sessions.pin`.
-Reorder drags carry a Muster-specific MIME type (kb:adr/drop-reorder-drag-mime-custom-type). The
+Reorder drags carry a custom MIME type (kb:adr/drop-reorder-drag-mime-custom-type). The
 invariant that every pinned session's position precedes every unpinned one's holds within
 a section and is held by the daemon (kb:adr/rail-pin-invariant-scoped-per-section).
 
@@ -90,4 +89,4 @@ and the pin invariant holds within each; sections, select mode and the filter ar
 
 ## Does not
 
-The rail does not render a second live client and does not show cost.
+The rail renders no second live client and shows no cost.

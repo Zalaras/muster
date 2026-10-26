@@ -10,10 +10,11 @@ import type { App, RenderFrame } from "../app";
 import { requireElement } from "../dom";
 import { renderFocusMain, renderSizenote, setMainSlotHidden } from "../render/focusview";
 import { fitMainheadMeta, renderMainhead, type MainheadElements } from "../render/mainhead";
+import type { CardMenuRequest } from "../render/sessions";
 import { createLocationPanel } from "../render/locationpanel";
 import { attachRenameEditor, type RenameEditorHandlers } from "../render/rename";
 import { mountSlotRoot } from "../render/slotmount";
-import { stopResumeButton, type PaneState, type SessionAction } from "../sessions/card";
+import type { PaneState, SessionAction } from "../sessions/card";
 import { collectDeadSurfaceRefs, renderDeadSurface, type DeadSurfaceRefs } from "../render/dead";
 import {
   DEFAULT_SURFACE_STATE,
@@ -70,6 +71,7 @@ export interface FocusDeps {
     openMoveMenu(opener: HTMLElement, session: Session): void;
   };
   effort: { dismiss(id: number): void };
+  railMenu: { open(request: CardMenuRequest): void };
 }
 
 export interface FocusHandle {
@@ -113,8 +115,6 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     root: requireElement<HTMLElement>("#mainhead"),
     nameEl: requireElement<HTMLElement>("#mainhead .name"),
     metaEl: requireElement<HTMLElement>("#mainhead .meta"),
-    stopResumeBtn: requireElement<HTMLButtonElement>("#mainhead .acts .stop-resume"),
-    removeBtn: requireElement<HTMLButtonElement>('#mainhead button[data-action="remove"]'),
     renameBtn: requireElement<HTMLButtonElement>("#mainhead button.rename"),
     groupBtn: requireElement<HTMLButtonElement>("#mainhead .ingroup"),
     surfaceSegment: mainheadSurfaceSegment,
@@ -154,12 +154,10 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
   const mainSlotEl = requireElement<HTMLElement>("#main-terminal-slot");
   const sizenoteEl = requireElement<HTMLElement>("#sizenote");
 
-  mainheadElements.stopResumeBtn.addEventListener("click", () => {
-    const session = app.store.values().find((s) => s.id === app.state.focusedId);
-    if (session) deps.actions.dispatch(stopResumeButton(session, true).action, session.id);
-  });
-  mainheadElements.removeBtn.addEventListener("click", () => {
-    if (app.state.focusedId !== null) deps.actions.dispatch("remove", app.state.focusedId);
+  const moreBtn = requireElement<HTMLButtonElement>("#mainhead .acts .more");
+  moreBtn.addEventListener("click", () => {
+    if (app.state.focusedId !== null)
+      deps.railMenu.open({ id: app.state.focusedId, opener: moreBtn });
   });
   mainheadElements.groupBtn.addEventListener("click", () => {
     const session = app.store.values().find((s) => s.id === app.state.focusedId);

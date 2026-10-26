@@ -1,7 +1,7 @@
 ---
 id: rail-card-menu-on-selected-card-acts-on-selection
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-23
 summary: In Select mode a right-click on a selected card opens a menu over the whole selection (Stop, Remove, Move to); an unselected card keeps its own menu.
 features: [rail, actions, groups]

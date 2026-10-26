@@ -1,7 +1,7 @@
 ---
 id: rail-unread-inferred-from-live-terminal-client
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-22
 summary: A session is unread when its turn closed while no terminal client was attached; the daemon infers it from its terminal registry and clears it on attach.
 features: [rail, lifecycle]

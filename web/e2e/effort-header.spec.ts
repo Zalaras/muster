@@ -21,18 +21,19 @@ import {
   effortArg,
 } from "./helpers/effort";
 import { expect, type Page, settleFor, test } from "./helpers/fixtures";
-import { focusedNode, headerButton, tagNode } from "./helpers/focus-header";
+import { focusedNode, tagNode } from "./helpers/focus-header";
 import { envelopedSessionStart } from "./helpers/payloads";
-import { envelopeOpts, findSession, getState } from "./helpers/session";
+import { resumeFromCardMenu } from "./helpers/rail-menu";
+import { envelopeOpts, findSession, getState, sessionCard } from "./helpers/session";
 import { activeElementInsideTerminal, terminalRegion } from "./helpers/terminal";
 
 // Plan effort — the header half: the bracketed effort after the model, the launch-mismatch warning
-// strip, its Dismiss, and the Resume button's effort. Acceptance E5 to E15 and E17 with REQ-5 to
+// strip, its Dismiss, and a card-menu Resume's effort. Acceptance E5 to E15 and E17 with REQ-5 to
 // REQ-10, REQ-12, REQ-13 and INV-E1 to INV-E6.
 //
 // The journeys: a later post changing the header, Dismiss and its DELETE round-trip, the warning
 // across reloads, restarts, a /clear rebind and a killed daemon, the size note's rows, and the
-// Resume button's `--effort`. What the header shows for a given state — the unreported `(…)` and
+// card-menu Resume's `--effort`. What the header shows for a given state — the unreported `(…)` and
 // the bracketless dead model (E5, E6), the clamped and the no-effort strips (E8, E9), the strip's
 // geometry, its wrap at five widths and the --warn family per theme (REQ-12) — moved to the render
 // tier on 2026-10-20: web/render/focus.spec.ts against the `effort-header` and `effort-warned-*`
@@ -760,9 +761,9 @@ test("the strip belongs to the Focus view only: Tiles shows none, and Focus show
   await expect(headerEff(page)).toHaveClass(/\bwarn\b/);
 });
 
-// --- the Resume button (REQ-10, E15, E17) ---
+// --- the card-menu Resume (REQ-10, E15, E17) ---
 
-test("the Resume button on a session whose last post reported medium spawns the pane with --effort medium and the header reads (medium) before any new post (REQ-10, E15)", async ({
+test("Resume from the card menu on a session whose last post reported medium spawns the pane with --effort medium and the header reads (medium) before any new post (REQ-10, E15)", async ({
   page,
   request,
   daemon,
@@ -776,11 +777,10 @@ test("the Resume button on a session whose last post reported medium spawns the 
   await expect(headerModel(page)).toHaveText("Opus 4.5 (medium)");
 
   await endSession(page, daemon, s.session.id);
-  await expect(headerButton(page, "Resume")).toBeVisible();
+  await expect(sessionCard(page, "effort-resume-medium")).toHaveClass(/ended/);
   await expect(headerModel(page)).toHaveText("Opus 4.5 (medium)");
 
-  await headerButton(page, "Resume").click();
-  await expect(headerButton(page, "Stop")).toBeVisible();
+  await resumeFromCardMenu(page, sessionCard(page, "effort-resume-medium"));
 
   const resumed = findSession(await getState(page, daemon), s.session.id);
   expect(resumed.alive).toBe(true);
@@ -793,7 +793,7 @@ test("the Resume button on a session whose last post reported medium spawns the 
   expect((await wireEffort(page, daemon, s.session.id)).effort).toEqual({ level: "medium" });
 });
 
-test("the Resume button passes no --effort for a session that never reported or reported no effort, and keeps its effort exactly as it was (REQ-10, INV-E4)", async ({
+test("Resume from the card menu passes no --effort for a session that never reported or reported no effort, and keeps its effort exactly as it was (REQ-10, INV-E4)", async ({
   page,
   request,
   daemon,
@@ -805,8 +805,7 @@ test("the Resume button passes no --effort for a session that never reported or 
     model: "opus",
   });
   await endSession(page, daemon, never.session.id);
-  await headerButton(page, "Resume").click();
-  await expect(headerButton(page, "Stop")).toBeVisible();
+  await resumeFromCardMenu(page, sessionCard(page, "effort-resume-never"));
   const neverResumed = findSession(await getState(page, daemon), never.session.id);
   expect(await daemon.paneStartCommand(neverResumed.tmuxTarget)).not.toContain("--effort");
   expect((await wireEffort(page, daemon, never.session.id)).effort).toBeNull();
@@ -819,8 +818,7 @@ test("the Resume button passes no --effort for a session that never reported or 
   await postEffort(request, daemon, bare.session, bare.claudeId, { level: null });
   await expect(headerModel(page)).toHaveText("Haiku 4.5");
   await endSession(page, daemon, bare.session.id);
-  await headerButton(page, "Resume").click();
-  await expect(headerButton(page, "Stop")).toBeVisible();
+  await resumeFromCardMenu(page, sessionCard(page, "effort-resume-bare"));
   const bareResumed = findSession(await getState(page, daemon), bare.session.id);
   expect(await daemon.paneStartCommand(bareResumed.tmuxTarget)).not.toContain("--effort");
   expect((await wireEffort(page, daemon, bare.session.id)).effort).toEqual({ level: null });
@@ -828,7 +826,7 @@ test("the Resume button passes no --effort for a session that never reported or 
   await expect(headerEff(page)).toHaveCount(0);
 });
 
-test("a Resume-button resume of a warned session keeps the existing warning, raises no new one after its first post, and the warning stays until dismissed (REQ-10, E17, INV-E2)", async ({
+test("a card-menu resume of a warned session keeps the existing warning, raises no new one after its first post, and the warning stays until dismissed (REQ-10, E17, INV-E2)", async ({
   page,
   request,
   daemon,
@@ -838,10 +836,9 @@ test("a Resume-button resume of a warned session keeps the existing warning, rai
   const warning = { requested: "max", actual: "high", model: "Opus 4.5" };
 
   await endSession(page, daemon, s.session.id);
-  await expect(headerButton(page, "Resume")).toBeVisible();
+  await expect(sessionCard(page, "effort-resume-warned")).toHaveClass(/ended/);
   await expect(effortStrip(page)).toHaveCount(1);
-  await headerButton(page, "Resume").click();
-  await expect(headerButton(page, "Stop")).toBeVisible();
+  await resumeFromCardMenu(page, sessionCard(page, "effort-resume-warned"));
 
   const resumed = findSession(await getState(page, daemon), s.session.id);
   expect(effortArg(await daemon.paneStartCommand(resumed.tmuxTarget))).toBe("high");
@@ -859,7 +856,7 @@ test("a Resume-button resume of a warned session keeps the existing warning, rai
   await expect(effortStrip(page)).toHaveCount(0);
 });
 
-test("a Resume-button resume of a session whose warning was dismissed raises none after its first post (REQ-7, INV-E2)", async ({
+test("a card-menu resume of a session whose warning was dismissed raises none after its first post (REQ-7, INV-E2)", async ({
   page,
   request,
   daemon,
@@ -870,15 +867,14 @@ test("a Resume-button resume of a session whose warning was dismissed raises non
   await expect(effortStrip(page)).toHaveCount(0);
 
   await endSession(page, daemon, s.session.id);
-  await headerButton(page, "Resume").click();
-  await expect(headerButton(page, "Stop")).toBeVisible();
+  await resumeFromCardMenu(page, sessionCard(page, "effort-resume-dismissed"));
   await postEffort(request, daemon, s.session, s.claudeId, { level: "low" });
   await expect(headerModel(page)).toHaveText("Opus 4.5 (low)");
   await expect(effortStrip(page)).toHaveCount(0);
   expect((await wireEffort(page, daemon, s.session.id)).effortWarning).toBeNull();
 });
 
-test("a Resume-button resume of a session that ended before its first post cancels the pending check, so its later first post raises no warning (REQ-7, REQ-10, INV-E2)", async ({
+test("a card-menu resume of a session that ended before its first post cancels the pending check, so its later first post raises no warning (REQ-7, REQ-10, INV-E2)", async ({
   page,
   request,
   daemon,
@@ -890,8 +886,7 @@ test("a Resume-button resume of a session that ended before its first post cance
     effort: "max",
   });
   await endSession(page, daemon, s.session.id);
-  await headerButton(page, "Resume").click();
-  await expect(headerButton(page, "Stop")).toBeVisible();
+  await resumeFromCardMenu(page, sessionCard(page, "effort-resume-pending"));
   const resumed = findSession(await getState(page, daemon), s.session.id);
   expect(await daemon.paneStartCommand(resumed.tmuxTarget)).not.toContain("--effort");
 
@@ -901,7 +896,7 @@ test("a Resume-button resume of a session that ended before its first post cance
   expect((await wireEffort(page, daemon, s.session.id)).effortWarning).toBeNull();
 });
 
-test("Resume-button resumes of two sessions each pass their own level and leave the other's untouched (REQ-10)", async ({
+test("card-menu resumes of two sessions each pass their own level and leave the other's untouched (REQ-10)", async ({
   page,
   request,
   daemon,
@@ -914,8 +909,7 @@ test("Resume-button resumes of two sessions each pass their own level and leave 
 
   await focusSession(page, "effort-multi-a");
   await endSession(page, daemon, a.session.id);
-  await headerButton(page, "Resume").click();
-  await expect(headerButton(page, "Stop")).toBeVisible();
+  await resumeFromCardMenu(page, sessionCard(page, "effort-multi-a"));
 
   const state = await getState(page, daemon);
   expect(

@@ -21,7 +21,6 @@ import {
   repoLine,
   folderName,
   repoParts,
-  stopResumeButton,
   tileFooterAgeText,
   tileHeaderTimerText,
   unreadLabel,
@@ -1117,88 +1116,6 @@ describe("backgroundLine (W2, W3)", () => {
     expect(backgroundLine(session)).toBe(want);
     expect(buildCardViewModel(session, NOW).backgroundLine).toBe(want);
   });
-});
-
-// W3 (plan title-crop-stop-resume-button): the Focus header's one Stop/Resume button, from every
-// {alive, claudeSessionId, connected} cell (kb:adr/actions-mainhead-one-stop-resume-button).
-const NO_ID_REASON = "Can't resume — this session never started a Claude conversation.";
-describe("stopResumeButton — label, action, enablement and hover reason for all eight cells", () => {
-  const cases: {
-    alive: boolean;
-    id: string | null;
-    connected: boolean;
-    want: ReturnType<typeof stopResumeButton>;
-  }[] = [
-    {
-      alive: true,
-      id: "c",
-      connected: true,
-      want: { label: "Stop", action: "end", disabled: false, reason: null },
-    },
-    {
-      alive: true,
-      id: "c",
-      connected: false,
-      want: { label: "Stop", action: "end", disabled: true, reason: null },
-    },
-    {
-      alive: true,
-      id: null,
-      connected: true,
-      want: { label: "Stop", action: "end", disabled: false, reason: null },
-    },
-    {
-      alive: true,
-      id: null,
-      connected: false,
-      want: { label: "Stop", action: "end", disabled: true, reason: null },
-    },
-    {
-      alive: false,
-      id: "c",
-      connected: true,
-      want: {
-        label: "Resume",
-        action: "resume",
-        disabled: false,
-        reason: null,
-      },
-    },
-    {
-      alive: false,
-      id: "c",
-      connected: false,
-      want: { label: "Resume", action: "resume", disabled: true, reason: null },
-    },
-    {
-      alive: false,
-      id: null,
-      connected: true,
-      want: {
-        label: "Resume",
-        action: "resume",
-        disabled: true,
-        reason: NO_ID_REASON,
-      },
-    },
-    {
-      alive: false,
-      id: null,
-      connected: false,
-      want: {
-        label: "Resume",
-        action: "resume",
-        disabled: true,
-        reason: NO_ID_REASON,
-      },
-    },
-  ];
-  it.each(cases)(
-    "alive=$alive claudeSessionId=$id connected=$connected",
-    ({ alive, id, connected, want }) => {
-      expect(stopResumeButton({ alive, claudeSessionId: id }, connected)).toEqual(want);
-    },
-  );
 });
 
 // The one enablement rule every Stop/Resume/Remove button reads: connected, and for

@@ -1,23 +1,25 @@
 // Plan title-crop-stop-resume-button — REQ-1 to REQ-7 (the Focus header's readout is as wide
 // as its text and gives way before the title; the surface switch sits with the actions in
-// one right-aligned cluster; Stop and Resume are one button that swaps in place without a
-// layout shift). Plan acceptance E1-E7; E6's live-session half and E8's rewrites live in
-// actions.spec.ts, theme.spec.ts, card-location.spec.ts and rename.spec.ts.
+// one right-aligned cluster), and plan remove-unread-right-click-1 — REQ-4, REQ-5 (the cluster
+// now holds the surface switch and one Session actions ⋯ that opens the card menu; the Stop,
+// Resume and Remove buttons it held are gone). Plan acceptance E1-E7 of the first plan; its E1
+// and E2 (the Stop↔Resume swap in place) and E6 (the disabled button across a drop) pinned the
+// removed button and went with it.
 //
-// The journeys: a real Stop, Resume or Enter swapping the one button in place (its node
-// identity through the transition), the disabled button across a WebSocket drop, a rename and
-// a Claude move lengthening the row, the surface switch's focus across a hook re-render, and
-// Tiles and back. What the header shows for a given state — the E3 give-way sweeps over the
-// state-table rows, the 35-character folder's whole line, the stacked band at 640 px, the INV-6
-// sweeps comparing the header alive with the same session ended, the cluster's order at three
-// widths and the unbound dead session's disabled Resume (E3, E5, REQ-1 to REQ-4) — moved to the
-// render tier on 2026-10-20: web/render/focus.spec.ts against the `focus-header-rows-*` and
-// `unbound-sessions` fixtures (plans/_audit/relevel/focus.md). The one E3 row left here has the
-// `shell` segment selected, which spawns a shell over the API.
+// The journeys: the ⋯'s menu stopping and resuming the focused session, the ⋯'s focus across a
+// key and a tick, a rename and a Claude move lengthening the row, the surface switch's focus
+// across a hook re-render, and Tiles and back. What the header shows for a given state — the E3
+// give-way sweeps over the state-table rows, the 35-character folder's whole line, the stacked
+// band at 640 px, the INV-6 sweeps comparing the header alive with the same session ended, the
+// cluster's order at three widths (E3, E5, REQ-1 to REQ-4) — moved to the render tier on
+// 2026-10-20: web/render/focus.spec.ts against the `focus-header-rows-*` and `unbound-sessions`
+// fixtures (plans/_audit/relevel/focus.md). The one E3 row left here has the `shell` segment
+// selected, which spawns a shell over the API.
 //
 // Fixture plan: `daemon` (fresh per test) in every test, as the plan's header says — each
-// launches the only session and relies on auto-focus, and the file passes `repoPoll: "200ms"`
-// through `test.use` so a checkout and a Claude move show inside the 15 s expect timeout.
+// launches the only session and relies on auto-focus (the Stop/Resume test launches a second to
+// prove it is untouched), and the file passes `repoPoll: "200ms"` through `test.use` so a
+// checkout and a Claude move show inside the 15 s expect timeout.
 //
 // Claude Code is faked: a bind is the enveloped `SessionStart` a real `claude` posts first, a
 // move is a main-agent hook whose `cwd` names another checkout, a long title is the status
@@ -32,26 +34,21 @@ import {
   hookMover,
   mainheadClaudeAt,
   mainheadFitProblems,
-  railCardByTitle,
   type ScratchRepo,
   scratchRepo,
 } from "./helpers/card-location";
 import {
   type Box,
   boxOf,
-  clusterShiftProblems,
-  endedAgeAbsentProblems,
-  endedAgeProblems,
   focusedNode,
-  headerButton,
   headerInvariantProblems,
-  headerStopResume,
+  headerLifecycleButtons,
+  headerMore,
   onTwoRows,
   rectOf,
   readHeaderSnapshot,
   sameBox,
   settleLayout,
-  settledSnapshot,
   sweepHeader,
   tagNode,
 } from "./helpers/focus-header";
@@ -64,6 +61,7 @@ import {
   test,
 } from "./helpers/fixtures";
 import { createGroupViaApi } from "./helpers/groups";
+import { cardMenu, cardMenuItem } from "./helpers/rail-menu";
 import {
   envelopedSessionStart,
   envelopedStatusLineFull,
@@ -83,7 +81,6 @@ import { mainheadSurfaceButton, mainheadSurfaceGroup } from "./helpers/shell";
 test.use({ daemonOptions: { repoPoll: "200ms" } });
 
 const FULL_MODEL_ID = "claude-haiku-4-5-20251001";
-const NO_CLAUDE_ID_REASON = "Can't resume — this session never started a Claude conversation.";
 
 /** `text` cut to exactly `n` characters, the last one never a space. */
 function exactly(text: string, n: number): string {
@@ -182,10 +179,8 @@ async function openRow(
     const end = await page.request.post(`${daemon.baseURL}/api/sessions/${session.id}/end`);
     expect(end.status()).toBe(200);
     await expect(page.locator("#mainhead .meta .ended-at")).toBeVisible();
-    await expect(headerButton(page, "Resume")).toBeEnabled();
-  } else {
-    await expect(headerButton(page, "Stop")).toBeEnabled();
   }
+  await expect(headerMore(page)).toBeVisible();
   if (row.shell) {
     await mainheadSurfaceButton(page, "shell").click();
     await expect(mainheadSurfaceButton(page, "shell")).toHaveAttribute("aria-pressed", "true");
@@ -243,311 +238,111 @@ for (const row of ROWS) {
 }
 
 // ---------------------------------------------------------------------------------------
-// E1, E2 — the one button swaps in place
+// The Session actions ⋯ (plan remove-unread-right-click-1, REQ-4, REQ-5): the one button that
+// replaced the header's Stop/Resume and Remove. The swap-in-place journeys that pinned the
+// old Stop↔Resume button (E1, E2, their narrow-width clicks and the disabled-across-a-drop
+// test) are gone with it; a Stop, Resume and Remove now run from the card menu, which
+// rail-menu.spec.ts, actions.spec.ts and effort-header.spec.ts drive.
 // ---------------------------------------------------------------------------------------
 
-test("clicking Stop in the header and confirming turns that same element into an enabled Resume in the same box, with Remove unmoved (E1, REQ-5, REQ-6, INV-6, INV-7)", async ({
+test("choosing Stop… and then Resume from the header's Session actions menu ends and restarts only the focused session, and the ⋯ stays the same node in the same box (REQ-4, REQ-5, INV-6)", async ({
   page,
   request,
   daemon,
 }) => {
   const repo = await scratchRepo();
+  const neighbourDir = await scratchRepo();
   try {
     await page.setViewportSize({ width: 1600, height: 900 });
-    const session = await launchBound(page, request, daemon, repo, "swap-stop", "claude-fh-e1");
+    const focused = await launchBound(page, request, daemon, repo, "hdr-menu-a", "claude-hdr-a");
+    const neighbour = await launchSession(page, daemon, {
+      directory: neighbourDir.path,
+      title: "hdr-menu-b",
+    });
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart("claude-hdr-b", await envelopeOpts(neighbour, daemon)),
+    });
+    await expect(mainheadRenameButton(page)).toHaveText("hdr-menu-a");
 
-    const button = headerStopResume(page);
-    await expect(button).toHaveCount(1);
-    await expect(button).toHaveText("Stop");
-    await expect(button).toBeEnabled();
-    await expect(headerButton(page, "Resume")).toHaveCount(0);
-    await tagNode(button, "stop-resume");
-    const stopBox = await boxOf(button);
-    const removeBefore = await boxOf(headerButton(page, "Remove"));
+    const more = headerMore(page);
+    await expect(more).toBeVisible();
+    await tagNode(more, "session-actions");
+    const before = await boxOf(more);
 
-    await button.click();
+    await more.click();
+    await expect(cardMenu(page)).toHaveAccessibleName("Actions for hdr-menu-a");
+    await cardMenuItem(page, "Stop…").click();
     await confirmStop(page);
-
-    const same = page.locator('#mainhead [data-e2e-node="stop-resume"]');
-    await expect(same).toHaveText("Resume");
-    await expect(same).toBeEnabled();
-    // INV-7: still exactly one of the two, and it is the element that read Stop.
-    await expect(headerStopResume(page)).toHaveCount(1);
-    await expect(headerStopResume(page)).toHaveAttribute("data-e2e-node", "stop-resume");
-    await expect(headerButton(page, "Stop")).toHaveCount(0);
+    await expect
+      .poll(async () => findSession(await getState(page, daemon), focused.id).alive)
+      .toBe(false);
+    await expect(page.locator("#mainhead .meta .ended-at")).toBeVisible();
+    expect(findSession(await getState(page, daemon), neighbour.id).alive).toBe(true);
+    expect(await daemon.tmuxPaneExists(neighbour.tmuxTarget)).toBe(true);
+    await expect(headerLifecycleButtons(page)).toHaveCount(0);
+    const same = page.locator('#mainhead [data-e2e-node="session-actions"]');
+    await expect(same).toHaveCount(1);
     // INV-6: both sides re-read inside the retry, so a layout still settling times out.
     await expect
-      .poll(async () => sameBox(await boxOf(same), stopBox), {
-        message: "the Resume box equals the Stop box",
+      .poll(async () => sameBox(await boxOf(same), before), {
+        message: "the Session actions ⋯ did not move when the session ended",
       })
       .toBe(true);
-    await expect
-      .poll(async () => sameBox(await boxOf(headerButton(page, "Remove")), removeBefore), {
-        message: "Remove did not move when Stop became Resume",
-      })
-      .toBe(true);
-    expect(findSession(await getState(page, daemon), session.id).alive).toBe(false);
-  } finally {
-    await repo.cleanup();
-  }
-});
 
-test("clicking Resume in the header on a dead session turns that same element into Stop once the session is alive, in the same box, with Remove unmoved (E2, REQ-5, REQ-6, INV-6, INV-7)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const repo = await scratchRepo();
-  try {
-    await page.setViewportSize({ width: 1600, height: 900 });
-    const session = await launchBound(page, request, daemon, repo, "swap-resume", "claude-fh-e2");
-    const end = await page.request.post(`${daemon.baseURL}/api/sessions/${session.id}/end`);
-    expect(end.status()).toBe(200);
-
-    const button = headerStopResume(page);
-    await expect(button).toHaveCount(1);
-    await expect(button).toHaveText("Resume");
-    await expect(button).toBeEnabled();
-    await expect(headerButton(page, "Stop")).toHaveCount(0);
-    await tagNode(button, "stop-resume");
-    const resumeBox = await boxOf(button);
-    const removeBefore = await boxOf(headerButton(page, "Remove"));
-
-    await button.click();
-    // No confirm dialog for Resume.
+    await same.click();
+    await expect(cardMenu(page)).toHaveAccessibleName("Actions for hdr-menu-a");
+    await expect(cardMenuItem(page, "Stop…")).toHaveCount(0);
+    await cardMenuItem(page, "Resume").click();
     await expect(page.getByRole("dialog", { name: "Stop session?" })).toBeHidden();
-
-    const same = page.locator('#mainhead [data-e2e-node="stop-resume"]');
-    await expect(same).toHaveText("Stop");
-    await expect(same).toBeEnabled();
-    await expect(headerStopResume(page)).toHaveCount(1);
-    await expect(headerStopResume(page)).toHaveAttribute("data-e2e-node", "stop-resume");
-    await expect(headerButton(page, "Resume")).toHaveCount(0);
     await expect
-      .poll(async () => sameBox(await boxOf(same), resumeBox), {
-        message: "the Stop box equals the Resume box",
+      .poll(async () => findSession(await getState(page, daemon), focused.id).alive)
+      .toBe(true);
+    await expect(page.locator("#mainhead .meta .ended-at")).toBeHidden();
+    await expect(same).toHaveCount(1);
+    await expect
+      .poll(async () => sameBox(await boxOf(same), before), {
+        message: "the Session actions ⋯ did not move when the session resumed",
       })
       .toBe(true);
-    await expect
-      .poll(async () => sameBox(await boxOf(headerButton(page, "Remove")), removeBefore), {
-        message: "Remove did not move when Resume became Stop",
-      })
-      .toBe(true);
-    expect(findSession(await getState(page, daemon), session.id).alive).toBe(true);
   } finally {
-    await repo.cleanup();
+    await Promise.all([repo.cleanup(), neighbourDir.cleanup()]);
   }
 });
 
-// A focus round-trip with a real key (never `locator.press()`, which bundles focus and key):
-// Resume needs no dialog, so the label swaps under the focused element, which must stay
-// focused and be the same node through the swap and a render tick
-// (kb:lesson/select-rebuilt-every-tick-passed-selectoption).
-test("the header's Resume keeps focus and node identity when a real Enter resumes the session and the label becomes Stop, then across a tick (REQ-5, REQ-6)", async ({
+// A focus round-trip with a real key (never `locator.press()`, which bundles focus and key): the
+// ⋯ is focused, a real Enter opens its menu, Escape closes it, and the same node holds focus
+// through the close and a render tick (kb:lesson/select-rebuilt-every-tick-passed-selectoption).
+test("the Session actions ⋯ keeps focus and node identity when a real Enter opens its menu and Escape closes it, with aria-expanded in step, then across a tick (REQ-4, REQ-5)", async ({
   page,
   request,
   daemon,
 }) => {
   const repo = await scratchRepo();
   try {
-    const session = await launchBound(page, request, daemon, repo, "swap-keys", "claude-fh-keys");
-    const end = await page.request.post(`${daemon.baseURL}/api/sessions/${session.id}/end`);
-    expect(end.status()).toBe(200);
+    await launchBound(page, request, daemon, repo, "hdr-keys", "claude-hdr-keys");
 
-    const button = headerStopResume(page);
-    await expect(button).toHaveText("Resume");
-    await expect(button).toBeEnabled();
-    await tagNode(button, "stop-resume");
-    await button.focus();
-    expect(await focusedNode(page)).toEqual({ tag: "BUTTON", node: "stop-resume" });
+    const more = headerMore(page);
+    await expect(more).toHaveAttribute("aria-haspopup", "menu");
+    await expect(more).toHaveAttribute("aria-expanded", "false");
+    await tagNode(more, "session-actions");
+    await more.focus();
+    expect(await focusedNode(page)).toEqual({ tag: "BUTTON", node: "session-actions" });
 
     await page.keyboard.press("Enter");
-    await expect(button).toHaveText("Stop");
+    await expect(cardMenu(page)).toHaveAccessibleName("Actions for hdr-keys");
+    await expect(more).toHaveAttribute("aria-expanded", "true");
+
+    await page.keyboard.press("Escape");
+    await expect(cardMenu(page)).toHaveCount(0);
+    await expect(more).toHaveAttribute("aria-expanded", "false");
     await expect
-      .poll(() => focusedNode(page), { message: "focus stays on the node that swapped labels" })
-      .toEqual({ tag: "BUTTON", node: "stop-resume" });
+      .poll(() => focusedNode(page), { message: "focus is back on the node that opened the menu" })
+      .toEqual({ tag: "BUTTON", node: "session-actions" });
 
     // A stays-unchanged hold: the render tick itself is under test.
     await settleFor(page, 1_400);
-    expect(await focusedNode(page)).toEqual({ tag: "BUTTON", node: "stop-resume" });
-    await expect(headerStopResume(page)).toHaveText("Stop");
-  } finally {
-    await repo.cleanup();
-  }
-});
-
-// ---------------------------------------------------------------------------------------
-// INV-6 across a real Stop and Resume at the narrow widths (review cycle 1, browser Major 1)
-//
-// E1 and E2 above prove the swap at 1600 px, where the header is one row and the ended clause
-// has room, so they could not fail for the shift the review measured below 784 px (the ended
-// clause took a row of its own and pushed the cluster down 13 px). The 16 px sweeps comparing
-// the header alive with the same session ended at every width are render tests now
-// (web/render/focus.spec.ts); the clicks below keep the transition itself under test at the
-// widths the review measured, tagging the node so the element that read Stop is the one that
-// reads Resume.
-// ---------------------------------------------------------------------------------------
-
-const SWAP_CLICKS: { title: string; label: string; viewport: number }[] = [
-  { title: TITLE_9, label: "title 9", viewport: 784 },
-  { title: TITLE_9, label: "title 9", viewport: 600 },
-  { title: TITLE_52, label: "title 52", viewport: 600 },
-];
-
-for (const { title, label, viewport } of SWAP_CLICKS) {
-  test(`at ${viewport}px with a ${label} a Stop and then a Resume in the header leave Remove, the button and the header where they were, with the ended age under the model while stopped (E1, E2, REQ-6, INV-6)`, async ({
-    page,
-    request,
-    daemon,
-  }) => {
-    const repo = await scratchRepo(FOLDER_35);
-    try {
-      await page.setViewportSize({ width: viewport, height: 800 });
-      const session = await launchBound(
-        page,
-        request,
-        daemon,
-        repo,
-        title,
-        "claude-fh-swap-narrow",
-      );
-
-      const button = headerStopResume(page);
-      await expect(button).toHaveText("Stop");
-      await tagNode(button, "stop-resume");
-      const alive = await settledSnapshot(page, viewport);
-      expect(await endedAgeAbsentProblems(page)).toEqual([]);
-
-      await button.click();
-      await confirmStop(page);
-      const same = page.locator('#mainhead [data-e2e-node="stop-resume"]');
-      await expect(same).toHaveText("Resume");
-      await expect
-        .poll(
-          async () => [
-            ...clusterShiftProblems(alive, await settledSnapshot(page, viewport)),
-            ...(await endedAgeProblems(page)),
-          ],
-          { message: `the header after a Stop at ${viewport}px` },
-        )
-        .toEqual([]);
-      expect(findSession(await getState(page, daemon), session.id).alive).toBe(false);
-
-      await same.click();
-      await expect(same).toHaveText("Stop");
-      await expect
-        .poll(
-          async () => [
-            ...clusterShiftProblems(alive, await settledSnapshot(page, viewport)),
-            ...(await endedAgeAbsentProblems(page)),
-          ],
-          { message: `the header after a Resume at ${viewport}px` },
-        )
-        .toEqual([]);
-      expect(findSession(await getState(page, daemon), session.id).alive).toBe(true);
-    } finally {
-      await repo.cleanup();
-    }
-  });
-}
-
-test("at 600px a real Enter on the header's Resume swaps the label to Stop with focus, node identity, Remove, the button and the header all unmoved (REQ-5, REQ-6, INV-6)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const repo = await scratchRepo(FOLDER_35);
-  try {
-    await page.setViewportSize({ width: 600, height: 800 });
-    const session = await launchBound(
-      page,
-      request,
-      daemon,
-      repo,
-      TITLE_9,
-      "claude-fh-keys-narrow",
-    );
-    const end = await page.request.post(`${daemon.baseURL}/api/sessions/${session.id}/end`);
-    expect(end.status()).toBe(200);
-
-    const button = headerStopResume(page);
-    await expect(button).toHaveText("Resume");
-    await expect(button).toBeEnabled();
-    await expect.poll(async () => await endedAgeProblems(page)).toEqual([]);
-    const dead = await settledSnapshot(page, 600);
-    await tagNode(button, "stop-resume");
-    await button.focus();
-    expect(await focusedNode(page)).toEqual({ tag: "BUTTON", node: "stop-resume" });
-
-    await page.keyboard.press("Enter");
-    await expect(button).toHaveText("Stop");
-    await expect
-      .poll(() => focusedNode(page), { message: "focus stays on the node that swapped labels" })
-      .toEqual({ tag: "BUTTON", node: "stop-resume" });
-    await expect
-      .poll(async () => clusterShiftProblems(dead, await settledSnapshot(page, 600)), {
-        message: "the header after a Resume at 600px",
-      })
-      .toEqual([]);
-
-    // A stays-unchanged hold: the render tick itself is under test.
-    await settleFor(page, 1_400);
-    expect(await focusedNode(page)).toEqual({ tag: "BUTTON", node: "stop-resume" });
-    expect(clusterShiftProblems(dead, await settledSnapshot(page, 600))).toEqual([]);
-    expect(await endedAgeAbsentProblems(page)).toEqual([]);
-  } finally {
-    await repo.cleanup();
-  }
-});
-
-// ---------------------------------------------------------------------------------------
-// E6 — the disabled state across a WebSocket drop (E5, the unbound dead session's disabled
-// Resume, is a render test)
-// ---------------------------------------------------------------------------------------
-
-// The WebSocket is closed from outside (not by killing the daemon, whose restart sweeps a
-// dead row away) and reconnects on the client's own backoff. Resume is enabled iff connected
-// and a Claude id is bound: an unbound one stays disabled after the reconnect.
-test("with the WebSocket closed the header's one button is disabled under its label, and a dead session with no Claude id stays disabled after the reconnect (E6, REQ-5)", async ({
-  page,
-  daemon,
-}) => {
-  const repo = await scratchRepo();
-  try {
-    const wsRoute: { close: (() => Promise<void>) | null } = { close: null };
-    await page.routeWebSocket("**/ws", (ws) => {
-      ws.connectToServer();
-      wsRoute.close = () => ws.close();
-      ws.onClose(() => {
-        wsRoute.close = null;
-      });
-    });
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
-      directory: repo.path,
-      title: "down-unbound",
-    });
-    await daemon.killTmuxWindow(session.tmuxTarget);
-    await page.reload();
-    await railCardByTitle(page, "down-unbound").click();
-
-    const button = headerStopResume(page);
-    await expect(button).toHaveText("Resume");
-    await expect(button).toBeDisabled();
-
-    if (!wsRoute.close) throw new Error("expected the dashboard's WebSocket route to be active");
-    await wsRoute.close();
-    const banner = page.getByRole("alert");
-    await expect(banner).toBeVisible();
-    await expect(button).toHaveText("Resume");
-    await expect(button).toBeDisabled();
-    await expect(headerButton(page, "Remove")).toBeDisabled();
-
-    await expect(banner).toBeHidden();
-    await expect(headerStopResume(page)).toHaveText("Resume");
-    await expect(headerStopResume(page)).toBeDisabled();
-    await expect(headerStopResume(page)).toHaveAttribute("title", NO_CLAUDE_ID_REASON);
-    await expect(headerButton(page, "Remove")).toBeEnabled();
+    expect(await focusedNode(page)).toEqual({ tag: "BUTTON", node: "session-actions" });
+    await expect(headerMore(page)).toHaveCount(1);
   } finally {
     await repo.cleanup();
   }
@@ -560,26 +355,28 @@ test("with the WebSocket closed the header's one button is disabled under its la
 
 interface Cluster {
   surf: Box;
-  stopResume: Box;
-  remove: Box;
+  more: Box;
   gap: number;
   twoRows: boolean;
 }
 
 async function readCluster(page: Page): Promise<Cluster> {
   const s = await readHeaderSnapshot(page);
-  if (!s?.surf || !s.stopResume || !s.remove) throw new Error("a cluster part is missing");
+  if (!s?.surf || !s.more) throw new Error("a cluster part is missing");
   return {
     surf: s.surf,
-    stopResume: s.stopResume,
-    remove: s.remove,
-    gap: s.stopResume.left - s.surf.right,
+    more: s.more,
+    gap: s.more.left - s.surf.right,
     twoRows: onTwoRows(s),
   };
 }
 
-for (const viewport of [2000, 1000]) {
-  test(`at ${viewport}px renaming to a longer title and moving Claude to lengthen the readout leaves the surface switch, Stop and Remove where they were (E4, REQ-4, INV-5)`, async ({
+// Both widths keep the header on one row after the lengthening: the cluster is placed by the
+// header's width, and below roughly 1200px a 40-character title beside the lengthened readout
+// legitimately drops it to row two (kb:adr/focus-header-give-way-order-title-last), which the
+// render sweeps own.
+for (const viewport of [2000, 1500]) {
+  test(`at ${viewport}px renaming to a longer title and moving Claude to lengthen the readout leaves the surface switch and the Session actions ⋯ where they were (E4, REQ-4, INV-5)`, async ({
     page,
     request,
     daemon,
@@ -612,12 +409,11 @@ for (const viewport of [2000, 1000]) {
           return {
             sameRows: after.twoRows === before.twoRows,
             surf: sameBox(rectOf(after.surf), rectOf(before.surf)),
-            stopLeft: Math.abs(after.stopResume.left - before.stopResume.left) <= 0.5,
-            removeRight: Math.abs(after.remove.right - before.remove.right) <= 0.5,
+            moreRight: Math.abs(after.more.right - before.more.right) <= 0.5,
             gap: Math.abs(after.gap - before.gap) <= 0.5,
           };
         })
-        .toEqual({ sameRows: true, surf: true, stopLeft: true, removeRight: true, gap: true });
+        .toEqual({ sameRows: true, surf: true, moreRight: true, gap: true });
 
       if (viewport === 2000) {
         // User Flow 4: with room on the row, the title grows and the group control and the

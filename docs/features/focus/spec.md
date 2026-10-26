@@ -10,7 +10,7 @@ go: [internal/server/effort*.go, internal/session/effort*.go, internal/store/eff
 web: [web/src/features/focus.ts, web/src/features/effort*.ts, web/src/render/effortstrip*.ts, web/src/sessions/effort*.ts, web/src/render/mainhead*.ts, web/src/render/locationpanel*.ts, web/src/sessions/locationpanel*.ts, web/src/render/focus*.ts, web/src/render/slotmount*.ts, web/render/focus.spec.ts, web/render/helpers/focus.ts]
 e2e: [web/e2e/focus-marker.spec.ts, web/e2e/sessions.spec.ts, web/e2e/focus-header.spec.ts, web/e2e/helpers/focus-header.ts, web/e2e/effort-header.spec.ts, web/e2e/helpers/effort.ts]
 protocol: [sessions.effort-warning-dismiss]
-refs: [kb:adr/focus-rail-plus-one-live-pane, kb:adr/focus-rail-click-focuses-terminal, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/launch-opens-launched-session, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/launch-resume-null-model-reads-unknown, docs/design/ux-flows.md, kb:adr/focus-group-control-hides-below-640px-container-width, kb:adr/focus-header-readout-sized-by-text, kb:adr/focus-header-give-way-order-title-last, kb:adr/focus-surface-switch-pinned-with-actions, kb:adr/actions-mainhead-one-stop-resume-button, kb:adr/focus-model-never-truncates-name-blocks-give-way]
+refs: [kb:adr/focus-rail-plus-one-live-pane, kb:adr/focus-rail-click-focuses-terminal, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/launch-opens-launched-session, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/launch-resume-null-model-reads-unknown, docs/design/ux-flows.md, kb:adr/focus-group-control-hides-below-640px-container-width, kb:adr/focus-header-readout-sized-by-text, kb:adr/focus-header-give-way-order-title-last, kb:adr/focus-header-holds-switch-and-session-menu, kb:adr/focus-model-never-truncates-name-blocks-give-way]
 ---
 Focus is the default view: the rail of static cards (kb:spec/rail) beside exactly one live
 terminal pane, under the persistent masthead (kb:adr/focus-rail-plus-one-live-pane,
@@ -27,23 +27,21 @@ folder line ends in `+N` while directories are added, as `muster+2`, and in ` /`
 a `↳` block while Claude works in another checkout, and the model followed by its effort in brackets — a resumed session with no recorded
 model reads `unknown`, as any null model does (kb:adr/launch-resume-null-model-reads-unknown). The
 brackets read `(…)` until a new session's first status-line report and are absent when the model has no
-effort or a dead session never reported one (the header still reserves the width of ` (…)`, so Stop and
-Resume never move it); a resumed session shows the level it resumed at. On a dead
+effort or a dead session never reported one (the header still reserves the width of ` (…)`); a resumed session shows the level it resumed at. On a dead
 session the ended age sits under the model, without a leading `·`, in a slot the header reserves whether
 or not it shows. A right-aligned cluster holds the `claude | shell | docs` surface switch
-(kb:spec/surfaces, kb:adr/focus-surface-switch-pinned-with-actions) and the actions: one Stop/Resume
-button, `Stop` while alive and `Resume` while dead, the same box under both, and Remove
-(kb:adr/actions-mainhead-one-stop-resume-button), so a Stop or a Resume moves nothing at any width.
+(kb:spec/surfaces) and one Session actions `⋯` that opens the focused card's menu just under the button
+(kb:spec/actions, kb:adr/focus-header-holds-switch-and-session-menu).
 The session name carries hover text (its full title); hovering the repo readout with the mouse opens
 the location panel: the launch location, where Claude is while moved, and each added directory with its
 branch and path. It follows the focused session, rebuilt when its content changes and closed when there is
 no session, and lists no added directories once the session has ended. It lists every added directory; past
 what fits below the readout it moves to the top of the viewport, over the header, and rows past the
 viewport are not shown (kb:adr/focus-location-panel-lists-every-row). A title too
-long for the row ends in an ellipsis, so the action cluster always stays in view. The model never
+long for the row ends in an ellipsis, so the right-hand cluster always stays in view. The model never
 truncates at any width (kb:adr/focus-model-never-truncates-name-blocks-give-way). As the row narrows
 the header gives way in a fixed order: the `↳` block hides whole, then the surface switch and the
-actions move together to a second row, then the folder and branch lines ellipsize to their 8-character
+`⋯` move together to a second row, then the folder and branch lines ellipsize to their 8-character
 floor, and only then the title shortens, never below its 6rem floor
 (kb:adr/focus-header-give-way-order-title-last). The `↳` block is drawn only when the whole header,
 the cluster included, fits on one row, so it can hide at ordinary window widths. Where the title floor,

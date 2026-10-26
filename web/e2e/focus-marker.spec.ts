@@ -14,6 +14,7 @@
 // shared daemon would corrupt those counts. `fullyParallel: true` is safe only because
 // each test's daemon, port, and tmux socket are entirely its own.
 import { expect, test } from "./helpers/fixtures";
+import { removeFromCardMenu } from "./helpers/rail-menu";
 import { railCard } from "./helpers/railorder";
 import {
   currentRailCard,
@@ -74,24 +75,16 @@ test("removing the focused session falls the marker through to the remaining ses
     const cardB = railCard(page, "marker-remove-b");
     await expect(cardA).toHaveAttribute("aria-current", "true");
 
-    // End A first — a live session's mainhead Remove opens a dialog explaining it
-    // ends the session first (actions.spec.ts precedent); ending directly via the real
-    // endpoint reaches the same dead-Remove path without asserting that copy again.
+    // End A first — a live session's Remove… opens a dialog explaining it ends the
+    // session first (actions.spec.ts precedent); ending directly via the real endpoint
+    // reaches the same dead-Remove path without asserting that copy again.
     const endRes = await page.request.post(`${daemon.baseURL}/api/sessions/${sessionA.id}/end`);
     expect(endRes.status()).toBe(200);
+    await expect(cardA).toHaveClass(/ended/, { timeout: 15_000 });
 
-    // exact: true — a plain substring match on "Remove" is ambiguous the moment a
-    // session's own display title contains "remove" (this test's own
-    // "marker-remove-a"/"marker-remove-b" fixture titles), because it also matches
-    // the mainhead's rename trigger (whose accessible name is the display title).
-    // Validate-mode repair: the mainhead's own Remove button is the only exact match.
-    const mainhead = page.locator("#mainhead");
-    const removeBtn = mainhead.getByRole("button", { name: "Remove", exact: true });
-    await expect(removeBtn).toBeEnabled({ timeout: 15_000 });
-    await removeBtn.click();
-    const dialog = page.getByRole("dialog", { name: "Remove session?" });
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "Remove", exact: true }).click();
+    // The Focus header holds no Remove button (plan remove-unread-right-click-1, REQ-4): the
+    // focused session is removed from its card's menu.
+    await removeFromCardMenu(page, cardA);
     await expect(cardA).toHaveCount(0, { timeout: 15_000 });
 
     // Only B remains — the fallthrough must land the marker there (REQ-3).

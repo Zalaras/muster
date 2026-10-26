@@ -19,12 +19,12 @@ import {
   endedAgeAbsentProblems,
   endedAgeProblems,
   focusSession,
-  headerButton,
   headerEff,
   headerInvariantProblems,
   headerModel,
   type HeaderSnapshot,
-  headerStopResume,
+  headerLifecycleButtons,
+  headerMore,
   hueOf,
   mainheadRenameButton,
   onTwoRows,
@@ -49,6 +49,7 @@ import {
   type Session,
   test,
 } from "./helpers/harness";
+import { cardMenu, menuItemLabels, openCardMenu } from "./helpers/rail";
 import { tokenColor } from "./helpers/style";
 
 /** The one fixture session titled `title`. */
@@ -302,7 +303,6 @@ for (const [label, data] of [
 // =======================================================================================
 
 const FULL_MODEL_ID = "claude-haiku-4-5-20251001";
-const NO_CLAUDE_ID_REASON = "Can't resume — this session never started a Claude conversation.";
 
 /** `text` cut to exactly `n` characters, the last one never a space. */
 function exactly(text: string, n: number): string {
@@ -516,10 +516,8 @@ async function openRow(
   }
   if (row.dead) {
     await expect(page.locator("#mainhead .meta .ended-at")).toBeVisible();
-    await expect(headerButton(page, "Resume")).toBeEnabled();
-  } else {
-    await expect(headerButton(page, "Stop")).toBeEnabled();
   }
+  await expect(headerMore(page)).toBeVisible();
   return { fixture, session };
 }
 
@@ -673,7 +671,7 @@ const SWAP_ROWS: Row[] = [
 ];
 
 for (const row of SWAP_ROWS) {
-  test(`sweeping the window from 2000px to 600px in 16px steps, a Stop leaves Remove, the Stop/Resume button, the surface switch and the header where they were and shows the ended age under the model at every width: ${row.label} (E1, REQ-5, REQ-6, INV-6)`, async ({
+  test(`sweeping the window from 2000px to 600px in 16px steps, a Stop leaves the Session actions ⋯, the surface switch and the header where they were and shows the ended age under the model at every width: ${row.label} (E1, REQ-5, REQ-6, INV-6)`, async ({
     page,
     dashboard,
   }) => {
@@ -682,9 +680,7 @@ for (const row of SWAP_ROWS) {
     const alive = new Map<number, HeaderSnapshot>();
     for (const w of widths) {
       const s = await settledSnapshot(page, w);
-      expect(s.stopResumeLabels, `alive at ${w}px: exactly one Stop/Resume button`).toEqual([
-        "Stop",
-      ]);
+      expect(s.more, `alive at ${w}px: the Session actions ⋯ is laid out`).not.toBeNull();
       expect(await endedAgeAbsentProblems(page), `alive at ${w}px`).toEqual([]);
       alive.set(w, s);
     }
@@ -695,7 +691,7 @@ for (const row of SWAP_ROWS) {
     await page.setViewportSize({ width: 1280, height: 800 });
     await cardOf(page, ended).click();
     await expect(mainheadRenameButton(page)).toHaveText(row.title);
-    await expect(headerButton(page, "Resume")).toBeEnabled();
+    await expect(headerMore(page)).toBeVisible();
 
     for (const w of widths) {
       const before = alive.get(w);
@@ -704,13 +700,7 @@ for (const row of SWAP_ROWS) {
         .poll(
           async () => {
             const s = await settledSnapshot(page, w);
-            return [
-              ...(s.stopResumeLabels.join() === "Resume"
-                ? []
-                : [`INV-7: the Stop/Resume labels read ${JSON.stringify(s.stopResumeLabels)}`]),
-              ...clusterShiftProblems(before, s),
-              ...(await endedAgeProblems(page)),
-            ];
+            return [...clusterShiftProblems(before, s), ...(await endedAgeProblems(page))];
           },
           { message: `${row.label}: the header after a Stop, at ${w}px` },
         )
@@ -723,7 +713,7 @@ for (const row of SWAP_ROWS) {
 // E5 — the disabled state
 // ---------------------------------------------------------------------------------------
 
-test("a dead session with no bound Claude id shows exactly one header button reading Resume, disabled, with the existing reason as its hover title (E5, REQ-5, INV-7)", async ({
+test("a dead session with no bound Claude id has no Stop, Resume or Remove button in the Focus header (E5, REQ-4)", async ({
   page,
   dashboard,
 }) => {
@@ -732,13 +722,59 @@ test("a dead session with no bound Claude id shows exactly one header button rea
   expect(session.alive).toBe(false);
   await railCardByTitle(page, "no-id").click();
 
-  const button = headerStopResume(page);
-  await expect(button).toHaveCount(1);
-  await expect(button).toHaveText("Resume");
-  await expect(button).toBeDisabled();
-  await expect(button).toHaveAttribute("title", NO_CLAUDE_ID_REASON);
-  await expect(headerButton(page, "Stop")).toHaveCount(0);
+  await expect(headerMore(page)).toBeVisible();
+  await expect(headerLifecycleButtons(page)).toHaveCount(0);
   expect(session.claudeSessionId).toBeNull();
+});
+
+for (const title of ["enabled-e13", "disabled-e13"]) {
+  test(`the Focus header of ${title === "enabled-e13" ? "a live" : "an ended"} session holds no Stop, Resume or Remove button — only the surface switch and the Session actions ⋯, last in the actions (R3, REQ-4)`, async ({
+    page,
+    dashboard,
+  }) => {
+    await dashboard.open("stop-resume-pair");
+    await focusSession(page, title);
+    await expect(page.locator("#mainhead")).toContainText(title);
+
+    await expect(headerLifecycleButtons(page)).toHaveCount(0);
+    await expect(page.locator("#mainhead .acts .surfseg")).toHaveCount(1);
+    const more = headerMore(page);
+    await expect(more).toBeVisible();
+    await expect(more).toHaveCSS("opacity", "1");
+    await expect(more).toHaveAttribute("aria-haspopup", "menu");
+    await expect(more).toHaveAttribute("aria-expanded", "false");
+    // Last in `.acts`: nothing follows it.
+    expect(
+      await more.evaluate((el) => el === el.closest(".acts")?.lastElementChild),
+      "the ⋯ is the last element of .acts",
+    ).toBe(true);
+  });
+}
+
+test("the header ⋯ opens the focused card's own menu: labelled Actions for <title>, the same items a right-click on its rail card gives (R3, REQ-5)", async ({
+  page,
+  dashboard,
+}) => {
+  await dashboard.open("stop-resume-pair");
+  for (const title of ["enabled-e13", "disabled-e13"]) {
+    await focusSession(page, title);
+    await expect(page.locator("#mainhead")).toContainText(title);
+
+    await openCardMenu(page, railCardByTitle(page, title));
+    const fromCard = await menuItemLabels(page);
+    await page.keyboard.press("Escape");
+    await expect(cardMenu(page)).toHaveCount(0);
+
+    const more = headerMore(page);
+    await more.click();
+    await expect(cardMenu(page)).toBeVisible();
+    await expect(cardMenu(page)).toHaveAccessibleName(`Actions for ${title}`);
+    await expect(more).toHaveAttribute("aria-expanded", "true");
+    expect(await menuItemLabels(page), `${title}: header menu equals card menu`).toEqual(fromCard);
+    expect(fromCard).toContain("Mark as unread");
+    await page.keyboard.press("Escape");
+    await expect(cardMenu(page)).toHaveCount(0);
+  }
 });
 
 // ---------------------------------------------------------------------------------------
@@ -746,7 +782,7 @@ test("a dead session with no bound Claude id shows exactly one header button rea
 // ---------------------------------------------------------------------------------------
 
 for (const viewport of [2000, 1200, 800]) {
-  test(`at ${viewport}px the surface switch is inside the actions, immediately before Stop and Remove, with Remove at the header's right edge (REQ-4, INV-5)`, async ({
+  test(`at ${viewport}px the surface switch is inside the actions, immediately before the Session actions ⋯, with the ⋯ at the header's right edge (REQ-4, INV-5)`, async ({
     page,
     dashboard,
   }) => {
@@ -764,20 +800,18 @@ for (const viewport of [2000, 1200, 800]) {
     await expect
       .poll(async () => {
         const s = await readHeaderSnapshot(page);
-        if (!s?.surf || !s.stopResume || !s.remove) return "cluster part missing";
-        const gap = s.stopResume.left - s.surf.right;
+        if (!s?.surf || !s.more) return "cluster part missing";
+        const gap = s.more.left - s.surf.right;
         return {
-          switchBeforeStop: gap >= -0.5 && gap <= 16,
-          stopBeforeRemove: s.stopResume.right <= s.remove.left + 0.5,
-          sameRow: Math.abs(s.surf.top - s.remove.top) <= s.remove.bottom - s.remove.top,
-          removeAtContentEdge: Math.abs(s.remove.right - s.contentRight) <= 1,
+          switchBeforeMore: gap >= -0.5 && gap <= 16,
+          sameRow: Math.abs(s.surf.top - s.more.top) <= s.more.bottom - s.more.top,
+          moreAtContentEdge: Math.abs(s.more.right - s.contentRight) <= 1,
         };
       })
       .toEqual({
-        switchBeforeStop: true,
-        stopBeforeRemove: true,
+        switchBeforeMore: true,
         sameRow: true,
-        removeAtContentEdge: true,
+        moreAtContentEdge: true,
       });
   });
 }

@@ -163,9 +163,6 @@ function fakeElement(): HTMLElement {
   return { textContent: "", hidden: false } as unknown as HTMLElement;
 }
 
-// `title`/`setAttribute`/`getAttribute` are here for REQ-17/W3's disabled-Resume-reason
-// tests below — additive, harmless to the endBtn/removeBtn/rename-regression tests above
-// that never read them.
 function fakeButton(): HTMLButtonElement {
   const attrs: Record<string, string> = {};
   return {
@@ -180,19 +177,6 @@ function fakeButton(): HTMLButtonElement {
       return attrs[name] ?? null;
     },
   } as unknown as HTMLButtonElement;
-}
-
-/** REQ-17/W3's UI Specifications say the reason lives in "its title/aria-description"
- * without picking one — accept either a native `.title` write or a `setAttribute`
- * ("aria-description" or "title") so this test doesn't fail a correct implementation for
- * choosing the mechanism the plan left open (flagged in web-tests.md). */
-function resumeDisabledReason(btn: HTMLButtonElement): string {
-  return (
-    (btn as unknown as { title?: string }).title ||
-    btn.getAttribute("aria-description") ||
-    btn.getAttribute("title") ||
-    ""
-  );
 }
 
 /** The group control: a button holding a `.ig-name` span (index.html), which is the only child
@@ -270,8 +254,6 @@ function fakeMainheadElements(): MainheadElements & {
     nameEl,
     metaEl: fakeMeta() as unknown as HTMLElement,
     effortStrip: new FakeNode("effort-strip", new FakeNode("sentence")) as unknown as HTMLElement,
-    stopResumeBtn: fakeButton(),
-    removeBtn: fakeButton(),
     renameBtn,
     groupBtn: fakeGroupBtn(),
     surfaceSegment: fakeSurfaceSegmentRefs(),
@@ -365,67 +347,6 @@ describe("renderMainhead — no-session branch must not detach the rename button
     expect(elements.attached()).toBe(true);
     expect(elements.nameEl.querySelector("button.rename")).toBe(elements.renameBtn);
     expect(elements.renameBtn.textContent).toBe("fix the thing");
-  });
-});
-
-// The one Stop/Resume button (plan title-crop-stop-resume-button, kb:adr/actions-mainhead-one-stop-resume-button):
-// the renderer rewrites label, data-action, disabled and the reason hover in place from
-// `stopResumeButton`; the derivation's own table is in sessions/card.test.ts.
-describe("renderMainhead — the single Stop/Resume button", () => {
-  const render = (session: Session, connected = true) => {
-    const elements = fakeMainheadElements();
-    renderMainhead(
-      elements,
-      session,
-      NOW,
-      connected,
-      DEFAULT_SURFACE_STATE,
-      "none",
-      false,
-      "no group",
-    );
-    return elements.stopResumeBtn;
-  };
-
-  it("reads Stop, enabled, with data-action end and no reason for a live session", () => {
-    const btn = render(makeSession({ id: 1, alive: true }));
-    expect(btn.textContent).toBe("Stop");
-    expect(btn.dataset["action"]).toBe("end");
-    expect(btn.disabled).toBe(false);
-    expect(resumeDisabledReason(btn)).toBe("");
-  });
-
-  it("disables Resume with a non-empty reason when the session has no bound Claude session id", () => {
-    const btn = render(makeSession({ id: 1, alive: false, claudeSessionId: null }));
-    expect(btn.textContent).toBe("Resume");
-    expect(btn.dataset["action"]).toBe("resume");
-    expect(btn.disabled).toBe(true);
-    expect(resumeDisabledReason(btn)).not.toBe("");
-  });
-
-  it("enables Resume with no reason for a dead session with a bound Claude session id", () => {
-    const btn = render(makeSession({ id: 1, alive: false, claudeSessionId: "claude-sess" }));
-    expect(btn.disabled).toBe(false);
-    expect(resumeDisabledReason(btn)).toBe("");
-  });
-
-  it("disables the button under either label while the connection is down", () => {
-    expect(render(makeSession({ id: 1, alive: true }), false).disabled).toBe(true);
-    expect(render(makeSession({ id: 1, alive: false }), false).disabled).toBe(true);
-  });
-
-  it("rewrites the same node in place when the session flips alive to dead, clearing a stale reason", () => {
-    const elements = fakeMainheadElements();
-    const btn = elements.stopResumeBtn;
-    const draw = (s: Session) =>
-      renderMainhead(elements, s, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
-    draw(makeSession({ id: 1, alive: false, claudeSessionId: null }));
-    expect(resumeDisabledReason(btn)).not.toBe("");
-    draw(makeSession({ id: 1, alive: true, claudeSessionId: null }));
-    expect(elements.stopResumeBtn).toBe(btn);
-    expect(btn.textContent).toBe("Stop");
-    expect(btn.dataset["action"]).toBe("end");
-    expect(resumeDisabledReason(btn)).toBe("");
   });
 });
 

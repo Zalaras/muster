@@ -7,11 +7,12 @@
 // recorder and the body-bearing request log — is pure page and lives in the render tier's
 // helper (web/render/helpers/rail.ts, where the display properties re-levelled on
 // 2026-10-20 read them); the journeys here reach it through the re-export below.
-import type { APIRequestContext, Page } from "@playwright/test";
+import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 import type { ScratchDaemon } from "./daemon";
 import { envelopedSessionStart } from "./payloads";
 import { envelopeOpts, launchSession, type SessionObject, sessionCard } from "./session";
+import { cardMenuItem, openCardMenu } from "../../render/helpers/rail";
 
 export {
   CARD_ACTION_BUTTON,
@@ -83,4 +84,28 @@ export async function stateSession(
   const found = state.sessions.find((s) => s.id === id);
   if (!found) throw new Error(`session ${id} not found in state snapshot`);
   return found;
+}
+
+/**
+ * Resumes the ended session behind `card` from its right-click menu (no confirm for Resume).
+ * Resolves once the card no longer reads ended.
+ */
+export async function resumeFromCardMenu(page: Page, card: Locator): Promise<void> {
+  await expect(card).toHaveClass(/ended/);
+  await openCardMenu(page, card);
+  await cardMenuItem(page, "Resume").click();
+  await expect(card).not.toHaveClass(/ended/);
+}
+
+/**
+ * Removes the session behind `card` from its right-click menu: Remove…, then the confirm. The
+ * confirm's own button is the exact-name match, so a title containing "remove" never collides.
+ */
+export async function removeFromCardMenu(page: Page, card: Locator): Promise<void> {
+  await openCardMenu(page, card);
+  await cardMenuItem(page, "Remove…").click();
+  const dialog = page.getByRole("dialog", { name: "Remove session?" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(dialog).toBeHidden();
 }

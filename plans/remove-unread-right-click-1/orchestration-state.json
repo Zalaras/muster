@@ -1,0 +1,124 @@
+{
+  "plan_name": "remove-unread-right-click-1",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "render-tests": 0,
+    "e2e-validate": 0,
+    "review": 2,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [
+    "daemon-tests",
+    "web-tests",
+    "render-tests",
+    "e2e-specs",
+    "daemon-impl",
+    "web-impl",
+    "review"
+  ],
+  "step_started_at": {
+    "daemon-impl": "2026-10-26T14:32:45Z",
+    "web-impl": "2026-10-26T14:32:45Z",
+    "review": "2026-10-26T16:13:51Z",
+    "doc-reconcile": "2026-10-26T17:59:35Z"
+  },
+  "step_finished_at": {
+    "daemon-tests": "2026-10-26T14:32:48Z",
+    "web-tests": "2026-10-26T14:32:48Z",
+    "render-tests": "2026-10-26T14:32:48Z",
+    "e2e-specs": "2026-10-26T15:50:33Z",
+    "daemon-impl": "2026-10-26T15:50:33Z",
+    "web-impl": "2026-10-26T15:50:33Z",
+    "review": "2026-10-26T17:59:38Z"
+  },
+  "step_attempts": {
+    "daemon-impl": [
+      {
+        "start": "2026-10-26T14:32:45Z",
+        "finish": "2026-10-26T15:50:33Z"
+      }
+    ],
+    "web-impl": [
+      {
+        "start": "2026-10-26T14:32:45Z",
+        "finish": "2026-10-26T15:50:33Z"
+      }
+    ],
+    "daemon-tests": [
+      {
+        "start": null,
+        "finish": "2026-10-26T14:32:48Z"
+      }
+    ],
+    "web-tests": [
+      {
+        "start": null,
+        "finish": "2026-10-26T14:32:48Z"
+      }
+    ],
+    "render-tests": [
+      {
+        "start": null,
+        "finish": "2026-10-26T14:32:48Z"
+      }
+    ],
+    "e2e-specs": [
+      {
+        "start": null,
+        "finish": "2026-10-26T15:50:33Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-10-26T16:13:51Z",
+        "finish": "2026-10-26T16:59:12Z"
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-10-26T17:59:35Z",
+        "finish": null
+      }
+    ]
+  },
+  "started_at": "2026-10-26T14:16:48Z",
+  "updated_at": "2026-10-26T18:40:37Z",
+  "review_parts": {
+    "1": [
+      "code",
+      "browser",
+      "maintainability"
+    ],
+    "2": [
+      "code",
+      "browser",
+      "maintainability"
+    ],
+    "3": [
+      "code",
+      "maintainability"
+    ]
+  },
+  "review_verdicts": {
+    "1": "needs-changes",
+    "2": "needs-changes",
+    "3": "approved"
+  },
+  "review_commits": {
+    "1": "63252581b93959c808eabae074246701373aa6a9",
+    "2": "a43934a75d7a32ffc86b11e03a780e45f3e9c28d",
+    "3": "6d59770131c90bfa6d4630baf4f977e3168a56cb"
+  },
+  "review_cycle": 3,
+  "closes_issues": [
+    103,
+    104,
+    106
+  ]
+}

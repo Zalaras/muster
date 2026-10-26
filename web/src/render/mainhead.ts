@@ -1,13 +1,6 @@
 import type { Session } from "../protocol/session";
 import { requireElement } from "../dom";
-import {
-  bypassChip,
-  displayTitle,
-  mainheadMeta,
-  stopResumeButton,
-  type MainheadMeta,
-  type StopResumeButton,
-} from "../sessions/card";
+import { bypassChip, displayTitle, mainheadMeta, type MainheadMeta } from "../sessions/card";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import type { SessionSurfaceState } from "../terminal/surfaceswitch";
 import { renderEffortStrip } from "./effortstrip";
@@ -18,8 +11,6 @@ export interface MainheadElements {
   root: HTMLElement;
   nameEl: HTMLElement;
   metaEl: HTMLElement;
-  stopResumeBtn: HTMLButtonElement;
-  removeBtn: HTMLButtonElement;
   // The rename trigger inside `nameEl` (kb:adr/rename-muster-owned-title-override-wins) —
   // its text is written here on every non-editing pass; `features/rename.ts` attaches the
   // actual editor (render/rename.ts) to `nameEl` once at startup, this module never
@@ -120,20 +111,10 @@ function sharesRow(el: HTMLElement, other: HTMLElement): boolean {
   return el.getBoundingClientRect().top < other.getBoundingClientRect().bottom - 1;
 }
 
-function renderStopResume(btn: HTMLButtonElement, view: StopResumeButton): void {
-  if (btn.textContent !== view.label) btn.textContent = view.label;
-  btn.dataset["action"] = view.action;
-  btn.disabled = view.disabled;
-  btn.title = view.reason ?? "";
-}
-
 /** `session` is the currently-focused one, or `null` when nothing is focused (no
  * sessions at all) — hidden in that case. `connected`
  * gates every button while the WS is down (States: "action buttons are disabled while
- * the WS is down"), on top of each button's own enablement rule:
- * - Stop/Resume: one button (sessions/card.ts's `stopResumeButton`) — `Stop` while alive,
- *   `Resume` (enabled iff a Claude session id is bound) while dead.
- * - Remove: never disabled by session state (only by `connected`).
+ * the WS is down").
  *
  * `surfaceState` is the currently-focused session's
  * surface-switch state (features/surfaces.ts's `surfaceSwitchState`, or the default when there is no
@@ -194,8 +175,6 @@ export function renderMainhead(
   const groupName = requireElement<HTMLElement>(".ig-name", elements.groupBtn);
   if (groupName.textContent !== groupText) groupName.textContent = groupText;
   elements.groupBtn.disabled = !connected;
-  renderStopResume(elements.stopResumeBtn, stopResumeButton(session, connected));
-  elements.removeBtn.disabled = !connected;
   updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected, activity);
   // Last, once every slot that shares the header's row (title, chip, meta, cluster) holds this pass's text.
   fitMainheadMeta(elements.metaEl, elements.root);

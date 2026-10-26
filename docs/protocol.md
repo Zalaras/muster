@@ -77,6 +77,7 @@ sits on the line before each `##`/`###` heading, and code and docs cite a sectio
 | `PUT /api/prefs` | Persist UI preferences (view + density + usageModel) |
 | `POST /api/usage/refresh` | Force an immediate per-model usage fetch |
 | `PUT /api/sessions/{id}/pin` | Pin or unpin a session, renumbering `railPos` (`kb:anchor/sessions.pin`) |
+| `PUT /api/sessions/{id}/unread` | Mark a session read or unread (`kb:anchor/sessions.unread`) |
 | `PUT /api/sessions/order` | Reorder the rail and set the pinned block in one atomic call (`kb:anchor/sessions.order`) |
 | `PUT /api/sessions/group` | Move sessions into a group, or out to Ungrouped (`kb:anchor/sessions.group`) |
 | `POST /api/sessions/end` | Stop several sessions in one batch (`kb:anchor/sessions.end-many`) |
@@ -487,6 +488,20 @@ whatever `railPos` values are needed to keep `kb:anchor/ws.session`'s invariant 
 `204` and no broadcast. Otherwise every session whose `pinned` or `railPos` changed is
 broadcast as a `sessionUpsert` — and only those. Errors: `400 invalid_request` (body not
 JSON / `pinned` missing or not boolean), `404 unknown_session`.
+
+<!-- kb:anchor sessions.unread -->
+### `PUT /api/sessions/{id}/unread`
+
+**Auth**: UI cookie (401 `unauthorized`). **Request:** `{ "unread": true }` (`unread`
+required, boolean). → `204`, no body. `unread:true` sets the session's `unread` flag iff its
+`state` is `idle` (`kb:anchor/ws.session`'s invariant `unread ⇒ state == "idle"`); `unread:false` clears it in any
+state. A request that changes nothing — the flag already has the requested value, or `true` on a
+non-idle session — is `204` with no write and no broadcast. A change is persisted like the
+daemon-set flag and broadcast as exactly one `sessionUpsert`. The flag set here lasts until the
+next attach on either terminal surface (`kb:anchor/terminal.ws`, `kb:anchor/terminal.shell-ws`) or
+the session leaves `idle`, as for the daemon-set flag; being focused does not clear it.
+Errors: `400 invalid_request` (body not JSON / `unread` missing or not boolean),
+`404 unknown_session`.
 
 <!-- kb:anchor sessions.order -->
 ### `PUT /api/sessions/order`
@@ -1316,6 +1331,7 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
                                     //   finishing) never replaces it. Display-only.
   "unread": false,                  // boolean — true iff the session entered idle while no terminal client was attached to
                                     //   either of its surfaces and nobody has attached since. INV: unread ⇒ state == "idle".
+                                    //   Also set or cleared by the developer through kb:anchor/sessions.unread.
                                     //   Cleared by any transition out of idle and by a successful attach on kb:anchor/terminal.ws or
                                     //   kb:anchor/terminal.shell-ws. Independent of alive; survives restarts (reconcile never writes it).
   "backgroundTasks": 0,             // integer ≥ 0, required — background tasks (subagents and backgrounded shells) the latest
@@ -1418,8 +1434,8 @@ Value semantics (within the nullability rules above):
 - `unread`: set when a turn ends into `idle` — the `Stop` row, the `idle_prompt` turn end, the
   compaction end and the interrupt row — iff no terminal client is attached to the session at that
   moment (the daemon's terminal registry is the authority); cleared by every transition to a
-  non-idle state and by a successful attach on either surface. Status posts never touch
-  `unread` or `lastPrompt`.
+  non-idle state and by a successful attach on either surface; also set or cleared by
+  `kb:anchor/sessions.unread`. Status posts never touch `unread` or `lastPrompt`.
 - `backgroundTasks`: the count of `status:"running"` entries in the latest `Stop`'s background
   task list. Status posts never touch it.
 - `alive`/`endedAt`: live from the liveness poll (`kb:anchor/state.liveness`) alone.

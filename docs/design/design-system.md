@@ -275,11 +275,11 @@ then the meta row: the same repo block as the rail card, each line as wide as it
 character cap (kb:adr/focus-header-readout-sized-by-text), the `↳` block while Claude is elsewhere
 — drawn only when the whole header, right cluster included, fits on one row, otherwise removed
 whole — then the model, which never truncates at any width. On a dead session the ended age sits
-under the model, without a `·`, in a slot the header reserves whether or not it shows, so a Stop
-or a Resume moves nothing. The `claude | shell | docs` surface switch is the first child of the
-right-aligned action cluster, before the one Stop/Resume button (the same box under both labels)
-and Remove, so a longer title or readout never moves it
-(kb:adr/focus-surface-switch-pinned-with-actions, kb:adr/actions-mainhead-one-stop-resume-button).
+under the model, without a `·`, in a slot the header reserves whether or not it shows. The
+right-aligned cluster holds the `claude | shell | docs` surface switch, then one `⋯` icon button
+named "Session actions" that opens the focused card's menu; the header has no Stop, Resume or
+Remove button, so a longer title or readout never moves the cluster
+(kb:adr/focus-header-holds-switch-and-session-menu).
 As the header narrows it gives way in one order: the `↳` block hides whole; the cluster drops to
 a second row as one item; the folder and branch lines ellipsize to their 8ch floor; only then
 does the title shorten, never below its 6rem floor. In the narrowest headers, where the title

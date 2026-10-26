@@ -1,7 +1,7 @@
 ---
 id: actions-mainhead-one-stop-resume-button
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-13
 summary: The Focus header has one Stop/Resume button, labelled by whether the session is alive, the same box under both labels; tile footers keep separate buttons.
 features: [actions, focus]

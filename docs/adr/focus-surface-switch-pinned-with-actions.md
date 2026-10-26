@@ -1,7 +1,7 @@
 ---
 id: focus-surface-switch-pinned-with-actions
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-13
 summary: The Focus header's surface switch sits with the actions in one right-aligned cluster, placed by the header's width alone; the model moves with the readout.
 features: [focus, surfaces]

@@ -16,7 +16,9 @@ import {
   removeDialog,
   stopDialog,
 } from "./helpers/actions";
-import { focusSession, headerButton } from "./helpers/focus";
+import { railCardByTitle } from "./helpers/card-location";
+import { focusSession } from "./helpers/focus";
+import { cardMenuItem, openCardMenu } from "./helpers/rail";
 import { expect, type RenderFixture, type Session, test } from "./helpers/harness";
 
 /** The one fixture session titled `title`. */
@@ -48,29 +50,36 @@ test("Cancel and Escape close both End and Remove dialogs without sending any re
   });
 
   const endDialog = stopDialog(page);
-  await headerButton(page, "Stop").click();
+  const alpha = railCardByTitle(page, "Alpha");
+  await openCardMenu(page, alpha);
+  await cardMenuItem(page, "Stop…").click();
   await expect(endDialog).toBeVisible();
   await endDialog.getByRole("button", { name: "Cancel" }).click();
   await expect(endDialog).toBeHidden();
 
-  await headerButton(page, "Stop").click();
+  await openCardMenu(page, alpha);
+  await cardMenuItem(page, "Stop…").click();
   await expect(endDialog).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(endDialog).toBeHidden();
 
   const remove = removeDialog(page);
-  await headerButton(page, "Remove").click();
+  await openCardMenu(page, alpha);
+  await cardMenuItem(page, "Remove…").click();
   await expect(remove).toBeVisible();
   await remove.getByRole("button", { name: "Cancel" }).click();
   await expect(remove).toBeHidden();
 
-  await headerButton(page, "Remove").click();
+  await openCardMenu(page, alpha);
+  await cardMenuItem(page, "Remove…").click();
   await expect(remove).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(remove).toBeHidden();
 
   // The card is still the live one it was: nothing was sent, so nothing could end it.
-  await expect(headerButton(page, "Stop")).toBeEnabled();
+  await openCardMenu(page, alpha);
+  await expect(cardMenuItem(page, "Stop…")).toBeEnabled();
+  await page.keyboard.press("Escape");
   expect(mutations).toBe(0);
 });
 
@@ -108,7 +117,7 @@ test("ended copy reads 'ended now', never 'ended now ago', on the mainhead and d
   await expect(cap).not.toContainText("now ago");
 });
 
-test("a session with no bound Claude id shows a disabled Resume control with a stated reason, on the mainhead and the dead cap (E7, W3)", async ({
+test("a session with no bound Claude id shows a disabled Resume control with a stated reason on the dead cap, and no Resume or Stop button in the mainhead (E7, W3)", async ({
   page,
   dashboard,
 }) => {
@@ -122,12 +131,10 @@ test("a session with no bound Claude id shows a disabled Resume control with a s
   await focusSession(page, "disabled-e13");
 
   const mainhead = page.locator("#mainhead");
-  const mainheadResume = mainhead.getByRole("button", { name: "Resume", exact: true });
-  await expect(mainheadResume).toBeDisabled({ timeout: 15_000 });
-  await expect(mainheadResume).toHaveAttribute("title", NO_CLAUDE_ID_REASON);
-  // The header's one Stop/Resume button (plan title-crop-stop-resume-button, REQ-5): a dead
-  // session's reads Resume, with no disabled Stop beside it.
-  await expect(mainhead.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
+  // The header holds no Stop, Resume or Remove button (plan remove-unread-right-click-1, REQ-4);
+  // the dead cap's own Resume is the one control left.
+  await expect(mainhead.getByRole("button", { name: "Session actions" })).toBeVisible();
+  await expect(mainhead.getByRole("button", { name: /^(Stop|Resume)$/ })).toHaveCount(0);
 
   const cap = deadCap(page);
   const capResume = cap.getByRole("button", { name: "Resume" });

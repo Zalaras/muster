@@ -1,5 +1,6 @@
 import { expect, settleFor, test } from "./helpers/fixtures";
 import { envelopedSessionStart, rawNotification, rawUserPromptSubmit } from "./helpers/payloads";
+import { cardMenuItem, openCardMenu } from "./helpers/rail-menu";
 import { pinButton, railCard, railOrderIds, railSortSelect } from "./helpers/railorder";
 import {
   envelopeOpts,
@@ -542,7 +543,7 @@ test("clicking a card's pin button pins the session, leaves the live pane unchan
   }
 });
 
-test("a live rail card offers no End button, and the mainhead's End opens the confirm dialog without moving focus into a terminal (REQ-5, REQ-7, INV-3)", async ({
+test("a live rail card offers no Stop button, and Stop… from its menu opens the confirm dialog without moving focus into a terminal (REQ-5, REQ-7, INV-3)", async ({
   page,
   daemon,
 }) => {
@@ -553,8 +554,8 @@ test("a live rail card offers no End button, and the mainhead's End opens the co
     await launchSession(page, daemon, { directory: dirB.path, title: "focus-inv3-end-b" });
     await expect(terminalRegion(page, "focus-inv3-end-a")).toBeVisible();
 
-    const mainhead = page.locator("#mainhead");
-    await mainhead.getByRole("button", { name: "Stop", exact: true }).click();
+    await openCardMenu(page, railCard(page, "focus-inv3-end-a"));
+    await cardMenuItem(page, "Stop…").click();
 
     const dialog = page.getByRole("dialog", { name: "Stop session?" });
     await expect(dialog).toBeVisible();

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Zalaras/muster/internal/store"
 )
 
 // putSessionOrderRequest issues PUT /api/sessions/order with the UI cookie attached.
@@ -292,4 +295,127 @@ func TestSetOrder_StillRefusesABadOrderWhenAGroupIsNamed(t *testing.T) {
 
 	assertErrorResponse(t, rec, 400, "invalid_request", msgOrderBadBody)
 	assert.Equal(t, int64(0), h.sessionGroup(id), "membership is not applied when the order is invalid")
+}
+
+func putSessionUnreadRequest(t *testing.T, srv *testServer, id int64, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/sessions/%d/unread", id), strings.NewReader(body))
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	return rec
+}
+
+func seedUnreadRow(state string, unread bool) func(*store.SessionRow) {
+	return func(r *store.SessionRow) {
+		r.State = state
+		r.Unread = unread
+	}
+}
+
+func TestHandleUnreadSession_RequiresCookie(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	id := seedSessionRow(t, srv, seedUnreadRow("idle", false))
+
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/sessions/%d/unread", id), strings.NewReader(`{"unread":true}`))
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+	row, err := srv.store.GetSession(context.Background(), id)
+	require.NoError(t, err)
+	assert.False(t, row.Unread)
+}
+
+func TestHandleUnreadSession_InvalidBodyIs400(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"not JSON", `not valid json`},
+		{"unread missing", `{}`},
+		{"unread is a string, not a boolean", `{"unread":"true"}`},
+		{"unread is null", `{"unread":null}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestServer(t, ClaudeCodeInfo{})
+			id := seedSessionRow(t, srv, seedUnreadRow("idle", false))
+
+			rec := putSessionUnreadRequest(t, srv, id, tt.body)
+
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
+			assert.Equal(t, "invalid_request", decodeErrorCode(t, rec))
+		})
+	}
+}
+
+func TestHandleUnreadSession_UnknownSessionIs404(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	rec := putSessionUnreadRequest(t, srv, 999999, `{"unread":true}`)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Equal(t, "unknown_session", decodeErrorCode(t, rec))
+}
+
+// TestHandleUnreadSession_Is204AndBroadcastsOnlyAChange crosses the request against
+// idle and working rows: a change persists and broadcasts exactly one sessionUpsert
+// carrying the new flag; every no-op (already in that state, or true on a non-idle
+// session) is a bare 204 with nothing broadcast.
+func TestHandleUnreadSession_Is204AndBroadcastsOnlyAChange(t *testing.T) {
+	tests := []struct {
+		name       string
+		state      string
+		seed       bool
+		body       string
+		wantUnread bool
+		changes    bool
+	}{
+		{"idle read marked unread", "idle", false, `{"unread":true}`, true, true},
+		{"idle unread marked read", "idle", true, `{"unread":false}`, false, true},
+		{"idle unread marked unread again", "idle", true, `{"unread":true}`, true, false},
+		{"idle read marked read again", "idle", false, `{"unread":false}`, false, false},
+		{"working marked unread is a no-op", "working", false, `{"unread":true}`, false, false},
+		{"working marked read is a no-op", "working", false, `{"unread":false}`, false, false},
+		{"needs_input marked unread is a no-op", "needs_input", false, `{"unread":true}`, false, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestServer(t, ClaudeCodeInfo{})
+			id := seedSessionRow(t, srv, seedUnreadRow(tt.state, tt.seed))
+			bystander := seedSessionRow(t, srv, seedUnreadRow("idle", true))
+
+			httpSrv := httptest.NewServer(srv.Handler())
+			t.Cleanup(httpSrv.Close)
+			c, err := dialWS(t, "ws"+httpSrv.URL[len("http"):]+"/ws", nil)
+			require.NoError(t, err)
+			defer func() { _ = c.CloseNow() }()
+			_ = readJSON[helloWire](t, c)
+			_ = readJSON[snapshotWire](t, c)
+
+			rec := putSessionUnreadRequest(t, srv, id, tt.body)
+
+			assert.Equal(t, http.StatusNoContent, rec.Code)
+			assert.Empty(t, rec.Body.Bytes())
+			if tt.changes {
+				var upsert struct {
+					Session struct {
+						ID     int64 `json:"id"`
+						Unread bool  `json:"unread"`
+					} `json:"session"`
+				}
+				require.NoError(t, json.Unmarshal(readUntilType(t, c, "sessionUpsert"), &upsert))
+				assert.Equal(t, id, upsert.Session.ID)
+				assert.Equal(t, tt.wantUnread, upsert.Session.Unread)
+			}
+			assertNoSessionUpsertArrives(t, c)
+			row, err := srv.store.GetSession(context.Background(), id)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantUnread, row.Unread)
+			other, err := srv.store.GetSession(context.Background(), bystander)
+			require.NoError(t, err)
+			assert.True(t, other.Unread, "another session's flag is untouched")
+		})
+	}
 }

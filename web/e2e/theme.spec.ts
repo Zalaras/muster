@@ -306,12 +306,6 @@ test("killing the daemon leaves both theme attributes unchanged while the banner
   await expect.poll(() => htmlTheme(page)).toBe("dark");
 });
 
-// The header holds one Stop/Resume button since plan title-crop-stop-resume-button (REQ-5), so
-// a live session's enabled Stop and a disabled Resume can no longer be on screen together:
-// session A is live (an enabled Stop), session B is dead with no Claude id (a disabled
-// Resume), and the test focuses one and then the other in every theme. The assertion is the
-// original one — the disabled button's computed style differs from the enabled one's — and
-// the header never shows a Stop and a Resume at once.
 test("a scratch Claude config with malformed JSON yields data-claude-family=unknown with no error banner or console error (E15)", async ({
   page,
   startDaemon,

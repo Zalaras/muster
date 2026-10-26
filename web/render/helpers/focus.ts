@@ -1,6 +1,7 @@
 // Locators and layout oracles for the focus feature: the Focus header's give-way order
 // (plan title-crop-stop-resume-button REQ-2), its right-aligned cluster (REQ-4) and the one
-// Stop/Resume button (REQ-5, REQ-6) measured from the live layout; the header's bracketed
+// Session actions ⋯ that replaced its Stop/Resume and Remove buttons (plan
+// remove-unread-right-click-1 REQ-4) measured from the live layout; the header's bracketed
 // effort and the launch-mismatch warning strip (plan effort REQ-5 to REQ-9); the rail
 // card's state word and the Focus-pane marker. Pure DOM — no daemon, no fixture knowledge —
 // so both tiers use it: the render spec here directly, the E2E journeys through
@@ -150,7 +151,7 @@ export async function amberHueBand(): Promise<{ min: number; max: number }> {
   return band;
 }
 
-// --- the Focus header's give-way order, cluster and one Stop/Resume button
+// --- the Focus header's give-way order, cluster and Session actions ⋯ button
 // (web/e2e/helpers/focus-header.ts) ---
 
 export interface Box {
@@ -195,10 +196,8 @@ export interface HeaderSnapshot {
   model: (Box & { scrollWidth: number; clientWidth: number }) | null;
   ended: Box | null;
   surf: Box | null;
-  stopResume: Box | null;
-  /** Labels of every header button reading Stop or Resume — INV-7 wants exactly one. */
-  stopResumeLabels: string[];
-  remove: Box | null;
+  /** The Session actions ⋯ button, last in `.acts`. */
+  more: Box | null;
 }
 
 const EPS = 0.5;
@@ -233,9 +232,6 @@ interface Misc {
   moved: boolean;
   title: { scrollWidth: number; clientWidth: number } | null;
   model: { scrollWidth: number; clientWidth: number } | null;
-  stopResumeLabels: string[];
-  stopResume: Box | null;
-  remove: Box | null;
 }
 
 /** Everything that is not a plain box: viewport, content edge, 8ch floor, clip state, button labels. */
@@ -244,10 +240,6 @@ async function readMisc(page: Page): Promise<Misc | null> {
     const head = document.querySelector<HTMLElement>("#mainhead");
     const loc = document.querySelector<HTMLElement>("#mainhead .meta .loc");
     if (!head || !loc) return null;
-    const rect = (el: Element) => {
-      const b = el.getBoundingClientRect();
-      return { left: b.left, right: b.right, top: b.top, bottom: b.bottom };
-    };
     // `ch` only resolves in `.loc`'s own font: a throwaway absolutely positioned probe.
     const probe = document.createElement("span");
     probe.style.cssText = "position:absolute;visibility:hidden;width:8ch;height:0";
@@ -255,12 +247,6 @@ async function readMisc(page: Page): Promise<Misc | null> {
     const floor = probe.getBoundingClientRect().width;
     probe.remove();
 
-    const text = (b: Element) => b.textContent?.trim() ?? "";
-    const buttons = [...head.querySelectorAll<HTMLButtonElement>("button")].filter(
-      (b) => !b.closest(".surfseg") && b.getClientRects().length > 0,
-    );
-    const stopResume = buttons.filter((b) => /^(Stop|Resume)$/.test(text(b)));
-    const remove = buttons.find((b) => text(b) === "Remove");
     const title = document.querySelector<HTMLElement>("#mainhead .name .rename");
     const model = document.querySelector<HTMLElement>("#mainhead .meta .model");
     const claudeAt = document.querySelector<HTMLElement>("#mainhead .meta .loc .claude-at");
@@ -273,9 +259,6 @@ async function readMisc(page: Page): Promise<Misc | null> {
       moved: !!claudeAt && !claudeAt.hasAttribute("hidden"),
       title: title ? { scrollWidth: title.scrollWidth, clientWidth: title.clientWidth } : null,
       model: model ? { scrollWidth: model.scrollWidth, clientWidth: model.clientWidth } : null,
-      stopResumeLabels: stopResume.map(text),
-      stopResume: stopResume[0] ? rect(stopResume[0]) : null,
-      remove: remove ? rect(remove) : null,
     };
   });
 }
@@ -332,6 +315,7 @@ export async function readHeaderSnapshot(page: Page): Promise<HeaderSnapshot | n
     model: "#mainhead .meta .model",
     ended: "#mainhead .meta .ended-at",
     surf: "#mainhead .surfseg",
+    more: '#mainhead .acts button[aria-label="Session actions"]',
   });
   const lines = await readLines(page, boxes.loc ?? null);
   const head = boxes.head;
@@ -355,15 +339,13 @@ export async function readHeaderSnapshot(page: Page): Promise<HeaderSnapshot | n
     model: boxes.model && misc.model ? { ...boxes.model, ...misc.model } : null,
     ended: boxes.ended ?? null,
     surf: boxes.surf ?? null,
-    stopResume: misc.stopResume,
-    stopResumeLabels: misc.stopResumeLabels,
-    remove: misc.remove,
+    more: boxes.more ?? null,
   };
 }
 
 /** The header is on two rows when its action cluster sits below the title's row. */
 export function onTwoRows(s: HeaderSnapshot): boolean {
-  const cluster = [s.surf, s.stopResume, s.remove].filter((b): b is Box => b !== null);
+  const cluster = [s.surf, s.more].filter((b): b is Box => b !== null);
   if (!s.name || cluster.length === 0) return false;
   return Math.min(...cluster.map((b) => b.top)) >= s.name.bottom - EPS;
 }
@@ -386,8 +368,7 @@ function namedItems(s: HeaderSnapshot): { name: string; box: Box }[] {
     ["model", s.model],
     ["ended clause", s.ended],
     ["surface switch", s.surf],
-    ["Stop/Resume", s.stopResume],
-    ["Remove", s.remove],
+    ["Session actions ⋯", s.more],
   ];
   return candidates.flatMap(([name, box]) => (box ? [{ name, box }] : []));
 }
@@ -407,8 +388,7 @@ function overlapProblems(s: HeaderSnapshot): string[] {
     }
   }
   const missing: [string, Box | null][] = [
-    ["Stop/Resume button", s.stopResume],
-    ["Remove button", s.remove],
+    ["Session actions button", s.more],
     ["surface switch", s.surf],
   ];
   for (const [name, box] of missing) {
@@ -417,12 +397,11 @@ function overlapProblems(s: HeaderSnapshot): string[] {
   return out;
 }
 
-/** REQ-2 (b), REQ-4: the surface switch and the buttons are one cluster, on one row, never split across two. */
+/** REQ-2 (b), REQ-4: the surface switch and the ⋯ are one cluster, on one row, never split across two. */
 function clusterProblems(s: HeaderSnapshot): string[] {
   const parts: [string, Box | null][] = [
     ["surface switch", s.surf],
-    ["Stop/Resume", s.stopResume],
-    ["Remove", s.remove],
+    ["Session actions ⋯", s.more],
   ];
   const centres = parts.flatMap(([name, box]) =>
     box ? [{ name, y: (box.top + box.bottom) / 2, h: box.bottom - box.top }] : [],
@@ -682,13 +661,14 @@ export async function sweepHeader(
   }
 }
 
-/** Every header button reading Stop or Resume, scoped to the Focus header (the dead surface's cap has its own Resume). */
-export function headerStopResume(page: Page): Locator {
-  return page.locator("#mainhead").getByRole("button", { name: /^(Stop|Resume)$/ });
+/** The Focus header's one Session actions ⋯ button. */
+export function headerMore(page: Page): Locator {
+  return page.locator("#mainhead .acts").getByRole("button", { name: "Session actions" });
 }
 
-export function headerButton(page: Page, name: "Stop" | "Resume" | "Remove"): Locator {
-  return page.locator("#mainhead").getByRole("button", { name, exact: true });
+/** Every header button named Stop, Resume or Remove — the header holds none (REQ-4). */
+export function headerLifecycleButtons(page: Page): Locator {
+  return page.locator("#mainhead").getByRole("button", { name: /^(Stop|Resume|Remove)$/ });
 }
 
 export interface Rect {
@@ -738,20 +718,19 @@ export async function focusedNode(
 }
 
 // ---------------------------------------------------------------------------------------
-// INV-6 across the swap: what a Stop or a Resume must leave exactly where it was (REQ-6)
+// INV-6 across a Stop: what the header's cluster must leave exactly where it was (REQ-6)
 // ---------------------------------------------------------------------------------------
 
 /** The boxes a Stop or a Resume must not move: the cluster's own and the header's. */
 interface ClusterBoxes {
   head: Box;
   surf: Box | null;
-  stopResume: Box;
-  remove: Box;
+  more: Box;
 }
 
 function clusterOf(s: HeaderSnapshot): ClusterBoxes | null {
-  if (!s.stopResume || !s.remove) return null;
-  return { head: s.head, surf: s.surf, stopResume: s.stopResume, remove: s.remove };
+  if (!s.more) return null;
+  return { head: s.head, surf: s.surf, more: s.more };
 }
 
 const sameBoxes = (a: Box, b: Box) =>
@@ -764,17 +743,16 @@ const boxText = (b: Box) =>
   `x ${b.left.toFixed(1)}-${b.right.toFixed(1)} y ${b.top.toFixed(1)}-${b.bottom.toFixed(1)}`;
 
 /**
- * INV-6: Remove, the Stop/Resume button, the surface switch and the header itself are the same
+ * INV-6: the Session actions ⋯, the surface switch and the header itself are the same
  * boxes in `after` as in `before` (the same session at the same width, alive then dead or the
  * other way round). An empty list is "nothing moved".
  */
 export function clusterShiftProblems(before: HeaderSnapshot, after: HeaderSnapshot): string[] {
   const a = clusterOf(before);
   const b = clusterOf(after);
-  if (!a || !b) return ["INV-6: the Stop/Resume button or Remove is not laid out in the header"];
+  if (!a || !b) return ["INV-6: the Session actions ⋯ is not laid out in the header"];
   const parts: [string, Box | null, Box | null][] = [
-    ["Remove", a.remove, b.remove],
-    ["Stop/Resume", a.stopResume, b.stopResume],
+    ["Session actions ⋯", a.more, b.more],
     ["surface switch", a.surf, b.surf],
     ["header", a.head, b.head],
   ];

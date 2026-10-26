@@ -1,0 +1,11 @@
+{
+ "status": "completed",
+ "subject": "feat(rail): mark read/unread, Remove live sessions, Focus header ⋯, clean note hover (closes #103, closes #104, closes #106)",
+ "closes": [
+  103,
+  104,
+  106
+ ],
+ "error": null,
+ "question": null
+}

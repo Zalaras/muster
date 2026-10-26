@@ -14,12 +14,12 @@ export type NoteKind = "attention" | "failure" | "trust" | "no-signal" | "none";
 
 export type CardAction = "Stop" | "Resume" | "Remove";
 
-/** The action a card/mainhead/tile dispatches when its Stop/Resume/Remove/pin control
- * fires — `features/actions.ts`'s dispatcher owns what each one actually does (open a
+/** The action a card menu/tile/dead-surface cap dispatches when its Stop/Resume/Remove/pin/mark
+ * control fires — `features/actions.ts`'s dispatcher owns what each one actually does (open a
  * confirm dialog, or call Resume/pin directly). One vocabulary for every surface that
  * offers these controls, so a dispatcher never has to translate between a render-side
  * label and its own action names. */
-export type SessionAction = "end" | "resume" | "remove" | "pin";
+export type SessionAction = "end" | "resume" | "remove" | "pin" | "markRead" | "markUnread";
 
 export const ACTION_BY_LABEL = {
   Stop: "end",
@@ -115,15 +115,12 @@ export function bypassChip(session: Session): boolean {
 }
 
 /** Whether a Resume control should be enabled for this `claudeSessionId` — the one place
- * that rule is written, shared by every rail/mainhead/tile/dead-surface Resume button
+ * that rule is written, shared by every rail/tile/dead-surface Resume control
  * (combined with `connected` where the caller has that too). */
 export function canResume(claudeSessionId: string | null): boolean {
   return claudeSessionId !== null;
 }
 
-/** Whether a Stop/Resume/Remove control is enabled: every action needs the connection,
- * and Resume also needs `canResume`. The one rule every rail, tile, mainhead and
- * dead-surface button reads, so no surface re-derives it. */
 export function actionEnabled(
   label: CardAction,
   claudeSessionId: string | null,
@@ -132,8 +129,8 @@ export function actionEnabled(
   return connected && (label !== "Resume" || canResume(claudeSessionId));
 }
 
-/** Why a Resume control is disabled, shared with render/mainhead.ts and render/dead.ts
- * (their `title`/`aria-description`) so the two surfaces never drift into different
+/** Why a Resume control is disabled, shared with render/dead.ts
+ * (its `title`) so surfaces never drift into different
  * wording for the same `409 not_resumable` cause. `null` when there is no reason to give
  * (session is alive, or `claudeSessionId` is bound) — callers clear the attribute in that
  * case rather than writing an empty string over it. */
@@ -141,27 +138,6 @@ export function resumeDisabledReason(session: Pick<Session, "claudeSessionId">):
   if (!canResume(session.claudeSessionId))
     return "Can't resume — this session never started a Claude conversation.";
   return null;
-}
-
-export interface StopResumeButton {
-  label: Extract<CardAction, "Stop" | "Resume">;
-  action: Extract<SessionAction, "end" | "resume">;
-  disabled: boolean;
-  reason: string | null;
-}
-
-export function stopResumeButton(
-  session: Pick<Session, "alive" | "claudeSessionId">,
-  connected: boolean,
-): StopResumeButton {
-  if (session.alive)
-    return { label: "Stop", action: ACTION_BY_LABEL.Stop, disabled: !connected, reason: null };
-  return {
-    label: "Resume",
-    action: ACTION_BY_LABEL.Resume,
-    disabled: !actionEnabled("Resume", session.claudeSessionId, connected),
-    reason: resumeDisabledReason(session),
-  };
 }
 
 // ux-flows §1.4: "a session that has emitted no SessionStart within ~10s shows

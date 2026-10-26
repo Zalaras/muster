@@ -36,7 +36,7 @@ test("pressing Escape cancels an edit with the title unchanged and no PUT …/ti
   expect(titlePuts).toBe(0);
 });
 
-test("a 300-character unbroken mainhead title ellipsises in place and never pushes End, Resume or Remove out of view at 900px and 1400px", async ({
+test("a 300-character unbroken mainhead title ellipsises in place and never pushes the Session actions button out of view at 900px and 1400px", async ({
   page,
   dashboard,
 }) => {
@@ -63,11 +63,11 @@ test("a 300-character unbroken mainhead title ellipsises in place and never push
           Number.parseFloat(getComputedStyle(mainhead).paddingRight),
         viewportWidth: document.documentElement.clientWidth,
         // Every action button, the surface switch's segments left out: the header has one
-        // Stop/Resume button and Remove since plan title-crop-stop-resume-button (REQ-5).
+        // Session actions button since plan remove-unread-right-click-1 (REQ-4).
         buttons: [...acts.querySelectorAll<HTMLElement>("button")]
           .filter((button) => !button.closest(".surfseg"))
           .map((button) => ({
-            label: button.textContent?.trim() ?? "?",
+            label: button.getAttribute("aria-label") ?? "?",
             right: button.getBoundingClientRect().right,
           })),
         renameScrollWidth: rename.scrollWidth,
@@ -81,7 +81,7 @@ test("a 300-character unbroken mainhead title ellipsises in place and never push
     expect(
       layout.buttons.map((button) => button.label),
       `the header's action buttons at ${width}px`,
-    ).toEqual(["Stop", "Remove"]);
+    ).toEqual(["Session actions"]);
     for (const { label, right } of layout.buttons) {
       expect(right, `${label} button is in view at ${width}px`).toBeLessThanOrEqual(
         layout.viewportWidth,

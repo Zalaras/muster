@@ -7,6 +7,7 @@ import {
   rawUserPromptSubmit,
   runningShellTask,
 } from "./helpers/payloads";
+import { cardMenu, cardMenuItem, openCardMenu } from "./helpers/rail-menu";
 import { pinButton } from "./helpers/railorder";
 import {
   currentRailCard,
@@ -39,20 +40,18 @@ import { cardContextRow } from "./helpers/gauges";
 // `N background task(s)` line. E5-E7 and E9 join the file-shared daemon (each test titles
 // its own session); E8 needs Tiles, whose view pref is daemon-global, so it takes the
 // per-test `daemon` fixture. The keyboard and focus tests that used to press End on a
-// rail card now press the mainhead's End, or a control a live card still has (Pin), or the
-// Remove an ended card still offers. Those assert new behaviour and were collection-only
-// at authoring.
+// rail card now press the header's Session actions ⋯ (the Stop button it replaced is gone),
+// or a control a live card still has (Pin). Those assert new behaviour and were
+// collection-only at authoring.
 
 const sharedDaemon = fileDaemon();
 
-// review m4-reconcile fix-cycle-1 Major 5: action buttons nested in a card whose own
-// `keydown` listener used to run `event.preventDefault()` for every bubbled key, cancelling
-// the button's own Enter/Space activation — the fix guards that listener with
-// `event.target !== card`. Plan status-inconsistencies removed End from a live card, so the
-// keyboard round-trip runs on the mainhead's End here, and on the nested Remove an ended
-// card still offers in the test after the next. Focus and a separate real key, never
-// `locator.press()`, which bundles the two.
-test("the mainhead's End button activates via keyboard Enter and Space, not just a mouse click (REQ-7, REQ-11, Major 5)", async ({
+// A button nested in or beside a card must activate on Enter and Space: the card's own
+// `keydown` listener acts only when the card itself is the target. A live card has no button
+// of its own, so the keyboard round-trip runs on the header's Session actions ⋯ and on the
+// menu item it opens. Focus and a separate real key, never `locator.press()`, which bundles
+// the two.
+test("the header's Session actions ⋯ opens its menu via keyboard Enter and Space, not just a mouse click, and Stop… in it stops the session (REQ-7, REQ-11)", async ({
   page,
   request,
 }) => {
@@ -73,19 +72,21 @@ test("the mainhead's End button activates via keyboard Enter and Space, not just
     await card.click();
     const mainhead = page.locator("#mainhead");
     await expect(mainhead).toContainText("kbd-mainhead-end");
-    const endBtn = mainhead.getByRole("button", { name: "Stop", exact: true });
+    const more = mainhead.getByRole("button", { name: "Session actions" });
     const dialog = page.getByRole("dialog", { name: "Stop session?" });
 
-    await endBtn.focus();
-    await expect(endBtn).toBeFocused();
+    await more.focus();
+    await expect(more).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
+    await expect(cardMenu(page)).toHaveAccessibleName("Actions for kbd-mainhead-end");
+    await page.keyboard.press("Escape");
+    await expect(cardMenu(page)).toHaveCount(0);
 
-    await endBtn.focus();
-    await expect(endBtn).toBeFocused();
+    await more.focus();
+    await expect(more).toBeFocused();
     await page.keyboard.press("Space");
+    await expect(cardMenu(page)).toHaveAccessibleName("Actions for kbd-mainhead-end");
+    await cardMenuItem(page, "Stop…").click();
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Stop session" }).click();
     await expect(dialog).toBeHidden();
@@ -93,7 +94,7 @@ test("the mainhead's End button activates via keyboard Enter and Space, not just
 
     const state = await getState(page, sharedDaemon());
     expect(findSession(state, session.id).alive).toBe(false);
-    // INV-D: the card never offered the button the keys were pressed on.
+    // INV-D: the card never offered a button the keys could have been pressed on.
     await expect(card.getByRole("button", { name: "Stop" })).toHaveCount(0);
   } finally {
     await cleanup();
@@ -275,10 +276,10 @@ test("a live rail card has no End button, on hover and while current (E7, REQ-7,
   }
 });
 
-// E9 (REQ-7): ending from the mainhead still works and leaves an ended card whose menu (plan
+// E9 (REQ-7): stopping from the card menu leaves an ended card whose menu (plan
 // rail-card-organise REQ-2: the card has no buttons) offers Resume then Remove…; with a second
-// live session, only the focused one ends.
-test("ending from the mainhead ends only that session, and its card's menu then offers Resume and Remove… in that order (E9, REQ-7)", async ({
+// live session, only the stopped one ends.
+test("stopping from the card menu ends only that session, and its card's menu then offers Resume and Remove… in that order (E9, REQ-7)", async ({
   page,
   request,
 }) => {
@@ -306,7 +307,8 @@ test("ending from the mainhead ends only that session, and its card's menu then 
     await cardA.click();
     const mainhead = page.locator("#mainhead");
     await expect(mainhead).toContainText("end-e9-a");
-    await mainhead.getByRole("button", { name: "Stop", exact: true }).click();
+    await openCardMenu(page, cardA);
+    await cardMenuItem(page, "Stop…").click();
     const dialog = page.getByRole("dialog", { name: "Stop session?" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Stop session" }).click();

@@ -377,22 +377,19 @@ async function assertFocusHeaderFits(
   }
   // Not a pixel breakpoint: a window too narrow for one row gets a second one, so the
   // header grows rather than a control leaving the screen.
-  // The header holds one Stop/Resume button (plan title-crop-stop-resume-button, REQ-5):
-  // the label that matches `alive`, never both.
-  const [shown, absent] = state === "ended" ? ["Resume", "Stop"] : ["Stop", "Resume"];
-  for (const action of [shown ?? "Stop", "Remove"]) {
-    await expect(
-      page.locator("#mainhead").getByRole("button", { name: action, exact: true }),
-    ).toBeInViewport({ ratio: 1 });
-  }
+  // The header holds one Session actions ⋯ button and no Stop, Resume or Remove
+  // (plan remove-unread-right-click-1, REQ-4), whatever the session's state.
   await expect(
-    page.locator("#mainhead").getByRole("button", { name: absent ?? "Resume", exact: true }),
+    page.locator("#mainhead").getByRole("button", { name: "Session actions", exact: true }),
+  ).toBeInViewport({ ratio: 1 });
+  await expect(
+    page.locator("#mainhead").getByRole("button", { name: /^(Stop|Resume|Remove)$/ }),
   ).toHaveCount(0);
 }
 
 for (const width of [1280, 1024, 960, 900, 800, 700]) {
   for (const state of ["unmoved", "moved", "ended"] as const) {
-    test(`at ${width}px the Focus header of a session that is ${state}, with 60-character folder and 80-character branch names never clips the model, keeps every name block whole and keeps End, Resume and Remove on screen (REQ-13)`, async ({
+    test(`at ${width}px the Focus header of a session that is ${state}, with 60-character folder and 80-character branch names never clips the model, keeps every name block whole and keeps the Session actions button on screen (REQ-13, REQ-4)`, async ({
       page,
       dashboard,
     }) => {

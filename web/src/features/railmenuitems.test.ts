@@ -1,13 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { CARD_MENU_LABELS, cardMenuItems, selectionMenuItems } from "./railmenuitems";
+import {
+  CARD_MENU_LABELS,
+  type CardMenuAction,
+  cardMenuItems,
+  selectionMenuItems,
+} from "./railmenuitems";
 
 const UP = { connected: true, busy: false };
 
+const markRows = (items: { marks: CardMenuAction[] }) =>
+  items.marks.map((m) => [m.label, m.danger, m.disabled]);
+
 describe("cardMenuItems (REQ-2, REQ-3, REQ-10, W5)", () => {
-  it("a live session offers only Stop…", () => {
+  it("a live session offers Stop… then Remove…, Remove danger", () => {
     const items = cardMenuItems({ alive: true, claudeSessionId: "c", pinned: false }, UP);
-    expect(items.actions.map((a) => a.label)).toEqual(["Stop…"]);
-    expect(items.actions[0]?.action).toBe("end");
+    expect(items.actions.map((a) => [a.label, a.action, a.danger])).toEqual([
+      ["Stop…", "end", false],
+      ["Remove…", "remove", true],
+    ]);
+  });
+
+  it.each([
+    ["live", { alive: true, claudeSessionId: "c", pinned: false }],
+    ["ended resumable", { alive: false, claudeSessionId: "c", pinned: true }],
+    ["ended unbound", { alive: false, claudeSessionId: null, pinned: false }],
+  ])("a %s card offers Mark as read and Mark as unread, non-danger and enabled", (_n, session) => {
+    expect(markRows(cardMenuItems(session, UP))).toEqual([
+      ["Mark as read", false, false],
+      ["Mark as unread", false, false],
+    ]);
+  });
+
+  it.each([
+    ["disconnected", { connected: false, busy: false }],
+    ["in flight", { connected: true, busy: true }],
+  ])("the mark entries are disabled while %s", (_n, state) => {
+    const rows = markRows(
+      cardMenuItems({ alive: true, claudeSessionId: null, pinned: false }, state),
+    );
+    expect(rows).toEqual([
+      ["Mark as read", false, true],
+      ["Mark as unread", false, true],
+    ]);
   });
 
   it("an ended resumable session offers Resume then Remove…, Remove danger", () => {
@@ -21,6 +55,27 @@ describe("cardMenuItems (REQ-2, REQ-3, REQ-10, W5)", () => {
   it("an ended session without a Claude session id has no Resume at all", () => {
     const items = cardMenuItems({ alive: false, claudeSessionId: null, pinned: false }, UP);
     expect(items.actions.map((a) => a.label)).toEqual(["Remove…"]);
+  });
+
+  // The primary Stop/Resume entry for every {alive, claudeSessionId, connected} cell
+  // (kb:adr/actions-mainhead-one-stop-resume-button); an ended unbound session has none.
+  it.each([
+    [true, "c", true, ["Stop…", "end", false]],
+    [true, "c", false, ["Stop…", "end", true]],
+    [true, null, true, ["Stop…", "end", false]],
+    [true, null, false, ["Stop…", "end", true]],
+    [false, "c", true, ["Resume", "resume", false]],
+    [false, "c", false, ["Resume", "resume", true]],
+    [false, null, true, undefined],
+    [false, null, false, undefined],
+  ])("alive=%s claudeSessionId=%s connected=%s -> primary %j", (alive, id, connected, want) => {
+    const items = cardMenuItems(
+      { alive, claudeSessionId: id, pinned: false },
+      { connected, busy: false },
+    );
+    const first = items.actions.find((a) => a.action !== "remove");
+    const primary = first && [first.label, first.action, first.disabled];
+    expect(primary).toEqual(want);
   });
 
   it.each([
@@ -56,11 +111,27 @@ const ENDED = { alive: false };
 
 describe("selectionMenuItems (REQ-3, W1)", () => {
   it.each([
-    ["all live", [LIVE, LIVE], ["Stop…"]],
+    ["all live", [LIVE, LIVE], ["Stop…", "Remove…"]],
     ["all ended", [ENDED, ENDED], ["Remove…"]],
     ["mixed", [LIVE, ENDED], ["Stop…", "Remove…"]],
   ])("%s shows %j", (_name, sessions, labels) => {
     expect(selectionMenuItems(sessions, UP).actions.map((a) => a.label)).toEqual(labels);
+  });
+
+  it.each([
+    ["all live", [LIVE, LIVE]],
+    ["all ended", [ENDED]],
+    ["mixed", [LIVE, ENDED]],
+  ])("%s still shows Mark as read and Mark as unread, enabled", (_n, sessions) => {
+    expect(markRows(selectionMenuItems(sessions, UP))).toEqual([
+      ["Mark as read", false, false],
+      ["Mark as unread", false, false],
+    ]);
+  });
+
+  it("the mark entries are disabled while disconnected", () => {
+    const rows = markRows(selectionMenuItems([LIVE], { connected: false, busy: false }));
+    expect(rows.map((r) => r[2])).toEqual([true, true]);
   });
 
   it("never offers Resume or Pin", () => {

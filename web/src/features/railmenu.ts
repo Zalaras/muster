@@ -60,22 +60,24 @@ export function initRailMenu(app: App, deps: RailMenuDeps): RailMenuHandle {
         disabled: items.pin.disabled,
         onSelect: () => deps.actions.dispatch("pin", session.id),
       },
+      { kind: "separator" },
+      ...actionEntries(items.marks, (action) => deps.actions.dispatch(action, session.id)),
     ];
   }
 
-  function openCard({ id, card, at }: CardMenuRequest, session: Session): void {
+  function openCard({ id, opener, at }: CardMenuRequest, session: Session): void {
     const items = cardMenuItems(session, {
       connected: connected(),
       busy: deps.actions.inFlight(id),
     });
     openFor = [id];
-    menu.open(card, cardEntries(session, items), {
+    menu.open(opener, cardEntries(session, items), {
       at,
       label: `Actions for ${displayTitle(session)}`,
     });
   }
 
-  function openSelection({ card, at }: CardMenuRequest, sessions: readonly Session[]): void {
+  function openSelection({ opener, at }: CardMenuRequest, sessions: readonly Session[]): void {
     const ids = sessions.map((s) => s.id);
     const items = selectionMenuItems(sessions, {
       connected: connected(),
@@ -85,13 +87,16 @@ export function initRailMenu(app: App, deps: RailMenuDeps): RailMenuHandle {
     const many = (action: SessionAction): void => {
       if (action === "end" || action === "remove")
         deps.actions.dispatchMany(action, ids, "selection");
+      else for (const id of ids) deps.actions.dispatch(action, id);
     };
     menu.open(
-      card,
+      opener,
       [
         ...actionEntries(items.actions, many),
         { kind: "separator" },
         ...deps.groups.moveToEntries(sessions, items.moveDisabled),
+        { kind: "separator" },
+        ...actionEntries(items.marks, many),
       ],
       { at, label: items.label },
     );

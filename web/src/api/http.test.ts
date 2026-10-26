@@ -15,6 +15,7 @@ import {
   removeSession,
   removeSessions,
   resumeSession,
+  setSessionUnread,
 } from "./sessions";
 import { captureIssueSnapshot, fileIssue } from "./issue";
 import { locateDroppedFile } from "./terminal";
@@ -67,6 +68,7 @@ describe("http — network_error short-circuit on a rejected fetch (REQ-13, plan
     ["createShell", () => createShell(1)],
     ["fetchPane", () => fetchPane(1)],
     ["pinSession", () => pinSession(1, true)],
+    ["setSessionUnread", () => setSessionUnread(1, true)],
     ["putSessionOrder", () => putSessionOrder([1, 2, 3], 1)],
     ["putSessionOrder (with a group)", () => putSessionOrder([1, 2, 3], 1, 3)],
     ["putSessionsGroup", () => putSessionsGroup([1, 2], 3)],

@@ -1,0 +1,298 @@
+{
+  "plan": "remove-unread-right-click-1",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-10-26T15:51:02Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 5,
+        "keep": 4,
+        "drop": 1
+      },
+      "keeps": [
+        {
+          "key": "web/src/features/actions.ts:92197f8c8fb80e10",
+          "path": "web/src/features/actions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { App } from \"../app\";",
+            "line": 1
+          },
+          "lines": [
+            "// Stop/Resume/Remove/Pin/Mark dispatcher, their confirm dialogs, and the dead-pane snapshot",
+            "// cache (kb:adr/process-one-name-per-feature: \"actions\"). Every card menu (rail, strip, the Focus",
+            "// header ⋯), tile footer and dead-surface cap routes through `dispatch`. This module",
+            "// carries no dead-surface API of its own — `features/focus.ts` and `features/tiles.ts`",
+            "// each hand `surfaces.select` their own `deadSurfaceRefsFor` lookup directly, since each",
+            "// is the only one that knows what a dead surface looks like in its own view."
+          ],
+          "reason": "Edited on `main`; still true: `dispatch` handles end/remove/pin/markRead/markUnread/resume and `loadPane`/`ensurePaneFetch` own the dead-pane cache, as the header says."
+        },
+        {
+          "key": "web/src/render/mainhead.ts:0dd4eee3bd135f06",
+          "path": "web/src/render/mainhead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function renderMainhead(",
+            "line": 114
+          },
+          "lines": [
+            "/** `session` is the currently-focused one, or `null` when nothing is focused (no",
+            "* sessions at all) — hidden in that case. `connected`",
+            "* gates every button while the WS is down (States: \"action buttons are disabled while",
+            "* the WS is down\").",
+            "*",
+            "* `surfaceState` is the currently-focused session's",
+            "* surface-switch state (features/surfaces.ts's `surfaceSwitchState`, or the default when there is no",
+            "* focused session) — updated every pass regardless of the `!session` branch below, since",
+            "* `updateSurfaceSegment` only ever writes attributes and is harmless while `root` is",
+            "* hidden. `activity` is that same session's `shell` segment",
+            "* busy/done verdict (`features/surfaces.ts`'s `activityFor`). */"
+          ],
+          "reason": "Edited on `main`; still true: `renderMainhead` hides `elements.root` when `!session` and gates `renameBtn`/`groupBtn` on `connected`."
+        },
+        {
+          "key": "web/src/render/rename.ts:8e1290964b3b706d",
+          "path": "web/src/render/rename.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "setEnabled: (enabled: boolean) =\u003e void;",
+            "line": 37
+          },
+          "lines": [
+            "/** Mirrors the mainhead's group control: the trigger is disabled while",
+            "* the WS is down. Safe to call whether or not the button is currently mounted. */"
+          ],
+          "reason": "Edited on `main`; still true: `setEnabled: (enabled: boolean) =\u003e void` toggles `button.disabled`, mirroring the mainhead's `elements.groupBtn.disabled = !connected`."
+        },
+        {
+          "key": "web/src/sessions/card.ts:b6da32f9d44acbc4",
+          "path": "web/src/sessions/card.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export type SessionAction = \"end\" | \"resume\" | \"remove\" | \"pin\" | \"markRead\" | \"markUnread\";",
+            "line": 17
+          },
+          "lines": [
+            "/** The action a card menu/tile/dead-surface cap dispatches when its Stop/Resume/Remove/pin/mark",
+            "* control fires — `features/actions.ts`'s dispatcher owns what each one actually does (open a",
+            "* confirm dialog, or call Resume/pin directly). One vocabulary for every surface that",
+            "* offers these controls, so a dispatcher never has to translate between a render-side",
+            "* label and its own action names. */"
+          ],
+          "reason": "Edited on `main`; still true: `SessionAction` includes `markRead`/`markUnread` and `features/actions.ts`'s `dispatch` owns what each does."
+        }
+      ],
+      "drops": [
+        {
+          "key": "web/src/features/focus.ts:8c68ac04ef10177d",
+          "path": "web/src/features/focus.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "railMenu: { open(request: CardMenuRequest): void };",
+            "line": 74
+          },
+          "lines": [
+            "/** `railMenu` is constructed before `focus` (main.ts's init order), so this is a real value:",
+            "* the header's Session actions ⋯ opens the focused card's own menu through it, anchored to",
+            "* the button. */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-10-26T16:35:14Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 3,
+        "keep": 2,
+        "drop": 1
+      },
+      "keeps": [
+        {
+          "key": "web/src/sessions/card.ts:46f33c318cf49dd0",
+          "path": "web/src/sessions/card.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function canResume(claudeSessionId: string | null): boolean {",
+            "line": 117
+          },
+          "lines": [
+            "/** Whether a Resume control should be enabled for this `claudeSessionId` — the one place",
+            "* that rule is written, shared by every rail/tile/dead-surface Resume control",
+            "* (combined with `connected` where the caller has that too). */"
+          ],
+          "reason": "Edited on `main`; still true: `canResume` returns `claudeSessionId !== null`, the one rule that `actionEnabled` and the Resume controls share."
+        },
+        {
+          "key": "web/src/sessions/card.ts:b350b7f989682727",
+          "path": "web/src/sessions/card.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function resumeDisabledReason(session: Pick\u003cSession, \"claudeSessionId\"\u003e): string | null {",
+            "line": 129
+          },
+          "lines": [
+            "/** Why a Resume control is disabled, shared with render/dead.ts",
+            "* (its `title`) so surfaces never drift into different",
+            "* wording for the same `409 not_resumable` cause. `null` when there is no reason to give",
+            "* (session is alive, or `claudeSessionId` is bound) — callers clear the attribute in that",
+            "* case rather than writing an empty string over it. */"
+          ],
+          "reason": "Edited on `main`; still true: `resumeDisabledReason` returns null when `canResume` holds and the never-started message otherwise, and the comment's wording-sharing claim is not contradicted."
+        }
+      ],
+      "drops": [
+        {
+          "key": "web/src/sessions/card.ts:791e13413429c466",
+          "path": "web/src/sessions/card.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function actionEnabled(",
+            "line": 121
+          },
+          "lines": [
+            "/** Whether a Stop/Resume/Remove control is enabled: every action needs the connection,",
+            "* and Resume also needs `canResume`. The one rule every rail, tile and",
+            "* dead-surface control reads, so no surface re-derives it. */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 3,
+      "at": "2026-10-26T17:36:18Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 6,
+        "keep": 6,
+        "drop": 0
+      },
+      "keeps": [
+        {
+          "key": "internal/server/rail.go:a2a5ee244a5da568",
+          "path": "internal/server/rail.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type unreadSessionRequest struct {",
+            "line": 67
+          },
+          "lines": [
+            "// unreadSessionRequest is PUT /api/sessions/{id}/unread's request body (kb:anchor/sessions.unread)."
+          ],
+          "reason": "Orchestrator override: internal/server/CLAUDE.md requires each route type/handler to cite its protocol anchor, as the pin sibling does."
+        },
+        {
+          "key": "internal/server/rail.go:cfc998c818a356a1",
+          "path": "internal/server/rail.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *railFeature) handleUnreadSession(w http.ResponseWriter, r *http.Request) {",
+            "line": 71
+          },
+          "lines": [
+            "// handleUnreadSession is PUT /api/sessions/{id}/unread (kb:anchor/sessions.unread)."
+          ],
+          "reason": "Orchestrator override: internal/server/CLAUDE.md requires each route handler to cite its protocol anchor, as the pin sibling does."
+        },
+        {
+          "key": "internal/session/manager_rail.go:7c2aaa8578abec83",
+          "path": "internal/session/manager_rail.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) MarkSeen(ctx context.Context, id int64) error {",
+            "line": 162
+          },
+          "lines": [
+            "// MarkSeen clears id's Unread flag (kb:adr/rail-unread-inferred-from-live-terminal-client):",
+            "// the attach side effect on either terminal surface, called before the first byte is",
+            "// forwarded. Persists and broadcasts one sessionUpsert only when Unread was actually",
+            "// true — an already-read session's attach neither writes nor broadcasts. Returns",
+            "// ErrUnknownSession for a missing id. Lives here, not beside SetTitle: Unread is a rail",
+            "// concept — set by Apply's turn_closed handling (apply.go), set or cleared by SetUnread,",
+            "// read by the rail's own unread badge — not a title one. The clear is SetUnread(false);",
+            "// MarkSeen holds no logic of its own."
+          ],
+          "reason": "Edited on `main`; still true: `return m.SetUnread(ctx, id, false)` holds no logic of its own, as the comment says."
+        },
+        {
+          "key": "internal/session/manager_rail.go:e7f5019de20db25c",
+          "path": "internal/session/manager_rail.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) SetUnread(ctx context.Context, id int64, unread bool) error {",
+            "line": 166
+          },
+          "lines": [
+            "// SetUnread sets or clears id's Unread flag at the developer's request",
+            "// (kb:anchor/sessions.unread) and is what MarkSeen clears through. A request to set the",
+            "// flag on a non-idle session is treated as a clear, keeping Unread implies idle where no",
+            "// transition runs setState. Persists and broadcasts one sessionUpsert only when the flag",
+            "// changes; ErrUnknownSession for a missing id."
+          ],
+          "reason": "Without it a reader would delete the `if unread \u0026\u0026 sess.State != StateIdle { unread = false }` clamp as redundant; that breaks the Unread-implies-idle invariant, since no setState transition runs on this path."
+        },
+        {
+          "key": "internal/session/session.go:11a52c8b81c68798",
+          "path": "internal/session/session.go",
+          "anchor": {
+            "kind": "above",
+            "text": "Unread bool",
+            "line": 168
+          },
+          "lines": [
+            "// Unread (kb:adr/rail-unread-inferred-from-live-terminal-client): true iff the turn",
+            "// closed with no terminal client attached to this session, since cleared, or the",
+            "// developer's own mark. Written by Manager.Apply (set after a turn_closed input per",
+            "// the watcher's answer) and by Manager.SetUnread (the developer's request, set or",
+            "// clear; MarkSeen, the attach on either surface, clears through it). The invariant",
+            "// Unread implies State == idle is kept in two places: setState for a transition,",
+            "// SetUnread for a request that causes none (it refuses to set the flag on a",
+            "// non-idle session). Display-only, independent of Alive, survives a restart."
+          ],
+          "reason": "Orchestrator override: rewrite of a field doc that exists on main (misclassified as added); docs/conventions.md 'Shared state names its writers and its guard' and review cycle 2 maintainability Minor 1 require it."
+        },
+        {
+          "key": "internal/session/writeorder.go:63a4b85231f757ef",
+          "path": "internal/session/writeorder.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) persistWholeRowLocked(ctx context.Context, id int64, sess, prev, post *Session, broadcast bool) (*Session, error) {",
+            "line": 72
+          },
+          "lines": [
+            "// persistWholeRowLocked is the shared tail every whole-row setter (SetTitle, SetUnread,",
+            "// SetTranscript, SetPlan, MarkPlanWritten, ApplyPlanScan, RecordLaunch, RecordResume,",
+            "// markEnded, RepairOwnedSession, reviveOwnedSession, ApplyStatus) calls once its mutation",
+            "// is done, in place of hand-writing finishWrite's row/ticket/persist/restore wiring itself.",
+            "// Called with m.mu still held — sess already mutated, prev its pre-mutation clone, post",
+            "// its clone taken immediately after, in the same locked section — it draws sess's write",
+            "// ticket, releases the lock, and runs the write through finishWrite.",
+            "//",
+            "// persist rebuilds the row (and, if broadcast, the snapshot to send) from cur's *live*",
+            "// state only when finishWrite actually calls it — i.e. at this write's own turn, after any",
+            "// earlier write queued on the same id has already resolved, success or restored failure —",
+            "// rather than freezing either one now. A row frozen at mutation time could otherwise bake",
+            "// in a different write's mutation before that write is even known to succeed: this",
+            "// session's Unread and a concurrent status update's Model can both land on the same",
+            "// in-memory Session between one write's mutation and its turn, and if the frozen row was",
+            "// built in between, a later write's own frozen row would carry the first write's field",
+            "// even after it fails and rolls back. Building the row from cur only at persist time means",
+            "// it always reflects every earlier write's real, finished outcome. restore must revert",
+            "// only the field(s) this write itself changed (restoreChangedFields, built from the",
+            "// prev/post pair) — never the whole struct, which would erase a field a write queued",
+            "// behind this one has already moved on to.",
+            "//",
+            "// Returns the session as it stood right after a successful persist (nil on failure or on",
+            "// an id removed out from under this write, e.g. by a Remove queued ahead of it in the same",
+            "// turnstile — persist declines to resurrect a row that's gone)."
+          ],
+          "reason": "Edited on `main`; still true: `persistWholeRowLocked` draws the ticket, unlocks and runs finishWrite, and SetUnread calls it."
+        }
+      ],
+      "drops": null
+    }
+  ]
+}

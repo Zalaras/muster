@@ -900,8 +900,7 @@ body {
 
 /* The ended clause sits under the model, on the second line of the readout's own height, so
  * showing it adds no height and (its slot being `--ended-w` wide, shown or not) no width: a Stop
- * or a Resume changes neither the meta's size nor the row the cluster wraps on, at any width
- * (kb:adr/actions-mainhead-one-stop-resume-button). While it is hidden its slot stays
+ * or a Resume changes neither the meta's size nor the row the cluster wraps on, at any width. While it is hidden its slot stays
  * (`visibility: hidden`), and the model, then centred on both lines, moves up to the first. */
 .mainhead .meta .ended-at {
   grid-area: 2 / 2;
@@ -980,21 +979,14 @@ body {
   border-color: var(--warn-fg);
 }
 
-/* The right-aligned cluster (kb:adr/focus-surface-switch-pinned-with-actions): its position
- * depends on the header's width alone. The Stop/Resume button's content box holds the wider
- * label's width (`6ch`, "Resume"), so whatever padding `.btn` has, swapping the label moves
- * nothing (kb:adr/actions-mainhead-one-stop-resume-button). */
+/* The right-aligned cluster: the surface switch and the Session actions ⋯. Its position depends
+ * on the header's width alone. */
 .mainhead .acts {
   margin-left: auto;
   flex: none;
   display: flex;
   align-items: center;
   gap: 7px;
-}
-
-.mainhead .acts .stop-resume {
-  box-sizing: content-box;
-  min-width: 6ch;
 }
 
 /* Below the width where the whole cluster fits on one row it tightens its padding rather than

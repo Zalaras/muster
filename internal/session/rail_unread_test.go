@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -197,4 +198,141 @@ func TestApplyBind_LastPrompt(t *testing.T) {
 		require.NotNil(t, sess.LastPrompt)
 		assert.Equal(t, "still here", *sess.LastPrompt)
 	})
+}
+
+func setUnreadRig(t *testing.T, state State, unread bool) (*Manager, *upsertsRecorder, *Session) {
+	t.Helper()
+	st := openTestStore(t)
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, nil, rec.record)
+	sess := createLaunchedSession(t, mgr, st, t.TempDir())
+	advanceToState(t, mgr, sess.ID, "claude-1", state, true)
+	if state == StateIdle && !unread {
+		require.NoError(t, mgr.MarkSeen(context.Background(), sess.ID))
+	}
+	got, ok := mgr.Get(sess.ID)
+	require.True(t, ok)
+	require.Equal(t, state, got.State)
+	require.Equal(t, unread, got.Unread, "seed: an unwatched turn close leaves an idle card unread")
+	return mgr, rec, got
+}
+
+// TestSetUnread_FromEveryReachableState crosses both requested values against every
+// displayed state and both reachable Unread seeds (Unread true exists only on idle),
+// asserting unread-implies-idle after, the broadcast count and the persisted row.
+func TestSetUnread_FromEveryReachableState(t *testing.T) {
+	type seed struct {
+		state  State
+		unread bool
+	}
+	seeds := []seed{
+		{StateStarted, false}, {StatePlanning, false}, {StateWorking, false},
+		{StateNeedsInput, false}, {StateFailed, false},
+		{StateIdle, false}, {StateIdle, true},
+	}
+	for _, sd := range seeds {
+		for _, want := range []bool{true, false} {
+			name := string(sd.state) + "/seed_" + boolLabel(sd.unread) + "/set_" + boolLabel(want)
+			t.Run(name, func(t *testing.T) {
+				mgr, rec, before := setUnreadRig(t, sd.state, sd.unread)
+				broadcastsBefore := len(rec.all())
+				wantUnread := want && sd.state == StateIdle
+				changes := wantUnread != sd.unread
+
+				err := mgr.SetUnread(context.Background(), before.ID, want)
+				require.NoError(t, err)
+
+				got, ok := mgr.Get(before.ID)
+				require.True(t, ok)
+				assert.Equal(t, wantUnread, got.Unread)
+				assert.Equal(t, sd.state, got.State, "marking never moves the state")
+				if got.Unread {
+					assert.Equal(t, StateIdle, got.State, "unread implies idle")
+				}
+				wantBroadcasts := 0
+				if changes {
+					wantBroadcasts = 1
+				}
+				assert.Len(t, rec.all(), broadcastsBefore+wantBroadcasts, "one upsert on a change, none on a no-op")
+				row, err := mgr.store.GetSession(context.Background(), before.ID)
+				require.NoError(t, err)
+				assert.Equal(t, wantUnread, row.Unread)
+			})
+		}
+	}
+}
+
+func TestSetUnread_UnknownSessionReturnsErrUnknownSession(t *testing.T) {
+	st := openTestStore(t)
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, nil, rec.record)
+
+	err := mgr.SetUnread(context.Background(), 999, true)
+
+	require.ErrorIs(t, err, ErrUnknownSession)
+	assert.Empty(t, rec.all())
+}
+
+func TestSetUnread_EndedIdleSessionCanBeMarked(t *testing.T) {
+	mgr, _, sess := setUnreadRig(t, StateIdle, false)
+	_, err := mgr.markEnded(context.Background(), sess.ID)
+	require.NoError(t, err)
+
+	require.NoError(t, mgr.SetUnread(context.Background(), sess.ID, true))
+
+	got, ok := mgr.Get(sess.ID)
+	require.True(t, ok)
+	assert.False(t, got.Alive)
+	assert.True(t, got.Unread, "state is still idle, so the flag sets")
+}
+
+func TestSetUnread_PersistsAcrossAStoreReload(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	sess := createLaunchedSession(t, mgr, st, t.TempDir())
+	advanceToState(t, mgr, sess.ID, "claude-1", StateIdle, true)
+	require.NoError(t, mgr.MarkSeen(context.Background(), sess.ID))
+
+	require.NoError(t, mgr.SetUnread(context.Background(), sess.ID, true))
+
+	reloaded := newTestManager(t, st, nil, nil)
+	require.NoError(t, reloaded.LoadAll(context.Background()))
+	got, ok := reloaded.Get(sess.ID)
+	require.True(t, ok)
+	assert.True(t, got.Unread)
+}
+
+// TestSetUnread_LeavesOtherSessionsAlone marks one of two coexisting idle sessions and
+// asserts the other's flag and broadcasts are untouched.
+func TestSetUnread_LeavesOtherSessionsAlone(t *testing.T) {
+	st := openTestStore(t)
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, nil, rec.record)
+	a := createLaunchedSession(t, mgr, st, t.TempDir())
+	b := createLaunchedSession(t, mgr, st, t.TempDir())
+	for i, s := range []*Session{a, b} {
+		advanceToState(t, mgr, s.ID, "claude-"+strings.Repeat("x", i+1), StateIdle, true)
+		require.NoError(t, mgr.MarkSeen(context.Background(), s.ID))
+	}
+	broadcastsBefore := len(rec.all())
+
+	require.NoError(t, mgr.SetUnread(context.Background(), a.ID, true))
+
+	gotA, _ := mgr.Get(a.ID)
+	gotB, _ := mgr.Get(b.ID)
+	assert.True(t, gotA.Unread)
+	assert.False(t, gotB.Unread)
+	after := rec.all()[broadcastsBefore:]
+	require.Len(t, after, 1)
+	assert.Equal(t, a.ID, after[0].ID)
+}
+
+func TestSetUnread_AttachStillClearsAHandSetFlag(t *testing.T) {
+	mgr, _, sess := setUnreadRig(t, StateIdle, false)
+	require.NoError(t, mgr.SetUnread(context.Background(), sess.ID, true))
+
+	require.NoError(t, mgr.MarkSeen(context.Background(), sess.ID))
+
+	got, _ := mgr.Get(sess.ID)
+	assert.False(t, got.Unread)
 }

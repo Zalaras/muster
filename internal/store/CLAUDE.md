@@ -19,12 +19,12 @@
 - Don't test SQLite's own constraint enforcement.
 
 <!-- kb:trailer -->
-<!-- kb:hash eec5d94a7be486e6 -->
+<!-- kb:hash 578457c9a3d9f9a3 -->
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
 - **groups** — Rail groups: sections, header summary and popover, select mode, filter, group create, rename, ungroup and delete, persistence. → `docs/features/groups/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 19 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 18 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

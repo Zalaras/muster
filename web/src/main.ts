@@ -67,6 +67,7 @@ const focus = initFocus(app, {
   renameHandlers: rename.mainheadRenameHandlers,
   groups,
   effort,
+  railMenu,
 });
 const surfaces = initSurfaces(app, { tilesLive: tiles.liveIds });
 const reader = initReader(app, { tilesLive: tiles.liveIds, surfaces });

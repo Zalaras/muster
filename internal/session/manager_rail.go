@@ -164,24 +164,37 @@ func (m *Manager) SetOrder(ctx context.Context, ids []int64, pinnedCount int, gr
 // forwarded. Persists and broadcasts one sessionUpsert only when Unread was actually
 // true — an already-read session's attach neither writes nor broadcasts. Returns
 // ErrUnknownSession for a missing id. Lives here, not beside SetTitle: Unread is a rail
-// concept — set by Apply's turn_closed handling (apply.go), cleared here, read by the
-// rail's own unread badge — not a title one.
+// concept — set by Apply's turn_closed handling (apply.go), set or cleared by SetUnread,
+// read by the rail's own unread badge — not a title one. The clear is SetUnread(false);
+// MarkSeen holds no logic of its own.
 func (m *Manager) MarkSeen(ctx context.Context, id int64) error {
+	return m.SetUnread(ctx, id, false)
+}
+
+// SetUnread sets or clears id's Unread flag at the developer's request
+// (kb:anchor/sessions.unread) and is what MarkSeen clears through. A request to set the
+// flag on a non-idle session is treated as a clear, keeping Unread implies idle where no
+// transition runs setState. Persists and broadcasts one sessionUpsert only when the flag
+// changes; ErrUnknownSession for a missing id.
+func (m *Manager) SetUnread(ctx context.Context, id int64, unread bool) error {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
 	if !ok {
 		m.mu.Unlock()
 		return ErrUnknownSession
 	}
-	if !sess.Unread {
+	if unread && sess.State != StateIdle {
+		unread = false
+	}
+	if sess.Unread == unread {
 		m.mu.Unlock()
 		return nil
 	}
 	prev := sess.Clone()
-	sess.Unread = false
+	sess.Unread = unread
 	post := sess.Clone()
 	if _, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true); err != nil {
-		return fmt.Errorf("marking session %d seen: %w", id, err)
+		return fmt.Errorf("setting session %d unread=%t: %w", id, unread, err)
 	}
 	return nil
 }

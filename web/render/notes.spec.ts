@@ -245,6 +245,30 @@ test("hovering the long note's marker for 350 ms opens a tooltip with its frontm
   expect(cut.lines).toBeGreaterThan(11);
 });
 
+test("hovering a rail card's note marker shows only the note tip — the marker inherits no repo-line title (#106) (R5, REQ-6)", async ({
+  page,
+  dashboard,
+}) => {
+  await dashboard.open("notes");
+  const card = railCardByTitle(page, "notes-short");
+  const marker = shownMarker(card);
+  await marker.hover();
+  await settleFor(page, 350);
+  await expect(noteTip(page)).toBeVisible();
+
+  // The nearest ancestor-or-self carrying a `title` is what Chrome shows ~1 s after the hover.
+  const nearest = await marker.evaluate((el) => {
+    for (let node: Element | null = el; node; node = node.parentElement) {
+      if (node.hasAttribute("title")) {
+        return { tag: node.className, title: node.getAttribute("title") };
+      }
+    }
+    return null;
+  });
+  expect(nearest?.title, "the marker's own empty title shadows the repo line's").toBe("");
+  await expect(card.locator(".r2")).toHaveAttribute("title", "notes-short / main");
+});
+
 test("the anchored panel on the long note keeps its whole box inside the viewport at 900 and 640px heights, its body scrolling (R6, REQ-20)", async ({
   page,
   dashboard,

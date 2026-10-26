@@ -1,5 +1,6 @@
-// Helpers for plan title-crop-stop-resume-button: the Focus header's give-way order
-// (REQ-2), its right-aligned cluster (REQ-4) and the one Stop/Resume button (REQ-5, REQ-6),
+// Helpers for the Focus header: its give-way order (plan title-crop-stop-resume-button
+// REQ-2), its right-aligned cluster and the one Session actions ⋯ button that holds the place
+// of the Stop/Resume and Remove buttons (plan remove-unread-right-click-1 REQ-4, REQ-5),
 // measured from the live layout.
 //
 // Everything here is pure layout — boxes read from the live header, never a pixel
@@ -13,11 +14,11 @@ export {
   endedAgeAbsentProblems,
   endedAgeProblems,
   focusedNode,
-  headerButton,
+  headerLifecycleButtons,
+  headerMore,
   headerInvariantProblems,
   headerProblems,
   type HeaderSnapshot,
-  headerStopResume,
   onTwoRows,
   readHeaderSnapshot,
   type Rect,

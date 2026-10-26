@@ -39,6 +39,7 @@ import {
   putNoteViaApi,
 } from "./helpers/notes";
 import { envelopedSessionStart, rawUserPromptSubmit } from "./helpers/payloads";
+import { removeFromCardMenu } from "./helpers/rail-menu";
 import {
   envelopeOpts,
   getState,
@@ -538,10 +539,7 @@ test("removing a session whose note panel is popped out shows the next focused s
   await popOutButton(page).click();
   await expect(notePanel(page)).toContainText("note of the removed");
 
-  await page.locator("#mainhead").getByRole("button", { name: "Remove", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Remove session?" });
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Remove", exact: true }).click();
+  await removeFromCardMenu(page, sessionCard(page, "note-e11-a"));
   await expect(sessionCard(page, "note-e11-a")).toHaveCount(0, { timeout: 15_000 });
 
   await expect(mainheadHeading(page)).toContainText("note-e11-b");
@@ -566,9 +564,7 @@ test("removing the only session closes a popped-out panel (REQ-15, edge case 9)"
   await popOutButton(page).click();
   await expect(popInButton(page)).toBeVisible();
 
-  await page.locator("#mainhead").getByRole("button", { name: "Remove", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Remove session?" });
-  await dialog.getByRole("button", { name: "Remove", exact: true }).click();
+  await removeFromCardMenu(page, sessionCard(page, "note-r15-only"));
   await expect(sessionCard(page, "note-r15-only")).toHaveCount(0, { timeout: 15_000 });
 
   await expect(notePanel(page)).toHaveCount(0);
@@ -851,10 +847,7 @@ test("with browser storage blocked, removing a session with another present take
 
   await sessionCard(page, "note-blocked-a").click();
   await expect(mainheadHeading(page)).toContainText("note-blocked-a");
-  await page.locator("#mainhead").getByRole("button", { name: "Remove", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Remove session?" });
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Remove", exact: true }).click();
+  await removeFromCardMenu(page, sessionCard(page, "note-blocked-a"));
 
   await expect(sessionCard(page, "note-blocked-a")).toHaveCount(0, { timeout: 15_000 });
   await expect(sessionCard(page, "note-blocked-b")).toHaveCount(1);

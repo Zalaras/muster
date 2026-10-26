@@ -69,7 +69,7 @@ func (m *Manager) finishWrite(id int64, sess *Session, wait <-chan struct{}, don
 	return nil
 }
 
-// persistWholeRowLocked is the shared tail every whole-row setter (SetTitle, MarkSeen,
+// persistWholeRowLocked is the shared tail every whole-row setter (SetTitle, SetUnread,
 // SetTranscript, SetPlan, MarkPlanWritten, ApplyPlanScan, RecordLaunch, RecordResume,
 // markEnded, RepairOwnedSession, reviveOwnedSession, ApplyStatus) calls once its mutation
 // is done, in place of hand-writing finishWrite's row/ticket/persist/restore wiring itself.
