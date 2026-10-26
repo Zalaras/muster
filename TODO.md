@@ -159,6 +159,12 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   the session's list. Expected: each shape measured with `/interface-probe` and recorded as a fact,
   and the list behaves as measured. From `plans/see-added-dirs/`.
 
+- [ ] **Group arrow for minimise and maximise is too small to see** ([#113](https://github.com/Zalaras/muster/issues/113)) — The
+  group arrow used to minimise and maximise a group is too small to see. Expected: The group arrow
+  should be large enough to see clearly and use to minimise or maximise a group.
+  Filed 2026-10-26 from musterd 0.26.0 / Claude Code 2.1.293, focus view, session started.
+  Labels: bug, rail, ux.
+
 ## Tweaks
 
 - [ ] **Should select mode be disabled after an action?** ([#98](https://github.com/Zalaras/muster/issues/98)) — After
@@ -201,6 +207,14 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
 
 - [ ] **Decide the owner of the ingest route and `MUSTER_SESSION`** — both are Muster names,
   declared today in `internal/claudecode`. A refactor. From `plans/maintainability-cleanup/`.
+
+- [ ] **Popped out note should stay just on the session** ([#112](https://github.com/Zalaras/muster/issues/112)) — After
+  switching sessions, the popped out note stays visible in the newly selected session instead of
+  belonging only to the session it was popped out from. Expected: A popped out note should be tied
+  to its own session and only show on that session, and the pop out should be movable anywhere in
+  the window.
+  Filed 2026-10-23 from musterd 0.25.3 / Claude Code 2.1.293, focus view, session idle.
+  Labels: enhancement, sessions, documents, ux.
 
 ## Tooling and docs
 
