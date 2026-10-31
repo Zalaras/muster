@@ -25,7 +25,7 @@ describe("parseMessage — usage (kb:anchor/ws.usage: broadcast on value change)
     expect(parseMessage(message)).toEqual(message);
   });
 
-  // REQ-2 / kb:adr/usage-masthead-shows-no-model: the model is not on the wire. A daemon (or
+  // kb:adr/usage-masthead-shows-no-model: the model is not on the wire. A daemon (or
   // an older one) that still sends the key is tolerated: the key is dropped, never exposed on
   // the parsed Usage, and a malformed value never rejects the message.
   it.each([

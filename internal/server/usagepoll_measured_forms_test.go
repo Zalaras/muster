@@ -95,7 +95,7 @@ func (m *measuredForms) rows() int {
 	return n
 }
 
-// TestMeasuredForms_OneWindowFromBothSourcesIsOneChange covers D8/REQ-9 on the real data: a
+// TestMeasuredForms_OneWindowFromBothSourcesIsOneChange checks on the real data: a
 // window offered once by each source in its measured form (epoch seconds and float noise
 // against RFC3339 micros and an exact value) is one reset instant and one value, so the
 // second arrival sends no `usage` message and writes no row, in both orders, and the

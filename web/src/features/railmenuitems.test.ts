@@ -103,7 +103,7 @@ describe("cardMenuItems (REQ-2, REQ-3, REQ-10, W5)", () => {
   });
 });
 
-// Plan bugs-one-batch-1 (REQ-3, W1). Shape assumed from the plan:
+// Plan bugs-one-batch-1. Shape assumed from the plan:
 // `selectionMenuItems(sessions: Pick<Session, "alive">[], state: CardMenuState)` returns
 // `{ label, actions: CardMenuAction[], moveDisabled }`; no pin, no Resume.
 const LIVE = { alive: true };

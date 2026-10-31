@@ -1,5 +1,5 @@
 // Package claudecodetest builds Claude-Code-wire-format request bodies for tests in
-// other packages. Wire field names may not appear outside internal/claudecode (the D4
+// other packages. Wire field names may not appear outside internal/claudecode (the
 // boundary check), yet HTTP-boundary tests still need to POST realistic bodies — this
 // package is the sanctioned way to get one. Tests needing shapes beyond these minimal
 // builders belong in internal/claudecode's own tests, not here.
@@ -78,8 +78,8 @@ func EnvelopedHookInDirectory(musterSession int, tmuxPane, event, sessionID, dir
 }
 
 // SessionStartOpts customizes EnvelopedSessionStart beyond its defaults (musterSession 1,
-// source "startup", a present model). TmuxPane has no default (REQ-12,
-// kb:adr/ingest-envelope-pane-must-corroborate): left empty, it omits the envelope's
+// source "startup", a present model). TmuxPane has no default
+// (kb:adr/ingest-envelope-pane-must-corroborate): left empty, it omits the envelope's
 // tmuxPane field entirely — the headless shape — rather than filling in a pane the caller
 // never stated; every enveloped fixture site must state its own pane.
 type SessionStartOpts struct {
@@ -120,7 +120,7 @@ func sessionStartPayload(sessionID, transcriptPath string, opts SessionStartOpts
 // EnvelopedSessionStart returns the enveloped `SessionStart` body — the one hook that
 // is silently never delivered over plain HTTP (canary-fields.md "Transport"), so the
 // real wrapper always posts it enveloped. A zero-value SessionStartOpts posts the
-// headless shape (no tmuxPane, REQ-12) — the caller states a pane explicitly wherever
+// headless shape (no tmuxPane) — the caller states a pane explicitly wherever
 // routing is expected.
 func EnvelopedSessionStart(sessionID string, opts SessionStartOpts) string {
 	payload := sessionStartPayload(sessionID, defaultTranscriptPath, opts)
@@ -128,7 +128,7 @@ func EnvelopedSessionStart(sessionID string, opts SessionStartOpts) string {
 }
 
 // ToolFileOpts customizes RawPostToolUseFile/RawPreToolUseTool beyond their defaults
-// (plan markdown-viewing: REQ-13/REQ-16/REQ-18/REQ-26 fixtures).
+// (markdown-viewing fixtures).
 type ToolFileOpts struct {
 	PromptID       string // default "p1"
 	PermissionMode string // default "default" (RawPreToolUseTool defaults to "plan" instead)
@@ -149,7 +149,7 @@ func (o ToolFileOpts) transcriptPath() string {
 }
 
 // RawPostToolUseFile returns a raw `PostToolUse` naming toolName/filePath in
-// tool_name/tool_input.file_path — the docChanged/plan-scan fixture (REQ-13, REQ-18):
+// tool_name/tool_input.file_path — the docChanged/plan-scan fixture:
 // a chosen tool, transcript path and optional subagent marker, so server tests never
 // spell the wire keys themselves.
 func RawPostToolUseFile(sessionID, toolName, filePath string, opts ToolFileOpts) string {
@@ -170,10 +170,10 @@ func RawPostToolUseFile(sessionID, toolName, filePath string, opts ToolFileOpts)
 	return marshal(body)
 }
 
-// RawPreToolUseTool returns a raw `PreToolUse` for toolName — REQ-16's `ExitPlanMode`
+// RawPreToolUseTool returns a raw `PreToolUse` for toolName — the `ExitPlanMode`
 // scan trigger (kb:fact/plan-mode-hook-sequence: step 1 of leaving plan mode is
 // `PreToolUse{tool_name:"ExitPlanMode", permission_mode:"plan"}`), generalized to any
-// tool name for the "other PreToolUse tools must not scan" side of D6.
+// tool name for the "other PreToolUse tools must not scan" side of the scan-trigger test.
 func RawPreToolUseTool(sessionID, toolName string, opts ToolFileOpts) string {
 	body := map[string]any{
 		"hook_event_name": "PreToolUse",
@@ -191,7 +191,7 @@ func RawPreToolUseTool(sessionID, toolName string, opts ToolFileOpts) string {
 }
 
 // EnvelopedSessionStartTranscript returns an enveloped `SessionStart` naming
-// transcriptPath — REQ-16's first scan trigger, kept separate from EnvelopedSessionStart
+// transcriptPath — the first scan trigger, kept separate from EnvelopedSessionStart
 // because that builder's own transcript_path is a fixed default: this one lets a caller
 // name a transcript file that a later plan-scan test then writes to.
 func EnvelopedSessionStartTranscript(sessionID, transcriptPath string, opts SessionStartOpts) string {

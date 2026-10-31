@@ -28,8 +28,8 @@ type scrollCall struct {
 
 // fakeScroller is the shellScroller test double (kb:anchor/terminal.shell-ws): records
 // every ScrollCopyMode/CancelCopyMode call so a test can assert the wire-level `scroll`
-// frame reached tmux copy-mode with the clamped magnitude (D3) and the right
-// entered/cancel bookkeeping (REQ-10), without a real tmux socket — internal/tmux's own
+// frame reached tmux copy-mode with the clamped magnitude and the right
+// entered/cancel bookkeeping, without a real tmux socket — internal/tmux's own
 // activity_test.go already covers ScrollCopyMode/CancelCopyMode's tmux command shape for
 // real; this file's job is the daemon's frame-decode-to-call wiring above that.
 type fakeScroller struct {
@@ -122,7 +122,7 @@ func spawnFakeShell(t *testing.T, srv *testServer) (sess *session.Session, httpS
 	return s, httpSrv
 }
 
-// TestHandleShellTerminal_ScrollFrameClampsPositiveLinesTo200 covers D3 at the real wire
+// TestHandleShellTerminal_ScrollFrameClampsPositiveLinesTo200 checks at the real wire
 // shape: a `scroll` frame's magnitude reaches ScrollCopyMode already clamped, never the
 // raw requested value.
 func TestHandleShellTerminal_ScrollFrameClampsPositiveLinesTo200(t *testing.T) {
@@ -140,7 +140,7 @@ func TestHandleShellTerminal_ScrollFrameClampsPositiveLinesTo200(t *testing.T) {
 	assert.Equal(t, 200, calls[0].lines, "D3: magnitude clamped to 200 before reaching ScrollCopyMode")
 }
 
-// TestHandleShellTerminal_ScrollFrameClampsNegativeLinesToMinus200 covers D3's other
+// TestHandleShellTerminal_ScrollFrameClampsNegativeLinesToMinus200 covers the other
 // direction, preserving the sign that carries scroll-down.
 func TestHandleShellTerminal_ScrollFrameClampsNegativeLinesToMinus200(t *testing.T) {
 	srv, _, scroller := newFakeTmuxTestServerWithScroll(t)
@@ -198,10 +198,10 @@ func TestHandleShellTerminal_ScrollErrorIsLoggedNotFatal(t *testing.T) {
 		3*time.Second, 20*time.Millisecond, "a failed scroll must be logged, never silently dropped")
 }
 
-// TestHandleShellTerminal_CopyModeCancelOnNextInput covers REQ-10/E10 and REQ-12/edge
-// case 10 together: the next binary input frame cancels copy-mode iff a prior scroll
+// TestHandleShellTerminal_CopyModeCancelOnNextInput covers
+// edge case 10: the next binary input frame cancels copy-mode iff a prior scroll
 // frame actually entered it (ScrollCopyMode's own entered result, never assumed from a
-// nil error — the doc comment on applyShellTextFrame). Table-driven per plan D9/T1 —
+// nil error — the doc comment on applyShellTextFrame). Table-driven —
 // the three cases (entered, not-entered, no scroll at all) differed only in whether a
 // scroll frame was sent first and in the entered value it reported.
 func TestHandleShellTerminal_CopyModeCancelOnNextInput(t *testing.T) {
@@ -240,7 +240,7 @@ func TestHandleShellTerminal_CopyModeCancelOnNextInput(t *testing.T) {
 	}
 }
 
-// TestHandleShellTerminal_ResizeFrameStillDecodesOnTheShellSocket covers REQ-9's other
+// TestHandleShellTerminal_ResizeFrameStillDecodesOnTheShellSocket covers the other
 // direction at the shell route: shellTextFrame is a superset of resizeFrame, so an
 // ordinary resize control frame on /ws/shell/{id} must still apply, exactly as it does on
 // the Claude socket.

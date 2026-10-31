@@ -11,8 +11,7 @@ import (
 	"github.com/Zalaras/muster/internal/tmux"
 )
 
-// TestReconcile_KillsEveryShellSessionUnconditionallyAndCountsThem covers D11 (plan
-// plain-terminal-session REQ-10): every "muster-<n>-shell" tmux session on the socket is
+// TestReconcile_KillsEveryShellSessionUnconditionallyAndCountsThem covers: every "muster-<n>-shell" tmux session on the socket is
 // killed regardless of whose <n> it names — crossed against every reachable relationship
 // between the shell's <n> and this daemon lifetime's own known sessions (a known alive
 // session's own shell, an id that matches no session at all, and id 0), per the
@@ -50,8 +49,8 @@ func TestReconcile_KillsEveryShellSessionUnconditionallyAndCountsThem(t *testing
 		"D11: the actual kill calls must be exactly the three shell sessions, not the known Claude session")
 }
 
-// TestReconcile_NeverListsAnyShellSessionAsUnknown covers D12 across the same three
-// source states as D11 above: a shell session is never appended to
+// TestReconcile_NeverListsAnyShellSessionAsUnknown checks across the same three
+// source states as above: a shell session is never appended to
 // ReconcileReport.UnknownSessions, whether or not its <n> happens to match a session
 // this daemon lifetime actually knows about.
 func TestReconcile_NeverListsAnyShellSessionAsUnknown(t *testing.T) {
@@ -89,7 +88,7 @@ func TestReconcile_NeverListsAnyShellSessionAsUnknown(t *testing.T) {
 // TestReconcile_AFailedShellKillIsNotCountedButStillNeverReportedAsUnknown covers the
 // error branch manager.go's Reconcile takes for a shell kill: KillSession returning an
 // error must not increment ShellsKilled (it did not, in fact, get killed), but the name
-// must still never leak into UnknownSessions — REQ-10's "never adopted" promise does not
+// must still never leak into UnknownSessions — the "never adopted" promise does not
 // depend on the kill actually succeeding.
 func TestReconcile_AFailedShellKillIsNotCountedButStillNeverReportedAsUnknown(t *testing.T) {
 	st := openTestStore(t)

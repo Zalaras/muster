@@ -32,7 +32,7 @@ func decodeFirstLine(t *testing.T, buf *bytes.Buffer) startupLogLine {
 	return got
 }
 
-// TestLogStartup_CarriesExePathAsExe covers D13/REQ-12: the "musterd starting" line
+// TestLogStartup_CarriesExePathAsExe: the "musterd starting" line
 // names the resolved executable path as exe — the one thing an unmanaged/installer
 // classification is computed from, and otherwise recoverable from nowhere once a startup
 // has passed (the plan's own #53 Overview: "the cause at that moment can't be recovered").
@@ -51,9 +51,9 @@ func TestLogStartup_CarriesExePathAsExe(t *testing.T) {
 	assert.Equal(t, "installer", got.Install)
 }
 
-// TestLogStartup_RemedyLineFollowsWhenPresent covers the REQ-1/REQ-2 remedy log line
+// TestLogStartup_RemedyLineFollowsWhenPresent covers the remedy log line
 // (kb:adr/update-install-kinds-decide-who-may-apply): present only when install carries a
-// remedy, and carrying the exact REQ-1/REQ-2 text as REQ-12's own follow-on requires.
+// remedy, and carrying the exact remedy text, as the follow-on requires.
 func TestLogStartup_RemedyLineFollowsWhenPresent(t *testing.T) {
 	t.Run("a remedy-bearing install logs a second line with the remedy text", func(t *testing.T) {
 		var buf bytes.Buffer

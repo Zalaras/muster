@@ -30,7 +30,7 @@ export function mastheadBucket(page: Page, bucket: Bucket): Locator {
 }
 
 /** The bucket's track-fill element (mockup: `.bar > i`) — present only when the bucket
- * is known; INV-3 requires zero track markup at all for a null bucket. */
+ * is known; a null bucket requires zero track markup at all for a null bucket. */
 export function mastheadBucketTrack(page: Page, bucket: Bucket): Locator {
   return mastheadBucket(page, bucket).locator("i");
 }
@@ -56,7 +56,7 @@ export function allMastheadResets(page: Page): Locator {
   return page.locator(".masthead .resets");
 }
 
-/** The element plan masthead-indicators removed from the masthead (REQ-1). An attribute
+/** The element removed from the masthead. An attribute
  * selector, so the id is never written the way a locator for the live element would be. */
 export function removedModelReadout(page: Page): Locator {
   return page.locator("[id=usage-model]");
@@ -70,7 +70,7 @@ export function cardContextRow(card: Locator): Locator {
 }
 
 /** The card context row's track-fill element (mockup: `.ctx > i`), present only when
- * context is known (INV-3). */
+ * context is known. */
 export function cardContextTrack(card: Locator): Locator {
   return cardContextRow(card).locator("i");
 }
@@ -91,13 +91,13 @@ export function tileContextTrack(tile: Locator): Locator {
   return tileContextInfo(tile).locator("i");
 }
 
-// --- the per-model weekly window (plan usage-model-bar) ---
+// --- the per-model weekly window ---
 // This plan's Testable UI Elements table PINS the container id (`#usage-model-week`), the
 // select's accessible name (`aria-label="Usage model"`) and the refresh button's accessible
 // name ("Refresh usage") in its own markup snippet, so these are not hedged.
 
 /** The model-week readout container (`#usage-model-week`, `.usage-readout`; gains `.stale`
- * when `modelScopedError` is non-null, INV-2/E5). */
+ * when `modelScopedError` is non-null). */
 export function mastheadModelWeek(page: Page): Locator {
   return page.locator("#usage-model-week");
 }
@@ -108,13 +108,13 @@ export function mastheadModelWeekPercent(page: Page): Locator {
 }
 
 /** The model-week readout's track-fill element (`.bar > i`) — absent whenever `.num`
- * reads "unknown" (INV-2). */
+ * reads "unknown". */
 export function mastheadModelWeekTrack(page: Page): Locator {
   return mastheadModelWeek(page).locator(".bar i");
 }
 
 /** Matches iff the model-week bar carries the >=60%-used `warn` class (design-system
- * §6, reused here per REQ-9). */
+ * §6, reused here). */
 export function mastheadModelWeekWarn(page: Page): Locator {
   return mastheadModelWeek(page).locator(".bar.warn");
 }
@@ -137,7 +137,7 @@ export function mastheadUsageRefreshButton(page: Page): Locator {
   return page.getByRole("button", { name: "Refresh usage" });
 }
 
-// --- the connection health dot (plan masthead-indicators REQ-6..10) ---
+// --- the connection health dot ---
 
 export type Health = "ok" | "pending" | "down";
 
@@ -157,14 +157,14 @@ export const TITLE_CONNECTING = "Connecting to musterd…";
 export const TITLE_UPDATING = "Restarting musterd for an update…";
 export const TITLE_DOWN = "musterd unreachable — reconnecting…";
 
-// --- the reset suffix (plan masthead-indicators REQ-4/REQ-12) ---
+// --- the reset suffix ---
 
 /** Testable UI Elements: reset suffix patterns. */
 export const RESETS_SAME_DAY = /^\(\d{2}:\d{2}\)$/;
 export const RESETS_OTHER_DAY = /^\(\d{2}:\d{2} [A-Za-z]{2,}\.?\)$/;
 
 /**
- * REQ-4's rule, evaluated in the browser under test (so `undefined` locale, the zone and
+ * The reset-suffix rule, evaluated in the browser under test (so `undefined` locale, the zone and
  * the page's own — possibly pinned — clock are what decide) for a known instant: `(HH:MM)`
  * on the same local calendar day as now, `(HH:MM Ddd)` otherwise.
  */
@@ -195,7 +195,7 @@ export async function shortWeekday(page: Page, when: Date): Promise<string> {
   );
 }
 
-// --- the card timer's prompt-cache warmth (plan rail-card-organise #84) ---
+// --- the card timer's prompt-cache warmth (#84) ---
 
 /** A rail or strip card's state timer (`.timer`, `aria-label="time in state"`). */
 export function cardTimer(card: Locator): Locator {
@@ -322,8 +322,8 @@ export function remainingAtEpoch(cache: { expiresAt: string }): number {
   return Math.round((Date.parse(cache.expiresAt) - EPOCH_MS) / 1000);
 }
 
-/** The plan's hover wording for a warm cache with `seconds` left: whole minutes, counted
- * up, while a minute or more remains, and seconds below it (UI Specifications, REQ-27). */
+/** The hover wording for a warm cache with `seconds` left: whole minutes, counted
+ * up, while a minute or more remains, and seconds below it. */
 export function warmHover(seconds: number): string {
   const whole = Math.ceil(seconds);
   return `cache warm · cold in ${whole >= 60 ? `${Math.ceil(whole / 60)}m` : `${whole}s`}`;

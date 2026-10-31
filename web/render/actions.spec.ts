@@ -1,5 +1,5 @@
-// actions — the display properties of plan m4-reconcile REQ-5 to REQ-16 (End / Remove /
-// Resume, their confirm dialogs, the dead surface) and plan session-lifecycle E7/W3,
+// actions — the display properties of the session actions (End / Remove /
+// Resume, their confirm dialogs, the dead surface),
 // re-levelled on 2026-10-20 from web/e2e/actions.spec.ts (plans/_audit/relevel/misc-core.md):
 // a confirm dialog opens and closes client-side before any request is sent, the "ended
 // now" copy is a function of the session's `endedAt` against the page clock, and a dead
@@ -131,7 +131,7 @@ test("a session with no bound Claude id shows a disabled Resume control with a s
   await focusSession(page, "disabled-e13");
 
   const mainhead = page.locator("#mainhead");
-  // The header holds no Stop, Resume or Remove button (plan remove-unread-right-click-1, REQ-4);
+  // The header holds no Stop, Resume or Remove button;
   // the dead cap's own Resume is the one control left.
   await expect(mainhead.getByRole("button", { name: "Session actions" })).toBeVisible();
   await expect(mainhead.getByRole("button", { name: /^(Stop|Resume)$/ })).toHaveCount(0);

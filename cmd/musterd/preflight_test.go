@@ -26,7 +26,7 @@ func canned(result tmux.PreflightResult) func(context.Context) tmux.PreflightRes
 	return func(context.Context) tmux.PreflightResult { return result }
 }
 
-// TestRunTmuxPreflight_NotFoundReportsInstallRemedy covers D1: with tmux absent from
+// TestRunTmuxPreflight_NotFoundReportsInstallRemedy: with tmux absent from
 // $PATH, the returned error names the install remedy, and the report block is printed
 // to stderr naming "not found in $PATH" (the UI spec's exact row).
 func TestRunTmuxPreflight_NotFoundReportsInstallRemedy(t *testing.T) {
@@ -53,7 +53,7 @@ func TestRunTmuxPreflight_FoundButDidNotRunNamesThePath(t *testing.T) {
 	assert.Contains(t, stderr.String(), "found at /opt/bin/tmux but did not run")
 }
 
-// TestRunTmuxPreflight_TooOldNamesDetectedAndMinimum covers D2: a tmux below MinVersion
+// TestRunTmuxPreflight_TooOldNamesDetectedAndMinimum: a tmux below MinVersion
 // returns an error whose text names the upgrade remedy, and the report names both the
 // detected version and the 3.2 minimum.
 func TestRunTmuxPreflight_TooOldNamesDetectedAndMinimum(t *testing.T) {
@@ -70,7 +70,7 @@ func TestRunTmuxPreflight_TooOldNamesDetectedAndMinimum(t *testing.T) {
 		"the UI spec separates the report from main's \"musterd: ...\" verdict line with a blank line")
 }
 
-// TestRunTmuxPreflight_UnrecognizedVersionIsNotFatal covers D3: an unparsing `tmux -V`
+// TestRunTmuxPreflight_UnrecognizedVersionIsNotFatal: an unparsing `tmux -V`
 // output must not fail runTmuxPreflight — it prints a warning row and returns a nil
 // error so startup proceeds.
 func TestRunTmuxPreflight_UnrecognizedVersionIsNotFatal(t *testing.T) {
@@ -87,7 +87,7 @@ func TestRunTmuxPreflight_UnrecognizedVersionIsNotFatal(t *testing.T) {
 		"the warning path has no verdict line following it, so it gets no trailing blank line")
 }
 
-// TestRunTmuxPreflight_OKPrintsNothing covers REQ-13: an all-clear preflight must not
+// TestRunTmuxPreflight_OKPrintsNothing: an all-clear preflight must not
 // print the report block at all — only failures and warnings get one.
 func TestRunTmuxPreflight_OKPrintsNothing(t *testing.T) {
 	var stderr bytes.Buffer
@@ -110,7 +110,7 @@ func freePort(t *testing.T) string {
 	return port
 }
 
-// TestRun_FailedPreflightLeavesNoSideEffects covers D4: with tmux absent, run() must
+// TestRun_FailedPreflightLeavesNoSideEffects: with tmux absent, run() must
 // fail before creating the data dir or binding the listen address — both checked
 // directly rather than trusting the code's ordering comment alone.
 func TestRun_FailedPreflightLeavesNoSideEffects(t *testing.T) {
@@ -135,7 +135,7 @@ func TestRun_FailedPreflightLeavesNoSideEffects(t *testing.T) {
 	_ = ln.Close()
 }
 
-// TestRun_VersionFlagSucceedsWithTmuxAbsent covers D5/REQ-5: -version's early return
+// TestRun_VersionFlagSucceedsWithTmuxAbsent: -version's early return
 // happens before the tmux preflight, so it must succeed even on a machine with no tmux
 // at all.
 func TestRun_VersionFlagSucceedsWithTmuxAbsent(t *testing.T) {
@@ -149,7 +149,7 @@ func TestRun_VersionFlagSucceedsWithTmuxAbsent(t *testing.T) {
 	assert.Contains(t, stdout.String(), "Claude Code verified ", "D6/D10: -version must name the verified range")
 }
 
-// TestReadmeTmuxRemedyMatchesPreflight covers D13/R1: README.md's Prerequisites section
+// TestReadmeTmuxRemedyMatchesPreflight: README.md's Prerequisites section
 // must quote the exact same remedy strings the preflight's fatal errors carry — both
 // constants, not merely text that looks similar.
 func TestReadmeTmuxRemedyMatchesPreflight(t *testing.T) {

@@ -11,9 +11,9 @@ import (
 const testChecksumsFile = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  musterd_0.11.0_darwin_arm64.tar.gz\n" +
 	"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  musterd_0.11.0_darwin_amd64.tar.gz\n"
 
-// TestVerifyChecksums_AcceptsBothSignatureModes covers D10's accepted half: a valid
+// TestVerifyChecksums_AcceptsBothSignatureModes covers the accepted half: a valid
 // legacy ("Ed") and a valid prehashed ("ED") signature both verify transparently through
-// one call, with no branching needed by the caller (REQ-15).
+// one call, with no branching needed by the caller.
 func TestVerifyChecksums_AcceptsBothSignatureModes(t *testing.T) {
 	key := newTestKeypair(t)
 	checksums := []byte(testChecksumsFile)
@@ -29,7 +29,7 @@ func TestVerifyChecksums_AcceptsBothSignatureModes(t *testing.T) {
 	})
 }
 
-// TestVerifyChecksums_Refusals covers D10's refusal half: a tampered file, a foreign
+// TestVerifyChecksums_Refusals covers the refusal half: a tampered file, a foreign
 // key, and a truncated signature must all refuse with ErrBadSignature (or an error at
 // least, for the malformed-input case) — never silently accept.
 func TestVerifyChecksums_Refusals(t *testing.T) {
@@ -101,7 +101,7 @@ func TestChecksumFor_OneOrTwoSpacesBothAccepted(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
-// TestChecksumFor_NoLineForAssetIsErrNoChecksumLine covers D10/REQ-17's missing-line
+// TestChecksumFor_NoLineForAssetIsErrNoChecksumLine covers the missing-line
 // refusal (edge case 17): checksums.txt verifies fine but has no entry for this
 // platform's asset.
 func TestChecksumFor_NoLineForAssetIsErrNoChecksumLine(t *testing.T) {

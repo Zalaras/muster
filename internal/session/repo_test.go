@@ -69,7 +69,7 @@ func (h *repoHarness) get(t *testing.T, id int64) *Session {
 	return s
 }
 
-// TestApplyAndApplyStatus_AdoptCwdAndNudgeOnce is D5: a changed Cwd is persisted as
+// TestApplyAndApplyStatus_AdoptCwdAndNudgeOnce: a changed Cwd is persisted as
 // ClaudeDir and fires the nudge exactly once, after the persist; the same Cwd again, an
 // empty one and an absent one persist nothing and nudge nothing.
 func TestApplyAndApplyStatus_AdoptCwdAndNudgeOnce(t *testing.T) {
@@ -161,7 +161,7 @@ func TestApply_PersistFailureRollsBackCwdAndDoesNotNudge(t *testing.T) {
 	}
 }
 
-// TestRecordLaunchAndResume_ClearClaudeDirAndLocation is D9 / REQ-7: both clear the recorded
+// TestRecordLaunchAndResume_ClearClaudeDirAndLocation: both clear the recorded
 // directory and the derived location, in memory and in the row.
 func TestRecordLaunchAndResume_ClearClaudeDirAndLocation(t *testing.T) {
 	cases := []struct {
@@ -201,7 +201,7 @@ func TestRecordLaunchAndResume_ClearClaudeDirAndLocation(t *testing.T) {
 	}
 }
 
-// TestCheckLiveness_DeadSessionHasNoLocationButKeepsItsDirectory is REQ-5's dead half: the
+// TestCheckLiveness_DeadSessionHasNoLocationButKeepsItsDirectory is the dead half: the
 // derived location goes to nil when the pane dies, while the recorded directory stays so the
 // row still says where Claude last was.
 func TestCheckLiveness_DeadSessionHasNoLocationButKeepsItsDirectory(t *testing.T) {
@@ -226,7 +226,7 @@ func TestCheckLiveness_DeadSessionHasNoLocationButKeepsItsDirectory(t *testing.T
 	assert.Equal(t, "main", *got.Branch, "a dead card keeps its last-known branch")
 }
 
-// TestLoadAll_RestoresClaudeDirButNotTheDerivedLocation is the manager half of D7: the
+// TestLoadAll_RestoresClaudeDirButNotTheDerivedLocation is the manager half of the restart rule: the
 // recorded directory survives a restart, the derived location does not (it is in memory
 // only), so the repo poll's first tick has something to derive from.
 func TestLoadAll_RestoresClaudeDirButNotTheDerivedLocation(t *testing.T) {

@@ -84,7 +84,7 @@ func TestApplyInput_Bind(t *testing.T) {
 	})
 }
 
-// TestApplyInput_ClearRebind covers REQ-10/D14 and Edge Case 5: both an explicit
+// TestApplyInput_ClearRebind checks and Edge Case 5: both an explicit
 // SessionStart(source:"clear") and a Bind whose claude session id differs from an
 // already-bound one (loss-tolerant auto-detection) must rebind, reset compactions and
 // the current-prompt guard (closed prompt ids are kept), and set state to started while leaving Muster identity
@@ -132,7 +132,7 @@ func TestApplyInput_ClearRebind(t *testing.T) {
 		assert.Equal(t, &Model{ID: "new-model", DisplayName: "new-model"}, sess.Model)
 	})
 
-	// m3-gauges REQ-9/D12: /clear starts a fresh conversation with no context data yet —
+	// /clear starts a fresh conversation with no context data yet —
 	// the stale gauge from the previous conversation must not survive, alongside the
 	// existing compactions/lastActivity reset.
 	t.Run("explicit clear-rebind resets context to nil", func(t *testing.T) {
@@ -175,7 +175,7 @@ func TestApplyInput_ClearRebind(t *testing.T) {
 	// Before the fix, applyBind forced state=started without ever touching Attention/
 	// Failure, so a card blocked on a permission prompt (or showing a stale failure)
 	// kept displaying either after /clear started a fresh conversation — reproduced in
-	// a real browser per the review. E7 only ever cleared from started, which is why
+	// a real browser per the review. the earlier test only ever cleared from started, which is why
 	// nothing caught this.
 	t.Run("explicit clear-rebind from needs_input clears attention and failure and resets lastActivity", func(t *testing.T) {
 		sess := newTestSession()
@@ -279,12 +279,12 @@ func TestApplyInput_ClearRebind(t *testing.T) {
 	})
 }
 
-// TestApplyInput_ResumeBind_SameClaudeIDFromEveryStateLandsIdleWithAttentionAndFailureCleared
-// covers REQ-8/D11/INV-6: a same-claude-id resume bind must land in idle with attention
+// TestApplyInput_ResumeBind_SameClaudeIDFromEveryStateLandsIdleWithAttentionAndFailureCleared:
+// a same-claude-id resume bind must land in idle with attention
 // and failure cleared — asserted from every one of the six displayed states, not just the
 // convenient one, per the m1-sessions review lesson (both review Criticals were stated
 // invariants that per-transition tests missed because they all started from the one state
-// with nothing to leak). Also asserts the REQ-8 "history exists, it is waiting for input,
+// with nothing to leak). Also asserts the "history exists, it is waiting for input,
 // not new" contract: compactions/lastActivity/context survive, unlike a clear-rebind.
 func TestApplyInput_ResumeBind_SameClaudeIDFromEveryStateLandsIdleWithAttentionAndFailureCleared(t *testing.T) {
 	states := []State{StateStarted, StatePlanning, StateWorking, StateNeedsInput, StateFailed, StateIdle}
@@ -316,7 +316,7 @@ func TestApplyInput_ResumeBind_SameClaudeIDFromEveryStateLandsIdleWithAttentionA
 	}
 }
 
-// TestApplyInput_ResumeBind_DifferentClaudeIDEscalatesToClearRebind covers REQ-8/D12/Edge
+// TestApplyInput_ResumeBind_DifferentClaudeIDEscalatesToClearRebind covers Edge
 // Case 5: a resume bind for a claude session id the machine doesn't already have bound
 // (claude no longer has the requested id, or some other loss-tolerant mismatch) escalates
 // to the ordinary clear-rebind path exactly like a plain Bind would, landing in started
@@ -341,7 +341,7 @@ func TestApplyInput_ResumeBind_DifferentClaudeIDEscalatesToClearRebind(t *testin
 	assert.Nil(t, sess.LastActivity, "escalation to clear-rebind resets lastActivity like any other /clear")
 }
 
-// TestApplyInput_TurnActivity covers the ACTIVE transition and REQ-9's latch semantics.
+// TestApplyInput_TurnActivity covers the ACTIVE transition and the latch semantics.
 func TestApplyInput_TurnActivity(t *testing.T) {
 	t.Run("enters working when the permission latch is not plan", func(t *testing.T) {
 		sess := newTestSession()
@@ -434,7 +434,7 @@ func TestApplyInput_TurnActivity(t *testing.T) {
 	})
 }
 
-// TestApplyInput_TurnActivity_ClosedPromptSubagentMarked covers REQ-2: a turn-activity
+// TestApplyInput_TurnActivity_ClosedPromptSubagentMarked: a turn-activity
 // input for an already-closed prompt that carries the subagent marker is not a
 // straggler — it transitions to ACTIVE exactly like open-prompt activity does, but
 // (INV-P) the closed prompt id is neither reopened nor adopted as currentPromptID.
@@ -454,7 +454,7 @@ func TestApplyInput_TurnActivity_ClosedPromptSubagentMarked(t *testing.T) {
 	assert.True(t, sess.promptClosed("p1"), "INV-P: the closed prompt id must stay closed")
 }
 
-// TestApplyInput_NeedsInputPermission_ClosedPromptSubagentMarked covers REQ-3: a
+// TestApplyInput_NeedsInputPermission_ClosedPromptSubagentMarked: a
 // needs-input-permission input for an already-closed prompt that carries the subagent
 // marker corroborates a background permission wait exactly like the open-prompt case —
 // same transition, no prompt reopening.
@@ -479,7 +479,7 @@ func TestApplyInput_NeedsInputPermission_ClosedPromptSubagentMarked(t *testing.T
 // StopFailure closes p1 and sets Failure, then p2's UserPromptSubmit hook is lost, then a
 // Notification idle_prompt for p2 arrives. p2 is neither closed nor current, so the
 // closed-prompt guard does not fire. Since the idle_prompt never raises needs_input
-// (REQ-3), the card stays failed with its failure note (INV-F holds as it was), p2 is closed,
+// the card stays failed with its failure note (the failure invariant holds as it was), p2 is closed,
 // and the unrelated earlier closed prompt stays closed.
 func TestApplyInput_IdleNotice_FromFailedViaUnseenFreshPromptKeepsFailure(t *testing.T) {
 	sess := newTestSession()
@@ -599,7 +599,7 @@ func TestApplyInput_TurnActivity_SubagentMarkedNilPromptIsTreatedAsOpen(t *testi
 	assert.Nil(t, sess.Failure)
 }
 
-// TestApplyInput_CrossStateInvariants covers D5/REQ-8 (m1-sessions review lesson): the
+// TestApplyInput_CrossStateInvariants covers the cross-state invariants (a review lesson from the sessions work): the
 // named invariants INV-A ("attention non-null iff needs_input"), INV-F ("failure
 // non-null iff failed"), INV-G (an event without the subagent marker whose prompt id is
 // closed never changes any state-machine-owned field) and INV-P (a closed prompt id
@@ -817,7 +817,7 @@ func TestApplyInput_TurnClosed(t *testing.T) {
 	})
 }
 
-// TestApplyInput_TurnFailed covers D13: StopFailure never carries permission_mode
+// TestApplyInput_TurnFailed: StopFailure never carries permission_mode
 // (docs/history/spikes/canary-fields.md), so the latch must never be touched by this input kind —
 // a session failing in plan mode stays planning-latched even though the displayed
 // state is failed.
@@ -868,7 +868,7 @@ func TestApplyInput_TurnFailed(t *testing.T) {
 	})
 }
 
-// TestApplyInput_Compaction covers REQ-21: PreCompact increments the counter with no
+// TestApplyInput_Compaction: PreCompact increments the counter with no
 // state transition.
 func TestApplyInput_Compaction(t *testing.T) {
 	sess := newTestSession()
@@ -931,7 +931,7 @@ func TestApplyInput_SessionEndNeverWritesAlive(t *testing.T) {
 	}
 }
 
-// TestApplyInput_ClearDeathHintAndInert cover D15's other half and kb:anchor/state.transitions's forward-
+// TestApplyInput_ClearDeathHintAndInert cover the other half and kb:anchor/state.transitions's forward-
 // compatibility row: both are pure no-ops.
 func TestApplyInput_ClearDeathHintAndInert(t *testing.T) {
 	for _, kind := range []claudecode.InputKind{claudecode.KindClearDeathHint, claudecode.KindInert} {
@@ -1031,12 +1031,12 @@ func TestActiveState(t *testing.T) {
 	}
 }
 
-// TestLatchPermissionMode_SeedThenHookInvariant covers INV-1 exhaustively: "source is
+// TestLatchPermissionMode_SeedThenHookInvariant checks exhaustively: "source is
 // seed until the first hook carrying permission_mode, then hook forever after; the
 // value is always the last one carried." Per-transition tests above (e.g. "a present
 // permission_mode latches the mode with source hook") each start from one convenient
 // seed; this table instead crosses every reachable starting seed (including the new
-// auto value, REQ-5's instance of the invariant) against every possible hook-reported
+// auto value, the instance of the invariant) against every possible hook-reported
 // value, through both input kinds that call latchPermissionMode (TurnActivity and
 // TurnClosed/Stop), so a bug that only shows up from a non-default starting seed (e.g.
 // an auto seed getting stuck instead of correcting) can't hide behind the narrower
@@ -1068,7 +1068,7 @@ func TestLatchPermissionMode_SeedThenHookInvariant(t *testing.T) {
 
 	// The other half of the invariant: with no hook value carried at all (nil
 	// permission_mode), source must stay "seed" from every starting seed — already
-	// covered per-kind above ("REQ-9: a nil permission_mode never resets the latch" for
+	// covered per-kind above ("a nil permission_mode never resets the latch" for
 	// TurnActivity); this closes the same gap for TurnClosed/Stop across all four seeds.
 	for _, seed := range seeds {
 		t.Run(string(seed)+"_seed/turn_closed/nil_hook_leaves_seed_untouched", func(t *testing.T) {
@@ -1112,7 +1112,7 @@ func TestTruncate(t *testing.T) {
 	assert.True(t, utf8.ValidString(got), "truncate must never return invalid UTF-8")
 }
 
-// TestApplyBind_ModelRule is D3 / REQ-9 / INV-3 as a table: the bound model is crossed with
+// TestApplyBind_ModelRule is the model-binding rule as a table: the bound model is crossed with
 // both bind kinds and every machine state, because a bind applies from any of them and the
 // "displayName is never empty" invariant must hold after each, not only from idle.
 func TestApplyBind_ModelRule(t *testing.T) {

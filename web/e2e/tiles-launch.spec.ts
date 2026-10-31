@@ -9,7 +9,7 @@ import { liveTile, stripCard } from "./helpers/terminal";
 // a live tile (promoting into a full grid) rather than in the strip, driving the same
 // #launch-dialog as everywhere else.
 //
-// Plan rail-card-improvements REQ-6 (kb:adr/launch-new-session-button-in-masthead)
+// The rail-card-improvements work (kb:adr/launch-new-session-button-in-masthead)
 // retired the Tiles toolbar's own `#tiles-new-session-button`: the single masthead
 // `#new-session-button` (`helpers/railcards.ts`) now stays mounted and visible in both
 // views, so this file no longer needs its own view-scoped locator.
@@ -19,7 +19,7 @@ import { liveTile, stripCard } from "./helpers/terminal";
 // every test here takes the per-test `daemon` fixture (helpers/fixtures.ts).
 //
 // The masthead button's presence in Tiles, the Tiles-only button's absence and the dialog
-// it opens (REQ-6, INV-3) are a render test in web/render/launch.spec.ts since 2026-10-20
+// it opens are a render test in web/render/launch.spec.ts since 2026-10-20
 // (plans/_audit/relevel/launch-update.md), against the `empty-tiles` fixture: the view is a
 // pref the dashboard adopts only from the broadcast.
 
@@ -32,7 +32,7 @@ test("a session launched from Tiles appears as a live tile", async ({ page, daem
     const dialog = launchDialog(page);
 
     // No prior launches on this fresh daemon, so the dialog opens directly on the
-    // browse root — `dir` is a direct child of it (plan new-session-dialog: the
+    // browse root — `dir` is a direct child of it (the new-session-dialog change: the
     // Browse…/Use this folder flow no longer exists; the listed directory is the
     // selection).
     await childEntry(dialog, basename(dir)).click();

@@ -5,7 +5,7 @@
 // branches the same way). Only the unknown branch is DOM-construction-free (it sets
 // `className`/`textContent` and returns), so that's what's covered directly here — the
 // known branch's honesty/track/hot-class behavior is covered end-to-end by
-// web/e2e/gauges.spec.ts (E1, E3, E4, E12) against the real DOM, and its derivation
+// web/e2e/gauges.spec.ts against the real DOM, and its derivation
 // (pct/tokensText/hot) is covered without any DOM at all by ../sessions/context.test.ts.
 import { describe, expect, it } from "vitest";
 import type { SessionContext } from "../protocol/session";

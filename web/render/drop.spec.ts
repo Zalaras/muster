@@ -1,6 +1,6 @@
-// drop — the display properties of plan file-drop-fix REQ-1 (the document-level
-// foreign-drag guard), REQ-7 (the client-side size cap) and REQ-8 (a dead surface swallows
-// a drop), re-levelled on 2026-10-20 from web/e2e/drop.spec.ts
+// drop — the display properties of file drop (the document-level
+// foreign-drag guard), the client-side size cap and a dead surface swallowing
+// a drop, re-levelled on 2026-10-20 from web/e2e/drop.spec.ts
 // (plans/_audit/relevel/misc-core.md): each guard runs before any request, so the request
 // log proves no locate was sent and the page's URL and notices prove nothing leaked. What
 // IS synthesized is the dropped `File`/`DataTransfer` a real Finder drag would hand the page
@@ -49,7 +49,7 @@ test("a file over 50 MiB shows the too-large notice and issues no locate request
     if (req.url().includes(`/api/sessions/${session.id}/locate`)) locateRequests += 1;
   });
 
-  // Size-only fixture (no `bytes`) — REQ-7 is a client-side size check before any
+  // Size-only fixture (no `bytes`) — the cap is a client-side size check before any
   // upload, so the actual content is irrelevant and never needs to cross the CDP wire.
   await dropFiles(region, [{ name: "huge.bin", size: MAX_DROP_BYTES + 1 }]);
 
@@ -79,14 +79,14 @@ test("a drop on a dead session's surface is swallowed silently — no notice, no
   await dragoverThenDropFiles(dead, [{ name: "anything.png", size: 16 }]);
 
   expect(page.url()).toBe(urlBefore);
-  // REQ-8: "nothing to paste into, by design" — the drop must leave no visible trace
+  // "nothing to paste into, by design" — the drop must leave no visible trace
   // anywhere on the page, not just inside `#dead-surface`.
   //
   // review cycle 1, Major 3: the previous clause here, `deadSurface.locator(
   // ".terminal-notice")` having count 0, is unfalsifiable — `.terminal-notice` is only
   // ever created inside `TerminalSurface`'s constructor (web/src/terminal/pane.ts),
   // which never runs for `#dead-surface`'s static markup regardless of what the
-  // implementation does, so that count is 0 by construction whether or not REQ-8 is
+  // implementation does, so that count is 0 by construction whether or not that guard is
   // actually honoured. What CAN fail is checking page-wide for the concrete symptom a
   // real leak would produce: if the drop escaped the dead surface (bubbled to a
   // differently-scoped listener, or raced a stale live `TerminalSurface` instance that
@@ -97,8 +97,8 @@ test("a drop on a dead session's surface is swallowed silently — no notice, no
   const statusTexts = await page.getByRole("status").allInnerTexts();
   for (const text of statusTexts) {
     // Deliberately does not match the dead surface's own unrelated, pre-existing
-    // "session ended" label (web/index.html, plan m4-reconcile) — only the phrases
-    // file-drop-fix's own notices actually use (REQ-6's exact strings in
+    // "session ended" label (web/index.html) — only the phrases
+    // the drop feature's own notices actually use (the exact strings in
     // web/e2e/drop.spec.ts), so a real leak of any of them is what fails this loop.
     expect(text).not.toMatch(
       /locating|can't locate|matches \d+ identical|over 50 mib|isn't connected/i,

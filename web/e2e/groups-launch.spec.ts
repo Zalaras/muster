@@ -25,18 +25,17 @@ import { pinViaApi, railCard } from "./helpers/railorder";
 import { launchPrimaryButton, pastSessionRow, resumeTab } from "./helpers/resume";
 import { browseScratchDirectory } from "./helpers/session";
 
-// Plan groups — the launch's effect on the rail: New group… created with the session or not at
+// Groups — the launch's effect on the rail: New group… created with the session or not at
 // all, a launch landing at the end of its section, the filter flipping to All, a resume joining
-// the group chosen, and a group deleted while the dialog is open. Plan acceptance E18, E19, E22
-// (launch half), with REQ-11, REQ-1, I4 and the past-sessions Doc Delta.
+// the group chosen, and a group deleted while the dialog is open.
 //
 // Re-levelled 2026-10-20 (plans/_audit/relevel/groups.md): what the Group row shows for a given
-// state — its default from the focused session and its options on both tabs (E17), and the
+// state — its default from the focused session and its options on both tabs, and the
 // select's and the name field's survival of a render tick — lives in `web/render/groups.spec.ts`
 // against the `groups-titled` fixture. The dialog opened from Tiles stays here: the view switch is
 // a prefs PUT the dashboard adopts only from the broadcast.
 //
-// Daemon shape (the plan's Fixture plan header): every test takes the per-test `daemon` fixture.
+// Daemon shape: every test takes the per-test `daemon` fixture.
 // The launch default reads the sole focused session, and the filter-flip test asserts the
 // `n of m` count, which a neighbour's launch on a shared daemon would corrupt.
 //

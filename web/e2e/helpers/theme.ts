@@ -65,7 +65,7 @@ export function claudeConfigJSON(theme?: string): string {
   return JSON.stringify({ theme });
 }
 
-/** `localStorage["muster.theme-hint"]`, parsed — REQ-11's hint the head script reads
+/** `localStorage["muster.theme-hint"]`, parsed — the hint the head script reads
  * before first paint. `null` when absent or unparseable. */
 export async function readThemeHintStorage(
   page: Page,

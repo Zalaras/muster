@@ -9,7 +9,7 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode/claudecodetest"
 )
 
-// TestInterpretFiles is D6's guard: the written path surfaces only for a PostToolUse
+// TestInterpretFiles is the guard: the written path surfaces only for a PostToolUse
 // Write/Edit/MultiEdit, the transcript path surfaces on every hook type, and
 // PlanMaybeReady is true exactly on SessionStart, PreToolUse/PostToolUse of
 // ExitPlanMode, and a written path under the default plans directory — never on
@@ -119,7 +119,7 @@ func TestInterpretFiles(t *testing.T) {
 }
 
 // TestInterpretFiles_WrittenPathUnderDefaultPlansDirIsAScanTrigger covers the third
-// PlanMaybeReady trigger (REQ-16): a write landing under the default plans directory
+// PlanMaybeReady trigger: a write landing under the default plans directory
 // must be treated as "the plan may be ready", even though it is neither SessionStart nor
 // ExitPlanMode. $HOME is scoped to this test via t.Setenv (IsUnderDefaultPlansDir has no
 // caller-supplied home parameter to thread through instead).
@@ -138,7 +138,7 @@ func TestInterpretFiles_WrittenPathUnderDefaultPlansDirIsAScanTrigger(t *testing
 
 // TestInterpretFiles_WrittenPathOutsideDefaultPlansDirIsNotAScanTrigger is the negative
 // twin: an ordinary write elsewhere under the session directory must not itself trigger
-// a scan (REQ-16 lists exactly three triggers).
+// a scan (there are exactly three triggers).
 func TestInterpretFiles_WrittenPathOutsideDefaultPlansDirIsNotAScanTrigger(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

@@ -66,7 +66,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
 }
 
 // The one `untitled` fallback every surface shares: the card, the Focus header, a group's popover and
-// the select-mode checkbox label (plan groups).
+// the select-mode checkbox label.
 describe("displayTitle", () => {
   it("is the title as sent", () => {
     expect(displayTitle({ title: "fix the thing" })).toBe("fix the thing");
@@ -162,7 +162,7 @@ describe("buildCardViewModel — repo / branch line", () => {
   });
 });
 
-// Plan rail-card-improvements REQ-14 (W6): activityLines is the pure mode x state
+// ActivityLines is the pure mode x state
 // derivation for a card's two activity lines — covered directly, with no DOM, per
 // kb:lesson/conditional-test-routing-resolves-to-nobody (this Should-Have belongs to
 // web-tests, not e2e, since it's unit-testable as built).
@@ -451,7 +451,7 @@ describe("buildCardViewModel — REQ-17 first-launch honesty note", () => {
 
 // kb:adr/launch-bypass-offered-with-danger-guardrails: the danger chip a rail card, the
 // Focus mainhead and a tile header all share, driven by one predicate so the three
-// surfaces can never drift onto different conditions (INV-1).
+// surfaces can never drift onto different conditions.
 describe("bypassChip (INV-1)", () => {
   it("is true when the latched permissionMode is bypassPermissions", () => {
     const session = makeSession({
@@ -520,7 +520,7 @@ describe("buildCardViewModel — bypassChip field (INV-1)", () => {
 
 // kb:adr/launch-bypass-warning-surfaced-never-answered: the bypass warning is the trust
 // prompt's twin — surfaced from absence of signal, and (unlike the plain no-signal note)
-// shown immediately, with no NO_SIGNAL_THRESHOLD_SECONDS wait (REQ-5).
+// shown immediately, with no NO_SIGNAL_THRESHOLD_SECONDS wait.
 describe("buildCardViewModel — bypass-warning honesty note (REQ-5)", () => {
   it("shows the combined trust-prompt-then-bypass-warning text on a first launch into a new directory", () => {
     const vm = buildCardViewModel(
@@ -647,7 +647,7 @@ const WORKTREE_AT = {
   repo: { name: "e7b", branch: "worktree-e7b", isWorktree: true },
 };
 
-// REQ-10 (W1): the launch directory's readout split at the slash; the one-line `repoLine`
+// The launch directory's readout split at the slash; the one-line `repoLine`
 // is derived from the same parts, so the two cannot disagree.
 describe("repoParts — the launch readout split into folder and branch lines (W1)", () => {
   const cases: Array<{
@@ -720,7 +720,7 @@ describe("folderName — the one repo-name-else-basename rule, and repoParts wit
   });
 });
 
-// REQ-12 (W2).
+// The `↳` readout's location parts.
 describe("claudeLocationParts — the `↳` readout (W2)", () => {
   const cases: Array<{
     name: string;
@@ -759,7 +759,7 @@ describe("claudeLocationParts — the `↳` readout (W2)", () => {
   }
 });
 
-// REQ-14, REQ-15 (W3): lines 1-2 always, 3 while moved, 4 while moved with a location branch.
+// Lines 1-2 always, 3 while moved, 4 while moved with a location branch.
 describe("locationHover, claudeHover, claudeNote — the hover text (W3)", () => {
   const base = { repo: { name: "muster", branch: "main", isWorktree: false } };
   const cases: Array<{

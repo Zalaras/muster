@@ -107,7 +107,7 @@ func (r *recordingProgress) get() []Phase {
 	return append([]Phase(nil), r.phases...)
 }
 
-// TestApply_SuccessfulInstall covers D11's happy path plus D19's phase-ordering claim at
+// TestApply_SuccessfulInstall covers the happy path plus the phase-ordering claim at
 // the Apply level (the manager-level "done" phase is added by internal/server, not by
 // Apply itself): downloading -> verifying -> installing, in order, then the real exe
 // file's content is the archive's musterd member, mode 0755.
@@ -149,7 +149,7 @@ func TestApply_SuccessfulInstall(t *testing.T) {
 	assert.Len(t, entries, 1, "only the final exePath must remain, no leftover .musterd-*.tmp")
 }
 
-// TestApply_AcceptsPrehashedSignature covers REQ-15's second mode at the Apply level
+// TestApply_AcceptsPrehashedSignature covers the second mode at the Apply level
 // (verify_test.go covers VerifyChecksums directly; this proves Apply's own call site
 // doesn't need to branch either).
 func TestApply_AcceptsPrehashedSignature(t *testing.T) {
@@ -175,7 +175,7 @@ func TestApply_AcceptsPrehashedSignature(t *testing.T) {
 	assert.Equal(t, []byte("new content"), got)
 }
 
-// TestApply_SymlinkAtInvokedPathIsLeftAlone covers REQ-17's symlink clause: ExePath is
+// TestApply_SymlinkAtInvokedPathIsLeftAlone covers the symlink clause: ExePath is
 // always the already-resolved real path (os.Executable + EvalSymlinks, by contract), so
 // Apply installs over the real file; a symlink elsewhere pointing at it is untouched —
 // still a symlink, still pointing at the same real path — and following it now reads the
@@ -216,7 +216,7 @@ func TestApply_SymlinkAtInvokedPathIsLeftAlone(t *testing.T) {
 	assert.Equal(t, newContent, got, "following the symlink must now read the new content")
 }
 
-// exeUnchanged asserts exePath's bytes are byte-identical to before (INV-3/REQ-18) and
+// exeUnchanged asserts exePath's bytes are byte-identical to before and
 // no leftover .musterd-<tag>.tmp file remains beside it.
 func exeUnchanged(t *testing.T, exePath string, before []byte, tag string) {
 	t.Helper()
@@ -229,7 +229,7 @@ func exeUnchanged(t *testing.T, exePath string, before []byte, tag string) {
 	assert.True(t, os.IsNotExist(statErr), "no leftover temp file must survive a refusal")
 }
 
-// TestApply_RefusalsLeaveTheBinaryByteIdentical covers D10/D11/INV-3 across every
+// TestApply_RefusalsLeaveTheBinaryByteIdentical checks across every
 // verification and install failure point named in the plan's edge cases: each must
 // refuse with a non-nil error and leave exePath completely untouched.
 func TestApply_RefusalsLeaveTheBinaryByteIdentical(t *testing.T) {
@@ -410,7 +410,7 @@ func TestInstallBinary_DirectoryAtInstallPathFailsAndLeavesNoTempFile(t *testing
 	assert.Equal(t, "musterd", entries[0].Name())
 }
 
-// TestApply_RequestsCarryA120SecondDeadline covers D26's Apply half via the same
+// TestApply_RequestsCarryA120SecondDeadline covers the Apply half via the same
 // deadline-inspection technique as TestLatestTag_RequestCarriesTenSecondDeadline
 // (release_test.go, same package): a fake transport captures the first request's
 // context deadline and fails fast, so the assertion never actually waits 120s.

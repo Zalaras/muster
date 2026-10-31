@@ -13,7 +13,7 @@ import (
 )
 
 // newRedirectServer starts an httptest.Server whose handler is swappable per-subtest via
-// the returned setter — D8's fixture for both the happy path and every failure shape.
+// the returned setter — the fixture for both the happy path and every failure shape.
 // LatestTag issues HEAD; the handler asserts that so a regression to GET is caught here
 // rather than silently metering the real GitHub API.
 func newRedirectServer(t *testing.T, handler func(w http.ResponseWriter, r *http.Request)) *httptest.Server {
@@ -26,7 +26,7 @@ func newRedirectServer(t *testing.T, handler func(w http.ResponseWriter, r *http
 	return srv
 }
 
-// TestLatestTag_ResolvesAbsoluteAndRelativeRedirect covers D8's happy path: both an
+// TestLatestTag_ResolvesAbsoluteAndRelativeRedirect covers the happy path: both an
 // absolute and a path-relative Location resolve to the same tag.
 func TestLatestTag_ResolvesAbsoluteAndRelativeRedirect(t *testing.T) {
 	tests := []struct {
@@ -52,7 +52,7 @@ func TestLatestTag_ResolvesAbsoluteAndRelativeRedirect(t *testing.T) {
 	}
 }
 
-// TestLatestTag_Errors covers D8's refusal table: a 200 (no redirect at all), a redirect
+// TestLatestTag_Errors covers the refusal table: a 200 (no redirect at all), a redirect
 // with no Location header, and a redirect tag that is not v<semver> must all error.
 func TestLatestTag_Errors(t *testing.T) {
 	t.Run("200 instead of a redirect errors", func(t *testing.T) {
@@ -90,7 +90,7 @@ func TestLatestTag_Errors(t *testing.T) {
 	})
 }
 
-// TestLatestTag_NeverFollowsTheRedirectItself covers REQ-5's "unmetered HEAD, no
+// TestLatestTag_NeverFollowsTheRedirectItself covers the "unmetered HEAD, no
 // following" claim directly: if LatestTag actually followed the redirect it would hit
 // the target handler (which fails the test), rather than reading the 3xx's own Location.
 func TestLatestTag_NeverFollowsTheRedirectItself(t *testing.T) {
@@ -113,8 +113,7 @@ func TestLatestTag_NeverFollowsTheRedirectItself(t *testing.T) {
 
 // deadlineCapturingTransport records the deadline attached to the first request's
 // context (relative to when it observed it) and fails the request immediately — used to
-// assert a timeout constant is actually wired in without ever waiting for it to fire
-// (D26).
+// assert a timeout constant is actually wired in without ever waiting for it to fire.
 type deadlineCapturingTransport struct {
 	remaining chan time.Duration
 }
@@ -135,7 +134,7 @@ func (d *deadlineCapturingTransport) RoundTrip(r *http.Request) (*http.Response,
 	return nil, errors.New("deadlineCapturingTransport: refusing to actually send")
 }
 
-// TestLatestTag_RequestCarriesTenSecondDeadline covers D26's LatestTag half: the request
+// TestLatestTag_RequestCarriesTenSecondDeadline covers the LatestTag half: the request
 // context's deadline is ~CheckTimeout (10s) from now, asserted by inspection rather than
 // by actually waiting for a hang to time out.
 func TestLatestTag_RequestCarriesTenSecondDeadline(t *testing.T) {

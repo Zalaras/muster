@@ -29,20 +29,20 @@ import {
 } from "./helpers/session";
 import { liveTile } from "./helpers/terminal";
 
-// Plan m3-gauges — REQ-1 through REQ-14 driven end-to-end: per-session title/model/
+// Gauges, driven end-to-end: per-session title/model/
 // context refresh (`session.Manager.ApplyStatus`) and the account-level usage aggregator
 // (`internal/usage`), both fed exclusively by synthesized status-line POSTs to the real
 // `/ingest/<token>/status` endpoint — mirroring exactly what the real status-line script
-// would send. No real `claude` is ever launched (CLAUDE.md hard rule). Plan acceptance:
-// the journeys E2, E6 to E11 and the in-place updates; what a known, unknown or hot gauge
-// looks like on the card, the tile and the masthead (E1, E3, E4, E5, E12) is a render test in
+// would send. No real `claude` is ever launched (CLAUDE.md hard rule). These
+// are the journeys and the in-place updates; what a known, unknown or hot gauge
+// looks like on the card, the tile and the masthead is a render test in
 // web/render/usage.spec.ts (re-levelled 2026-10-20, plans/_audit/relevel/usage.md).
 //
 // Every test takes the per-test `daemon` fixture (helpers/fixtures.ts) rather than a
 // file-shared one: account usage (the masthead gauges, the `usage_sample` table) is
 // daemon-global, so two tests sharing a daemon would stomp on each other's exact-value
 // and exact-row-count assertions the moment they run concurrently (`fullyParallel:
-// true`, playwright.config.ts), and E11 restarts its daemon outright.
+// true`, playwright.config.ts), and the restart test restarts its daemon outright.
 
 test("a pre-first-response status post leaves the unknown rendering unchanged — null is not 0% (E2)", async ({
   page,
@@ -73,7 +73,7 @@ test("a pre-first-response status post leaves the unknown rendering unchanged �
       })
       .toBe(2);
 
-    // A zero token count with a null percentage must never render as 0% (REQ-2).
+    // A zero token count with a null percentage must never render as 0%.
     await expect(card.getByText(/ctx\s+unknown/i)).toBeVisible();
     await expect(cardContextTrack(card)).toHaveCount(0);
     await expect(mastheadBucket(page, "5h")).toContainText(/unknown/i);
@@ -111,7 +111,7 @@ test("two identical rapid status posts persist exactly one usage_sample row; a c
 
     // A third post with a genuinely different value. Wait for ITS distinct effect to
     // reach the UI before reading the sqlite oracle: the ingest worker processes posts
-    // in submission order (R4), so once this one's value is visible the two identical
+    // in submission order, so once this one's value is visible the two identical
     // posts before it are guaranteed to have already been recorded (or deduped) —
     // no fixed sleep needed to "wait out" the earlier posts.
     await request.post(daemon.ingestURL("status"), {
@@ -136,7 +136,7 @@ test("a status post's session name updates the card title and its model leaves t
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
-    // No launch-time title, so the session starts "untitled" — REQ-4's title refresh
+    // No launch-time title, so the session starts "untitled" — the title refresh
     // must be the thing that names it.
     const session = await launchSession(page, daemon, { directory: dir });
     const claudeId = "claude-gauge-e7";
@@ -280,7 +280,7 @@ test("/clear returns the context row to ctx unknown and resets the compaction co
     await request.post(daemon.ingestURL("hook"), { data: rawPreCompact(originalClaudeId, "p1") });
     await expect(card.getByText(/⟳1\b/)).toBeVisible();
 
-    // The /clear sequence (sessions.spec.ts's E7 pattern): a turn closes normally,
+    // The /clear sequence (sessions.spec.ts's pattern): a turn closes normally,
     // SessionEnd(reason:"clear") is not a death hint, then the new SessionStart
     // (source:"clear") rebinds this same card to a fresh claude_session_id.
     await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(originalClaudeId) });
@@ -333,14 +333,14 @@ test("after a daemon restart the masthead reads unknown until a fresh post, whil
     await daemon.restart();
     await page.reload();
 
-    // REQ-7: no hydration — the aggregator (and therefore the masthead) is unknown
+    // No hydration — the aggregator (and therefore the masthead) is unknown
     // again until the next post-boot sample.
     await expect(mastheadBucket(page, "5h")).toContainText(/unknown/i);
     await expect(mastheadBucket(page, "7d")).toContainText(/unknown/i);
     await expect(mastheadBucketTrack(page, "5h")).toHaveCount(0);
 
     // The session's context, by contrast, lives on the session row and survives
-    // (plan decision 2026-08-23: "Per-session context DOES survive restart").
+    // (decision 2026-08-23: "Per-session context DOES survive restart").
     const reloadedCard = sessionCard(page, "gauge-e11-restart");
     await expect(reloadedCard).toBeVisible();
     await expect(cardContextRow(reloadedCard)).toContainText("42%");
@@ -350,7 +350,7 @@ test("after a daemon restart the masthead reads unknown until a fresh post, whil
   }
 });
 
-// Plan focus-lands REQ-1 (#69), tile header half: `.ctxinfo` shares the rail card's builder,
+// Focus-lands (#69), tile header half: `.ctxinfo` shares the rail card's builder,
 // so a known-to-known status line must leave its track, percent and token nodes in place.
 // The tag is a JS property on the live node, so it survives only if the node does.
 test("a status line that changes a tile's context percent updates the header context info in place, so its track is the same element (REQ-1, tile half)", async ({
@@ -416,7 +416,7 @@ test("a status line that changes a tile's context percent updates the header con
   }
 });
 
-// Plan focus-lands edge case 2: the compaction counter is added to and removed from a context
+// Focus-lands: the compaction counter is added to and removed from a context
 // row that is otherwise updated in place. PreCompact is the measured hook (rawPreCompact) that
 // drives it; /clear is what removes it again, through an unknown render.
 test("a compaction counter appearing on a later render keeps the row correct on the rail card and the tile header, and a /clear then a fresh status line shows none (REQ-1, edge 2)", async ({

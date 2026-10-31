@@ -90,7 +90,7 @@ func subagentStopFailure() claudecode.StateInput {
 	return claudecode.StateInput{Kind: claudecode.KindTurnFailed, Agent: subagentID, FromSubagent: true, FailureError: strp("server_error"), LastActivity: strp("API error ended the turn")}
 }
 
-// TestApplyInput_IdleNotice covers REQ-1 to REQ-4 row by row: from each source state, an
+// TestApplyInput_IdleNotice checks row by row: from each source state, an
 // idle_prompt with no prompt id or a closed one changes nothing; one naming an open prompt
 // (the current one, or one no hook ever named) ends the turn of a working or planning card
 // and of a legacy idle wait, and otherwise only closes the named prompt, a permission wait
@@ -101,7 +101,7 @@ func TestApplyInput_IdleNotice(t *testing.T) {
 	prompts := []struct {
 		name   string
 		prompt *string
-		inert  bool // REQ-4: no id, or a closed one
+		inert  bool // no id, or a closed one
 	}{
 		{"no_prompt_id", nil, true},
 		{"closed_prompt", strp("p0"), true},
@@ -153,7 +153,7 @@ func TestApplyInput_IdleNotice(t *testing.T) {
 	}
 }
 
-// TestApplyInput_CompactionBegan covers REQ-6 and REQ-7: outside a turn a PreCompact reads
+// TestApplyInput_CompactionBegan: outside a turn a PreCompact reads
 // working whatever the latch says, adopts its prompt and clears attention and failure;
 // inside a turn it only counts and leaves the current prompt alone. Either way the counter
 // moves by one and the Stop-owned fields stay.
@@ -211,7 +211,7 @@ func TestApplyInput_CompactionBegan(t *testing.T) {
 	})
 }
 
-// TestApplyInput_CompactionEnded covers REQ-8 and REQ-9 at the machine: a compact
+// TestApplyInput_CompactionEnded checks at the machine: a compact
 // SessionStart naming the prompt a compaction opened, still current and open, lands idle and
 // moves nothing the Stop does not own; every other compact SessionStart changes no
 // state-machine field.
@@ -356,9 +356,9 @@ func runSequence(t *testing.T, sess *Session, steps []seqStep) {
 // idleCard is a bound, idle card whose last turn (p0) closed.
 func idleCard() *Session { return cardSession(cardSources[3]) }
 
-// TestApplyInput_CardStateEdgeCases drives the plan's numbered edge cases (D2) as event
+// TestApplyInput_CardStateEdgeCases drives the plan's numbered edge cases as event
 // sequences through the machine, asserting the card's state after every step. The numbering
-// follows plan state-issues "Edge Cases".
+// follows the "Edge Cases" list of the work that introduced it.
 func TestApplyInput_CardStateEdgeCases(t *testing.T) {
 	pc, p2, bg := strp(compactionPrompt), strp("p2"), strp("f6b55573")
 	dontAsk := strp("dontAsk")
@@ -505,7 +505,7 @@ func TestApplyInput_CardStateEdgeCases(t *testing.T) {
 	}
 }
 
-// TestApplyInput_LegacyIdleWaitEndsOnAnyAgentsActivity covers REQ-5: unlike a permission
+// TestApplyInput_LegacyIdleWaitEndsOnAnyAgentsActivity: unlike a permission
 // wait, which another agent's activity leaves alone, a wait with reason idle belongs to
 // nobody, so activity from the main agent, the subagent or a second one all land ACTIVE with
 // attention cleared.
@@ -530,7 +530,7 @@ func TestApplyInput_LegacyIdleWaitEndsOnAnyAgentsActivity(t *testing.T) {
 	}
 }
 
-// TestApplyInput_SubagentEventsNeverMoveTheLatch covers REQ-12: whatever mode a subagent-
+// TestApplyInput_SubagentEventsNeverMoveTheLatch: whatever mode a subagent-
 // marked turn-activity event carries, from every latch the main agent could have set, the
 // latch and its source stay put and the state follows the held latch; the same event
 // unmarked latches as today.
@@ -586,7 +586,7 @@ func TestApplyInput_SubagentEventsNeverMoveTheLatch(t *testing.T) {
 	})
 }
 
-// TestApplyInput_SubagentStopFailureChangesNothing covers REQ-13: from every source state
+// TestApplyInput_SubagentStopFailureChangesNothing: from every source state
 // and for an open, a closed, an unseen or an absent prompt id, a subagent-marked StopFailure
 // moves no field at all, while the unmarked one still fails the card from every state.
 func TestApplyInput_SubagentStopFailureChangesNothing(t *testing.T) {
@@ -632,7 +632,7 @@ func TestApplyInput_CardStateInvariants_D3(t *testing.T) {
 		prompt     *string
 		compaction bool
 		idlePrompt bool
-		ownMarker  bool // seed the compaction marker so the prompt is a REQ-6 compaction's
+		ownMarker  bool // seed the compaction marker so the prompt is a compaction's
 	}
 	mode := "dontAsk"
 	inputs := []input{

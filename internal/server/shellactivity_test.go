@@ -22,7 +22,7 @@ const testShellBase = "zsh"
 
 // paneActivityStub is the paneActivityLister test double: a controllable, in-memory
 // stand-in for tmux.Client.ListPaneActivity — never a real tmux invocation, since every
-// test in this file is about the poller's own gating/diff logic (D5/D8/D9, reconcile),
+// test in this file is about the poller's own gating/diff logic (and reconcile),
 // not a tmux-observable effect (internal/tmux/activity_test.go covers those for real).
 type paneActivityStub struct {
 	mu    sync.Mutex
@@ -151,9 +151,9 @@ func newTestPoller(lister *paneActivityStub, canonical *canonicalStub, b *record
 	return newShellActivityPoller(lister.list, canonical.check, alwaysHasShells, testShellBase, time.Hour, b.broadcast, zerolog.Nop())
 }
 
-// TestTick_BusyGating_Table is D5/D8/D9's exhaustive cross-state coverage
+// TestTick_BusyGating_Table is the exhaustive cross-state coverage
 // (kb:lesson/invariant-missed-by-per-transition-tests): every case is asserted for both
-// the resulting busy verdict AND whether the tty ioctl was even reached, since D5's whole
+// the resulting busy verdict AND whether the tty ioctl was even reached, since the whole
 // point (surfaced by shellactivity.go's own comment) is that AlternateOn/idle-shell skip
 // the ioctl entirely rather than merely overriding its result.
 func TestTick_BusyGating_Table(t *testing.T) {
@@ -340,7 +340,7 @@ func TestReconcile_BroadcastsOnceOnGoingBusy(t *testing.T) {
 }
 
 // TestReconcile_BroadcastsOnceOnGoingIdle covers the busy->absent transition, the same
-// path E7 (shell exits while busy) and E8 (daemon restart mid-command) both take: neither
+// path both a shell exiting while busy and a daemon restart mid-command take: neither
 // distinguishes itself at this layer, both just mean the session id is missing from
 // newBusy.
 func TestReconcile_BroadcastsOnceOnGoingIdle(t *testing.T) {
@@ -369,7 +369,7 @@ func TestReconcile_NoBroadcastWhenUnchanged(t *testing.T) {
 	assert.ElementsMatch(t, []int64{1}, p.Current())
 }
 
-// TestReconcile_MultipleSessionsIndependentNoCrossTalk covers INV-4/E11: two sessions
+// TestReconcile_MultipleSessionsIndependentNoCrossTalk: two sessions
 // going busy in the same reconcile broadcast independently, and a later change to one
 // never touches the other's entry in Current().
 func TestReconcile_MultipleSessionsIndependentNoCrossTalk(t *testing.T) {

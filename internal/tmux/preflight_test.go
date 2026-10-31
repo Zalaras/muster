@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestParseVersion covers REQ-2/REQ-3 and Edge Cases 3-5: the first (major, minor) pair
+// TestParseVersion checks and Edge Cases 3-5: the first (major, minor) pair
 // is extracted from raw `tmux -V` output, trailing letters/suffixes and anything before
 // the digits are ignored, and a version with no numeric match at all reports ok=false
 // (the warning path, not an error).
@@ -47,7 +47,7 @@ func TestParseVersion(t *testing.T) {
 	}
 }
 
-// TestParsedVersion_Less is D7 and Edge Case 3: comparison is numeric on (major, minor),
+// TestParsedVersion_Less covers Edge Case 3: comparison is numeric on (major, minor),
 // never lexical — a string compare would put "3.10" below "3.2".
 func TestParsedVersion_Less(t *testing.T) {
 	tests := []struct {
@@ -74,7 +74,7 @@ func TestParsedVersion_String(t *testing.T) {
 	assert.Equal(t, "3.10", ParsedVersion{Major: 3, Minor: 10}.String())
 }
 
-// TestMinVersion pins REQ-2's stated minimum so a future accidental edit is caught here
+// TestMinVersion pins the stated minimum so a future accidental edit is caught here
 // rather than only surfacing as a changed error message elsewhere.
 func TestMinVersion(t *testing.T) {
 	assert.Equal(t, ParsedVersion{Major: 3, Minor: 2}, MinVersion)
@@ -98,7 +98,7 @@ func fakePreflighter(stdout string, runErr error) *preflighter {
 	}
 }
 
-// TestPreflight_NotFoundOnPath covers D1's underlying unit and Edge Case 1's "absent"
+// TestPreflight_NotFoundOnPath covers the underlying unit and Edge Case 1's "absent"
 // shape: no tmux anywhere on $PATH resolves to StatusNotFound with Found=false and no
 // path to report. lookPath fails exactly as exec.LookPath does for an empty $PATH.
 func TestPreflight_NotFoundOnPath(t *testing.T) {
@@ -115,7 +115,7 @@ func TestPreflight_NotFoundOnPath(t *testing.T) {
 
 // TestPreflight_FoundButFailsToRun covers Edge Case 2 (present but not executable, or
 // any other reason `tmux -V` exits non-zero): the report must still distinguish this
-// from "not found" by setting Found=true and Path (REQ-14), even though both land on the
+// from "not found" by setting Found=true and Path, even though both land on the
 // same fatal StatusNotFound classification (daemon-implementation.md's Decisions).
 func TestPreflight_FoundButFailsToRun(t *testing.T) {
 	p := fakePreflighter("", errors.New("exit status 1"))
@@ -153,7 +153,7 @@ func TestPreflight_HangingTmuxIsBoundedAndFatal(t *testing.T) {
 	assert.Less(t, elapsed, time.Second, "a hung tmux -V must be bounded by the preflight timeout, not the binary's own lifetime")
 }
 
-// TestPreflight_TooOld covers D2/REQ-2: a tmux below MinVersion classifies as
+// TestPreflight_TooOld: a tmux below MinVersion classifies as
 // StatusTooOld and its detected version is reported (not just the pass/fail verdict).
 func TestPreflight_TooOld(t *testing.T) {
 	got := fakePreflighter("tmux 3.1a", nil).preflight(context.Background())
@@ -173,7 +173,7 @@ func TestPreflight_ExactlyMinVersionIsOK(t *testing.T) {
 	assert.Equal(t, "3.2", got.Version)
 }
 
-// TestPreflight_NewerDoubleDigitMinorIsOK is D6/D7 exercised through preflight's own
+// TestPreflight_NewerDoubleDigitMinorIsOK is the version comparison exercised through preflight's own
 // classification end to end: 3.10 must be treated as newer than the 3.2 minimum, not
 // older by a lexical compare.
 func TestPreflight_NewerDoubleDigitMinorIsOK(t *testing.T) {
@@ -182,7 +182,7 @@ func TestPreflight_NewerDoubleDigitMinorIsOK(t *testing.T) {
 	assert.Equal(t, StatusOK, got.Status, "3.10 must not be rejected as older than 3.2")
 }
 
-// TestPreflight_UnrecognizedVersionIsNotFatal covers D3/REQ-3/Edge Case 5: tmux ran
+// TestPreflight_UnrecognizedVersionIsNotFatal covers Edge Case 5: tmux ran
 // successfully but its output doesn't parse as a version — StatusUnrecognized, not
 // StatusNotFound and not StatusTooOld. Muster cannot prove an unrecognized build is too
 // old.
@@ -210,7 +210,7 @@ func TestPreflight_UppercaseProgramNamePrefixIsNotTrimmed(t *testing.T) {
 // writeTmuxLeakStub writes a real executable standing in for `tmux -V`: it prints a
 // version line and exits successfully while a *descendant* it forked keeps the inherited
 // stdout pipe open for a long time — the same shape that hung musterd's startup at
-// e0319f8, just at this package's other startup-path site (REQ-3). A stub that merely
+// e0319f8, just at this package's other startup-path site. A stub that merely
 // slept *before* exiting would only exercise the ordinary bounded-context kill path, not
 // this one: here the direct child (what exec.CommandContext tracks) exits promptly, so
 // the hang comes entirely from os/exec's Wait blocking on the stdout pipe's EOF, which
@@ -230,7 +230,7 @@ func writeTmuxLeakStub(t *testing.T) string {
 
 // TestRunCommand_DescendantHoldingStdoutDoesNotHang exercises the real production run
 // seam (runCommand, not fakePreflighter's canned func) against a real subprocess, per the
-// plan's "through the run-func seam's real runCommand" (D3/REQ-3): a stub that exits
+// plan's "through the run-func seam's real runCommand": a stub that exits
 // leaving a descendant holding stdout must not stall this call past its WaitDelay bound.
 // Run in a goroutine with the test's own bounded select so a regression (WaitDelay
 // reverted) fails this test with a clear diagnostic instead of hanging the whole `go
@@ -264,7 +264,7 @@ func TestRunCommand_DescendantHoldingStdoutDoesNotHang(t *testing.T) {
 
 // TestPreflight_ProductionSeamsAreTheExecPackage pins that the exported Preflight is
 // wired to real process boundaries — the fake-seam tests above prove the logic, this
-// proves the default construction points at exec (and at the 2 s bound REQ-1 names)
+// proves the default construction points at exec (and at the 2 s bound the preflight names)
 // without running anything.
 func TestPreflight_ProductionSeamsAreTheExecPackage(t *testing.T) {
 	p := newPreflighter()

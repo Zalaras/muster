@@ -1,5 +1,5 @@
-// The Focus header's `+N` added-directories suffix and its location panel (plan
-// see-added-dirs REQ-6, REQ-7): the suffix's locator and drawing oracle, the panel's
+// The Focus header's `+N` added-directories suffix and its location panel: the suffix's
+// locator and drawing oracle, the panel's
 // locator, hover path, anchored text pattern and placement geometry. Pure DOM — the panel
 // reads the session's `addedDirs` off the snapshot and opens client-side — so both tiers
 // use it: the render spec here directly (card-location.spec.ts, for a fixture's list), the
@@ -182,7 +182,7 @@ export async function panelGeometry(page: Page): Promise<PanelGeometry> {
   });
 }
 
-/** The panel's margins (plan see-added-dirs edge case 15, decisions/location-panel-overflow
+/** The panel's margins (decisions/location-panel-overflow
  * outcome B): the gap it keeps from the viewport's edge and from the readout it hangs off. */
 export const EDGE_GAP = 8;
 export const ANCHOR_GAP = 4;

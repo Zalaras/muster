@@ -69,7 +69,7 @@ func runWrapperCapture(t *testing.T, cmdString string, env []string, stdin strin
 	return out.String(), errOut.String()
 }
 
-// TestWrapperReply_PrintsTheBodyOnlyOnA2xx covers REQ-5: hook.sh passes the daemon's body
+// TestWrapperReply_PrintsTheBodyOnlyOnA2xx: hook.sh passes the daemon's body
 // to stdout, byte for byte, only when the answer is a 2xx; every other status prints
 // nothing, and the wrapper exits 0 and keeps stderr empty either way. status-line.sh, whose
 // stdout is the status-line text, never prints whatever the daemon answers. The
@@ -135,7 +135,7 @@ func TestWrapperReply_PrintsTheBodyOnlyOnA2xx(t *testing.T) {
 	}
 }
 
-// TestWrapperReply_AnAnswerThatNeverComesPrintsNothing covers REQ-5's timeout case: curl's
+// TestWrapperReply_AnAnswerThatNeverComesPrintsNothing covers the timeout case: curl's
 // own 2 s limit ends the post, nothing reaches stdout, and the wrapper still exits 0.
 func TestWrapperReply_AnAnswerThatNeverComesPrintsNothing(t *testing.T) {
 	requireShellTools(t)
@@ -166,7 +166,7 @@ func TestWrapperReply_AnAnswerThatNeverComesPrintsNothing(t *testing.T) {
 // TestWrapperReply_RenameRoundTripThroughTheRealIngest runs the generated hook.sh against
 // the real ingest handler: the first UserPromptSubmit after a rename prints the Claude Code
 // reply on stdout, the second prints nothing, and a non-prompt hook prints nothing even
-// with a rename waiting. This is the chain REQ-1, REQ-2 and REQ-5 form together.
+// with a rename waiting. This is the whole chain end to end.
 func TestWrapperReply_RenameRoundTripThroughTheRealIngest(t *testing.T) {
 	requireShellTools(t)
 	r := newRenameRig(t)

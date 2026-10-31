@@ -65,7 +65,7 @@ describe("permission — permissionModeToCheck", () => {
     expect(permissionModeToCheck(mode)).toBe(mode);
   });
 
-  // kb:adr/launch-bypass-never-restored-as-default (REQ-3/INV-3): a stored bypass is
+  // kb:adr/launch-bypass-never-restored-as-default: a stored bypass is
   // never restored, unlike every other recognised mode above — checked separately so a
   // future PERMISSION_MODES reorder can't silently fold this back into the round-trip loop.
   it("falls back to auto for the never-restored bypassPermissions", () => {
@@ -89,7 +89,7 @@ describe("permission — permissionModeToCheck", () => {
   });
 });
 
-// launchPrimaryFace (REQ-2/REQ-11/INV-2): #launch-button's face follows whichever tab is
+// launchPrimaryFace: #launch-button's face follows whichever tab is
 // showing — the New tab's own checked Start-in mode, or the Resume tab's selected row's
 // last-known mode. Bypass in either shape gets the danger face and the "without checks"
 // label; every other combination gets the calm face and the tab's plain verb.

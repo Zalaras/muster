@@ -16,7 +16,7 @@ import (
 	"github.com/Zalaras/muster/internal/store"
 )
 
-// fakeTmux is the paneSpawner (REQ-1) and attachFunc source (REQ-2) test double for
+// fakeTmux is the paneSpawner and attachFunc source test double for
 // every test in this package whose assertion is about call shape, counts or error
 // propagation — never a tmux-observable effect (PTY stream, geometry, liveness, pane
 // env, real client attachment): those stay on a real per-test tmux socket, per this
@@ -35,19 +35,19 @@ type fakeTmux struct {
 	newNamedSessionErr error
 
 	// newSessionErrQueue, when non-empty, pops one error per NewSession call before
-	// newSessionErr is consulted (plan session-lifecycle D4/D5: the launcher's retry loop
+	// newSessionErr is consulted (the launcher's retry loop
 	// needs "fails N times then succeeds", which a single static error can't express).
 	newSessionErrQueue []error
-	// newSessionIDs records the id passed to every NewSession call, in order — D4's
+	// newSessionIDs records the id passed to every NewSession call, in order — the
 	// "the retry's id is strictly greater than the first attempt's" assertion.
 	newSessionIDs []int64
-	// newSessionArgvs records the argv passed to every NewSession call, in order — plan
-	// resume-and-dangerously-allow's D9 ("spawns --resume <id> --permission-mode <mode>
+	// newSessionArgvs records the argv passed to every NewSession call, in order — the resume
+	// case ("spawns --resume <id> --permission-mode <mode>
 	// with no --model and no --name") needs the actual argv, which no other fakeTmux
 	// field captures.
 	newSessionArgvs [][]string
 
-	// maxSessionIDErr/maxSessionIDCalls back MaxSessionID (plan session-lifecycle D2's
+	// maxSessionIDErr/maxSessionIDCalls back MaxSessionID (the
 	// launcher-degrades-to-floor-0 case).
 	maxSessionIDErr   error
 	maxSessionIDCalls int
@@ -88,7 +88,7 @@ func (f *fakeTmux) NewSession(_ context.Context, id int64, _ string, _ map[strin
 }
 
 // queueNewSessionErrs sets up NewSession to fail with each of errs in turn (one per
-// call), then succeed once the queue is empty (plan session-lifecycle D4/D5).
+// call), then succeed once the queue is empty.
 func (f *fakeTmux) queueNewSessionErrs(errs ...error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -115,8 +115,8 @@ func (f *fakeTmux) lastNewSessionArgv() []string {
 	return f.newSessionArgvs[len(f.newSessionArgvs)-1]
 }
 
-// MaxSessionID is REQ-3's floor probe. This fake never inspects panes for it — tests set
-// maxSessionIDErr directly to simulate a probe failure (D2's launcher-degrades-to-floor-0
+// MaxSessionID is the floor probe. This fake never inspects panes for it — tests set
+// maxSessionIDErr directly to simulate a probe failure (the launcher-degrades-to-floor-0
 // case). Defined so fakeTmux keeps satisfying paneSpawner once daemon-impl widens that
 // interface to require it (plan Affected Files: "a test-agent change, not an impl-agent
 // one").
@@ -173,7 +173,7 @@ func (f *fakeTmux) markGone(target string) {
 	delete(f.panes, target)
 }
 
-// attach is the attachFunc closing over this fakeTmux (REQ-2's Config.Attach override):
+// attach is the attachFunc closing over this fakeTmux (the Config.Attach override):
 // it fabricates a paneConn for target regardless of whether the fake currently believes
 // a pane exists there (attach's own error path is covered for real by the keep-real
 // tests), and marks the pane gone when the connection closes — modeling a real bridge
@@ -195,7 +195,7 @@ func (f *fakeTmux) lastPaneConn() *fakePaneConn {
 	return f.lastConn
 }
 
-// fakePaneConn is the paneConn (REQ-2) test double: an in-memory stand-in for a real PTY
+// fakePaneConn is the paneConn test double: an in-memory stand-in for a real PTY
 // bridge, never a real tmux attach. Read blocks until Close, mirroring how a real
 // bridge.Read unblocks only once the bridge is torn down (terminal.go's teardown
 // comment) — there is no real process generating output for a fake to stream. Write
@@ -286,7 +286,7 @@ func (c *fakePaneConn) Close() error {
 }
 
 // newFakeTmuxTestServer builds a Server whose paneSpawner and attachFunc are both fakes
-// (REQ-1/REQ-2): no real tmux server is ever started, matching REQ-3's "moved" tests.
+// No real tmux server is ever started, matching the "moved" tests.
 // The manager's own PaneChecker/PaneSnapshotter/TmuxSessions are unaffected by this
 // (server.go's New always constructs those from a real, if never-actually-touched,
 // tmux.Client bound to cfg.TmuxSocket — an independent seam this plan does not add) —

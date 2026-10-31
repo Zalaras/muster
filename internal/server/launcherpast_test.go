@@ -32,7 +32,7 @@ func resolvedCwd(t *testing.T, dir string) string {
 	return resolved
 }
 
-// TestValidateResumeRequest covers D14 and the directory-rules prefix it shares with the
+// TestValidateResumeRequest covers the resume-request rules and the directory-rules prefix it shares with the
 // ordinary form's validateLaunchRequest — the resume form's pure prefix, checked with no
 // launcher state at all.
 func TestValidateResumeRequest(t *testing.T) {
@@ -122,7 +122,7 @@ func newResumeLauncher(st *store.Store, mgr *session.Manager, fake *fakeTmux, pr
 	}
 }
 
-// TestLauncher_LaunchResume_SpawnsResumeArgvAndSeedsFromListing covers D9: the argv
+// TestLauncher_LaunchResume_SpawnsResumeArgvAndSeedsFromListing: the argv
 // carries --resume <id> and the transcript's own permission mode, no --model and no
 // --name, and the returned session is seeded from the listing (title, model, mode).
 func TestLauncher_LaunchResume_SpawnsResumeArgvAndSeedsFromListing(t *testing.T) {
@@ -197,8 +197,8 @@ func TestLauncher_LaunchResume_RecordedUnofferedModeReachesArgvVerbatim(t *testi
 	assert.Contains(t, argv, "dontAsk")
 }
 
-// TestLauncher_LaunchResume_NoRecordedModeOrModeSeedsDefaultAndNilModel covers D9/D16's
-// converse and REQ-10's "default when it records none": a fixture with no
+// TestLauncher_LaunchResume_NoRecordedModeOrModeSeedsDefaultAndNilModel covers the
+// converse and the "default when it records none": a fixture with no
 // permission-mode or assistant-model line at all still spawns a --permission-mode
 // default and seeds a nil Model, not a Model with an empty id
 // (kb:adr/usage-unknown-renders-word-not-track via CreateSession's own nil-model fix).
@@ -227,7 +227,7 @@ func TestLauncher_LaunchResume_NoRecordedModeOrModeSeedsDefaultAndNilModel(t *te
 	assert.Contains(t, argv, "default")
 }
 
-// TestLauncher_LaunchResume_UnknownIDIs404AndWritesNothing covers D10: a
+// TestLauncher_LaunchResume_UnknownIDIs404AndWritesNothing: a
 // resumeSessionId naming no transcript in the directory's listing is refused before any
 // repo row is touched or session row created.
 func TestLauncher_LaunchResume_UnknownIDIs404AndWritesNothing(t *testing.T) {
@@ -255,7 +255,7 @@ func TestLauncher_LaunchResume_UnknownIDIs404AndWritesNothing(t *testing.T) {
 	assert.Equal(t, 0, fake.newSessionCalls, "D10: tmux must never be touched for an unknown resumeSessionId")
 }
 
-// TestLauncher_LaunchResume_AlreadyOpenIs409WithID covers D11: a resumeSessionId
+// TestLauncher_LaunchResume_AlreadyOpenIs409WithID: a resumeSessionId
 // already bound to an alive Muster session is refused before any new row is written,
 // and the envelope names the alive session's own id.
 func TestLauncher_LaunchResume_AlreadyOpenIs409WithID(t *testing.T) {
@@ -290,7 +290,7 @@ func TestLauncher_LaunchResume_AlreadyOpenIs409WithID(t *testing.T) {
 	assert.Equal(t, 0, fake.newSessionCalls, "D11: tmux must never be touched once already_open is decided")
 }
 
-// TestLauncher_LaunchResume_RequestCombinationIsRejectedThroughLaunch covers D14 at the
+// TestLauncher_LaunchResume_RequestCombinationIsRejectedThroughLaunch checks at the
 // Launch entry point (not just validateResumeRequest in isolation): a resumeSessionId
 // combined with title/model/permissionMode is refused before any transcript lookup.
 func TestLauncher_LaunchResume_RequestCombinationIsRejectedThroughLaunch(t *testing.T) {
@@ -310,7 +310,7 @@ func TestLauncher_LaunchResume_RequestCombinationIsRejectedThroughLaunch(t *test
 }
 
 // TestLauncher_LaunchResume_AdvancesMRUAndCountWithoutTouchingRememberedModelOrMode
-// covers D15 at the launcher level (internal/store/repo_test.go covers TouchRepo
+// checks at the launcher level (internal/store/repo_test.go covers TouchRepo
 // itself): a resume from the list into an already-known directory bumps launch_count
 // but leaves the directory's remembered model/Start-in mode exactly as a real launch
 // last set them.
@@ -343,7 +343,7 @@ func TestLauncher_LaunchResume_AdvancesMRUAndCountWithoutTouchingRememberedModel
 	assert.Equal(t, "acceptEdits", *repo.LastPermissionMode, "D15: TouchRepo must never clobber the remembered Start-in mode")
 }
 
-// TestLauncher_Resume_RefusesADeadSessionWhoseClaudeIDAnAliveSessionHolds covers D12:
+// TestLauncher_Resume_RefusesADeadSessionWhoseClaudeIDAnAliveSessionHolds checks:
 // the Resume action on a dead row must not resurrect it into a second live pane once
 // another alive session already holds the same Claude session id (a resume-from-list
 // elsewhere, kb:adr/launch-resume-one-alive-row-per-claude-session) — proven with a

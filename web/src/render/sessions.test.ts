@@ -52,7 +52,7 @@ class FakeDomNode {
   hidden = false;
   disabled = false;
   tabIndex = -1;
-  // Plan order-sidebar: `updateSessionCardContent` writes the pin button's `.title`
+  // `updateSessionCardContent` writes the pin button's `.title`
   // directly (not via `setAttribute`, matching real HTMLElement.title) — not read by any
   // pre-existing test in this file, so it was never needed on the shim until now.
   title = "";
@@ -93,8 +93,8 @@ class FakeDomNode {
     return this.attrs[name] ?? null;
   }
 
-  // REQ-1 (plan ui-text-and-focus): `updateSessionCardContent` removes `aria-current`
-  // outright on a non-current card (never sets it to `"false"` — INV-3), so the shim
+  // `updateSessionCardContent` removes `aria-current`
+  // outright on a non-current card (never sets it to `"false"` — the marker is only ever removed), so the shim
   // needs a real remove, not just an absent `setAttribute` call.
   removeAttribute(name: string): void {
     delete this.attrs[name];
@@ -267,7 +267,7 @@ class FakeDomNode {
  * .card-in > [.r1 > [.name, .chip-danger], .r0 > [.badge, .timer, .pin], .r2 > .rf, .r2c > [.lead, .rf], .r3,
  * .activity.you, .activity.claude, .note, .acts-row, .bg-tasks]]) closely enough for `buildSessionCardElement`/
  * `updateSessionCardContent`'s real `querySelector` calls to resolve every field they
- * touch. Row order follows REQ-4 (plan rail-card-improvements-2): `.r1` (title) leads,
+ * touch. Row order is: `.r1` (title) leads,
  * `.r0` (badge/timer/pin) follows — but nothing here asserts sibling order itself (no
  * test below inspects `.r0`/`.r1` position), only that each class resolves. */
 function buildCardTemplateFragment(): FakeDomNode {
@@ -295,7 +295,7 @@ function buildCardTemplateFragment(): FakeDomNode {
   timer.className = "timer";
   r0.appendChild(badge);
   r0.appendChild(timer);
-  // Plan order-sidebar REQ-8: the pin button appended to `.r0` in
+  // The pin button appended to `.r0` in
   // `session-card-template` (index.html) — mirrored here so
   // `updateSessionCardContent`'s real `querySelector(".pin")` resolves it.
   const pin = new FakeDomNode("button");
@@ -558,7 +558,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
   // logical identity before the reorder loop and re-focuses the same logical target
   // afterwards if the move blurred it.
   describe("focus capture/restore across a reorder (Fix Attempt 3)", () => {
-    // No card carries a Stop/Resume/Remove button (REQ-6); the pin control is the card's focusable button.
+    // No card carries a Stop/Resume/Remove button; the pin control is the card's focusable button.
     const endedSession = (id: number) =>
       makeSession({ id, alive: false, endedAt: "2026-08-27T00:00:00Z" });
 
@@ -706,8 +706,8 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
   });
 });
 
-// Plan order-sidebar: the pin button (REQ-8/REQ-17/W13), the pinned-block visual
-// (REQ-9/W14) and the draggable attribute (REQ-10/W15/W16) all live in
+// The pin button, the pinned-block visual
+// and the draggable attribute all live in
 // updateSessionCardContent, exercised through reconcileCards exactly like the rest of
 // this file's coverage.
 describe("reconcileCards — pin button attributes (plan order-sidebar REQ-8/REQ-17/W13)", () => {
@@ -923,7 +923,7 @@ describe("reconcileCards — pinned block visual: `pinned`/`pinned-last` classes
   });
 });
 
-// REQ-1/REQ-3/INV-3/W6 (plan ui-text-and-focus): "the session the Focus pane is
+// "The session the Focus pane is
 // showing" marker — exactly one `#sessions` card carries `aria-current="true"` whenever
 // `currentId` matches a card in the list, and the attribute is *removed* (not set to
 // `"false"`) on every other card, including one that used to be current.
@@ -1136,7 +1136,7 @@ describe("reconcileCards — draggable attribute (plan order-sidebar REQ-10/W15/
   });
 });
 
-// REQ-10, REQ-12 (plan stale-dirs-models-branches): the card's repo block (`.r2`) and the
+// The card's repo block (`.r2`) and the
 // `↳` block (`.r2c`). Pixel layout (truncation, compact inline) is Playwright's
 // (e2e/card-location.spec.ts); this pins which nodes carry which text, title and hidden state.
 describe("reconcileCards — repo block and `↳` block", () => {

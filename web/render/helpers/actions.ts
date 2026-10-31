@@ -1,4 +1,4 @@
-// Locators for the actions feature (plan m4-reconcile REQ-5 to REQ-16): the Stop and Remove
+// Locators for the actions feature: the Stop and Remove
 // confirm dialogs, and Focus's dead-session surface with its end bar and cap. Pure DOM — the
 // dialogs open client-side and the dead surface is static markup — so the render spec reads
 // them against a fixture; the E2E journeys (web/e2e/actions.spec.ts) inline the same roles.

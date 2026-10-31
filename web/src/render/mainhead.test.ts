@@ -3,7 +3,7 @@
 // `elements.nameEl.textContent = ""`, which — on the real DOM — replaces every child of
 // `#mainhead h2.name` with a single text node, permanently detaching the
 // `button.rename` child (Testable UI Elements: "Mainhead heading ... always contains the
-// rename button", REQ-13(a)). `main.ts` resolves `nameEl` and `renameBtn` as two
+// rename button"). `main.ts` resolves `nameEl` and `renameBtn` as two
 // separate `requireElement` calls at startup and wires `attachRenameEditor` to `nameEl`
 // once, with no later rebuild path, and the dashboard always runs one zero-session
 // render() pass before the first sessionUpsert — so the wipe fired on every page load.
@@ -350,7 +350,7 @@ describe("renderMainhead — no-session branch must not detach the rename button
   });
 });
 
-// The group control (plan groups): its name span carries the label the caller composed
+// The group control: its name span carries the label the caller composed
 // (sessions/sections.ts's `groupLabel`), and the whole control follows the connection.
 describe("renderMainhead — group control", () => {
   it("writes the caller's group text into the name span", () => {
@@ -387,8 +387,8 @@ describe("renderMainhead — group control", () => {
   });
 });
 
-// The Focus header's `.meta` is filled in place from card.ts's `mainheadMeta`
-// (REQ-13, REQ-14, REQ-17). `document.createElement` is stubbed because `renderRepoLines`
+// The Focus header's `.meta` is filled in place from card.ts's `mainheadMeta`:
+// `document.createElement` is stubbed because `renderRepoLines`
 // creates the `.rb` branch line on first need.
 describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
   type Slots = {
@@ -489,7 +489,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
     expect(lines(slots(elements).repo).map((n) => n.textContent)).toEqual(["muster"]);
   });
 
-  // REQ-6 / INV-3: `.rf` holds `.rf-name` + `.plus` while directories are added; plain text at 0.
+  // `.rf` holds `.rf-name` + `.plus` while directories are added; plain text at 0.
   describe("the `+N` suffix on the folder line", () => {
     const mainRepo = { name: "muster", branch: "main", isWorktree: false };
     const dirs = (n: number) =>
@@ -600,7 +600,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
     ).toBe("opus");
   });
 
-  // REQ-6 / REQ-8: the effort readout sits in a `.eff` child of `.model`; it is absent (not
+  // The effort readout sits in a `.eff` child of `.model`; it is absent (not
   // hidden) when there are no brackets, and `warn` while a warning is set.
   describe("the effort readout in `.model`", () => {
     const opus = { id: "claude-opus-4-5", displayName: "Opus 4.5" };
@@ -755,7 +755,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
     });
   });
 
-  // REQ-8: the strip shows only while a warning is set, worded from the warning.
+  // The strip shows only while a warning is set, worded from the warning.
   describe("the effort strip", () => {
     const warning = { requested: "max", actual: "high", model: "Opus 4.5" };
     it("is hidden with no warning and shown with the sentence while one is set", () => {

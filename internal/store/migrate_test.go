@@ -50,7 +50,7 @@ func TestMigrate_AppliesInitSchema(t *testing.T) {
 }
 
 func TestMigrate_SecondCallIsANoOp(t *testing.T) {
-	// D8: migration idempotence — a second Migrate call against an already-migrated
+	// Migration idempotence — a second Migrate call against an already-migrated
 	// database applies nothing and errors on nothing.
 	db := openTestDB(t)
 	ctx := context.Background()

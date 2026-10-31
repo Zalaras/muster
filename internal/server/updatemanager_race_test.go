@@ -54,7 +54,7 @@ func (rt *blockForeverRoundTripper) RoundTrip(req *http.Request) (*http.Response
 // What actually catches the pre-fix code is the race detector, not the elapsed assertion:
 // under -race (make test-race, which the gates run) one trial reported the Add racing
 // Stop's Wait in 10 of 10 runs, while 1,000 plain trials never failed (measured
-// 2026-10-06; daemon-tests-FW-D3.md's original capture was also a -race report). Five
+// 2026-10-06; the original capture was also a -race report). Five
 // trials keep a margin without the 30 s that 200 cost.
 func TestUpdateManager_StopNeverRacesAnApplyThatHasRegistered(t *testing.T) {
 	const trials = 5

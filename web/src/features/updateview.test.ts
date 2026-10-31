@@ -1,4 +1,4 @@
-// Plan auto-update: `buildUpdateViewModel` (W5's table-test contract — every Text-rules
+// `buildUpdateViewModel` (the table-test contract — every Text-rules
 // row: each `install` kind x `available` null/set x `installed` null/set x each
 // `apply.phase`) is pure, so it's tested directly with no DOM at all. The DOM-facing
 // functions it feeds (`renderUpdateSection` and friends) are tested in
@@ -13,7 +13,7 @@ const baseUpdate: UpdateInfo = {
   running: "0.10.0",
   install: "installer",
   remedy: null,
-  // Plan rail-card-improvements-2 (REQ-9): most tests below predate the Check-now feature
+  // Most tests below predate the Check-now feature
   // and don't vary canCheck themselves — the dedicated "Check now" describe block overrides
   // it per case.
   canCheck: true,
@@ -23,7 +23,7 @@ const baseUpdate: UpdateInfo = {
   apply: idleApply,
 };
 
-// Plan rail-card-improvements-2 (REQ-10/REQ-12/REQ-13): `NOW`/`idleCheck` are the neutral
+// `NOW`/`idleCheck` are the neutral
 // defaults for every test below that predates the Check-now feature and doesn't itself vary
 // the request clock or in-flight state — `NOW` sits exactly 2 minutes after the fixture
 // `checkedAt` values used throughout ("2026-09-10T20:00:00Z"), matching the plan's own
@@ -51,7 +51,7 @@ describe("buildUpdateViewModel — no data yet (update === null, edge case 32)",
       status: "",
       badged: false,
       busy: false,
-      // W2/edge case 21: canCheck is never known without an `update` object.
+      // canCheck is never known without an `update` object.
       checkEnabled: false,
       checkBusy: false,
     });
@@ -411,7 +411,7 @@ describe("buildUpdateViewModel — Badge (available != null && installed == null
 
   it("is never badged for a dev install even if available/installed were somehow both set (defensive — daemon never sends this per INV-2)", () => {
     const vm = buildVm({ ...baseUpdate, install: "dev", available: "0.11.0", installed: null });
-    expect(vm.badged).toBe(true); // badge rule reads only available/installed, matching REQ-9's literal definition
+    expect(vm.badged).toBe(true); // badge rule reads only available/installed, matching its literal definition
   });
 });
 
@@ -437,7 +437,7 @@ describe("buildUpdateViewModel — busy (aria-busy iff an apply phase is in flig
   });
 });
 
-// Full cross-product sample (W5's "each install kind x available null/set x installed
+// Full cross-product sample ("each install kind x available null/set x installed
 // null/set x each apply.phase") — a smaller number of the columns above are already
 // exhaustively covered on their own; this walks the full grid once to catch any
 // interaction the column-by-column tests above could miss, asserting only that it never

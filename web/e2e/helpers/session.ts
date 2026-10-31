@@ -47,8 +47,8 @@ export async function scratchDirectory(
 /**
  * Creates a fresh scratch directory under the daemon's per-run browse root — where
  * `GET /api/browse`'s no-`path` default (kb:anchor/browse.get, `-browse-root`) lands, and so
- * the only place the launch modal's folder browser can reach in one click. The plan's
- * E2 criterion ("launch via Browse… into a fresh directory") requires driving that
+ * the only place the launch modal's folder browser can reach in one click. The
+ * "launch via Browse… into a fresh directory" criterion requires driving that
  * actual control. The root lives inside the daemon's scratch data dir, so nothing ever
  * touches the real home directory; `cleanup()` keeps tests isolated within a run.
  */
@@ -83,11 +83,11 @@ export interface LaunchBody {
   directory: string;
   title?: string;
   model?: string;
-  /** Plan fix-auto-mode-select: `auto` is a fourth accepted request value
+  /** `auto` is a fourth accepted request value
    * (kb:anchor/sessions.create) alongside the three already here. Plan
    * resume-and-dangerously-allow: `bypassPermissions` is a fifth. */
   permissionMode?: "default" | "plan" | "acceptEdits" | "auto" | "bypassPermissions";
-  /** Plan effort: `POST /api/sessions`'s optional `effort` (kb:anchor/sessions.create) — a level,
+  /** `POST /api/sessions`'s optional `effort` (kb:anchor/sessions.create) — a level,
    * or `null` for "default" (no `--effort`). Left out of the body when `undefined`. */
   effort?: string | null;
 }
@@ -117,53 +117,53 @@ export interface SessionObject {
   tmuxTarget: string;
   firstLaunchHere: boolean;
   createdAt: string;
-  /** Plan order-sidebar kb:anchor/ws.session: user-owned rail order, never null on the wire. */
+  /** kb:anchor/ws.session: user-owned rail order, never null on the wire. */
   pinned: boolean;
-  /** Plan order-sidebar kb:anchor/ws.session: unique across all sessions; gaps allowed. */
+  /** kb:anchor/ws.session: unique across all sessions; gaps allowed. */
   railPos: number;
   /**
-   * Plan ui-text-and-focus kb:anchor/ws.session (REQ-11): the user's rename via `PUT …/title`, or `null`
+   * kb:anchor/ws.session: the user's rename via `PUT …/title`, or `null`
    * when none is set. `title` above is already the *display* title (override when
    * non-null, else Claude's last-known name) — the daemon's precedence, never
    * recomputed here.
    */
   titleOverride: string | null;
   /**
-   * Plan rail-card-improvements kb:anchor/ws.session (REQ-7): true iff the session's turn
+   * kb:anchor/ws.session: true iff the session's turn
    * closed while no terminal client was attached to it and nobody has attached since.
    * INV: `unread ⇒ state === "idle"`. Never null on the wire.
    */
   unread: boolean;
   /**
-   * Plan rail-card-improvements kb:anchor/ws.session (REQ-12): the user's most recent
+   * kb:anchor/ws.session: the user's most recent
    * prompt, truncated to 200 characters; `null` until a first prompt and again after
    * `/clear`.
    */
   lastPrompt: string | null;
   /**
-   * Plan status-inconsistencies kb:anchor/ws.session (REQ-5): how many `status:"running"`
+   * kb:anchor/ws.session: how many `status:"running"`
    * entries the latest `Stop` listed in `background_tasks`. Never null on the wire.
    */
   backgroundTasks: number;
   /**
-   * Plan effort kb:anchor/ws.session (REQ-5): `null` until a status post (or a Resume-tab
+   * kb:anchor/ws.session: `null` until a status post (or a Resume-tab
    * seed) reports; `{ level }` after, `{ level: null }` when the post carried no effort key.
    */
   effort: { level: string | null } | null;
   /**
-   * Plan effort kb:anchor/ws.session (REQ-7): the launch-mismatch warning, or `null`.
-   * INV-E1: non-null implies `requested !== actual`.
+   * kb:anchor/ws.session: the launch-mismatch warning, or `null`.
+   * Non-null implies `requested !== actual`.
    */
   effortWarning: { requested: string; actual: string | null; model: string | null } | null;
   /**
-   * Plan session-notes kb:anchor/ws.session (REQ-1): the developer's note via `PUT …/note`, or
+   * kb:anchor/ws.session: the developer's note via `PUT …/note`, or
    * `null` when none is set. Never an empty or whitespace-only string.
    */
   note: string | null;
 }
 
 /**
- * Plan general-cleanup REQ-12: `{ musterSession, tmuxPane }` for a launched session's
+ * `{ musterSession, tmuxPane }` for a launched session's
  * real pane, the envelope opts every `envelopedSessionStart` / `sessionStartResume` /
  * `envelopedStatusLine*` call site states explicitly now that `tmuxPane` has no fixture
  * default (kb:adr/ingest-envelope-pane-must-corroborate — a stale/absent pane persists
@@ -225,9 +225,9 @@ export function findSession(state: { sessions: SessionObject[] }, id: number): S
 // editor on both surfaces (mainhead, tile header). ---
 
 /**
- * The same marker locator, scoped to the Tiles strip instead (`#tiles-strip`) — INV-3
- * says this must resolve to zero matches always, since a strip card is never current
- * (the strip's `renderStrip` passes `null` for `currentId`, REQ-1).
+ * The same marker locator, scoped to the Tiles strip instead (`#tiles-strip`) — this
+ * must resolve to zero matches always, since a strip card is never current
+ * (the strip's `renderStrip` passes `null` for `currentId`).
  */
 export function currentStripCard(page: Page): Locator {
   return page.locator('#tiles-strip [data-testid="session-card"][aria-current="true"]');
@@ -250,7 +250,7 @@ export function tileRenameField(page: Page, title: string): Locator {
 
 /**
  * A tile's rename field, scoped by `data-session-id` (`liveTileById`) instead of by
- * title text. Validate-mode repair (plan ui-text-and-focus): use this variant whenever
+ * title text. Validate-mode repair (ui-text-and-focus): use this variant whenever
  * the field must still be found while that same tile's own rename editor is open —
  * `tileRenameField`'s title-text scoping stops matching the moment the button's text is
  * swapped for `input.name-edit` (the title lives in the input's `value`, not its

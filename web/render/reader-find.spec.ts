@@ -1,5 +1,5 @@
-// reader-find — the display properties of plan docs-search-bar (REQ-1 through REQ-13, INV-1
-// through INV-5, acceptance E1-E10, E12, E13, E15-E17), plan search-bar-text-length and the
+// reader-find — the display properties of the docs find bar (its icon, matching, Cmd+F,
+// stepping, closing, tiles and themes), the search-bar text length and the
 // review cycles, re-levelled from web/e2e/reader-search.spec.ts on 2026-10-20
 // (plans/_audit/test-audit-2026-10-20-relevel.md): what the find bar shows, where it sits
 // and what it highlights for a document the fixture carries, in Focus and in Tiles at both
@@ -8,7 +8,7 @@
 // theme are the fixture's prefs. Nothing here changes state: opening the docs surface and a
 // file touches only the two recorded GETs.
 //
-// Stays E2E: the Write hook re-rendering the open file (E11) — a journey across the daemon —
+// Stays E2E: the Write hook re-rendering the open file — a journey across the daemon —
 // and every pop-out test: the pop-out is a second page, and the harness installs its routes
 // on the first page only, so `doc.html` never loads from the fixture.
 //
@@ -79,7 +79,7 @@ import {
 const FOCUS = "find-docs";
 const TILES_2X2 = "find-docs-tiles-2x2";
 const TILES_3X2 = "find-docs-tiles-3x2";
-/** Two such sessions, `find-a` and `find-b`, in Tiles at 2×2 (E16, E17). */
+/** Two such sessions, `find-a` and `find-b`, in Tiles at 2×2. */
 const PAIR_2X2 = "find-docs-pair-2x2";
 const THEMED = {
   instrument: "find-docs-instrument",
@@ -207,7 +207,7 @@ test("every find-docs fixture records each document in FIND_FILES with the bytes
   }
 });
 
-// ── E1, E2, E3: the icon, the bar and the corner ───────────────────────────────────────
+// ── the icon, the bar and the corner ───────────────────────────────────────
 
 test("clicking Search document opens the bar with the query box focused, the icon hidden and the other controls present (E1, REQ-3, REQ-6)", async ({
   page,
@@ -304,7 +304,7 @@ test("with no document rendered there is no search icon and Cmd+F is left to the
   await expect(searchIcon(region)).toBeVisible();
 });
 
-// ── E4, E5, E6: what matches ───────────────────────────────────────────────────────────
+// ── what matches ───────────────────────────────────────────────────────────
 
 test("searching the open file's basename counts only the occurrences in the body, not the docbar or the nav (E4, INV-2, REQ-4)", async ({
   page,
@@ -390,7 +390,7 @@ test("a query present only in a rendered mermaid node label reads 1 of 1 and hig
   expect(h.all.map((r) => [r.text, r.inSvg])).toEqual([["Zorblax", true]]);
 });
 
-// ── E7, E8: Cmd+F ──────────────────────────────────────────────────────────────────────
+// ── Cmd+F ──────────────────────────────────────────────────────────────────────
 
 test("clicking in the body and pressing Cmd+F opens the bar, and pressing it again refocuses the query box with its text selected, both default-prevented (E7, REQ-10, INV-4)", async ({
   page,
@@ -455,7 +455,7 @@ test("Cmd+F with focus on a rail card or on the page body is not default-prevent
   await expect(searchBox(region)).toHaveCount(0);
 });
 
-// ── E9: the body is never mutated ──────────────────────────────────────────────────────
+// ── the body is never mutated ──────────────────────────────────────────────────────
 
 test("opening, typing, stepping and closing the bar leave the body's innerHTML identical for every source shape (E9, INV-1, REQ-5)", async ({
   page,
@@ -495,7 +495,7 @@ test("opening, typing, stepping and closing the bar leave the body's innerHTML i
   }
 });
 
-// ── E10, REQ-7, REQ-8: scrolling and stepping ──────────────────────────────────────────
+// ── scrolling and stepping ──────────────────────────────────────────
 
 test("the open bar keeps its viewport position when the body scrolls, and each step scrolls the current match into the body's visible box (E10, INV-3, REQ-8)", async ({
   page,
@@ -894,7 +894,7 @@ test("each find control keeps keyboard focus on the same node across activation 
   expect(await activeElementTag(page)).toBe("body");
 });
 
-// ── E13: closing ───────────────────────────────────────────────────────────────────────
+// ── closing ───────────────────────────────────────────────────────────────────────
 
 test("Escape closes the bar, empties both highlights, shows the icon and leaves focus on the body (E13, REQ-9)", async ({
   page,
@@ -947,7 +947,7 @@ test("clicking Close search closes the bar, clears the highlights and returns th
   await expect(matchCount(region)).toHaveText("No results");
 });
 
-// ── E12: the document changes under an open bar ────────────────────────────────────────
+// ── the document changes under an open bar ────────────────────────────────────────
 
 test("opening another file with the bar open keeps the bar and query, re-runs them against the new file at 1 of n and scrolls to the first match (E12, REQ-12)", async ({
   page,
@@ -970,7 +970,7 @@ test("opening another file with the bar open keeps the bar and query, re-runs th
   await expectCurrentMatchInView(region);
 });
 
-// ── Plan search-bar-text-length: the count never leaves a blank gap ───────────────────
+// ── The count never leaves a blank gap ───────────────────
 
 /** The bar's box in each count state — empty query, `1 of 3`, a miss — so a count that
  * changes length can be seen moving the bar's left edge. */
@@ -1014,7 +1014,7 @@ test("in a 3×2 tile the bar keeps one width across an empty query, a count and 
   expectOneWidth(await barBoxPerCountState(page, region), "compact tile");
 });
 
-// ── E15: tiles ─────────────────────────────────────────────────────────────────────────
+// ── tiles ─────────────────────────────────────────────────────────────────────────
 
 test("in a 3×2 tile with the nav collapsed the icon and the open bar sit inside the tile's reading area with no horizontal overflow (E15, REQ-1, REQ-2, INV-3)", async ({
   page,
@@ -1102,7 +1102,7 @@ test("a tile's find bar carries the same controls as Focus's at a smaller type s
   expect(tileSize, `tile ${tileSize}px vs Focus ${focusSize}px`).toBeLessThan(focusSize);
 });
 
-// ── E16, E17: two tile readers ─────────────────────────────────────────────────────────
+// ── two tile readers ─────────────────────────────────────────────────────────
 
 test("with two tile readers, clicking in one body and pressing Cmd+F opens that tile's bar only, default-prevented (E16, REQ-10, INV-4)", async ({
   page,
@@ -1211,7 +1211,7 @@ test("with two tile readers searching different queries, stepping or closing one
   expect(bSteppedSnapshot).not.toBe(JSON.stringify(await readHighlights(regionB)));
 });
 
-// ── REQ-13: tokens in every theme ──────────────────────────────────────────────────────
+// ── tokens in every theme ──────────────────────────────────────────────────────
 
 test("the open bar's ground, border and type follow the design tokens in the instrument, dark and light themes (REQ-13)", async ({
   page,

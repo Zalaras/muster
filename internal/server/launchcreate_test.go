@@ -75,11 +75,11 @@ func TestHandleCreateSession_ValidationErrors(t *testing.T) {
 	}
 }
 
-// TestHandleCreateSession_UnknownPermissionModeMessageNamesAllFive covers D4/REQ-1: the
-// rejection message must name all five accepted values, not just say "invalid" — plan
-// resume-and-dangerously-allow's REQ-1 makes "bypassPermissions" itself a valid mode
+// TestHandleCreateSession_UnknownPermissionModeMessageNamesAllFive: the
+// rejection message must name all five accepted values, not just say "invalid" —
+// "bypassPermissions" is itself a valid mode
 // (kb:lesson/stale-fixture-reshaped-the-wire: this test's own fixture used to be the one
-// value this plan turned valid, so it now spells a value no plan has ever accepted).
+// value later turned valid, so it now spells a value no plan has ever accepted).
 func TestHandleCreateSession_UnknownPermissionModeMessageNamesAllFive(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
@@ -110,7 +110,7 @@ func TestHandleCreateSession_ADirectoryThatIsAFileIs400(t *testing.T) {
 	assert.Equal(t, "invalid_request", decodeErrorCode(t, rec))
 }
 
-// TestLauncher_CorruptSettingsFileRefusesAndRollsBackTheSessionRow covers D7/Edge Case
+// TestLauncher_CorruptSettingsFileRefusesAndRollsBackTheSessionRow covers Edge Case
 // 9's other half and the plan's "on spawn failure: delete the row" rollback rule — a
 // corrupt settings.local.json is caught before tmux is ever touched, so this needs no
 // tmux socket at all.
@@ -121,7 +121,7 @@ func TestLauncher_CorruptSettingsFileRefusesAndRollsBackTheSessionRow(t *testing
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".claude"), 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".claude", "settings.local.json"), []byte(`{not valid json`), 0o600))
 
-	// REQ-10: the 500 body is now a fixed phrase, never the raw error — the offending
+	// The 500 body is now a fixed phrase, never the raw error — the offending
 	// path lives only in the adjacent log line, so that's what this test reads instead of
 	// the response body (daemon-implementation.md's Handoff on this exact test).
 	var logBuf bytes.Buffer
@@ -145,9 +145,9 @@ func TestLauncher_CorruptSettingsFileRefusesAndRollsBackTheSessionRow(t *testing
 	assert.Empty(t, rows, "the inserted session row must be rolled back on a later launch-step failure")
 }
 
-// TestLauncher_SuccessfulLaunchEndToEnd covers D4/D5/D6/D7/REQ-1/REQ-2 at the
+// TestLauncher_SuccessfulLaunchEndToEnd checks at the
 // sessionLauncher level (below the HTTP handler, above tmux/store), complementing the
-// E2E suite's browser-driven equivalent (E1): a real tmux window is spawned (on a
+// E2E suite's browser-driven equivalent: a real tmux window is spawned (on a
 // private per-test socket) running a stub binary standing in for `claude`, settings
 // are written, and the broadcast fires only once the real tmux target is known.
 func TestLauncher_SuccessfulLaunchEndToEnd(t *testing.T) {
@@ -177,7 +177,7 @@ func TestLauncher_SuccessfulLaunchEndToEnd(t *testing.T) {
 	require.Len(t, upserts, 1, "REQ-2: exactly one broadcast, once the real tmux target is known")
 	assert.Equal(t, sess.TmuxTarget, upserts[0].TmuxTarget)
 
-	// D4: the pane environment carries MUSTER_SESSION=<id> — proven by the stub binary
+	// The pane environment carries MUSTER_SESSION=<id> — proven by the stub binary
 	// itself observing it (see newStubClaudeBin's doc comment for why show-environment
 	// can't be used here).
 	envOutFile := stubSessionOutFile(dir, sess.ID)
@@ -192,7 +192,7 @@ func TestLauncher_SuccessfulLaunchEndToEnd(t *testing.T) {
 	settingsPath := filepath.Join(dir, ".claude", "settings.local.json")
 	require.FileExists(t, settingsPath)
 
-	// D6: launching a second time into the same directory yields one repo row with
+	// Launching a second time into the same directory yields one repo row with
 	// launch_count == 2 and updated defaults.
 	sess2, lerr2 := l.Launch(context.Background(), createSessionRequest{
 		Directory: dir, Model: "opus", PermissionMode: "acceptEdits",
@@ -208,7 +208,7 @@ func TestLauncher_SuccessfulLaunchEndToEnd(t *testing.T) {
 	require.NotNil(t, repo.LastModel)
 	assert.Equal(t, "opus", *repo.LastModel)
 
-	// D7: relaunching must merge settings idempotently — the file must still exist and
+	// Relaunching must merge settings idempotently — the file must still exist and
 	// still be valid JSON (a corrupt merge would have failed the launch outright).
 	require.FileExists(t, settingsPath)
 	b, err := os.ReadFile(settingsPath)
@@ -217,10 +217,10 @@ func TestLauncher_SuccessfulLaunchEndToEnd(t *testing.T) {
 	require.NoError(t, json.Unmarshal(b, &doc))
 }
 
-// TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault covers D3 (a launch with
-// "auto" seeds the session's permission latch with {"auto", "seed"}) and D7 (the
-// directory's per-directory default records "auto" as the raw requested value). Uses a
-// fakeTmux (REQ-3): every assertion is about the returned Session/repo row, never a
+// TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault covers a launch with
+// "auto" seeding the session's permission latch with {"auto", "seed"} and the
+// directory's per-directory default recording "auto" as the raw requested value. Uses a
+// fakeTmux: every assertion is about the returned Session/repo row, never a
 // tmux-observable effect, so no real tmux server is needed.
 func TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault(t *testing.T) {
 	st := openLauncherTestStore(t)
@@ -237,23 +237,23 @@ func TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault(t *testing.T) {
 	})
 	require.Nil(t, lerr)
 
-	// D3: the returned session's permission latch is seeded auto/seed.
+	// The returned session's permission latch is seeded auto/seed.
 	assert.Equal(t, session.PermissionAuto, sess.PermissionMode)
 	assert.Equal(t, "seed", sess.PermissionModeSource)
 
-	// D7: the directory's stored default now records the raw requested value "auto".
+	// The directory's stored default now records the raw requested value "auto".
 	repo, err := st.GetRepo(context.Background(), sess.RepoID)
 	require.NoError(t, err)
 	require.NotNil(t, repo.LastPermissionMode)
 	assert.Equal(t, "auto", *repo.LastPermissionMode)
 }
 
-// --- plan new-session-improvement: REQ-1/REQ-2's model-catalog pre-check ---
+// --- the model-catalog pre-check ---
 
 // newModelCheckLauncher builds a sessionLauncher sharing st/mgr/fake, wired with a
-// checkModel stub that returns verdict/err and counts its own calls — D7/D8/D9 fake at
+// checkModel stub that returns verdict/err and counts its own calls — it fakes at
 // the verdict seam, never the stderr sentence itself, which stays inside
-// internal/claudecode per D11 and is covered by modelcheck_test.go instead.
+// internal/claudecode and is covered by modelcheck_test.go instead.
 func newModelCheckLauncher(st *store.Store, mgr *session.Manager, fake *fakeTmux, verdict claudecode.ModelVerdict, err error, calls *int) *sessionLauncher {
 	return &sessionLauncher{
 		store: st, manager: mgr, tmux: fake, log: zerolog.Nop(), claudeBin: "irrelevant-never-reached",
@@ -265,8 +265,8 @@ func newModelCheckLauncher(st *store.Store, mgr *session.Manager, fake *fakeTmux
 	}
 }
 
-// TestLauncher_ModelUnrecognised_RefusesAndWritesNothing is D7/INV-1, asserted from both
-// of INV-1's source states: a never-launched directory (no repo row, no settings file)
+// TestLauncher_ModelUnrecognised_RefusesAndWritesNothing, asserted from both
+// source states: a never-launched directory (no repo row, no settings file)
 // and a directory with a prior launch (repo row and settings.local.json already present).
 // Either way, a refused launch leaves the store, the fake tmux and the settings file
 // exactly as they started.
@@ -343,7 +343,7 @@ func TestLauncher_ModelUnrecognised_RefusesAndWritesNothing(t *testing.T) {
 	}
 }
 
-// TestLauncher_ModelRecognised_ProceedsToCreated is D8: a launch whose check reports
+// TestLauncher_ModelRecognised_ProceedsToCreated: a launch whose check reports
 // ModelRecognised proceeds to a 201 with the same row a launch with no check configured
 // at all would produce — the check itself leaves nothing else about the launch path
 // different. Proven by launching the same request twice on the same store, once through
@@ -399,7 +399,7 @@ func TestLauncher_ModelRecognised_ProceedsToCreated(t *testing.T) {
 	}
 	assert.Equal(t, baselineCmp, sessCmp, "D8: every field but id/RepoID/TmuxTarget/TmuxPane/RailPos/StateSince/CreatedAt/Directory must match regardless of whether a check ran")
 
-	// D8: the repo row's defaults are recorded identically regardless of whether a check ran.
+	// The repo row's defaults are recorded identically regardless of whether a check ran.
 	baselineRepo, err := st.GetRepo(context.Background(), baseline.RepoID)
 	require.NoError(t, err)
 	repo, err := st.GetRepo(context.Background(), sess.RepoID)
@@ -413,12 +413,12 @@ func TestLauncher_ModelRecognised_ProceedsToCreated(t *testing.T) {
 	assert.Equal(t, *baselineRepo.LastPermissionMode, *repo.LastPermissionMode)
 }
 
-// TestLauncher_ModelCheckRunError_FailsOpenAndLogsWarn is D6's server half (D6 itself,
-// "a run func that returns an error ... yields an error from CheckModel, and Launch
+// TestLauncher_ModelCheckRunError_FailsOpenAndLogsWarn is the server half (the check's own
+// behaviour, "a run func that returns an error ... yields an error from CheckModel, and Launch
 // proceeds to a 201", is exercised at the claudecode-package level in modelcheck_test.go
 // — this is Launch's own reaction to that error): a checkModel error never blocks the
 // launch, and the warn log names the directory and model. The error text here is a
-// realistic process-level failure ("executable file not found"), not raw stderr — REQ-2's
+// realistic process-level failure ("executable file not found"), not raw stderr — the
 // "never the stderr body" is CheckModel/RunModelCheck's own contract (the returned error
 // only ever wraps a process-start/timeout failure, never the captured stderr bytes,
 // which CheckModel discards on the error path — see modelcheck_test.go), not something a
@@ -451,7 +451,7 @@ func TestLauncher_ModelCheckRunError_FailsOpenAndLogsWarn(t *testing.T) {
 	assert.Contains(t, logBuf.String(), "sonnet", "REQ-2: the warn log must name the model")
 }
 
-// TestLauncher_ValidationFailure_NeverInvokesTheModelCheck is D9: a request that fails
+// TestLauncher_ValidationFailure_NeverInvokesTheModelCheck: a request that fails
 // validateLaunchRequest is rejected before checkModel is ever called — an invalid
 // directory here (relative, not absolute) triggers the same 400 invalid_request the
 // unrelated table in TestHandleCreateSession_ValidationErrors covers at the HTTP layer;
@@ -473,13 +473,13 @@ func TestLauncher_ValidationFailure_NeverInvokesTheModelCheck(t *testing.T) {
 	assert.Equal(t, 0, checkCalls, "D9: validateLaunchRequest must reject before checkModel is ever invoked")
 }
 
-// --- plan session-lifecycle: red tests, written and run against the unmodified tree
-// (Implementation Notes § Red-first). Each covers one D* acceptance criterion; the
-// package will not build until tmux.ErrSessionExists exists (D4/D5 below), which is the
+// --- session lifecycle: red tests, written and run against the unmodified tree
+// (Implementation Notes § Red-first). Each covers one acceptance criterion; the
+// package will not build until tmux.ErrSessionExists exists (see the retry tests below), which is the
 // correct red state.
 
-// TestHandleCreateSession_OrphanedTmuxSessionDoesNotBlockLaunch is the #26 reproducer
-// (plan session-lifecycle D3): an orphaned muster-1 tmux session with an otherwise-empty
+// TestHandleCreateSession_OrphanedTmuxSessionDoesNotBlockLaunch is the #26 reproducer:
+// an orphaned muster-1 tmux session with an otherwise-empty
 // store must not wedge every future launch. Today, the very first CreateSession in a
 // fresh store allocates id 1, so `tmux new-session -s muster-1` collides with the
 // pre-existing orphan and Launch rolls the row back and returns 500 launch_failed —
@@ -523,8 +523,8 @@ func TestHandleCreateSession_OrphanedTmuxSessionDoesNotBlockLaunch(t *testing.T)
 }
 
 // TestLauncher_ProbesMaxSessionIDAndDegradesToFloorZeroOnError covers plan
-// session-lifecycle D2's launcher half: a MaxSessionID probe failure must be tolerated,
-// never fail the launch (REQ-7: "degrades to floor 0 — it never fails a launch"). Today
+// The launcher half: a MaxSessionID probe failure must be tolerated,
+// never fail the launch ("degrades to floor 0 — it never fails a launch"). Today
 // Launch never calls MaxSessionID at all, so the probe count stays at zero.
 func TestLauncher_ProbesMaxSessionIDAndDegradesToFloorZeroOnError(t *testing.T) {
 	st := openLauncherTestStore(t)
@@ -546,8 +546,8 @@ func TestLauncher_ProbesMaxSessionIDAndDegradesToFloorZeroOnError(t *testing.T) 
 	assert.GreaterOrEqual(t, fake.maxSessionIDCalls, 1, "REQ-7: Launch must probe MaxSessionID (and tolerate its failure) before CreateSession")
 }
 
-// TestLauncher_RetriesOnceOnASingleErrSessionExistsThenSucceedsWithAHigherID covers plan
-// session-lifecycle D4: a single tmux.ErrSessionExists on the first NewSession attempt
+// TestLauncher_RetriesOnceOnASingleErrSessionExistsThenSucceedsWithAHigherID checks:
+// a single tmux.ErrSessionExists on the first NewSession attempt
 // must be retried transparently, with a strictly higher session id on the retry, and the
 // retry must succeed.
 func TestLauncher_RetriesOnceOnASingleErrSessionExistsThenSucceedsWithAHigherID(t *testing.T) {
@@ -574,8 +574,8 @@ func TestLauncher_RetriesOnceOnASingleErrSessionExistsThenSucceedsWithAHigherID(
 	assert.NotEmpty(t, sess.TmuxTarget)
 }
 
-// TestLauncher_ExhaustsThreeAttemptsOnRepeatedErrSessionExists covers plan
-// session-lifecycle D5: a launcher that keeps colliding gives up after 3 attempts with a
+// TestLauncher_ExhaustsThreeAttemptsOnRepeatedErrSessionExists checks:
+// a launcher that keeps colliding gives up after 3 attempts with a
 // 500 launch_failed naming the tmux session, rather than retrying forever or leaking a row
 // per attempt.
 func TestLauncher_ExhaustsThreeAttemptsOnRepeatedErrSessionExists(t *testing.T) {
@@ -585,7 +585,7 @@ func TestLauncher_ExhaustsThreeAttemptsOnRepeatedErrSessionExists(t *testing.T) 
 	fake := newFakeTmux()
 	fake.newSessionErr = tmux.ErrSessionExists
 
-	// REQ-10: the 500 body is a fixed phrase now — the colliding tmux session's name
+	// The 500 body is a fixed phrase now — the colliding tmux session's name
 	// lives only in the adjacent log line (daemon-implementation.md's Handoff on this
 	// exact test).
 	var logBuf bytes.Buffer
@@ -610,7 +610,7 @@ func TestLauncher_ExhaustsThreeAttemptsOnRepeatedErrSessionExists(t *testing.T) 
 	assert.Empty(t, rows, "every attempt's row must be rolled back, never leaked")
 }
 
-// barrierTmux is REQ-5(e)/D4's paneSpawner double: NewSession blocks the first caller
+// barrierTmux is the paneSpawner double: NewSession blocks the first caller
 // until a second caller has also arrived, then releases both together — proving two
 // concurrent Launch calls actually overlap in tmux rather than being serialized behind
 // each other. A build that took the per-id lock *before* allocating an id (instead of
@@ -663,12 +663,12 @@ func (b *barrierTmux) newSessionCalls() int {
 }
 
 // TestLauncher_ConcurrentLaunchesForTheSameDirectoryProduceTwoDistinctRows covers
-// REQ-5(e)/D4's first half: two concurrent Launch calls into the same directory both
+// the first half: two concurrent Launch calls into the same directory both
 // succeed, produce two distinct session rows and two distinct tmux spawns — Launch takes
 // its per-id lock only after CreateSession has already allocated a fresh id, so different
 // ids' spawns never serialize behind one another.
 //
-// A captured logger (not zerolog.Nop()) is used deliberately: REQ-10 moved the raw error
+// A captured logger (not zerolog.Nop()) is used deliberately: the raw error was moved
 // out of the response body, so a failure here needs the log to say why.
 func TestLauncher_ConcurrentLaunchesForTheSameDirectoryProduceTwoDistinctRows(t *testing.T) {
 	st := openLauncherTestStore(t)

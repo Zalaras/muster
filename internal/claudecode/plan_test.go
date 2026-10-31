@@ -21,7 +21,7 @@ func writeTranscript(t *testing.T, dir string, lines ...string) string {
 	return path
 }
 
-// TestLocatePlanFile is kb:fact/plan-file-path-in-transcript's guard (D5): every
+// TestLocatePlanFile is kb:fact/plan-file-path-in-transcript's guard: every
 // attachment type that carries planFilePath must resolve it, the slug-only fallback
 // must resolve under home, and both "nothing to find" cases (no marker line, no
 // transcript at all) must be the empty answer, never an error.
@@ -116,7 +116,7 @@ func TestDefaultPlansDir(t *testing.T) {
 	assert.Equal(t, filepath.Join("/home/bob", ".claude", "plans"), DefaultPlansDir("/home/bob"))
 }
 
-// TestIsUnderDefaultPlansDir exercises REQ-16's third scan trigger, including the trap a
+// TestIsUnderDefaultPlansDir exercises the third scan trigger, including the trap a
 // naive strings.HasPrefix on the raw string (rather than filepath.Rel) would fall into:
 // a sibling directory whose name merely starts with "plans" must not count as "under".
 func TestIsUnderDefaultPlansDir(t *testing.T) {

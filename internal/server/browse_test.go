@@ -36,7 +36,7 @@ func TestHandleBrowse_RequiresCookie(t *testing.T) {
 }
 
 // TestHandleBrowse_ListsSubdirectoriesSortedByNameExcludingDotfilesAndFiles covers
-// REQ-6/D19's response contract.
+// the response contract.
 func TestHandleBrowse_ListsSubdirectoriesSortedByNameExcludingDotfilesAndFiles(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	dir := t.TempDir()

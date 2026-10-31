@@ -21,7 +21,7 @@ func seedTestRepo(t *testing.T, st *Store) int64 {
 	return repo.ID
 }
 
-// TestInsertSession_SeedsStartedStateAndSeedSourceLatch covers REQ-1/REQ-2's row shape:
+// TestInsertSession_SeedsStartedStateAndSeedSourceLatch covers the row shape:
 // state started, permission mode latch source "seed", alive, a placeholder tmux_target.
 func TestInsertSession_SeedsStartedStateAndSeedSourceLatch(t *testing.T) {
 	st := openTestStore(t)
@@ -68,17 +68,16 @@ func TestInsertSession_NilOptionalFieldsRoundTripAsNil(t *testing.T) {
 	assert.Nil(t, row.Model)
 	assert.False(t, row.FirstLaunchHere)
 
-	// m3-gauges REQ-8: InsertSession is untouched — the new columns default NULL.
+	// InsertSession is untouched — the new columns default NULL.
 	assert.Nil(t, row.ModelDisplayName)
 	assert.Nil(t, row.ContextUsedPct)
 	assert.Nil(t, row.ContextTotalInputTokens)
 	assert.Nil(t, row.ContextWindowSize)
 }
 
-// TestInsertSession_RailPosRoundTripsPinnedDefaultsFalse covers plan order-sidebar's
-// Schema Changes note: InsertSessionParams.RailPos is written verbatim, and pinned
-// always starts false regardless of RailPos (a caller has no way to seed pinned:true at
-// insert time — REQ-1 says every new session starts pinned:false).
+// TestInsertSession_RailPosRoundTripsPinnedDefaultsFalse covers the schema note: InsertSessionParams.RailPos is written
+// verbatim, and pinned always starts false regardless of RailPos (a caller has no way to seed pinned:true at
+// insert time — every new session starts pinned:false).
 func TestInsertSession_RailPosRoundTripsPinnedDefaultsFalse(t *testing.T) {
 	st := openTestStore(t)
 	ctx := context.Background()
@@ -123,7 +122,7 @@ func TestUpdateSession_PinnedAndRailPosRoundTrip(t *testing.T) {
 	assert.Equal(t, int64(0), got2.RailPos)
 }
 
-// TestInsertSession_AllocatesAboveHighestExistingIDAndWritesWatermark covers D1: a store
+// TestInsertSession_AllocatesAboveHighestExistingIDAndWritesWatermark: a store
 // seeded with ids 1..7 allocates 8 for the next InsertSession and persists the watermark
 // (kv['session.id_watermark']) so a later delete can never let that id come back.
 func TestInsertSession_AllocatesAboveHighestExistingIDAndWritesWatermark(t *testing.T) {
@@ -146,8 +145,8 @@ func TestInsertSession_AllocatesAboveHighestExistingIDAndWritesWatermark(t *test
 	assert.Equal(t, "8", watermark)
 }
 
-// TestInsertSession_MinIDFloorsAllocationEvenAboveTheExistingMax covers REQ-1's MinID
-// semantics directly at the store level: the caller-supplied floor (from REQ-7's
+// TestInsertSession_MinIDFloorsAllocationEvenAboveTheExistingMax covers the MinID
+// semantics directly at the store level: the caller-supplied floor (from the
 // MaxSessionID probe) can exceed every row already in the table, and the new row's id
 // must land strictly above it, not just above the table's own max(id).
 func TestInsertSession_MinIDFloorsAllocationEvenAboveTheExistingMax(t *testing.T) {
@@ -297,7 +296,7 @@ func TestUpdateSession_RoundTripsEveryField(t *testing.T) {
 	assert.Equal(t, ptr("high"), got.EffortWarningActual)
 	assert.Equal(t, ptr("Opus 4.5"), got.EffortWarningModel)
 
-	// REQ-7: launch and resume clear the column back to NULL, not to an empty string.
+	// Launch and resume clear the column back to NULL, not to an empty string.
 	row.ClaudeDir = nil
 	require.NoError(t, st.UpdateSession(ctx, row))
 	cleared, err := st.GetSession(ctx, row.ID)
@@ -367,9 +366,9 @@ func TestUpdateSession_CanClearPointerFieldsBackToNil(t *testing.T) {
 	assert.Nil(t, got.AttentionSince)
 }
 
-// TestUpdateSession_ContextFieldsRoundTripAllOrNothingIncludingBackToNil covers INV-2's
+// TestUpdateSession_ContextFieldsRoundTripAllOrNothingIncludingBackToNil covers the
 // storage-level twin: the three context columns travel all-non-nil (a real status post)
-// or all-nil (unknown / REQ-9's /clear reset) — this locks in both directions of that
+// or all-nil (unknown / the /clear reset) — this locks in both directions of that
 // round trip, not just the fill direction TestUpdateSession_RoundTripsEveryField covers.
 func TestUpdateSession_ContextFieldsRoundTripAllOrNothingIncludingBackToNil(t *testing.T) {
 	st := openTestStore(t)
@@ -392,7 +391,7 @@ func TestUpdateSession_ContextFieldsRoundTripAllOrNothingIncludingBackToNil(t *t
 	require.NotNil(t, filled.ContextUsedPct)
 	assert.Equal(t, 84.0, *filled.ContextUsedPct)
 
-	// REQ-9: a /clear resets context back to all-nil — the persisted row must be able to
+	// A /clear resets context back to all-nil — the persisted row must be able to
 	// travel back to unknown, not just forward to filled.
 	row.ContextUsedPct = nil
 	row.ContextTotalInputTokens = nil
@@ -443,9 +442,8 @@ func TestListSessions_EmptyStoreReturnsNoRowsNoError(t *testing.T) {
 	assert.Empty(t, rows)
 }
 
-// TestInsertSession_TitleOverrideDefaultsNil covers plan ui-text-and-focus's Schema
-// Changes note: InsertSessionParams carries no TitleOverride field at all — a new session
-// never starts with an override (REQ-9's "no default, no backfill" is trivially true for
+// TestInsertSession_TitleOverrideDefaultsNil covers the schema note: InsertSessionParams carries no TitleOverride field at all — a new session
+// never starts with an override (the "no default, no backfill" is trivially true for
 // a freshly inserted row too).
 func TestInsertSession_TitleOverrideDefaultsNil(t *testing.T) {
 	st := openTestStore(t)
@@ -458,8 +456,8 @@ func TestInsertSession_TitleOverrideDefaultsNil(t *testing.T) {
 	assert.Nil(t, row.TitleOverride)
 }
 
-// TestUpdateSession_TitleOverrideRoundTrip covers D9: title_override survives insert ->
-// update -> load, in both directions (setting it, and clearing it back to nil — REQ-10's
+// TestUpdateSession_TitleOverrideRoundTrip: title_override survives insert ->
+// update -> load, in both directions (setting it, and clearing it back to nil — the
 // "clear the override" path persists a NULL, not an empty string).
 func TestUpdateSession_TitleOverrideRoundTrip(t *testing.T) {
 	st := openTestStore(t)
@@ -487,7 +485,7 @@ func TestUpdateSession_TitleOverrideRoundTrip(t *testing.T) {
 	assert.Nil(t, cleared.TitleOverride, "clearing the override must persist a NULL, not survive as a stale value")
 }
 
-// TestSession_NoteColumnDefaultsNilAndRoundTripsTextByteForByte covers REQ-1/D5 at the
+// TestSession_NoteColumnDefaultsNilAndRoundTripsTextByteForByte checks at the
 // store: a fresh row has a NULL note; whitespace, newlines, frontmatter and a multi-megabyte
 // text come back exactly; a row with no note scans as nil, never as an empty string; and one
 // session's note write never touches another's.
@@ -546,8 +544,7 @@ func TestSession_NoteColumnDefaultsNilAndRoundTripsTextByteForByte(t *testing.T)
 	assert.Equal(t, &otherText, notes[other.ID], "ListSessions scans the note too")
 }
 
-// TestInsertSession_ReaderFieldsDefaultNilAndFalse covers plan markdown-viewing's Schema
-// Changes note: InsertSession is untouched by the new columns — transcript_file/plan_path
+// TestInsertSession_ReaderFieldsDefaultNilAndFalse covers the schema note: InsertSession is untouched by the new columns — transcript_file/plan_path
 // default NULL and plan_exists defaults 0, until a scan or hook sets them.
 func TestInsertSession_ReaderFieldsDefaultNilAndFalse(t *testing.T) {
 	st := openTestStore(t)
@@ -562,7 +559,7 @@ func TestInsertSession_ReaderFieldsDefaultNilAndFalse(t *testing.T) {
 	assert.False(t, row.PlanExists)
 }
 
-// TestUpdateSession_ReaderFieldsRoundTrip covers D14: transcript_file, plan_path and
+// TestUpdateSession_ReaderFieldsRoundTrip: transcript_file, plan_path and
 // plan_exists survive UpdateSession -> GetSession (a restart keeps the plan), in both
 // directions — setting them, and clearing plan_path back to nil (session.Manager's wire
 // "plan: null").
@@ -601,7 +598,7 @@ func TestUpdateSession_ReaderFieldsRoundTrip(t *testing.T) {
 	assert.Equal(t, transcript, *cleared.TranscriptPath)
 }
 
-// TestSession_TurnStateColumnsDefaultAndRoundTrip covers D12: background_tasks and
+// TestSession_TurnStateColumnsDefaultAndRoundTrip: background_tasks and
 // attention_agent default to 0 / NULL on a fresh row, round-trip a set value, and a
 // non-nil owner cleared back to nil (main agent / no wait) persists as NULL.
 func TestSession_TurnStateColumnsDefaultAndRoundTrip(t *testing.T) {
@@ -642,7 +639,7 @@ func TestSession_TurnStateColumnsDefaultAndRoundTrip(t *testing.T) {
 	assert.Nil(t, got.AttentionAgent)
 }
 
-// TestSession_CacheColumnsRoundTripBothOrNeither covers D7's storage half and INV-1's
+// TestSession_CacheColumnsRoundTripBothOrNeither covers the storage half and the
 // twin: a fresh row reads both cache columns unknown, a filled pair survives Update and
 // Get and the list path, and the pair travels back to unknown together.
 func TestSession_CacheColumnsRoundTripBothOrNeither(t *testing.T) {
@@ -681,7 +678,7 @@ func TestSession_CacheColumnsRoundTripBothOrNeither(t *testing.T) {
 	assert.Nil(t, cleared.CacheTTLSeconds)
 }
 
-// TestScanSession_CorruptCacheReadsUnknownNotHalf covers INV-1 against a stored row the
+// TestScanSession_CorruptCacheReadsUnknownNotHalf checks against a stored row the
 // code did not write: a corrupt expiry, or a lifetime with no expiry, reads back with
 // both fields nil, never half a cache, and never fails the row or a sibling.
 func TestScanSession_CorruptCacheReadsUnknownNotHalf(t *testing.T) {

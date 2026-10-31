@@ -19,18 +19,18 @@ import {
   stateBadge,
 } from "./helpers/session";
 
-// Plan fix-auto-mode-select (closes #12): the "Start in" radiogroup's three existing
+// Auto mode in the dialog (closes #12): the "Start in" radiogroup's three existing
 // labels are renamed to Claude Code's own vocabulary (manual/accept edits/plan) and
 // gains a fourth radio, `auto`, which the dialog can now actually request end-to-end.
-// REQ-1..6, INV-1..2. Plan acceptance: E1-E4 (E5 = the renamed locators in
-// launch.spec.ts, E6 = `make e2e`).
+// The renamed locators are also exercised in
+// launch.spec.ts.
 //
 // Recents (GET /api/repos order/pressed-state) are asserted precisely — re-opening the
 // dialog must show the MOST RECENT recent's stored mode — so every test takes the
 // per-test `daemon` fixture (helpers/fixtures.ts); a neighbour's launch would win that
 // ordering on a shared daemon.
 //
-// The REQ-1 regression pin (the "Start in" radiogroup keeps its role and accessible name
+// The regression pin (the "Start in" radiogroup keeps its role and accessible name
 // across the rename) is folded into the launch dialog's static-layout render test in
 // web/render/launch.spec.ts since 2026-10-20 (plans/_audit/relevel/launch-update.md).
 
@@ -50,7 +50,7 @@ test("picking auto and launching sends permissionMode: auto and seeds the sessio
     await dialog.getByRole("button", { name: "Launch" }).click();
     await expect(dialog).toBeHidden();
 
-    // E1: daemon API oracle — the launched session's own permissionMode, not the
+    // Daemon API oracle — the launched session's own permissionMode, not the
     // dialog's rendering of what it thinks it sent.
     const state = await getState(page, daemon);
     const launchedMatches = state.sessions.filter((s) => s.title === "auto-launch-e1");
@@ -59,8 +59,8 @@ test("picking auto and launching sends permissionMode: auto and seeds the sessio
     if (!launched) throw new Error("unreachable: toHaveLength(1) just passed");
     expect(launched.permissionMode).toEqual({ value: "auto", source: "seed" });
 
-    // E2: re-opening the dialog on the same directory pre-selects auto — the
-    // per-directory launch default (REQ-4).
+    // Re-opening the dialog on the same directory pre-selects auto — the
+    // per-directory launch default.
     await page.keyboard.press("Alt+Meta+KeyN");
     const reopened = launchDialog(page);
     await expect(reopened).toBeVisible();
@@ -103,12 +103,12 @@ test("a synthesized UserPromptSubmit with permission_mode: default corrects an a
 
     await expect(stateBadge(card)).toHaveText(/working/i);
     // Not "planning" — the correction lands the session in the ordinary working state,
-    // per REQ-5's "in working, not planning".
+    // per "in working, not planning".
     await expect(card.getByText(/planning/i)).toHaveCount(0);
 
     const state = await getState(page, daemon);
     const found = findSession(state, session.id);
-    // INV-1: source flips seed -> hook forever after, and the value is always the last
+    // Source flips seed -> hook forever after, and the value is always the last
     // one carried — the auto instance of the same invariant the three existing seeds
     // already exercise elsewhere.
     expect(found.permissionMode).toEqual({ value: "default", source: "hook" });
@@ -117,9 +117,9 @@ test("a synthesized UserPromptSubmit with permission_mode: default corrects an a
   }
 });
 
-// E4/INV-2: each of the four possible stored `lastPermissionMode` values pre-selects the
-// matching radio on reopen. The `plan` case is the plan's one row unaffected by the
-// REQ-1 rename (both the stored value and the radio's label are unchanged) and was the
+// Each of the four possible stored `lastPermissionMode` values pre-selects the
+// matching radio on reopen. The `plan` case is the one row unaffected by the
+// rename (both the stored value and the radio's label are unchanged) and was the
 // regression pin at authoring; the other three exercise the renamed labels/new value.
 const storedModeCases: Array<{
   stored: "default" | "plan" | "acceptEdits" | "auto";

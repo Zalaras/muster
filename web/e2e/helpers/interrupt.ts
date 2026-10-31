@@ -1,4 +1,4 @@
-// Transcript-file helpers for the interrupt specs (plan status-inconsistencies, REQ-4).
+// Transcript-file helpers for the interrupt specs (status-inconsistencies).
 // The daemon reads the file a hook's `transcript_path` names on each liveness-poll tick, so
 // a spec controls what it finds by writing JSONL at a path it then posts in its hooks.
 import { appendFile, writeFile } from "node:fs/promises";

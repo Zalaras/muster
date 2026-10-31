@@ -1,11 +1,11 @@
-// Plan general-cleanup (REQ-6, REQ-8, W3, W4) — the reader's pure status-line and
+// The reader's pure status-line and
 // docChanged-dispatch derivations. No DOM, no fetch (docs/conventions.md).
 import { describe, expect, it } from "vitest";
 import type { ConnectionStatus } from "../app";
 import { classifyDocChanged, deriveNotice, UNREACHABLE_TEXT } from "./notice";
 
 describe("deriveNotice — status precedence (INV-POPOUT-CONNECTING, W3)", () => {
-  // "connecting" (never connected, REQ-8): always "connecting…", independent of every
+  // "connecting" (never connected): always "connecting…", independent of every
   // other input — a pop-out that hasn't seen its first hello must never read the
   // unreachable text or a stale loading/outcome line.
   const connectingCells: Array<[string | null, boolean, string | null]> = [
@@ -20,7 +20,7 @@ describe("deriveNotice — status precedence (INV-POPOUT-CONNECTING, W3)", () =>
     });
   }
 
-  // "reconnecting" (a lost connection, REQ-8): always the unreachable text, independent of
+  // "reconnecting" (a lost connection): always the unreachable text, independent of
   // every other input.
   const reconnectingCells: Array<[string | null, boolean, string | null]> = [
     [null, false, null],
@@ -39,8 +39,8 @@ describe("deriveNotice — status precedence (INV-POPOUT-CONNECTING, W3)", () =>
 
 describe("deriveNotice — status 'connected' (existing loading/outcome rules, W3)", () => {
   // The full loadingPath × bodyRendered cross for "connected": the loading cue only wins
-  // once something is actually on screen to grey out (REQ-8); with nothing rendered yet
-  // the body's own placeholder is the cue instead (REQ-9), so the status line falls
+  // once something is actually on screen to grey out; with nothing rendered yet
+  // the body's own placeholder is the cue instead, so the status line falls
   // through to whatever noticeText already held — including the absent case, null.
   const status: ConnectionStatus = "connected";
 

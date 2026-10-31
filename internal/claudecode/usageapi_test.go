@@ -16,7 +16,7 @@ import (
 // 2026-08-30 against the developer's own token (docs/history/spikes/canary-fields.md "GET /api/oauth/usage
 // measured live 2026-08-30"): limits[] carries "session"/"weekly_all"/"weekly_scoped"
 // kinds, resets_at is an RFC3339 string with microseconds and a "+00:00" offset (never
-// epoch on the wire in practice, though REQ-4 requires both forms decode), and many
+// epoch on the wire in practice, though both forms must decode), and many
 // unrelated top-level/feature-flag keys exist alongside it.
 const measuredUsageBody = `{
   "five_hour": {"utilization": 7.0, "resets_at": "2026-08-30T13:39:59.522275+00:00"},
@@ -45,7 +45,7 @@ func TestInterpretUsageReport_MeasuredLiveShape(t *testing.T) {
 	assert.Equal(t, time.UTC, got.ModelScoped[0].ResetsAt.Location())
 }
 
-// TestInterpretUsageReport_FiveHourAndSevenDayBuckets covers D1: the measured shape's
+// TestInterpretUsageReport_FiveHourAndSevenDayBuckets: the measured shape's
 // top-level windows become buckets (resets_at rounded up to the whole second), and each window is read on its own — a missing, null,
 // non-object, incomplete or unparseable one yields nil for that bucket only.
 func TestInterpretUsageReport_FiveHourAndSevenDayBuckets(t *testing.T) {
@@ -125,7 +125,7 @@ func assertBucket(t *testing.T, want, got *StatusBucket, label string) {
 	assert.True(t, want.ResetsAt.Equal(got.ResetsAt), "%s resets: want %v got %v", label, want.ResetsAt, got.ResetsAt)
 }
 
-// TestInterpretUsageReport_BucketsDoNotDisturbModelWindows covers D1's independence the
+// TestInterpretUsageReport_BucketsDoNotDisturbModelWindows covers the independence the
 // other way: the model-scoped list reads the same whether the top-level windows are good or not.
 func TestInterpretUsageReport_BucketsDoNotDisturbModelWindows(t *testing.T) {
 	body := `{"five_hour": "garbage", "seven_day": null, "limits": [
@@ -206,7 +206,7 @@ func TestInterpretUsageReport_EmptyDisplayNameIsIgnored(t *testing.T) {
 	assert.Nil(t, got.ModelScoped)
 }
 
-// TestInterpretUsageReport_UnparseableResetsAtOnOneEntrySkipsOnlyThatEntry covers REQ-4's
+// TestInterpretUsageReport_UnparseableResetsAtOnOneEntrySkipsOnlyThatEntry covers
 // "other kinds/unparseable resets_at ... are ignored rather than erroring" — an
 // undocumented, evolving endpoint must not break the whole poll over one bad entry.
 func TestInterpretUsageReport_UnparseableResetsAtOnOneEntrySkipsOnlyThatEntry(t *testing.T) {
@@ -337,8 +337,8 @@ func TestFetchUsage_MalformedBodyReturnsDecodeError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestFetchUsage_ErrorMessagesNeverContainTheToken is a defensive unit-level check for
-// D9 ("the token string never appears in any log line"): FetchUsage's own returned
+// TestFetchUsage_ErrorMessagesNeverContainTheToken is a defensive unit-level check that
+// "the token string never appears in any log line": FetchUsage's own returned
 // errors — which a careless caller might log — must never echo the token back.
 func TestFetchUsage_ErrorMessagesNeverContainTheToken(t *testing.T) {
 	const token = "super-secret-oauth-token-value"

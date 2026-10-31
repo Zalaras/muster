@@ -56,7 +56,7 @@ func argvFlagValue(argv []string, flag string) (string, bool) {
 	return "", false
 }
 
-// TestLauncher_Resume_CarriesTheUnsentTitleAsName covers REQ-6 and edge cases 10 and 12: a
+// TestLauncher_Resume_CarriesTheUnsentTitleAsName covers edge cases 10 and 12: a
 // resume of a dead session whose override is set and differs from Claude's last-known name
 // carries it as --name beside --resume and counts as that value's one send (the next prompt
 // sends nothing); every other shape resumes with no --name.
@@ -129,7 +129,7 @@ func indexOf(s []string, v string) int {
 	return -1
 }
 
-// TestLauncher_Resume_AFailedSpawnDoesNotSpendTheSend covers REQ-6's "counts as that value's
+// TestLauncher_Resume_AFailedSpawnDoesNotSpendTheSend covers the "counts as that value's
 // one send": only a resume that actually spawned counts, so a spawn that failed leaves the
 // override for the next resume or prompt.
 func TestLauncher_Resume_AFailedSpawnDoesNotSpendTheSend(t *testing.T) {

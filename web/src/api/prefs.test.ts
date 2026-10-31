@@ -82,7 +82,7 @@ describe("prefs — putPrefs (PUT /api/prefs, kb:anchor/prefs.put)", () => {
     if (!result.ok) expect(result.error.code).toBe("unknown_error");
   });
 
-  // Plan usage-model-bar REQ-8: usageModel joins view/density as a third optional field.
+  // UsageModel joins view/density as a third optional field.
   it("sends a usageModel-only PUT (a select change) as its own single field", async () => {
     fetchMock.mockResolvedValue(fakeStatusResponse(204));
     const result = await putPrefs({ usageModel: "Opus" });

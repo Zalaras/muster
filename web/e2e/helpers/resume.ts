@@ -1,4 +1,4 @@
-// Locator + oracle helpers for plan resume-and-dangerously-allow: the launch dialog's
+// Locator + oracle helpers for resume-and-dangerously-allow: the launch dialog's
 // New | Resume tab pair, the Resume tab's past-session list, the bypass Start-in segment
 // and warning, and the danger chip shared by the rail card, the Focus mainhead and a
 // tile header. Structure and Testable UI Elements transcribed from the plan's DOM
@@ -10,7 +10,7 @@ import type { ScratchDaemon } from "./daemon";
 
 // Every locator is pure DOM and lives in the render tier, where the dialog's static
 // properties re-levelled on 2026-10-20 read them: the tab pair (`#launch-tab-new`, always the
-// selected tab on a fresh dialog open per REQ-7, and `#launch-tab-resume`) beside the dialog
+// selected tab on a fresh dialog open, and `#launch-tab-resume`) beside the dialog
 // locator in web/render/helpers/shortcuts.ts; the bypass segment, its warning, the primary
 // button and the danger chip in web/render/helpers/launch.ts; the tablist, the footer
 // readout and the past-session section, list, filter and rows in
@@ -44,12 +44,12 @@ export interface RepoObject {
   launchCount: number;
   lastModel: string | null;
   lastPermissionMode: string | null;
-  /** Plan effort kb:anchor/repos.list (REQ-4): the effort of the last launch here, or null. */
+  /** kb:anchor/repos.list: the effort of the last launch here, or null. */
   lastEffort: string | null;
 }
 
 /** `GET /api/repos` (kb:anchor/repos.list), using the page's already-authed cookie —
- * REQ-15's oracle for "records the directory in Recent without overwriting its
+ * Oracle for "records the directory in Recent without overwriting its
  * remembered model/mode". */
 export async function getRepos(page: Page, daemon: ScratchDaemon): Promise<RepoObject[]> {
   const res = await page.request.get(`${daemon.baseURL}/api/repos`);
@@ -63,7 +63,7 @@ export async function getRepos(page: Page, daemon: ScratchDaemon): Promise<RepoO
  * Posts the resume-from-list request form directly (`{directory, resumeSessionId}`, no
  * `title`/`model`/`permissionMode` — kb:anchor/sessions.create's second request shape),
  * for a test asserting an error status/body a disabled row's UI can't be clicked into
- * (REQ-9's already_open). Returns the raw status/body regardless of outcome — unlike
+ * (the already_open case). Returns the raw status/body regardless of outcome — unlike
  * `helpers/session.ts`'s `launchSession`, which throws on anything but 201.
  */
 export async function postResume(

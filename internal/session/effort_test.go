@@ -145,7 +145,7 @@ func (r *effortRig) reloaded(id int64) *Session {
 	return s
 }
 
-// TestApplyStatus_EffortAdoption covers D5/REQ-5: a post carrying a level sets the effort
+// TestApplyStatus_EffortAdoption: a post carrying a level sets the effort
 // to it verbatim, one carrying no level sets {"level": null}, a changed value is exactly
 // one upsert and an unchanged one none, and the value survives a store round trip.
 func TestApplyStatus_EffortAdoption(t *testing.T) {
@@ -196,7 +196,7 @@ func TestApplyStatus_EffortPostWithoutAnEffortReadingLeavesEffortAlone(t *testin
 	assert.Equal(t, "max", got.effortRequested, "a post that carries no reading does not consume the pending check")
 }
 
-// TestApplyStatus_FirstReportChecksTheLaunchedEffort covers D6/REQ-7/edge cases 6-9 and 20:
+// TestApplyStatus_FirstReportChecksTheLaunchedEffort covers edge cases 6-9 and 20:
 // the first report after a launch with a level sets the warning iff the level differs
 // (null differs), naming the model after that post; a default launch never warns, and no
 // later report does.
@@ -287,7 +287,7 @@ func TestApplyStatus_FirstReportWarningModelFollowsTheSessionModel(t *testing.T)
 	})
 }
 
-// TestApplyStatus_ResumeTabSeedShowsAtOnceWithNoCheck covers REQ-11's session half: a
+// TestApplyStatus_ResumeTabSeedShowsAtOnceWithNoCheck covers the session half: a
 // seeded session has a known effort from creation, a later report is not checked, and an
 // unseeded resume starts null.
 func TestApplyStatus_ResumeTabSeedShowsAtOnceWithNoCheck(t *testing.T) {
@@ -309,7 +309,7 @@ func TestApplyStatus_ResumeTabSeedShowsAtOnceWithNoCheck(t *testing.T) {
 	assert.Nil(t, got.EffortWarning, "a seed starts no check")
 }
 
-// TestClearEffortWarning covers D13/REQ-9 at the manager: it clears and broadcasts once,
+// TestClearEffortWarning checks at the manager: it clears and broadcasts once,
 // a null warning is a silent success, an unknown id is ErrUnknownSession, and only that
 // session is touched.
 func TestClearEffortWarning(t *testing.T) {
@@ -342,7 +342,7 @@ func TestClearEffortWarning(t *testing.T) {
 	assert.ErrorIs(t, r.mgr.ClearEffortWarning(r.ctx, 999999), ErrUnknownSession)
 }
 
-// TestEffortRowRoundTrip covers INV-E3/E4 on the whole-row writers' shared mapping: every
+// TestEffortRowRoundTrip checks on the whole-row writers' shared mapping: every
 // effort shape survives sessionToRow then rowToSession, including the two null-bearing
 // ones (reported with no level, warning with no actual).
 func TestEffortRowRoundTrip(t *testing.T) {

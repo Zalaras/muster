@@ -45,15 +45,15 @@ export function childEntry(dialog: Locator, name: string): Locator {
     .getByRole("button", { name: new RegExp(`^${escapeForRegExp(name)}( \\(git\\))?$`) });
 }
 
-/** `#launch-target`'s `<b>` — the selection readout (INV-1: always equals the listed
+/** `#launch-target`'s `<b>` — the selection readout (always equals the listed
  * path and the `POST /api/sessions` body). */
 export function launchTargetPath(dialog: Locator): Locator {
   return dialog.locator("#launch-target b");
 }
 
 /** `#launch-target`'s suffix span (` · <branch>`, present only when the selection came
- * from a recent with a non-null branch — REQ-17). Renamed from `.branch` to `.suffix`
- * (plan resume-and-dangerously-allow) when the same `<b>`/suffix pair was reused for the
+ * from a recent with a non-null branch). Renamed from `.branch` to `.suffix`
+ * when the same `<b>`/suffix pair was reused for the
  * Resume tab's own footer (`renderResumeFooter`, ` in <path>`) — the class can't stay
  * named for New's own git-branch meaning once the Resume tab writes into it too. Same
  * element, same toggled-`hidden`/text-content behaviour, only the class changed. */
@@ -62,7 +62,7 @@ export function launchTargetBranch(dialog: Locator): Locator {
 }
 
 /** Composes `#browse-crumbs`'s full path from its ancestor `<button data-path>`s plus the
- * current `<span aria-current="location">`'s own text — INV-1's third leg: this must
+ * current `<span aria-current="location">`'s own text — the third leg: this must
  * equal both the `#launch-target b` readout and the path `POST /api/sessions` would send,
  * at every point while the dialog is open (review cycle 1 Major 5: the suite previously
  * only ever checked the crumb bar's *basename*, `currentCrumb`, which can't catch a stale

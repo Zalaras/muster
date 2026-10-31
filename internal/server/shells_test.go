@@ -26,7 +26,7 @@ import (
 // comes from the environment the per-test tmux server inherits, so the script is the same
 // every run and cachedStub can reuse it. interactiveShellArgv() reads os.Getenv("SHELL"),
 // so tests point that at this stub via t.Setenv rather than injecting a command directly —
-// shells.go's Ensure has no seam for overriding argv, which is deliberate (REQ-1 hardcodes
+// shells.go's Ensure has no seam for overriding argv, which is deliberate (the spec hardcodes
 // the real $SHELL).
 func newStubShellBin(t *testing.T) string {
 	t.Helper()
@@ -58,7 +58,7 @@ func readLogLines(t *testing.T, logFile string, want int) []string {
 // (never "-L muster", never the user's default server — CLAUDE.md hard rule) and points
 // the test process's own $SHELL at a stub binary that logs each invocation to logFile,
 // so interactiveShellArgv() (which reads os.Getenv("SHELL")) picks it up. Used only by
-// this file's keep-real tests (plan v1-cleanup REQ-3's Implementation Notes list); the
+// this file's keep-real tests (the keep-real list); the
 // three that move to fakes use newFakeShellRegistry below instead.
 func newTestShellRegistry(t *testing.T) (reg *shellRegistry, tmuxClient *tmux.Client, socket, logFile string) {
 	t.Helper()
@@ -75,7 +75,7 @@ func newTestShellRegistry(t *testing.T) (reg *shellRegistry, tmuxClient *tmux.Cl
 	return reg, tmuxClient, socket, logFile
 }
 
-// newFakeShellRegistry builds a shellRegistry against a fakeTmux (REQ-3): no real tmux
+// newFakeShellRegistry builds a shellRegistry against a fakeTmux: no real tmux
 // server is ever started. Used only by tests whose assertion is a call count or an
 // error's propagation, never a tmux-observable effect (the log-file/real-process
 // assertions above stay on newTestShellRegistry's real socket).
@@ -84,7 +84,7 @@ func newFakeShellRegistry() (*shellRegistry, *fakeTmux) {
 	return newShellRegistry(fake, zerolog.Nop()), fake
 }
 
-// TestShellRegistry_EnsureSpawnsATmuxSessionNamedMusterIDShell covers D1: Ensure on an
+// TestShellRegistry_EnsureSpawnsATmuxSessionNamedMusterIDShell: Ensure on an
 // id with no existing shell spawns a tmux session named muster-<id>-shell and reports
 // created:true.
 func TestShellRegistry_EnsureSpawnsATmuxSessionNamedMusterIDShell(t *testing.T) {
@@ -103,9 +103,9 @@ func TestShellRegistry_EnsureSpawnsATmuxSessionNamedMusterIDShell(t *testing.T) 
 	assert.True(t, exists, "D1: a tmux session must actually exist for the reported target")
 }
 
-// TestShellRegistry_EnsureIsIdempotentNoSecondSpawn covers D2: a repeat Ensure call for
+// TestShellRegistry_EnsureIsIdempotentNoSecondSpawn: a repeat Ensure call for
 // the same id returns created:false and never re-invokes the shell command — proven
-// directly by the fake's own spawn count (REQ-3's "strengthening": the fake states this
+// directly by the fake's own spawn count (the "strengthening": the fake states this
 // as a call count rather than inferring it from tmux session naming, which would only
 // prove a collision was avoided, not that no second spawn was even attempted).
 func TestShellRegistry_EnsureIsIdempotentNoSecondSpawn(t *testing.T) {
@@ -125,7 +125,7 @@ func TestShellRegistry_EnsureIsIdempotentNoSecondSpawn(t *testing.T) {
 	assert.Equal(t, 1, fake.newNamedSessionCalls, "D2: the shell command must be invoked exactly once across both calls")
 }
 
-// TestShellRegistry_EnsurePaneEnvironmentNeverCarriesMusterSession covers D3/INV-1 from
+// TestShellRegistry_EnsurePaneEnvironmentNeverCarriesMusterSession checks from
 // its first reachable source state: a freshly spawned shell's pane environment has no
 // MUSTER_SESSION at all — proven by the stub binary itself observing its own process
 // environment (matching sessions_test.go's newStubClaudeBin rationale: tmux's own
@@ -142,11 +142,11 @@ func TestShellRegistry_EnsurePaneEnvironmentNeverCarriesMusterSession(t *testing
 	assert.Equal(t, "MUSTER_SESSION=[]", lines[0], "INV-1: a shell pane must never see MUSTER_SESSION set")
 }
 
-// TestShellRegistry_RespawnsAfterExternalKillWithNoMusterSession covers D7 (REQ-8's
-// respawn-after-exit) together with INV-1's second reachable source state — "respawned
+// TestShellRegistry_RespawnsAfterExternalKillWithNoMusterSession checks (the
+// respawn-after-exit) together with the second reachable source state — "respawned
 // after exit": once the tmux session is gone (simulating the pane exiting, or an
 // external kill), the next Ensure spawns a fresh one and reports created:true, and that
-// fresh pane's environment is checked again for INV-1 rather than assuming the first
+// fresh pane's environment is checked again for the no-MUSTER_SESSION rule rather than assuming the first
 // check still holds.
 func TestShellRegistry_RespawnsAfterExternalKillWithNoMusterSession(t *testing.T) {
 	reg, tmuxClient, _, logFile := newTestShellRegistry(t)
@@ -211,7 +211,7 @@ func TestShellRegistry_ConcurrentEnsureOnlySpawnsOnce(t *testing.T) {
 
 // TestShellRegistry_KillIsANoOpWhenNoShellExists covers Kill's documented "no-op, not an
 // error surfaced to the caller" behaviour when nothing was ever spawned for id — Remove
-// must succeed whether or not a shell was ever started (REQ-9).
+// must succeed whether or not a shell was ever started.
 func TestShellRegistry_KillIsANoOpWhenNoShellExists(t *testing.T) {
 	reg, fake := newFakeShellRegistry()
 	id := int64(106)
@@ -225,7 +225,7 @@ func TestShellRegistry_KillIsANoOpWhenNoShellExists(t *testing.T) {
 	assert.False(t, exists)
 }
 
-// blockingNamedSessionTmux is REQ-5(a)/D4's paneSpawner double: NewNamedSession for
+// blockingNamedSessionTmux is the paneSpawner double: NewNamedSession for
 // blockTarget blocks until unblock() is called (or ctx is done), signalling entered once
 // it's actually inside the block — every other target returns at once. It satisfies
 // shellRegistry's full paneSpawner surface even though Ensure only ever calls
@@ -264,9 +264,9 @@ func (b *blockingNamedSessionTmux) KillWindow(_ context.Context, _ string) error
 func (b *blockingNamedSessionTmux) KillSession(_ context.Context, _ string) error { return nil }
 func (b *blockingNamedSessionTmux) MaxSessionID(_ context.Context) (int64, error) { return 0, nil }
 
-// TestShellRegistry_ConcurrentEnsureOnDifferentIDsDoesNotSerialize covers REQ-5(a)/D4: a
+// TestShellRegistry_ConcurrentEnsureOnDifferentIDsDoesNotSerialize: a
 // paneSpawner whose NewNamedSession for id 1's shell blocks must not delay id 2's Ensure
-// — the registry's per-id lock (session-lifecycle REQ-12's replacement for the old single
+// — the registry's per-id lock (the replacement for the old single
 // global mutex, see shells.go's shellRegistry doc comment) means two different ids' Ensure
 // calls never block each other. A build that regressed shellRegistry.lockID back to one
 // shared mutex would make id 2's call below hang until id 1's NewNamedSession is released.
@@ -305,7 +305,7 @@ func TestShellRegistry_ConcurrentEnsureOnDifferentIDsDoesNotSerialize(t *testing
 	require.NoError(t, <-errCh)
 }
 
-// TestShellRegistry_EnsureOnCollisionRechecksAndReportsNotCreated covers REQ-5(b)/D4's
+// TestShellRegistry_EnsureOnCollisionRechecksAndReportsNotCreated covers the
 // positive clause: when NewNamedSession fails with tmux.ErrSessionExists (a concurrent
 // spawn elsewhere beat this one to it), Ensure re-checks with PaneExists — and when that
 // re-check finds the pane, returns created:false with no error, never surfacing the
@@ -323,7 +323,7 @@ func TestShellRegistry_EnsureOnCollisionRechecksAndReportsNotCreated(t *testing.
 }
 
 // TestShellRegistry_EnsureOnCollisionWithFailedRecheckReturnsSpawnError covers Edge Case
-// 6/REQ-5(b)'s negative clause, shared with D4: when the post-collision re-check finds the
+// 6 and the negative clause: when the post-collision re-check finds the
 // pane gone (not merely raced), Ensure returns the original spawn error rather than a
 // false created:false.
 func TestShellRegistry_EnsureOnCollisionWithFailedRecheckReturnsSpawnError(t *testing.T) {
@@ -336,7 +336,7 @@ func TestShellRegistry_EnsureOnCollisionWithFailedRecheckReturnsSpawnError(t *te
 	assert.ErrorIs(t, err, tmux.ErrSessionExists)
 }
 
-// racyCollisionTmux is REQ-5(b)/D4's paneSpawner double: PaneExists returns false on its
+// racyCollisionTmux is the paneSpawner double: PaneExists returns false on its
 // first call (the pre-spawn check Ensure makes) and, from the second call on, either true
 // (recheckFindsPane) or false — modelling "a concurrent spawn elsewhere beat this one to
 // it" versus "gone before the re-check could confirm it". NewNamedSession always fails
@@ -366,7 +366,7 @@ func (f *racyCollisionTmux) KillWindow(_ context.Context, _ string) error  { ret
 func (f *racyCollisionTmux) KillSession(_ context.Context, _ string) error { return nil }
 func (f *racyCollisionTmux) MaxSessionID(_ context.Context) (int64, error) { return 0, nil }
 
-// neverRespondingTmux is REQ-5(c)/D4's paneSpawner double: NewNamedSession blocks until
+// neverRespondingTmux is the paneSpawner double: NewNamedSession blocks until
 // its ctx is done and returns ctx.Err() — a tmux call that simply never returns, the
 // shape shellTmuxTimeout exists to bound.
 type neverRespondingTmux struct{}
@@ -383,7 +383,7 @@ func (neverRespondingTmux) KillWindow(_ context.Context, _ string) error        
 func (neverRespondingTmux) KillSession(_ context.Context, _ string) error        { return nil }
 func (neverRespondingTmux) MaxSessionID(_ context.Context) (int64, error)        { return 0, nil }
 
-// TestShellRegistry_EnsureBoundedByShellTmuxTimeoutWhenTmuxNeverReturns covers REQ-5(c)/D4:
+// TestShellRegistry_EnsureBoundedByShellTmuxTimeoutWhenTmuxNeverReturns checks:
 // Ensure is called with an unbounded context (context.Background(), no caller-side
 // deadline) against a tmux that never returns; it must still return an error within
 // shellTmuxTimeout plus slack, not hang forever — proof that Ensure's own
@@ -404,7 +404,7 @@ func TestShellRegistry_EnsureBoundedByShellTmuxTimeoutWhenTmuxNeverReturns(t *te
 // TestShellRegistry_KillRemovesOnlyItsOwnSession is the multi-instance destructive-path
 // coverage the daemon-tests brief requires (m2-terminal lesson): with two sessions'
 // shells coexisting on the same tmux socket, killing one must never touch the other's
-// tmux session — asserted by both PaneExists and, per the INV-4 rationale, a second
+// tmux session — asserted by both PaneExists and, per the same rationale, a second
 // invocation of the survivor's own shell (proving it's not merely present but healthy).
 func TestShellRegistry_KillRemovesOnlyItsOwnSession(t *testing.T) {
 	reg, tmuxClient, _, _ := newTestShellRegistry(t)

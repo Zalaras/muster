@@ -11,17 +11,15 @@ import {
   terminalRegion,
 } from "./helpers/terminal";
 
-// Plan file-drop-fix — REQ-2/REQ-11 (locate→paste→focus), REQ-4 (Terminal.app-style
-// escaping), REQ-6 (in-flight/outcome notices), REQ-8 (disconnected surfaces), REQ-10
-// (text drop). The client-side guards that fire before any request — the document-level
-// foreign-drag swallow (REQ-1, E5), the size cap (REQ-7, E7) and a dead surface swallowing
-// a drop (REQ-8, E9) — are render tests in web/render/drop.spec.ts (re-levelled
+// Locate→paste→focus, Terminal.app-style escaping, in-flight/outcome notices,
+// disconnected surfaces and text drop. The client-side guards that fire before any request — the document-level
+// foreign-drag swallow, the size cap and a dead surface swallowing
+// a drop — are render tests in web/render/drop.spec.ts (re-levelled
 // 2026-10-20, plans/_audit/relevel/misc-core.md).
-// Plan acceptance: E1-E4, E6, E8, E11. E10 (INV-3, "the existing rail/tile reorder specs keep
-// passing with the guard installed") is deliberately NOT re-authored here — it is already
-// covered by rail-order.spec.ts and the move-tiles reorder tests in views.spec.ts, which
-// this plan's Affected Files section names as the regression pin; re-running those files
-// (unmodified) is this plan's proof for E10, not a new test in this file.
+// "The existing rail/tile reorder specs keep passing with the guard installed" is
+// deliberately NOT re-authored here — it is already covered by rail-order.spec.ts and the
+// move-tiles reorder tests in views.spec.ts, the regression pin; re-running those files
+// (unmodified) is the proof, not a new test in this file.
 //
 // The daemon and tmux are real throughout (the `-claude-bin` echo-loop stub, same as
 // terminal.spec.ts) — nothing here is Claude-Code-shaped, so no hook/status-line payload
@@ -38,7 +36,7 @@ import {
 // terminal.spec.ts: most tests here launch into Focus, where a newly launched session
 // only becomes the live pane when it is "top of sort" — true only when it is the sole (or
 // first) session the daemon knows about, which a daemon shared with other tests cannot
-// guarantee. One test also kills its daemon outright (REQ-8's "socket not open" half).
+// guarantee. One test also kills its daemon outright (the "socket not open" half).
 // The tests are independent of each other, so they run fully parallel; the suite's load
 // cap is playwright.config.ts's `workers`, not a per-file serial mode.
 
@@ -57,21 +55,21 @@ test("dropping a file that exists in the session directory pastes its escaped pa
     const region = terminalRegion(page, "drop-e1");
     await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
 
-    // Precondition: a mounted-but-unclicked live pane never has keyboard focus (plan
-    // terminal-focus's REQ-1, untouched by this plan) — the paste below is what should
+    // Precondition: a mounted-but-unclicked live pane never has keyboard focus (terminal-focus
+    // behaviour, untouched here) — the paste below is what should
     // move it, not anything upstream of the drop.
     expect(await activeElementInsideTerminal(page, "drop-e1")).toBe(false);
 
     await dropFiles(region, [{ name: "shot.png", bytes: content }]);
 
-    // REQ-2: the escaped path lands at the cursor.
+    // The escaped path lands at the cursor.
     await expect(region).toContainText(expected, { timeout: 15_000 });
-    // REQ-6: the in-flight notice clears on success.
+    // The in-flight notice clears on success.
     await expect(dropNotice(region)).toBeHidden({ timeout: 15_000 });
-    // REQ-11: focus follows a successful paste with no click on the region.
+    // Focus follows a successful paste with no click on the region.
     await expect.poll(() => activeElementInsideTerminal(page, "drop-e1")).toBe(true);
 
-    // E1: pressing Enter submits the pasted (trailing-space-terminated) line; the stub's
+    // Pressing Enter submits the pasted (trailing-space-terminated) line; the stub's
     // echo proves the bytes reached the pty, not just the DOM.
     await page.keyboard.press("Enter");
     await expect(region).toContainText(`stub-echo:${expected}`, { timeout: 15_000 });
@@ -129,13 +127,13 @@ test("dropping a file with no match anywhere on disk shows the not-located notic
         timeout: 15_000,
       },
     );
-    // REQ-11 only fires on a successful paste — a failed locate must not move focus.
+    // Focus only moves on a successful paste — a failed locate must not move focus.
     expect(await activeElementInsideTerminal(page, "drop-e3")).toBe(false);
 
-    // E3: the user still presses Enter out of habit; since nothing was pasted, the pty
+    // The user still presses Enter out of habit; since nothing was pasted, the pty
     // receives (and echoes back) an empty line, never a path. Scoped to `.terminal-body`
     // (the xterm rendering element), not the whole surface: the still-visible failure
-    // notice (`.terminal-notice`, REQ-6's ~5s hold) is a DOM sibling that legitimately
+    // notice (`.terminal-notice`, held ~5s) is a DOM sibling that legitimately
     // contains "ghost.png" in its own text, and xterm pads each row to full column width
     // with trailing spaces — `region`'s normalized textContent collapses that padding plus
     // the notice's adjacent text into "stub-echo: Can't locate ghost.png…", which a
@@ -159,7 +157,7 @@ test("dropping a file that matches two identical on-disk copies shows the ambigu
   try {
     const content = uniqueContent();
     // Same basename, two different subdirectories of the session directory, byte-
-    // identical content (REQ-3/REQ-5) — the walk's own ambiguity case, since a single
+    // identical content — the walk's own ambiguity case, since a single
     // directory cannot hold two entries with the same name.
     await writeFixtureFile(join(dir, "a", "dup.png"), content);
     await writeFixtureFile(join(dir, "b", "dup.png"), content);
@@ -233,7 +231,7 @@ test("dropping text/plain with no files pastes the text verbatim (E6, REQ-10)", 
 
     await dropText(region, "hello there");
     await page.keyboard.press("Enter");
-    // REQ-10: no escaping is applied to a text drop — a file drop of the same string
+    // No escaping is applied to a text drop — a file drop of the same string
     // would never reach the pty verbatim like this (spaces would gain backslashes).
     await expect(region).toContainText("stub-echo:hello there", { timeout: 15_000 });
   } finally {
@@ -256,7 +254,7 @@ test("in Tiles, a drop on one live tile pastes only into that tile, leaving the 
     await launchSession(page, daemon, { directory: dirB.path, title: "drop-e8-b" });
 
     await page.getByRole("button", { name: "Tiles" }).click();
-    // Default density is 2×2 (views.spec.ts E11) — two launched sessions are both live
+    // Default density is 2×2 (views.spec.ts) — two launched sessions are both live
     // tiles with no further setup.
     await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
 
@@ -267,7 +265,7 @@ test("in Tiles, a drop on one live tile pastes only into that tile, leaving the 
 
     const beforeA = await regionA.textContent();
 
-    // The fixture file lives only in B's session directory (REQ-5: locate walks THAT
+    // The fixture file lives only in B's session directory (locate walks THAT
     // session's directory), so a routing bug that located it via A's directory instead
     // would fail this drop outright rather than silently mis-target.
     await dropFiles(regionB, [{ name: "in-b.png", bytes: content }]);
@@ -290,9 +288,9 @@ test("a drop on a live pane whose socket is not open shows the not-connected not
     const region = terminalRegion(page, "drop-notconn");
     await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
 
-    // Same fixture as terminal.spec.ts's E13 ("daemon down while a terminal is
+    // Same fixture as terminal.spec.ts's daemon-down test ("daemon down while a terminal is
     // attached"): killing the daemon closes the terminal WS out from under the still-
-    // mounted surface, which is exactly REQ-8's "socket not open" half (distinct from the
+    // mounted surface, which is exactly the "socket not open" half (distinct from the
     // dead-session half above, where the surface never mounts at all).
     await daemon.kill();
     await expect(terminalOverlay(region)).toHaveText(/disconnected/i, { timeout: 15_000 });

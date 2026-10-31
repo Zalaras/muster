@@ -8,7 +8,7 @@ import {
   rawStop,
 } from "./helpers/payloads";
 
-// REQ-10 through REQ-13 — both ingest endpoints, seq assignment, and the drop paths.
+// Both ingest endpoints, seq assignment, and the drop paths.
 // One scratch daemon per file via fileDaemon(): each test uses its own claude_session_id,
 // and the two whole-table counts are before/after deltas within one test (tests on a
 // worker's daemon run sequentially), so no test depends on a neighbour's side effects.
@@ -21,7 +21,7 @@ test("persists an enveloped SessionStart then a raw Stop for the same session as
   const sessionId = "e2e-s1";
 
   // No real session was launched for this seq-assignment test (session 1 doesn't
-  // exist), so REQ-12 corroboration never applies here — the literal pane just has to
+  // exist), so envelope pane corroboration never applies here — the literal pane just has to
   // be stated (helpers/payloads.ts has no default) and match the assertion below.
   const startRes = await request.post(daemon().ingestURL("hook"), {
     data: envelopedSessionStart(sessionId, { tmuxPane: "%12" }),

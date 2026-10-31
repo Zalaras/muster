@@ -19,7 +19,7 @@ import (
 	"github.com/Zalaras/muster/internal/store"
 )
 
-// fakeTokenReader builds a claudecode.TokenReader from a plain func — the D8-style
+// fakeTokenReader builds a claudecode.TokenReader from a plain func — a
 // injected seam, used here so poller tests never touch a real token source (Keychain or
 // file).
 func fakeTokenReader(fn func(ctx context.Context) (string, error)) claudecode.TokenReader {
@@ -29,13 +29,13 @@ func fakeTokenReader(fn func(ctx context.Context) (string, error)) claudecode.To
 // oneFableWindowBody is a realistic usage-endpoint response body carrying one per-model
 // window named "Fable" at 61% — built via claudecodetest so this file (outside
 // internal/claudecode) never has to spell the endpoint's own wire vocabulary itself (the
-// D3 boundary check on plan usage-model-bar).
+// boundary check that keeps the endpoint's wire vocabulary out of this package).
 var oneFableWindowBody = claudecodetest.UsageAPIBody(claudecodetest.UsageWindowOpt{DisplayName: "Fable", Percent: 61, ResetsAt: "2026-09-01T13:59:59Z"})
 
 // usageAPIStub is a controllable fake for the per-model usage endpoint: Mode picks the
-// canned response, and Requests counts every hit — exactly the harness D7's poller tests
+// canned response, and Requests counts every hit — exactly the harness the poller tests
 // need (success / 401 / 5xx / connection-refused / coalescing), without ever reaching a
-// real network endpoint (REQ-13).
+// real network endpoint.
 type usageAPIStub struct {
 	mu       sync.Mutex
 	mode     string // "success" | "success-empty" | "401" | "500"
@@ -99,7 +99,7 @@ func (s *usageAPIStub) Close() { s.srv.Close() }
 
 func alwaysOKTokenReader(_ context.Context) (string, error) { return "tok", nil }
 
-// TestUsagePoller_Tick_SuccessRecordsWindows covers D7's success case: a fetch that
+// TestUsagePoller_Tick_SuccessRecordsWindows covers the success case: a fetch that
 // succeeds ends up recorded on the ModelScoped holder.
 func TestUsagePoller_Tick_SuccessRecordsWindows(t *testing.T) {
 	stub := newUsageAPIStub("success")
@@ -117,7 +117,7 @@ func TestUsagePoller_Tick_SuccessRecordsWindows(t *testing.T) {
 	assert.NotNil(t, snap.At)
 }
 
-// TestUsagePoller_Tick_NoCredentialsSetsErrorKeepsListNil covers REQ-6/INV-3 from the
+// TestUsagePoller_Tick_NoCredentialsSetsErrorKeepsListNil checks from the
 // never-fetched source state: a token-read failure sets "no-credentials" and never
 // invents a list.
 func TestUsagePoller_Tick_NoCredentialsSetsErrorKeepsListNil(t *testing.T) {
@@ -137,7 +137,7 @@ func TestUsagePoller_Tick_NoCredentialsSetsErrorKeepsListNil(t *testing.T) {
 	assert.Equal(t, int32(0), stub.reqCount(), "no token means FetchUsage must never even be attempted")
 }
 
-// TestUsagePoller_Tick_UnauthorizedKeepsLastGoodListAndAt covers REQ-6/INV-3 from the
+// TestUsagePoller_Tick_UnauthorizedKeepsLastGoodListAndAt checks from the
 // "after a good fetch" source state (m1-sessions lesson: assert invariants from every
 // reachable state, not just the convenient boot one).
 func TestUsagePoller_Tick_UnauthorizedKeepsLastGoodListAndAt(t *testing.T) {
@@ -237,7 +237,7 @@ func TestUsagePoller_Refresh_ChannelCoalescesToOneBufferedSignal(t *testing.T) {
 }
 
 // TestUsagePoller_Refresh_ConcurrentRefreshesWhileATickIsInFlightCoalesceToOneExtraFetch
-// covers D7's "refresh coalescing" requirement (Edge Case 7/8) deterministically: the
+// covers the "refresh coalescing" requirement (Edge Case 7/8) deterministically: the
 // loop goroutine is busy inside Start's immediate fetch (held open by the handler) when
 // three Refresh() calls land, so at most one signal can ever be buffered — releasing the
 // held request must then produce exactly one more fetch, not three.

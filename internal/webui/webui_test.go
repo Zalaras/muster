@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestHasDashboard covers the fail-fast predicate (plan embed-dashboard REQ-3/D5/R2)
+// TestHasDashboard covers the fail-fast predicate
 // against injected fstest.MapFS trees — the real go:embed-ed FS always contains
 // index.html once any `make web-build` has run, so it can never exercise the "missing"
-// branch itself (Implementation Notes); this is the substitute the plan calls for.
+// branch itself (Implementation Notes); this is the substitute.
 func TestHasDashboard(t *testing.T) {
 	tests := []struct {
 		name string
@@ -64,9 +64,9 @@ func TestHasDashboard(t *testing.T) {
 	}
 }
 
-// TestFS_RootedAtAssets covers REQ-1: FS() must expose the embedded tree rooted at
+// TestFS_RootedAtAssets: FS() must expose the embedded tree rooted at
 // assets/ (so callers see index.html, not assets/index.html) — asserted against the
-// always-committed .gitkeep (REQ-4), which is present regardless of whether a web build
+// always-committed .gitkeep, which is present regardless of whether a web build
 // has run in this checkout, so this test never depends on build state.
 func TestFS_RootedAtAssets(t *testing.T) {
 	sub := FS()

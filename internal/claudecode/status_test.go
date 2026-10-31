@@ -10,7 +10,7 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode/claudecodetest"
 )
 
-// TestInterpretStatus_PreFirstResponse covers REQ-2/REQ-3/D7/D8: the measured
+// TestInterpretStatus_PreFirstResponse: the measured
 // pre-first-API-response shape (null percentages, zero tokens, rate_limits entirely
 // absent) must surface as unknown, never as "0%"/an account sample.
 func TestInterpretStatus_PreFirstResponse(t *testing.T) {
@@ -38,8 +38,8 @@ func TestInterpretStatus_PreFirstResponse_SessionNameSurfacesAsTitle(t *testing.
 	assert.Equal(t, "Run echo hello bash command", *got.Title)
 }
 
-// TestInterpretStatus_FullPost covers REQ-1: the post-first-API-response shape yields
-// every field of StatusUpdate, including the account sample (REQ-3) built from the same
+// TestInterpretStatus_FullPost: the post-first-API-response shape yields
+// every field of StatusUpdate, including the account sample built from the same
 // payload's model object (Edge Case 9).
 func TestInterpretStatus_FullPost(t *testing.T) {
 	body := claudecodetest.EnvelopedStatusLineFull("claude-1", claudecodetest.StatusLineFullOpts{
@@ -85,10 +85,10 @@ func TestInterpretStatus_ResetsAtConvertsEpochToUTC(t *testing.T) {
 	assert.Equal(t, time.Unix(1787061600, 0).UTC(), got.Account.SevenDay.ResetsAt)
 }
 
-// TestInterpretStatus_ZeroUsedPercentageIsRealDataNotNull is REQ-2's converse: a real
+// TestInterpretStatus_ZeroUsedPercentageIsRealDataNotNull is the converse: a real
 // 0% reading (a non-nil pointer to 0.0) must be adopted, never conflated with the null
 // case above. StatusLineFullOpts.UsedPct is a *float64 precisely so this shape doesn't
-// need a hand-built body (review cycle 1 Minor 6) — REQ-15's "tests never hand-write
+// need a hand-built body (review cycle 1 Minor 6) — the "tests never hand-write
 // wire bodies" stays literal.
 func TestInterpretStatus_ZeroUsedPercentageIsRealDataNotNull(t *testing.T) {
 	zeroPct := 0.0
@@ -141,7 +141,7 @@ func TestInterpretStatus_MalformedPayloadReturnsZeroValueWithoutPanicking(t *tes
 	assert.Nil(t, got.Account)
 }
 
-// TestInterpretStatus_PromptCache is D1: prompt_cache is adopted only with an integer
+// TestInterpretStatus_PromptCache: prompt_cache is adopted only with an integer
 // expires_at (Unix seconds) and a ttl of <digits><s|m|h> that is greater than zero; anything
 // else, and an absent key, is nothing (kb:fact/prompt-cache-status-shape: absent means
 // unknown, never cold). The "measured" row is the fact record's full object.

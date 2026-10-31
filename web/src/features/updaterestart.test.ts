@@ -1,7 +1,7 @@
-// Plan settings-update-failures (REQ-13-19, W1-W7): the pure banner-override decision
-// (computeBannerOverride) table-tested directly with no app/socket/storage/DOM, plus
-// initUpdateRestart's stateful wiring — the restart record's REQ-18 lifecycle, the
-// REQ-16/W6/W7 reload-and-handoff, and the REQ-17/INV-3 confirmation arming from a
+// The pure banner-override decision (computeBannerOverride) table-tested directly with
+// no app/socket/storage/DOM, plus
+// initUpdateRestart's stateful wiring — the restart record's lifecycle, the
+// reload-and-handoff, and the confirmation arming from a
 // sessionStorage handoff, all driven through a real createApp() and a fake StorageLike
 // (this file's own fakeStorage, matching reader/memory.test.ts's shape).
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -304,7 +304,7 @@ describe("initUpdateRestart — confirmation from the sessionStorage handoff (RE
 
   it("schedules one extra render just past the 3s confirmation mark, independent of main.ts's own 1s tick phase (browser Minor 1)", () => {
     // The confirmation's own hide is a pure function of elapsed time
-    // (computeBannerOverride, covered by the W5-boundary cases above); this test covers
+    // (computeBannerOverride, covered by the boundary cases above); this test covers
     // only the scheduling side — that arming a confirmation asks for exactly one more
     // render at ~CONFIRMATION_MS, not zero (which left the hide to whatever the next 1s
     // tick happened to land on) and not more than one.

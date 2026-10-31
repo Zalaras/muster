@@ -20,7 +20,7 @@ func statusCache(expires time.Time, ttlSeconds int64) claudecode.StatusUpdate {
 	return claudecode.StatusUpdate{Cache: &claudecode.StatusCache{ExpiresAt: expires, TTLSeconds: ttlSeconds}}
 }
 
-// TestApplyStatusUpdate_CacheAdoption covers REQ-21/D2/D3/D4 at the pure level: the cache
+// TestApplyStatusUpdate_CacheAdoption checks at the pure level: the cache
 // is adopted when carried and different, an equal one (same instant, same lifetime) is no
 // change even when its time value differs in zone, and a post without one leaves the
 // last-known value untouched.
@@ -70,7 +70,7 @@ func TestApplyStatusUpdate_CacheAdoption(t *testing.T) {
 
 // TestApplyStatusUpdate_CacheDoesNotDisturbStateFromEverySource crosses a cache-bearing
 // post with every card source state: the machine-owned fields stay bit-identical and the
-// cache is adopted, from every state and the dead flag (INV-5's adoption side).
+// cache is adopted, from every state and the dead flag (the adoption side).
 func TestApplyStatusUpdate_CacheDoesNotDisturbStateFromEverySource(t *testing.T) {
 	for _, src := range cardSources {
 		for _, alive := range []bool{true, false} {
@@ -103,7 +103,7 @@ func launchedSession(t *testing.T, mgr *Manager, target string) *Session {
 	return sess
 }
 
-// TestApplyStatus_CacheBroadcasts covers D2, D3 and D4 through the Manager: a changed
+// TestApplyStatus_CacheBroadcasts checks through the Manager: a changed
 // cache is exactly one sessionUpsert carrying it; an unchanged one, and a post without one,
 // broadcast nothing.
 func TestApplyStatus_CacheBroadcasts(t *testing.T) {
@@ -193,7 +193,7 @@ func cacheClearInputs() map[string]struct {
 	}
 }
 
-// TestApplyInput_ClearRebindClearsCacheFromEverySource is D5/INV-5's clearing half: every
+// TestApplyInput_ClearRebindClearsCacheFromEverySource is the clearing half: every
 // /clear-shaped input empties the cache from every source state, alive or dead, and a
 // status post of the new conversation refills it (Edge Cases 1 and 2).
 func TestApplyInput_ClearRebindClearsCacheFromEverySource(t *testing.T) {
@@ -219,7 +219,7 @@ func TestApplyInput_ClearRebindClearsCacheFromEverySource(t *testing.T) {
 	}
 }
 
-// TestApplyInput_NonClearInputsKeepCacheFromEverySource is D6/INV-5's keeping half: every
+// TestApplyInput_NonClearInputsKeepCacheFromEverySource is the keeping half: every
 // other input kind, crossed with every source state and the dead flag, leaves the cache
 // pointer exactly as it was.
 func TestApplyInput_NonClearInputsKeepCacheFromEverySource(t *testing.T) {
@@ -285,7 +285,7 @@ func TestApplyInput_NonClearInputsKeepCacheFromEverySource(t *testing.T) {
 	})
 }
 
-// TestManager_CacheLifecycleWithABystander is D6/D7 at the Manager level over two
+// TestManager_CacheLifecycleWithABystander checks at the Manager level, over two
 // coexisting sessions: Stop, liveness death, Resume and a compaction keep the target's cache
 // (in memory and in the row) and never touch the bystander's; a /clear rebind clears only
 // the target's; and a restart reads both back.
@@ -418,7 +418,7 @@ func TestApply_EnvelopedEventWithANewClaudeSessionIDClearsCache(t *testing.T) {
 	assert.Nil(t, got.Cache, "an event naming a new claude session id is a rebind and clears it")
 }
 
-// TestCacheRowMapping is INV-1 at the row boundary: a row with both columns is a cache,
+// TestCacheRowMapping checks the row boundary: a row with both columns is a cache,
 // a row with either missing is unknown, never half a cache, and a cache maps back to both
 // columns together.
 func TestCacheRowMapping(t *testing.T) {

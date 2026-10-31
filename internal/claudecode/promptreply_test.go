@@ -31,7 +31,7 @@ func TestIsPromptSubmit(t *testing.T) {
 	}
 }
 
-// TestPromptTitleReply covers REQ-1: the reply body is exactly the Claude Code hook-output
+// TestPromptTitleReply: the reply body is exactly the Claude Code hook-output
 // shape measured in kb:fact/hook-output-sets-session-title, whatever the title holds.
 func TestPromptTitleReply(t *testing.T) {
 	tests := []struct {

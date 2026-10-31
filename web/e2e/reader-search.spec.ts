@@ -50,9 +50,9 @@ import {
 } from "./helpers/session";
 import { mainheadSurfaceButton } from "./helpers/shell";
 
-// Plan docs-search-bar — the journeys of REQ-1 through REQ-13, INV-1 through INV-5: the
-// Write hook re-rendering the open file under the bar (E11) and the pop-out (E14, INV-3,
-// Browser Minor 1), a second page the render harness cannot serve. Every display property —
+// The journeys of reader search: the
+// Write hook re-rendering the open file under the bar and the pop-out, a
+// second page the render harness cannot serve. Every display property —
 // the icon and the bar in the reading area's corner, what matches and what is highlighted,
 // Cmd+F in Focus and in two tiles, stepping and scrolling, the count's one width, the tokens
 // per theme, the body's innerHTML and scroll position across the bar — moved to
@@ -73,7 +73,7 @@ import { mainheadSurfaceButton } from "./helpers/shell";
 // verdict is read from a capture-phase log: Playwright's headless Chromium has no find UI to
 // observe, so "the browser's own find does not open" is the event's `defaultPrevented`.
 // Whether a real Chrome lets a page prevent the chord is a reviewer-verified measurement the
-// suite cannot prove (plan Carried-over measurements).
+// suite cannot prove (carried-over measurements).
 
 interface Opened {
   region: Locator;
@@ -125,7 +125,7 @@ async function popOut(region: Locator, context: BrowserContext): Promise<Page> {
   return popup;
 }
 
-// ── E11: the document changes under an open bar ────────────────────────────────────────
+// ── The document changes under an open bar ────────────────────────────────────────
 
 test("rewriting the open file with a Write hook re-runs the query, keeps the ordinal when it fits, clamps it when it does not, reads No results at zero, and never scrolls the body (E11, REQ-11)", async ({
   page,
@@ -179,7 +179,7 @@ test("rewriting the open file with a Write hook re-runs the query, keeps the ord
   }
 });
 
-// ── E14: the pop-out ───────────────────────────────────────────────────────────────────
+// ── The pop-out ───────────────────────────────────────────────────────────────────
 //
 // The pop-out is a second page (`doc.html`), and the render harness installs its routes on
 // the first page only, so these stay E2E: the pop-out loads from the daemon or not at all.

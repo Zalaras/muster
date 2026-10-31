@@ -173,7 +173,7 @@ async function readFitSnapshot(page: Page): Promise<FitSnapshot | null> {
         block: rect(block),
       })),
     );
-    // The surface switch sits inside `.acts` since plan title-crop-stop-resume-button (REQ-4),
+    // The surface switch sits inside `.acts` since plan title-crop-stop-resume-button,
     // so the header items are the switch and each action button on its own: `.acts` itself
     // would overlap its own children.
     const actionButtons = [...acts.querySelectorAll<HTMLElement>("button")].filter(

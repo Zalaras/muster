@@ -1,6 +1,6 @@
 package triage
 
-// TestCheckVersion covers general-cleanup REQ-1/D1: CheckVersion must accept every shape
+// TestCheckVersion: CheckVersion must accept every shape
 // `git describe --tags --always --dirty` can produce for musterd.version, and continue to
 // reject a malformed one (a trailing space, a second word, or an over-length string).
 

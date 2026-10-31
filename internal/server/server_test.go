@@ -9,12 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNew_RegistersLifecycleFeaturesInStartOrder pins REQ-11: Start and Stop must run the
+// TestNew_RegistersLifecycleFeaturesInStartOrder pins this: Start and Stop must run the
 // independent-goroutine features in exactly today's order — ingest, usage poller,
 // theme poller, shell activity poller, updates (server.go's own comment above the
-// ingest/usage/theme/shellActivity registrations, plan terminal-fixes-cleanup Affected
-// Files: "internal/server/server.go — one-line registration of the poller") — since Start
-// and Shutdown both iterate s.features in registration order, unreversed (INV-5).
+// ingest/usage/theme/shellActivity registrations) — since Start
+// and Shutdown both iterate s.features in registration order, unreversed.
 func TestNew_RegistersLifecycleFeaturesInStartOrder(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
@@ -35,7 +34,7 @@ func TestNew_RegistersLifecycleFeaturesInStartOrder(t *testing.T) {
 	assert.Same(t, srv.claudeVersion, lifecycles[6], "the version watch registers last, after the issue feature that reads its Current")
 }
 
-// TestNew_ZeroValueLaunchConfigDefaultsClaudeBin covers REQ-10 for LaunchConfig: a Config
+// TestNew_ZeroValueLaunchConfigDefaultsClaudeBin checks for LaunchConfig: a Config
 // built with a zero-value Launch sub-struct must default ClaudeBin to "claude" rather than
 // spawning an empty argv[0] — the one LaunchConfig field New itself interprets, as opposed
 // to sessionLauncher.Launch's own request-time defaults (kb:anchor/sessions.create's create
@@ -58,14 +57,14 @@ func (f *recordingLifecycleFeature) mount(*http.ServeMux, func(http.Handler) htt
 func (f *recordingLifecycleFeature) Start()                                                { *f.log = append(*f.log, "start:"+f.name) }
 func (f *recordingLifecycleFeature) Stop(context.Context)                                  { *f.log = append(*f.log, "stop:"+f.name) }
 
-// TestServerShutdown_StopsLifecycleFeaturesInStartOrderUnreversed covers REQ-11's Stop half
+// TestServerShutdown_StopsLifecycleFeaturesInStartOrderUnreversed covers the Stop half
 // directly: TestNew_RegistersLifecycleFeaturesInStartOrder above only inspects the order
 // features land in s.features, which pins what Start (looping that slice forward) will do
 // but proves nothing about Shutdown's own loop body — a future edit reversing Shutdown's
 // teardown to LIFO (a common, plausible convention) would not be caught by a test that never
 // calls Shutdown. This test replaces s.features with recording doubles and calls Shutdown
-// itself, asserting the Stop calls land in the same forward order as registration (INV-5:
-// unreversed, since these four run independent goroutines with no dependency on one another).
+// itself, asserting the Stop calls land in the same forward order as registration
+// (unreversed, since these four run independent goroutines with no dependency on one another).
 func TestServerShutdown_StopsLifecycleFeaturesInStartOrderUnreversed(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 

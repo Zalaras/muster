@@ -95,8 +95,8 @@ func mustGet(t *testing.T, mgr *Manager, id int64) *Session {
 	return got
 }
 
-// TestSweepInterrupts_CheckerOnlyAskedForAliveOpenTurns covers D11 (and the sweep's collect
-// predicate): the checker is asked for alive sessions in working, planning or needs_input
+// TestSweepInterrupts_CheckerOnlyAskedForAliveOpenTurns covers the sweep's collect
+// predicate: the checker is asked for alive sessions in working, planning or needs_input
 // and never for idle, started or failed ones, a dead one, or one without a transcript path
 // or a current prompt.
 func TestSweepInterrupts_CheckerOnlyAskedForAliveOpenTurns(t *testing.T) {
@@ -183,7 +183,7 @@ func TestSweepInterrupts_CheckerOnlyAskedForAliveOpenTurns(t *testing.T) {
 	})
 }
 
-// TestSweepInterrupts_LandsIdleLikeStop covers REQ-4: an interrupt of the current prompt
+// TestSweepInterrupts_LandsIdleLikeStop: an interrupt of the current prompt
 // lands idle from every open state through the normal persist/broadcast path, clearing
 // attention and failure, setting unread exactly as Stop does (from the watcher), closing the
 // prompt and leaving lastActivity and backgroundTasks alone.
@@ -273,7 +273,7 @@ func TestSweepInterrupts_OnlyTheInterruptedSessionMoves(t *testing.T) {
 	assert.Equal(t, victim.ID, rec.all()[before].ID, "only the victim was broadcast")
 }
 
-// TestSweepInterrupts_FailuresLeaveTheSessionUnchanged covers D10 and edge 9: an erroring
+// TestSweepInterrupts_FailuresLeaveTheSessionUnchanged checks and edge 9: an erroring
 // checker, a false answer and a missing transcript file (through the real claudecode
 // checker) leave state, fields and broadcasts alone, and the next tick asks again.
 func TestSweepInterrupts_FailuresLeaveTheSessionUnchanged(t *testing.T) {
@@ -371,7 +371,7 @@ func TestSweepInterrupts_TurnClosedBetweenCheckAndApply(t *testing.T) {
 }
 
 // TestPollLoop_SweepsInterrupts covers the wiring: pollLoop runs the sweep after the liveness
-// check, so an interrupt lands idle without any caller nudging it (REQ-4's ~5 s tick, here 10 ms).
+// check, so an interrupt lands idle without any caller nudging it (the ~5 s tick, here 10 ms).
 func TestPollLoop_SweepsInterrupts(t *testing.T) {
 	st := openTestStore(t)
 	pc := newFakePaneChecker()
@@ -393,7 +393,7 @@ func TestPollLoop_SweepsInterrupts(t *testing.T) {
 	}, 2*time.Second, 5*time.Millisecond)
 }
 
-// TestApply_TurnStatePersistsAcrossARestart covers D12 at the manager layer and edge 11: the
+// TestApply_TurnStatePersistsAcrossARestart checks at the manager layer and edge 11: the
 // wait owner and background count are written on Apply and reloaded by LoadAll, and the
 // reloaded owner still guards the wait (INV-B) after the restart.
 func TestApply_TurnStatePersistsAcrossARestart(t *testing.T) {
@@ -435,7 +435,7 @@ func TestApply_TurnStatePersistsAcrossARestart(t *testing.T) {
 
 // TestApply_StopKeepingASubagentWaitIsNotUnread covers apply.go's turn-ended guard: Unread is
 // set only when the closing input actually lands idle, so a Stop that a subagent's wait survives
-// (REQ-8) never leaves unread set on a needs_input session; a main-owned wait's Stop does.
+// never leaves unread set on a needs_input session; a main-owned wait's Stop does.
 func TestApply_StopKeepingASubagentWaitIsNotUnread(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -467,7 +467,7 @@ func TestApply_StopKeepingASubagentWaitIsNotUnread(t *testing.T) {
 	}
 }
 
-// TestApply_PromptlessIdlePromptAfterClear covers D2 and D3 through the enveloped path that
+// TestApply_PromptlessIdlePromptAfterClear checks through the enveloped path that
 // owns rebinding (edge cases 1 and 2).
 func TestApply_PromptlessIdlePromptAfterClear(t *testing.T) {
 	t.Run("D2: an enveloped prompt-less idle_prompt on a new claude id rebinds to started and stays started", func(t *testing.T) {

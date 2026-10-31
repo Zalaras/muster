@@ -27,19 +27,18 @@ import { resumeFromCardMenu } from "./helpers/rail-menu";
 import { envelopeOpts, findSession, getState, sessionCard } from "./helpers/session";
 import { activeElementInsideTerminal, terminalRegion } from "./helpers/terminal";
 
-// Plan effort — the header half: the bracketed effort after the model, the launch-mismatch warning
-// strip, its Dismiss, and a card-menu Resume's effort. Acceptance E5 to E15 and E17 with REQ-5 to
-// REQ-10, REQ-12, REQ-13 and INV-E1 to INV-E6.
+// Effort, the header half: the bracketed effort after the model, the launch-mismatch warning
+// strip, its Dismiss, and a card-menu Resume's effort.
 //
 // The journeys: a later post changing the header, Dismiss and its DELETE round-trip, the warning
 // across reloads, restarts, a /clear rebind and a killed daemon, the size note's rows, and the
 // card-menu Resume's `--effort`. What the header shows for a given state — the unreported `(…)` and
-// the bracketless dead model (E5, E6), the clamped and the no-effort strips (E8, E9), the strip's
-// geometry, its wrap at five widths and the --warn family per theme (REQ-12) — moved to the render
+// the bracketless dead model, the clamped and the no-effort strips, the strip's
+// geometry, its wrap at five widths and the --warn family per theme — moved to the render
 // tier on 2026-10-20: web/render/focus.spec.ts against the `effort-header` and `effort-warned-*`
 // fixtures (plans/_audit/relevel/focus.md).
 //
-// Daemon shape (the plan's Fixture plan header): every test takes the per-test `daemon` fixture —
+// Daemon shape: every test takes the per-test `daemon` fixture —
 // the warning-survives-restart criterion restarts the daemon and the daemon-down one kills it.
 //
 // Claude Code is faked: the status line's `effort.level` is synthesized (helpers/effort.ts) from
@@ -62,7 +61,7 @@ async function warnedSession(
   return s;
 }
 
-// --- the bracketed effort (REQ-5, REQ-6) ---
+// --- the bracketed effort ---
 
 test("a later post with another level changes the header to it with no strip, and a post with no effort key drops the brackets and reads {level: null}, never null (REQ-5, REQ-6, E7, INV-E4)", async ({
   page,
@@ -77,7 +76,7 @@ test("a later post with another level changes the header to it with no strip, an
   expect(await effText(page)).toBe(" (high)");
   expect((await wireEffort(page, daemon, s.session.id)).effort).toEqual({ level: "high" });
 
-  // E7: /effort low, seen only on the next status post.
+  // /effort low, seen only on the next status post.
   await postEffort(request, daemon, s.session, s.claudeId, { level: "low" });
   await expect(headerModel(page)).toHaveText("Opus 4.5 (low)");
   expect(await effText(page)).toBe(" (low)");
@@ -204,7 +203,7 @@ test("effort survives Stop, a /clear rebind and a daemon restart: a dead session
   expect((await wireEffort(page, daemon, s.session.id)).effort).toEqual({ level: "xhigh" });
 });
 
-// --- the launch-mismatch warning (REQ-7, REQ-8) ---
+// --- the launch-mismatch warning ---
 
 test("a launch whose first post reports the level it asked for shows no strip, and a later post at another level never raises one (REQ-7, E10, INV-E2)", async ({
   page,
@@ -289,7 +288,7 @@ test("a bystander's first report never sets or clears another session's warning 
   });
 });
 
-// --- Dismiss (REQ-9) ---
+// --- Dismiss ---
 
 test("Dismiss removes the strip and the tint, leaves the effort and the model as they were, and persists the clear (REQ-9, E8)", async ({
   page,
@@ -321,7 +320,7 @@ test("Dismiss removes the strip and the tint, leaves the effort and the model as
     effortWarning: null,
   });
 
-  // A later report at the same level does not bring it back (INV-E2: dismissed source state).
+  // A later report at the same level does not bring it back (dismissed source state).
   await postEffort(request, daemon, s.session, s.claudeId, { level: "high" });
   await postEffort(request, daemon, s.session, s.claudeId, { level: "low" });
   await expect(headerModel(page)).toHaveText("Opus 4.5 (low)");
@@ -459,7 +458,7 @@ test("with two warned sessions, Dismiss on one removes its strip and tint in bot
   await expect(headerEff(other)).toHaveClass(/\bwarn\b/);
 });
 
-// --- persistence and connection (E11, E13) ---
+// --- persistence and connection ---
 
 test("an undismissed strip survives a page reload, appears in a second dashboard on the same daemon, and survives a daemon restart (REQ-7, E11, INV-E2)", async ({
   page,
@@ -598,7 +597,7 @@ test("with the daemon killed the header keeps its effort and the strip stays, a 
   await daemon.restart();
   await expect(page.getByRole("alert").filter({ hasText: /musterd unreachable/i })).toBeHidden();
   // The unreachable message goes with the outage: the line clears when the connection returns,
-  // before any later action replaces it (#e8, REQ-9).
+  // before any later action replaces it (#e8).
   await expect(page.locator("#action-error")).toBeHidden();
   await expect(effortStrip(page)).toHaveCount(1);
   await stripDismiss(page).click();
@@ -679,7 +678,7 @@ test("a Dismiss whose request is aborted before any answer leaves the strip and 
   expect((await wireEffort(page, daemon, s.session.id)).effortWarning).not.toBeNull();
 });
 
-// --- layout (REQ-12, REQ-13, INV-E6) ---
+// --- layout ---
 
 test("the size note's row count drops when the strip appears and returns when it is dismissed, and the terminal never sits under the strip (REQ-13, E14, INV-E6)", async ({
   page,
@@ -761,7 +760,7 @@ test("the strip belongs to the Focus view only: Tiles shows none, and Focus show
   await expect(headerEff(page)).toHaveClass(/\bwarn\b/);
 });
 
-// --- the card-menu Resume (REQ-10, E15, E17) ---
+// --- the card-menu Resume ---
 
 test("Resume from the card menu on a session whose last post reported medium spawns the pane with --effort medium and the header reads (medium) before any new post (REQ-10, E15)", async ({
   page,

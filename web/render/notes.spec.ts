@@ -1,4 +1,4 @@
-// notes — what the display shows for a session's note (plan session-notes R1 to R13): the Focus
+// notes — what the display shows for a session's note: the Focus
 // header glyph, the card and tile markers, the hover tip, the anchored and popped-out panel's
 // layout and keyboard, and the unsaved status. State comes from the `notes` fixture (plain, short,
 // long-with-frontmatter-and-mermaid, ended-with-note) and `notes-tiles`; typing into the editor is
@@ -622,7 +622,7 @@ test("the glyph opens the panel on Enter and on Space from keyboard focus (R13, 
   }
 });
 
-// ── closing the note returns focus (plan bugs-one-batch-1 R1, REQ-5; #111) ─────────────────────
+// ── closing the note returns focus (#111) ─────────────────────
 
 test("Escape in the anchored panel returns keyboard focus to the Claude terminal (R1, REQ-5)", async ({
   page,

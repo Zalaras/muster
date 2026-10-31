@@ -16,7 +16,7 @@ import (
 )
 
 // newStaticTestServer builds a bare Server with a configurable WebDist, independent of
-// newTestServer's fixed t.TempDir() (plan embed-dashboard REQ-2's serving precedence is
+// newTestServer's fixed t.TempDir() (the serving precedence is
 // exactly the WebDist value, so the tests below need to control it directly, including
 // setting it to "" to reach the embedded branch).
 func newStaticTestServer(t *testing.T, webDist string) *Server {
@@ -40,9 +40,9 @@ func withAuthCookie(req *http.Request) *http.Request {
 	return req
 }
 
-// TestStaticServing_DiskOverride covers REQ-2's disk branch: WebDist non-empty serves
+// TestStaticServing_DiskOverride covers the disk branch: WebDist non-empty serves
 // exactly that directory's content, and nothing else — a request for a path that exists
-// only in the embedded tree (.gitkeep, always present per REQ-4) 404s rather than
+// only in the embedded tree (.gitkeep, always present) 404s rather than
 // silently falling back to the embedded copy.
 func TestStaticServing_DiskOverride(t *testing.T) {
 	dir := t.TempDir()
@@ -74,10 +74,10 @@ func TestStaticServing_DiskOverride(t *testing.T) {
 	})
 }
 
-// TestStaticServing_Embedded covers REQ-2's embedded branch (WebDist empty) and R5's
+// TestStaticServing_Embedded covers the embedded branch (WebDist empty) and the
 // auth-gating parity. It deliberately asserts against .gitkeep rather than index.html:
 // .gitkeep is always present in the real go:embed-ed tree regardless of whether a web
-// build has run in this checkout (REQ-4's whole point), while index.html's presence
+// build has run in this checkout (the whole point), while index.html's presence
 // varies with build state and would make this test flaky across machines/CI — see
 // cmd/musterd/webdist_test.go's note on the same non-determinism.
 func TestStaticServing_Embedded(t *testing.T) {

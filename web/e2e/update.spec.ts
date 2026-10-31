@@ -28,11 +28,11 @@ import {
   updateStatusLine,
 } from "./helpers/update";
 
-// Plan auto-update — E1 through E15. musterd is a GitHub Release binary with no update
-// path today; this plan adds a pref-gated daemon-side check against
+// Self-update journeys. musterd is a GitHub Release binary with no update
+// path today; the update feature adds a pref-gated daemon-side check against
 // `helpers/releases.ts`'s FakeReleaseServer (never the real `github.com/Zalaras/muster`
-// host — REQ-5), a minisign-verified swap of the daemon's own binary (REQ-14..18), and
-// an in-place re-exec that must leave every Claude tmux session running (INV-5).
+// host), a minisign-verified swap of the daemon's own binary, and
+// an in-place re-exec that must leave every Claude tmux session running.
 //
 // Every daemon here is `startDaemon` (never the plain `daemon` fixture), because every
 // test needs its own FakeReleaseServer URL and minisign public-key-file path — exactly
@@ -51,16 +51,16 @@ import {
 // `npx playwright test --list` fails at that import line — see `test-specs.md`'s
 // handoff note; e2e-specs was directed not to add them to `daemon.ts` itself.
 //
-// No hook or status-line payload is synthesized anywhere in this file: this plan adds no
-// Claude Code ingest path (edge case 34), and every Claude session used as an INV-5
-// fixture (E5/E6/E12) only needs to exist and stay alive in tmux, never to reach a
+// No hook or status-line payload is synthesized anywhere in this file: the update feature adds no
+// Claude Code ingest path (edge case 34), and every Claude session used as a
+// fixture only needs to exist and stay alive in tmux, never to reach a
 // particular ingest-driven state.
 //
 // The two properties of the one update state every render fixture holds (`install: dev`,
-// `canCheck: false`) — Check now disabled on an empty base URL (rail-card-improvements-2
-// E12) and the dev build's readout, missing Update buttons and hidden badge (the display
-// half of E8) — are render tests in web/render/update.spec.ts since 2026-10-20
-// (plans/_audit/relevel/launch-update.md). E8 keeps its zero-`/latest`-requests half here.
+// `canCheck: false`) — Check now disabled on an empty base URL
+// and the dev build's readout, missing Update buttons and hidden badge (the display
+// half of the dev-build test) — are render tests in web/render/update.spec.ts since 2026-10-20
+// (plans/_audit/relevel/launch-update.md). The dev-build test keeps its zero-`/latest`-requests half here.
 // Every other update state is a real check or apply against the fake host, so it stays.
 
 const OLD_VERSION = "0.1.0";
@@ -83,7 +83,7 @@ interface ReleaseServerFixture {
 
 /** One `FakeReleaseServer` plus its own minisign public-key file on disk, ready to pass
  * as `-update-public-key-file` — every test's daemon uses ITS OWN generated keypair,
- * never the real committed `internal/selfupdate/minisign.pub` (D5's production key). */
+ * never the real committed `internal/selfupdate/minisign.pub` (the production key). */
 async function startReleaseServer(): Promise<ReleaseServerFixture> {
   const fakeServer = await FakeReleaseServer.start();
   const dir = await mkdtemp(join(tmpdir(), "muster-e2e-update-pubkey-"));
@@ -100,7 +100,7 @@ async function startReleaseServer(): Promise<ReleaseServerFixture> {
 }
 
 /** Builds an "installer"-classified binary at `version` — `stageBinary`'s own fresh
- * `mkdtemp` outside the repo, no `.git` ancestor below `$HOME`, writable (REQ-21). */
+ * `mkdtemp` outside the repo, no `.git` ancestor below `$HOME`, writable. */
 async function stageInstaller(version: string): Promise<StagedBinary> {
   const binary = await buildVersionedMusterd(version);
   return await stageBinary(binary);
@@ -130,7 +130,7 @@ test("a strictly newer release badges Settings and shows Running/Available in th
 
     const dialog = await openSettingsDialog(page);
     await expect(updateRunningReadout(dialog)).toHaveText(`v${OLD_VERSION}`);
-    // Plan rail-card-improvements-2 REQ-11: the Available readout now carries the age of
+    // The Available readout now carries the age of
     // the last successful check (the daemon's own on-listen check, here) alongside the
     // version.
     await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
@@ -165,7 +165,7 @@ test("pref persisted off across a daemon restart: two check intervals pass with 
 
     // Whatever this FIRST lifetime's own immediate on-listen check already did to
     // requestCount("/latest") (it ran before the toggle above landed) is irrelevant —
-    // INV-1's "startup with the pref persisted off" clause is about the SECOND
+    // The "startup with the pref persisted off" clause is about the SECOND
     // lifetime, below, which must never touch /latest at all.
     await daemon.restart();
     const countAtRestart = fakeServer.requestCount("/latest");
@@ -206,7 +206,7 @@ test("unchecking the toggle clears the badge and available version; rechecking t
 
     await updateCheckToggle(dialog).uncheck();
     await expect(settingsBadgeDot(page)).toBeHidden();
-    // Plan rail-card-improvements-2 REQ-11: the readout's disabled-check branch is
+    // The readout's disabled-check branch is
     // removed entirely — turning the toggle off still clears `checkedAt` (the pref's
     // documented side effect is unchanged), which now reads as the same "no data yet"
     // state a session that has never checked shows.
@@ -216,7 +216,7 @@ test("unchecking the toggle clears the badge and available version; rechecking t
     await updateCheckToggle(dialog).check();
     await expect.poll(() => fakeServer.requestCount("/latest")).toBeGreaterThan(countBefore);
     await expect(settingsBadgeDot(page)).toBeVisible();
-    // REQ-11: rechecking is itself a successful check, so the age suffix reappears.
+    // Rechecking is itself a successful check, so the age suffix reappears.
     await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
   } finally {
     if (staged) await staged.cleanup();
@@ -305,7 +305,6 @@ test("Update and restart brings back the same Claude session, its terminal, and 
     await expect(settingsBadgeDot(page)).toBeVisible();
     let dialog = await openSettingsDialog(page);
     await expect(updateRunningReadout(dialog)).toHaveText(`v${OLD_VERSION}`);
-    // Plan rail-card-improvements-2 REQ-11.
     await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
 
     const panePidBefore = await daemon.tmuxDisplay(session.tmuxTarget, "#{pane_pid}");
@@ -321,13 +320,13 @@ test("Update and restart brings back the same Claude session, its terminal, and 
     await expect(banner).toBeVisible();
     await expect(banner).toBeHidden();
 
-    // INV-5: the re-exec must not touch tmux at all — same server PID, same pane PID.
+    // The re-exec must not touch tmux at all — same server PID, same pane PID.
     expect(await daemon.tmuxDisplay(session.tmuxTarget, "#{pane_pid}")).toBe(panePidBefore);
     expect(await daemon.tmuxDisplay(session.tmuxTarget, "#{pid}")).toBe(serverPidBefore);
 
     dialog = await openSettingsDialog(page);
     await expect(updateRunningReadout(dialog)).toHaveText(`v${NEW_VERSION}`);
-    // The restarted daemon's own on-listen check refreshes `checkedAt` (REQ-11).
+    // The restarted daemon's own on-listen check refreshes `checkedAt`.
     await expect(updateAvailableReadout(dialog)).toHaveText("up to date · checked now");
     await settingsCloseButton(dialog).click();
 
@@ -461,7 +460,7 @@ test("each verification refusal reports Update failed and leaves the on-disk bin
   }
 });
 
-// The request-count half of E8; the dialog's dev-build display (the readout, the missing
+// The request-count half of the dev-build test; the dialog's dev-build display (the readout, the missing
 // Update buttons, the hidden badge) is the render test.
 test("a dev build never checks: zero /latest requests with a newer release published (E8, REQ-8)", async ({
   page,
@@ -473,7 +472,7 @@ test("a dev build never checks: zero /latest requests with a newer release publi
     await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
     fakeServer.setLatest(NEW_TAG);
     // No `binary` override — the harness's own bin/musterd, stamped by `git describe`
-    // (e.g. "v0.10.0-4-ge5102b8"), is a dev build by construction (REQ-8,
+    // (e.g. "v0.10.0-4-ge5102b8"), is a dev build by construction
     // Implementation Notes > E2E harness).
     const daemon = await startDaemon({
       updateBaseURL: fakeServer.baseURL,
@@ -515,7 +514,7 @@ test("a binary staged under $HOMEBREW_PREFIX badges but disables both buttons wi
     // path-prefix comparison, not a filesystem stat), so an unresolved prefix here never
     // matches the resolved exePath and the daemon falls through to "installer" instead of
     // "homebrew". Resolve once so both sides compare the same real path — same class of
-    // fix as the E13 unmanaged case, which self-resolves because its `.git`-ancestor walk
+    // fix as the unmanaged case, which self-resolves because its `.git`-ancestor walk
     // is an `os.Stat` (filesystem identity, not string comparison) rather than a prefix
     // match.
     const brewPrefix = join(await realpath(scratchRoot), "brew");
@@ -533,7 +532,6 @@ test("a binary staged under $HOMEBREW_PREFIX badges but disables both buttons wi
     await page.goto(daemon.dashboardUrl);
     await expect(settingsBadgeDot(page)).toBeVisible();
     const dialog = await openSettingsDialog(page);
-    // Plan rail-card-improvements-2 REQ-11.
     await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
     await expect(updateApplyButton(dialog)).toBeDisabled();
     await expect(updateRestartButton(dialog)).toBeDisabled();
@@ -566,7 +564,7 @@ test("fake latest equal to running, then older: Available reads up to date and n
 
     await page.goto(daemon.dashboardUrl);
     const dialog = await openSettingsDialog(page);
-    // Plan rail-card-improvements-2 REQ-11: every successful check carries the age suffix.
+    // Every successful check carries the age suffix.
     await expect(updateAvailableReadout(dialog)).toHaveText("up to date · checked now");
     await expect(settingsBadgeDot(page)).toBeHidden();
 
@@ -627,9 +625,9 @@ test("two pages clicking Update while the archive is held: exactly one download,
     // Both windows instead fire the exact same authenticated request their own click
     // handler would (src/api.ts's `applyUpdate` — same endpoint, body and same-origin
     // credentials), from each page's own request context, landing as two independent,
-    // genuinely concurrent `POST /api/update/apply` calls — the actual object REQ-20
-    // serialises. E4 already proves the button's click wiring reaches this same
-    // endpoint; E11's job is the concurrency guarantee and both windows converging via
+    // genuinely concurrent `POST /api/update/apply` calls — the actual object the daemon
+    // serialises. The click test already proves the button's click wiring reaches this same
+    // endpoint; this test's job is the concurrency guarantee and both windows converging via
     // the broadcast, not re-proving the click-to-fetch wiring.
     const applyBody = { headers: { "Content-Type": "application/json" }, data: { restart: false } };
     const [res1, res2] = await Promise.all([
@@ -670,7 +668,7 @@ test("Update and restart returns the dashboard on the same port and data dir (E1
     fakeServer.setLatest(NEW_TAG);
     // Every scratch daemon already runs on its own freshly allocated `-port` and a
     // scratch `-data-dir`/`-tmux-socket` (helpers/daemon.ts's spawnAndWait) — i.e. every
-    // daemon this harness starts already IS "non-default" by construction. INV-7's
+    // daemon this harness starts already IS "non-default" by construction. The
     // proof is that all three survive the re-exec verbatim, observed here as "the same
     // origin and tokens answer after the restart", not a fresh instance's.
     const daemon = await startDaemon({
@@ -733,11 +731,10 @@ test("a binary staged inside a scratch git tree badges but disables both buttons
     await page.goto(daemon.dashboardUrl);
     await expect(settingsBadgeDot(page)).toBeVisible();
     const dialog = await openSettingsDialog(page);
-    // Plan rail-card-improvements-2 REQ-11.
     await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
     await expect(updateApplyButton(dialog)).toBeDisabled();
     await expect(updateRestartButton(dialog)).toBeDisabled();
-    // Exact remedy wording isn't pinned by the plan (REQ-21 only says "names the
+    // Exact remedy wording isn't pinned (only "names the
     // installer one-liner") — matched loosely against `scripts/install.sh`'s own name;
     // a validate-mode repair target if daemon-impl's actual string differs.
     await expect(updateStatusLine(dialog)).toHaveText(/install\.sh|curl/i);
@@ -772,7 +769,7 @@ test("`musterd -update` while the daemon runs is detected within one tick, showi
 
     // A second, one-shot process swaps the SAME on-disk file the running daemon was
     // launched from, entirely out of band from the daemon's own apply pipeline (edge
-    // case 23) — REQ-22's `-update` CLI path.
+    // case 23) — the `-update` CLI path.
     const { stdout } = await execFileAsync(staged.path, [
       "-update",
       "-update-base-url",
@@ -782,7 +779,7 @@ test("`musterd -update` while the daemon runs is detected within one tick, showi
     ]);
     expect(stdout).toContain(NEW_VERSION);
 
-    // No click anywhere above — REQ-26's periodic stat+probe alone must set `installed`.
+    // No click anywhere above — the periodic stat+probe alone must set `installed`.
     await expect(updateStatusLine(dialog)).toHaveText(
       `Updated to v${NEW_VERSION}. Restart musterd to finish.`,
     );
@@ -832,7 +829,7 @@ test("Restart now after a plain Update shows the confirm and completes with no s
 
     dialog = await openSettingsDialog(page);
     await expect(updateRunningReadout(dialog)).toHaveText(`v${NEW_VERSION}`);
-    // The restarted daemon's own on-listen check refreshes `checkedAt` (REQ-11).
+    // The restarted daemon's own on-listen check refreshes `checkedAt`.
     await expect(updateAvailableReadout(dialog)).toHaveText("up to date · checked now");
     // Semantics per kb:anchor/update.apply: `installed` already equalled `available`,
     // so the restart-only apply skips the download entirely — no second archive fetch.
@@ -843,8 +840,8 @@ test("Restart now after a plain Update shows the confirm and completes with no s
   }
 });
 
-// Plan rail-card-improvements-2 — REQ-7 through REQ-13 (#48: the `Check now` button and
-// `POST /api/update/check`). Plan acceptance: E9 through E12.
+// (#48: the `Check now` button and
+// `POST /api/update/check`).
 
 test("pressing Check now with a newer release published shows that version in the Available readout and badges the Settings button (E9)", async ({
   page,
@@ -854,8 +851,8 @@ test("pressing Check now with a newer release published shows that version in th
   let staged: StagedBinary | undefined;
   try {
     staged = await stageInstaller(OLD_VERSION);
-    // No release published yet — the daemon's own immediate on-listen check (REQ-4 of
-    // the auto-update plan) finds nothing at `/latest` and leaves `checkedAt` null, so
+    // No release published yet — the daemon's own immediate on-listen check (from
+    // the auto-update work) finds nothing at `/latest` and leaves `checkedAt` null, so
     // the version shown after clicking Check now can only have come from THIS click.
     const daemon = await startDaemon({
       binary: staged.path,
@@ -873,7 +870,7 @@ test("pressing Check now with a newer release published shows that version in th
     fakeServer.setLatest(NEW_TAG);
 
     await updateCheckButton(dialog).click();
-    // REQ-11: a successful check, manual or automatic, always carries the age suffix.
+    // A successful check, manual or automatic, always carries the age suffix.
     await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
     await expect(settingsBadgeDot(page)).toBeVisible();
     await expect(settingsButton(page)).toHaveAttribute("aria-label", "Settings, update available");
@@ -892,8 +889,8 @@ test("with daily checking off from startup, the Available readout reads not chec
   try {
     staged = await stageInstaller(OLD_VERSION);
     // Published tag equals the running version, so a successful check reads "up to
-    // date" — this test cares about the checked-age suffix, not a version bump (E9
-    // already covers that).
+    // date" — this test cares about the checked-age suffix, not a version bump (an
+    // earlier test already covers that).
     await fakeServer.publish({
       tag: `v${OLD_VERSION}`,
       binaryPath: await buildVersionedMusterd(OLD_VERSION),
@@ -923,7 +920,7 @@ test("with daily checking off from startup, the Available readout reads not chec
     await expect(updateCheckToggle(dialog)).not.toBeChecked();
     await expect(updateAvailableReadout(dialog)).toHaveText("not checked yet");
 
-    // REQ-8: a user-initiated check runs regardless of the pref.
+    // A user-initiated check runs regardless of the pref.
     await expect(updateCheckButton(dialog)).toBeEnabled();
     await updateCheckButton(dialog).click();
     await expect(updateAvailableReadout(dialog)).toHaveText(/^up to date · checked now$/);
@@ -953,7 +950,7 @@ test("pressing Check now against a stopped release host shows a reason in the st
     await page.goto(daemon.dashboardUrl);
     await expect(settingsBadgeDot(page)).toBeVisible();
     const dialog = await openSettingsDialog(page);
-    // REQ-11: the daemon's own on-listen check already succeeded once.
+    // The daemon's own on-listen check already succeeded once.
     await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
 
     // Plan Affected Files: stopping the fake server is the sanctioned way to make
@@ -961,11 +958,11 @@ test("pressing Check now against a stopped release host shows a reason in the st
     await fakeServer.stop();
 
     await updateCheckButton(dialog).click();
-    // Exact wording isn't pinned by the plan (REQ-12 only says "renders its reason") —
+    // Exact wording isn't pinned (only "renders its reason") —
     // matched loosely, a validate-mode repair target if daemon-impl's actual string
-    // differs, mirroring E13's own precedent above.
+    // differs, mirroring the precedent above.
     await expect(updateStatusLine(dialog)).toHaveText(/fail/i);
-    // REQ-12: a transient check failure never erases a known version — the readout (and
+    // A transient check failure never erases a known version — the readout (and
     // its age suffix, still reflecting the earlier successful check) is untouched.
     await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
   } finally {
@@ -974,10 +971,10 @@ test("pressing Check now against a stopped release host shows a reason in the st
   }
 });
 
-// Plan maintainability-cleanup WF1 (e-note-4): `check()` used to mutate its own
+// Maintainability cleanup: `check()` used to mutate its own
 // `checkState` without ever calling `app.render()` itself, relying entirely on
 // `main.ts`'s unconditional `setInterval(app.render, 1000)` to eventually show the
-// result — up to a second late, and invisible to E9-E12 above because their default
+// result — up to a second late, and invisible to the Check now tests above because their default
 // `expect` timeout comfortably outlasts that one tick. `page.clock` is installed and
 // then paused right before the click so that periodic tick genuinely cannot fire during
 // this test (Playwright's clock only fakes Date/setTimeout/setInterval, never the real
@@ -992,7 +989,7 @@ test("Check now disables the button the instant it starts and shows its result t
   try {
     staged = await stageInstaller(OLD_VERSION);
     // No tag ever published — `/latest` 404s once let through, a deterministic failure
-    // with no dependence on tearing down the server mid-test (E11's `fakeServer.stop()`).
+    // with no dependence on tearing down the server mid-test (the `fakeServer.stop()` used elsewhere).
     const daemon = await startDaemon({
       binary: staged.path,
       updateBaseURL: fakeServer.baseURL,
@@ -1038,7 +1035,7 @@ test("Check now disables the button the instant it starts and shows its result t
   }
 });
 
-// Plan focus-lands REQ-3 (#76 sibling): a disabled button drops focus in Chrome, so an
+// Focus lands (#76 sibling): a disabled button drops focus in Chrome, so an
 // in-flight check must leave Check now enabled to the browser (`aria-disabled`) and the
 // button focused from the press through the settle. Focus is placed with `.focus()` as
 // setup; the press itself is a real Enter key.
@@ -1087,15 +1084,15 @@ test("pressing Check now by keyboard keeps focus on it through the check and aft
   }
 });
 
-// Plan settings-update-failures — E1 through E6 (#53 and the two sibling items).
-// REQ-4's recheck-on-every-check means E1/E2 below assert BOTH the initial remedy text
-// (REQ-1/REQ-2's exact composed sentence, not the old plan's loose install.sh-or-curl
-// match those tests keep — see Implementation Notes: E7/E11/E13 above are untouched) AND
+// Update blockers (#53 and the two sibling items).
+// The recheck-on-every-check means the first two tests below assert BOTH the initial remedy text
+// (the exact composed sentence, not the old loose install.sh-or-curl
+// match those tests keep — the earlier tests above are untouched) AND
 // that clearing the blocker and pressing Check now enables Update without a restart —
-// the actual behaviour this plan adds on top of the existing one-time startup
-// classification. E5/E6 assert only the settled post-reload state: the transient
-// "Updating musterd… — restarting" banner (REQ-14) is a sub-second display during a real
-// restart and is review-browser's job per the plan's own W11, not this suite's.
+// the actual behaviour this adds on top of the existing one-time startup
+// classification. the last two assert only the settled post-reload state: the transient
+// "Updating musterd… — restarting" banner is a sub-second display during a real
+// restart and is review-browser's job, not this suite's.
 
 test("a binary staged inside a scratch git tree shows the checkout root in the remedy; removing .git and pressing Check now enables Update and clears the status line (E1, REQ-2)", async ({
   page,
@@ -1110,9 +1107,9 @@ test("a binary staged inside a scratch git tree shows the checkout root in the r
     await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
     fakeServer.setLatest(NEW_TAG);
 
-    // Same symlink-resolution precedent as the pre-existing Homebrew test (E9) above:
+    // Same symlink-resolution precedent as the pre-existing Homebrew test above:
     // `mkdtemp(tmpdir())` on macOS returns a `/var/folders/...` path that is itself a
-    // symlink to `/private/var/folders/...`, and REQ-2's `<root>` is built from the
+    // symlink to `/private/var/folders/...`, and the `<root>` is built from the
     // daemon's own resolved executable path, so the expected string here must be built
     // from the same resolved form or the two can never agree.
     scratchRoot = await mkdtemp(join(tmpdir(), "muster-e2e-settings-git-"));
@@ -1219,8 +1216,8 @@ test("Check now against a stopped release host shows the exact couldn't-reach-th
   try {
     staged = await stageInstaller(OLD_VERSION);
     // Stopped before the daemon even starts: its own on-listen check also fails this
-    // way, but that failure is silent (automatic checks never surface an error, REQ-11's
-    // "stays at debug"), so the only reason this sentence can appear on screen is the
+    // way, but that failure is silent (automatic checks never surface an error and
+    // "stay at debug"), so the only reason this sentence can appear on screen is the
     // Check now click below.
     await fakeServer.stop();
     const daemon = await startDaemon({
@@ -1297,10 +1294,10 @@ test("Update and restart reloads the page: a pre-restart window marker is gone a
       updatePublicKeyFile: pubKeyPath,
     });
 
-    // REQ-17's 3 s is a duration, not just an eventual outcome — a bare `toBeHidden()`
+    // The 3 s is a duration, not just an eventual outcome — a bare `toBeHidden()`
     // below inherits the 15 s expect timeout, so a confirmation that lingers for
     // anywhere up to ~15 s would still pass. `addInitScript` re-runs on every fresh
-    // document this `page` loads, including the reload REQ-16 triggers, so the observer
+    // document this `page` loads, including the reload that follows triggers, so the observer
     // is already attached from the confirmation's very first paint on the post-reload
     // page — reading its own text/hidden mutations, not Playwright's poll timing, is what
     // makes the recorded shown/hidden timestamps trustworthy to within a few ms.
@@ -1339,7 +1336,7 @@ test("Update and restart reloads the page: a pre-restart window marker is gone a
 
     // A marker on `window` survives only a WS reconnect (resilience.spec.ts already
     // proves an ordinary kill/restart never reloads); its disappearance is this test's
-    // independent proof that REQ-16's `location.reload()` actually ran, alongside the
+    // independent proof that the `location.reload()` actually ran, alongside the
     // confirmation banner below.
     await page.evaluate(() => {
       (window as unknown as { __e2eMarker?: string }).__e2eMarker = "before-restart";
@@ -1348,9 +1345,9 @@ test("Update and restart reloads the page: a pre-restart window marker is gone a
     const confirm = await openUpdateRestartConfirm(page, dialog);
     await restartConfirmButton(confirm).click();
 
-    // REQ-16/17: only the settled, post-reload confirmation is asserted here — the
-    // transient "Updating musterd… — restarting" banner (REQ-14) is a sub-second display
-    // during a real restart (plan Reviewer-Verified W11), which review-browser watches.
+    // Only the settled, post-reload confirmation is asserted here — the
+    // transient "Updating musterd… — restarting" banner is a sub-second display
+    // during a real restart (left to the reviewer), which review-browser watches.
     const banner = page.getByRole("alert");
     await expect(banner).toHaveText(`Updated to v${NEW_VERSION}.`);
 
@@ -1431,7 +1428,7 @@ test("a window holding a restart record reloads on a mismatched-protocol reconne
   page,
   daemon,
 }) => {
-  // REQ-16/edge case 17: whatever protocolVersion a held record's first post-drop hello
+  // Edge case 17: whatever protocolVersion a held record's first post-drop hello
   // carries, the window reloads rather than showing #protocol-mismatch. `location.reload()`
   // only schedules the navigation — ws.ts's dispatch keeps running synchronously past
   // `onHelloArrived`, so a naive gate could paint the mismatch screen for one frame before
@@ -1440,7 +1437,7 @@ test("a window holding a restart record reloads on a mismatched-protocol reconne
   // `showProtocolMismatch()` gate close). Never through a real download or a real daemon
   // restart — no release check or apply is involved, so the plain `daemon` fixture is used
   // (per this file's own header note) and the restart record is armed directly by sending
-  // a synthetic `update` broadcast over a routed `/ws`, the same technique actions.spec.ts's E14 test and
+  // a synthetic `update` broadcast over a routed `/ws`, the same technique actions.spec.ts's test and
   // resilience.spec.ts's pop-out test use to force a connection outage without
   // touching the daemon process.
   const MISMATCHED_PROTOCOL_VERSION = 99;
@@ -1457,7 +1454,7 @@ test("a window holding a restart record reloads on a mismatched-protocol reconne
       events.push({ t: Date.now(), mismatchHidden, appHidden });
     },
   );
-  // Re-attaches on every fresh document (including the reload), same idiom as the E5/E6
+  // Re-attaches on every fresh document (including the reload), same idiom as the settled-state
   // test above's `#banner` observer.
   await page.addInitScript(() => {
     const attach = (): void => {
@@ -1486,7 +1483,7 @@ test("a window holding a restart record reloads on a mismatched-protocol reconne
   // Proxies the dashboard's one `/ws` transparently, except: (a) it exposes a way to push
   // a message to the page directly (arming the restart record with no real apply), (b) it
   // exposes a way to close the server-side connection (forcing a real disconnect/
-  // reconnect, mirroring a daemon bounce, same technique actions.spec.ts's E14 test
+  // reconnect, mirroring a daemon bounce, same technique actions.spec.ts's test
   // uses), and (c) once armed, it rewrites the very next `hello` the real daemon sends to
   // carry an unsupported `protocolVersion` before relaying it — every other frame passes
   // through unchanged.

@@ -110,7 +110,7 @@ async function strippedTitles(page: Page, titles: readonly string[]): Promise<st
  * clock: advancing past one proves what is asserted is the settled state. */
 const ONE_TICK_MS = 1_300;
 
-// ═══ web/e2e/rail-order.spec.ts — plan order-sidebar ═══
+// ═══ web/e2e/rail-order.spec.ts — rail order ═══
 
 test("rail cards are draggable in both sort modes", async ({ page, dashboard }) => {
   // The sort is a pref the dashboard adopts only from the broadcast: each mode is its own
@@ -223,7 +223,7 @@ test("Opt+Cmd+1 follows the manual rail order even when the needs-input session 
   await expect(railSortSelect(page)).toHaveValue("manual");
 
   // The LAST rail card (three) is the one that needs input, not the first — manual order
-  // stays [one, two, three] regardless (REQ-7).
+  // stays [one, two, three] regardless.
   await expect(stateBadge(railCard(page, "rail-c"))).toHaveText(/needs input/i);
   expect(await railOrderIds(page)).toEqual([one.id, two.id, three.id]);
 
@@ -264,7 +264,7 @@ test("Opt+Cmd+1 selects the pinned card in Attention mode, ahead of the neediest
   await expect(mainheadName(page)).toHaveText("rail-a");
 });
 
-// ═══ web/e2e/rail-menu.spec.ts — plan rail-card-organise (#56) ═══
+// ═══ web/e2e/rail-menu.spec.ts — rail card menu (#56) ═══
 
 test("right-clicking a live rail card opens a menu at the pointer with Stop…, Remove…, each group in rail order, New group…, No group, Pin and the two Mark entries, and no Resume, and the browser's own menu is cancelled (REQ-1, REQ-2, E1; REQ-2, REQ-3 of remove-unread-right-click-1)", async ({
   page,
@@ -345,7 +345,7 @@ test("right-clicking an ended resumable rail card offers Resume, Remove…, the 
 
   await openCardMenu(page, railCard(page, "menu-pinned"));
   const pinnedLabels = await menuItemLabels(page);
-  // Unpin sits where Pin does, ahead of the Mark as read/unread entries (REQ-2).
+  // Unpin sits where Pin does, ahead of the Mark as read/unread entries.
   expect(pinnedLabels).toContain("Unpin");
   expect(pinnedLabels).not.toContain("Pin");
   expect(pinnedLabels.indexOf("Unpin")).toBeLessThan(pinnedLabels.indexOf("Mark as read"));
@@ -553,13 +553,13 @@ test("the card keeps its node and focus through opening and closing its menu fro
   expect(await cardTagged()).toBe(true);
 });
 
-// ═══ web/e2e/rail-cards.spec.ts — plans m4-reconcile, status-inconsistencies ═══
+// ═══ web/e2e/rail-cards.spec.ts — rail cards ═══
 
 test("ended sessions sort after every live session, most recently ended first (REQ-9)", async ({
   page,
   dashboard,
 }) => {
-  // These orderings are an Attention-mode guarantee (REQ-7: a state change — ending a
+  // These orderings are an Attention-mode guarantee (a state change — ending a
   // session — never moves a card in manual mode), so the fixture holds the attention sort.
   const fixture = await dashboard.open("rail-ended-order");
   expect(fixture.snapshot.prefs.railSort).toBe("attention");
@@ -708,7 +708,7 @@ test("an ended rail card has no action row and no action button at rest, on hove
   await expect(pinButton(card)).toBeVisible();
 });
 
-// Plan status-inconsistencies E5 (REQ-5, REQ-6, #60): a Stop that lists a running shell
+// (#60): a Stop that lists a running shell
 // leaves the state idle and shows a neutral line at the bottom of the card.
 test("a Stop with one running shell shows '1 background task' on an idle card (E5, REQ-5, REQ-6)", async ({
   page,
@@ -759,7 +759,7 @@ test("an ended card shows no background line even though its last Stop listed a 
   await expect(card.locator(".bg-tasks")).toBeHidden();
 });
 
-// E8 (REQ-7, INV-D): a Tiles strip card is the same template, so it offers no End either.
+// A Tiles strip card is the same template, so it offers no End either.
 test("a live strip card in Tiles has no End button (E8, REQ-7, INV-D)", async ({
   page,
   dashboard,
@@ -788,7 +788,7 @@ test("a live strip card in Tiles has no End button (E8, REQ-7, INV-D)", async ({
   ).toBeVisible();
 });
 
-// ═══ web/e2e/rail-layout.spec.ts — plans rail-card-improvements, rail-card-improvements-2 ═══
+// ═══ web/e2e/rail-layout.spec.ts — rail card layout ═══
 
 test("the masthead's New session button opens the dialog from Focus and Tiles, Opt+Cmd+N still opens it, and no other launcher exists (E2, INV-3)", async ({
   page,
@@ -796,7 +796,7 @@ test("the masthead's New session button opens the dialog from Focus and Tiles, O
 }) => {
   await dashboard.open("empty");
 
-  // REQ-6/INV-3: exactly one New session button in the whole DOM, and the old Tiles
+  // Exactly one New session button in the whole DOM, and the old Tiles
   // toolbar button is gone entirely.
   await expect(page.locator("#new-session-button")).toHaveCount(1);
   await expect(page.locator("#tiles-new-session-button")).toHaveCount(0);
@@ -886,7 +886,7 @@ test("a long title wraps to multiple lines in comfortable density and clamps to 
   const comfortableHeight = await name.evaluate((el) => el.getBoundingClientRect().height);
   expect(comfortableHeight).toBeGreaterThan(lineHeight * 1.5);
 
-  // E13 (REQ-2): `.r2` always carries `title` equal to `<repo> / <branch>`, in every
+  // `.r2` always carries `title` equal to `<repo> / <branch>`, in every
   // density — not to its own text, which is two lines when the block wraps.
   await expect(cardRepoLine(card)).toHaveAttribute("title", repoTitle);
 
@@ -907,7 +907,7 @@ test("in compact density a long title is truly ellipsized within the card, not o
   page,
   dashboard,
 }) => {
-  // Comfortable is the reference render (REQ-4): nothing truncates, so the same title
+  // Comfortable is the reference render: nothing truncates, so the same title
   // wraps to more than one line.
   const comfortable = await openDensity(page, dashboard, "comfortable");
   const longTitle = longTitled(comfortable).title ?? "";
@@ -965,13 +965,13 @@ test("a long activity line clamps to three lines in comfortable density and runs
 
   let line = cardActivityClaude(sessionCard(page, "density-clamp-e1"));
   await expect(line).toHaveText(`claude: ${longReply}`);
-  // REQ-2/edge case 1: the clamp makes the tail of the line unreachable without a hover
+  // The clamp makes the tail of the line unreachable without a hover
   // title carrying the full text.
   await expect(line).toHaveAttribute("title", `claude: ${longReply}`);
 
   const lineHeight = await line.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
   const comfortableHeight = await line.evaluate((el) => el.getBoundingClientRect().height);
-  // REQ-1: clamped to three lines — never noticeably more than three line-heights.
+  // Clamped to three lines — never noticeably more than three line-heights.
   expect(comfortableHeight).toBeLessThanOrEqual(lineHeight * 3.5);
   expect(comfortableHeight).toBeGreaterThan(lineHeight * 1.5);
 
@@ -983,7 +983,7 @@ test("a long activity line clamps to three lines in comfortable density and runs
     parseFloat(getComputedStyle(el).lineHeight),
   );
   const expandedHeight = await line.evaluate((el) => el.getBoundingClientRect().height);
-  // REQ-1: expanded is uncapped — this reply needs well more than three lines.
+  // Expanded is uncapped — this reply needs well more than three lines.
   expect(expandedHeight).toBeGreaterThan(expandedLineHeight * 3.5);
 });
 
@@ -1008,7 +1008,7 @@ test("card height is never greater in comfortable than in expanded, for a short 
   const comfortable = await heights("comfortable");
   const expanded = await heights("expanded");
 
-  // INV-1: for each card, height compact ≤ comfortable ≤ expanded. The short case is
+  // For each card, height compact ≤ comfortable ≤ expanded. The short case is
   // where a naive clamp swap still passes; the long case is the reported inversion
   // (comfortable measured 248.5px against expanded's 169.8px pre-fix).
   expect(compact.short).toBeLessThanOrEqual(comfortable.short);
@@ -1026,7 +1026,7 @@ test("a compact card renders a visible context gauge track when context is known
   const card = sessionCard(page, "density-e3-known");
   await expect(cardContextRow(card)).not.toHaveClass(/unk/);
 
-  // REQ-3: the rule hiding `.r3 .ctx` in compact is removed — the track keeps a non-zero
+  // The rule hiding `.r3 .ctx` in compact is removed — the track keeps a non-zero
   // rendered width there, same as in every other density.
   const track = cardContextTrack(card);
   await expect(track).toBeVisible();
@@ -1044,7 +1044,7 @@ test("a compact card with unknown context renders the word and no gauge track (E
   const card = sessionCard(page, "density-e6-unknown");
 
   // The unknown branch sets `.r3.unk` with plain text and builds no `.ctx` element at all —
-  // REQ-3 removing compact's hiding rule can never produce an empty track here (edge case 3).
+  // removing compact's hiding rule can never produce an empty track here.
   await expect(card.locator(".r3.unk")).toContainText("unknown");
   await expect(cardContextTrack(card)).toHaveCount(0);
 });
@@ -1059,7 +1059,7 @@ test("a card with no activity text renders no activity line in compact or expand
   expect(titled(compact, "density-e6-unknown").lastPrompt).toBeNull();
   const populatedCard = sessionCard(page, "density-ramp-short");
   const emptyCard = sessionCard(page, "density-e6-unknown");
-  // Compact drops the line entirely (REQ-1's unchanged clause), even though it carries text.
+  // Compact drops the line entirely, even though it carries text.
   await expect(cardActivityClaude(populatedCard)).toBeHidden();
   await expect(cardActivityClaude(emptyCard)).toBeHidden();
   await expect(cardActivityYou(emptyCard)).toBeHidden();
@@ -1099,14 +1099,14 @@ test("the title renders above the state row on a rail card and on a Tiles strip 
   }
   const strip = stripCard(page, strippedTitle);
   await expect(strip).toBeVisible();
-  // INV-4: the rail card and the Tiles strip card share one template — a fix applied to
+  // The rail card and the Tiles strip card share one template — a fix applied to
   // only one host is a fix applied to neither.
   const stripTitleTop = await cardTitleRow(strip).evaluate((el) => el.getBoundingClientRect().top);
   const stripStateTop = await cardStateRow(strip).evaluate((el) => el.getBoundingClientRect().top);
   expect(stripTitleTop).toBeLessThan(stripStateTop);
 });
 
-// ═══ web/e2e/rail-unread.spec.ts — plan rail-card-improvements REQ-7 to REQ-11 ═══
+// ═══ web/e2e/rail-unread.spec.ts — unread and read-idle ordering ═══
 
 test("the attention-mode rail order is needs input, failed, unread idle, started, planning, working, then read idle (E5, REQ-11)", async ({
   page,
@@ -1146,7 +1146,7 @@ test("the attention-mode rail order is needs input, failed, unread idle, started
   await expect(stateBadge(railCard(page, "order5-pl"))).toHaveText(/planning/i);
   await expect(stateBadge(railCard(page, "order5-w"))).toHaveText(/working/i);
   // ri closed its turn while watched — idle with unread:false, the "read idle" group at the
-  // very end of REQ-11's table.
+  // very end of the ordering table.
   const cardRI = railCard(page, "order5-ri");
   await expect(stateBadge(cardRI)).toHaveText(/idle/i);
   await expect(cardRI).not.toHaveAttribute("data-unread", "true");
@@ -1198,7 +1198,7 @@ test("a read idle title drops to --fg-muted while a working title and an unread 
   const fgMuted = await tokenColor(page, "--fg-muted");
   expect(fgMuted).not.toBe(fg);
 
-  // REQ-9 (decision read-idle-title-colour, Outcome A): the base `.card .name` rule paints
+  // Decision read-idle-title-colour, Outcome A: the base `.card .name` rule paints
   // every title `--fg`; only the read-idle rule (`.s-idle:not(.unread)`) drops it to
   // `--fg-muted`. Neither a working title nor an unread-idle title (marked by the dot, not
   // by colour) may be muted.
@@ -1207,7 +1207,7 @@ test("a read idle title drops to --fg-muted while a working title and an unread 
   expect(await computedColor(cardName(cardUI))).toBe(fg);
 });
 
-// ═══ web/e2e/rail-drag-groups.spec.ts — plan rail-card-organise (#77) ═══
+// ═══ web/e2e/rail-drag-groups.spec.ts — rail drag and groups (#77) ═══
 
 test("in attention order a drop inside the card's own section, on a sibling card or on its own header, changes nothing and sends nothing (REQ-13, E12)", async ({
   page,
@@ -1224,7 +1224,7 @@ test("in attention order a drop inside the card's own section, on a sibling card
   await expect.poll(() => sectionCardIds(page, alpha.id)).toEqual([a1.id, a2.id]);
   const orderBefore = await railOrderIds(page);
   const net = trackMutationBodies(page);
-  // Draggable in attention order (REQ-12): a drag that sends nothing is only evidence when the
+  // Draggable in attention order: a drag that sends nothing is only evidence when the
   // card can be dragged at all.
   await expect(railCard(page, "alpha-two")).toHaveAttribute("draggable", "true");
   await expect(railCard(page, "alpha-one")).toHaveAttribute("draggable", "true");
@@ -1248,7 +1248,7 @@ for (const sort of ["manual", "attention"] as const) {
   }) => {
     // A viewport tall enough for every section and card, so `dragWithin`'s manual
     // mouse-down lands on a card already in view: a card below the fold would scroll on
-    // the press and never fire `dragstart` (web/e2e/rail-drag-groups.spec.ts's E11 sets
+    // the press and never fire `dragstart` (web/e2e/rail-drag-groups.spec.ts sets
     // the same for the same reason).
     await page.setViewportSize({ width: 1280, height: 1600 });
     // Alpha [alpha-one, alpha-two], Bravo [bravo-one], Ungrouped [loose-one], under the sort
@@ -1299,7 +1299,7 @@ for (const sort of ["manual", "attention"] as const) {
   });
 }
 
-// ═══ web/e2e/rail-activity.spec.ts — plan rail-card-improvements REQ-12 to REQ-14 ═══
+// ═══ web/e2e/rail-activity.spec.ts — rail activity lines ═══
 
 test("Settings offers a Rail card shows fieldset with four radios in Turn-aware/Your prompt/Claude's reply/Both order, defaulting to Turn-aware (REQ-13)", async ({
   page,
@@ -1357,7 +1357,7 @@ test("Turn-aware mode on a failed session shows the last reply's claude: line, n
   page,
   dashboard,
 }) => {
-  // REQ-14's "last reply" (`lastActivity`) is written only by a successful `Stop` —
+  // The "last reply" (`lastActivity`) is written only by a successful `Stop` —
   // `StopFailure` never touches it. The scenario closed a first turn successfully ("here's
   // an attempt") before the second ("try again") failed, so the daemon's recorded reply is
   // the earlier turn's and not the failed one's message.

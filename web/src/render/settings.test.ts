@@ -159,10 +159,10 @@ describe("initSettingsDialog — rail activity radios (REQ-13, INV-4)", () => {
 // features/update.ts, which wires its own elements directly (no `SettingsDialogHandlers`
 // entries for it any more). That module has no direct unit test of its own — same as
 // features/usage.ts/features/actions.ts's controller-level code — but the wiring itself is
-// covered end to end: unchecking/rechecking the toggle in e2e/update.spec.ts's E3
+// covered end to end: unchecking/rechecking the toggle in e2e/update.spec.ts
 // ("unchecking the toggle clears the badge and available version; rechecking triggers an
-// immediate check"), Update in E4 ("clicking Update swaps the on-disk binary..."), Update
-// and restart in E5/E6, and Check now in E9-E12 (e.g. "pressing Check now with a newer
+// immediate check"), Update ("clicking Update swaps the on-disk binary..."), Update
+// and restart, and Check now (e.g. "pressing Check now with a newer
 // release published shows that version...").
 describe("initSettingsDialog — setChecked (INV-7: the broadcast is the only source of the checked radio)", () => {
   it("checks exactly the theme radio matching the given theme and the rail-activity radio", () => {

@@ -13,7 +13,7 @@ import (
 // bound this test proves Socket stays under regardless of the calling test's own name.
 const maxSunPathLen = 104
 
-// TestSocket_StaysUnderSunPathLimitEvenForAVeryLongTestName covers D5: a t.TempDir()
+// TestSocket_StaysUnderSunPathLimitEvenForAVeryLongTestName: a t.TempDir()
 // path is rooted under the calling (sub)test's full name, which is exactly what would
 // overflow sun_path for a name this long — Socket must not inherit that property.
 func TestSocket_StaysUnderSunPathLimitEvenForAVeryLongTestName(t *testing.T) {
@@ -25,7 +25,7 @@ func TestSocket_StaysUnderSunPathLimitEvenForAVeryLongTestName(t *testing.T) {
 
 		assert.Less(t, len(socket), maxSunPathLen, "D5: the socket path must stay under AF_UNIX's sun_path limit regardless of the test's own name length")
 
-		// D5 in practice, not just in byte-count: a real tmux command must actually be
+		// The limit in practice, not just in byte-count: a real tmux command must actually be
 		// able to bind this exact path, not merely satisfy the length check.
 		out, err := exec.CommandContext(context.Background(), "tmux", "-S", socket, "new-session", "-d", "-s", "tmuxtest-probe").CombinedOutput()
 		require.NoError(t, err, "tmux must be able to create a session on this socket: %s", out)

@@ -1,7 +1,7 @@
-// Plan terminal-fixes-cleanup (W1/W2/W4): pure logic only — no DOM, matching
+// Pure logic only — no DOM, matching
 // `shellkeys.ts`'s own header comment. `pane.ts`'s wiring (installed only for
-// `kind === "shell"`, W3; coalesced to one `scroll` frame per animation frame, the rest
-// of W4) is Playwright's job (web/e2e/shell-keys.spec.ts, web/e2e/shell-scroll.spec.ts).
+// `kind === "shell"`, coalesced to one `scroll` frame per animation frame, the rest
+// too) is Playwright's job (web/e2e/shell-keys.spec.ts, web/e2e/shell-scroll.spec.ts).
 import { describe, expect, it } from "vitest";
 import {
   accumulateWheelDelta,
@@ -123,9 +123,8 @@ describe("wheelDeltaToScrollLines — deltaY to a signed line count (REQ-7..12, 
 });
 
 describe("accumulateWheelDelta — sub-line wheel accumulation across frames (review cycle 1 Major 1)", () => {
-  // Calls the pure accumulator step `pane.ts`'s `flushWheelScroll` uses (plan
-  // shell-pane-fixes REQ-1): a 0-line frame keeps the whole sum, a frame that produces
-  // `lines` keeps only the remainder.
+  // Calls the pure accumulator step `pane.ts`'s `flushWheelScroll` uses: a 0-line frame keeps
+  // the whole sum, a frame that produces `lines` keeps only the remainder.
   it("a run of sub-line deltas too small to scroll individually accumulates until one does", () => {
     let accumDeltaY = 0;
     for (let i = 0; i < 4; i++) {

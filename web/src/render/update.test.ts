@@ -1,4 +1,4 @@
-// Plan auto-update: `renderUpdateSection`, `renderSettingsBadge`, `renderRestartImpact` and
+// `renderUpdateSection`, `renderSettingsBadge`, `renderRestartImpact` and
 // `initRestartConfirm` are DOM-facing and have no jsdom configured (docs/conventions.md
 // defers DOM *construction* to Playwright) — following render/dead.test.ts's and
 // render/dropguard.test.ts's precedent, they're exercised against plain fakes that record
@@ -60,7 +60,7 @@ function fakeSectionElements(): UpdateSectionElements & {
     statusEl: { textContent: "" } as unknown as HTMLElement,
     applyBtn: { hidden: false, disabled: false } as unknown as HTMLButtonElement,
     restartBtn: { hidden: false, disabled: false, textContent: "" } as unknown as HTMLButtonElement,
-    // REQ-10 (plan rail-card-improvements-2): `#update-check-button`.
+    // `#update-check-button`.
     checkBtn: {
       disabled: false,
       setAttribute: (name: string, value: string) => checkAttrs.set(name, value),
@@ -85,7 +85,7 @@ describe("renderUpdateSection — applies a view model to the DOM refs", () => {
     expect(els.availableEl.textContent).toBe("v0.11.0 · checked 2m ago");
     expect(els.toggle.disabled).toBe(false);
     // renderUpdateSection's own doc comment: it never writes .checked (settings.ts's
-    // setChecked, driven only by the prefs/update broadcast, is the sole writer — INV-7).
+    // setChecked, driven only by the prefs/update broadcast, is the sole writer).
     expect((els.toggle as unknown as { checked: boolean }).checked).toBe(false);
   });
 

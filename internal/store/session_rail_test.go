@@ -23,7 +23,7 @@ func TestInsertSession_UnreadDefaultsFalseLastPromptDefaultsNil(t *testing.T) {
 	assert.Nil(t, row.LastPrompt)
 }
 
-// TestUpdateSession_UnreadAndLastPromptRoundTrip covers D10's store half: both new
+// TestUpdateSession_UnreadAndLastPromptRoundTrip covers the store half: both new
 // columns travel through UpdateSession/GetSession unchanged, in both directions
 // (true/set -> false/nil too).
 func TestUpdateSession_UnreadAndLastPromptRoundTrip(t *testing.T) {

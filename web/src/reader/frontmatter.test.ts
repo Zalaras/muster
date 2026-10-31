@@ -1,4 +1,4 @@
-// Plan frontmatter (REQ-1..REQ-4, REQ-7, W1-W9): splitFrontmatter is the reader's only
+// splitFrontmatter is the reader's only
 // frontmatter-detection logic — pure, no DOM (this module's own header comment) — so
 // every fence/line-ending/classification case belongs here rather than behind
 // markdown.ts's DOM build, which is Playwright's per reader/CLAUDE.md.
@@ -22,7 +22,7 @@ describe("splitFrontmatter — no block (REQ-7)", () => {
   });
 
   it("does not treat a later thematic break as a closing fence without a real opener", () => {
-    // First line isn't a fence at all, so the whole document is untouched (W2).
+    // First line isn't a fence at all, so the whole document is untouched.
     const text = "para\n\n---\n\nmore\n";
     expect(splitFrontmatter(text)).toEqual({ frontmatter: null, body: text });
   });

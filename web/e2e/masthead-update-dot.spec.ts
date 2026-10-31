@@ -16,11 +16,11 @@ import { launchSession, scratchDirectory } from "./helpers/session";
 import { openSettingsDialog } from "./helpers/theme";
 import { openUpdateRestartConfirm, restartConfirmButton, settingsBadgeDot } from "./helpers/update";
 
-// Plan masthead-indicators E6 / INV-1: the dot is yellow (pending) while the dashboard's
+// The dot is yellow (pending) while the dashboard's
 // own Update-and-restart restarts musterd and the updating banner shows, then green after
 // the new daemon's hello. The restart goes through the real apply pipeline against a
 // FakeReleaseServer (helpers/releases.ts, never the real release host) with a staged
-// installer binary, exactly as update.spec.ts E5/E12 do.
+// installer binary, exactly as update.spec.ts does.
 //
 // Fixture plan: `startDaemon`, because the daemon's `-update-base-url`, public-key file
 // and binary are computed in the test. No Claude Code is faked here beyond the one

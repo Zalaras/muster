@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- KeychainTokenReader (D8: every test here uses an injected exec func; none may
+// --- KeychainTokenReader (every test here uses an injected exec func; none may
 // execute the real `security` binary) ---
 
 func TestKeychainTokenReader_Success_ParsesAccessTokenAndPassesExpectedArgs(t *testing.T) {
@@ -107,7 +107,7 @@ func TestKeychainTokenReader_RespectsParentContextCancellation(t *testing.T) {
 	assert.True(t, sawCanceled, "the parent's cancellation must be visible to the exec seam")
 }
 
-// --- FileTokenReader (the -usage-token-file test seam, REQ-13) ---
+// --- FileTokenReader (the -usage-token-file test seam) ---
 
 func TestFileTokenReader_Success(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "token.json")
@@ -190,7 +190,7 @@ func TestDecodeOAuthToken_IgnoresUnknownSiblingKeys(t *testing.T) {
 	assert.Equal(t, "tok", token)
 }
 
-// TestRunCommand_NeverExecutedByAnyOtherTestInThisFile documents D8 rather than testing
+// TestRunCommand_NeverExecutedByAnyOtherTestInThisFile documents this rather than testing
 // runCommand's own behaviour (which would require running a real external process) —
 // every KeychainTokenReader test above passes its own func literal, never runCommand
 // itself. This test exists so a future edit that swaps a test's exec func back to

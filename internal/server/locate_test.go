@@ -82,7 +82,7 @@ func buildLocateRequestNoFilePart(t *testing.T, id int64) *http.Request {
 }
 
 // zeroReader emits n zero bytes without ever materializing them as one big slice, so
-// D13's over-cap test can stream ~50 MiB through the handler without allocating it.
+// the over-cap test can stream ~50 MiB through the handler without allocating it.
 type zeroReader struct{ remaining int64 }
 
 func (z *zeroReader) Read(p []byte) (int, error) {
@@ -101,7 +101,7 @@ func (z *zeroReader) Read(p []byte) (int, error) {
 }
 
 // buildOversizeLocateRequest streams a file part sized just over maxLocateUploadBytes so
-// http.MaxBytesReader trips (D13), without ever holding the whole body in memory.
+// http.MaxBytesReader trips, without ever holding the whole body in memory.
 func buildOversizeLocateRequest(t *testing.T, id int64) *http.Request {
 	t.Helper()
 	pr, pw := io.Pipe()
@@ -124,10 +124,10 @@ func buildOversizeLocateRequest(t *testing.T, id int64) *http.Request {
 	return req
 }
 
-// dirSnapshot lists every file under root keyed by a content hash, for INV-2 ("no locate
+// dirSnapshot lists every file under root keyed by a content hash, for the invariant ("no locate
 // request... creates or modifies any file under... the session directory") at the
 // handler level. Review Major 2: hashing content, rather than recording size alone, is
-// required to catch an in-place same-size modification — INV-2's own wording forbids
+// required to catch an in-place same-size modification — its own wording forbids
 // both "creates or modifies", and a size-only snapshot cannot tell those apart.
 func dirSnapshot(t *testing.T, root string) map[string]string {
 	t.Helper()
@@ -152,7 +152,7 @@ func dirSnapshot(t *testing.T, root string) map[string]string {
 }
 
 // dataDirSnapshot lists the file *set* (relative paths only, no size or content) under
-// the daemon's data dir (filepath.Dir(srv.dbPath)) — D16's data-dir half of INV-2, which
+// the daemon's data dir (filepath.Dir(srv.dbPath)) — the data-dir half of that invariant, which
 // dirSnapshot above never covered (review Major 2). Sizes (or hashes) are deliberately
 // not recorded here: the SQLite WAL file the store keeps open in this same directory
 // legitimately grows while a request that reads via the store is in flight, so a
@@ -289,7 +289,7 @@ func walkOnlyLocator() *locate.Locator {
 	return locate.NewWithFinders(locate.NewWalkFinder(locate.DefaultWalkCap))
 }
 
-// TestHandleLocateFile_OutcomesMatchLocatorResult (D15) drives the handler with the
+// TestHandleLocateFile_OutcomesMatchLocatorResult drives the handler with the
 // walk-only Locator, which for a session directory under os.TempDir() is exactly the
 // path the real daemon's Spotlight-then-walk Locator takes.
 func TestHandleLocateFile_OutcomesMatchLocatorResult(t *testing.T) {
@@ -403,7 +403,7 @@ func TestHandleLocateFile_OutcomesMatchLocatorResult(t *testing.T) {
 	})
 }
 
-// TestHandleLocateFile_NeverWritesUploadToDisk is INV-2's handler-level pin across every
+// TestHandleLocateFile_NeverWritesUploadToDisk is the handler-level pin across every
 // error branch that never reaches the Locator at all (400/413), plus 404 unknown_session
 // — none of these have any business creating a file anywhere.
 func TestHandleLocateFile_NeverWritesUploadToDisk(t *testing.T) {
@@ -461,7 +461,7 @@ func TestHandleLocateFile_FinderErrorReturnsInternalError(t *testing.T) {
 	assert.Equal(t, "internal_error", resp.Error.Code)
 }
 
-// TestHandleLocateFile_NilLocatorIs500NotAPanic covers REQ-6/D6: a misconfigured server
+// TestHandleLocateFile_NilLocatorIs500NotAPanic: a misconfigured server
 // (Config.Locator left nil, as every newTestServer in this package's other tests already
 // does by not setting it) answers 500 internal_error instead of nil-dereferencing
 // s.locator.Locate — and, critically, the server must still be alive to answer that 500
@@ -481,7 +481,7 @@ func TestHandleLocateFile_NilLocatorIs500NotAPanic(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	assert.Equal(t, "internal_error", resp.Error.Code)
 
-	// D6's "the server stays serving" half: a second, ordinary request must still be
+	// The "server stays serving" half: a second, ordinary request must still be
 	// answered normally, not by a crashed handler goroutine.
 	rec2 := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec2, buildLocateRequest(t, id, "x.txt", []byte("hello"), true))

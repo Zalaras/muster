@@ -24,7 +24,7 @@ func newAddedFixture(t *testing.T) addedFixture {
 	}
 }
 
-// addedStartState builds the session under test in one of the states INV-1 is crossed from.
+// addedStartState builds the session under test in one of the states the invariant is crossed from.
 type addedStartState struct {
 	name  string
 	build func(r *effortRig, f addedFixture) int64
@@ -102,7 +102,7 @@ func addedDeaths() []addedDeath {
 	}
 }
 
-// TestAddedDirsInvariants_EveryDeathFromEveryState is INV-1 / D5 / D7: after every way a
+// TestAddedDirsInvariants_EveryDeathFromEveryState: after every way a
 // session dies, from every source state, its added directories are empty in memory and in
 // the store; a status post routed afterwards neither refills it nor broadcasts; and a second
 // session coexisting on the same manager and store keeps its list and its readings
@@ -147,7 +147,7 @@ func TestAddedDirsInvariants_EveryDeathFromEveryState(t *testing.T) {
 	}
 }
 
-// TestAddedDirsInvariants_LaunchDirectoryNeverListed is INV-2: whatever the spelling of the
+// TestAddedDirsInvariants_LaunchDirectoryNeverListed: whatever the spelling of the
 // launch directory in the reported list, from every starting list, it is never in the result.
 func TestAddedDirsInvariants_LaunchDirectoryNeverListed(t *testing.T) {
 	r := newEffortRig(t)

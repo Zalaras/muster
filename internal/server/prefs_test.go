@@ -170,7 +170,7 @@ func TestLoadPrefs_InvalidEnumValuesInKVFallBackPerField(t *testing.T) {
 }
 
 // TestHandlePutPrefs_RejectedRequestsNeverPersistOrBroadcast asserts the "iff accepted"
-// half of INV-4 from a non-empty starting state (m1-sessions lesson: assert invariants
+// half of that rule from a non-empty starting state (m1-sessions lesson: assert invariants
 // from every reachable state, not just the convenient one) — prefs already set to a
 // non-default value, then a rejected PUT must change neither the persisted value nor
 // produce a broadcast.
@@ -198,7 +198,7 @@ func TestHandlePutPrefs_RejectedRequestsNeverPersistOrBroadcast(t *testing.T) {
 }
 
 // TestHandlePutPrefs_BroadcastsExactlyOnePrefsMessageToEveryConnectedUISocket covers
-// D11/INV-4: every accepted PUT produces exactly one `prefs` broadcast carrying the
+// Every accepted PUT produces exactly one `prefs` broadcast carrying the
 // full object, fanned out to every connected UI socket (not just the one that PUT).
 func TestHandlePutPrefs_BroadcastsExactlyOnePrefsMessageToEveryConnectedUISocket(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -257,7 +257,7 @@ func TestHandlePutPrefs_TwoAcceptedPutsProduceTwoBroadcasts(t *testing.T) {
 	assert.Equal(t, "3x2", second.Prefs.Density)
 }
 
-// restartAndReloadPrefs covers D10: it PUTs body against a Server backed by a
+// restartAndReloadPrefs: it PUTs body against a Server backed by a
 // fresh on-disk store, closes that store (simulating a daemon restart, since
 // tmux/PTY state is irrelevant to prefs), reopens a second Server against the
 // same path, and returns what that second Server loads.
@@ -286,10 +286,10 @@ func restartAndReloadPrefs(t *testing.T, body string) PrefsInfo {
 	return loadPrefs(context.Background(), srv2.store)
 }
 
-// TestPrefs_PersistAcrossADaemonRestart covers D10 for every pref field added so
+// TestPrefs_PersistAcrossADaemonRestart checks for every pref field added so
 // far: each row PUTs one field (or pair, for the two rail-card fields that shipped
 // together) against a fresh on-disk store, then asserts a second Server opened
-// against the same path still returns it. Table-driven per plan D9/T1 — the five
+// against the same path still returns it. Table-driven — the five
 // per-field cases differed only in the PUT body and the fields checked afterward.
 func TestPrefs_PersistAcrossADaemonRestart(t *testing.T) {
 	tests := []struct {
@@ -397,7 +397,7 @@ func TestHandlePutPrefs_UsageModelExactly32CharsIsAccepted(t *testing.T) {
 }
 
 // TestHandlePutPrefs_SetsUsageModelOnlyLeavesViewAndDensityUntouched covers the
-// per-field independence REQ-8 requires, mirroring
+// per-field independence required, mirroring
 // TestHandlePutPrefs_SetsViewOnlyLeavesDensityUntouched for the third field.
 func TestHandlePutPrefs_SetsUsageModelOnlyLeavesViewAndDensityUntouched(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -449,7 +449,7 @@ func TestHandlePutPrefs_UsageModelPersistsToKVAlongsideViewAndDensity(t *testing
 	assert.JSONEq(t, `{"view":"tiles","density":"3x2","usageModel":"Opus","railSort":"manual","theme":"follow","updateCheck":true,"railDensity":"comfortable","railActivity":"turn"}`, raw)
 }
 
-// TestHandlePutPrefs_BroadcastsUsageModelInPrefsMessage covers D10/INV-4's echo clause
+// TestHandlePutPrefs_BroadcastsUsageModelInPrefsMessage covers the echo clause
 // for the new field: an accepted PUT broadcasts the full prefs object including
 // usageModel to every connected UI socket.
 func TestHandlePutPrefs_BroadcastsUsageModelInPrefsMessage(t *testing.T) {
@@ -487,7 +487,7 @@ func TestLoadPrefs_InvalidUsageModelInKVFallsBackToFableIndependently(t *testing
 	assert.Equal(t, "Fable", got.UsageModel, "an invalid persisted usageModel must fall back to the default")
 }
 
-// TestLoadPrefs_DefaultRailSortIsManual covers plan order-sidebar kb:anchor/prefs.put's
+// TestLoadPrefs_DefaultRailSortIsManual covers kb:anchor/prefs.put's
 // default-before-any-PUT clause for the new field.
 func TestLoadPrefs_DefaultRailSortIsManual(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -546,7 +546,7 @@ func TestHandlePutPrefs_RailSortPresentAloneSatisfiesAtLeastOneFieldRequired(t *
 }
 
 // TestHandlePutPrefs_SetsRailSortOnlyLeavesOtherFieldsUntouched covers the per-field
-// independence REQ-5 requires, mirroring the view/density/usageModel equivalents.
+// independence required, mirroring the view/density/usageModel equivalents.
 func TestHandlePutPrefs_SetsRailSortOnlyLeavesOtherFieldsUntouched(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	require.Equal(t, http.StatusNoContent, putPrefsRequest(t, srv, `{"view":"tiles","density":"3x2","usageModel":"Opus"}`).Code)
@@ -577,7 +577,7 @@ func TestLoadPrefs_InvalidRailSortInKVFallsBackToManualIndependently(t *testing.
 	assert.Equal(t, "manual", got.RailSort, "an invalid persisted railSort must fall back to the default")
 }
 
-// TestHandlePutPrefs_BroadcastsRailSortInPrefsMessage covers D16/INV-4's echo clause for
+// TestHandlePutPrefs_BroadcastsRailSortInPrefsMessage covers the echo clause for
 // the new field: an accepted PUT broadcasts the full prefs object including railSort to
 // every connected UI socket.
 func TestHandlePutPrefs_BroadcastsRailSortInPrefsMessage(t *testing.T) {
@@ -608,7 +608,7 @@ type prefsWireWithRailSort struct {
 }
 
 // TestLoadPrefs_DefaultThemeIsFollow covers kb:anchor/prefs.put's default-before-any-PUT clause for the
-// new field (plan new-ui-design-colors).
+// new field.
 func TestLoadPrefs_DefaultThemeIsFollow(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
@@ -617,7 +617,7 @@ func TestLoadPrefs_DefaultThemeIsFollow(t *testing.T) {
 	assert.Equal(t, "follow", got.Theme)
 }
 
-// TestHandlePutPrefs_ThemeValidationErrors covers D13 and the Protocol Contract's 400
+// TestHandlePutPrefs_ThemeValidationErrors covers the Protocol Contract's 400
 // invalid_request clause for theme: anything not matching
 // ^[a-z][a-z0-9-]{0,31}$.
 func TestHandlePutPrefs_ThemeValidationErrors(t *testing.T) {
@@ -645,7 +645,7 @@ func TestHandlePutPrefs_ThemeValidationErrors(t *testing.T) {
 }
 
 // TestHandlePutPrefs_ThemeAcceptsTheOpaquePattern covers the accepted half of the
-// pattern: the daemon never interprets the value beyond validThemePattern (REQ-7's "the
+// pattern: the daemon never interprets the value beyond validThemePattern ("the
 // client owns the theme registry"), so any 1-32 char lowercase/digit/hyphen string
 // starting with a letter is accepted, known theme name or not.
 func TestHandlePutPrefs_ThemeAcceptsTheOpaquePattern(t *testing.T) {
@@ -662,7 +662,7 @@ func TestHandlePutPrefs_ThemeAcceptsTheOpaquePattern(t *testing.T) {
 	}
 }
 
-// TestHandlePutPrefs_ThemePersistsToKV covers D12: a PUT naming theme lands in the kv
+// TestHandlePutPrefs_ThemePersistsToKV: a PUT naming theme lands in the kv
 // blob under the existing single "prefs" key.
 func TestHandlePutPrefs_ThemePersistsToKV(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -676,7 +676,7 @@ func TestHandlePutPrefs_ThemePersistsToKV(t *testing.T) {
 	assert.JSONEq(t, `{"view":"focus","density":"2x2","usageModel":"Fable","railSort":"manual","theme":"dark","updateCheck":true,"railDensity":"comfortable","railActivity":"turn"}`, raw)
 }
 
-// TestHandlePutPrefs_ThemeFollowRoundTripsAfterAnOverride covers D14 from the "returning
+// TestHandlePutPrefs_ThemeFollowRoundTripsAfterAnOverride checks from the "returning
 // to follow" reachable state, not just the fresh-daemon default: after overriding to
 // "dark", a PUT of "follow" is accepted and the stored value is exactly "follow".
 func TestHandlePutPrefs_ThemeFollowRoundTripsAfterAnOverride(t *testing.T) {
@@ -701,7 +701,7 @@ func TestHandlePutPrefs_ThemePresentAloneSatisfiesAtLeastOneFieldRequired(t *tes
 }
 
 // TestHandlePutPrefs_SetsThemeOnlyLeavesOtherFieldsUntouched covers the per-field
-// independence REQ-10 requires, mirroring the view/density/usageModel/railSort
+// independence required, mirroring the view/density/usageModel/railSort
 // equivalents.
 func TestHandlePutPrefs_SetsThemeOnlyLeavesOtherFieldsUntouched(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -718,7 +718,7 @@ func TestHandlePutPrefs_SetsThemeOnlyLeavesOtherFieldsUntouched(t *testing.T) {
 	assert.Equal(t, "dark", got.Theme)
 }
 
-// TestLoadPrefs_InvalidThemeInKVFallsBackToFollowIndependently covers D16: a persisted
+// TestLoadPrefs_InvalidThemeInKVFallsBackToFollowIndependently: a persisted
 // theme value that fails validThemePattern (hand-edited, or from a since-removed shape)
 // falls back to "follow" without discarding the other fields (m1-sessions per-field
 // independence lesson).
@@ -735,7 +735,7 @@ func TestLoadPrefs_InvalidThemeInKVFallsBackToFollowIndependently(t *testing.T) 
 	assert.Equal(t, "follow", got.Theme, "an invalid persisted theme must fall back to follow")
 }
 
-// TestHandlePutPrefs_BroadcastsThemeInPrefsMessage covers D12/INV-4's echo clause for the
+// TestHandlePutPrefs_BroadcastsThemeInPrefsMessage covers the echo clause for the
 // new field: an accepted PUT broadcasts the full prefs object including theme to every
 // connected UI socket.
 func TestHandlePutPrefs_BroadcastsThemeInPrefsMessage(t *testing.T) {

@@ -73,7 +73,7 @@ func TestInnermostCause_UnwrapsToTheDeepestError(t *testing.T) {
 	})
 }
 
-// TestDescribeCheckFailure_Table covers D8 exhaustively: each of REQ-8's four sentence
+// TestDescribeCheckFailure_Table checks exhaustively: each of the four sentence
 // shapes, exactly.
 func TestDescribeCheckFailure_Table(t *testing.T) {
 	tests := []struct {
@@ -125,7 +125,7 @@ func TestDescribeCheckFailure_Table(t *testing.T) {
 }
 
 // TestDescribeCheckFailure_TransportErrorStripsTheURLEvenThoughTheWrappedErrorCarriesOne
-// covers INV-2 against the actual shape net/http's Client.Do failure takes: *url.Error,
+// checks against the actual shape net/http's Client.Do failure takes: *url.Error,
 // whose own Error() text embeds the request URL. DescribeCheckFailure must reduce this
 // all the way to the syscall-level cause, never echo the *url.Error's own text — this is
 // the Overview's own before/after ("puts the URL on screen twice").
@@ -139,7 +139,7 @@ func TestDescribeCheckFailure_TransportErrorStripsTheURLEvenThoughTheWrappedErro
 	assert.NotContains(t, got, "://")
 }
 
-// TestDescribeCheckFailure_NeverContainsAURL covers INV-2 across D8's three typed
+// TestDescribeCheckFailure_NeverContainsAURL checks across the three typed
 // failure classes.
 func TestDescribeCheckFailure_NeverContainsAURL(t *testing.T) {
 	tests := []error{
@@ -154,7 +154,7 @@ func TestDescribeCheckFailure_NeverContainsAURL(t *testing.T) {
 	}
 }
 
-// TestDescribeCheckFailure_MalformedLocationNeverLeaksTheURL covers REQ-10/INV-2's
+// TestDescribeCheckFailure_MalformedLocationNeverLeaksTheURL covers the
 // remaining gap: a malformed 3xx Location header fails inside net/http's own Client.Do —
 // it resolves Location to build the redirect request
 // before LatestTag's CheckRedirect ever gets a say — so the failure surfaces as a
@@ -180,14 +180,14 @@ func TestDescribeCheckFailure_MalformedLocationNeverLeaksTheURL(t *testing.T) {
 	assert.NotContains(t, got, "://")
 }
 
-// TestDescribeCheckFailure_FourthClassNeverLeaksTheURL covers INV-2's remaining gap: the
+// TestDescribeCheckFailure_FourthClassNeverLeaksTheURL covers the remaining gap: the
 // fourth, unclassified failure class. net/http only auto-follows and auto-parses Location
 // for 301/302/303/307/308 (those become *TransportError); a 300, 304, 305 or 306 response
 // reaches LatestTag itself, which does its own url.Parse of the Location header and
 // returns a plain wrapped error, not one of DescribeCheckFailure's three typed classes.
 // Driven through the real LatestTag/httptest path against a 300 (GitHub's real redirect is
 // a 302, so this class is unreachable in practice, not untestable), covering both a
-// malformed Location and a missing one so every one of D8's four classes has a case.
+// malformed Location and a missing one so every one of the four classes has a case.
 func TestDescribeCheckFailure_FourthClassNeverLeaksTheURL(t *testing.T) {
 	t.Run("300 with a malformed Location", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -240,9 +240,9 @@ func TestDescribeCheckFailure_MalformedBaseURLNeverLeaksTheURL(t *testing.T) {
 	assert.NotContains(t, got, "://")
 }
 
-// TestDescribeApplyFailure_Table covers D9 exhaustively: both of REQ-9's sentence shapes
+// TestDescribeApplyFailure_Table checks exhaustively: both of the sentence shapes
 // (a download failure by status or by network cause, and the distinct missing-signature
-// 404), plus REQ-9's "every other failure keeps its current sentence" clause pinned
+// 404), plus the "every other failure keeps its current sentence" clause pinned
 // against every verify.go sentinel and a representative install-step error.
 func TestDescribeApplyFailure_Table(t *testing.T) {
 	tests := []struct {
@@ -286,7 +286,7 @@ func TestDescribeApplyFailure_Table(t *testing.T) {
 	}
 }
 
-// TestDescribeApplyFailure_NeverContainsAURL covers INV-2 against the real shape a
+// TestDescribeApplyFailure_NeverContainsAURL checks against the real shape a
 // download's Client.Do failure takes, matching the check-side test above.
 func TestDescribeApplyFailure_NeverContainsAURL(t *testing.T) {
 	realShaped := &DownloadError{

@@ -12,9 +12,9 @@ import (
 	"github.com/Zalaras/muster/internal/usage"
 )
 
-// TestToWireUsage_ZeroSnapshotRendersEveryFieldNullExceptSource covers REQ-7's boot
+// TestToWireUsage_ZeroSnapshotRendersEveryFieldNullExceptSource covers the boot
 // state on the wire: an aggregator that has never recorded a sample must render every
-// field null (INV-3: no empty gauge), with Source the one field that's never null.
+// field null (no empty gauge), with Source the one field that's never null.
 func TestToWireUsage_ZeroSnapshotRendersEveryFieldNullExceptSource(t *testing.T) {
 	got := toWireUsage(usage.Snapshot{Source: "subscription"}, usage.ModelSnapshot{Source: "subscription-api"})
 
@@ -31,7 +31,7 @@ func TestToWireUsage_ZeroSnapshotRendersEveryFieldNullExceptSource(t *testing.T)
 // TestToWireUsage_PopulatedSnapshotFormatsEveryFieldPerTheProtocol covers kb:anchor/ws.usage: buckets
 // and sampledAt render as RFC3339 (not RFC3339Nano — the daemon's internal precision
 // isn't part of the wire contract here). The snapshot's model is deliberately set: it
-// feeds history, never the wire (REQ-2; TestToWireUsage_NeverCarriesAModelKey).
+// feeds history, never the wire (see TestToWireUsage_NeverCarriesAModelKey).
 func TestToWireUsage_PopulatedSnapshotFormatsEveryFieldPerTheProtocol(t *testing.T) {
 	fiveHour := usage.Bucket{UsedPct: 61, ResetsAt: time.Date(2026, 8, 23, 11, 0, 0, 0, time.UTC)}
 	sevenDay := usage.Bucket{UsedPct: 23, ResetsAt: time.Date(2026, 8, 25, 6, 0, 0, 0, time.UTC)}
@@ -118,7 +118,7 @@ func TestToWireUsage_ModelScopedPopulatedListFormatsEveryField(t *testing.T) {
 	assert.Equal(t, "subscription-api", got.ModelScopedSource)
 }
 
-// TestToWireUsage_ModelScopedEmptyNonNilListRendersAnEmptyArrayNotNull covers REQ-14's
+// TestToWireUsage_ModelScopedEmptyNonNilListRendersAnEmptyArrayNotNull covers the
 // "an empty list [] is a valid successful fetch ... and is distinct from null" directly
 // at the wire mapping.
 func TestToWireUsage_ModelScopedEmptyNonNilListRendersAnEmptyArrayNotNull(t *testing.T) {
@@ -133,7 +133,7 @@ func TestToWireUsage_ModelScopedEmptyNonNilListRendersAnEmptyArrayNotNull(t *tes
 	require.NotNil(t, got.ModelScopedAt)
 }
 
-// TestToWireUsage_ModelScopedErrorKeepsLastGoodListAlongsideIt covers REQ-6's wire
+// TestToWireUsage_ModelScopedErrorKeepsLastGoodListAlongsideIt covers the wire
 // shape: an error kind is present alongside the last-good list, not instead of it.
 func TestToWireUsage_ModelScopedErrorKeepsLastGoodListAlongsideIt(t *testing.T) {
 	at := time.Date(2026, 8, 30, 10, 0, 0, 0, time.UTC)
@@ -164,7 +164,7 @@ func TestToWireUsage_StatusLineAndModelScopedHalvesAreIndependent(t *testing.T) 
 	assert.Nil(t, got.ModelScopedAt)
 }
 
-// TestToWireUsage_NeverCarriesAModelKey is REQ-2 / INV-2 / D1 at the wire mapping: from every
+// TestToWireUsage_NeverCarriesAModelKey checks, at the wire mapping, that no model key is ever sent: from every
 // state of both usage sources — including a status-line snapshot that does hold a model,
 // which still feeds history — the marshalled `usage` object has exactly the documented
 // keys and no `model`. Checked against the raw JSON so a re-added field is caught even if

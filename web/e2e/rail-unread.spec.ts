@@ -11,17 +11,17 @@ import {
 import { terminalRegion } from "./helpers/terminal";
 import { hasClass, railCard, railOrderIds, railSortSelect } from "./helpers/railorder";
 
-// Plan rail-card-improvements — REQ-7 through REQ-11 (unread idle and the new attention
+// Unread idle and the new attention
 // order), the journeys driven against the real terminal-attach and hook-ingest paths:
 // a turn closing watched or unwatched, an attach clearing the marker, a restart. The
 // display properties — the attention order for a snapshot, Opt+Cmd+0's preference and the
 // read-idle title colour — are render tests in web/render/rail.spec.ts
-// (plans/_audit/relevel/rail.md). Plan acceptance: E3, E4, E10. Fixture plan header: this
+// (plans/_audit/relevel/rail.md). Fixture plan header: this
 // file asserts attach state and restarts, so every test takes the per-test `daemon`
 // fixture (helpers/fixtures.ts) — `unread` is daemon-global session state and several
 // tests here restart the daemon or open a second window.
 //
-// "Watched" (REQ-8) is proved the same way every test in this suite proves an attach:
+// "Watched" is proved the same way every test in this suite proves an attach:
 // the session shown in Focus by default (the first-launched session, per
 // rail-order.spec.ts's "order-e15" precedent) has its terminal auto-attached as soon as
 // the pane is ready, and a rail-card click attaches whichever session it names
@@ -267,7 +267,7 @@ test("after a daemon restart with the tmux pane gone, an unread session reconcil
     await expect(endedCardB).toHaveAttribute("data-unread", "true");
 
     // "Dead sessions sort last" is an Attention-mode guarantee (rail-cards.spec.ts's
-    // REQ-9 precedent, `web/src/sessions/sort.ts`'s `orderRail`): manual mode's unpinned
+    // precedent, `web/src/sessions/sort.ts`'s `orderRail`): manual mode's unpinned
     // order is pure `railPos`/`id` and ignores liveness entirely
     // (kb:adr/rail-user-owned-manual-order-default).
     await railSortSelect(page).selectOption("attention");

@@ -20,7 +20,7 @@ import {
 import { envelopedSessionStart, envelopedStatusLineFull } from "./helpers/payloads";
 import { envelopeOpts, launchSession, scratchDirectory } from "./helpers/session";
 
-// Plan masthead-indicators — REQ-1..REQ-12: the masthead drops its model readout (#85),
+// The masthead drops its model readout (#85),
 // every usage readout's reset becomes `(HH:MM)` / `(HH:MM Ddd)` (#80), and the connection
 // text becomes a coloured health dot (#79). Claude Code is faked: every status post below
 // is a synthesized `statusLineFull` (helpers/payloads.ts, from the measured captures)
@@ -34,7 +34,7 @@ import { envelopeOpts, launchSession, scratchDirectory } from "./helpers/session
 // daemons through `startDaemon`.
 //
 // What the suffix and the dot look like for a given state — the `(HH:MM)` / `(HH:MM Ddd)`
-// forms, the hover title, the dot-sized status (REQ-4, REQ-7, REQ-12) — is a render test in
+// forms, the hover title, the dot-sized status — is a render test in
 // web/render/usage.spec.ts (re-levelled 2026-10-20, plans/_audit/relevel/usage.md). The
 // dot's three colours stay here: the render harness has no way to withhold the hello or
 // close the socket, so pending and down are only reachable against a daemon.
@@ -275,7 +275,7 @@ test("connected, the dot reads ok with the connected word and title; a killed da
   await expect(status).toHaveText("connected");
   await expect(status).toHaveAttribute("title", TITLE_CONNECTED);
 
-  // INV-1 at every render of the run, not only at the moments asserted above.
+  // The invariant holds at every render of the run, not only at the moments asserted above.
   expect(samples.some((s: HealthSample) => s.health === "down")).toBe(true);
   expect(healthViolations(samples)).toEqual([]);
 });

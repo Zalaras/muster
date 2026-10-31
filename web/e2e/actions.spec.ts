@@ -19,14 +19,13 @@ import { cardMenu, cardMenuItem, menuItemLabels, openCardMenu } from "./helpers/
 import { TerminalSocketTracker, terminalRegion } from "./helpers/terminal";
 import { resolvedCssVar } from "./helpers/theme";
 
-// Plan m4-reconcile — REQ-5 through REQ-16 (End / Remove / Resume, dialogs, dead
-// surface). Plan acceptance: E5-E9, E11-E15 (E2-E4 live in reconcile.spec.ts). The
-// dialogs closing on Cancel and Escape before any request (E10), the "ended now" copy
-// (Major 6) and the disabled Resume of a session with no Claude id (session-lifecycle
-// E7/W3) are render tests in web/render/actions.spec.ts (re-levelled 2026-10-20,
+// End / Remove / Resume, dialogs, dead surface (the reconcile journeys live in
+// reconcile.spec.ts). The dialogs closing on Cancel and Escape before any request, the
+// "ended now" copy (Major 6) and the disabled Resume of a session with no Claude id
+// (session-lifecycle) are render tests in web/render/actions.spec.ts (re-levelled 2026-10-20,
 // plans/_audit/relevel/misc-core.md).
 //
-// Plan code-breakup's E2E split (plan.md UI Specifications → E2E split) moved this
+// The code-breakup E2E split moved this
 // file's Tiles-footer tests to tiles.spec.ts and its keyboard/hover/re-sort rail-card
 // tests to rail-cards.spec.ts; what remains below is End/Remove/Resume/dead-surface
 // behaviour scoped to a single focused session or the mainhead.
@@ -37,8 +36,8 @@ import { resolvedCssVar } from "./helpers/theme";
 // explicitly clicks its own card first rather than relying on Focus's
 // auto-focus-top-of-sort (which is NOT this test's session once other tests in this file
 // have launched their own — terminal.spec.ts's file header documents exactly this trap).
-// Tests that need the daemon to hold exactly one session (INV-5), that check focus moves
-// to "the top card" (E9), or that put the connection down (E14), destructure the `daemon`
+// Tests that need the daemon to hold exactly one session, that check focus moves
+// to "the top card", or that put the connection down, destructure the `daemon`
 // fixture instead — a fresh daemon per test, torn down by the fixture. They stay in file
 // order rather than being grouped into a describe so no test is renamed or moved.
 
@@ -76,7 +75,7 @@ test("Stop… from the focused session's card menu ends only that session; a liv
       "#{session_attached}",
     );
 
-    // The Focus header holds no Stop button (plan remove-unread-right-click-1, REQ-4): a
+    // The Focus header holds no Stop button: a
     // session is stopped from its card's menu.
     await openCardMenu(page, cardA);
     await cardMenuItem(page, "Stop…").click();
@@ -101,11 +100,11 @@ test("Stop… from the focused session's card menu ends only that session; a liv
     expect(foundB.alive).toBe(true);
     expect(foundB.state).toBe(sessionB.state);
 
-    // A sorts after B (REQ-9: every ended session after every live one) — plan
-    // order-sidebar's approved protocol delta (kb:anchor/prefs.put / kb:anchor/ws.session) makes this an Attention-mode
-    // guarantee only: REQ-5's default `railSort` is "manual", and REQ-7 says a state
+    // A sorts after B (every ended session after every live one) — the order-sidebar
+    // protocol delta (kb:anchor/prefs.put / kb:anchor/ws.session) makes this an Attention-mode
+    // guarantee only: the default `railSort` is "manual", and a state
     // change (ending A is one) never moves a card in manual mode. Switch to Attention,
-    // then wait for the resulting resort before asserting the REQ-9 order.
+    // then wait for the resulting resort before asserting the order.
     await page.locator("#rail-sort").selectOption("attention");
     await expect
       .poll(async () => {
@@ -177,7 +176,7 @@ test("a focused ended session shows the dead surface with its last snapshot and 
     // snapshot carries it — a stale/empty snapshot would not.
     await expect(deadSurface.locator("pre.snapshot")).toContainText("MUSTER-STUB-READY");
 
-    // The dashboard never opens a terminal socket for a dead session (REQ-13/INV-5).
+    // The dashboard never opens a terminal socket for a dead session.
     await expect(page.locator('[aria-label="Terminal: dead-surface-e6"]')).toHaveCount(0);
   } finally {
     await cleanup();
@@ -186,7 +185,7 @@ test("a focused ended session shows the dead surface with its last snapshot and 
 
 // Fresh `daemon`, not the file's shared one: after End, Focus falls through to the next
 // live card and attaches a terminal to it — a legitimate second socket when a neighbour
-// test's session exists, which would falsify "never reopens" for the wrong reason. INV-5
+// test's session exists, which would falsify "never reopens" for the wrong reason. That
 // is only observable when the ended session was the daemon's only one.
 test("Ending a focused session closes its terminal socket and never reopens one while dead (INV-5)", async ({
   page,
@@ -285,10 +284,10 @@ test("clicking Resume in the ended cap relaunches the session with the same clau
   }
 });
 
-// Plan resume-and-dangerously-allow — REQ-12's second clause
+// The second clause of the one-alive-row rule
 // (kb:adr/launch-resume-one-alive-row-per-claude-session): Resume is refused when
 // another alive session already holds the dead session's claude id — a third
-// `not_resumable` cause alongside "still alive" (E7's own sibling test, above) and "no
+// `not_resumable` cause alongside "still alive" (the sibling test above) and "no
 // claude id" (below). The duplicate-binding shape a resume-from-list would produce is
 // synthesized directly via two enveloped SessionStarts, rather than driven through the
 // dialog's Resume tab, which past-sessions.spec.ts owns.
@@ -459,7 +458,7 @@ test("the resume SessionStart lands the card in idle with no attention or failur
     expect(resumeRes.status()).toBe(200);
     const resumedBody = (await resumeRes.json()) as SessionObject;
     // "state is unchanged until the enveloped SessionStart(source:"resume") arrives"
-    // (REQ-7's response contract) — still needs_input right after the POST.
+    // (the response contract) — still needs_input right after the POST.
     expect(resumedBody.state).toBe("needs_input");
     await expect(card).not.toHaveClass(/ended/, { timeout: 15_000 });
 
@@ -467,7 +466,7 @@ test("the resume SessionStart lands the card in idle with no attention or failur
     // the dead one's freed muster-<id> name — resumedBody.tmuxTarget here is
     // "muster-2:@2" where the pre-resume `session.tmuxTarget` was "muster-2:@1"), not
     // merely a new pane under the same target. envelopeOpts(session, daemon) would
-    // query the now-dead PRE-resume target and hand REQ-12's corroboration a pane that
+    // query the now-dead PRE-resume target and hand the daemon's corroboration a pane that
     // can never match the daemon's newly-stored one — deriving the pane from
     // resumedBody's own (current) target instead.
     await request.post(sharedDaemon().ingestURL("hook"), {
@@ -477,7 +476,7 @@ test("the resume SessionStart lands the card in idle with no attention or failur
       }),
     });
     await expect(stateBadge(card)).toHaveText(/idle/i);
-    // The attention note is gone from the card (E15) — not merely a different badge word.
+    // The attention note is gone from the card — not merely a different badge word.
     await expect(card.getByText(/needs your permission/i)).toHaveCount(0);
 
     const state = await getState(page, sharedDaemon());
@@ -544,7 +543,7 @@ test("Removing a live session ends it first, warns in the dialog copy, and moves
     await expect(mainhead).toContainText("remove-live-a");
 
     // A live card carries no action button; its menu offers Remove… beside Stop…
-    // (plan remove-unread-right-click-1, REQ-3), and the Focus header holds none.
+    // and the Focus header holds none.
     await expect(cardA.getByRole("button", { name: "Remove" })).toHaveCount(0);
     await openCardMenu(page, cardA);
     expect((await menuItemLabels(page)).slice(0, 2)).toEqual(["Stop…", "Remove…"]);
@@ -557,7 +556,7 @@ test("Removing a live session ends it first, warns in the dialog copy, and moves
     // destructive buttons were repointed from `--rose` (reserved for the Failed state
     // per design-system §3) to a dedicated `--danger` family fill. Assert the computed
     // background against the live `--danger`/`--rose` tokens (not a hardcoded literal —
-    // plan new-ui-design-colors REQ-2 adjusted `--danger`'s Instrument shade for AA, so
+    // the new-ui-design-colors work adjusted `--danger`'s Instrument shade for AA, so
     // a hex literal here would silently drift out of sync with style.css) — explicitly
     // not `--rose` either, so a same-family off-by-one token swap would still fail.
     const removeConfirmBtn = dialog.getByRole("button", {
@@ -616,9 +615,8 @@ test("the card menu's Stop… and Remove… are disabled while the daemon connec
     const banner = page.getByRole("alert");
     await expect(banner).toBeVisible({ timeout: 15_000 });
 
-    // The header holds no Stop, Resume or Remove button (plan remove-unread-right-click-1,
-    // REQ-4); the same actions live in the card menu, which opens while disconnected with
-    // every item disabled — from the card and from the header's ⋯ alike (REQ-5).
+    // The header holds no Stop, Resume or Remove button; the same actions live in the card menu, which opens while disconnected with
+    // every item disabled — from the card and from the header's ⋯ alike.
     await openCardMenu(page, card);
     await expect(cardMenuItem(page, "Stop…")).toBeDisabled();
     await expect(cardMenuItem(page, "Remove…")).toBeDisabled();
@@ -692,7 +690,7 @@ test("the card menu's Resume and Remove… and the cap's Resume are disabled whi
 
     // Sanity: while connected, a dead focused session's card menu offers Resume and Remove…
     // enabled (and no Stop…), and the cap's Resume is enabled. The Focus header holds none of
-    // the three (plan remove-unread-right-click-1, REQ-4).
+    // the three.
     await openCardMenu(page, card);
     await expect(cardMenuItem(page, "Stop…")).toHaveCount(0);
     await expect(cardMenuItem(page, "Resume")).toBeEnabled();
@@ -702,8 +700,8 @@ test("the card menu's Resume and Remove… and the cap's Resume are disabled whi
     await expect(cap.getByRole("button", { name: "Resume" })).toBeEnabled();
 
     // Force-close the routed WebSocket rather than killing/restarting the daemon
-    // process: REQ-1's reconcile sweep deletes any row already `alive:false` on the
-    // very next startup ("rows already alive=0 ... are deleted" — plan Decisions),
+    // process: the reconcile sweep deletes any row already `alive:false` on the
+    // very next startup ("rows already alive=0 ... are deleted"),
     // which would remove this exact session out from under the test and is not what
     // this test is checking. Closing the client-side route fires the page's own
     // WebSocket `close` event the same way a real outage would, without touching the
@@ -714,7 +712,7 @@ test("the card menu's Resume and Remove… and the cap's Resume are disabled whi
     const banner = page.getByRole("alert");
     await expect(banner).toBeVisible({ timeout: 15_000 });
 
-    // This dead session's mainhead/cap have no terminal socket at all (REQ-13/INV-5),
+    // This dead session's mainhead/cap have no terminal socket at all,
     // so nothing incidentally re-renders them — only `setStatus`'s own `render()` call
     // can be responsible for these flipping to disabled.
     await expect(cap.getByRole("button", { name: "Resume" })).toBeDisabled();
@@ -806,11 +804,11 @@ test("the dead surface shows a 'loading last screen…' interim state before the
 });
 
 // review m4-reconcile fix-cycle-1 Major 1 (daemon-impl): `applyBind`'s `KindResumeBind`
-// branch used to set `sess.Alive = true` from the hook payload itself, breaking INV-1
+// branch used to set `sess.Alive = true` from the hook payload itself, breaking the invariant
 // (tmux pane existence is the sole authority for `alive`). Measured repro: End a session
 // (tmux pane really gone), then post a queued/late `SessionStart(source:"resume")` for
 // the SAME claude id with no `/resume` call ever made — the daemon must not revive it.
-// This is a daemon-side fix but its only observable surface is exactly what INV-5/REQ-13
+// This is a daemon-side fix but its only observable surface is exactly what the terminal-socket rules
 // already gate: the dashboard must never open a terminal socket for what it (correctly)
 // still renders as a dead session.
 test("a late resume SessionStart hook after End does not revive the session or open a terminal socket (INV-1, Major 1)", async ({
@@ -872,8 +870,8 @@ test("a late resume SessionStart hook after End does not revive the session or o
   }
 });
 
-// Plan session-lifecycle — REQ-17/W3 (a disabled Resume states why, not just sits
-// greyed). The fixture — kill the window before any hook ever lands — is the same
+// A disabled Resume states why, not just sits
+// greyed. The fixture — kill the window before any hook ever lands — is the same
 // never-bound-a-claude-id shape the pre-existing no-snap-e13 test above (actions.spec.ts)
 // uses, but that test only asserts the snapshot text; this asserts the Resume control's
 // disabled state AND its stated reason, on both surfaces that render it (mainhead,

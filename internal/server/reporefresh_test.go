@@ -146,7 +146,7 @@ func branchOf(t *testing.T, s *session.Session) string {
 	return *s.Branch
 }
 
-// TestRepoPoll_BranchFollowsCheckouts is REQ-1 / D6: a checkout made outside Muster shows on
+// TestRepoPoll_BranchFollowsCheckouts: a checkout made outside Muster shows on
 // the next tick as one upsert, an unchanged tick broadcasts nothing, and the change is
 // persisted (it survives a restart).
 func TestRepoPoll_BranchFollowsCheckouts(t *testing.T) {
@@ -200,7 +200,7 @@ func TestRepoPoll_WorktreeFlagIsRefreshed(t *testing.T) {
 	assert.Equal(t, "feature", branchOf(t, got))
 }
 
-// TestRepoPoll_KeepsLastKnownWhenTheDirectoryIsGone is REQ-2 / D6 / edge cases 2 and 3: a
+// TestRepoPoll_KeepsLastKnownWhenTheDirectoryIsGone covers edge cases 2 and 3: a
 // launch directory that was deleted, or replaced by a file, keeps the last-known repo and
 // claudeLocation, and broadcasts nothing.
 func TestRepoPoll_KeepsLastKnownWhenTheDirectoryIsGone(t *testing.T) {
@@ -238,7 +238,7 @@ func TestRepoPoll_KeepsLastKnownWhenTheDirectoryIsGone(t *testing.T) {
 	}
 }
 
-// TestRepoPoll_DeadSessionIsNotPolled is D17 / edge case 27: a dead session keeps its
+// TestRepoPoll_DeadSessionIsNotPolled covers edge case 27: a dead session keeps its
 // last-known repo while an alive twin in the same tick updates (so the tick did run), and the
 // first tick after a resume reads it.
 func TestRepoPoll_DeadSessionIsNotPolled(t *testing.T) {
@@ -267,7 +267,7 @@ func TestRepoPoll_DeadSessionIsNotPolled(t *testing.T) {
 	assert.Equal(t, "fix", branchOf(t, e.get(t, deadID)), "the first tick after a resume re-reads it")
 }
 
-// TestRepoPoll_OnlyTheMovedSessionGetsALocation is D6's bystander rule and edge case 20: two
+// TestRepoPoll_OnlyTheMovedSessionGetsALocation is the bystander rule and edge case 20: two
 // sessions share a launch directory, one moves, and only it changes, in memory and on the wire.
 func TestRepoPoll_OnlyTheMovedSessionGetsALocation(t *testing.T) {
 	repo := newGitCheckout(t, "muster")
@@ -291,7 +291,7 @@ func TestRepoPoll_OnlyTheMovedSessionGetsALocation(t *testing.T) {
 	assert.Equal(t, []int64{moved}, e.upsertIDsSince(n), "one sessionUpsert, for the session that moved")
 }
 
-// TestRepoPoll_ClaudeLocationMatrix is INV-1 from every source state: each place Claude can
+// TestRepoPoll_ClaudeLocationMatrix checks every source state: each place Claude can
 // be crossed with an alive and a dead session, asserting claudeLocation after a tick. The
 // rows cover the plan's list (same dir, subdir, .claude/worktrees worktree, sibling
 // worktree, other repo, non-git inside, non-git outside) plus a symlinked spelling, a
@@ -504,7 +504,7 @@ func TestReadRepoState_CarriesTheTargetsEpochBack(t *testing.T) {
 	}
 }
 
-// TestRepoPoll_RestartRederivesTheLocationFromTheRecordedDirectory is D7: claude_dir is
+// TestRepoPoll_RestartRederivesTheLocationFromTheRecordedDirectory: claude_dir is
 // persisted and claudeLocation is not, so a fresh manager over the same store has a null
 // location until the first tick, which yields it.
 func TestRepoPoll_RestartRederivesTheLocationFromTheRecordedDirectory(t *testing.T) {
@@ -529,7 +529,7 @@ func TestRepoPoll_RestartRederivesTheLocationFromTheRecordedDirectory(t *testing
 	assert.Equal(t, wt, loc.Directory)
 }
 
-// TestRepoPoll_NoTimerStillTicksAtStartAndOnNudge is D8 / edge case 25: with -repo-poll 0 the
+// TestRepoPoll_NoTimerStillTicksAtStartAndOnNudge covers edge case 25: with -repo-poll 0 the
 // loop runs a tick at start and then only when nudged, and a nudge derives claudeLocation.
 func TestRepoPoll_NoTimerStillTicksAtStartAndOnNudge(t *testing.T) {
 	repo := newGitCheckout(t, "muster")
@@ -585,7 +585,7 @@ func TestRunTicked_NonPositiveIntervalRunsNoTimer(t *testing.T) {
 	}
 }
 
-// TestNew_ClaudeDirChangeNudgesTheRepoPoll is REQ-6 at the composition root: the manager's
+// TestNew_ClaudeDirChangeNudgesTheRepoPoll covers the composition root: the manager's
 // callback that server.New wires reaches the poll's nudge channel, once per burst
 // (coalesced), and not at all for an unchanged directory.
 func TestNew_ClaudeDirChangeNudgesTheRepoPoll(t *testing.T) {
@@ -634,7 +634,7 @@ func TestStopLivenessPoll_AlsoStopsTheRepoPoll(t *testing.T) {
 // TestIngest_MainAgentHookDirectoryBecomesClaudeLocation walks the whole path in one
 // process: an enveloped hook reporting a worktree as its directory is ingested, the manager
 // records it and nudges, the poll derives claudeLocation, and the wire carries it while
-// `directory` stays the launch directory (REQ-3, REQ-5, REQ-6, REQ-8's wire half).
+// `directory` stays the launch directory (the wire half).
 func TestIngest_MainAgentHookDirectoryBecomesClaudeLocation(t *testing.T) {
 	repo := newGitCheckout(t, "muster")
 	wt := filepath.Join(repo, ".claude", "worktrees", "probewt")

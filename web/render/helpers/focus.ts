@@ -1,14 +1,13 @@
-// Locators and layout oracles for the focus feature: the Focus header's give-way order
-// (plan title-crop-stop-resume-button REQ-2), its right-aligned cluster (REQ-4) and the one
-// Session actions ⋯ that replaced its Stop/Resume and Remove buttons (plan
-// remove-unread-right-click-1 REQ-4) measured from the live layout; the header's bracketed
-// effort and the launch-mismatch warning strip (plan effort REQ-5 to REQ-9); the rail
+// Locators and layout oracles for the focus feature: the Focus header's give-way order,
+// its right-aligned cluster and the one Session actions ⋯ that replaced its Stop/Resume and
+// Remove buttons (measured from the live layout); the header's bracketed effort and the
+// launch-mismatch warning strip; the rail
 // card's state word and the Focus-pane marker. Pure DOM — no daemon, no fixture knowledge —
 // so both tiers use it: the render spec here directly, the E2E journeys through
 // `web/e2e/helpers/{focus-header,effort,session,terminal}.ts`, which re-export it.
 //
 // Everything here reads boxes, never a pixel breakpoint: the invariants are what the plan
-// pins (INV-1 .. INV-8, kb:lesson/layout-invariant-needs-its-width-range), and a sweep
+// pins (kb:lesson/layout-invariant-needs-its-width-range), and a sweep
 // asserts them at every 16 px step. The independent oracle for a line's width is its own
 // max-content width, measured in the line's font by a throwaway clone, so a stale or
 // capped display times out in the caller's poll instead of passing a pattern match
@@ -38,17 +37,17 @@ export function stateBadge(card: Locator): Locator {
 }
 
 /**
- * The rail card carrying the Focus-pane marker (REQ-1): `[aria-current="true"]` scoped
+ * The rail card carrying the Focus-pane marker: `[aria-current="true"]` scoped
  * to `#sessions` so it can never match a strip card of the same session (the same
  * `data-testid="session-card"` template is reused there, per `helpers/terminal.ts`'s
- * `stripCard` comment). Resolves to zero-or-one; INV-3 asserts exactly one whenever the
+ * `stripCard` comment). Resolves to zero-or-one; the layout sweeps assert exactly one whenever the
  * rail is non-empty.
  */
 export function currentRailCard(page: Page): Locator {
   return page.locator('#sessions [data-testid="session-card"][aria-current="true"]');
 }
 
-/** `#mainhead h2.name` — the heading wrapping the rename trigger (REQ-13). */
+/** `#mainhead h2.name` — the heading wrapping the rename trigger. */
 export function mainheadHeading(page: Page): Locator {
   return page.locator("#mainhead h2.name");
 }
@@ -373,7 +372,7 @@ function namedItems(s: HeaderSnapshot): { name: string; box: Box }[] {
   return candidates.flatMap(([name, box]) => (box ? [{ name, box }] : []));
 }
 
-/** INV-1: no two header items overlap and each is inside the viewport. */
+/** No two header items overlap and each is inside the viewport. */
 function overlapProblems(s: HeaderSnapshot): string[] {
   const out: string[] = [];
   const items = namedItems(s);
@@ -397,7 +396,7 @@ function overlapProblems(s: HeaderSnapshot): string[] {
   return out;
 }
 
-/** REQ-2 (b), REQ-4: the surface switch and the ⋯ are one cluster, on one row, never split across two. */
+/** The surface switch and the ⋯ are one cluster, on one row, never split across two. */
 function clusterProblems(s: HeaderSnapshot): string[] {
   const parts: [string, Box | null][] = [
     ["surface switch", s.surf],
@@ -416,7 +415,7 @@ function clusterProblems(s: HeaderSnapshot): string[] {
     );
 }
 
-/** INV-2: the model is whole. */
+/** The model is whole. */
 function modelProblems(s: HeaderSnapshot): string[] {
   if (!s.model) return ["INV-2: the model is not laid out"];
   const out: string[] = [];
@@ -427,7 +426,7 @@ function modelProblems(s: HeaderSnapshot): string[] {
 }
 
 /**
- * REQ-2 / REQ-3 in the stacked band: a model that is not beside the readout (not on its row)
+ * In the stacked band, a model that is not beside the readout (not on its row)
  * sits under it, below the readout's bottom edge and within its column, whole and inside the
  * viewport. Never above it, never off to the side on another row, never clipped by the window.
  */
@@ -447,7 +446,7 @@ function stackedModelProblems(s: HeaderSnapshot, model: Box): string[] {
   return out;
 }
 
-/** INV-3 and the first halves of REQ-2: a line is ellipsized only on two rows with the `↳` block hidden. */
+/** A line is ellipsized only on two rows with the `↳` block hidden. */
 function lineProblems(s: HeaderSnapshot): string[] {
   const out: string[] = [];
   const twoRows = onTwoRows(s);
@@ -465,7 +464,7 @@ function lineProblems(s: HeaderSnapshot): string[] {
   return out;
 }
 
-/** INV-4 and REQ-2 (d): the title shortens only after everything before it gave way. */
+/** The title shortens only after everything before it gave way. */
 function titleProblems(s: HeaderSnapshot): string[] {
   if (!titleEllipsized(s)) return [];
   const out: string[] = [];
@@ -481,7 +480,7 @@ function titleProblems(s: HeaderSnapshot): string[] {
   return out;
 }
 
-/** INV-8: the repo block is on `.loc`'s first line, at no less than its floor. */
+/** The repo block is on `.loc`'s first line, at no less than its floor. */
 function repoProblems(s: HeaderSnapshot): string[] {
   if (!s.repo) return ["INV-8: the repo block has no box"];
   const out: string[] = [];
@@ -500,10 +499,10 @@ function repoProblems(s: HeaderSnapshot): string[] {
  * The plan's width-independent invariants for one snapshot, one line per violation so an
  * `expect.poll(...).toEqual([])` retries until layout settles and prints what is wrong.
  *
- * INV-1 (no overlap, inside the viewport), INV-2 (model whole), INV-3 (a line is ellipsized
- * only on two rows, with the `↳` block hidden), INV-4 (the title is ellipsized only with
- * the readout at its floor), INV-8 (the repo block is on `.loc`'s first line, at no less
- * than its floor). The REQ-2 order's other halves ride along: the cluster drops only after
+ * No overlap and inside the viewport, model whole, a line is ellipsized
+ * only on two rows with the `↳` block hidden, the title is ellipsized only with
+ * the readout at its floor, and the repo block is on `.loc`'s first line, at no less
+ * than its floor. The give-way order's other halves ride along: the cluster drops only after
  * the `↳` block hid, and the title shortens only after the cluster dropped.
  */
 export function headerProblems(s: HeaderSnapshot): string[] {
@@ -594,7 +593,7 @@ export function sweepWidths(from = 2000, to = 600, step = 16): number[] {
   return widths;
 }
 
-/** REQ-7: the step where the cluster drops to row two takes no width from the title or the readout. */
+/** The step where the cluster drops to row two takes no width from the title or the readout. */
 function expectDropTookNothing(
   label: string,
   at: number,
@@ -615,9 +614,9 @@ function expectDropTookNothing(
 }
 
 /**
- * The E3 sweep: from 2000 px down to 600 px and back up in 16 px steps, asserting INV-1,
- * INV-2, INV-3, INV-4 and INV-8 at every step, that widening retraces the narrowing
- * (REQ-2), and (REQ-7) that the step where the cluster drops takes no width from the title or
+ * The width sweep: from 2000 px down to 600 px and back up in 16 px steps, asserting the
+ * header problems above at every step, that widening retraces the narrowing
+ * and that the step where the cluster drops takes no width from the title or
  * the readout. `extra` adds a caller's own per-width problems (the existing
  * `mainheadFitProblems`, say).
  */
@@ -666,7 +665,7 @@ export function headerMore(page: Page): Locator {
   return page.locator("#mainhead .acts").getByRole("button", { name: "Session actions" });
 }
 
-/** Every header button named Stop, Resume or Remove — the header holds none (REQ-4). */
+/** Every header button named Stop, Resume or Remove — the header holds none. */
 export function headerLifecycleButtons(page: Page): Locator {
   return page.locator("#mainhead").getByRole("button", { name: /^(Stop|Resume|Remove)$/ });
 }
@@ -718,7 +717,7 @@ export async function focusedNode(
 }
 
 // ---------------------------------------------------------------------------------------
-// INV-6 across a Stop: what the header's cluster must leave exactly where it was (REQ-6)
+// Across a Stop: what the header's cluster must leave exactly where it was
 // ---------------------------------------------------------------------------------------
 
 /** The boxes a Stop or a Resume must not move: the cluster's own and the header's. */
@@ -743,7 +742,7 @@ const boxText = (b: Box) =>
   `x ${b.left.toFixed(1)}-${b.right.toFixed(1)} y ${b.top.toFixed(1)}-${b.bottom.toFixed(1)}`;
 
 /**
- * INV-6: the Session actions ⋯, the surface switch and the header itself are the same
+ * The Session actions ⋯, the surface switch and the header itself are the same
  * boxes in `after` as in `before` (the same session at the same width, alive then dead or the
  * other way round). An empty list is "nothing moved".
  */

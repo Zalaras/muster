@@ -22,8 +22,7 @@ const baseRepo: Repo = {
   lastEffort: "high",
 };
 
-// W5, plan new-session-improvement, REQ-6a (extended by plan effort REQ-2): initialRestore
-// restores exactly the untouched fields, for all eight combinations of touched model, mode and
+// initialRestore restores exactly the untouched fields, for all eight combinations of touched model, mode and
 // effort. A touched field's key is absent (not undefined) so the caller leaves the form alone.
 describe("initialRestore (W5, REQ-6a; plan effort REQ-2)", () => {
   const stored = { model: "opus", mode: "acceptEdits", effort: "high" } as const;
@@ -123,7 +122,7 @@ describe("repoRestore (review-maintainability cycle 1 Minor 2)", () => {
   });
 });
 
-// plan launch-dialog-fixes REQ-3: defaultRestore is the failed-lookup / no-recents restore. It
+// DefaultRestore is the failed-lookup / no-recents restore. It
 // shares initialRestore's touched filter: every untouched field gets its default, every
 // touched field's key is absent.
 describe("defaultRestore (plan launch-dialog-fixes REQ-3)", () => {

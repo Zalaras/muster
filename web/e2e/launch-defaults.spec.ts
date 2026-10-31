@@ -12,26 +12,24 @@ import {
 } from "./helpers/picker";
 import { browseScratchDirectory, launchSession, waitForNextClockSecond } from "./helpers/session";
 
-// Plan new-session-improvement (#28) — REQ-5, REQ-6, INV-5. Plan acceptance: E1, E2, E9,
-// E10, E12.
+// New-session improvement (#28): the dialog defaults and the initial restore.
 //
-// REQ-5: when there is nothing to restore, Start in falls back to auto (previously
-// manual) — E1/E2 pin the fresh-dialog defaults. REQ-6: the dialog's initial restore
+// When there is nothing to restore, Start in falls back to auto (previously
+// manual) — the first two tests pin the fresh-dialog defaults. The dialog's initial restore
 // (navigate to the most recent recent, then apply its model/mode) resolves
-// asynchronously and must never clobber a user who acted before it lands — E9 covers a
-// touched field surviving the race, E10 covers a superseding navigation winning outright,
-// E12 covers a genuine failure (the recent's directory is simply gone) falling back to
-// the browse root (REQ-6c). W6's amendment (plan.md, review cycle 1 maintainability
-// Minor 1) removed the pure `openFallback` seam this used to be unit-testable through, so
-// E12 is this path's only remaining coverage.
+// asynchronously and must never clobber a user who acted before it lands — one test covers a
+// touched field surviving the race, another covers a superseding navigation winning outright,
+// a third covers a genuine failure (the recent's directory is simply gone) falling back to
+// the browse root. A review-cycle amendment removed the pure `openFallback` seam this used to be unit-testable through, so
+// that last test is this path's only remaining coverage.
 //
 // Every test takes the per-test `daemon` fixture (helpers/fixtures.ts): the recents list
 // and "opens onto the most recent recent" behaviour are daemon-global (launch.spec.ts's
 // own rationale), which a neighbour test's launch on a shared daemon would corrupt —
-// doubly so here, since E9/E10 depend on controlling exactly which GET /api/browse call
+// doubly so here, since the race tests depend on controlling exactly which GET /api/browse call
 // is the dialog's own initial one.
 //
-// E1/E2 — the fresh dialog's auto and sonnet defaults — is a render test in
+// The fresh dialog's auto and sonnet defaults — is a render test in
 // web/render/launch.spec.ts since 2026-10-20 (plans/_audit/relevel/launch-update.md).
 
 test("a model picked before the initial restore lands stays checked, and the untouched mode still restores from the recent (REQ-6, E9)", async ({
@@ -49,7 +47,7 @@ test("a model picked before the initial restore lands stays checked, and the unt
     });
 
     // Holds back only the FIRST GET /api/browse this page ever makes — the dialog's own
-    // initial restore navigate to `dir` (REQ-8, launch spec: it opens straight onto the
+    // initial restore navigate to `dir` (launch spec: it opens straight onto the
     // one recent). Every later browse call passes through untouched.
     let seenFirstBrowse = false;
     let releaseFirstBrowse: () => void = () => {};
@@ -70,10 +68,10 @@ test("a model picked before the initial restore lands stays checked, and the unt
     releaseFirstBrowse();
 
     await expect(currentCrumb(dialog)).toHaveText(basename(dir.path));
-    // REQ-6(a): the touched model is kept, not overwritten by the recent's own stored
+    // The touched model is kept, not overwritten by the recent's own stored
     // "haiku" once the delayed restore finally lands.
     await expect(dialog.getByRole("radio", { name: "opus" })).toBeChecked();
-    // REQ-6(a): the mode was never touched, so it still restores from the recent.
+    // The mode was never touched, so it still restores from the recent.
     await expect(dialog.getByRole("radio", { name: "manual" })).toBeChecked();
   } finally {
     await dir.cleanup();
@@ -120,7 +118,7 @@ test("clicking a second Recent before the held-back initial browse lands leaves 
     const newerName = basename(newer.path);
 
     // The user's own navigation, fired while the initial restore's browse call (for
-    // `newer`, REQ-8's "most recent recent") is still gated — REQ-6(b): this must
+    // `newer`, the "most recent recent") is still gated — this must
     // supersede the initial restore outright.
     await recentButton(dialog, olderName).click();
     // Now let the superseded request land; it must do nothing further — no model/mode
@@ -151,7 +149,7 @@ test("with the most recent Recent's directory deleted before the dialog opens, t
   const dirName = basename(dir.path);
   try {
     await page.goto(daemon.dashboardUrl);
-    // Seeded with a stored model/mode that differ from REQ-5's fallback defaults, so a
+    // Seeded with a stored model/mode that differ from the fallback defaults, so a
     // restore that wrongly slips through despite the failed navigation (rather than
     // genuinely falling back) would be caught below.
     await launchSession(page, daemon, {
@@ -161,8 +159,8 @@ test("with the most recent Recent's directory deleted before the dialog opens, t
       permissionMode: "default",
     });
 
-    // Gone before the dialog's own initial navigate ever runs — REQ-6c's "genuinely
-    // failed initial navigation", distinct from E10's superseded-by-the-user case above.
+    // Gone before the dialog's own initial navigate ever runs — the "genuinely
+    // failed initial navigation", distinct from the superseded-by-the-user case above.
     await rm(dir.path, { recursive: true, force: true });
 
     const dialog = await openLaunchDialog(page);
@@ -173,7 +171,7 @@ test("with the most recent Recent's directory deleted before the dialog opens, t
     // fallback that follows it (plan Overview, "as today").
     await expect(launchError(dialog)).toBeHidden();
     await expect(recentButton(dialog, dirName)).toHaveAttribute("aria-pressed", "false");
-    // REQ-5: nothing restored, so Start in and Model land on the same fallback a
+    // Nothing restored, so Start in and Model land on the same fallback a
     // fresh dialog with no history would show — not the vanished recent's stored values.
     await expect(dialog.getByRole("radio", { name: "auto" })).toBeChecked();
     await expect(dialog.getByRole("radio", { name: "sonnet" })).toBeChecked();
@@ -327,9 +325,9 @@ test("a launch made through the dialog refreshes what the next open restores, wi
   }
 });
 
-// REQ-3's `failed` branch: the open shows the first recent's held values, and when that recent's
+// The `failed` branch: the open shows the first recent's held values, and when that recent's
 // directory has vanished the controller's `failed` outcome (`applyRestore(defaultRestore(touched))`
-// in `initOpen`) returns them to the defaults. E12 above cannot pin that reset: it seeds after the
+// in `initOpen`) returns them to the defaults. the test above cannot pin that reset: it seeds after the
 // page's load-time fetch, so the controller holds no list at its open and the defaults are already
 // on screen. These two seed first, reload so the init fetch knows the recent, delete the directory
 // and hold only GET /api/browse (the open's navigate), so the held values are observable and then

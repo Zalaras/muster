@@ -21,16 +21,16 @@ import {
   stateBadge,
 } from "./helpers/session";
 
-// REQ-7 through REQ-13, REQ-16, REQ-18 — the kb:anchor/state state machine driven end-to-end through
-// the real ingest endpoints, and the client-side sort. Plan acceptance: E3-E9, W6,
-// W9-W11. W7 (a fresh session's card reads `untitled` and `ctx unknown`) is what the rail shows
+// The kb:anchor/state state machine driven end-to-end through
+// the real ingest endpoints, and the client-side sort.
+// The card of a fresh session reads `untitled` and `ctx unknown`; that is what the rail shows
 // for a launched, unbound session and moved to the render tier on 2026-10-20:
 // web/render/focus.spec.ts against the `unbound-sessions` fixture (plans/_audit/relevel/focus.md). One scratch daemon per file via fileDaemon(): every test is title-scoped (its
-// own session, its own card, only relative order asserted in the sort test). E10/W12
-// (daemon restart / stale-rail-during-disconnect) is the exception — it restarts, so it
+// own session, its own card, only relative order asserted in the sort test). The daemon-restart
+// (stale-rail-during-disconnect) test is the exception — it restarts, so it
 // takes the test-scoped `daemon` fixture (a fresh daemon of its own) in the block below.
 //
-// Every test launches its own session (a real POST /api/sessions, using the REQ-19 stub
+// Every test launches its own session (a real POST /api/sessions, using the stub
 // `claude` + per-run tmux socket) into its own scratch directory, then drives the state
 // machine purely with synthesized hook POSTs — mirroring exactly what the real
 // SessionStart wrapper / plain-HTTP hooks / status-line script would send. No real
@@ -150,7 +150,7 @@ test("a session seeded in plan mode shows planning on turn-activity instead of w
       data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
     });
     // SessionStart never carries permission_mode — the latch must still read "plan" from
-    // the launch seed (REQ-9), which is what makes this turn-activity land on "planning".
+    // the launch seed, which is what makes this turn-activity land on "planning".
     await request.post(daemon().ingestURL("hook"), {
       data: rawUserPromptSubmit(claudeId, { permissionMode: "plan" }),
     });
@@ -486,14 +486,14 @@ test.describe("daemon restart and disconnect (E10, W12)", () => {
 
       const banner = page.getByRole("alert");
       await expect(banner).toBeVisible({ timeout: 15_000 });
-      // W12: the rail keeps rendering the stale card while disconnected — not cleared.
+      // The rail keeps rendering the stale card while disconnected — not cleared.
       await expect(card).toBeVisible();
       await expect(stateBadge(card)).toHaveText(/working/i);
 
       await daemon.restart();
       await expect(banner).toBeHidden({ timeout: 15_000 });
 
-      // E10: the fresh snapshot on reconnect reloads the session from persistence.
+      // The fresh snapshot on reconnect reloads the session from persistence.
       await expect(stateBadge(sessionCard(page, "walk-e10-restart"))).toHaveText(/working/i);
     } finally {
       await cleanup();

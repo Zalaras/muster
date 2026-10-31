@@ -262,7 +262,7 @@ describe("issue — fileIssue (POST /api/issues, kb:anchor/issue.create, plan is
   });
 
   it("never surfaces a bearer token in a decoded error message (INV-3's UI-side half — the token itself never reaches this module)", async () => {
-    // INV-3 is a daemon-side invariant (D9); this only proves the client-side decode path
+    // Never leaking a token is a daemon-side invariant; this only proves the client-side decode path
     // does nothing that could reintroduce a token if one somehow appeared server-side.
     const msg = "gh auth token: not logged in. run gh auth login.";
     fetchMock.mockResolvedValue(

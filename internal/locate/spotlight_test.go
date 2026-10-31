@@ -72,7 +72,7 @@ func TestSpotlightFinder_Find_NoCandidatesNoErrorWhenMdfindAbsent(t *testing.T) 
 }
 
 func TestSpotlightFinder_Find_NoCandidatesNoErrorWhenRunFails(t *testing.T) {
-	// D11: any failure from mdfind itself — timeout, non-zero exit, killed — degrades
+	// Any failure from mdfind itself — timeout, non-zero exit, killed — degrades
 	// to (nil, nil); only the walk finder's own errors are real errors.
 	f := &SpotlightFinder{
 		timeout:  time.Second,

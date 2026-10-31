@@ -1,14 +1,13 @@
-// Plan see-added-dirs — REQ-1 to REQ-9 (a live session's added directories, read from every
+// A live session's added directories, read from every
 // status post's `workspace.added_dirs`, show as a `+N` suffix on the Focus header's folder line
-// and in a mouse-hover panel with each directory's folder, branch and path). Plan acceptance
-// E1, E3-E5 and E7; E6 is `make e2e` itself. The daemon, web and Go unit criteria (D*, W*)
+// and in a mouse-hover panel with each directory's folder, branch and path). The daemon, web and Go unit criteria
 // live in their own suites; the one with a browser-visible half the daemon decides is repeated
-// here (W5). What the header and the panel show for a given list — the rows, the ↳ row, the
+// here. What the header and the panel show for a given list — the rows, the ↳ row, the
 // no-data panel, the suffix's drawing beside a long folder name and the panel's placement for
-// 3, 15 and 22 directories (E2, W2, W3, W4, edge case 15) — is a render test in
+// 3, 15 and 22 directories — is a render test in
 // web/render/card-location.spec.ts (re-levelled 2026-10-20, plans/_audit/relevel/misc-core.md).
 //
-// Fixture plan: `daemon` (fresh per test), as the plan's header says — one criterion restarts
+// Fixture plan: `daemon` (fresh per test), because one criterion restarts
 // the daemon and several kill or end sessions. The file passes `repoPoll: "200ms"` through
 // `test.use` so a branch read shows well inside the 15 s expect timeout.
 //
@@ -146,7 +145,7 @@ async function withDirs<T>(dirs: ScratchRepo[], body: () => Promise<T>): Promise
   }
 }
 
-// --- E1: the suffix, and the surfaces that must not change (REQ-1, REQ-6, REQ-8, INV-3) ---
+// --- the suffix, and the surfaces that must not change ---
 
 test("a status post with two added git directories shows +2 on the Focus header's folder line in --fg-muted, with the wire's repos read from disk, and the rail card and tile header show no suffix and keep their hover text (E1, REQ-1, REQ-5, REQ-6, REQ-8, INV-3)", async ({
   page,
@@ -177,7 +176,7 @@ test("a status post with two added git directories shows +2 on the Focus header'
       .poll(() => wireAddedDirs(page, daemon, s.session.id))
       .toEqual([wireOf(first, firstBranch), wireOf(second, secondBranch)]);
 
-    // REQ-8: the rail card and the tile header carry no suffix and their hovers are unchanged.
+    // The rail card and the tile header carry no suffix and their hovers are unchanged.
     const card = railCardByTitle(page, "ad-e1");
     const branch = await branchOf(repo.path);
     await expect(cardFolder(card)).toHaveText(`${repo.name} /`);
@@ -294,9 +293,9 @@ test("a relative entry resolves against the launch directory and a symlinked dup
   }
 });
 
-// --- E2: the panel (REQ-7, REQ-9, W2) ---
+// --- the panel ---
 
-// --- E7 and REQ-5a: the git reading never gates the directory ---
+// --- the git reading never gates the directory ---
 
 test("an added plain directory counts in +N and shows as its folder and path with no branch, gains the branch when it becomes a checkout and loses it again on a detached HEAD (E7, REQ-5, REQ-5a, edge case 17)", async ({
   page,
@@ -354,7 +353,7 @@ test("an added plain directory counts in +N and shows as its folder and path wit
   });
 });
 
-// --- E5: a checkout in an added directory ---
+// --- a checkout in an added directory ---
 
 test("a checkout of a new branch in an added directory shows in the panel within one repo-poll tick (E5, REQ-5)", async ({
   page,
@@ -423,7 +422,7 @@ test("an added directory removed under a live session stays listed with its last
   });
 });
 
-// --- E3 and REQ-3: death empties the list ---
+// --- death empties the list ---
 
 test("stopping the session removes the suffix and the panel's Added section (E3, REQ-3, INV-1, REQ-6)", async ({
   page,
@@ -604,7 +603,7 @@ test("a resumed session starts with no directories until its first status post r
   });
 });
 
-// --- E4 and REQ-4: the list survives a restart and a /clear ---
+// --- the list survives a restart and a /clear ---
 
 test("restarting the daemon while the session is alive keeps +2 and the branches in the panel (E4, REQ-4, D8)", async ({
   page,
@@ -703,7 +702,7 @@ for (const order of ["end-then-start", "start-then-end"] as const) {
   });
 }
 
-// --- W5: the daemon-down state ---
+// --- the daemon-down state ---
 
 test("with the daemon down the panel still opens on hover with the last-known directories and branches (W5, REQ-7, edge case 16)", async ({
   page,

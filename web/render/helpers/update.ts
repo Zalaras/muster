@@ -1,4 +1,4 @@
-// Locators for the Settings dialog's Updates section (plan auto-update): the masthead
+// Locators for the Settings dialog's Updates section: the masthead
 // badge dot, the Available readout and the three action buttons. Pure DOM — no daemon, no
 // fixture knowledge — so both tiers use it: the render spec here directly
 // (`web/render/update.spec.ts`), the E2E journeys through `web/e2e/helpers/update.ts`,
@@ -9,7 +9,7 @@
 // accessible name where it pins those instead.
 import type { Locator, Page } from "./harness";
 
-/** `#settings-button .update-dot` — visible iff badged (REQ-9/INV-6). `aria-hidden`,
+/** `#settings-button .update-dot` — visible iff badged. `aria-hidden`,
  * so never located by role. */
 export function settingsBadgeDot(page: Page): Locator {
   return page.locator("#settings-button .update-dot");
@@ -21,21 +21,21 @@ export function updateAvailableReadout(dialog: Locator): Locator {
 }
 
 /** `#update-apply-button`, exact accessible name "Update" — `exact: true` so it never
- * matches "Update and restart"/"Restart now". Absent for a `dev` install (REQ-13). */
+ * matches "Update and restart"/"Restart now". Absent for a `dev` install. */
 export function updateApplyButton(dialog: Locator): Locator {
   return dialog.getByRole("button", { name: "Update", exact: true });
 }
 
-/** Plan rail-card-improvements-2 REQ-7/REQ-10: `#update-check-button`, accessible name
+/** `#update-check-button`, accessible name
  * "Check now" — the first child of `.update-actions`, ahead of `updateApplyButton`.
- * Disabled whenever `canCheck` is false or a check of its own is in flight (REQ-13). */
+ * Disabled whenever `canCheck` is false or a check of its own is in flight. */
 export function updateCheckButton(dialog: Locator): Locator {
   return dialog.getByRole("button", { name: "Check now", exact: true });
 }
 
 /** `#update-restart-button` — located by id rather than role+name, because its
- * accessible name changes ("Update and restart" -> "Restart now" after a swap, REQ-25).
- * Absent for a `dev` install (REQ-13). */
+ * accessible name changes ("Update and restart" -> "Restart now" after a swap).
+ * Absent for a `dev` install. */
 export function updateRestartButton(dialog: Locator): Locator {
   return dialog.locator("#update-restart-button");
 }

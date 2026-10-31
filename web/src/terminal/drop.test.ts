@@ -9,7 +9,7 @@ import {
   noticeForFailure,
 } from "./drop";
 
-// Plan file-drop-fix REQ-4: Terminal.app-style path escaping — a backslash before every
+// Terminal.app-style path escaping — a backslash before every
 // space and every character in the named set; everything else (including non-ASCII)
 // passes through unchanged.
 describe("escapePath (REQ-4)", () => {
@@ -19,7 +19,7 @@ describe("escapePath (REQ-4)", () => {
 
   it("escapes every character in the required set, once each, in order", () => {
     // Deliberately typed out (not re-derived from the implementation's own Set) so this
-    // is an independent check of REQ-4's literal character list, not a tautology.
+    // is an independent check of the literal character list, not a tautology.
     const raw = ` \\!"#$&'()*,;<=>?[]^\`{|}~`;
     const expected =
       "\\ \\\\\\!\\\"\\#\\$\\&\\'\\(\\)\\*\\,\\;\\<\\=\\>\\?\\[\\]\\^\\`\\{\\|\\}\\~";
@@ -27,7 +27,7 @@ describe("escapePath (REQ-4)", () => {
   });
 
   it("leaves path separators, dots, hyphens and underscores unchanged where not in the escape set", () => {
-    // '/', '.', '-', '_' are explicitly called out by REQ-4 as passing through unchanged.
+    // '/', '.', '-', '_' are explicitly called out as passing through unchanged.
     expect(escapePath("/Users/bob/my-file_v2.final.txt")).toBe("/Users/bob/my-file_v2.final.txt");
   });
 
@@ -66,7 +66,7 @@ describe("MAX_DROP_BYTES (REQ-7)", () => {
   });
 });
 
-// REQ-2/REQ-10/edge case 15: files win over text whenever any file is present, even
+// Files win over text whenever any file is present, even
 // alongside a text/plain item; text only when no files but a text/plain item exists;
 // "none" otherwise (left for the document-level guard).
 describe("classifyDrop (REQ-2/REQ-10, edge case 15)", () => {
@@ -97,7 +97,7 @@ describe("classifyDrop (REQ-2/REQ-10, edge case 15)", () => {
   });
 });
 
-// REQ-6: the in-flight notice text, verbatim basename, trailing U+2026.
+// The in-flight notice text, verbatim basename, trailing U+2026.
 describe("locatingText (REQ-6)", () => {
   it("builds the in-flight notice with the verbatim basename and a trailing ellipsis", () => {
     expect(locatingText("Screenshot 2026-08-30 at 14.35.00.png")).toBe(
@@ -116,7 +116,7 @@ describe("locatingText (REQ-6)", () => {
   });
 });
 
-// REQ-6 / Testable UI Elements: exact failure notice text per outcome kind, em dash
+// Testable UI Elements: exact failure notice text per outcome kind, em dash
 // (U+2014) with spaces, matching the overlay glyph.
 describe("noticeForFailure (REQ-6, Testable UI Elements)", () => {
   it("renders the not_located notice with the verbatim name", () => {

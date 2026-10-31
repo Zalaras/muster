@@ -1,13 +1,13 @@
-// Plan ui-text-and-focus — REQ-9 through REQ-16 (the daemon-owned title override and
-// its shared rename editor, #10). Plan acceptance: E4-E6, E8-E9, E11-E13. Escape
-// cancelling an open field before any PUT (E7) and a 300-character title's clipping in
+// The daemon-owned title override and
+// its shared rename editor, #10). Escape
+// cancelling an open field before any PUT and a 300-character title's clipping in
 // the header are render tests in web/render/rename.spec.ts (re-levelled 2026-10-20,
 // plans/_audit/relevel/misc-core.md).
 //
 // Every test takes the per-test `daemon` fixture (helpers/fixtures.ts): the mainhead
 // rename tests rely on auto-focus of "the only session" (they never click their own
 // card), the Tiles tests assert exact grid membership/order, one restarts the daemon,
-// and E5 counts `PUT /api/prefs` requests — all daemon-global, none neighbour-safe.
+// and one counts `PUT /api/prefs` requests — all daemon-global, none neighbour-safe.
 import { expect, test } from "./helpers/fixtures";
 import { queryEvents } from "./helpers/db";
 import { envelopedSessionStart, envelopedStatusLineFull } from "./helpers/payloads";
@@ -151,7 +151,7 @@ test("clearing the field reverts the title to Claude's last-known name (E6)", as
         message: "waiting for the SessionStart and status-line posts to both persist",
       })
       .toBe(2);
-    // The override still wins on the wire while it's set (INV-1) — sanity before the clear.
+    // The override still wins on the wire while it's set — sanity before the clear.
     await expect(mainheadRenameButton(page)).toHaveText("hunting flake e6");
 
     await mainheadRenameButton(page).click();
@@ -192,14 +192,14 @@ test("an override survives a daemon restart, on the mainhead/rail card, and in T
     await daemon.restart();
     await page.reload();
 
-    // E8: Focus view — the overridden session's rail card shows the override; focusing
+    // Focus view — the overridden session's rail card shows the override; focusing
     // it puts the same text on the mainhead.
     const cardOverridden = railCard(page, "restarted override");
     await expect(cardOverridden).toBeVisible({ timeout: 15_000 });
     await cardOverridden.click();
     await expect(page.locator("#mainhead .name")).toHaveText("restarted override");
 
-    // E9: Tiles — with 5 sessions and the default 2x2 grid (capacity 4), exactly one
+    // Tiles — with 5 sessions and the default 2x2 grid (capacity 4), exactly one
     // is stripped by manual (creation) order; that must be the 5th/overridden one, so
     // its strip card is the first place the override title has to render correctly.
     await page.getByRole("button", { name: "Tiles" }).click();
@@ -267,7 +267,7 @@ test("renaming a live tile's header updates that tile, leaves a neighbour tile u
     await expect(field).toBeFocused();
     await expect(field).toHaveValue("rename-tile-a");
 
-    // E12: undraggable exactly while this tile's edit is open.
+    // Undraggable exactly while this tile's edit is open.
     await expect(handleA).toHaveAttribute("draggable", "false");
 
     await field.fill("renamed via tile");
@@ -371,7 +371,7 @@ test("a status-line post arriving mid-edit leaves the open mainhead field's valu
   }
 });
 
-// review cycle 1, Critical 1 / Major 2 ("[e2e-specs] No spec covers REQ-15's
+// review cycle 1, Critical 1 / Major 2 ("[e2e-specs] No spec covers the
 // view-switch cancel"): a view switch must cancel an open rename with NO PUT, on
 // both surfaces and by both mechanisms web-impl's fix log distinguishes — a cmd-backslash
 // keydown (never moves DOM focus, caught by the `applyPrefsFromSnapshot` cancel) and a
@@ -525,23 +525,23 @@ test("switching to Tiles while the mainhead rename is open sends no PUT and leav
   }
 });
 
-// Plan claude-status-fixes REQ-6/REQ-7 (follow-up from ui-text-and-focus review cycle 2
+// Claude-status fixes (follow-up from ui-text-and-focus review cycle 2
 // Minor 1): the view-switcher `mousedown` listeners at web/src/main.ts:884-885
 // unconditionally cancel any open rename today. This plan guards them — cancel only on
 // a primary-button mousedown whose target view differs from the current view — so the
 // two cases below are new behaviour, not yet built; EXPECTED TO FAIL until web-impl
 // lands the guard. The three existing "switching to..." tests above (cmd-backslash, the
 // masthead Focus click, and the masthead Tiles click) all cancel via the *inactive*
-// segment and are unaffected by this change — deliberately left unedited as REQ-7's
+// segment and are unaffected by this change — deliberately left unedited as
 // regression pins.
 //
 // Update (validate mode): the authoring pass flagged that the plan's Affected Files
 // section named only the two `mousedown` listeners, leaving the paired `click` →
 // `requestView()` listeners unguarded — which would have left a same-view
-// `PUT /api/prefs` firing even after this plan landed, contradicting REQ-6's own prose
+// `PUT /api/prefs` firing even after that work landed, contradicting the requirement's own prose
 // ("no prefs request... for the view"). web-impl's implementation log records guarding
 // the `click` listeners too, as a superset of the plan's stated scope, per the
-// orchestrator's explicit instruction. E5 below now asserts that absence directly.
+// orchestrator's explicit instruction. The test below now asserts that absence directly.
 
 test("clicking the pressed view segment while its own rename editor is open commits instead of cancelling, on both the mainhead and a tile header (E5)", async ({
   page,
@@ -585,7 +585,7 @@ test("clicking the pressed view segment while its own rename editor is open comm
       "true",
     );
     expect(titlePuts).toBe(1);
-    // REQ-6 ("no prefs request... for the view"): the already-active segment's click
+    // ("no prefs request... for the view"): the already-active segment's click
     // guard now also skips `requestView`, so this commit-only click sends no
     // `PUT /api/prefs` — web-impl's fix log confirms the click listener, not just the
     // mousedown listener, was guarded. No view switch has happened yet at all, so 0.
@@ -649,10 +649,10 @@ test("a right-click on the inactive Tiles segment while a mainhead rename is ope
     await mainheadRenameButton(page).click();
     await mainheadRenameField(page).fill("right click should commit");
 
-    // A right-click's mousedown still fires (any button), but REQ-7 only cancels on
+    // A right-click's mousedown still fires (any button), but the guard only cancels on
     // e.button === 0 — and no `click` event follows a non-primary button, so
     // `requestView` never runs either. The native mousedown-default blur still
-    // reaches the field's own `onBlur`, which commits per ordinary REQ-14 semantics.
+    // reaches the field's own `onBlur`, which commits per ordinary semantics.
     await page.getByRole("button", { name: "Tiles" }).click({ button: "right" });
 
     await expect(mainheadRenameField(page)).toHaveCount(0);
@@ -692,8 +692,8 @@ test("clicking an unrelated control (New session) still commits an open mainhead
     await mainheadRenameField(page).fill("committed via blur");
 
     // "New session" is not one of the two view-switch buttons carrying the
-    // mousedown-cancel guard, so this is REQ-14's ordinary path: the field's own
-    // `onBlur` commits, same as it always did. Plan rail-card-improvements REQ-6 moved
+    // mousedown-cancel guard, so this is the ordinary path: the field's own
+    // `onBlur` commits, same as it always did. The rail-card-improvements work moved
     // the button out of the rail head into the masthead (`helpers/railcards.ts`), so it
     // is no longer scoped under `#view-focus`.
     await newSessionButton(page).click();

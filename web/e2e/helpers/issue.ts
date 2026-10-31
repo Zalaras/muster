@@ -18,7 +18,7 @@ export function issueSessionSelect(dialog: Locator): Locator {
   return dialog.getByRole("combobox", { name: "Session" });
 }
 
-/** The dashboard-scope option's exact text (REQ-2) — em dashes (U+2014), single spaces,
+/** The dashboard-scope option's exact text — em dashes (U+2014), single spaces,
  * as pinned by the Testable UI Elements table. */
 export const DASHBOARD_SCOPE_OPTION_TEXT = "— none (dashboard only) —";
 
@@ -49,7 +49,7 @@ export function issuePreviewHeading(dialog: Locator): Locator {
   return dialog.getByRole("heading", { name: "Payload preview" });
 }
 
-/** `#issue-captured-at` — the "captured HH:MM:SSZ" meta line (REQ-20), no pinned role. */
+/** `#issue-captured-at` — the "captured HH:MM:SSZ" meta line, no pinned role. */
 export function issueCapturedAt(dialog: Locator): Locator {
   return dialog.locator("#issue-captured-at");
 }
@@ -66,7 +66,7 @@ export function issueCancelButton(dialog: Locator): Locator {
   return dialog.getByRole("button", { name: "Cancel" });
 }
 
-/** Close button — hidden until a successful post (REQ-9). */
+/** Close button — hidden until a successful post. */
 export function issueCloseButton(dialog: Locator): Locator {
   return dialog.getByRole("button", { name: "Close" });
 }

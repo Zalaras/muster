@@ -1,16 +1,15 @@
-// Plan stale-dirs-models-branches — REQ-1 to REQ-17 (a card's branch follows checkouts, a
+// A card's branch follows checkouts, a
 // `↳` block shows where Claude is when it works in another checkout, the model name is
 // never blank or stale after a bind, and long folder and branch names wrap at the `/`).
-// Plan acceptance E1-E9 and E12; E13 lives in rail-layout.spec.ts (its E11, rewritten).
-// The display properties — E10, E11, REQ-12's line heights, REQ-13's fit at every width and
-// REQ-16's tokens — are render tests in web/render/card-location.spec.ts since 2026-10-20
+// The display properties — the line heights, the fit at every width and
+// the tokens — are render tests in web/render/card-location.spec.ts since 2026-10-20
 // (plans/_audit/test-audit-2026-10-20-relevel.md): what the card and the Focus header show
 // for a given snapshot needs no daemon to falsify. What stays here is every journey: a
 // checkout, hook or status-line post changing a card, and resume.
 //
 // Fixture plan: `startDaemon` in every test, each passing `repoPoll: "200ms"` (via
 // `startLocationDaemon`) so a checkout shows well inside the 15 s expect timeout, with a
-// per-test scratch git repo as the launch directory. One test (REQ-6) passes `"0"` on
+// per-test scratch git repo as the launch directory. One test passes `"0"` on
 // purpose: the timer is off and only the nudge a reported move triggers can show it.
 //
 // Claude Code is faked. A branch change is real `git` in the scratch repo (the daemon reads
@@ -144,7 +143,7 @@ test("a detached HEAD leaves no repo to show, so the card falls back to the fold
     await expect(cardBranch(card)).toHaveText("main");
 
     await git(repo.path, "checkout", "--detach");
-    // REQ-10: with `repo: null` the block is one line, the basename, with no slash.
+    // With `repo: null` the block is one line, the basename, with no slash.
     await expect(cardFolder(card)).toHaveText(repo.name);
     await expect(cardBranch(card)).toHaveCount(0);
   } finally {
@@ -228,7 +227,7 @@ test("a main-agent hook whose cwd is a worktree under .claude/worktrees shows th
   const repo = await scratchRepo();
   try {
     const daemon = await startLocationDaemon(startDaemon);
-    // The ↳ block hides first as the header narrows (REQ-2 a), and with the uncapped readout (REQ-1)
+    // The ↳ block hides first as the header narrows, and with the uncapped readout
     // the scratch repo's row no longer fits beside the cluster in the default 1280px window.
     await page.setViewportSize({ width: 1400, height: 720 });
     await page.goto(daemon.dashboardUrl);
@@ -243,7 +242,7 @@ test("a main-agent hook whose cwd is a worktree under .claude/worktrees shows th
     await expect(cardMovedLead(card)).toHaveText("↳");
     await expect(cardMovedFolder(card)).toHaveText("probewt /");
     await expect(cardMovedBranch(card)).toHaveText("worktree-probewt");
-    // The card itself stays on the launch directory (REQ-8's display side).
+    // The card itself stays on the launch directory (the display side).
     await expect(cardFolder(card)).toHaveText(`${repo.name} /`);
     await expect(cardBranch(card)).toHaveText("main");
 
@@ -362,7 +361,7 @@ test("the Focus header's location hover carries the repo, the directory and, whi
     const branch = await git(repo.path, "rev-parse", "--abbrev-ref", "HEAD");
     const wtBranch = await git(wt.path, "rev-parse", "--abbrev-ref", "HEAD");
 
-    // Plan see-added-dirs REQ-7: the readout's `title` is gone; the same facts — the repo and
+    // The readout's `title` is gone; the same facts — the repo and
     // branch over the launch directory, and while moved where Claude is and its branch — are
     // the location panel's rows.
     await expect(mainheadLoc(page)).not.toHaveAttribute("title");
@@ -422,7 +421,7 @@ test("a move outside any checkout shows the folder name alone with no branch lin
     await expect(mainheadClaudeAt(page).locator(".rb")).toHaveCount(0);
 
     const branch = await git(repo.path, "rev-parse", "--abbrev-ref", "HEAD");
-    // Plan see-added-dirs REQ-7: the readout's `title` is gone; the panel's `↳` row is the plain
+    // The readout's `title` is gone; the panel's `↳` row is the plain
     // directory's folder over its path with no branch (the old hover's three lines).
     await expect(mainheadLoc(page)).not.toHaveAttribute("title");
     await expectLocationPanel(page, {
@@ -485,8 +484,7 @@ test("a subagent-marked hook whose cwd is a worktree shows no ↳, while the sam
     await post(rawStop(claudeId, { promptId: "p1", cwd: repo.path }));
     await expect(stateBadge(card)).toHaveText(/idle/i);
 
-    // A marked event for the closed p1 moves the card to working (claude-status-fixes
-    // REQ-2), so the badge proves the daemon applied it before the absence is asserted.
+    // A marked event for the closed p1 moves the card to working (claude-status-fixes), so the badge proves the daemon applied it before the absence is asserted.
     await post(rawPostToolUse(claudeId, { promptId: "p1", agentId: "agent-1", cwd: wt.path }));
     await expect(stateBadge(card)).toHaveText(/working/i);
     await settleFor(page, 800);

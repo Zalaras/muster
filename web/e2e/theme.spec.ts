@@ -20,18 +20,16 @@ import {
   themeRadio,
 } from "./helpers/theme";
 
-// Plan new-ui-design-colors — REQ-7, REQ-9 through REQ-15, INV-1 through INV-4, INV-7.
-// Plan acceptance: E4, E6-E12, E15, plus dedicated INV-1/INV-7 regression tests. E1
-// (`make e2e`) is the suite itself, not a spec. The Settings dialog's structure (E2), what
-// a fresh prefs state paints (E3), the head hint's first paint (E5) and the per-theme
-// computed styles of the header's buttons and the cards' badges (E13, E14) are render tests
+// Theme journeys, plus dedicated invariant regression tests. The Settings dialog's structure, what
+// a fresh prefs state paints, the head hint's first paint and the per-theme
+// computed styles of the header's buttons and the cards' badges are render tests
 // in web/render/theme.spec.ts (re-levelled 2026-10-20, plans/_audit/relevel/misc-core.md).
 // W* criteria (resolveTheme table, parsePrefs/parseSnapshot defaults, style.css/pane.ts
 // shape) are Vitest's job per the plan's Affected Files > Tests section, not this file's.
 //
 // The Claude Code global config file the daemon's poller reads is faked entirely via
 // `ScratchDaemonOptions.claudeConfigContent` / `ScratchDaemon.writeClaudeConfig()`
-// (helpers/daemon.ts, REQ-18) — never the real file (INV-5, unconditional
+// (helpers/daemon.ts) — never the real file (unconditional
 // `-claude-config-file` on every scratch daemon). Nothing here launches a real `claude`;
 // session state is driven purely through synthesized hook POSTs the same way every other
 // suite in this project does.
@@ -41,8 +39,8 @@ import {
 // a daemon across concurrently running tests (this config is fullyParallel) would race
 // those writes. Tests on the default options take the per-test `daemon` fixture
 // (helpers/fixtures.ts); the five that need a scratch Claude config / fast poll
-// (E9, E10, E11, E15, INV-1) call `startDaemon(opts)` inline instead, because grouping
-// them under describes with `daemonOptions` would split the file out of its E-order.
+// (the config and poll tests) call `startDaemon(opts)` inline instead, because grouping
+// them under describes with `daemonOptions` would split the file out of its test order.
 
 test("choosing Dark sets html[data-theme=dark] without a reload and changes body's background from Instrument (E4)", async ({
   page,
@@ -59,7 +57,7 @@ test("choosing Dark sets html[data-theme=dark] without a reload and changes body
   const bodyAfter = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(bodyAfter).not.toBe(bodyBefore);
 
-  // REQ-9: the radio fires the PUT immediately — confirm it actually persisted
+  // The radio fires the PUT immediately — confirm it actually persisted
   // server-side, not merely rendered.
   const stateRes = await page.request.get(`${daemon.baseURL}/api/state`);
   expect(stateRes.status()).toBe(200);
@@ -143,7 +141,7 @@ test("Tiles: choosing a theme re-themes both live tiles' grounds (E8, INV-3 Tile
       data: envelopedSessionStart("claude-e8-b", await envelopeOpts(sessionB, daemon)),
     });
 
-    // exact: true — sanctioned repair (plan ui-text-and-focus, REQ-13/Testable UI
+    // exact: true — sanctioned repair (ui-text-and-focus, Testable UI
     // Elements): live tile headers now host a rename trigger whose accessible name
     // is the display title, and this test's own fixture title ("tiles-e8-a")
     // contains "tiles" as a substring, so a non-exact match on the view switcher's
@@ -195,7 +193,7 @@ test("with a fast poll, flipping the Claude config from dark to light changes da
 
     await daemon.writeClaudeConfig(claudeConfigJSON("light"));
     await expect.poll(() => htmlClaudeFamily(page), { timeout: 2_000 }).toBe("light");
-    // INV-2: family changed; the pinned theme did not.
+    // Family changed; the pinned theme did not.
     expect(await htmlTheme(page)).toBe("instrument");
 
     const region = terminalRegion(page, "poll-e9");
@@ -245,7 +243,7 @@ test("with pref pinned to Dark, flipping the Claude config to light changes only
 
     await daemon.writeClaudeConfig(claudeConfigJSON("light"));
     await expect.poll(() => htmlClaudeFamily(page), { timeout: 2_000 }).toBe("light");
-    // INV-2: data-theme is unaffected by the family change while the pref names a
+    // Data-theme is unaffected by the family change while the pref names a
     // known theme.
     expect(await htmlTheme(page)).toBe("dark");
 
@@ -339,7 +337,7 @@ test("theme resolution walks follow×dark -> dark×dark -> follow×light -> ligh
   await themeRadio(dialog, "Dark").check();
   await expect.poll(() => htmlTheme(page)).toBe("dark");
 
-  // Flip family to light while the pref stays "dark" — INV-2: theme unaffected.
+  // Flip family to light while the pref stays "dark": theme unaffected.
   await daemon.writeClaudeConfig(claudeConfigJSON("light"));
   await expect.poll(() => htmlClaudeFamily(page), { timeout: 2_000 }).toBe("light");
   expect(await htmlTheme(page)).toBe("dark");
@@ -368,7 +366,7 @@ test("a rejected PUT /api/prefs never persists or applies; the Settings dialog c
   // radio is clickable) — isolates "a click that never reaches the daemon" from the
   // separate daemon-down scenario below. A native <input type="radio"> flips its own
   // `checked` synchronously on click regardless of app JS (unavoidable HTML semantics,
-  // not something INV-7 governs); what INV-7 governs is *theme state*, which must not
+  // not something the theme invariant governs); what it governs is *theme state*, which must not
   // move without a broadcast.
   await page.route("**/api/prefs", (route) => route.abort("failed"));
   await themeRadio(dialog, "Dark").click();
@@ -376,7 +374,7 @@ test("a rejected PUT /api/prefs never persists or applies; the Settings dialog c
   await page.unroute("**/api/prefs");
 
   // Daemon-down: States (new-ui-design-colors) — "The Settings dialog closes with the
-  // other dialogs ... since a PUT cannot land." Also confirms INV-4: neither theme
+  // other dialogs ... since a PUT cannot land." Also confirms neither theme
   // attribute is touched by the disconnect itself.
   await daemon.kill();
   const banner = page.getByRole("alert");
@@ -388,7 +386,7 @@ test("a rejected PUT /api/prefs never persists or applies; the Settings dialog c
   await daemon.restart();
   await expect(banner).toBeHidden({ timeout: 15_000 });
 
-  // REQ-9/INV-7: the checked radio only ever reflects the daemon's own broadcast —
+  // The checked radio only ever reflects the daemon's own broadcast —
   // neither the blocked click nor the outage ever persisted "dark" server-side, so the
   // reconnect snapshot syncs the reopened dialog's radio to the true "follow" pref.
   const dialog2 = await openSettingsDialog(page);
@@ -402,7 +400,7 @@ test("a rejected PUT /api/prefs never persists or applies; the Settings dialog c
 });
 
 // Sanity that getState (used elsewhere in this suite) still resolves against a
-// theme-carrying snapshot — REQ-10, guards against a `theme` field silently vanishing
+// theme-carrying snapshot — guards against a `theme` field silently vanishing
 // from GET /api/state for a plain, no-session daemon.
 test("GET /api/state always carries prefs.theme and claudeTheme.family (REQ-10, REQ-15)", async ({
   page,
@@ -417,7 +415,7 @@ test("GET /api/state always carries prefs.theme and claudeTheme.family (REQ-10, 
   expect(state.claudeTheme.family).toBe("unknown");
 });
 
-// Plan general-cleanup — REQ-9: an open pop-out follows a live theme change.
+// An open pop-out follows a live theme change.
 test("an open pop-out follows a live theme change without reload (E5, REQ-9)", async ({
   page,
   daemon,
@@ -426,7 +424,7 @@ test("an open pop-out follows a live theme change without reload (E5, REQ-9)", a
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     // decideInitialOpen has nothing to open in a directory with no plan and no files
-    // (reader.spec.ts's E4), and popOutLink is null whenever openPath is null
+    // (see reader.spec.ts), and popOutLink is null whenever openPath is null
     // (buildBarVM) — seed a file and open it so the pop-out link actually renders.
     await buildMarkdownFixtureTree(dir);
     await page.goto(daemon.dashboardUrl);

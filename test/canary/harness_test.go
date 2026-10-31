@@ -39,7 +39,7 @@ import (
 //	B  headless, unmanaged (no $MUSTER_SESSION) — must produce zero posts    (1 haiku turn)
 //	C  headless, unauthenticated CLAUDE_CONFIG_DIR, once per launch permission mode
 //	   ($MUSTER_SESSION=43/45/46/47/49/53: no flag, plan, acceptEdits, auto, explicit
-//	   default — REQ-9's added row, bypassPermissions)                       (0 tokens)
+//	   default (the added row), bypassPermissions)                           (0 tokens)
 //	D  interactive in tmux on a scratch socket ($MUSTER_SESSION=44), launched with
 //	   Title:"Muster Canary", PermissionMode:"plan", "say hi" — then a wait for the
 //	   idle_prompt Notification before the pane is killed                    (1 haiku turn)
@@ -47,7 +47,7 @@ import (
 //	   socket ($MUSTER_SESSION=48), through the exact BuildArgv+ResumeSessionID chain
 //	   internal/server's Resume uses; one turn asking Claude to call ExitPlanMode, left
 //	   unanswered by design — the dialog is never driven                    (1 haiku turn)
-//	F  REQ-9's zero-token production CheckModel run against the installed binary: an
+//	F  the zero-token production CheckModel run against the installed binary: an
 //	   unrecognised custom model string and the recognised haiku preset, both --bare
 //	   so no tokens are spent and no hooks fire                              (0 tokens)
 //	G  interactive ($MUSTER_SESSION=50): a sleeping Bash call interrupted with Esc, then a
@@ -84,7 +84,7 @@ const (
 	sessionUnauthAccept   int64 = 46 // unauthenticated, --permission-mode acceptEdits
 	sessionUnauthAuto     int64 = 47 // unauthenticated, --permission-mode auto (haiku model-gated to default)
 	sessionResume         int64 = 48 // run E: resume of sessionInteract's claude session_id
-	sessionUnauthDefault  int64 = 49 // unauthenticated, explicit --permission-mode default (REQ-9)
+	sessionUnauthDefault  int64 = 49 // unauthenticated, explicit --permission-mode default
 	sessionInterrupt      int64 = 50 // run G: Esc during a running Bash call
 	sessionToolBatch      int64 = 51 // run H: parallel Reads, PostToolUse responses held
 	sessionFailedTurn     int64 = 52 // run J: interactive, every API call fails with a 429
@@ -100,7 +100,7 @@ const (
 
 	headlessPrompt    = "Run exactly this shell command and nothing else, then stop: echo hi"
 	interactivePrompt = "say hi"
-	// exitPlanPrompt drives run E's PermissionRequest without ever answering it (REQ-5): the
+	// exitPlanPrompt drives run E's PermissionRequest without ever answering it: the
 	// harness sends this once, waits for PermissionRequest then the permission_prompt
 	// Notification, and kills the pane without answering the dialog.
 	exitPlanPrompt = "Call the ExitPlanMode tool now with a one-line plan; do nothing else."
@@ -122,15 +122,15 @@ const (
 	// wait gives ~12 ticks; TestRefreshIntervalIsSeconds asserts far fewer than that.
 	refreshIntervalSeconds = 5
 
-	// unrecognizedCanaryModel is REQ-9's model string the installed binary's catalog must
+	// unrecognizedCanaryModel is the model string the installed binary's catalog must
 	// not describe; run F asserts CheckModel classifies it ModelUnrecognised.
 	unrecognizedCanaryModel = "muster-canary-unrecognized-model"
 )
 
-// unauthRuns is REQ-1's permission-mode sweep on the zero-token unauthenticated path: one
-// run per launch permission mode, "" meaning no --permission-mode flag at all. REQ-9 adds
+// unauthRuns is the permission-mode sweep on the zero-token unauthenticated path: one
+// run per launch permission mode, "" meaning no --permission-mode flag at all. The sweep adds
 // the explicit "default" row alongside the pre-existing no-flag row, since BuildArgv now
-// sends default explicitly too (REQ-4) and the explicit spelling's wire mapping
+// sends default explicitly too and the explicit spelling's wire mapping
 // (kb:fact/permission-mode-flag-on-wire) was otherwise unswept here.
 var unauthRuns = []struct {
 	session int64
@@ -158,9 +158,9 @@ const forceEnv = "MUSTER_CANARY_FORCE"
 // TestMain, before m.Run(), so every test observes the same decision.
 var skipReason string
 
-// skipDecision is the pure decision skipReason is computed from (test/canary/skip_test.go,
-// D17): the harness/live tiers skip iff installed equals verified and neither force nor
-// offline is set. offline always wins (INV-4) — harness(t)/live(t) already check it
+// skipDecision is the pure decision skipReason is computed from (test/canary/skip_test.go):
+// the harness/live tiers skip iff installed equals verified and neither force nor
+// offline is set. offline always wins — harness(t)/live(t) already check it
 // themselves before ever consulting skipReason, but skipDecision itself honours it too so
 // a caller that skips that check first still gets the right answer.
 func skipDecision(installed, verified string, force, offline bool) (skip bool, reason string) {
@@ -205,7 +205,7 @@ type fixture struct {
 		trustPromptSeen bool
 		sessionStartAt  time.Time
 		stopAt          time.Time
-		idlePromptAt    time.Time // run D: when the idle_prompt Notification arrived (REQ-3)
+		idlePromptAt    time.Time // run D: when the idle_prompt Notification arrived
 		claudeSessionID string    // run D's SessionStart.session_id, for run E's --resume
 		transcriptPath  string    // run D's SessionStart.transcript_path, cross-checked against E
 
@@ -220,7 +220,7 @@ type fixture struct {
 		postClearClaudeID string // the session_id /clear minted in the same pane
 	}
 
-	// modelCheck holds run F's REQ-9 verdicts: CheckModel run against the installed
+	// modelCheck holds run F's verdicts: CheckModel run against the installed
 	// binary for an unrecognised custom model and the recognised haiku preset.
 	modelCheck struct {
 		unrecognisedVerdict claudecode.ModelVerdict
@@ -500,8 +500,8 @@ func baseEnv() []string {
 }
 
 // headless runs one headless `echo hi` turn. permissionMode, when non-empty, is passed as
-// --permission-mode (REQ-1's unauthenticated sweep); empty omits the flag entirely, as
-// every run before REQ-1 did.
+// --permission-mode (the unauthenticated sweep); empty omits the flag entirely, as
+// every earlier run did.
 func (f *fixture) headless(ctx context.Context, permissionMode string, extraEnv ...string) (string, error) {
 	flags := []string{"--allowedTools", "Bash", "--output-format", "json"}
 	if permissionMode != "" {
@@ -556,7 +556,7 @@ func (f *fixture) runB(ctx context.Context) error {
 	return nil
 }
 
-// runC performs REQ-1's four zero-token unauthenticated headless runs, one per launch
+// runC performs the four zero-token unauthenticated headless runs, one per launch
 // permission mode (unauthRuns), all against the same unauth config dir.
 func (f *fixture) runC(ctx context.Context) error {
 	configDir := filepath.Join(f.root, "unauth-config")
@@ -592,7 +592,7 @@ func (f *fixture) runD(ctx context.Context) error {
 	}
 	f.tmuxClient = tmux.New(socket)
 
-	// Title + PermissionMode:"plan" (REQ-2): the cross-check that the unauthenticated
+	// Title + PermissionMode:"plan": the cross-check that the unauthenticated
 	// sweep in runC reflects the flag, since the flag→wire mapping was measured
 	// authenticated only (plan Carried-over measurements).
 	argv := claudecode.BuildArgv(claudeBin, claudecode.LaunchParams{
@@ -634,7 +634,7 @@ func (f *fixture) runD(ctx context.Context) error {
 		return false
 	})
 
-	// REQ-3: wait for the idle_prompt Notification (measured 60.03s after Stop on
+	// Wait for the idle_prompt Notification (measured 60.03s after Stop on
 	// 2.1.259) before killing the pane, bounded at 90s per the plan's decision that a
 	// timing assertion on a shared machine is a flake generator — only the arrival, not
 	// the gap, is asserted.
@@ -773,10 +773,10 @@ func (f *fixture) clearStep(ctx context.Context, target string) {
 }
 
 // runE relaunches run D's claude session_id through the exact production
-// BuildArgv+ResumeSessionID chain internal/server's Resume uses (REQ-4), in a second
+// BuildArgv+ResumeSessionID chain internal/server's Resume uses, in a second
 // tmux session on the same socket, then drives the ExitPlanMode sequence to
 // PermissionRequest and the permission_prompt Notification WITHOUT answering the dialog
-// (REQ-5) — never send Enter, Down or Escape after the prompt.
+// — never send Enter, Down or Escape after the prompt.
 func (f *fixture) runE(ctx context.Context) error {
 	if f.interactive.claudeSessionID == "" {
 		return fmt.Errorf("run D produced no claude session_id to resume")
@@ -807,11 +807,11 @@ func (f *fixture) runE(ctx context.Context) error {
 		return fmt.Errorf("no permission_prompt Notification within 30s of PermissionRequest; hooks seen: %v", f.hookTypes(sessionResume))
 	}
 
-	// Kill without ever answering the dialog (REQ-5) — no Enter/Down/Escape past this point.
+	// Kill without ever answering the dialog — no Enter/Down/Escape past this point.
 	return f.killPane(ctx, interactiveResumeTmuxID)
 }
 
-// runF is REQ-9's zero-token production check (D13): it calls the exact claudecode.CheckModel
+// runF is the zero-token production check: it calls the exact claudecode.CheckModel
 // internal/server wires up, against the installed `claude` binary, for a model string the
 // catalog cannot know (unrecognizedCanaryModel) and one it must (haikuModel — the same
 // preset every other run in this harness already launches successfully). No tmux, no
@@ -970,7 +970,7 @@ func (f *fixture) firstHook(session int64, event string) *capture {
 // firstNotification returns the first "Notification" hook on session whose
 // notification_type matches notifType — Notification fires more than once per session
 // (idle_prompt, permission_prompt, …), so firstHook's plain event-name match isn't
-// enough to distinguish them (REQ-3/REQ-5).
+// enough to distinguish them.
 func (f *fixture) firstNotification(session int64, notifType string) *capture {
 	for _, c := range f.hookEvents(session) {
 		if c.ev.Type != "Notification" {
@@ -1100,7 +1100,7 @@ func (f *fixture) teardown() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if f.tmuxClient != nil {
-		// REQ-12: every tmux session (D, E, G, J, K, M, N, O, P) before the scratch socket's server itself.
+		// Every tmux session (D, E, G, J, K, M, N, O, P) before the scratch socket's server itself.
 		// Each KillSession is a no-op error if that session already exited (e.g. the build
 		// failed before runE ever created muster-98) — ignored the same way run D's kill
 		// always was.

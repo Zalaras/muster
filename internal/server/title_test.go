@@ -13,7 +13,7 @@ import (
 )
 
 // putSessionTitleRequest issues PUT /api/sessions/{id}/title with the UI cookie attached
-// (mirrors putSessionPinRequest for the plan ui-text-and-focus endpoint).
+// (mirrors putSessionPinRequest for the title endpoint).
 func putSessionTitleRequest(t *testing.T, srv *testServer, id int64, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/sessions/%d/title", id), strings.NewReader(body))
@@ -34,7 +34,7 @@ func TestHandleSetTitle_RequiresCookie(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
-// TestHandleSetTitle_AbsentKeyIs400ButExplicitNullIs204 covers D8's core distinction
+// TestHandleSetTitle_AbsentKeyIs400ButExplicitNullIs204 covers the core distinction
 // (kb:anchor/sessions.title: "the title key is required (absent key != null)") through the real HTTP
 // handler: a body with no "title" key at all is a 400 invalid_request, while a body that
 // spells the key with a JSON null value is a 204 (it clears the override — a no-op here,
@@ -132,7 +132,7 @@ func TestHandleSetTitle_UnknownSessionIs404(t *testing.T) {
 	assert.Equal(t, "unknown_session", decodeErrorCode(t, rec))
 }
 
-// TestHandleSetTitle_SuccessIs204AndPersists covers D8 through the real HTTP handler
+// TestHandleSetTitle_SuccessIs204AndPersists checks through the real HTTP handler
 // (decode -> delegate -> encode): a valid title request returns 204 with no body and the
 // store row reflects the new title_override.
 func TestHandleSetTitle_SuccessIs204AndPersists(t *testing.T) {

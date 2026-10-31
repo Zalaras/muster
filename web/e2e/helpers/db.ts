@@ -40,7 +40,7 @@ export async function countAllEvents(dbPath: string): Promise<number> {
   return rows[0]?.n ?? 0;
 }
 
-/** Row count in schema_migrations — used to prove a second startup applies nothing (REQ-9). */
+/** Row count in schema_migrations — used to prove a second startup applies nothing. */
 export async function countMigrations(dbPath: string): Promise<number> {
   const rows = (await runQuery(dbPath, "SELECT COUNT(*) AS n FROM schema_migrations;")) as Array<{
     n: number;
@@ -49,9 +49,9 @@ export async function countMigrations(dbPath: string): Promise<number> {
 }
 
 /**
- * Row count in `usage_sample` (plan m3-gauges, migration 0003) — the sqlite oracle for
- * E6/INV-5's exact-dedup assertion: two identical rapid status posts must persist exactly
- * one row, a third with changed bucket values a second. Every m3-gauges E2E test using
+ * Row count in `usage_sample` (migration 0003) — the sqlite oracle for
+ * the exact-dedup assertion: two identical rapid status posts must persist exactly
+ * one row, a third with changed bucket values a second. Every E2E test using
  * this runs against its own isolated scratch daemon (account usage is daemon-global, not
  * per-session), so a plain unfiltered count is a safe oracle here.
  */

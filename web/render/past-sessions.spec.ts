@@ -37,7 +37,7 @@ test("opening the dialog always lands on the New tab, even right after a previou
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeHidden();
 
-  // Reopen via the chord — REQ-7 names both the chord and the button.
+  // Reopen via the chord — both the chord and the button open it.
   await page.keyboard.press("Alt+Meta+KeyN");
   const byChord = launchDialog(page);
   await expect(byChord).toBeVisible();

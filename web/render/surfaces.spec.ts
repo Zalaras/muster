@@ -1,8 +1,7 @@
-// surfaces — the display properties of the shell segment's activity indicator: plan
-// terminal-fixes-cleanup INV-3 (an idle shell shows nothing and the segment's name stays
-// "shell"), plan rail-card-improvements-2 REQ-6 (the busy circle's and the done tick's
-// computed geometry, E7, E8) and plan shell-pane-fixes REQ-2 (the spinner under reduced
-// motion), re-levelled on 2026-10-20 from web/e2e/shell-activity.spec.ts
+// surfaces — the display properties of the shell segment's activity indicator: an idle shell
+// shows nothing and the segment's name stays "shell", the busy circle's and the done tick's
+// computed geometry, and the spinner under reduced
+// motion, re-levelled on 2026-10-20 from web/e2e/shell-activity.spec.ts
 // (plans/_audit/relevel/misc-core.md). The indicator is driven by `snapshot.shellsBusy`
 // (web/src/features/surfaces.ts): `shell-busy` records the daemon's own poller judging the
 // session's shell busy, `shell-idle` the same shell idle, each under both views. A render
@@ -24,7 +23,7 @@ import {
 } from "./helpers/surfaces";
 import { liveTileById } from "./helpers/tiles";
 
-/** The indicator's pre-transform box. REQ-6/Implementation Notes ("the tick is computed
+/** The indicator's pre-transform box. The geometry spec ("the tick is computed
  * width against computed height"): the indicator carries `transform: rotate(-45deg)`, and a
  * 45°-rotated box's getBoundingClientRect always reports a square regardless of its own
  * aspect ratio (cos45 == sin45, so bbox width == bbox height for ANY w×h at exactly 45°) —
@@ -64,7 +63,7 @@ test("createShellViaApi leaves a shell idle with no activity indicator until a c
   const fixture = await dashboard.open("shell-idle");
   expect(fixture.snapshot.shellsBusy).toEqual([]);
 
-  // The shell button's accessible name stays exactly "shell" (INV-3) — the indicator
+  // The shell button's accessible name stays exactly "shell" — the indicator
   // is aria-hidden and never contributes to it — in the one indicator state reachable
   // without ever opening the surface: absent.
   const shellBtn = mainheadSurfaceButton(page, "shell");
@@ -86,7 +85,7 @@ test("the shell busy/done indicator computes a square while busy and a tick wide
 
   dashboard.send(await idleSnapshot(false));
   await expect(indicator).toHaveAttribute("data-act", "done", { timeout: 15_000 });
-  // REQ-6/E7: the reshaped tick's own box is wider than tall (Overview: the pre-fix box
+  // The reshaped tick's own box is wider than tall (Overview: the pre-fix box
   // was 9×9, a symmetric chevron rather than a tick).
   const doneBox = await computedBox(indicator);
   expect(doneBox.width).toBeGreaterThan(doneBox.height);
@@ -101,7 +100,7 @@ test("the shell busy/done indicator computes the same shapes in a tile footer (E
 
   const indicator = shellActivityIndicator(tileSurfaceButton(page, id, "shell"));
   await expect(indicator).toHaveAttribute("data-act", "busy", { timeout: 15_000 });
-  // INV-3: `.tfoot .surfseg .shellact` carries its own size override, so the busy
+  // `.tfoot .surfseg .shellact` carries its own size override, so the busy
   // circle must stay equal-sided there too, independently of the mainhead assertion.
   const busyBox = await computedBox(indicator);
   expect(busyBox.width).toBeCloseTo(busyBox.height, 1);
@@ -113,8 +112,8 @@ test("the shell busy/done indicator computes the same shapes in a tile footer (E
   expect(doneBox.width).toBeGreaterThan(doneBox.height);
 });
 
-// Plan shell-pane-fixes — REQ-2 (the busy spinner stops under prefers-reduced-motion) and
-// its edge case 1 (no preference emulated: the spin is unchanged).
+// The busy spinner stops under prefers-reduced-motion and
+// is unchanged when no preference is emulated.
 
 // Reads data-act and the computed animation-name in one evaluate, so the animation is only
 // ever judged while the indicator is still busy: the done tick has no animation, and a

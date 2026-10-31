@@ -1,6 +1,6 @@
 package main
 
-// D21 exercises runUpdate directly (the -update flag's actual logic, REQ-22) against a
+// These tests exercise runUpdate directly (the -update flag's actual logic) against a
 // scratch exePath and a fake release origin, rather than through run() itself: run()
 // resolves exePath via os.Executable(), which inside `go test` is the compiled test
 // binary currently executing these very tests — driving a full download+verify+install
@@ -9,10 +9,10 @@ package main
 // run() itself, since none of those three ever reaches AcquireLock/Apply and so never
 // touches any file at all — see TestRun_UpdateFlag_SafeSubset below.
 //
-// D22's argv/env-passthrough claim (INV-7) is covered by TestReexec_PassesArgvAndEnvVerbatim
+// The argv/env-passthrough claim is covered by TestReexec_PassesArgvAndEnvVerbatim
 // via the classic TestHelperProcess subprocess pattern (os/exec's own tests use the same
 // shape): a harness subprocess (this same test binary, re-invoked) calls reexec() for
-// real, into a tiny recorder script — never the go test binary's own file. D22's "a
+// real, into a tiny recorder script — never the go test binary's own file. The "a
 // startup with MUSTER_RESTARTED set skips openDashboard" is covered in open_test.go
 // (TestOpen_MusterRestartedSuppressesAutoOpenEvenWithATerminalStdin), extending that
 // file's existing real-subprocess+pty pattern.
@@ -233,7 +233,7 @@ func newRunUpdateTestKey(t *testing.T) (minisign.PublicKey, minisign.PrivateKey,
 	return pub, priv, pubFile
 }
 
-// TestRun_UpdateFlag_SafeSubset covers D21's "run([]string{"-update", ...})" claim
+// TestRun_UpdateFlag_SafeSubset covers the "run([]string{"-update", ...})" claim
 // directly, for exactly the scenarios that never touch any file: run() resolves exePath
 // via the real os.Executable() (this test binary), so only paths that short-circuit
 // before ever reaching AcquireLock/Apply are safe to drive through run() itself.
@@ -288,7 +288,7 @@ func TestRun_UpdateFlag_SafeSubset(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------------------
-// D22/INV-7: reexec passes os.Args and os.Environ()+MUSTER_RESTARTED=1 verbatim.
+// Reexec passes os.Args and os.Environ()+MUSTER_RESTARTED=1 verbatim.
 
 // TestReexecHelperProcess is not a real test: it's the subprocess body for
 // TestReexec_PassesArgvAndEnvVerbatim, following the standard library's own
@@ -305,7 +305,7 @@ func TestReexecHelperProcess(t *testing.T) {
 	os.Exit(3)
 }
 
-// TestReexec_PassesArgvAndEnvVerbatim covers D22/INV-7: the re-exec'd process receives
+// TestReexec_PassesArgvAndEnvVerbatim: the re-exec'd process receives
 // exactly the harness's own os.Args (verbatim, whatever they happen to be — nothing
 // added, dropped or reordered) plus os.Environ() with MUSTER_RESTARTED=1 appended.
 func TestReexec_PassesArgvAndEnvVerbatim(t *testing.T) {

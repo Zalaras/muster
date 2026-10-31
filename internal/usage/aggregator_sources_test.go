@@ -78,7 +78,7 @@ var bothSources = []arrivalSource{
 	}},
 }
 
-// seedState brings an aggregator to one of the three starting states INV-2 crosses.
+// seedState brings an aggregator to one of the three starting states a past-reset arrival crosses.
 func seedState(t *testing.T, a *Aggregator, state string) {
 	t.Helper()
 	switch state {
@@ -103,7 +103,7 @@ func assertNoBucketPastReset(t *testing.T, snap Snapshot, since time.Time) {
 	}
 }
 
-// TestAggregator_PastResetNeverAdopted covers D3/INV-2 from every starting state, for
+// TestAggregator_PastResetNeverAdopted checks from every starting state, for
 // both writers as the arriving one and each bucket as the stale one: the refused bucket
 // keeps what it held (nil from none), the other bucket still adopts its fresh value.
 func TestAggregator_PastResetNeverAdopted(t *testing.T) {
@@ -146,7 +146,7 @@ func TestAggregator_PastResetNeverAdopted(t *testing.T) {
 	}
 }
 
-// TestAggregator_AllPastArrivalIsInert covers D3 when nothing in the arrival is
+// TestAggregator_AllPastArrivalIsInert covers the case where nothing in the arrival is
 // adoptable: no state change, no broadcast, no row, from every starting state and both writers.
 func TestAggregator_AllPastArrivalIsInert(t *testing.T) {
 	for _, state := range startStates {
@@ -178,7 +178,7 @@ func TestAggregator_AllPastArrivalIsInert(t *testing.T) {
 	}
 }
 
-// TestAggregator_NewestArrivalWinsPerBucket covers D2: whichever source arrived last
+// TestAggregator_NewestArrivalWinsPerBucket: whichever source arrived last
 // owns each bucket, in both orders, independently per bucket.
 func TestAggregator_NewestArrivalWinsPerBucket(t *testing.T) {
 	cases := []struct {
@@ -229,7 +229,7 @@ func TestAggregator_NewestArrivalWinsPerBucket(t *testing.T) {
 	})
 }
 
-// TestAggregator_RecordFetch_OneBucketOnlyWritesNoRowUntilBothKnown covers D6/REQ-8.
+// TestAggregator_RecordFetch_OneBucketOnlyWritesNoRowUntilBothKnown checks.
 func TestAggregator_RecordFetch_OneBucketOnlyWritesNoRowUntilBothKnown(t *testing.T) {
 	st, dbPath := openTestStore(t)
 	rec := &recorder{}
@@ -255,7 +255,7 @@ func TestAggregator_RecordFetch_OneBucketOnlyWritesNoRowUntilBothKnown(t *testin
 }
 
 // TestAggregator_RecordFetch_NothingToOfferIsInert covers a call whose response carried
-// neither window (REQ-1's missing/null cases): no state, broadcast or row.
+// neither window (the missing/null cases): no state, broadcast or row.
 func TestAggregator_RecordFetch_NothingToOfferIsInert(t *testing.T) {
 	st, dbPath := openTestStore(t)
 	rec := &recorder{}
@@ -271,7 +271,7 @@ func TestAggregator_RecordFetch_NothingToOfferIsInert(t *testing.T) {
 	assert.Zero(t, countUsageSampleRows(t, dbPath))
 }
 
-// TestAggregator_IdenticalValuesFromSecondSourceAreDeduped covers D8/REQ-9, both orders.
+// TestAggregator_IdenticalValuesFromSecondSourceAreDeduped checks, both orders.
 // A status post after a call is the status line's first sighting of its model, which is a
 // change in its own right, so that order first lets the model arrive and then repeats.
 func TestAggregator_IdenticalValuesFromSecondSourceAreDeduped(t *testing.T) {
@@ -306,7 +306,7 @@ func TestAggregator_IdenticalValuesFromSecondSourceAreDeduped(t *testing.T) {
 	}
 }
 
-// TestAggregator_PercentTolerance_FloatNoiseDedupsRealChangeAdopts covers REQ-9's value
+// TestAggregator_PercentTolerance_FloatNoiseDedupsRealChangeAdopts covers the value
 // comparison (usedPctTolerance, 1e-9 absolute): the status line's float noise (14 stated as
 // 14.000000000000002) is the same value as the call's 14, a change beyond the tolerance is
 // not, and a reset instant is never fuzzy. Crossed with both orders and each bucket
@@ -364,7 +364,7 @@ func TestAggregator_PercentTolerance_FloatNoiseDedupsRealChangeAdopts(t *testing
 	}
 }
 
-// TestAggregator_RecordFetch_RowCarriesSourceAndModel covers D9/REQ-8.
+// TestAggregator_RecordFetch_RowCarriesSourceAndModel checks.
 func TestAggregator_RecordFetch_RowCarriesSourceAndModel(t *testing.T) {
 	t.Run("no status-line model known yet", func(t *testing.T) {
 		st, dbPath := openTestStore(t)
@@ -416,7 +416,7 @@ func TestAggregator_RecordFetch_PersistFailureLeavesMemoryUnchanged(t *testing.T
 	assert.Equal(t, 1, rec.count())
 }
 
-// TestAggregator_ConcurrentWritersLoseNothingAndRowsMatchBroadcasts covers D7/INV-3: the
+// TestAggregator_ConcurrentWritersLoseNothingAndRowsMatchBroadcasts: the
 // ingest worker (Record) and the poller goroutine (RecordFetch) write at once; with every
 // arrival carrying distinct values, every one must be broadcast and persisted, each row
 // must equal the snapshot broadcast with it, and the final state is the last broadcast.

@@ -11,7 +11,7 @@ import (
 
 // setCanonical toggles ICANON on ttyFd via TIOCSETA, mirroring what a real shell (zsh's
 // zle) or a line-editing library does when it enters/leaves raw mode — the exact
-// transition D8/D9's discriminator depends on.
+// transition the canonical-mode discriminator depends on.
 func setCanonical(t *testing.T, fd int, canonical bool) {
 	t.Helper()
 	term, err := unix.IoctlGetTermios(fd, unix.TIOCGETA)
@@ -24,11 +24,11 @@ func setCanonical(t *testing.T, fd int, canonical bool) {
 	require.NoError(t, unix.IoctlSetTermios(fd, unix.TIOCSETA, term))
 }
 
-// TestIsCanonical_TrueForCanonicalFalseForRaw is D8/D9's discriminator itself, measured
+// TestIsCanonical_TrueForCanonicalFalseForRaw is the canonical-mode discriminator itself, measured
 // against a real kernel tty rather than asserted from the fact record alone: the same
 // device flips both ways as ICANON is toggled, exactly as a shell (canonical, waiting on
 // a line) differs from a batch command that never touches its own tty's line discipline
-// versus a program that explicitly goes raw (readline, vim, a REPL — D8's "waiting for
+// versus a program that explicitly goes raw (readline, vim, a REPL — the "waiting for
 // the user" case).
 func TestIsCanonical_TrueForCanonicalFalseForRaw(t *testing.T) {
 	master, tty, err := pty.Open()
@@ -56,7 +56,7 @@ func TestIsCanonical_UnknownPathReturnsError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestIsCanonical_DoesNotDisturbTheRunningProcess covers D10: reading a pane's tty mode
+// TestIsCanonical_DoesNotDisturbTheRunningProcess: reading a pane's tty mode
 // must not perturb bytes already in flight on it. Data written to the master before,
 // between and after several IsCanonical calls on the slave's path must all arrive intact
 // and in order — proving the ioctl-only, write-nothing read doesn't touch the stream

@@ -44,7 +44,7 @@ func (b *syncBuffer) String() string {
 
 // testServer bundles a Server with the pieces tests need to inspect: the backing store's
 // db path (for out-of-band SQL assertions the store package itself doesn't expose) and a
-// buffer capturing every log line (for D11's "never log payload bodies" assertions).
+// buffer capturing every log line (for the "never log payload bodies" assertions).
 type testServer struct {
 	*Server
 	dbPath string

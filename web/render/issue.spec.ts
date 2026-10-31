@@ -1,4 +1,4 @@
-// issue — the display property of plan issue-capture REQ-1 (the masthead's Issue button
+// issue — the display property of the issue capture (the masthead's Issue button
 // in both views), re-levelled on 2026-10-20 from web/e2e/issue-capture.spec.ts
 // (plans/_audit/relevel/misc-core.md). Nothing here opens the dialog: it fires
 // `POST /api/issue/captures` the instant it opens, so every dialog-content and filing test

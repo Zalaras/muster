@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestConfine covers D11/INV-2 from every listed entry point: a plain file under the
+// TestConfine covers confinement from every listed entry point: a plain file under the
 // directory, `..` traversal, a symlink inside the directory targeting outside, a
 // symlinked directory, the plan path (allowed even though it sits outside the
 // directory), and a non-`.md` file.
@@ -77,7 +77,7 @@ func TestConfine(t *testing.T) {
 	})
 }
 
-// TestReaderPathQualifies covers REQ-18's docChanged scope test: lexical confinement
+// TestReaderPathQualifies covers the docChanged scope test: lexical confinement
 // (no symlink resolution), a `.md` suffix under dir, or an exact match on planPath.
 func TestReaderPathQualifies(t *testing.T) {
 	const dir = "/tmp/proj"
@@ -106,7 +106,7 @@ func TestReaderPathQualifies(t *testing.T) {
 	})
 }
 
-// TestWalkMarkdown covers D8/REQ-10/REQ-25: every `.md` file (case-insensitive) is
+// TestWalkMarkdown: every `.md` file (case-insensitive) is
 // listed relative to dir, dot-directories are skipped entirely, and results are sorted.
 func TestWalkMarkdown(t *testing.T) {
 	dir := t.TempDir()
@@ -124,7 +124,7 @@ func TestWalkMarkdown(t *testing.T) {
 	assert.Equal(t, []string{"TODO.md", "docs/guide.MD"}, paths)
 }
 
-// TestWalkMarkdown_CapsAt20000AndReportsTruncated covers REQ-25: the walk stops at
+// TestWalkMarkdown_CapsAt20000AndReportsTruncated: the walk stops at
 // 20,000 files and reports truncated:true.
 func TestWalkMarkdown_CapsAt20000AndReportsTruncated(t *testing.T) {
 	dir := t.TempDir()

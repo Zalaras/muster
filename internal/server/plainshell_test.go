@@ -91,8 +91,8 @@ func seedDeadSessionWithBogusClaudeTarget(t *testing.T, srv *testServer) (id int
 }
 
 // countAllRows sums every row across the three tables a shell operation must never
-// write to (INV-2/D13: no session, event or repo row of any kind). A single scalar
-// rather than three separate counts because INV-2's own wording is "no row of any
+// write to (no session, event or repo row of any kind). A single scalar
+// rather than three separate counts because its own wording is "no row of any
 // kind" — one number before, one number after, unchanged, is the whole assertion.
 func countAllRows(t *testing.T, dbPath string) int {
 	t.Helper()
@@ -107,8 +107,8 @@ func countAllRows(t *testing.T, dbPath string) int {
 	return n
 }
 
-// TestHandleCreateShell_NoShellYetSpawnsOneAndReturnsCreatedTrue covers D1 at the HTTP
-// layer. Uses newFakeTmuxTestServer (REQ-3): the assertion is that the handler calls
+// TestHandleCreateShell_NoShellYetSpawnsOneAndReturnsCreatedTrue checks at the HTTP
+// layer. Uses newFakeTmuxTestServer: the assertion is that the handler calls
 // through to Ensure and reports its result faithfully, not that a real interactive
 // shell actually runs — that is StreamsPTYOutputAndAcceptsInput's job, on the keep-real
 // list.
@@ -128,7 +128,7 @@ func TestHandleCreateShell_NoShellYetSpawnsOneAndReturnsCreatedTrue(t *testing.T
 	assert.True(t, exists)
 }
 
-// TestHandleCreateShell_RepeatCallReturnsCreatedFalse covers D2 at the HTTP layer.
+// TestHandleCreateShell_RepeatCallReturnsCreatedFalse checks at the HTTP layer.
 func TestHandleCreateShell_RepeatCallReturnsCreatedFalse(t *testing.T) {
 	srv, fake := newFakeTmuxTestServer(t)
 	sess := launchRealSession(t, srv, sleepForeverCommand())
@@ -155,7 +155,7 @@ func TestHandleCreateShell_UnknownSessionIs404(t *testing.T) {
 	assert.Equal(t, "unknown_session", decodeErrorCode(t, rec))
 }
 
-// TestHandleCreateShell_DirectoryMissingIs409 covers D6: the session's recorded
+// TestHandleCreateShell_DirectoryMissingIs409: the session's recorded
 // directory no longer exists on disk, checked before the spawn so no tmux session is
 // ever created.
 func TestHandleCreateShell_DirectoryMissingIs409(t *testing.T) {
@@ -170,7 +170,7 @@ func TestHandleCreateShell_DirectoryMissingIs409(t *testing.T) {
 	assert.Equal(t, 0, fake.newNamedSessionCalls, "a 409 must leave no tmux session behind")
 }
 
-// TestHandleCreateShell_DeadSessionSucceeds covers D5/REQ-7: a shell can be started on a
+// TestHandleCreateShell_DeadSessionSucceeds: a shell can be started on a
 // session whose alive is false — the route never consults it. markSessionDead (a direct
 // store flip) stands in for a real kill+liveness-nudge cycle (see its doc comment).
 func TestHandleCreateShell_DeadSessionSucceeds(t *testing.T) {
@@ -187,7 +187,7 @@ func TestHandleCreateShell_DeadSessionSucceeds(t *testing.T) {
 	assert.True(t, exists, "D5: a shell must actually spawn for a dead session")
 }
 
-// TestHandleCreateShell_SpawnFailureIs500ShellSpawnFailed covers Edge Case 3/D9: a
+// TestHandleCreateShell_SpawnFailureIs500ShellSpawnFailed covers Edge Case 3: a
 // spawner error propagates as 500 shell_spawn_failed — the seam this plan adds must not
 // change which error surfaces. Not exercisable against a real tmux server (sessions_test.go's
 // closing note: tmux new-session has no environment-independent way to be made to fail
@@ -201,7 +201,7 @@ func TestHandleCreateShell_SpawnFailureIs500ShellSpawnFailed(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 	assert.Equal(t, "shell_spawn_failed", decodeErrorCode(t, rec))
-	// D7/REQ-10: the body carries only the fixed phrase; the raw error lives in the log.
+	// The body carries only the fixed phrase; the raw error lives in the log.
 	assert.Equal(t, msgShellSpawnFailed, decodeErrorMessage(t, rec))
 	assert.Contains(t, srv.logs.String(), "boom: tmux new-session failed", "D7: the raw error must reach the daemon log")
 }
@@ -218,7 +218,7 @@ func TestHandleCreateShell_RequiresCookie(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
-// TestHandleCreateShell_LeavesSettingsLocalJSONUnchanged covers REQ-2's settings half:
+// TestHandleCreateShell_LeavesSettingsLocalJSONUnchanged covers the settings half:
 // "no settings.local.json write" (the review's Major 2 coverage gap — grepping every
 // test file and the E2E spec for "settings.local.json" previously returned nothing).
 //
@@ -263,7 +263,7 @@ func TestHandleCreateShell_LeavesSettingsLocalJSONUnchanged(t *testing.T) {
 	assert.Equal(t, beforeInfo.ModTime(), afterInfo.ModTime(), "REQ-2: POST .../shell must never rewrite settings.local.json, even byte-identically")
 }
 
-// TestHandleShellTerminal_NoShellIs409NoShell covers D8: attaching before any POST
+// TestHandleShellTerminal_NoShellIs409NoShell: attaching before any POST
 // .../shell has ever created one is refused pre-upgrade.
 func TestHandleShellTerminal_NoShellIs409NoShell(t *testing.T) {
 	srv, _ := newFakeTmuxTestServer(t)
@@ -295,7 +295,7 @@ func TestHandleShellTerminal_UnknownSessionIs404(t *testing.T) {
 }
 
 // TestHandleShellTerminal_AttachOnlyNeverSpawns covers the Protocol Contract's "Attach
-// only: this route never spawns" clause directly: dialing before a POST fails 409 (D8,
+// only: this route never spawns" clause directly: dialing before a POST fails 409 (see
 // above), and a *successful* dial only ever follows a POST that already reported
 // created:true or false — this test additionally proves the WS route itself performs no
 // spawn side effect by checking no shell session appears on the socket after the failed
@@ -316,7 +316,7 @@ func TestHandleShellTerminal_AttachOnlyNeverSpawns(t *testing.T) {
 	assert.Equal(t, 0, fake.newNamedSessionCalls, "a rejected/attempted WS dial must never itself spawn a shell")
 }
 
-// TestHandleShellTerminal_StreamsPTYOutputAndAcceptsInput is the shell surface's D1/D2
+// TestHandleShellTerminal_StreamsPTYOutputAndAcceptsInput is the shell surface's
 // round trip, mirroring TestHandleTerminal_StreamsPTYOutputAndAcceptsInput for the
 // Claude surface.
 func TestHandleShellTerminal_StreamsPTYOutputAndAcceptsInput(t *testing.T) {
@@ -326,7 +326,7 @@ func TestHandleShellTerminal_StreamsPTYOutputAndAcceptsInput(t *testing.T) {
 	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
 	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
 	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
+	// is this suite's job; the E2E suite already covers "the user's
 	// actual $SHELL really works".
 	t.Setenv("SHELL", "/bin/sh")
 	sess := launchRealSession(t, srv, sleepForeverCommand())
@@ -345,8 +345,8 @@ func TestHandleShellTerminal_StreamsPTYOutputAndAcceptsInput(t *testing.T) {
 	assert.Contains(t, out, "MUSTER_SHELL_MARKER")
 }
 
-// TestHandleShellTerminal_RunsInTheSessionsOwnDirectory covers E3's daemon-side half:
-// the shell's cwd is the session's own directory, matching REQ-1.
+// TestHandleShellTerminal_RunsInTheSessionsOwnDirectory covers the daemon-side half:
+// the shell's cwd is the session's own directory, matching the requirement that it do so.
 func TestHandleShellTerminal_RunsInTheSessionsOwnDirectory(t *testing.T) {
 	srv := newTerminalTestServer(t)
 	// interactiveShellArgv() (shells.go) reads os.Getenv("SHELL"); pointing it at a
@@ -354,7 +354,7 @@ func TestHandleShellTerminal_RunsInTheSessionsOwnDirectory(t *testing.T) {
 	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
 	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
 	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
+	// is this suite's job; the E2E suite already covers "the user's
 	// actual $SHELL really works".
 	t.Setenv("SHELL", "/bin/sh")
 	sess := launchRealSession(t, srv, sleepForeverCommand())
@@ -377,13 +377,13 @@ func TestHandleShellTerminal_RunsInTheSessionsOwnDirectory(t *testing.T) {
 	// TestNewSession_SpawnsInTheGivenDirectory resolves both sides before comparing
 	// because it spawns a *non-interactive* `sh -c` with no inherited $PWD at all (where
 	// the shell falls back to a real getcwd()); this test's shell is the ordinary
-	// interactive one REQ-1 specifies, which does inherit tmux's own PWD.
+	// interactive one the spec calls for, which does inherit tmux's own PWD.
 	out := readUntilContains(t, c, sess.Directory, 5*time.Second)
 	assert.Contains(t, out, sess.Directory)
 }
 
 // TestHandleShellTerminal_SecondSocketSupersedesFirstButNeverTheClaudeSocket covers
-// INV-3 from the shell side: a second shell socket supersedes the first (4000), exactly
+// the one-socket-per-surface rule from the shell side: a second shell socket supersedes the first (4000), exactly
 // like the Claude surface already does, while the same session's Claude socket — opened
 // and left untouched throughout — is never closed by any of it.
 func TestHandleShellTerminal_SecondSocketSupersedesFirstButNeverTheClaudeSocket(t *testing.T) {
@@ -393,7 +393,7 @@ func TestHandleShellTerminal_SecondSocketSupersedesFirstButNeverTheClaudeSocket(
 	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
 	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
 	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
+	// is this suite's job; the E2E suite already covers "the user's
 	// actual $SHELL really works".
 	t.Setenv("SHELL", "/bin/sh")
 	sess := launchRealSession(t, srv, sleepForeverCommand())
@@ -432,7 +432,7 @@ func TestHandleShellTerminal_SecondSocketSupersedesFirstButNeverTheClaudeSocket(
 	assert.Contains(t, out2, "SECOND_SHELL_FINE")
 }
 
-// TestHandleTerminal_OpeningClaudeSocketNeverSupersedesAnOpenShellSocket is INV-3's
+// TestHandleTerminal_OpeningClaudeSocketNeverSupersedesAnOpenShellSocket is the
 // other direction: opening the Claude socket must never evict an already-open shell
 // socket for the same session.
 func TestHandleTerminal_OpeningClaudeSocketNeverSupersedesAnOpenShellSocket(t *testing.T) {
@@ -442,7 +442,7 @@ func TestHandleTerminal_OpeningClaudeSocketNeverSupersedesAnOpenShellSocket(t *t
 	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
 	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
 	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
+	// is this suite's job; the E2E suite already covers "the user's
 	// actual $SHELL really works".
 	t.Setenv("SHELL", "/bin/sh")
 	sess := launchRealSession(t, srv, sleepForeverCommand())
@@ -469,8 +469,8 @@ func TestHandleTerminal_OpeningClaudeSocketNeverSupersedesAnOpenShellSocket(t *t
 // seedDeadSessionWithBogusClaudeTarget's doc comment): if the shell handler wrongly
 // nudged the liveness poll on PTY EOF (as the Claude surface correctly does), Alive would
 // flip to false near-instantly since that bogus target is already gone. Typing "exit"
-// into a real interactive shell (REQ-1's real $SHELL) is what actually produces the PTY
-// EOF here, matching E6/E8's own path rather than an external kill.
+// into a real interactive shell (the real $SHELL) is what actually produces the PTY
+// EOF here, matching the path a shell takes by itself rather than an external kill.
 func TestHandleShellTerminal_ShellDeathNeverNudgesTheParentsLiveness(t *testing.T) {
 	srv := newTerminalTestServer(t)
 	// interactiveShellArgv() (shells.go) reads os.Getenv("SHELL"); pointing it at a
@@ -478,7 +478,7 @@ func TestHandleShellTerminal_ShellDeathNeverNudgesTheParentsLiveness(t *testing.
 	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
 	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
 	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
+	// is this suite's job; the E2E suite already covers "the user's
 	// actual $SHELL really works".
 	t.Setenv("SHELL", "/bin/sh")
 	id, _ := seedDeadSessionWithBogusClaudeTarget(t, srv)
@@ -515,7 +515,7 @@ func TestHandleShellTerminal_KilledExternallyClosesSocketWith4001(t *testing.T) 
 	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
 	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
 	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
+	// is this suite's job; the E2E suite already covers "the user's
 	// actual $SHELL really works".
 	t.Setenv("SHELL", "/bin/sh")
 	sess := launchRealSession(t, srv, sleepForeverCommand())
@@ -535,7 +535,7 @@ func TestHandleShellTerminal_KilledExternallyClosesSocketWith4001(t *testing.T) 
 }
 
 // TestHandleRemoveSession_KillsBothTmuxSessionsForThatSessionOnlyAnotherSurvives covers
-// D9/INV-4 together: removing one session kills both its Claude and shell tmux sessions,
+// both rules together: removing one session kills both its Claude and shell tmux sessions,
 // while a second session's Claude and shell sessions (never touched) survive completely
 // untouched — the multi-instance destructive-path coverage this class of test requires.
 func TestHandleRemoveSession_KillsBothTmuxSessionsForThatSessionOnlyAnotherSurvives(t *testing.T) {
@@ -545,7 +545,7 @@ func TestHandleRemoveSession_KillsBothTmuxSessionsForThatSessionOnlyAnotherSurvi
 	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
 	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
 	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
+	// is this suite's job; the E2E suite already covers "the user's
 	// actual $SHELL really works".
 	t.Setenv("SHELL", "/bin/sh")
 	removed := launchRealSession(t, srv, sleepForeverCommand())
@@ -575,7 +575,7 @@ func TestHandleRemoveSession_KillsBothTmuxSessionsForThatSessionOnlyAnotherSurvi
 	assert.True(t, survivorShellAlive, "INV-4: removing one session must never touch another session's shell tmux session")
 }
 
-// TestHandleEndSession_LeavesShellRunning covers D10: ending a session (as opposed to
+// TestHandleEndSession_LeavesShellRunning: ending a session (as opposed to
 // removing it) must leave its shell tmux session running.
 func TestHandleEndSession_LeavesShellRunning(t *testing.T) {
 	srv := newTerminalTestServer(t)
@@ -584,7 +584,7 @@ func TestHandleEndSession_LeavesShellRunning(t *testing.T) {
 	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
 	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
 	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
+	// is this suite's job; the E2E suite already covers "the user's
 	// actual $SHELL really works".
 	t.Setenv("SHELL", "/bin/sh")
 	sess := launchRealSession(t, srv, sleepForeverCommand())
@@ -600,12 +600,12 @@ func TestHandleEndSession_LeavesShellRunning(t *testing.T) {
 	assert.True(t, shellAlive, "D10: End must leave the session's shell running")
 }
 
-// TestShellLifecycle_NeverWritesAnySQLiteRow covers D13/INV-2: spawn, attach, type
+// TestShellLifecycle_NeverWritesAnySQLiteRow: spawn, attach, type
 // input, resize, exit (PTY EOF), then a full respawn, all produce zero net change to the
-// total row count across session/repo/event — the tables INV-2 names. The one session
+// total row count across session/repo/event — the tables the no-rows rule names. The one session
 // row that legitimately exists throughout is created *before* the count baseline is
 // taken, so only the shell operations themselves are under test.
-// TestShellLifecycle_NeverWritesAnySQLiteRow uses newFakeTmuxTestServer (REQ-3): its own
+// TestShellLifecycle_NeverWritesAnySQLiteRow uses newFakeTmuxTestServer: its own
 // assertion is the row count, not that the byte stream or geometry genuinely work (which
 // StreamsPTYOutputAndAcceptsInput and terminal_test.go's keep-real geometry tests already
 // cover for real) — so attach/resize/exit only need to reach the fake without error, and
@@ -636,7 +636,7 @@ func TestShellLifecycle_NeverWritesAnySQLiteRow(t *testing.T) {
 		return cols == 100
 	}, 3*time.Second, 20*time.Millisecond)
 
-	// Exit (simulated PTY EOF), then respawn (D7).
+	// Exit (simulated PTY EOF), then respawn.
 	require.NoError(t, c.Write(context.Background(), websocket.MessageBinary, []byte("exit\n")))
 	_ = readUntilError(t, c, 5*time.Second)
 	_, _, created2 := postShellRequest(t, srv, sess.ID)

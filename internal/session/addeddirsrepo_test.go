@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSetRepoState_AddedRepos is REQ-5 / D9's session half and D10: a reading sets the repo of
+// TestSetRepoState_AddedRepos is the session half: a reading sets the repo of
 // each directory still listed, an unchanged one broadcasts nothing, a nil value means "read,
 // not a checkout", an absent key keeps the last-known reading, and a reading that names a
 // directory the list no longer holds is ignored for it.
@@ -136,7 +136,7 @@ func TestSetRepoState_AddedReposPersistFailureRollsBack(t *testing.T) {
 	assert.Len(t, h.rec.all(), broadcasts)
 }
 
-// TestSetRepoState_AddedReposOfADeadOrResumedSession is D10's death half: a reading of added
+// TestSetRepoState_AddedReposOfADeadOrResumedSession is the death half: a reading of added
 // directories taken while the session was alive and applied after it died, or after a death
 // and a resume, is dropped whole; the resumed session's own reading applies.
 func TestSetRepoState_AddedReposOfADeadOrResumedSession(t *testing.T) {

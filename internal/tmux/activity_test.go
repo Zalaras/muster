@@ -16,7 +16,7 @@ import (
 // fakeActivityExec builds a Client whose exec seam is entirely canned — the same
 // same-package-struct-literal pattern TestKillSession_PostKillRecheckStillThereReturnsTheOriginalKillError
 // uses — for ListPaneActivity/ScrollCopyMode/CancelCopyMode tests whose assertion is
-// about call shape (D1/D2/D4) or error propagation, never a tmux-observable effect (that
+// about call shape or error propagation, never a tmux-observable effect (that
 // coverage is the *_RealTmux tests below, on a real per-test socket).
 func fakeActivityExec(t *testing.T, fn func(args []string) ([]byte, error)) *Client {
 	t.Helper()
@@ -100,7 +100,7 @@ func TestListPaneActivity_NoServerYetIsEmptyNotError(t *testing.T) {
 }
 
 // TestListPaneActivity_UnreachableSocketReturnsAnError covers the same
-// isConnectionFailure distinction ListSessions/PaneExists already make (D25's class of
+// isConnectionFailure distinction ListSessions/PaneExists already make (the class of
 // bug): a socket that exists but can't be reached must not silently read as "no panes".
 // The wording isConnectionFailure matches lives in the subprocess's *output* (run()
 // folds it into the wrapped error's %s, same as every other tmux command), not in the
@@ -119,7 +119,7 @@ func TestListPaneActivity_UnreachableSocketReturnsAnError(t *testing.T) {
 }
 
 // TestListPaneActivity_NonExitErrorIsAlwaysWrapped covers run's own ctx-deadline branch
-// (a bare wrapped ctx.Err(), never an *exec.ExitError, REQ-11's shape in KillSession's
+// (a bare wrapped ctx.Err(), never an *exec.ExitError, the shape in KillSession's
 // doc comment) — errors.As must miss and the call must still surface an error, never
 // (nil, nil).
 func TestListPaneActivity_NonExitErrorIsAlwaysWrapped(t *testing.T) {
@@ -133,7 +133,7 @@ func TestListPaneActivity_NonExitErrorIsAlwaysWrapped(t *testing.T) {
 	assert.Nil(t, got)
 }
 
-// TestListPaneActivity_RealTmux_OneInvocationCoversEveryPane covers D4 for real: two
+// TestListPaneActivity_RealTmux_OneInvocationCoversEveryPane checks for real: two
 // live sessions on one socket are both returned by a single tmux exec, proven by
 // wrapping the client's own exec seam with a call counter after both sessions already
 // exist (so NewSession's own execs are excluded from the count).
@@ -181,8 +181,8 @@ func TestScrollCopyMode_ZeroLinesIsANoOpNoExecCalls(t *testing.T) {
 	assert.False(t, entered)
 }
 
-// TestScrollCopyMode_EntersCopyModeWhenNotInModeAndHasHistory covers D1's positive case
-// together with D2 (a single send-keys -N invocation, not a loop) and the scroll-up
+// TestScrollCopyMode_EntersCopyModeWhenNotInModeAndHasHistory covers the positive case
+// together with the single send-keys -N invocation, not a loop) and the scroll-up
 // direction for a positive lines value.
 func TestScrollCopyMode_EntersCopyModeWhenNotInModeAndHasHistory(t *testing.T) {
 	var calls [][]string
@@ -212,7 +212,7 @@ func TestScrollCopyMode_EntersCopyModeWhenNotInModeAndHasHistory(t *testing.T) {
 	assert.True(t, slices.Contains(calls[2], "scroll-up"))
 }
 
-// TestScrollCopyMode_SkipsCopyModeWhenAlreadyInAMode is D1's negative case: the pane is
+// TestScrollCopyMode_SkipsCopyModeWhenAlreadyInAMode is the negative case: the pane is
 // already in a mode, so no copy-mode invocation may occur — only the state read and the
 // send-keys.
 func TestScrollCopyMode_SkipsCopyModeWhenAlreadyInAMode(t *testing.T) {
@@ -235,7 +235,7 @@ func TestScrollCopyMode_SkipsCopyModeWhenAlreadyInAMode(t *testing.T) {
 	}
 }
 
-// TestScrollCopyMode_NoHistoryIsANoOp covers REQ-12/edge case 10: a pane with no history
+// TestScrollCopyMode_NoHistoryIsANoOp covers edge case 10: a pane with no history
 // yet must neither enter copy-mode nor send any scroll keys — "nothing to scroll to",
 // distinct from the lines==0 no-op above (this one still reads state once).
 func TestScrollCopyMode_NoHistoryIsANoOp(t *testing.T) {
@@ -328,7 +328,7 @@ func TestScrollCopyMode_SendKeysErrorPropagates(t *testing.T) {
 	assert.False(t, entered)
 }
 
-// TestCancelCopyMode_IssuesSendKeysCancelWithTarget covers REQ-10's own tmux command
+// TestCancelCopyMode_IssuesSendKeysCancelWithTarget covers the tmux command
 // shape in isolation from the read loop that calls it.
 func TestCancelCopyMode_IssuesSendKeysCancelWithTarget(t *testing.T) {
 	var gotArgs []string
@@ -364,7 +364,7 @@ func scrollableRealSessionCommand() []string {
 	return []string{"/bin/sh", "-c", "seq 1 3000; sleep 60"}
 }
 
-// TestScrollCopyMode_RealTmux_EntersCopyModeAndAdvancesScrollPosition proves D1 against a
+// TestScrollCopyMode_RealTmux_EntersCopyModeAndAdvancesScrollPosition proves this against a
 // genuine tmux-observable effect: a real pane's #{pane_in_mode} and #{scroll_position}
 // after the call, not merely the command shape the fake-exec tests above check.
 func TestScrollCopyMode_RealTmux_EntersCopyModeAndAdvancesScrollPosition(t *testing.T) {

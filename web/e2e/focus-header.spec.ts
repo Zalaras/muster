@@ -1,22 +1,20 @@
-// Plan title-crop-stop-resume-button — REQ-1 to REQ-7 (the Focus header's readout is as wide
-// as its text and gives way before the title; the surface switch sits with the actions in
-// one right-aligned cluster), and plan remove-unread-right-click-1 — REQ-4, REQ-5 (the cluster
-// now holds the surface switch and one Session actions ⋯ that opens the card menu; the Stop,
-// Resume and Remove buttons it held are gone). Plan acceptance E1-E7 of the first plan; its E1
-// and E2 (the Stop↔Resume swap in place) and E6 (the disabled button across a drop) pinned the
-// removed button and went with it.
+// The Focus header's readout is as wide as its text and gives way before the title; the
+// surface switch sits with the actions in one right-aligned cluster (the cluster now holds
+// the surface switch and one Session actions ⋯ that opens the card menu; the Stop, Resume
+// and Remove buttons it held are gone). The Stop↔Resume swap in place and the disabled
+// button across a drop pinned the removed button and went with it.
 //
 // The journeys: the ⋯'s menu stopping and resuming the focused session, the ⋯'s focus across a
 // key and a tick, a rename and a Claude move lengthening the row, the surface switch's focus
-// across a hook re-render, and Tiles and back. What the header shows for a given state — the E3
+// across a hook re-render, and Tiles and back. What the header shows for a given state — the
 // give-way sweeps over the state-table rows, the 35-character folder's whole line, the stacked
-// band at 640 px, the INV-6 sweeps comparing the header alive with the same session ended, the
-// cluster's order at three widths (E3, E5, REQ-1 to REQ-4) — moved to the render tier on
+// band at 640 px, the sweeps comparing the header alive with the same session ended, the
+// cluster's order at three widths — moved to the render tier on
 // 2026-10-20: web/render/focus.spec.ts against the `focus-header-rows-*` and `unbound-sessions`
-// fixtures (plans/_audit/relevel/focus.md). The one E3 row left here has the `shell` segment
+// fixtures (plans/_audit/relevel/focus.md). The one give-way row left here has the `shell` segment
 // selected, which spawns a shell over the API.
 //
-// Fixture plan: `daemon` (fresh per test) in every test, as the plan's header says — each
+// Fixture plan: `daemon` (fresh per test) in every test — each
 // launches the only session and relies on auto-focus (the Stop/Resume test launches a second to
 // prove it is untouched), and the file passes `repoPoll: "200ms"` through `test.use` so a
 // checkout and a Claude move show inside the 15 s expect timeout.
@@ -218,7 +216,7 @@ async function confirmStop(page: Page): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------------------
-// E3 — the give-way order and its invariants, swept
+// The give-way order and its invariants, swept
 // ---------------------------------------------------------------------------------------
 
 for (const row of ROWS) {
@@ -238,9 +236,9 @@ for (const row of ROWS) {
 }
 
 // ---------------------------------------------------------------------------------------
-// The Session actions ⋯ (plan remove-unread-right-click-1, REQ-4, REQ-5): the one button that
+// The Session actions ⋯: the one button that
 // replaced the header's Stop/Resume and Remove. The swap-in-place journeys that pinned the
-// old Stop↔Resume button (E1, E2, their narrow-width clicks and the disabled-across-a-drop
+// old Stop↔Resume button (their narrow-width clicks and the disabled-across-a-drop
 // test) are gone with it; a Stop, Resume and Remove now run from the card menu, which
 // rail-menu.spec.ts, actions.spec.ts and effort-header.spec.ts drive.
 // ---------------------------------------------------------------------------------------
@@ -282,7 +280,7 @@ test("choosing Stop… and then Resume from the header's Session actions menu en
     await expect(headerLifecycleButtons(page)).toHaveCount(0);
     const same = page.locator('#mainhead [data-e2e-node="session-actions"]');
     await expect(same).toHaveCount(1);
-    // INV-6: both sides re-read inside the retry, so a layout still settling times out.
+    // Both sides re-read inside the retry, so a layout still settling times out.
     await expect
       .poll(async () => sameBox(await boxOf(same), before), {
         message: "the Session actions ⋯ did not move when the session ended",
@@ -349,7 +347,7 @@ test("the Session actions ⋯ keeps focus and node identity when a real Enter op
 });
 
 // ---------------------------------------------------------------------------------------
-// E4 — the right-aligned cluster stays put as the title and the readout lengthen (REQ-4's
+// The right-aligned cluster stays put as the title and the readout lengthen (its
 // order and edge at three widths is a render test)
 // ---------------------------------------------------------------------------------------
 
@@ -428,7 +426,7 @@ for (const viewport of [2000, 1500]) {
   });
 }
 
-// A focusable control the plan moves: the surface switch now lives in `.acts`. A render
+// A focusable control that moved: the surface switch now lives in `.acts`. A render
 // pass (a hook upsert) and a tick must not rebuild it or drop focus
 // (kb:lesson/select-rebuilt-every-tick-passed-selectoption).
 test("the surface switch's claude segment keeps focus and node identity across a hook-driven re-render and a tick, and a real Enter on it (REQ-4)", async ({
@@ -473,7 +471,7 @@ test("the surface switch's claude segment keeps focus and node identity across a
 });
 
 // ---------------------------------------------------------------------------------------
-// E7 — Tiles and back
+// Tiles and back
 // ---------------------------------------------------------------------------------------
 
 test("switching to Tiles and back to Focus at 1000px leaves the header satisfying INV-1 to INV-4 with no stale measurement (E7, edge case 16)", async ({

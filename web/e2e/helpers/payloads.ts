@@ -11,7 +11,7 @@
 // randomness, no wall-clock reads. Hook payloads carry no timestamp or seq of their own
 // (canary-fields.md "Delivery semantics") — none is synthesized here either.
 
-// Plan stale-dirs-models-branches: every builder omits `cwd` (and the status line's
+// Every builder omits `cwd` (and the status line's
 // `workspace.current_dir`) unless the caller passes `cwd`. Real Claude Code always sends
 // one, but a hard-coded `/tmp` sits outside every scratch launch directory, so the daemon
 // would mark every E2E session "Claude is elsewhere" (kb:fact/cwd-follows-claude-mid-session);
@@ -26,7 +26,7 @@ function withCwd(
 
 interface EnvelopeOpts {
   musterSession?: number;
-  /** No default (plan general-cleanup REQ-12) — declared `| undefined` so a caller's
+  /** No default — declared `| undefined` so a caller's
    * own destructured-with-no-default local (also `string | undefined`) can be passed
    * straight through under `exactOptionalPropertyTypes`. */
   tmuxPane?: string | undefined;
@@ -78,7 +78,7 @@ interface SessionStartOpts extends EnvelopeOpts {
    * (kb:fact/compact-hook-sequence, 2.1.296). Default "startup". */
   source?: "startup" | "resume" | "clear" | "compact";
   /**
-   * Plan state-issues: a `SessionStart{source:"compact"}` carries the **compaction's**
+   * A `SessionStart{source:"compact"}` carries the **compaction's**
    * `prompt_id` — the same one its `PreCompact` carried, no `UserPromptSubmit` having opened
    * it (kb:fact/compact-hook-sequence). No other source is measured carrying one, so the key
    * is omitted unless a caller passes this.
@@ -94,7 +94,7 @@ interface SessionStartOpts extends EnvelopeOpts {
    */
   model?: string | null;
   /**
-   * Plan markdown-viewing: the transcript path this hook carries — every hook's common
+   * The transcript path this hook carries — every hook's common
    * field (kb:fact/hook-payload-fields), and the only place the reader's plan slug lives
    * (kb:fact/plan-file-path-in-transcript). Default unchanged (`/tmp/t.jsonl`, a path
    * that never exists — `LocatePlanFile`'s "no plan" answer). Reader tests point this at
@@ -145,12 +145,12 @@ export function envelopedSessionStart(
 }
 
 /**
- * Enveloped `SessionStart(source:"resume")` — REQ-8's resume-bind trigger (plan
- * m4-reconcile). Measured fact (canary-fields.md "Values worth asserting"): on `--resume`
+ * Enveloped `SessionStart(source:"resume")` — the resume-bind trigger.
+ * Measured fact (canary-fields.md "Values worth asserting"): on `--resume`
  * the `session_id`/`transcript_path` are the **same** as the original session's — so
  * callers pass the ORIGINAL claude id to exercise the same-id rebind path
  * (`KindResumeBind` → `idle`), or a different one to exercise the different-id escalation
- * to clear-rebind (Edge Case 5 / REQ-8's second clause). Thin wrapper over
+ * to clear-rebind. Thin wrapper over
  * `envelopedSessionStart` — the resume shape is not a distinct wire format, just a
  * different `source` value on the same hook.
  */
@@ -163,13 +163,13 @@ export function sessionStartResume(
 
 interface TurnActivityOpts {
   promptId?: string;
-  /** Plan fix-auto-mode-select: `auto` is a fourth observed value (2.1.259 probe,
+  /** `auto` is a fourth observed value (2.1.259 probe,
    * docs/history/spikes/canary-fields.md "Permission-mode probe") alongside the three already here.
-   * Plan resume-and-dangerously-allow: `bypassPermissions` is a fifth, reported verbatim
+   * `bypassPermissions` is a fifth, reported verbatim
    * under `--permission-mode bypassPermissions` (kb:fact/bypass-permission-mode-on-wire). */
   permissionMode?: "default" | "plan" | "acceptEdits" | "auto" | "bypassPermissions" | "dontAsk";
   /**
-   * Plan claude-status-fixes REQ-1: when set, adds the measured subagent marker —
+   * When set, adds the measured subagent marker —
    * `agent_id` plus `agent_type: "general-purpose"` (docs/history/spikes/canary-fields.md "Subagent
    * and background-task fields", 2.1.259 probe) — to the payload, so `FromSubagent`
    * derivation and the straggler-guard bypass can be exercised end-to-end. Omitted by
@@ -177,13 +177,13 @@ interface TurnActivityOpts {
    */
   agentId?: string;
   /**
-   * Plan state-issues: the marker's `agent_type` when `agentId` is set. Default
+   * The marker's `agent_type` when `agentId` is set. Default
    * "general-purpose" (the measured Explore/general-purpose shape); a subagent that declares
    * its own permission mode is a different agent — the built-in `claude-code-guide` declares
    * `dontAsk` (kb:fact/subagent-declared-mode-on-hooks).
    */
   agentType?: string;
-  /** Plan markdown-viewing: see `SessionStartOpts.transcriptPath`. Default unchanged. */
+  /** See `SessionStartOpts.transcriptPath`. Default unchanged. */
   transcriptPath?: string;
   /**
    * This hook's `prompt` field — `internal/claudecode` reads it as `StateInput.Prompt`
@@ -230,9 +230,9 @@ export function rawUserPromptSubmit(
 }
 
 interface ToolUseOpts extends TurnActivityOpts {
-  /** Plan markdown-viewing REQ-13/REQ-18: the tool a Pre/PostToolUse hook names. Default
+  /** The tool a Pre/PostToolUse hook names. Default
    * "Write", matching every pre-existing caller's fixture. Reader tests pass "Edit" /
-   * "MultiEdit" (also a `docChanged` source, REQ-18) or "ExitPlanMode" (the plan-scan
+   * "MultiEdit" (also a `docChanged` source) or "ExitPlanMode" (the plan-scan
    * trigger, kb:fact/plan-mode-hook-sequence) or an arbitrary other tool name (must NOT
    * fire `docChanged` / a plan scan). */
   toolName?: string;
@@ -242,7 +242,7 @@ interface ToolUseOpts extends TurnActivityOpts {
 }
 
 /** Raw `PostToolUse` — also a turn-activity event; used for straggler-past-Stop cases,
- * and (plan markdown-viewing) the `docChanged` source when `toolName` is Write/Edit/
+ * and the `docChanged` source when `toolName` is Write/Edit/
  * MultiEdit and `filePath` names a `.md` under the session directory or the plan path. */
 export function rawPostToolUse(sessionId: string, opts: ToolUseOpts = {}): Record<string, unknown> {
   const {
@@ -278,7 +278,7 @@ export function rawPostToolUse(sessionId: string, opts: ToolUseOpts = {}): Recor
 }
 
 /**
- * Raw `PreToolUse` — plan markdown-viewing's `ExitPlanMode` scan trigger
+ * Raw `PreToolUse` — the markdown-viewing `ExitPlanMode` scan trigger
  * (kb:fact/plan-mode-hook-sequence: `PreToolUse{tool_name:"ExitPlanMode",
  * permission_mode:"plan"}` is step 1 of leaving plan mode). `toolName` defaults to
  * `"ExitPlanMode"` since that is the only `PreToolUse` this suite's reader tests care
@@ -377,7 +377,7 @@ interface StopOpts extends TurnActivityOpts {
   /**
    * `background_tasks` never drives state — a `Stop` with a non-empty list still lands
    * `idle`, and only the first marked subagent hook returns the session to `working`.
-   * Plan status-inconsistencies REQ-5: the daemon counts its `status:"running"` entries
+   * The daemon counts its `status:"running"` entries
    * onto `Session.backgroundTasks`, which the card shows. Defaults to `[]`. Use
    * `runningSubagentTask()` / `runningShellTask()` for the measured non-empty entry shapes.
    */
@@ -443,7 +443,7 @@ export function runningShellTask(id = "shell-1"): Record<string, unknown> {
 /**
  * Raw `StopFailure` — mutually exclusive with `Stop` for a given turn (canary-fields.md:
  * "never both for the same turn"); carries no `permission_mode` (never-present list).
- * Plan state-issues: `agentId` adds the subagent marker a background subagent's failure
+ * `agentId` adds the subagent marker a background subagent's failure
  * carries — `agent_id` only, the one marker key the fact records on this event, with the
  * parent's already-closed `prompt_id` (kb:fact/subagent-stopfailure-carries-agent-id).
  * Omitted by default: a main-agent `StopFailure` has no `agent_id` key at all.
@@ -586,7 +586,7 @@ export function interruptTranscriptLine(
 }
 
 /**
- * Raw `PreCompact` (REQ-21: counts the compaction). Plan state-issues: outside a turn it
+ * Raw `PreCompact` (counts the compaction). Outside a turn it
  * also opens the compaction's own prompt (`promptId` a fresh id no `UserPromptSubmit` named,
  * kb:fact/compact-hook-sequence) and reads `working`. Carries no `permission_mode`
  * (kb:fact/permission-mode-presence-split). `opts.trigger` adds `trigger:"manual"`, the one
@@ -679,7 +679,7 @@ export function envelopedStatusLinePreFirstResponse(
 interface StatusLineFullOpts extends EnvelopeOpts {
   /** `session_name` — the title source (canary-fields.md); omitted entirely by default,
    * matching the "absent from the earliest posts" measured behaviour. Pass a string to
-   * exercise REQ-4's title-refresh path. */
+   * exercise the title-refresh path. */
   sessionName?: string;
   /** Status line's `model` object shape — always `{id, display_name}` on the wire
    * (canary-fields.md "Other fields"), never the hook's plain-string shape. Defaults to
@@ -708,15 +708,15 @@ interface StatusLineFullOpts extends EnvelopeOpts {
 }
 
 /**
- * Enveloped status-line body, post-first-API-response shape (REQ-15): `context_window`'s
+ * Enveloped status-line body, post-first-API-response shape: `context_window`'s
  * percentages/current_usage are real numbers and `rate_limits` carries both buckets — the
  * "present on every subsequent post for the life of that session" state from
  * canary-fields.md. Every value defaults to a fixed, deterministic figure (no randomness,
  * no wall-clock reads) so repeated calls with no overrides produce byte-identical
- * payloads — required by E6/INV-5's exact-dedup assertion (two calls with the same
+ * payloads — required by the exact-dedup assertion (two calls with the same
  * options must be indistinguishable to the aggregator). `opts.tmuxPane` is the one
- * exception to "every value defaults" — no default (plan general-cleanup REQ-12,
- * kb:adr/ingest-envelope-pane-must-corroborate); every caller states it explicitly.
+ * exception to "every value defaults" — no default
+ * (kb:adr/ingest-envelope-pane-must-corroborate); every caller states it explicitly.
  */
 export function envelopedStatusLineFull(
   sessionId: string,
@@ -773,13 +773,13 @@ export function envelopedStatusLineFull(
   return envelope(payload, { musterSession, tmuxPane });
 }
 
-/** A body that is not valid JSON at all (REQ-13's malformed-body drop path). */
+/** A body that is not valid JSON at all (the malformed-body drop path). */
 export const malformedJsonBody = "{not valid json";
 
 /**
  * Syntactically valid JSON that nonetheless carries no usable `session_id` — every
  * measured hook and status post carries one (canary-fields.md "common set"), so this is
- * treated the same as malformed per REQ-13 / plan Edge Case 4.
+ * treated the same as malformed.
  */
 export function rawHookMissingSessionId(): Record<string, unknown> {
   return {

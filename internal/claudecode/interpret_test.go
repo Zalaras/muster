@@ -86,7 +86,7 @@ func TestInterpret_SessionStart(t *testing.T) {
 	})
 }
 
-// TestInterpret_SessionStartCompactAndUnknownSource covers D4's other half: a compact source
+// TestInterpret_SessionStartCompactAndUnknownSource covers the other half: a compact source
 // (kb:fact/compact-hook-sequence) is an input of its own, and a missing or unrecognised
 // source binds as a startup does.
 func TestInterpret_SessionStartCompactAndUnknownSource(t *testing.T) {
@@ -200,7 +200,7 @@ func TestInterpret_Stop(t *testing.T) {
 	assert.Equal(t, "all done", *in.LastActivity)
 }
 
-// TestInterpret_StopFailure covers D13's premise directly at the interpreter level:
+// TestInterpret_StopFailure covers the premise directly at the interpreter level:
 // StopFailure never carries permission_mode (canary-fields.md's "Never present" list),
 // so PermissionMode must always come back nil here — the machine relies on this to
 // justify never touching the latch on a failure.
@@ -230,7 +230,7 @@ func TestInterpret_StopFailure_EmptyErrorYieldsNilFailureError(t *testing.T) {
 	assert.Nil(t, in.FailureError)
 }
 
-// TestInterpret_StopFailureSubagentMarker covers D8: a StopFailure with an agent_id key says
+// TestInterpret_StopFailureSubagentMarker: a StopFailure with an agent_id key says
 // it came from a subagent and names it, an unmarked one is the main agent's, and the
 // failure fields still come through either way (kb:fact/subagent-stopfailure-carries-agent-id).
 func TestInterpret_StopFailureSubagentMarker(t *testing.T) {
@@ -275,7 +275,7 @@ func TestInterpret_PreCompact(t *testing.T) {
 	assert.Equal(t, KindCompactionBegan, in.Kind)
 }
 
-// TestInterpret_SessionEnd covers REQ-10/D15: reason "clear" must never be read as a
+// TestInterpret_SessionEnd: reason "clear" must never be read as a
 // death hint; any other reason (including "other", which covers both a killed pane and
 // ordinary termination per canary-fields.md) is one.
 func TestInterpret_SessionEnd(t *testing.T) {
@@ -323,7 +323,7 @@ func TestInterpret_MalformedPayloadNeverPanics(t *testing.T) {
 	}
 }
 
-// TestInterpret_FromSubagentMarker covers REQ-1/D6: FromSubagent is derived only for
+// TestInterpret_FromSubagentMarker: FromSubagent is derived only for
 // the turn-activity events (UserPromptSubmit/PreToolUse/PostToolUse) and
 // PermissionRequest, true iff the payload carries the agent_id key at all (measured
 // 2.1.259, canary-fields.md "Subagent and background-task fields": main-agent hooks
@@ -418,7 +418,7 @@ func innerPayload(t *testing.T, envelopedBody string) []byte {
 	return env.Payload
 }
 
-// TestInterpret_PostToolBatch covers D4's interpreter half: the wire-shaped PostToolBatch
+// TestInterpret_PostToolBatch covers the interpreter half: the wire-shaped PostToolBatch
 // is turn activity with its permission_mode latched, and the marker derives FromSubagent
 // and the opaque Agent id exactly as on PostToolUse (kb:fact/plan-feedback-emits-only-post-tool-batch).
 func TestInterpret_PostToolBatch(t *testing.T) {
@@ -447,7 +447,7 @@ func TestInterpret_PostToolBatch(t *testing.T) {
 	}
 }
 
-// TestInterpret_AgentIdentity covers REQ-3's interpreter half: Agent is the marker's opaque
+// TestInterpret_AgentIdentity covers the interpreter half: Agent is the marker's opaque
 // id for the events FromSubagent is derived on, "" for the main agent, and a Notification
 // permission_prompt is AgentUnknown (it cannot say) while every other kind is not.
 func TestInterpret_AgentIdentity(t *testing.T) {
@@ -501,7 +501,7 @@ func TestInterpret_AgentIdentity(t *testing.T) {
 	})
 }
 
-// TestInterpret_IdlePromptWithAndWithoutPromptID pins the interpreter's half of REQ-4: a
+// TestInterpret_IdlePromptWithAndWithoutPromptID pins the interpreter's half of the prompt-id rule: a
 // prompt-less idle_prompt (the shape after /clear) still interprets as the idle notice;
 // the machine, which sees no prompt id, is what makes it a no-op.
 func TestInterpret_IdlePromptWithAndWithoutPromptID(t *testing.T) {
@@ -511,7 +511,7 @@ func TestInterpret_IdlePromptWithAndWithoutPromptID(t *testing.T) {
 	assert.False(t, in.AgentUnknown)
 }
 
-// TestInterpret_StopBackgroundTasks covers D13's interpreter half: the running count is the
+// TestInterpret_StopBackgroundTasks covers the interpreter half: the running count is the
 // number of status:"running" entries (subagents and shells alike), nil when the payload
 // carries no list at all, and 0 for an empty list (kb:fact/background-tasks-field).
 func TestInterpret_StopBackgroundTasks(t *testing.T) {

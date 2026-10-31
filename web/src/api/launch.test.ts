@@ -156,7 +156,7 @@ describe("launch — launchSession (POST /api/sessions)", () => {
     });
   });
 
-  // Plan fix-auto-mode-select REQ-2/D3: "auto" is the new fourth permissionMode value —
+  // "auto" is the new fourth permissionMode value —
   // serialises on the request and decodes back off the seeded Session the same as the
   // three pre-existing values above.
   it("serialises permissionMode: 'auto' on the request body (REQ-2)", async () => {
@@ -211,7 +211,7 @@ describe("launch — launchSession (POST /api/sessions)", () => {
     });
   });
 
-  // REQ-1: bypassPermissions is now a fifth accepted wire value, launched the same way as
+  // BypassPermissions is now a fifth accepted wire value, launched the same way as
   // any other mode — no special request shape.
   it("serialises permissionMode: 'bypassPermissions' on the request body and decodes it back (REQ-1)", async () => {
     const bypassSeeded: Session = {
@@ -311,7 +311,7 @@ describe("launch — fetchRepos (GET /api/repos)", () => {
     expect(result.ok).toBe(false);
   });
 
-  // Plan fix-auto-mode-select REQ-4: lastPermissionMode is an open string (last-known,
+  // LastPermissionMode is an open string (last-known,
   // never authoritative per api/launch.ts's Repo doc) — "auto" round-trips exactly like
   // the three pre-existing values, with no enum check to update.
   it("decodes lastPermissionMode: 'auto' (REQ-4)", async () => {
@@ -336,7 +336,7 @@ describe("launch — fetchRepos (GET /api/repos)", () => {
   });
 });
 
-// Plan effort REQ-3/REQ-4: `lastEffort` is a required nullable string on every repo (the daemon
+// `lastEffort` is a required nullable string on every repo (the daemon
 // always sends the key); it stays an open string like lastModel.
 describe("launch — fetchRepos lastEffort (plan effort)", () => {
   const repo = {

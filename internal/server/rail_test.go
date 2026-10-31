@@ -25,7 +25,7 @@ func putSessionOrderRequest(t *testing.T, srv *testServer, body string) *httptes
 	return rec
 }
 
-// TestHandlePinSession_RequiresCookie covers the auth wiring for plan order-sidebar's
+// TestHandlePinSession_RequiresCookie covers the auth wiring for the
 // new endpoint.
 func TestHandlePinSession_RequiresCookie(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -71,7 +71,7 @@ func TestHandlePinSession_UnknownSessionIs404(t *testing.T) {
 	assert.Equal(t, "unknown_session", decodeErrorCode(t, rec))
 }
 
-// TestHandlePinSession_SuccessIs204AndPersists covers D6 through the real HTTP handler
+// TestHandlePinSession_SuccessIs204AndPersists checks through the real HTTP handler
 // (decode -> delegate -> encode): a valid pin request returns 204 with no body and the
 // store row reflects the new pinned flag.
 func TestHandlePinSession_SuccessIs204AndPersists(t *testing.T) {
@@ -87,7 +87,7 @@ func TestHandlePinSession_SuccessIs204AndPersists(t *testing.T) {
 	assert.True(t, row.Pinned)
 }
 
-// TestHandlePinSession_NoOpIs204WithNoBroadcast covers D8 at the HTTP layer: pinning a
+// TestHandlePinSession_NoOpIs204WithNoBroadcast checks at the HTTP layer: pinning a
 // session already in the requested state is still a 204, and no sessionUpsert reaches a
 // connected UI socket.
 func TestHandlePinSession_NoOpIs204WithNoBroadcast(t *testing.T) {
@@ -163,7 +163,7 @@ func TestHandleSetOrder_InvalidBodyIs400(t *testing.T) {
 	}
 }
 
-// TestHandleSetOrder_SuccessIs204AndAppliesTheOrder covers D9 through the real HTTP
+// TestHandleSetOrder_SuccessIs204AndAppliesTheOrder checks through the real HTTP
 // handler: a valid order request returns 204 and the store reflects the new
 // pinned/railPos values.
 func TestHandleSetOrder_SuccessIs204AndAppliesTheOrder(t *testing.T) {

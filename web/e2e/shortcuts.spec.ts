@@ -9,11 +9,11 @@ import {
 } from "./helpers/session";
 import { liveTile, stripCard } from "./helpers/terminal";
 
-// Plan shortcut-fixes — REQ-1 through REQ-9 (Must Have), the rebind of the whole session-
+// The rebind of the whole session-
 // shortcut family onto ⌥⌘ chords Safari and Chrome both leave alone (spikes/S5-key-probe.md
-// is the measurement authority for INV-1 — reviewer-verified, NOT re-verified here: per
-// Implementation Notes > Measurement, "no agent may 'verify' INV-1 with a Playwright run").
-// Plan acceptance E1-E10, INV-3 and ⌥⌘0's edge cases 2, 3, 4 and 6 are render tests in
+// is the measurement authority for it — reviewer-verified, NOT re-verified here: per
+// Implementation Notes > Measurement, "no agent may 'verify' it with a Playwright run").
+// The other acceptance checks and ⌥⌘0's edge cases 2, 3, 4 and 6 are render tests in
 // web/render/shortcuts.spec.ts since 2026-10-20 (plans/_audit/relevel/shortcuts-views-tiles.md):
 // what a chord does to the page for a given snapshot needs no daemon to falsify. What stays
 // here is the one journey — ⌥⌘0 in Tiles promoting a session that became the neediest only
@@ -22,7 +22,7 @@ import { liveTile, stripCard } from "./helpers/terminal";
 //
 // The test presses the NEW chord only. Per the plan's Automated Checks dry-run note,
 // "no test has a legitimate reason to press a chord Muster no longer binds" — so this file
-// never presses "Meta+n" or a bare "Meta+<digit>" (W13/W14's negative greps are aimed
+// never presses "Meta+n" or a bare "Meta+<digit>" (the negative greps are aimed
 // exactly at that). Chords are pressed via Playwright's code-based key names
 // (`Digit0`-`Digit9`), matching the plan's "matching moves to event.code" rule.
 //

@@ -131,7 +131,7 @@ func TestRemoveSection(t *testing.T) {
 	}
 }
 
-// TestValidateSectionOrder is D12's pure half: an order must list every group id and 0
+// TestValidateSectionOrder is the pure half: an order must list every group id and 0
 // exactly once — each way of failing that is refused.
 func TestValidateSectionOrder(t *testing.T) {
 	groups := []Group{{ID: 3}, {ID: 5}}

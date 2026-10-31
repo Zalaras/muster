@@ -4,14 +4,14 @@ import { mainheadSurfaceButton, shellSurfaceRegion, shellTmuxTarget } from "./he
 import { terminalRegion } from "./helpers/terminal";
 import { OPTION_LEFT_RAW, tmuxCapturePane, WsByteRecorder } from "./helpers/shellinput";
 
-// Plan terminal-fixes-cleanup — REQ-5, REQ-6, REQ-9, INV-1. Fixture plan: `daemon` per
+// Fixture plan: `daemon` per
 // test — auto-focus needs the sole session, mirroring plain-shell.spec.ts's own header.
 //
 // Every test drives a REAL interactive $SHELL (as plain-shell.spec.ts already does for
 // the shell surface) inside a real tmux pane; only the Claude side of each session ever
 // runs the harness's `-claude-bin` stub — no real `claude` process anywhere in this file.
 // The word/line-jump assertions read the pane back through `tmux capture-pane`, the
-// plan's own named oracle for E1/E2, rather than the rendered DOM: a wrong insertion
+// named oracle for the word/line-jump tests, rather than the rendered DOM: a wrong insertion
 // point still renders as *some* text, and only the pane's actual line-editor state can
 // distinguish "landed at the word boundary" from "landed at the end of the line".
 
@@ -174,7 +174,7 @@ test("Option+Left and Cmd+Left over a Claude surface are sent as xterm's own raw
     expect(recorder.sent.length).toBe(beforeMeta);
 
     // Source state 2: a shell has since been opened (and is still running) on the SAME
-    // session, then the user switches back to Claude — INV-1's "with a shell open on the
+    // session, then the user switches back to Claude — the "with a shell open on the
     // same session" source state.
     await mainheadSurfaceButton(page, "shell").click();
     await expect(shellSurfaceRegion(page, "shell-keys-e3")).toBeVisible({ timeout: 15_000 });

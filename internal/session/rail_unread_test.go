@@ -11,7 +11,7 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode"
 )
 
-// TestApplyInput_Unread_INV1 covers plan rail-card-improvements REQ-7/D7's half of INV-1
+// TestApplyInput_Unread_INV1 covers the half of the unread ⇒ idle invariant
 // (unread ⇒ idle) that lives in applyInput/setState: setState (session.go) clears Unread
 // unconditionally whenever the target state is not idle — the single choke point every
 // applyInput arm routes through — whatever the source state or whether the transition is
@@ -90,7 +90,7 @@ func boolLabel(b bool) string {
 	return "false"
 }
 
-// TestApplyInput_TurnActivity_PromptHandling covers REQ-12/D5/D12: KindTurnActivity
+// TestApplyInput_TurnActivity_PromptHandling: KindTurnActivity
 // stores the adapter-supplied prompt on Session.LastPrompt truncated to 200 characters
 // (mirroring lastActivity's own truncate), leaves it untouched when the adapter supplied
 // none, and — because the straggler early-return in the closed/unmarked case happens
@@ -147,7 +147,7 @@ func TestApplyInput_TurnActivity_PromptHandling(t *testing.T) {
 	})
 }
 
-// TestApplyBind_LastPrompt covers D12's bind-family clauses: an explicit clear-rebind (a
+// TestApplyBind_LastPrompt covers the bind-family clauses: an explicit clear-rebind (a
 // fresh /clear conversation) resets LastPrompt to nil regardless of what it held, an
 // id-change escalation to clear-rebind does the same, a same-claude-id resume-bind
 // leaves it completely untouched, and a plain bind with an unchanged claude id (no

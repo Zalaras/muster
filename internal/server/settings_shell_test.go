@@ -71,10 +71,10 @@ func countStatusLineEventsForSession(t *testing.T, srv *testServer, claudeSessio
 	return n
 }
 
-// TestWrapperScriptsShellRoundTrip covers D6/D6a/D6b/D6c/REQ-5/REQ-9: the settings→shell→
+// TestWrapperScriptsShellRoundTrip: the settings→shell→
 // script→POST chain the plan's own probe found broken on day one (spikes/FINDINGS.md
 // 2026-08-25 addendum: a bare space-bearing command-hook path silently never runs), and
-// (D11/REQ-9) that the enveloped SessionStart the wrapper produces actually binds. This
+// that the enveloped SessionStart the wrapper produces actually binds. This
 // test takes the *generated* command strings verbatim from a real MergeSettings output —
 // not reimplemented quoting — and runs each one exactly as /bin/sh -c would, from a data
 // dir whose path contains a space (Edge Case 6), against a real httptest server backed
@@ -127,11 +127,11 @@ func TestWrapperScriptsShellRoundTrip(t *testing.T) {
 	// D6c: guard the test itself against silently losing its point.
 	assert.Contains(t, hookCmd, " ", "the extracted hook command must contain a space (Edge Case 6)")
 	assert.Contains(t, statusLineCmd, " ", "the extracted statusLine command must contain a space (Edge Case 6)")
-	// And it must be the single-quoted form (REQ-1), not merely any string with a space.
+	// And it must be the single-quoted form, not merely any string with a space.
 	assert.Equal(t, "'"+hookScript+"'", hookCmd)
 	assert.Equal(t, "'"+statusLineScript+"'", statusLineCmd)
 
-	// REQ-1: every registered event carries the exact same command string —
+	// Every registered event carries the exact same command string —
 	// spot-check a plain-HTTP-hook event too, not just SessionStart.
 	require.Len(t, doc.Hooks["PreToolUse"], 1)
 	require.Len(t, doc.Hooks["PreToolUse"][0].Hooks, 1)
@@ -139,7 +139,7 @@ func TestWrapperScriptsShellRoundTrip(t *testing.T) {
 
 	env := append(baseTestEnv(t), "MUSTER_SESSION="+strconv.FormatInt(sess.ID, 10), "TMUX_PANE=%1")
 
-	// --- SessionStart run (D6/D6a/D11) ---
+	// --- SessionStart run ---
 	const claudeID = "shell-roundtrip-claude-1"
 	runWrapperCommand(t, hookCmd, env, claudecodetest.RawHookBody("SessionStart", claudeID))
 
@@ -155,7 +155,7 @@ func TestWrapperScriptsShellRoundTrip(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, claudeID, final.ClaudeSessionID, "D11: the enveloped SessionStart must have bound the session's ClaudeSessionID")
 
-	// --- status-line run (D6/D6b) --- raw (un-enveloped) body: the script itself adds
+	// --- status-line run --- raw (un-enveloped) body: the script itself adds
 	// the envelope from $MUSTER_SESSION/$TMUX_PANE, exactly like the real status line.
 	runWrapperCommand(t, statusLineCmd, env, claudecodetest.RawStatusLineFull(claudeID, claudecodetest.StatusLineFullOpts{}))
 
@@ -172,7 +172,7 @@ func TestWrapperScriptsShellRoundTrip(t *testing.T) {
 }
 
 // TestWrapperScriptsShellRoundTrip_UnmanagedSessionProducesZeroRequests covers
-// D12/REQ-6: with $MUSTER_SESSION unset (an unmanaged Claude Code session in the same
+// With $MUSTER_SESSION unset (an unmanaged Claude Code session in the same
 // directory), running the generated hook command must make zero HTTP requests, persist
 // zero new event rows, exit 0, and write nothing to stdout or stderr.
 func TestWrapperScriptsShellRoundTrip_UnmanagedSessionProducesZeroRequests(t *testing.T) {
@@ -205,7 +205,7 @@ func TestWrapperScriptsShellRoundTrip_UnmanagedSessionProducesZeroRequests(t *te
 	const claudeID = "d12-unmanaged-claude-1"
 	before := countEventsForSession(t, srv, claudeID)
 
-	// D12: env deliberately has no MUSTER_SESSION — baseTestEnv already strips any stray
+	// Env deliberately has no MUSTER_SESSION — baseTestEnv already strips any stray
 	// one from the test runner's own environment.
 	env := baseTestEnv(t)
 	runWrapperCommandExpectingSilence(t, hookCmd, env, claudecodetest.RawHookBody("SessionStart", claudeID), 3*time.Second)
@@ -215,7 +215,7 @@ func TestWrapperScriptsShellRoundTrip_UnmanagedSessionProducesZeroRequests(t *te
 }
 
 // TestWrapperScriptsShellRoundTrip_DaemonUnreachableExitsSilentlyAndFast covers
-// D13/REQ-7: with $MUSTER_SESSION set but the configured URL pointing at a closed
+// With $MUSTER_SESSION set but the configured URL pointing at a closed
 // loopback port (the daemon is down), the wrapper must exit 0 with empty stdout/stderr
 // in well under the hook's own 2s curl --max-time, never hanging out to the shell's own
 // timeout.
@@ -227,7 +227,7 @@ func TestWrapperScriptsShellRoundTrip_DaemonUnreachableExitsSilentlyAndFast(t *t
 		t.Skip("sh not on PATH")
 	}
 
-	// A closed loopback port, so nothing answers (D13's "daemon down" case) while the URL
+	// A closed loopback port, so nothing answers (the "daemon down" case) while the URL
 	// shape is still a real loopback address. Fixed rather than freshly bound, and in a data
 	// dir that persists across runs: the scripts then carry the same content every run, so
 	// WriteWrapperScripts leaves them untouched and the 3 s budget below measures the
@@ -301,9 +301,9 @@ func runWrapperCommand(t *testing.T, cmdString string, env []string, stdin strin
 }
 
 // runWrapperCommandExpectingSilence runs cmdString via sh -c exactly like
-// runWrapperCommand, but asserts REQ-7's "never writes to stdout or stderr, always
-// exits 0" contract directly on the observed process output/exit code — used for D12
-// (MUSTER_SESSION unset) and D13 (daemon unreachable), where the whole point is that
+// runWrapperCommand, but asserts the "never writes to stdout or stderr, always
+// exits 0" contract directly on the observed process output/exit code — used for the
+// MUSTER_SESSION-unset and daemon-unreachable cases, where the whole point is that
 // nothing observable happens.
 func runWrapperCommandExpectingSilence(t *testing.T, cmdString string, env []string, stdin string, timeout time.Duration) {
 	t.Helper()

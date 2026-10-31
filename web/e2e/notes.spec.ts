@@ -1,18 +1,18 @@
-// Plan session-notes — E1 to E12 (a persistent, markdown-rendered note per session, edited from
+// Session notes (a persistent, markdown-rendered note per session, edited from
 // the Focus header's glyph and peeked from the card and tile markers) and the journeys the
-// plan's REQ-6 to REQ-16 and REQ-21 put across the live daemon. What the display shows for a
+// requirements put across the live daemon. What the display shows for a
 // given state (the glyph's colours at every header width, the marker's place on the repo line,
 // the hover panel's cut-off, the panel's rectangle after a drag past each edge, undo and redo,
-// the unsaved status colour) are render tests (R1 to R13, web/render/notes.spec.ts).
+// the unsaved status colour) are render tests (web/render/notes.spec.ts).
 //
 // Fixture plan: `daemon` (fresh per test), as the plan's header says. Every test launches the
 // only session or a known pair and relies on auto-focus, one restarts or stops the daemon, and
-// E7 asserts what a second window (its own browser context, so no shared local storage) sees of
+// one asserts what a second window (its own browser context, so no shared local storage) sees of
 // the same session.
 //
 // Claude Code is faked: a bind is the enveloped `SessionStart` a real `claude` posts first and a
 // turn is a raw `UserPromptSubmit`, both builders from helpers/payloads.ts. The note itself has
-// no Claude Code source (INV-1), so the only input path is the endpoint the panel drives, and
+// no Claude Code source, so the only input path is the endpoint the panel drives, and
 // `PUT /api/sessions/{id}/note` through the page's cookie is used only to build a starting state,
 // never as the evidence for a journey.
 //
@@ -187,8 +187,8 @@ test("typing without leaving edit mode puts the text in the daemon's state withi
   await openAndEdit(page);
   await page.keyboard.type("autosaved while still typing");
 
-  // 2 s, not the 15 s default: the plan's E3 budget for "within about a second of the last
-  // keystroke" (REQ-9) — a save that only lands on leaving edit mode must fail here.
+  // 2 s, not the 15 s default: the budget for "within about a second of the last
+  // keystroke" — a save that only lands on leaving edit mode must fail here.
   await expect
     .poll(() => noteOnWire(page, daemon, session.id), {
       timeout: 2_000,

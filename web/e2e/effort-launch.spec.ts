@@ -25,16 +25,15 @@ import {
   waitForNextClockSecond,
 } from "./helpers/session";
 
-// Plan effort — the launch half: what a launch spawns and records, what the daemon refuses,
-// what the dialog remembers per directory, and the Resume-tab resume's effort. Acceptance E3,
-// E4, E16 with REQ-2 to REQ-4 and REQ-11.
+// Effort, the launch half: what a launch spawns and records, what the daemon refuses,
+// what the dialog remembers per directory, and the Resume-tab resume's effort.
 //
-// The Effort row's own display — its six radios in order between Model and Start in (E2), its
+// The Effort row's own display — its six radios in order between Model and Start in, its
 // absence on the Resume tab, a click or an arrow key moving the checked segment across a render
 // tick — is a render test in web/render/launch.spec.ts since 2026-10-20
 // (plans/_audit/relevel/launch-update.md): what the form shows needs no daemon to falsify.
 //
-// Daemon shape (the plan's Fixture plan header): every test takes the per-test `daemon` fixture —
+// Daemon shape: every test takes the per-test `daemon` fixture —
 // each asserts recents or remembered per-directory effort, which is daemon-global.
 //
 // Claude Code is faked: the stub `claude` ignores its argv, so what a launch passed is read from
@@ -345,7 +344,7 @@ test("the keyboard-chosen Effort level is what launches (REQ-2)", async ({ page,
   expect(effortArg(await startCommandOf(page, daemon, "effort-keyboard-launch"))).toBe("medium");
 });
 
-// --- the Resume tab (REQ-11, E16) ---
+// --- the Resume tab ---
 
 test("a Resume-tab resume of a transcript whose last assistant line recorded low spawns the pane with --effort low, seeds effort low, and the header reads (low) before any post (REQ-11, E16)", async ({
   page,

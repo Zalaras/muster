@@ -13,7 +13,7 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode"
 )
 
-// TestTerminalRegistry_Watched covers D9: Watched(id) is true iff a connection is
+// TestTerminalRegistry_Watched: Watched(id) is true iff a connection is
 // registered for id on either surface (Claude or shell). No real websocket is needed —
 // Watched only reads map membership, and terminalConn's zero value is a valid registry
 // entry for that purpose (this test's assertion is never about the PTY/websocket fields
@@ -38,7 +38,7 @@ func TestTerminalRegistry_Watched(t *testing.T) {
 	assert.False(t, r.Watched(1), "neither surface registered: not watched")
 }
 
-// TestTerminalRegistry_Watched_MultiSessionIndependence covers D9's second clause and
+// TestTerminalRegistry_Watched_MultiSessionIndependence covers the second clause and
 // Edge Case 4: registering (and later removing) one session's connection must never
 // change another session's Watched answer — asserted with two sessions coexisting on the
 // same shared registry, not inferred from a single-session test
@@ -62,7 +62,7 @@ func TestTerminalRegistry_Watched_MultiSessionIndependence(t *testing.T) {
 	assert.True(t, r.Watched(2), "removing session 1's connection must never affect session 2's")
 }
 
-// TestHandleTerminal_SuccessfulAttachMarksSessionSeen covers D8/REQ-8's Claude-surface
+// TestHandleTerminal_SuccessfulAttachMarksSessionSeen covers the Claude-surface
 // attach side effect: a takeover clears Unread, persists and broadcasts, before any PTY
 // byte is forwarded — proven by asserting the clear has already happened by the time the
 // very first byte arrives on the socket (MarkSeen is a synchronous call in
@@ -97,7 +97,7 @@ func TestHandleTerminal_SuccessfulAttachMarksSessionSeen(t *testing.T) {
 	assert.False(t, persisted.Unread)
 }
 
-// TestHandleTerminal_AttachOnAnAlreadyReadSessionDoesNotBroadcast covers D8's no-op
+// TestHandleTerminal_AttachOnAnAlreadyReadSessionDoesNotBroadcast covers the no-op
 // half: attaching to a session that was never unread must not produce an extra
 // sessionUpsert (MarkSeen returns early without persisting or broadcasting).
 func TestHandleTerminal_AttachOnAnAlreadyReadSessionDoesNotBroadcast(t *testing.T) {

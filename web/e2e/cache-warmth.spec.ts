@@ -21,16 +21,15 @@ import {
 import { railCard, railOrderIds } from "./helpers/railorder";
 import { envelopeOpts } from "./helpers/session";
 
-// Plan rail-card-organise — prompt-cache warmth (#84), the journeys: what the daemon keeps and
+// Prompt-cache warmth (#84), the journeys: what the daemon keeps and
 // clears (/clear, Stop and Resume, liveness death, compaction, a restart), what it broadcasts, and
 // what the display does while the daemon is down or a card above the hovered timer changes height.
-// Acceptance E15, E16 with REQ-21 to REQ-23, REQ-28, REQ-32 and INV-5. The display properties —
-// the tint, underline and hover for a given cache as the page clock advances, every state's
-// timer, the strip card, the group header's extra timer and the popover's row timers (E14, E17,
-// E18, E19, REQ-1 to REQ-3, REQ-24 to REQ-31) — are render tests in web/render/usage.spec.ts
+// The display properties — the tint, underline and hover for a given cache as the page
+// clock advances, every state's timer, the strip card, the group header's extra timer and
+// the popover's row timers — are render tests in web/render/usage.spec.ts
 // (re-levelled 2026-10-20, plans/_audit/relevel/usage.md).
 //
-// Daemon shape (the plan's Fixture plan header): every test takes the per-test `daemon` fixture —
+// Daemon shape: every test takes the per-test `daemon` fixture —
 // the restart criterion restarts the daemon, and the daemon-down one kills it.
 //
 // Time: the dashboard reads `expiresAt` against its own clock, so each test fixes the page's clock

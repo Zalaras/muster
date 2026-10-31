@@ -22,8 +22,8 @@ import { envelopeOpts, launchSession, scratchDirectory } from "./helpers/session
 import { mainheadSurfaceButton } from "./helpers/shell";
 import { openSettingsDialog, themeRadio } from "./helpers/theme";
 
-// Plan mermaid-support — REQ-1 through REQ-15, INV-1 through INV-5, acceptance E2-E15
-// (E1 is `make e2e` itself): the journeys. Each test here needs the daemon and the UI
+// Reader diagrams:
+// the journeys. Each test here needs the daemon and the UI
 // together — a theme change (a pref round-trip whose broadcast re-renders the diagram), a
 // Write hook re-rendering the open file, the pop-out (a second page opened through its
 // link), or a file response held in flight. What a document's diagrams render as — the SVG
@@ -33,7 +33,7 @@ import { openSettingsDialog, themeRadio } from "./helpers/theme";
 // (kb:adr/process-test-levels-journey-property-logic; plans/_audit/relevel/reader.md).
 //
 // Fixture plan (plan.md header): every test takes the test-scoped `daemon` fixture,
-// matching reader.spec.ts's rationale (E6 flips the daemon-global theme pref;
+// matching reader.spec.ts's rationale (one test flips the daemon-global theme pref;
 // `launchSession` relies on auto-focus of "the only session" in Focus).
 //
 // The daemon and tmux are real throughout; only Claude Code is faked, via

@@ -48,7 +48,7 @@ func deadEffortSession(t *testing.T, st *store.Store, mgr *session.Manager, dir,
 	return sess.ID
 }
 
-// TestLauncher_Resume_PassesTheRowsEffortAsFlag covers D9/REQ-10: the Resume button's
+// TestLauncher_Resume_PassesTheRowsEffortAsFlag: the Resume button's
 // argv carries --effort <level> iff the row's level is non-null, after --permission-mode;
 // afterwards effort and warning are exactly what they were.
 func TestLauncher_Resume_PassesTheRowsEffortAsFlag(t *testing.T) {
@@ -97,7 +97,7 @@ func TestLauncher_Resume_PassesTheRowsEffortAsFlag(t *testing.T) {
 	}
 }
 
-// TestLauncher_Resume_CancelsAPendingFirstReportCheck covers D9's "no check is pending"
+// TestLauncher_Resume_CancelsAPendingFirstReportCheck covers the "no check is pending"
 // and edge case 11: a session that never reported before it ended and is resumed from the
 // button raises no warning when its first report arrives.
 func TestLauncher_Resume_CancelsAPendingFirstReportCheck(t *testing.T) {
@@ -116,7 +116,7 @@ func TestLauncher_Resume_CancelsAPendingFirstReportCheck(t *testing.T) {
 	assert.Equal(t, ptrTo("high"), got.Effort.Level)
 }
 
-// TestLauncher_LaunchResume_Effort covers D12/REQ-11: the transcript's last assistant
+// TestLauncher_LaunchResume_Effort: the transcript's last assistant
 // effort reaches the argv after --permission-mode and seeds the row's effort with no check
 // pending; a transcript that recorded none sends no flag and seeds null; the repo row's
 // lastEffort is left as it was, and a new repo row gets null.

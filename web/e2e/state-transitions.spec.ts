@@ -1,4 +1,4 @@
-// Plan state-issues — REQ-1 through REQ-13 (#65, #66, #70, #72, #78, #86, #87), driven
+// State transitions (#65, #66, #70, #72, #78, #86, #87), driven
 // end-to-end: Claude Code is faked by synthesized hook POSTs (shapes from kb:fact/compact-hook-sequence,
 // kb:fact/local-command-orphan-idle-prompt, kb:fact/background-subagent-fresh-prompt-id,
 // kb:fact/subagent-declared-mode-on-hooks, kb:fact/subagent-stopfailure-carries-agent-id,
@@ -13,8 +13,8 @@
 //
 // Out of this file by design: the interrupted-compaction / early-Esc gap (#78) has no event to
 // drive and is accepted on record (plan edge case 5); a legacy `needs_input`/`idle` row
-// (REQ-3's last clause, REQ-5's second sentence, edge case 11) can only be persisted by an
-// earlier daemon, so it is the unit tests' (D2/D3); `unread` follows the terminal registry, not
+// (edge case 11 and the legacy-row clauses) can only be persisted by an
+// earlier daemon, so it is the unit tests'; `unread` follows the terminal registry, not
 // a hook, and is the unit tests' too.
 //
 // "Persisted" below is the HookFeed's wait for the daemon's event table to hold every hook sent
@@ -41,7 +41,7 @@ import { finishTurn, HookFeed, openBoundSession, snapshot } from "./helpers/stat
 const daemon = fileDaemon();
 
 // ---------------------------------------------------------------------------------------------
-// Compaction (REQ-6..REQ-9, REQ-10, INV-C; #65, #66)
+// Compaction (#65, #66)
 // ---------------------------------------------------------------------------------------------
 
 test("a compaction begun on an idle card reads working, and its SessionStart for the same prompt lands idle (E1, REQ-6, REQ-8)", async ({
@@ -160,7 +160,7 @@ test("a compaction inside a working turn only counts: no transition, and its Ses
     const before = await snapshot(page, daemon(), s.session.id);
 
     // An auto-compaction was not measured; its prompt_id here is the strictest choice for
-    // REQ-7 ("the turn's current prompt is unchanged"): one the turn never used.
+    // the requirement ("the turn's current prompt is unchanged"): one the turn never used.
     await s.feed.post(rawPreCompact(s.claudeId, "pc-auto"));
     await expect(s.card.getByText(/⟳1\b/)).toBeVisible();
     await s.feed.post(
@@ -196,7 +196,7 @@ test("a compaction inside a working turn whose SessionStart names the turn's own
     await expect(stateBadge(s.card)).toHaveText(/working/i);
     const before = await snapshot(page, daemon(), s.session.id);
 
-    // The turn's current prompt is open and named by the SessionStart, but no REQ-6
+    // The turn's current prompt is open and named by the SessionStart, but no
     // compaction opened it: it must not be read as "the compaction's prompt".
     await s.feed.post(rawPreCompact(s.claudeId, "p1"));
     await s.feed.post(
@@ -345,7 +345,7 @@ test("a new prompt during a compaction is an ordinary turn, and the compaction's
   }
 });
 
-// Regression pin (REQ-10): runs green at authoring — startup, clear and resume binds are
+// Regression pin: runs green at authoring — startup, clear and resume binds are
 // untouched by the compact-bind change.
 test("SessionStart with source startup, clear and resume still lands started, started and idle (REQ-10 regression)", async ({
   page,
@@ -383,7 +383,7 @@ test("SessionStart with source startup, clear and resume still lands started, st
 });
 
 // ---------------------------------------------------------------------------------------------
-// idle_prompt (REQ-1..REQ-5, INV-B; #72, #87)
+// idle_prompt (#72, #87)
 // ---------------------------------------------------------------------------------------------
 
 test("an idle_prompt naming a prompt no hook opened leaves an idle card idle, then closes that prompt (E2, REQ-1, REQ-3, #87)", async ({
@@ -408,7 +408,7 @@ test("an idle_prompt naming a prompt no hook opened leaves an idle card idle, th
     expect(after.stateSince).toBe(before.stateSince);
     expect(after.lastActivity).toBe("first reply");
 
-    // REQ-3: the idle_prompt closed that prompt, so an unmarked event still carrying it is a
+    // The idle_prompt closed that prompt, so an unmarked event still carrying it is a
     // straggler that cannot start a turn (an unseen id would).
     await s.feed.post(rawPostToolUse(s.claudeId, { promptId: "local-cmd-1" }));
     await s.feed.persisted(page);
@@ -419,7 +419,7 @@ test("an idle_prompt naming a prompt no hook opened leaves an idle card idle, th
   }
 });
 
-// Regression pin (REQ-4): runs green at authoring — a closed prompt's idle_prompt was
+// Regression pin: runs green at authoring — a closed prompt's idle_prompt was
 // already inert.
 test("an idle_prompt for the prompt a Stop already closed changes nothing (REQ-4 regression)", async ({
   page,
@@ -444,7 +444,7 @@ test("an idle_prompt for the prompt a Stop already closed changes nothing (REQ-4
   }
 });
 
-// Regression pin (REQ-4, edge case 13): runs green at authoring.
+// Regression pin (edge case 13): runs green at authoring.
 test("a straggler idle_prompt for a closed prompt arriving after the next turn started leaves the card working (edge case 13, REQ-4 regression)", async ({
   page,
   request,
@@ -468,7 +468,7 @@ test("a straggler idle_prompt for a closed prompt arriving after the next turn s
   }
 });
 
-// Regression pin (REQ-4): runs green at authoring — it is the existing #57 shape, kept.
+// Regression pin: runs green at authoring — it is the existing #57 shape, kept.
 test("an idle_prompt with no prompt_id after /clear changes nothing (REQ-4 regression)", async ({
   page,
   request,
@@ -514,7 +514,7 @@ test("an idle_prompt naming the open turn's prompt ends the turn: a working card
     expect(after.state).toBe("idle");
     expect(after.attention).toBeNull();
     expect(after.failure).toBeNull();
-    // REQ-2: lastActivity and backgroundTasks are not the idle_prompt's to change.
+    // LastActivity and backgroundTasks are not the idle_prompt's to change.
     expect(after.lastActivity).toBe("first reply");
     expect(after.backgroundTasks).toBe(1);
 
@@ -645,7 +645,7 @@ test("an idle_prompt on a subagent's permission wait keeps the wait, and the sub
     expect(after.attention?.reason).toBe("permission");
     expect(after.attention?.since).toBe(before.attention?.since);
 
-    // REQ-5 for a permission wait: only the agent that raised it ends it.
+    // For a permission wait: only the agent that raised it ends it.
     await s.feed.post(rawPostToolUse(s.claudeId, { promptId: "bg-perm-1", agentId: "agent-1" }));
     await expect(stateBadge(s.card)).toHaveText(/working/i);
     expect((await snapshot(page, daemon(), s.session.id)).attention).toBeNull();
@@ -655,7 +655,7 @@ test("an idle_prompt on a subagent's permission wait keeps the wait, and the sub
 });
 
 // ---------------------------------------------------------------------------------------------
-// Mode latch (REQ-12; #70)
+// Mode latch (#70)
 // ---------------------------------------------------------------------------------------------
 
 test("a subagent-marked event carrying dontAsk leaves a planning card planning and the latch on plan (E5, REQ-12, #70)", async ({
@@ -691,7 +691,7 @@ test("a subagent-marked event carrying dontAsk leaves a planning card planning a
   }
 });
 
-// Regression pin (REQ-12, "main-agent events latch exactly as today"): runs green at
+// Regression pin ("main-agent events latch exactly as today"): runs green at
 // authoring — approving a plan mid-turn is still a real mode change, and still reads working.
 test("a main-agent event carrying acceptEdits still moves a planning card to working and the latch to acceptEdits (REQ-12 regression)", async ({
   page,
@@ -723,7 +723,7 @@ test("a main-agent event carrying acceptEdits still moves a planning card to wor
 });
 
 // ---------------------------------------------------------------------------------------------
-// Subagent StopFailure (REQ-13; #86)
+// Subagent StopFailure (#86)
 // ---------------------------------------------------------------------------------------------
 
 test("a subagent-marked StopFailure for the closed prompt leaves an idle card idle, never failed (E6, REQ-13, #86)", async ({
@@ -837,7 +837,7 @@ test("a subagent-marked StopFailure during a permission wait keeps the card on n
   }
 });
 
-// Regression pin (REQ-13, "an unmarked StopFailure behaves exactly as today"): runs green at
+// Regression pin ("an unmarked StopFailure behaves exactly as today"): runs green at
 // authoring.
 test("an unmarked StopFailure still fails the open turn, with its raw error and message (REQ-13 regression)", async ({
   page,

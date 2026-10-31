@@ -41,11 +41,11 @@ import { liveTile } from "../../render/helpers/tiles";
  * included) and shows the dead surface. Measured 2026-09-11: overlay 5–9 ms after
  * kill-window, dead surface ~30 ms after, and 1 in 15 kills never rendered the overlay
  * because the state upsert beat the socket's `close` event. Asserting it made
- * terminal.spec.ts E12 flaky for weeks (docs/history/design/test-strategy.md). For an ended pane,
+ * the terminal.spec.ts daemon-down test flaky for weeks (docs/history/design/test-strategy.md). For an ended pane,
  * assert the durable end state instead: `#dead-surface` (Focus) or
  * `liveTile(...).locator(".dead-surface")`/`.endcap` (Tiles), plus
  * `terminalRegion(...).toHaveCount(0)` and, for the socket itself, `TerminalSocketTracker`
- * — see terminal.spec.ts E12/REQ-13 and actions.spec.ts's End tests for the shape.
+ * — see terminal.spec.ts and actions.spec.ts's End tests for the shape.
  * e2e-lint rule 4 rejects the overlay oracle.
  */
 export function terminalOverlay(region: Locator): Locator {
@@ -53,7 +53,7 @@ export function terminalOverlay(region: Locator): Locator {
 }
 
 /**
- * Tracks open `/ws/terminal/` sockets for INV-2 (E11): counts opens via
+ * Tracks open `/ws/terminal/` sockets: counts opens via
  * `page.on('websocket')` and removes on close/error, so `.liveCount` always reflects the
  * number of currently-open terminal sockets. Must be constructed (i.e. its listener
  * attached) before the action that opens the socket(s) under test — Playwright's
@@ -79,7 +79,7 @@ export class TerminalSocketTracker {
 
   /** Cumulative opens since construction — unlike `liveCount` (a net gauge that an
    * open-then-close also brings back to zero), this asserts "never opened" literally
-   * (m2 review cycle-2 Minor 5: REQ-13's "no attach attempt" needs the gross count). */
+   * ("no attach attempt" needs the gross count). */
   get totalOpened(): number {
     return this.opened;
   }
@@ -87,13 +87,13 @@ export class TerminalSocketTracker {
 
 /**
  * Cross-checks a live tile's footer geometry (the `.geo` span inside its `.tfoot`,
- * REQ-15's "tile footers show their real geometry") against the tmux oracle
+ * "tile footers show their real geometry") against the tmux oracle
  * (`#{window_width}`/`#{window_height}`) for that session's tmux target.
  *
- * Review m2-terminal Critical 6/6: E8's original REQ-15 check only matched the *pattern*
+ * An earlier check only matched the *pattern*
  * `/\d+×\d+/`, which a stale or fabricated geometry satisfies just as well as a real one
  * — exactly how Critical 1 (Tiles never refits) shipped green. This helper is the actual
- * INV-3 "geometry moves" oracle, applied inside Tiles: it polls because the `resize`
+ * "geometry moves" oracle, applied inside Tiles: it polls because the `resize`
  * frame a tile's refit produces reaches tmux asynchronously relative to the render pass
  * that wrote the footer text, so a single synchronous read of both sides can race.
  */
@@ -167,9 +167,9 @@ export async function expectAllTileGeometrySettled(
 }
 
 /**
- * Parses the Focus sizenote line's leading `<cols>×<rows>` (REQ-15, a-instrument mockup:
+ * Parses the Focus sizenote line's leading `<cols>×<rows>` (a-instrument mockup:
  * `<cols>×<rows> · one live client · geometry owned by this pane`) out of its text
- * content, for E4's cross-check against the tmux geometry oracle.
+ * content, for the cross-check against the tmux geometry oracle.
  */
 export function parseSizenote(text: string): { cols: string; rows: string } {
   const match = /(\d+)\s*×\s*(\d+)/.exec(text);

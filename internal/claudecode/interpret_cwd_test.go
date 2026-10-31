@@ -29,7 +29,7 @@ var mainAgentEvents = []string{
 	"CwdChanged",
 }
 
-// TestInterpret_Cwd is D1: a main-agent hook's non-empty cwd becomes StateInput.Cwd, an absent
+// TestInterpret_Cwd: a main-agent hook's non-empty cwd becomes StateInput.Cwd, an absent
 // or empty one leaves it nil, and CwdChanged's new_cwd is never read
 // (kb:fact/cwd-changed-hook: a cd outside the allowed directories makes new_cwd name the
 // target while cwd is already the reset project root).
@@ -72,7 +72,7 @@ func TestInterpret_CwdNeverChangesTheTransition(t *testing.T) {
 	}
 }
 
-// TestInterpret_CwdIgnoredForSubagents is D2 / INV-4: an event carrying the agent marker
+// TestInterpret_CwdIgnoredForSubagents: an event carrying the agent marker
 // (kb:fact/subagent-hooks-carry-agent-id) and SubagentStart/SubagentStop never report a
 // directory, whatever its cwd says.
 func TestInterpret_CwdIgnoredForSubagents(t *testing.T) {
@@ -109,7 +109,7 @@ func TestInterpret_CwdMalformedPayloadIsNil(t *testing.T) {
 
 func strPtr(s string) *string { return &s }
 
-// TestInterpretStatus_Cwd is REQ-3's status half: workspace.current_dir wins, the top-level
+// TestInterpretStatus_Cwd is the status half: workspace.current_dir wins, the top-level
 // cwd is the fallback, project_dir is never read, and empty or absent values report nothing
 // (kb:fact/status-line-keys, kb:fact/enter-worktree-moves-project-dir).
 func TestInterpretStatus_Cwd(t *testing.T) {

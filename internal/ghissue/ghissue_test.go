@@ -133,8 +133,8 @@ func TestGhCLITokenReader_RespectsParentContextCancellation(t *testing.T) {
 	assert.True(t, sawCanceled, "the parent's cancellation must be visible to the exec seam")
 }
 
-// TestGhCLITokenReader_StdoutNeverEchoedIntoTheErrorEvenOnFailure is D9's ghissue-level
-// defense for the auth step: gh's stdout is where the token lives (REQ-11/INV-3), so an
+// TestGhCLITokenReader_StdoutNeverEchoedIntoTheErrorEvenOnFailure is the ghissue-level
+// defense for the auth step: gh's stdout is where the token lives, so an
 // error must carry only the trimmed stderr, never stdout — even if a misbehaving `gh`
 // build printed something to stdout on a non-zero exit.
 func TestGhCLITokenReader_StdoutNeverEchoedIntoTheErrorEvenOnFailure(t *testing.T) {
@@ -151,7 +151,7 @@ func TestGhCLITokenReader_StdoutNeverEchoedIntoTheErrorEvenOnFailure(t *testing.
 	assert.NotContains(t, err.Error(), secretToken, "stdout must never appear in the error")
 }
 
-// --- FileTokenReader (the -issue-token-file test seam, REQ-14) ---
+// --- FileTokenReader (the -issue-token-file test seam) ---
 
 func TestFileTokenReader_Success(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "token.txt")
@@ -370,9 +370,9 @@ func TestClient_CreateIssue_DerivesRequestTimeoutFromCallerContext(t *testing.T)
 	require.Error(t, err, "a cancelled caller context must abort the request rather than hang")
 }
 
-// TestCreateIssue_ErrorMessagesNeverContainTheToken is D9: the same defensive shape as
+// TestCreateIssue_ErrorMessagesNeverContainTheToken: the same defensive shape as
 // claudecode's TestFetchUsage_ErrorMessagesNeverContainTheToken, exercised across every
-// INV-3 failure path reachable through CreateIssue itself (not just the token-reader
+// failure path reachable through CreateIssue itself (not just the token-reader
 // unit tests above).
 func TestCreateIssue_ErrorMessagesNeverContainTheToken(t *testing.T) {
 	const secretToken = "super-secret-bearer-token-INV3"

@@ -3,10 +3,10 @@ import { bodyRailDensity, railDensityButton } from "./helpers/railcards";
 import { pinButton } from "./helpers/railorder";
 import { launchSession, scratchDirectory, sessionCard } from "./helpers/session";
 
-// Plan rail-card-improvements — REQ-3, REQ-15, the journeys where a `railDensity` prefs
+// The journeys where a `railDensity` prefs
 // round-trip drives the display: the density pref echoing to the body and mirroring across
-// a reload, a second window and the daemon being down (E7), and a focused control surviving
-// the density re-render (E12). The display properties — the card layout per density, the
+// a reload, a second window and the daemon being down, and a focused control surviving
+// the density re-render. The display properties — the card layout per density, the
 // activity clamp, the compact gauge track, the empty state, the masthead New session button
 // and the title-above-state row order — are render tests in web/render/rail.spec.ts
 // (plans/_audit/relevel/rail.md). Fixture plan header: `railDensity` is daemon-global, so
@@ -33,13 +33,13 @@ test("clicking Compact echoes to body[data-rail-density], persists across a relo
     await expect(railDensityButton(page, "comfortable")).toHaveAttribute("aria-pressed", "false");
 
     // Window B never clicked anything — it must follow purely from the `prefs`
-    // broadcast (INV-4 pattern, theme.spec.ts precedent).
+    // broadcast (theme.spec.ts precedent).
     await expect.poll(() => bodyRailDensity(pageB)).toBe("compact");
 
     await page.reload();
     await expect.poll(() => bodyRailDensity(page)).toBe("compact");
 
-    // REQ-1: the Tiles strip renders the same template and follows the same density
+    // The Tiles strip renders the same template and follows the same density
     // rules.
     await page.getByRole("button", { name: "Tiles", exact: true }).click();
     await expect(page.locator("body")).toHaveAttribute("data-rail-density", "compact");
@@ -53,7 +53,7 @@ test("clicking Compact echoes to body[data-rail-density], persists across a relo
     const banner = page.getByRole("alert");
     await expect(banner).toBeVisible({ timeout: 15_000 });
 
-    // REQ-15/no-optimistic-state: a failed PUT changes nothing on screen.
+    // No optimistic state: a failed PUT changes nothing on screen.
     await railDensityButton(page, "expanded").click();
     await expect.poll(() => bodyRailDensity(page)).toBe("compact");
     await expect(railDensityButton(page, "compact")).toHaveAttribute("aria-pressed", "true");
@@ -74,7 +74,7 @@ test("a card's Pin button keeps focus and node identity when a density button is
 
     const card = sessionCard(page, "density-focus-e12");
     await expect(card).toBeVisible();
-    // A live card no longer offers End (plan status-inconsistencies REQ-7); Pin is the
+    // A live card no longer offers End; Pin is the
     // focusable control it still has.
     const pinBtn = pinButton(card);
     await pinBtn.focus();

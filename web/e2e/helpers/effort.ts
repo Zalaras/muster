@@ -1,4 +1,4 @@
-// Locators, payload builders and oracles for plan effort: the launch dialog's Effort row, the
+// Locators, payload builders and oracles for effort: the launch dialog's Effort row, the
 // Focus mainhead's bracketed effort (`.model .eff`) and the launch-mismatch warning strip.
 //
 // The status line's `effort` is synthesized from kb:fact/status-line-effort-key (2.1.286, re-checked
@@ -166,7 +166,7 @@ export async function wireEffort(
   return { effort: found.effort ?? null, effortWarning: found.effortWarning ?? null };
 }
 
-/** The fields INV-E5 says a status post never changes, read from one session's wire object. */
+/** The fields a status post never changes, read from one session's wire object. */
 export function untouchedByStatus(s: SessionObject): unknown {
   return {
     state: s.state,

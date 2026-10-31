@@ -29,11 +29,11 @@ import { pinButton, pinViaApi, railCard } from "./helpers/railorder";
 import { findSession, getState, scratchDirectory, stateBadge } from "./helpers/session";
 import { terminalRegion } from "./helpers/terminal";
 
-// Plan rail-card-organise — the right-click menu on rail and Tiles strip cards (#56), the
+// Rail card organise: the right-click menu on rail and Tiles strip cards (#56), the
 // journeys where choosing an entry round-trips with the daemon: the Stop, Remove, Resume,
 // Move to, Pin and bulk confirms, the daemon-down state, a remove from another page, and the
-// keyboard-driven Move to. Acceptance E5-E9 with REQ-4, REQ-5, REQ-7, REQ-9, REQ-10, REQ-11
-// and INV-4. The display properties — which items each kind of card's menu offers, that no
+// keyboard-driven Move to. The display properties
+// — which items each kind of card's menu offers, that no
 // card renders an action button, how the menu opens at the pointer, closes and survives a
 // render tick — are render tests in web/render/rail.spec.ts (plans/_audit/relevel/rail.md).
 //
@@ -572,8 +572,8 @@ test("Stop… from a selected card in Select mode opens the count confirm and en
   }
 });
 
-// Plan remove-unread-right-click-1 — Mark as read / Mark as unread (#103, REQ-1, REQ-2) and
-// Remove… on a live session (#104, REQ-3). `unread` is the daemon's own per-session flag
+// Mark as read / Mark as unread (#103) and
+// Remove… on a live session (#104). `unread` is the daemon's own per-session flag
 // (set when a turn closes into idle with nobody attached, cleared on attach and on leaving
 // idle); the menu entries are the one other way to set or clear it, through
 // `PUT /api/sessions/{id}/unread`. A watched session is one whose terminal is attached: the

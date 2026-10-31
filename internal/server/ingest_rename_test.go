@@ -10,8 +10,8 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode/claudecodetest"
 )
 
-// TestIngestRename_PromptHookReplyCarriesOverrideOnce is the plan's Proof
-// (kb:adr/rename-pushed-to-claude-once, REQ-1/REQ-2): a routed UserPromptSubmit for a
+// TestIngestRename_PromptHookReplyCarriesOverrideOnce is the proof for
+// kb:adr/rename-pushed-to-claude-once: a routed UserPromptSubmit for a
 // session whose override was set by SetTitle answers with the Claude Code reply body
 // naming that override, and the next UserPromptSubmit answers with an empty body.
 func TestIngestRename_PromptHookReplyCarriesOverrideOnce(t *testing.T) {

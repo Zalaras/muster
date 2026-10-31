@@ -29,8 +29,8 @@ import { fetchReaderFile, fetchReaderListing } from "./reader";
 // uniform *across every endpoint regardless of which module it lives in* — the
 // `network_error` short-circuit below.
 
-// REQ-13's `network` failure mode (daemon down, connection refused, sleep/wake, aborted
-// request): plan new-session-dialog Fix Attempt 3 added `safeFetch`, a try/catch choke
+// The `network` failure mode (daemon down, connection refused, sleep/wake, aborted
+// request): a later fix added `safeFetch`, a try/catch choke
 // point that every exported function routes its `fetch` call through, so a *rejected*
 // fetch promise short-circuits to a `network_error` ApiResult instead of propagating out
 // of the `async function` and rejecting the caller's promise. Table-driven over all the

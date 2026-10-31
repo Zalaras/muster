@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestInterpret_UserPromptSubmit_Prompt covers REQ-12/D11: UserPromptSubmit's Prompt is
+// TestInterpret_UserPromptSubmit_Prompt: UserPromptSubmit's Prompt is
 // the payload's own prompt string verbatim, nil when the field is absent, and nil when
 // the prompt begins with the measured background-completion tag
 // (kb:fact/background-completion-new-prompt-id) — a finished background task's synthetic
@@ -58,7 +58,7 @@ func TestInterpret_UserPromptSubmit_Prompt(t *testing.T) {
 	})
 }
 
-// TestInterpret_ToolUseEvents_NeverSetPrompt covers D11's other half: PreToolUse and
+// TestInterpret_ToolUseEvents_NeverSetPrompt covers the other half: PreToolUse and
 // PostToolUse never populate Prompt — the Affected Files note's "the two tool-use cases
 // never set it" — even when a "prompt" key appears in their payload (they never actually
 // carry one per kb:fact/hook-payload-fields; this proves the interpreter doesn't even

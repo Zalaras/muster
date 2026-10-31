@@ -1,4 +1,4 @@
-// Drop simulation for the drop feature (plan file-drop-fix): a `DataTransfer` built in-page
+// Drop simulation for the drop feature: a `DataTransfer` built in-page
 // (`page.evaluateHandle`, `new File([...])`) and dispatched as `drop` — or `dragover` then
 // `drop` — onto a locator, plus the one `role="status"` notice a surface owns and the
 // client-side size cap. Pure DOM — no daemon, no fixture knowledge — so both tiers use it:
@@ -7,13 +7,13 @@
 // `web/e2e/helpers/terminal.ts` and `web/e2e/helpers/dropfiles.ts`, which re-export it.
 import type { Locator, Page } from "./harness";
 
-/** REQ-7's cap, mirrored as a constant so a test can build a fixture exactly one byte over
+/** The client-side size cap, mirrored as a constant so a test can build a fixture exactly one byte over
  * it without hardcoding the number twice. */
 export const MAX_DROP_BYTES = 50 * 1024 * 1024;
 
 /** One file to include in a synthesized drop. Provide `bytes` whenever the daemon must
- * find a byte-identical match on disk (E1-E4, E8); provide `size` alone when only the
- * File's size matters (E7) so tens of megabytes of literal content never round-trip
+ * find a byte-identical match on disk; provide `size` alone when only the
+ * File's size matters so tens of megabytes of literal content never round-trip
  * through this Node process as a JSON array. */
 export interface DropFileSpec {
   name: string;
@@ -47,25 +47,25 @@ async function buildTextDataTransfer(page: Page, text: string) {
 
 /**
  * Dispatches one "drop" carrying every listed file, in order, onto `region` — the UI's own
- * sequential locate→paste loop (REQ-2) then processes them one at a time. Playwright's
+ * sequential locate→paste loop then processes them one at a time. Playwright's
  * `dispatchEvent` bypasses the native drag gesture entirely, so no preceding `dragover` is
  * needed to reach a target's own `drop` listener (plan Implementation Notes); use
  * `dragoverThenDropFiles` when the *document-level guard's* `dragover` listener is itself
- * what's under test (E5).
+ * what's under test.
  */
 export async function dropFiles(region: Locator, files: readonly DropFileSpec[]): Promise<void> {
   const dataTransfer = await buildFileDataTransfer(region.page(), files);
   await region.dispatchEvent("drop", { dataTransfer });
 }
 
-/** REQ-10: a text/plain-only drop (no Files) onto `region`. */
+/** A text/plain-only drop (no Files) onto `region`. */
 export async function dropText(region: Locator, text: string): Promise<void> {
   const dataTransfer = await buildTextDataTransfer(region.page(), text);
   await region.dispatchEvent("drop", { dataTransfer });
 }
 
 /**
- * E5: dispatches `dragover` then `drop` with the SAME `DataTransfer` handle — the
+ * Dispatches `dragover` then `drop` with the SAME `DataTransfer` handle — the
  * documented Playwright drag-and-drop testing pattern (reusing one handle across both
  * events, mirroring its own `dragstart`+`drop` example) — so a foreign drag over a
  * non-terminal part of the dashboard exercises the document-level drop guard's real
@@ -82,7 +82,7 @@ export async function dragoverThenDropFiles(
 
 /**
  * The one-per-surface drop notice (Testable UI Elements: "Only one notice element exists
- * per surface" — `role="status"` inside `.terminal-surface`, REQ-6).
+ * per surface" — `role="status"` inside `.terminal-surface`).
  */
 export function dropNotice(region: Locator): Locator {
   return region.getByRole("status");

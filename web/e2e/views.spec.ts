@@ -94,19 +94,19 @@ test("Cmd+\\ toggles the view and Opt+Cmd+1 focuses the top-priority session reg
 
     // order-sidebar's approved protocol delta + decision `cmd-n-ordering` (Option A):
     // Opt+Cmd+1 now indexes into `orderRail`'s CURRENT order, which depends on `railSort`.
-    // REQ-5's default is "manual" (creation order here: B launched first, then A), so
+    // The rail sort's default is "manual" (creation order here: B launched first, then A), so
     // in manual mode Opt+Cmd+1 would now focus B, not A. Switch to Attention (needs-input
     // sorts first) before the Opt+Cmd+1 assertion below — same repair class as
     // actions.spec.ts #3-#5 (select Attention mode before the priority assertion,
     // assertion preserved verbatim).
     await page.locator("#rail-sort").selectOption("attention");
     await expect(page.locator("#rail-sort")).toHaveValue("attention");
-    // REQ-6: the readiness gate for the chord below is the rail's OWN DOM order
+    // The readiness gate for the chord below is the rail's OWN DOM order
     // (`railOrderIds`), not the <select>'s value above. `railSort` only changes locally
-    // via the `prefs` broadcast round-trip (INV-6, web/src/main.ts:395,
+    // via the `prefs` broadcast round-trip (web/src/main.ts:395,
     // `requestRailSort`'s doc comment) — the <select>'s value flips on `selectOption`
     // immediately, regardless of whether that broadcast has landed yet, so gating on it
-    // races `focusNth`'s read of the still-manual order (this plan's diagnosed E7 flake:
+    // races `focusNth`'s read of the still-manual order (a diagnosed flake:
     // manual order here is [B, A] since B launched first, so a race lands on B). Attention
     // order (needs-input first) is [A, B] — genuinely different from manual, so this wait
     // cannot pass vacuously on launch order alone.
@@ -115,7 +115,7 @@ test("Cmd+\\ toggles the view and Opt+Cmd+1 focuses the top-priority session reg
     await page.keyboard.press("Alt+Meta+Digit1");
     await expect(terminalRegion(page, "prio-a")).toBeVisible();
     // The old surface must be unmounted, not merely covered — ⌥⌘1 moves focus the same
-    // way a rail-card click does (one live surface at a time, INV-2).
+    // way a rail-card click does (one live surface at a time).
     await expect(terminalRegion(page, "prio-b")).toHaveCount(0);
   } finally {
     await Promise.all([dirA.cleanup(), dirB.cleanup()]);
@@ -144,7 +144,7 @@ test("every accepted PUT /api/prefs re-broadcasts the full object to every other
     );
 
     // Window B never clicked anything — its switcher must flip purely from the `prefs`
-    // WS broadcast (INV-4), not from any action of its own.
+    // WS broadcast, not from any action of its own.
     await expect(pageB.getByRole("button", { name: "Tiles" })).toHaveAttribute(
       "aria-pressed",
       "true",

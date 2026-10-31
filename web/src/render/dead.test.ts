@@ -1,7 +1,7 @@
 // render/dead.ts is DOM-only now (renderDeadSurface, collectDeadSurfaceRefs,
 // buildDeadSurfaceFromTemplate construct/query real DOM and have no jsdom configured —
 // docs/conventions.md defers DOM construction to Playwright; see web/e2e/actions.spec.ts
-// for REQ-13's dead-surface coverage). `loadPane`, the one export with no DOM involved,
+// for the dead-surface coverage). `loadPane`, the one export with no DOM involved,
 // moved to `features/actions.ts` — its tests live in `../features/actions.test.ts`.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "../protocol/session";
@@ -183,7 +183,7 @@ describe("showDeadSurfaceNotice: the dead surface's own role=status notice, mirr
   });
 });
 
-// REQ-17/W3 (plan session-lifecycle): a session that never bound a Claude session id is
+// A session that never bound a Claude session id is
 // refused Resume forever (409 not_resumable) — the dead surface's own Resume button (the
 // one on a live tile/Focus's `#dead-surface`, mainhead.test.ts covers the mainhead's own
 // button) must say why. Own fixtures, matching this file's per-describe-block convention

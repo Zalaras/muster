@@ -76,7 +76,7 @@ func wantNoReply(t *testing.T, rec *httptest.ResponseRecorder) {
 	assert.Empty(t, rec.Body.String())
 }
 
-// TestIngestRename_OnlyARoutedPromptSubmitCarriesTheReply covers REQ-3 and edge cases 5, 6
+// TestIngestRename_OnlyARoutedPromptSubmitCarriesTheReply covers edge cases 5, 6
 // and 9: every post that is not a routed UserPromptSubmit gets 200 with an empty body even
 // while a rename is waiting to be sent — and does not spend it: the routed prompt that
 // follows still carries the rename.
@@ -134,7 +134,7 @@ func TestIngestRename_OnlyARoutedPromptSubmitCarriesTheReply(t *testing.T) {
 	}
 }
 
-// TestIngestRename_NothingToSendAnswersEmpty covers REQ-3's remaining rows and edge cases
+// TestIngestRename_NothingToSendAnswersEmpty covers the remaining rows and edge cases
 // 3 and 4: a session with no override, a cleared override, and an override that already
 // equals Claude Code's last-known name (before or after the rename) never get a reply.
 func TestIngestRename_NothingToSendAnswersEmpty(t *testing.T) {
@@ -167,7 +167,7 @@ func TestIngestRename_NothingToSendAnswersEmpty(t *testing.T) {
 	}
 }
 
-// TestIngestRename_EachRenameSendsOnce covers REQ-2 and edge cases 2 and 9: a value is sent
+// TestIngestRename_EachRenameSendsOnce: a value is sent
 // once and then never again however many prompts follow, only a rename to a different value
 // arms a new send (A, B, A sends all three), and a suffixed name Claude Code reports back
 // does not make the same name go out again.
@@ -246,8 +246,8 @@ func (r *renameRig) secondSession(override string) int64 {
 	return other.ID
 }
 
-// TestIngestRename_StatusPostsThroughTheWireFollowDelivery covers edge cases 1 and 14 and
-// REQ-8 over HTTP: after the send, a status post carrying a suffixed name clears the
+// TestIngestRename_StatusPostsThroughTheWireFollowDelivery covers edge cases 1 and 14
+// over HTTP: after the send, a status post carrying a suffixed name clears the
 // override and the dashboard follows Claude's name, a reordered post still carrying the
 // pre-delivery name leaves it, and before the send no reported name touches it.
 func TestIngestRename_StatusPostsThroughTheWireFollowDelivery(t *testing.T) {

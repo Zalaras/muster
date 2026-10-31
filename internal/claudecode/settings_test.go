@@ -62,10 +62,10 @@ func migrationFixture() []byte {
 	}`)
 }
 
-// TestMergeSettings_FreshFileRegistersCommandEntryOnAllTwelveEvents covers D1/REQ-1: a
+// TestMergeSettings_FreshFileRegistersCommandEntryOnAllTwelveEvents: a
 // fresh file gets a type:"command" entry on every one of the twelve events
 // (httpHookEvents + SessionStart), each pointing at the single-quoted hook script path
-// with the 2s timeout — and D5: it must never gain an allowedHttpHookUrls key.
+// with the 2s timeout — and it must never gain an allowedHttpHookUrls key.
 func TestMergeSettings_FreshFileRegistersCommandEntryOnAllTwelveEvents(t *testing.T) {
 	require.Len(t, allHookEvents, 12, "sanity: twelve events, PostToolBatch among them")
 	assert.Contains(t, allHookEvents, "PostToolBatch", "D16: REQ-2 registers PostToolBatch")
@@ -100,7 +100,7 @@ func TestMergeSettings_FreshFileRegistersCommandEntryOnAllTwelveEvents(t *testin
 	assert.False(t, hasAllowed, "D5: a fresh file must never gain an allowedHttpHookUrls key")
 }
 
-// TestMergeSettings_FreshFileHasNoHTTPEntry covers D2's fresh-file half: no event, on a
+// TestMergeSettings_FreshFileHasNoHTTPEntry covers the fresh-file half: no event, on a
 // brand-new file, ever carries a type:"http" entry.
 func TestMergeSettings_FreshFileHasNoHTTPEntry(t *testing.T) {
 	out, err := MergeSettings(nil, testSettingsConfig())
@@ -110,7 +110,7 @@ func TestMergeSettings_FreshFileHasNoHTTPEntry(t *testing.T) {
 	assert.NotContains(t, string(out), `"type": "http"`)
 }
 
-// TestMergeSettings_OutputContainsNoTokenOrURL covers D8/INV-6: for a config whose paths
+// TestMergeSettings_OutputContainsNoTokenOrURL: for a config whose paths
 // are space-bearing and single-quote-bearing, the produced bytes contain neither an
 // ingest token nor any http(s) URL at all — since m4-hook-lifetime SettingsConfig itself
 // carries no URL/token field, so this is really "the merge never manufactures one".
@@ -131,7 +131,7 @@ func TestMergeSettings_OutputContainsNoTokenOrURL(t *testing.T) {
 }
 
 // TestMergeSettings_MigrationFixture_ExactlyOneMusterEntryPerEventNoLegacySurvives
-// covers D2/D3/Edge Case 1 — the scenario the plan calls "most likely to be got wrong":
+// covers Edge Case 1 — the scenario the plan calls "most likely to be got wrong":
 // every existing user directory has ten http entries and a legacy SessionStart command
 // entry (both a bare and a quoted form observed in the wild across daemon versions).
 // After the merge: twelve command entries (one each), no http entries anywhere, and
@@ -152,8 +152,8 @@ func TestMergeSettings_MigrationFixture_ExactlyOneMusterEntryPerEventNoLegacySur
 		for _, group := range hooks[event] {
 			for _, entry := range group.Hooks {
 				// PostToolUse deliberately carries one foreign http entry (a remote
-				// host) that must survive (D6/Edge Case 2) — only Muster's own
-				// ingest-shaped http entry may never survive the migration (D2).
+				// host) that must survive — only Muster's own
+				// ingest-shaped http entry may never survive the migration.
 				if entry.Type == "http" {
 					assert.False(t, isMusterIngestURL(entry.URL), "event %s: Muster's own http entry must not survive the migration (found url=%q)", event, entry.URL)
 				}
@@ -182,7 +182,7 @@ func TestMergeSettings_MigrationFixture_ExactlyOneMusterEntryPerEventNoLegacySur
 }
 
 // TestMergeSettings_MigrationFixture_ForeignHTTPEntryOnARemoteHostSurvives covers
-// D6/Edge Case 2: a foreign http hook on a non-Muster (remote) host, sharing an event
+// A foreign http hook on a non-Muster (remote) host, sharing an event
 // Muster owns, must survive the migration untouched — only Muster's own stale http
 // entry on that event is dropped.
 func TestMergeSettings_MigrationFixture_ForeignHTTPEntryOnARemoteHostSurvives(t *testing.T) {
@@ -206,7 +206,7 @@ func TestMergeSettings_MigrationFixture_ForeignHTTPEntryOnARemoteHostSurvives(t 
 	assert.Equal(t, []string{"https://example.com/hook"}, urls, "Muster's own stale http entry on this event must be gone, leaving only the foreign one")
 }
 
-// TestMergeSettings_StripsMustersURLFromAllowedListPreservingForeign covers D4/Edge
+// TestMergeSettings_StripsMustersURLFromAllowedListPreservingForeign covers Edge
 // Case 3's first variant: Muster's own ingest URL is removed from an existing
 // allowedHttpHookUrls array, and a foreign entry on the same array survives.
 func TestMergeSettings_StripsMustersURLFromAllowedListPreservingForeign(t *testing.T) {
@@ -223,7 +223,7 @@ func TestMergeSettings_StripsMustersURLFromAllowedListPreservingForeign(t *testi
 }
 
 // TestMergeSettings_DeletesAllowedHttpHookUrlsKeyWhenOnlyMustersURLRemains covers
-// D4/Edge Case 3's second variant: once nothing foreign is left in the array, the key
+// the second variant: once nothing foreign is left in the array, the key
 // is deleted entirely rather than kept as an empty array.
 func TestMergeSettings_DeletesAllowedHttpHookUrlsKeyWhenOnlyMustersURLRemains(t *testing.T) {
 	existing := []byte(`{"allowedHttpHookUrls": ["http://127.0.0.1:8765/ingest/oldtok/hook"]}`)
@@ -237,7 +237,7 @@ func TestMergeSettings_DeletesAllowedHttpHookUrlsKeyWhenOnlyMustersURLRemains(t 
 	assert.False(t, ok, "D4: the key must be deleted entirely once nothing foreign is left")
 }
 
-// TestMergeSettings_NeverAddsAllowedHttpHookUrlsKey covers D5's general form: a file
+// TestMergeSettings_NeverAddsAllowedHttpHookUrlsKey covers the general form: a file
 // that never had the key must never gain one, regardless of whether existing content is
 // present at all (nil vs. a minimal existing doc with unrelated keys).
 func TestMergeSettings_NeverAddsAllowedHttpHookUrlsKey(t *testing.T) {
@@ -261,7 +261,7 @@ func TestMergeSettings_NeverAddsAllowedHttpHookUrlsKey(t *testing.T) {
 	}
 }
 
-// TestMergeSettings_CalledTwiceProducesByteIdenticalOutput covers D7: a repeated launch
+// TestMergeSettings_CalledTwiceProducesByteIdenticalOutput: a repeated launch
 // into the same directory must be a true no-op on disk.
 func TestMergeSettings_CalledTwiceProducesByteIdenticalOutput(t *testing.T) {
 	cfg := testSettingsConfig()
@@ -275,7 +275,7 @@ func TestMergeSettings_CalledTwiceProducesByteIdenticalOutput(t *testing.T) {
 	assert.Equal(t, string(first), string(second))
 }
 
-// TestMergeSettings_MigrationFixtureIsIdempotentAfterFirstMerge covers D7 for the
+// TestMergeSettings_MigrationFixtureIsIdempotentAfterFirstMerge checks for the
 // migration case specifically: once the legacy shape has been healed once, re-merging
 // must not reintroduce or duplicate anything.
 func TestMergeSettings_MigrationFixtureIsIdempotentAfterFirstMerge(t *testing.T) {
@@ -290,8 +290,8 @@ func TestMergeSettings_MigrationFixtureIsIdempotentAfterFirstMerge(t *testing.T)
 	assert.Equal(t, string(first), string(second))
 }
 
-// TestMergeSettings_PreservesKeysMusterDoesNotOwn covers REQ-4/Edge Case 9: every key
-// (and, within "hooks", every event) Muster does not own survives verbatim, and REQ-2:
+// TestMergeSettings_PreservesKeysMusterDoesNotOwn: every key
+// (and, within "hooks", every event) Muster does not own survives verbatim, and
 // Muster no longer adds its own URL to allowedHttpHookUrls, so a foreign-only array is
 // left untouched.
 func TestMergeSettings_PreservesKeysMusterDoesNotOwn(t *testing.T) {
@@ -458,7 +458,7 @@ func TestShellQuote(t *testing.T) {
 	}
 }
 
-// TestMergeSettings_CommandFieldIsShellQuotedForSpaceBearingPath covers D1/REQ-1: every
+// TestMergeSettings_CommandFieldIsShellQuotedForSpaceBearingPath: every
 // one of the twelve events, and the status line, gets the single-quoted shell word of
 // the configured path when that path contains a space — the default macOS data dir
 // shape (spikes/FINDINGS.md 2026-08-25 addendum).
@@ -588,8 +588,8 @@ func TestIsMusterEntry_EmptyConfiguredPathsNeverMatchAnEmptyForeignCommand(t *te
 	assert.False(t, isMusterEntry(entry, SettingsConfig{}), "an empty configured path must never match a foreign empty command")
 }
 
-// TestMergeSettings_ForeignCommandHookOnSessionStartSurvives covers REQ-3/D6 (D5 guard
-// per the plan's own text): a foreign type:"command" SessionStart hook (some other
+// TestMergeSettings_ForeignCommandHookOnSessionStartSurvives: a foreign
+// type:"command" SessionStart hook (some other
 // tool's own instrumentation, not Muster's) must survive the merge alongside Muster's
 // own quoted entry, and a re-merge must not duplicate the foreign one.
 func TestMergeSettings_ForeignCommandHookOnSessionStartSurvives(t *testing.T) {
@@ -639,7 +639,7 @@ func TestMergeSettings_ForeignCommandHookOnSessionStartSurvives(t *testing.T) {
 	assert.Equal(t, 1, count, "the foreign entry must not be duplicated across repeated merges")
 }
 
-// TestWriteWrapperScripts covers D9/REQ-5/REQ-6/REQ-7/REQ-15: the generated command-hook
+// TestWriteWrapperScripts: the generated command-hook
 // wrapper script paths, executable mode, a 2s curl timeout (never 5, CLAUDE.md hard
 // rule), always exit 0, and the envelope fields built from the pane environment — one
 // hook.sh script now serves all twelve events.
@@ -676,9 +676,9 @@ func TestWriteWrapperScripts(t *testing.T) {
 	assert.Contains(t, string(statusLineScript), "http://127.0.0.1:8765/ingest/tok123/status")
 }
 
-// TestWriteWrapperScripts_RemovesPreExistingLegacyScript covers D9's other half: a
+// TestWriteWrapperScripts_RemovesPreExistingLegacyScript covers the other half: a
 // directory instrumented by a pre-m4 daemon has hook-sessionstart.sh on disk; a fresh
-// WriteWrapperScripts call best-effort removes it (REQ-5).
+// WriteWrapperScripts call best-effort removes it.
 func TestWriteWrapperScripts_RemovesPreExistingLegacyScript(t *testing.T) {
 	dir := t.TempDir()
 	legacyPath := filepath.Join(dir, "hook-sessionstart.sh")
@@ -703,7 +703,7 @@ func TestWriteWrapperScripts_MissingLegacyScriptIsNotAnError(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// TestWriteEnvelopeScript_EarlyExitIsTheFirstNonCommentLine covers D10: the generated
+// TestWriteEnvelopeScript_EarlyExitIsTheFirstNonCommentLine: the generated
 // scripts must bail out before doing any work when $MUSTER_SESSION is unset, and that
 // line must be the very first thing after the shebang/comment block — not buried after
 // other logic that could itself have a side effect first.
@@ -731,8 +731,8 @@ func TestWriteEnvelopeScript_EarlyExitIsTheFirstNonCommentLine(t *testing.T) {
 	}
 }
 
-// TestWriteEnvelopeScript_StdoutOnlyOnA2xxHookReply covers D29/REQ-7 and
-// rename-claude-session REQ-5 statically, by reading the generated templates: neither
+// TestWriteEnvelopeScript_StdoutOnlyOnA2xxHookReply checks
+// statically, by reading the generated templates: neither
 // script uses echo; the status-line script (its stdout is the status-line text) never
 // prints and keeps discarding curl's body; the hook script prints the daemon's body only
 // inside a 2xx case arm; curl is silenced in both and both end in an unconditional exit 0.
@@ -780,9 +780,9 @@ func TestWriteEnvelopeScript_StdoutOnlyOnA2xxHookReply(t *testing.T) {
 	})
 }
 
-// --- writeScriptAtomically (REQ-11/REQ-12/INV-5: atomic replace, skip when unchanged) ---
+// --- writeScriptAtomically (atomic replace, skip when unchanged) ---
 
-// TestWriteScriptAtomically_ReplacesByRenameAndFdKeepsReadingOldContent is D7: a reader
+// TestWriteScriptAtomically_ReplacesByRenameAndFdKeepsReadingOldContent: a reader
 // that already opened the old file must keep reading the complete old script even after
 // a rewrite lands new content at the same path, no temp file survives the rewrite, and
 // the new file's mode is 0o700.
@@ -799,7 +799,7 @@ func TestWriteScriptAtomically_ReplacesByRenameAndFdKeepsReadingOldContent(t *te
 	newContent := []byte("#!/bin/sh\necho new\n")
 	require.NoError(t, writeScriptAtomically(path, newContent))
 
-	// INV-5: an fd opened on the old file keeps reading the complete old script — a
+	// An fd opened on the old file keeps reading the complete old script — a
 	// rename unlinks the old directory entry, it never touches the old inode's data.
 	stale, err := io.ReadAll(fd)
 	require.NoError(t, err)
@@ -819,7 +819,7 @@ func TestWriteScriptAtomically_ReplacesByRenameAndFdKeepsReadingOldContent(t *te
 	assert.Equal(t, "hook.sh", entries[0].Name())
 }
 
-// TestWriteScriptAtomically_UnchangedContentLeavesInodeAndMtimeUntouched is D8/REQ-12:
+// TestWriteScriptAtomically_UnchangedContentLeavesInodeAndMtimeUntouched checks:
 // the common daemon-restart case, where every wrapper script's content is unchanged,
 // must be a complete no-op — no write, no rename, the same inode and mtime.
 func TestWriteScriptAtomically_UnchangedContentLeavesInodeAndMtimeUntouched(t *testing.T) {

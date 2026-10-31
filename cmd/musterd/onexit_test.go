@@ -1,6 +1,6 @@
 package main
 
-// D19-D21 exercise musterd's real `-on-exit` shutdown policy end to end: a real musterd
+// These tests exercise musterd's real `-on-exit` shutdown policy end to end: a real musterd
 // process (built once below), a real scratch tmux socket (never -L muster and never the
 // user's default server — CLAUDE.md hard rule), a real live "session" (tmux spawns a
 // stub script that just sleeps — CLAUDE.md forbids ever launching the real `claude` from
@@ -40,13 +40,13 @@ import (
 )
 
 // musterdBinary is built once (TestMain below) and shared by every test in this file —
-// D19/D20/D21 each spawn their own process from it against their own scratch dataDir/
+// the on-exit tests each spawn their own process from it against their own scratch dataDir/
 // tmux socket, so nothing about the binary itself needs to vary per test.
 var musterdBinary string
 
 // sharedStubClaude is the -claude-bin stub every test in this package (onexit_test.go and
 // open_test.go — both package main) shares, built once by runTestMain before any test
-// runs (REQ-9/D9). Before this, newSleepStubClaude wrote a fresh executable per
+// runs. Before this, newSleepStubClaude wrote a fresh executable per
 // spawnDaemon/openTestDaemonArgs call — ~7 fresh scripts per `go test` run of this
 // package. macOS charges the first exec of a newly written executable a real, serialized
 // cost (measured 2026-09-06, docs/history/design/test-strategy.md: ~270ms per inode on first
@@ -121,7 +121,7 @@ type tokensFileShape struct {
 	IngestToken  string `json:"ingestToken"`
 }
 
-// spawnedDaemon is a running musterd-under-test subprocess plus what D19-D21 need to
+// spawnedDaemon is a running musterd-under-test subprocess plus what the on-exit tests need to
 // drive and inspect it: launch a session over its real HTTP API, wait for the resulting
 // tmux session, signal it, and check what's left afterward.
 type spawnedDaemon struct {
@@ -134,7 +134,7 @@ type spawnedDaemon struct {
 	stderr     *syncBuf
 }
 
-// newSleepStubClaude returns the run-shared stub standing in for `claude` (REQ-9/D9): it
+// newSleepStubClaude returns the run-shared stub standing in for `claude`: it
 // answers `--version` with the pinned version (the daemon's startup drift check runs the
 // -claude-bin binary, so a stub that slept there would stall every spawned daemon for
 // the whole version-check timeout), otherwise ignores every argument (BuildArgv's
@@ -151,7 +151,7 @@ func newSleepStubClaude(t *testing.T) string {
 }
 
 // tokensFileWriteBound bounds every wait in this package for musterd to write
-// tokens.json, or for an effect that only happens once it has (REQ-8, D8, D10). Two
+// tokens.json, or for an effect that only happens once it has. Two
 // legitimate, bounded-but-blocking steps precede that write on the startup path
 // (main.go's run(), roughly lines 139-185: tmux preflight -> checkWebDist -> mkdir ->
 // store.Open's migrations -> bootstrapTokens -> claude --version -> listen ->
@@ -168,15 +168,15 @@ func newSleepStubClaude(t *testing.T) string {
 const tokensFileWriteBound = 20 * time.Second
 
 // spawnDaemon starts musterd-under-test against a fresh scratch dataDir and tmux socket.
-// stdin, if non-nil, becomes the subprocess's stdin (D21 passes a pipe's read end so
+// stdin, if non-nil, becomes the subprocess's stdin (the ask test passes a pipe's read end so
 // "-on-exit ask" sees a non-TTY without needing a real terminal).
 func spawnDaemon(t *testing.T, onExit string, stdin *os.File) *spawnedDaemon {
 	t.Helper()
 	dataDir := t.TempDir()
 	webDist := t.TempDir()
 
-	// tmuxSocket (plan v1-cleanup REQ-4): tmuxtest.Socket replaces this file's own copy
-	// of the shared os.MkdirTemp + kill-server idiom (D12-style discipline) — never a
+	// tmuxSocket: tmuxtest.Socket replaces this file's own copy
+	// of the shared os.MkdirTemp + kill-server idiom — never a
 	// bare -L name in tmux's shared socket directory and never the user's default server
 	// (CLAUDE.md hard rule).
 	tmuxSocket := tmuxtest.Socket(t)
@@ -188,7 +188,7 @@ func spawnDaemon(t *testing.T, onExit string, stdin *os.File) *spawnedDaemon {
 		"-claude-bin", newSleepStubClaude(t),
 		"-tmux-socket", tmuxSocket,
 		"-on-exit", onExit,
-		// D19-D21 have nothing to do with usage polling; -usage-poll's non-zero CLI
+		// These tests have nothing to do with usage polling; -usage-poll's non-zero CLI
 		// default plus its immediate fetch on Start would otherwise make every spawned
 		// musterd here shell out to the real macOS Keychain and, if that lookup
 		// succeeded, call the real https://api.anthropic.com with whatever real Claude
@@ -199,7 +199,7 @@ func spawnDaemon(t *testing.T, onExit string, stdin *os.File) *spawnedDaemon {
 		// -usage-poll 0 belt-and-braces.
 		"-usage-poll", "0",
 		"-usage-token-file", filepath.Join(dataDir, "usage-token-not-present"),
-		// REQ-11: defence in depth over REQ-6's terminal condition, which already covers
+		// Defence in depth over the terminal condition, which already covers
 		// every spawn in this file (none of them set a terminal stdin).
 		"-open=false",
 	}
@@ -241,7 +241,7 @@ func spawnDaemon(t *testing.T, onExit string, stdin *os.File) *spawnedDaemon {
 
 // launchSession POSTs a real launch request against the running daemon's HTTP API — the
 // only way this black-box test can put a live tmux session under it. Returns the launched
-// session's id (REQ-13's D13-D15 need it to spawn a shell on that same session).
+// session's id (the shell tests need it to spawn a shell on that same session).
 func (d *spawnedDaemon) launchSession(t *testing.T, dir string) int64 {
 	t.Helper()
 	body := fmt.Sprintf(`{"directory":%q,"model":"sonnet","permissionMode":"default"}`, dir)
@@ -263,7 +263,7 @@ func (d *spawnedDaemon) launchSession(t *testing.T, dir string) int64 {
 }
 
 // spawnShell POSTs a real shell-spawn request for sessionID against the running daemon's
-// HTTP API — REQ-13's D13-D15 need a real "muster-<id>-shell" tmux session on the socket,
+// HTTP API — the shell tests need a real "muster-<id>-shell" tmux session on the socket,
 // not a Claude pane, to prove KillAllShells/ShellCount actually reach it.
 func (d *spawnedDaemon) spawnShell(t *testing.T, sessionID int64) {
 	t.Helper()
@@ -286,8 +286,8 @@ func (d *spawnedDaemon) waitForLiveTmuxSession(t *testing.T) {
 	}, 10*time.Second, 50*time.Millisecond, "expected a muster-* tmux session to appear on the scratch socket")
 }
 
-// waitForTmuxSessionCount blocks until exactly n tmux sessions exist on d's socket — D13-D15
-// need this to confirm a spawned shell actually reached tmux (waitForLiveTmuxSession alone
+// waitForTmuxSessionCount blocks until exactly n tmux sessions exist on d's socket — the
+// shell tests need this to confirm a spawned shell actually reached tmux (waitForLiveTmuxSession alone
 // only proves "at least one", which the already-launched claude session already satisfies).
 func (d *spawnedDaemon) waitForTmuxSessionCount(t *testing.T, n int) {
 	t.Helper()
@@ -324,7 +324,7 @@ func (d *spawnedDaemon) signalAndWaitExit(t *testing.T, sig os.Signal, timeout t
 
 // ansiEscape matches zerolog.ConsoleWriter's colour codes — it colours the key and value
 // of every field separately (e.g. "\x1b[36mshells=\x1b[0m1"), so a literal Contains for
-// "shells=1" never matches; D13-D16's field assertions strip these first.
+// "shells=1" never matches; the field assertions strip these first.
 var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 func stripANSI(s string) string { return ansiEscape.ReplaceAllString(s, "") }
@@ -345,7 +345,7 @@ func tmuxSessionNames(socket string) []string {
 	return strings.Split(trimmed, "\n")
 }
 
-// TestOnExit_Leave_LiveSessionSurvivesShutdown covers D19: `-on-exit=leave` with a live
+// TestOnExit_Leave_LiveSessionSurvivesShutdown: `-on-exit=leave` with a live
 // session exits 0 and leaves the tmux session running untouched.
 func TestOnExit_Leave_LiveSessionSurvivesShutdown(t *testing.T) {
 	d := spawnDaemon(t, "leave", nil)
@@ -359,7 +359,7 @@ func TestOnExit_Leave_LiveSessionSurvivesShutdown(t *testing.T) {
 	assert.Contains(t, d.stderr.String(), "leaving live sessions running", "REQ-3's leave log line")
 }
 
-// TestOnExit_Kill_LiveSessionIsKilledAndRowMarkedDead covers D20: `-on-exit=kill` with a
+// TestOnExit_Kill_LiveSessionIsKilledAndRowMarkedDead: `-on-exit=kill` with a
 // live session exits 0, the tmux session is gone, and the persisted row reads alive=false.
 func TestOnExit_Kill_LiveSessionIsKilledAndRowMarkedDead(t *testing.T) {
 	d := spawnDaemon(t, "kill", nil)
@@ -382,11 +382,11 @@ func TestOnExit_Kill_LiveSessionIsKilledAndRowMarkedDead(t *testing.T) {
 	assert.NotNil(t, rows[0].EndedAt)
 }
 
-// TestOnExit_AskWithNonTTYStdinBehavesAsLeave covers D21 and D11: `-on-exit=ask` with a
+// TestOnExit_AskWithNonTTYStdinBehavesAsLeave: `-on-exit=ask` with a
 // non-TTY stdin (a pipe, never a real terminal) never prompts and behaves exactly like
-// "leave" — the tmux session survives, never a silent kill — and D11's bounded wait
+// "leave" — the tmux session survives, never a silent kill — and the bounded wait
 // proves it resolved immediately via isTerminal rather than sitting out the 10s prompt
-// timeout (Edge Case 14): before REQ-9, a /dev/null-shaped stdin was wrongly treated as
+// timeout (Edge Case 14): before that fix, a /dev/null-shaped stdin was wrongly treated as
 // a TTY, entered the prompt, and was still waiting when the E2E harness's 5s SIGKILL
 // escalation fired mid-shutdown.
 func TestOnExit_AskWithNonTTYStdinBehavesAsLeave(t *testing.T) {
@@ -408,10 +408,10 @@ func TestOnExit_AskWithNonTTYStdinBehavesAsLeave(t *testing.T) {
 		"D11: a non-TTY stdin must resolve immediately via isTerminal, well inside the 10s prompt timeout, not sit out the prompt")
 }
 
-// TestOnExit_Kill_LiveSessionAndShellAreBothKilled covers D13
+// TestOnExit_Kill_LiveSessionAndShellAreBothKilled checks
 // (kb:adr/surfaces-shell-dies-at-kill-shutdown-too): `-on-exit=kill` with one live claude
 // session and one shell exits 0 with no tmux sessions left on the socket at all — the
-// shell dies right alongside the claude session, not just the claude session REQ-3
+// shell dies right alongside the claude session, not just the claude session the earlier test
 // already covered (TestOnExit_Kill_LiveSessionIsKilledAndRowMarkedDead).
 func TestOnExit_Kill_LiveSessionAndShellAreBothKilled(t *testing.T) {
 	d := spawnDaemon(t, "kill", nil)
@@ -428,7 +428,7 @@ func TestOnExit_Kill_LiveSessionAndShellAreBothKilled(t *testing.T) {
 	assert.Contains(t, stripANSI(d.stderr.String()), "shells=1", "REQ-13: the kill log line gains a shells field")
 }
 
-// TestOnExit_Leave_LiveSessionAndShellBothSurvive covers D14: `-on-exit=leave` with one
+// TestOnExit_Leave_LiveSessionAndShellBothSurvive: `-on-exit=leave` with one
 // live claude session and one shell exits 0 with both still on the socket, and the leave
 // log line names shells=1 — leave leaves shells exactly as it leaves sessions
 // (kb:adr/lifecycle-shutdown-leaves-sessions-running, unchanged).
@@ -447,8 +447,8 @@ func TestOnExit_Leave_LiveSessionAndShellBothSurvive(t *testing.T) {
 	assert.Contains(t, stripANSI(d.stderr.String()), "shells=1", "D14: the leave log line names the shell count")
 }
 
-// TestOnExit_Kill_ShellOnlyNoLiveSessionsStillKillsIt covers D15/Edge Case 24: with zero
-// live claude sessions and one shell, `-on-exit=kill` still runs the kill path (REQ-13's
+// TestOnExit_Kill_ShellOnlyNoLiveSessionsStillKillsIt: with zero
+// live claude sessions and one shell, `-on-exit=kill` still runs the kill path (the
 // `live > 0 || shells > 0` guard) and the shell is gone afterward.
 func TestOnExit_Kill_ShellOnlyNoLiveSessionsStillKillsIt(t *testing.T) {
 	d := spawnDaemon(t, "kill", nil)
@@ -457,7 +457,7 @@ func TestOnExit_Kill_ShellOnlyNoLiveSessionsStillKillsIt(t *testing.T) {
 	d.spawnShell(t, id)
 	d.waitForTmuxSessionCount(t, 2)
 
-	// End the claude session over the HTTP API first, leaving only the shell — D15 wants
+	// End the claude session over the HTTP API first, leaving only the shell — the case wants
 	// "zero live claude sessions and one shell", not "never launched one" (a shell can
 	// only be spawned against a known session id in the first place).
 	endReq, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/sessions/%d/end", d.baseURL, id), nil)
@@ -478,7 +478,7 @@ func TestOnExit_Kill_ShellOnlyNoLiveSessionsStillKillsIt(t *testing.T) {
 	assert.Contains(t, stripANSI(d.stderr.String()), "shells=1", "D15: exactly one shell was killed")
 }
 
-// TestAskKillPrompt_NamesBothCountsPluralFixed covers D16: the prompt text names both
+// TestAskKillPrompt_NamesBothCountsPluralFixed: the prompt text names both
 // counts, with the grammar deliberately plural-fixed ("1 shells") per Damian's
 // 2026-09-16 ruling (Implementation Notes "Shells at shutdown") — a single fixed format
 // string, not a branch on count.

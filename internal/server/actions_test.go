@@ -24,10 +24,10 @@ import (
 	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 )
 
-// TestLauncher_Resume_NotResumableMessageNamesWhichCauseApplies covers plan
-// session-lifecycle D21/review Critical 2: Resume's 409 not_resumable covers two causes
-// (still alive; dead but never bound a claudeSessionId) and REQ-17/docs/protocol.md both
-// promise "the message names which, since only one of the two is ever recoverable" — but
+// TestLauncher_Resume_NotResumableMessageNamesWhichCauseApplies covers a
+// review finding: Resume's 409 not_resumable covers two causes
+// (still alive; dead but never bound a claudeSessionId) and docs/protocol.md
+// promises "the message names which, since only one of the two is ever recoverable" — but
 // sessions.go's notResumable call is one byte-identical string for both causes today. This
 // doesn't pin exact prose (the impl keeps freedom of wording): it asserts the two messages
 // differ, and that only the alive-cause one mentions "alive" — today both causes return
@@ -81,8 +81,8 @@ func TestLauncher_Resume_NotResumableMessageNamesWhichCauseApplies(t *testing.T)
 }
 
 // errKiller is a session.TmuxSessions double whose KillSession always fails with a
-// fixed, non-nil error — used to force a *genuine* kill failure for D15. Phase 1 shipped
-// REQ-6 (internal/tmux.Client.KillSession treats an already-gone tmux session as a
+// fixed, non-nil error — used to force a *genuine* kill failure. Phase 1 shipped
+// idempotent kills (internal/tmux.Client.KillSession treats an already-gone tmux session as a
 // successful kill), so a fabricated/never-spawned tmux target no longer reproduces this
 // scenario; a TmuxSessions double is the only way left to get a kill that must still
 // fail. ListSessions/ResolveSessionTarget are never exercised by the Remove/End paths
@@ -103,9 +103,8 @@ func (k *errKiller) ResolveSessionTarget(_ context.Context, _ string) (string, s
 	return "", "", errors.New("errKiller: ResolveSessionTarget not supported")
 }
 
-// TestHandleRemoveSession_FailingEndLeavesTheShellRunningAndTheRowPresent covers plan
-// session-lifecycle D15/REQ-13: a Remove whose End fails (a genuine tmux kill failure —
-// here, errKiller standing in for "tmux unreachable") must not have already destroyed the
+// TestHandleRemoveSession_FailingEndLeavesTheShellRunningAndTheRowPresent: a Remove whose End fails (a genuine tmux
+// kill failure — here, errKiller standing in for "tmux unreachable") must not have already destroyed the
 // shell tmux session, and the row must still be there afterward. Today handleRemoveSession
 // kills the shell and closes terminal sockets *before* calling manager.Remove, so both are
 // already gone by the time Remove fails.
@@ -118,7 +117,7 @@ func TestHandleRemoveSession_FailingEndLeavesTheShellRunningAndTheRowPresent(t *
 	shells := newShellRegistry(client, zerolog.Nop())
 	terminals := newTerminalRegistry()
 	launcher := &sessionLauncher{store: st, manager: manager, tmux: client, log: zerolog.Nop()}
-	// D7/REQ-10: a captured logger, not zerolog.Nop() — the raw error must reach the log
+	// A captured logger, not zerolog.Nop() — the raw error must reach the log
 	// even though the response body below only ever carries the fixed phrase.
 	var logBuf bytes.Buffer
 	f := newActionsFeature(manager, launcher, shells, terminals, nil, zerolog.New(&logBuf))
@@ -169,12 +168,12 @@ func terminalConnFor(terminals *terminalRegistry, id int64) *terminalConn {
 	return terminals.conns[terminalKey{sessionID: id, surface: surfaceClaude}]
 }
 
-// TestHandleEndSession_FailingKillLeavesTheTerminalSocketOpen covers plan session-lifecycle
-// D23/review Major 2: REQ-13 says "a failed End or Remove leaves terminal sockets and the
+// TestHandleEndSession_FailingKillLeavesTheTerminalSocketOpen covers a review
+// finding: the spec says "a failed End or Remove leaves terminal sockets and the
 // shell as they were", but handleEndSession's default (genuine-failure) branch still calls
 // f.terminals.closeSession(id) before writing the 500 — recreating the dead-surface-over-
 // a-live-session defect the plan's own Overview names. Uses the same errKiller double as
-// D15 to force a genuine (non-idempotent-tolerated) kill failure; the terminal WS is a
+// the Remove test to force a genuine (non-idempotent-tolerated) kill failure; the terminal WS is a
 // real coder/websocket connection (registered via a fake attach, since no real tmux target
 // exists here) so "still registered, same connection object" is a genuine assertion about
 // terminalRegistry's own state, not a guess from a bounded-wait read.
@@ -187,7 +186,7 @@ func TestHandleEndSession_FailingKillLeavesTheTerminalSocketOpen(t *testing.T) {
 	terminalFeat := newTerminalFeature(terminals, manager, fake.attach, zerolog.Nop())
 	shells := newShellRegistry(fake, zerolog.Nop())
 	launcher := &sessionLauncher{store: st, manager: manager, tmux: fake, log: zerolog.Nop()}
-	// D7/REQ-10: a captured logger, not zerolog.Nop() — the raw error must reach the log
+	// A captured logger, not zerolog.Nop() — the raw error must reach the log
 	// even though the response body below only ever carries the fixed phrase.
 	var logBuf bytes.Buffer
 	sessionsFeat := newActionsFeature(manager, launcher, shells, terminals, nil, zerolog.New(&logBuf))
@@ -245,12 +244,12 @@ func TestHandleEndSession_FailingKillLeavesTheTerminalSocketOpen(t *testing.T) {
 	assert.Same(t, before, after, "D23/REQ-13: a failed End must leave the terminal socket exactly as it was, never closed")
 }
 
-// TestLauncher_ConcurrentResumesSpawnExactlyOnce covers plan session-lifecycle D19/REQ-11:
+// TestLauncher_ConcurrentResumesSpawnExactlyOnce checks:
 // Resume's check-then-act (read sess.Alive == false, only flip it much later in
 // RecordResume) is not serialised per session id, so two concurrent Resume calls for the
 // same dead-but-resumable session can both pass the alive gate and both call NewSession.
 // Post-Phase-1 this is invisible in either caller's status code — the loser hits
-// tmux.ErrSessionExists and REQ-8's repair path hands it back a plain 200 — so the spawn
+// tmux.ErrSessionExists and the repair path hands it back a plain 200 — so the spawn
 // count is the only place the bug still shows. A per-test WaitGroup gated on a shared
 // `ready` channel (no artificial delay or fake-side barrier needed) reproduced the race
 // 20/20 under `-count=20` and 20/20 under `-race` with no data race reported, both while
@@ -304,7 +303,7 @@ func TestLauncher_ConcurrentResumesSpawnExactlyOnce(t *testing.T) {
 	assert.Equal(t, 1, fake.newSessionCalls, "D19/REQ-11: two concurrent Resumes for one session must spawn exactly once")
 }
 
-// spawnerKiller is REQ-5(e)/D4's second fake: a paneSpawner (for the launcher) and a
+// spawnerKiller is the second fake: a paneSpawner (for the launcher) and a
 // session.TmuxSessions (for the manager's End) sharing one call log, so a test can
 // observe whether a Launch's spawn and an End's kill for the *same* id ever overlap.
 // Production wiring shares a single *tmux.Client across both roles the same way.
@@ -362,10 +361,10 @@ func (k *spawnerKiller) calls() []string {
 	return out
 }
 
-// TestLauncher_LaunchRacingEndOnTheSameIDCannotInterleave covers REQ-5(e)/D4's second
+// TestLauncher_LaunchRacingEndOnTheSameIDCannotInterleave covers the second
 // half: an End call for the id Launch just allocated, fired while Launch's own tmux spawn
 // for that same id is still in flight, must not run its kill until the spawn (and
-// RecordLaunch) has finished — the manager's per-id lock (REQ-11, shared by End and by
+// RecordLaunch) has finished — the manager's per-id lock (shared by End and by
 // Launch's spawnAndRecordLaunch) serializes them. A build that dropped or narrowed that
 // lock would let End's KillSession fire while NewSession is still blocked below, which
 // this test would catch as a call-order violation.
@@ -423,7 +422,7 @@ func TestLauncher_LaunchRacingEndOnTheSameIDCannotInterleave(t *testing.T) {
 		"End's kill must land strictly after Launch's spawn finished, never interleaved with it")
 }
 
-// TestHandleEndSession_AlreadyDeadSessionIs409NotAlive covers D17's first clause
+// TestHandleEndSession_AlreadyDeadSessionIs409NotAlive covers the first clause
 // (kb:anchor/sessions.end): ending an already-ended session is a conflict, not a 404 or a
 // silent success.
 func TestHandleEndSession_AlreadyDeadSessionIs409NotAlive(t *testing.T) {
@@ -449,7 +448,7 @@ func TestHandleEndSession_UnknownSessionIs404(t *testing.T) {
 	assert.Equal(t, "unknown_session", decodeErrorCode(t, rec))
 }
 
-// TestHandleResumeSession_LiveSessionIs409NotResumable covers D17's second clause
+// TestHandleResumeSession_LiveSessionIs409NotResumable covers the second clause
 // (kb:anchor/sessions.resume): resuming a still-alive session is a conflict.
 func TestHandleResumeSession_LiveSessionIs409NotResumable(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -465,7 +464,7 @@ func TestHandleResumeSession_LiveSessionIs409NotResumable(t *testing.T) {
 	assert.Equal(t, "not_resumable", decodeErrorCode(t, rec))
 }
 
-// TestHandleResumeSession_DeadSessionWithoutClaudeIDIs409NotResumable covers D17's third
+// TestHandleResumeSession_DeadSessionWithoutClaudeIDIs409NotResumable covers the third
 // clause: a dead session that never got a claude session id bound (e.g. it died before its
 // first SessionStart hook ever landed) has nothing to resume.
 func TestHandleResumeSession_DeadSessionWithoutClaudeIDIs409NotResumable(t *testing.T) {
@@ -492,7 +491,7 @@ func TestHandleResumeSession_UnknownSessionIs404(t *testing.T) {
 	assert.Equal(t, "unknown_session", decodeErrorCode(t, rec))
 }
 
-// TestHandleRemoveSession_UnknownSessionIs404 covers D17's fourth clause
+// TestHandleRemoveSession_UnknownSessionIs404 covers the fourth clause
 // (kb:anchor/sessions.remove): DELETE against an id nothing knows about is a 404, not a silent 204.
 func TestHandleRemoveSession_UnknownSessionIs404(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -521,7 +520,7 @@ func TestHandleRemoveSession_DeadSessionSucceeds(t *testing.T) {
 	assert.Error(t, err, "the row must actually be gone from the store")
 }
 
-// TestHandlePaneSnapshot_404BeforeCaptureThen200WithTextAfter covers D18
+// TestHandlePaneSnapshot_404BeforeCaptureThen200WithTextAfter checks
 // (kb:anchor/sessions.pane): no capture yet is 404 no_snapshot; once one lands, GET returns text+capturedAt.
 func TestHandlePaneSnapshot_404BeforeCaptureThen200WithTextAfter(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -543,7 +542,7 @@ func TestHandlePaneSnapshot_404BeforeCaptureThen200WithTextAfter(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(rec2.Body.Bytes(), &body))
 	assert.Equal(t, "captured pane text", body.Text)
-	// D18: capturedAt must be the seeded value, not merely non-empty — a wrong-but-
+	// CapturedAt must be the seeded value, not merely non-empty — a wrong-but-
 	// non-empty timestamp must fail this test (review cycle 1 Minor 5). The store
 	// truncates to RFC3339 seconds precision on write (session.go's UpdateSnapshot) and
 	// the handler formats with the same layout, so exact string equality is sound and

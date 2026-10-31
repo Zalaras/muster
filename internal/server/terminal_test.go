@@ -24,13 +24,13 @@ import (
 )
 
 // newTerminalTestServer builds a Server wired to a real, per-test tmux socket (via
-// tmuxtest.Socket, plan v1-cleanup REQ-4) — never "-L muster" and never the user's
-// default server (CLAUDE.md hard rule). Used only by this file's keep-real tests (plan
-// v1-cleanup REQ-3's Implementation Notes list), whose assertion is itself a
+// tmuxtest.Socket) — never "-L muster" and never the user's
+// default server (CLAUDE.md hard rule). Used only by this file's keep-real tests (the
+// keep-real list), whose assertion is itself a
 // tmux-observable effect — PTY stream, geometry, liveness, real client attachment — the
 // hard rule only forbids deriving *state* from captured/attached bytes, not exercising
 // tmux for real in tests. Tests whose assertion is instead about call shape, counts or
-// error propagation use newFakeTmuxTestServer (fakes_test.go's fakeTmux, REQ-1/REQ-2's
+// error propagation use newFakeTmuxTestServer (fakes_test.go's fakeTmux and its
 // seams), which starts no tmux server at all.
 func newTerminalTestServer(t *testing.T) *testServer {
 	t.Helper()
@@ -199,7 +199,7 @@ func tmuxListClientSessions(t *testing.T, socket string) []string {
 }
 
 // TestHandleTerminal_UnknownSessionIs404 covers the Protocol Contract's pre-upgrade
-// 404 not_found. Uses newFakeTmuxTestServer (REQ-3: the assertion is about handler
+// 404 not_found. Uses newFakeTmuxTestServer (the assertion is about handler
 // routing, not a tmux-observable effect — no session exists at all, so no tmux call is
 // ever reachable regardless).
 func TestHandleTerminal_UnknownSessionIs404(t *testing.T) {
@@ -233,12 +233,12 @@ func TestHandleTerminal_NonNumericIDIs404(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
-// TestHandleTerminal_DeadSessionIs409 covers D7: a session whose Alive flag is false is
+// TestHandleTerminal_DeadSessionIs409: a session whose Alive flag is false is
 // rejected pre-upgrade with 409 not_attachable — no attach attempt at all. Uses
 // markSessionDead (a direct store flip + reload) rather than killing a real tmux window
 // and nudging liveness: the manager's own liveness path always talks to a real,
 // unconditionally-constructed tmux client (fakes_test.go's newFakeTmuxTestServer doc
-// comment), which this fakes-based test must never reach (REQ-3).
+// comment), which this fakes-based test must never reach.
 func TestHandleTerminal_DeadSessionIs409(t *testing.T) {
 	srv, fake := newFakeTmuxTestServer(t)
 	sess := launchRealSession(t, srv, sleepForeverCommand())
@@ -274,7 +274,7 @@ func TestHandleTerminal_RequiresCookie(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 
-// TestHandleTerminal_StreamsPTYOutputAndAcceptsInput covers D1/D2 at the full
+// TestHandleTerminal_StreamsPTYOutputAndAcceptsInput checks at the full
 // HTTP-handler level (auth → attach → pump), complementing termbridge's own
 // package-level test of the same round trip.
 func TestHandleTerminal_StreamsPTYOutputAndAcceptsInput(t *testing.T) {
@@ -292,11 +292,11 @@ func TestHandleTerminal_StreamsPTYOutputAndAcceptsInput(t *testing.T) {
 	assert.Contains(t, out, "MUSTER_WS_MARKER")
 }
 
-// TestHandleTerminal_ResizeFrameAppliesRealGeometry covers D4/REQ-3 end to end through
+// TestHandleTerminal_ResizeFrameAppliesRealGeometry checks end to end through
 // the actual WS JSON frame shape (clamping is covered in isolation by
 // TestClampInt_Table; this proves the parsed values reach tmux via DisplayVar), plus
-// REQ-3's clamp clause: an out-of-range request lands at the clamp boundary, not the raw
-// requested (or rejected) value. Table-driven per plan D9/T1: both rows share one real
+// the clamp clause: an out-of-range request lands at the clamp boundary, not the raw
+// requested (or rejected) value. Table-driven: both rows share one real
 // tmux session and socket, sending their resize frames in sequence on the same
 // connection, since each row's DisplayVar assertion checks only the geometry its own
 // frame just set.
@@ -305,7 +305,7 @@ func TestHandleTerminal_ResizeFrameAppliesRealGeometry(t *testing.T) {
 	sess := launchRealSession(t, srv, sleepForeverCommand())
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
-	// srv.tmuxClient is the paneSpawner interface (REQ-1/REQ-2), which has no DisplayVar
+	// srv.tmuxClient is the paneSpawner interface, which has no DisplayVar
 	// — this test's own oracle query against real geometry needs the concrete client
 	// directly, built from the same real per-test socket (daemon-implementation.md
 	// Handoff).
@@ -358,7 +358,7 @@ func TestHandleTerminal_UnparseableResizeFrameIsIgnoredNotFatal(t *testing.T) {
 	assert.Contains(t, out, "STILL_ALIVE_MARKER", "a bad text frame must never kill the socket")
 }
 
-// TestHandleTerminal_ScrollFrameIsIgnoredNotFatalAndNeverParsedAsAResize covers D6: a
+// TestHandleTerminal_ScrollFrameIsIgnoredNotFatalAndNeverParsedAsAResize: a
 // `scroll` frame arriving on the Claude socket (a bug, or a stale client) must take the
 // exact same "ignored and logged" path as any other unknown text frame — decodable JSON
 // with a Type applyResizeFrame doesn't recognize, not a parse failure — and must never be
@@ -388,7 +388,7 @@ func TestHandleTerminal_ScrollFrameIsIgnoredNotFatalAndNeverParsedAsAResize(t *t
 	assert.Equal(t, widthBefore, widthAfter, "D6: a scroll frame must never be misread as a resize to 0x0")
 }
 
-// TestHandleTerminal_SecondSocketSupersedesTheFirst covers D3/INV-1 from the plainest
+// TestHandleTerminal_SecondSocketSupersedesTheFirst checks from the plainest
 // reachable state: no prior activity on the first socket before the second connects.
 func TestHandleTerminal_SecondSocketSupersedesTheFirst(t *testing.T) {
 	srv := newTerminalTestServer(t)
@@ -407,7 +407,7 @@ func TestHandleTerminal_SecondSocketSupersedesTheFirst(t *testing.T) {
 	assert.Equal(t, websocket.StatusCode(4000), websocket.CloseStatus(readErr))
 }
 
-// TestHandleTerminal_SupersedesMidTyping covers INV-1's "mid-typing" reachable state
+// TestHandleTerminal_SupersedesMidTyping covers the "mid-typing" reachable state
 // (m1-sessions lesson: assert invariants from every source state, not just the
 // convenient idle one) — the first socket is actively exchanging data when the second
 // connects, and must still be superseded correctly, without corrupting the new
@@ -435,7 +435,7 @@ func TestHandleTerminal_SupersedesMidTyping(t *testing.T) {
 	assert.Contains(t, out, "SECOND_MARKER", "the superseding connection must attach and stream cleanly")
 }
 
-// TestHandleTerminal_SupersedesOnRefocus covers INV-1's "same-page refocus" reachable
+// TestHandleTerminal_SupersedesOnRefocus covers the "same-page refocus" reachable
 // state: the first connection closes itself cleanly (as a real client would on
 // navigating away) before the second opens — the registry must not still think the old
 // connection is live and refuse/misroute the new one.
@@ -456,7 +456,7 @@ func TestHandleTerminal_SupersedesOnRefocus(t *testing.T) {
 	assert.Contains(t, out, "REFOCUS_MARKER")
 }
 
-// TestHandleTerminal_KillingTheTmuxSessionCloses4001AndNudgesLiveness covers D5/D6: PTY
+// TestHandleTerminal_KillingTheTmuxSessionCloses4001AndNudgesLiveness: PTY
 // EOF (the tmux session/pane is gone) closes the socket with 4001 pane_ended, and the
 // liveness poll flips alive:false promptly (via Nudge, not the ~5s ticker).
 //
@@ -497,7 +497,7 @@ func TestHandleTerminal_KillingTheTmuxSessionCloses4001AndNudgesLiveness(t *test
 
 // TestHandleTerminal_KillingOneSessionAmongMultipleNeverMisroutesToAnother covers
 // review.md Critical 3, and is the reason the review flagged this file at all: every
-// other death test above (D5/D6) creates exactly one tmux session on the socket, so a
+// other death test above creates exactly one tmux session on the socket, so a
 // dying attach client has nowhere to hop — it exits and the test passes whether or not
 // detach-on-destroy is set correctly. With >=2 sessions on the same socket (three here:
 // the one being killed while attached, a survivor that stays attached throughout, and a
@@ -505,8 +505,7 @@ func TestHandleTerminal_KillingTheTmuxSessionCloses4001AndNudgesLiveness(t *test
 // the attached session sent its client to a DIFFERENT Muster session instead of exiting
 // — no PTY EOF/4001 for the dead session, a second client landing on the survivor
 // (list-clients showed two clients on one session), and keystrokes meant for the dead
-// session's pane reaching the survivor's claude instead. detach-on-destroy=on (the REQ-4
-// amendment, tmux.go's serverOptions) is supposed to make the client exit cleanly
+// session's pane reaching the survivor's claude instead. detach-on-destroy=on (tmux.go's serverOptions) is supposed to make the client exit cleanly
 // instead of hopping; this proves it, at the daemon's own HTTP/WS surface.
 func TestHandleTerminal_KillingOneSessionAmongMultipleNeverMisroutesToAnother(t *testing.T) {
 	srv := newTerminalTestServer(t)
@@ -604,7 +603,7 @@ func TestHandleTerminal_TakeoverNeverLeavesTwoClientsAttachedAtOnce(t *testing.T
 	c2 := dialTerminalOK(t, httpSrv, sess.ID)
 	defer func() { _ = c2.CloseNow() }()
 	// Prove the new attach is actually live — by observing tmux's own initial repaint
-	// on c2 — before writing into it (REQ-7, Edge Case 11): writing immediately races
+	// on c2 — before writing into it (Edge Case 11): writing immediately races
 	// tmux's client-startup tcsetattr, which can discard pending input and produce an
 	// empty capture with nothing to do with takeover ordering at all. This read is a
 	// precondition, not a substitute for the marker assertion below: a repaint with no
@@ -695,7 +694,7 @@ func TestHandleTerminal_ShutdownClosesOpenTerminalSocketsNormally(t *testing.T) 
 	}
 }
 
-// TestClampInt_Table exhaustively covers REQ-3's clamp function in isolation (the pure
+// TestClampInt_Table exhaustively covers the clamp function in isolation (the pure
 // logic underneath applyResizeFrame), including both boundaries and both directions.
 func TestClampInt_Table(t *testing.T) {
 	tests := []struct {
@@ -717,7 +716,7 @@ func TestClampInt_Table(t *testing.T) {
 	}
 }
 
-// TestClampScrollLines_Table covers D3's own clamp function in isolation: magnitude
+// TestClampScrollLines_Table covers the scroll clamp function in isolation: magnitude
 // bounded to [1, 200], sign preserved, and 0 staying 0 (the "nothing to scroll" case
 // applyShellTextFrame relies on to skip calling ScrollCopyMode at all).
 func TestClampScrollLines_Table(t *testing.T) {

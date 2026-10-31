@@ -13,7 +13,7 @@ import (
 )
 
 // fakeWatcher is a Watcher double: fully test-controlled per-id answers, no real
-// terminalRegistry needed (plan rail-card-improvements REQ-7/REQ-8).
+// terminalRegistry needed.
 type fakeWatcher struct {
 	mu      sync.Mutex
 	watched map[int64]bool
@@ -35,8 +35,8 @@ func (f *fakeWatcher) setWatched(id int64, v bool) {
 	f.watched[id] = v
 }
 
-// TestApply_TurnClosed_SetsUnreadFromWatcher covers D5/D6/D7 and the daemon half of
-// INV-1 (unread ⇒ idle) at the layer that actually owns Unread: Manager.Apply sets it
+// TestApply_TurnClosed_SetsUnreadFromWatcher checks and the daemon half of
+// the unread ⇒ idle invariant at the layer that actually owns Unread: Manager.Apply sets it
 // only for KindTurnClosed, from the Watcher's answer at that moment — crossed against
 // every one of the six source states (kb:lesson/invariant-missed-by-per-transition-tests)
 // and every watcher answer, including a nil Watcher (Config.Watcher unset, as most of
@@ -92,7 +92,7 @@ func TestApply_TurnClosed_SetsUnreadFromWatcher(t *testing.T) {
 	}
 }
 
-// TestApply_TurnClosed_WatcherIsPerSessionIndependence covers Edge Case 4/D9's
+// TestApply_TurnClosed_WatcherIsPerSessionIndependence covers Edge Case 4/the
 // consequence at the manager layer: two sessions closing their turns against the same
 // shared watcher, one watched and one not, must each get exactly its own Unread answer —
 // never the other's ("nothing else was harmed" is an assertion, not an assumption,
@@ -159,7 +159,7 @@ func TestApply_MonotonicRebindGuard_StragglerTurnClosedBehavesLikeAnyOther(t *te
 	assert.True(t, persisted.Unread)
 }
 
-// TestManager_MarkSeen covers D8: clearing Unread persists and broadcasts exactly once
+// TestManager_MarkSeen: clearing Unread persists and broadcasts exactly once
 // when it was true, and is a true no-op (no broadcast — MarkSeen returns before ever
 // reaching the store write, manager.go) when the session was already read; an unknown id
 // returns ErrUnknownSession.
@@ -214,7 +214,7 @@ func TestManager_MarkSeen(t *testing.T) {
 	})
 }
 
-// TestReconcile_LeavesUnreadAndLastPromptUntouchedAcrossRowClasses covers D10: neither
+// TestReconcile_LeavesUnreadAndLastPromptUntouchedAcrossRowClasses: neither
 // field is ever read or written by Reconcile, for a row it keeps alive (pane still
 // exists) and for a row it marks ended (pane gone) — the two row classes Reconcile still
 // holds a row for afterward (the third, sweep, deletes the row entirely, so "untouched"

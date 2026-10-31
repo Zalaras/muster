@@ -17,10 +17,9 @@ import (
 	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 )
 
-// newTestTmuxClient returns a tmux.Client bound to a private, per-test socket (plan
-// v1-cleanup REQ-4: tmuxtest.Socket replaces this file's own copy of the shared
+// newTestTmuxClient returns a tmux.Client bound to a private, per-test socket (tmuxtest.Socket replaces this file's own copy of the shared
 // os.MkdirTemp + kill-server idiom — never a bare -L name in tmux's shared socket
-// directory (D12) and never the user's default server, CLAUDE.md hard rule).
+// directory and never the user's default server, CLAUDE.md hard rule).
 func newTestTmuxClient(t *testing.T) *tmux.Client {
 	t.Helper()
 	return tmux.New(tmuxtest.Socket(t))
@@ -133,7 +132,7 @@ func readUntil(t *testing.T, r io.Reader, s string, timeout time.Duration) strin
 	return buf.String()
 }
 
-// TestAttach_StreamsPTYOutputAndAcceptsInput covers D1/D2: the bridge streams a real
+// TestAttach_StreamsPTYOutputAndAcceptsInput: the bridge streams a real
 // tmux pane's output to the reader, and bytes written reach the pane's process — here
 // proven by a shell's own input-echo (PTY line discipline), the same round trip the
 // terminal handler relies on.
@@ -152,7 +151,7 @@ func TestAttach_StreamsPTYOutputAndAcceptsInput(t *testing.T) {
 	assert.Contains(t, out, "MUSTER_BRIDGE_MARKER")
 }
 
-// TestAttach_SetsTERMAndLANGOnTheAttachProcess covers REQ-6: the attach PTY's client
+// TestAttach_SetsTERMAndLANGOnTheAttachProcess: the attach PTY's client
 // process env carries TERM=xterm-256color/LANG=en_US.UTF-8 explicitly, not whatever the
 // daemon process happened to inherit — asserted directly against cmd.Env (white-box,
 // same package) rather than indirectly, since these affect the *attaching tmux client*,
@@ -169,7 +168,7 @@ func TestAttach_SetsTERMAndLANGOnTheAttachProcess(t *testing.T) {
 	assert.Contains(t, b.cmd.Env, "LANG=en_US.UTF-8")
 }
 
-// TestBridge_Resize_AppliesPtySetsizeThenTmuxResizeWindow covers D4/D13: Resize's
+// TestBridge_Resize_AppliesPtySetsizeThenTmuxResizeWindow: Resize's
 // tmux-side effect lands exactly at the requested geometry (the same DisplayVar oracle
 // tmux_test.go uses for ResizeWindow directly) — proving the two calls compose
 // correctly through the bridge, not just that ResizeWindow itself works.
@@ -191,7 +190,7 @@ func TestBridge_Resize_AppliesPtySetsizeThenTmuxResizeWindow(t *testing.T) {
 	assert.Equal(t, "30", height)
 }
 
-// TestBridge_Read_MapsEIOToCleanEOFWhenTheTmuxSessionDies covers D5/REQ-6: once the
+// TestBridge_Read_MapsEIOToCleanEOFWhenTheTmuxSessionDies: once the
 // attached tmux session is killed, the attach process exits and the next PTY read
 // returns EIO — Read must map that to io.EOF, exactly like any other EOF-producing
 // reader, so the terminal handler's `errors.Is(err, io.EOF)` branch fires.

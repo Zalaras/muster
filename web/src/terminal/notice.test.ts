@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { showNotice, type NoticeTarget } from "./notice";
 
-// Plan v1-cleanup REQ-12/REQ-13: the shared show/clear/auto-hide notice logic extracted
+// The shared show/clear/auto-hide notice logic extracted
 // from terminal/pane.ts's TerminalSurface.showNotice and render/dead.ts's
 // showDeadSurfaceNotice (the "mirrors ... exactly" duplication the plain-terminal-session
 // review recorded). render/dead.test.ts already covers the delegation through

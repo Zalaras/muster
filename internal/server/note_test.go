@@ -83,7 +83,7 @@ func TestHandleSetNote_RequiresCookie(t *testing.T) {
 	assert.Nil(t, storedNote(t, srv, id), "an unauthenticated request stores nothing")
 }
 
-// TestHandleSetNote_204StoresPerTheContract covers D2 through the real handler: text is
+// TestHandleSetNote_204StoresPerTheContract checks through the real handler: text is
 // stored byte for byte (whitespace kept), empty, whitespace-only and null store null, and a
 // 204 has no body.
 func TestHandleSetNote_204StoresPerTheContract(t *testing.T) {
@@ -121,7 +121,7 @@ func TestHandleSetNote_204StoresPerTheContract(t *testing.T) {
 	}
 }
 
-// TestHandleSetNote_400LeavesTheNoteAndNeverBroadcasts covers D3's 400 clause: a missing
+// TestHandleSetNote_400LeavesTheNoteAndNeverBroadcasts covers the 400 clause: a missing
 // key, a body that is not JSON and a non-string non-null value each get the one message
 // the contract gives, in the envelope, and change nothing.
 func TestHandleSetNote_400LeavesTheNoteAndNeverBroadcasts(t *testing.T) {
@@ -171,7 +171,7 @@ func TestHandleSetNote_404ForAnUnknownSession(t *testing.T) {
 	assert.Equal(t, p("kept"), storedNote(t, srv, bystander))
 }
 
-// TestHandleSetNote_413OverTheBodyBound covers D3's 413 clause and edge case 20: a body
+// TestHandleSetNote_413OverTheBodyBound covers the 413 clause and edge case 20: a body
 // over 20 MiB is refused in the envelope and stores nothing, while a large body under the
 // bound is accepted whole (the note itself has no length limit).
 func TestHandleSetNote_413OverTheBodyBound(t *testing.T) {
@@ -202,7 +202,7 @@ func TestHandleSetNote_413OverTheBodyBound(t *testing.T) {
 	})
 }
 
-// TestHandleSetNote_BroadcastsExactlyOncePerChange covers D1 and D8's upsert half: a
+// TestHandleSetNote_BroadcastsExactlyOncePerChange covers the upsert half: a
 // changed note is one sessionUpsert carrying the whole note (null when cleared), the same
 // text again is a 204 and nothing broadcast, and another session is never broadcast.
 func TestHandleSetNote_BroadcastsExactlyOncePerChange(t *testing.T) {
@@ -244,7 +244,7 @@ func TestHandleSetNote_BroadcastsExactlyOncePerChange(t *testing.T) {
 	assert.Equal(t, p("bystander"), storedNote(t, srv, bystander))
 }
 
-// TestHandleSetNote_DeadSessionsNoteCanBeSet covers D6 and REQ-2: the alive flag is not
+// TestHandleSetNote_DeadSessionsNoteCanBeSet: the alive flag is not
 // consulted.
 func TestHandleSetNote_DeadSessionsNoteCanBeSet(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -270,7 +270,7 @@ func TestHandleSetNote_DeadSessionsNoteCanBeSet(t *testing.T) {
 	assert.JSONEq(t, `"written after the session ended"`, string(m.Session.Note))
 }
 
-// TestSessionWire_EverySessionCarriesTheNoteKey covers D8: the key is present on every
+// TestSessionWire_EverySessionCarriesTheNoteKey: the key is present on every
 // session in the snapshot and in toWireSession, null when there is no note and the text
 // verbatim when there is one.
 func TestSessionWire_EverySessionCarriesTheNoteKey(t *testing.T) {

@@ -165,8 +165,8 @@ func expectedEffort(before effortSnap, in effortInput, postLevel *string) effort
 	return after
 }
 
-// checkEffortInvariants asserts INV-E1..E4 as predicates over a before/after pair, so a
-// rule table that drifts from the plan fails on the invariant, not just on the table.
+// checkEffortInvariants asserts the effort invariants as predicates over a before/after pair, so a
+// rule table that drifts from the spec fails on the invariant, not just on the table.
 func checkEffortInvariants(t *testing.T, before, after *Session, in effortInput) {
 	t.Helper()
 	b, a := snapEffort(before), snapEffort(after)
@@ -207,7 +207,7 @@ func (r *effortRig) addBystanders() effortBystanders {
 	return effortBystanders{pending: pending, warned: warned}
 }
 
-// TestEffortInvariants_EveryInputFromEveryState is D7/D9/D10/D11: INV-E1..E5 and the exact
+// TestEffortInvariants_EveryInputFromEveryState: the effort invariants and the exact
 // rule table, crossing every input with every starting state (kb:lesson/invariant-missed-by-per-transition-tests),
 // with two bystander sessions present whose effort, warning and pending check must come
 // out of every input untouched, and each result checked against what a restarted daemon
@@ -242,7 +242,7 @@ func TestEffortInvariants_EveryInputFromEveryState(t *testing.T) {
 	}
 }
 
-// TestEffortInvariants_AnotherSessionsInputNeverMovesIt covers INV-E2/E3's "a bystander's
+// TestEffortInvariants_AnotherSessionsInputNeverMovesIt covers the "a bystander's
 // report or dismissal never sets or clears another's warning": every starting state is
 // the bystander here, and the inputs land on a different session.
 func TestEffortInvariants_AnotherSessionsInputNeverMovesIt(t *testing.T) {
@@ -274,7 +274,7 @@ func TestEffortInvariants_AnotherSessionsInputNeverMovesIt(t *testing.T) {
 	}
 }
 
-// TestEffortCheck_SurvivesRestartAndClearThenFiresOnTheNextPost covers D10/D11 and edge
+// TestEffortCheck_SurvivesRestartAndClearThenFiresOnTheNextPost checks and edge
 // cases 13 and 15 end to end: a pending check kept across a /clear rebind and a restart
 // is still the one the next post is checked against; a Resume-button resume cancels it
 // (edge case 11), and a warning set before either is never re-raised or re-checked.

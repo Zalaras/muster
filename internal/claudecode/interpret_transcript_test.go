@@ -20,7 +20,7 @@ func toolUseLine(promptID string) string {
 
 func jsonl(lines ...string) string { return strings.Join(lines, "\n") + "\n" }
 
-// TestScanInterrupt covers D7 and D8 at the pure layer: both measured marker texts match
+// TestScanInterrupt checks at the pure layer: both measured marker texts match
 // under their own promptId only, and every other shape the transcript holds does not
 // (kb:fact/interrupt-recorded-in-transcript).
 func TestScanInterrupt(t *testing.T) {

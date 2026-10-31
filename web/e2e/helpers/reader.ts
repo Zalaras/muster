@@ -88,7 +88,7 @@ export {
 
 export interface FakeTranscriptOpts {
   /** Absolute plan file path named via an attachment line's `planFilePath`. Omit for a
-   * transcript that names no plan at all (edge cases 1/3/5's planless shape). */
+   * transcript that names no plan at all (the planless shape). */
   planFilePath?: string;
   /** `attachment.planExists` on that line. Default true. */
   planExists?: boolean;
@@ -154,7 +154,7 @@ export interface MarkdownFixtureTree {
   dotDirFilePath: string;
 }
 
-/** Builds the tree `docs/features/reader/spec.md`'s E6/D8 fixtures describe: a top-level
+/** Builds the tree `docs/features/reader/spec.md`'s fixtures describe: a top-level
  * `.md`, a two-deep nested `.md`, a non-`.md` sibling and a `.md` inside a dot-directory. */
 export async function buildMarkdownFixtureTree(dir: string): Promise<MarkdownFixtureTree> {
   const { todo, nested, nonMarkdown, dotDir } = MARKDOWN_TREE_DOCUMENTS;
@@ -198,15 +198,15 @@ export async function buildLargeMarkdownFixtureTree(
 export interface ConfinementFixtures {
   /** A `.md` file OUTSIDE the session directory. */
   outsideFilePath: string;
-  /** A symlink INSIDE the session directory pointing at `outsideFilePath` (D11/E20). */
+  /** A symlink INSIDE the session directory pointing at `outsideFilePath`. */
   symlinkInsidePath: string;
-  /** `<planSlug>-agent-helper.md` next to the plan (D11/edge case 17/21). */
+  /** `<planSlug>-agent-helper.md` next to the plan. */
   agentSiblingPath: string;
-  /** `<planSlug>.workshop.md` next to the plan (D11/edge case 21). */
+  /** `<planSlug>.workshop.md` next to the plan. */
   workshopSiblingPath: string;
 }
 
-/** Builds the confinement-boundary fixtures INV-2/D11/E20 need, next to `planPath` and
+/** Builds the confinement-boundary fixtures needed, next to `planPath` and
  * pointing out of `dir` into `outsideDir` (a directory the caller owns and cleans up
  * independently, so a symlink escape genuinely leaves the confined tree). */
 export async function buildConfinementFixtures(
@@ -233,21 +233,21 @@ export async function buildConfinementFixtures(
 }
 
 export interface MermaidFixtureTree {
-  /** One valid `flowchart TD` — E2. */
+  /** One valid `flowchart TD`. */
   flowPath: string;
-  /** One fence missing an arrow target, one valid fence after it — E3. */
+  /** One fence missing an arrow target, one valid fence after it. */
   brokenPath: string;
   /** Script/onerror/`javascript:` labels plus a `securityLevel: "loose"` init directive
-   * that must have no effect — E4. */
+   * that must have no effect. */
   unsafePath: string;
   /** One fence of each of the kb's eight diagram kinds, plus case, attribute, blockquote
-   * and duplicate-fence variants — E12. */
+   * and duplicate-fence variants. */
   kindsPath: string;
-  /** A flowchart naming `layout: elk` in frontmatter, and one naming no layout — E15. */
+  /** A flowchart naming `layout: elk` in frontmatter, and one naming no layout. */
   elkPath: string;
-  /** A `flowchart LR` with 40 chained nodes, wider than the reader body — E11. */
+  /** A `flowchart LR` with 40 chained nodes, wider than the reader body. */
   widePath: string;
-  /** No mermaid fence at all — E5 (the engine chunk must never load for this file). */
+  /** No mermaid fence at all (the engine chunk must never load for this file). */
   plainPath: string;
 }
 
@@ -269,9 +269,8 @@ export async function writeMermaidFixture(dir: string): Promise<MermaidFixtureTr
   };
 }
 
-// ── Held responses (plan markdown-render-fixes Implementation Notes: copy
-// actions.spec.ts:703-756's real-response-held-behind-a-promise-gate shape for the
-// otherwise sub-second loading-cue window) ─────────────────────────────────────────────
+// ── Held responses (copy actions.spec.ts's real-response-held-behind-a-promise-gate
+// shape for the otherwise sub-second loading-cue window) ─────────────────────────────────────────────
 
 export interface HeldRoute {
   /** Lets the held response through; call after asserting the interim loading state. */
@@ -280,7 +279,7 @@ export interface HeldRoute {
 
 /** Holds the real `GET /api/sessions/{id}/reader/file` response behind a promise gate —
  * delays the genuine round trip, fabricates nothing. Scoped to one session id so two
- * tiles' file fetches (E15/INV-CUES-PER-INSTANCE) can be held independently. Must be
+ * tiles' file fetches can be held independently. Must be
  * called before the action that triggers the fetch (`page.route` only affects requests
  * made after it is registered). */
 export async function holdReaderFileResponse(page: Page, id: number): Promise<HeldRoute> {
@@ -296,8 +295,8 @@ export async function holdReaderFileResponse(page: Page, id: number): Promise<He
 }
 
 /** Holds the real `GET /api/sessions/{id}/reader` (listing) response behind a promise
- * gate — same shape as `holdReaderFileResponse`, for REQ-10's tree `loading…` row and
- * REQ-9's body placeholder. The endpoint takes no query (Protocol Contract), so the
+ * gate — same shape as `holdReaderFileResponse`, for the tree `loading…` row and
+ * the body placeholder. The endpoint takes no query (Protocol Contract), so the
  * pattern anchors on end-of-string. */
 export async function holdReaderListingResponse(page: Page, id: number): Promise<HeldRoute> {
   let release: () => void = () => {};
@@ -312,7 +311,7 @@ export async function holdReaderListingResponse(page: Page, id: number): Promise
 }
 
 /** Like `holdReaderFileResponse`, but matches only a request whose `path` query names
- * `fileBasename` — for the mermaid plan's REQ-10/edge case 5, where one file's fetch must
+ * `fileBasename` — for the mermaid case where one file's fetch must
  * stay pending while a different file's completes normally, so the test demonstrates
  * genuine lateness rather than two held requests released in an arbitrary race. */
 export async function holdReaderFileResponseFor(
@@ -371,7 +370,7 @@ export async function getReaderFile(
 }
 
 /**
- * Counts GET requests reaching `/api/sessions/{id}/reader` and `/reader/file` — INV-5's
+ * Counts GET requests reaching `/api/sessions/{id}/reader` and `/reader/file` — the
  * "zero requests over a settle window" oracle, mirroring `helpers/terminal.ts`'s
  * `TerminalSocketTracker` shape. Must be constructed after any fetch the action under
  * test is expected to make (the initial mount's listing/file GETs), so it only counts

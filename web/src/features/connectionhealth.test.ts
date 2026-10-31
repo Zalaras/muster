@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { describeConnectionHealth } from "./connectionhealth";
 import { computeBannerOverride } from "./updaterestart";
 
-// W4/W5, INV-1: the health dot's state, hidden word and hover title are one pure
+// The health dot's state, hidden word and hover title are one pure
 // derivation of the connection status and the update-restart banner override. The strings
 // are the plan's Testable UI Elements table, verbatim.
 const CONNECTED = { health: "ok", word: "connected", title: "Connected to musterd" };
@@ -28,7 +28,7 @@ describe("describeConnectionHealth — every status x override combination (W4/W
     ["connected", { neutral: true }, CONNECTED],
     ["reconnecting", null, DOWN],
     ["reconnecting", { neutral: false }, UPDATING],
-    // The plan's INV-1 leaves this pair open; the implementation reads a lost socket as
+    // The spec leaves this pair open; the implementation reads a lost socket as
     // down even while the neutral "Updated to v…" confirmation still shows.
     ["reconnecting", { neutral: true }, DOWN],
   ] as const)("%s with override %j -> %j", (status, override, expected) => {

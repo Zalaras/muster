@@ -1,5 +1,4 @@
-// Plan terminal-fixes-cleanup: the pure reducer over `shellActivity`/`shellsBusy`/
-// surface-selection transitions (REQ-2 through REQ-4, REQ-11, REQ-13, REQ-14, W6-W9). No
+// The pure reducer over `shellActivity`/`shellsBusy`/surface-selection transitions. No
 // DOM, no real timer — `features/surfaces.ts` owns the actual `setTimeout` calls; this
 // file exercises the epoch-guarded resolve functions directly with the epoch a caller's
 // `ActivityResult.timer` would have carried, which is exactly how `scheduleActivityTimer`
@@ -86,7 +85,7 @@ describe("resolveOnset — the delayed onset callback", () => {
     expect(again).toBe(busy);
   });
 
-  // W8: "work shorter than the onset delay produces neither a spinner nor a tick."
+  // "work shorter than the onset delay produces neither a spinner nor a tick."
   // `observeIdle`'s pending-onset branch bumps the epoch even though `indicator` stays
   // "none" (see its doc comment), so the onset timer `observeBusy` scheduled goes stale
   // and `resolveOnset` no-ops when it fires here.
@@ -95,7 +94,7 @@ describe("resolveOnset — the delayed onset callback", () => {
     const afterIdle = observeIdle(r.state, 1, false).state; // busy:false arrives first
     expect(getShellActivity(afterIdle, 1)).toBe("none"); // still not showing a spinner yet
     const afterOnset = resolveOnset(afterIdle, 1, r.timer!.epoch); // the delayed onset then fires
-    expect(getShellActivity(afterOnset, 1)).toBe("none"); // W8: must stay "none"
+    expect(getShellActivity(afterOnset, 1)).toBe("none"); // Must stay "none"
   });
 });
 
@@ -106,10 +105,10 @@ describe("observeIdle — live shellActivity{busy:false}", () => {
     expect(result.timer).toBeNull();
   });
 
-  // W8 fix (680ea45): still "none" but with a pending onset entry is observationally a
+  // Fix (680ea45): still "none" but with a pending onset entry is observationally a
   // no-op — the indicator stays "none" and no timer is requested — but not a reference-
   // equality one: the epoch must bump so the onset timer `observeBusy` scheduled goes
-  // stale and its later `resolveOnset` never promotes to "busy" (pinned by the W8 case
+  // stale and its later `resolveOnset` never promotes to "busy" (pinned by the case
   // above). A `toBe` identity assertion here is mutually exclusive with that guarantee,
   // since both read the same `observeIdle(r.state, 1, false)` call.
   it("still 'none' with a pending onset: indicator/timer unaffected, but the epoch moves (not the same object)", () => {
@@ -169,7 +168,7 @@ describe("restoreBusy — snapshot.shellsBusy reports a session busy right now (
     expect(r2.timer).toBeNull();
   });
 
-  // W9: restoring three busy sessions from `shellsBusy` yields three spinners and zero
+  // Restoring three busy sessions from `shellsBusy` yields three spinners and zero
   // ticks — no onset delay and no self-clear timer for any of them.
   it("restoring three sessions at once yields three spinners and zero pending timers", () => {
     let state: ShellActivityState = EMPTY_SHELL_ACTIVITY;
@@ -199,7 +198,7 @@ describe("restoreIdle — a busy session absent from a reconnecting snapshot (W6
   });
 
   // Web-impl's recorded deviation: restoreIdle's self-clear always fires, so a shell
-  // that's actually gone outright (edge case 4/E8 — reconcile killed it at daemon
+  // that's actually gone outright (reconcile killed it at daemon
   // restart) still reaches "none" on its own even though the session is never reselected.
   it("the self-clear that follows restoreIdle reaches 'none' with no reselection (what makes E8 resolve)", () => {
     const busy = restoreBusy(EMPTY_SHELL_ACTIVITY, 1).state;
@@ -225,7 +224,7 @@ describe("resolveSelfClear — the REQ-4 ~3s self-clear callback", () => {
     expect(stale).toBe(done);
   });
 
-  // W7: a new busy period cancels a pending tick timer rather than letting it fire
+  // A new busy period cancels a pending tick timer rather than letting it fire
   // later — the epoch bump from observeBusy's "done" branch makes the old self-clear
   // callback's epoch stale, so it is a no-op when it eventually fires.
   it("W7: a new busy period starting while a tick is showing leaves the old self-clear timer harmless", () => {

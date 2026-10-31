@@ -28,11 +28,11 @@ import (
 //
 // Scope.PathQualifies/Confine, WalkMarkdown and WriteLog's own unit tests moved to
 // internal/reader/reader_test.go and internal/reader/writelog_test.go alongside the code
-// they cover (plans/maintainability-cleanup/daemon-implementation-D11.md's Handoff) — what
+// they cover (from the maintainability cleanup) — what
 // remains here is readerFeature.listMarkdown itself, which is HTTP-adjacent (it owns the
 // gitFiles seam and, at the call site, the debug log of ListMarkdown's returned gitErr).
 
-// TestListMarkdown_GitSuccessFiltersToMarkdownAndSorts covers D7's git branch through
+// TestListMarkdown_GitSuccessFiltersToMarkdownAndSorts covers the git branch through
 // the injectable reader.ListFilesFunc seam — no test executes the real git binary through
 // this seam (reader.go's own doc comment on ListFilesFunc; gitutil.ListFiles's own parsing
 // of git's NUL-separated output is gitutil's test, not this one's).
@@ -49,7 +49,7 @@ func TestListMarkdown_GitSuccessFiltersToMarkdownAndSorts(t *testing.T) {
 	assert.Equal(t, []string{"docs/alpha.MD", "zeta.md"}, paths)
 }
 
-// TestListMarkdown_GitFailureFallsBackToWalk covers D7's fallback clause: a git failure
+// TestListMarkdown_GitFailureFallsBackToWalk covers the fallback clause: a git failure
 // (not a checkout, or a real error) is not itself an error — it falls back to the walk
 // listing rather than failing the request.
 func TestListMarkdown_GitFailureFallsBackToWalk(t *testing.T) {
@@ -147,7 +147,7 @@ func TestHandleReaderFile_UnknownSessionIs404(t *testing.T) {
 	assert.Equal(t, "unknown_session", decodeErrorCode(t, rec))
 }
 
-// TestHandleReaderList_DirectoryMissingIs409 covers D18: the session's directory no
+// TestHandleReaderList_DirectoryMissingIs409: the session's directory no
 // longer existing (removed underneath it) is a 409 directory_missing, not a 500 or an
 // empty listing.
 func TestHandleReaderList_DirectoryMissingIs409(t *testing.T) {
@@ -169,7 +169,7 @@ func readerListingBody(t *testing.T, rec *httptest.ResponseRecorder) readerListi
 	return out
 }
 
-// TestHandleReaderList_NoTranscriptRespondsPlanNullAndBroadcastsNothing covers D9's
+// TestHandleReaderList_NoTranscriptRespondsPlanNullAndBroadcastsNothing covers the
 // negative half: a session with no recorded transcript path responds plan:null and the
 // GET's own side-effecting scan never runs (nothing to scan), so no sessionUpsert
 // reaches a connected client.
@@ -200,7 +200,7 @@ func TestHandleReaderList_NoTranscriptRespondsPlanNullAndBroadcastsNothing(t *te
 }
 
 // TestHandleReaderList_KnownTranscriptResolvesPlanAndBroadcastsBeforeResponding covers
-// D9's positive half: a session whose recorded transcript names an existing plan file
+// the positive half: a session whose recorded transcript names an existing plan file
 // gets that plan in the response and has already broadcast the sessionUpsert carrying
 // it by the time the response is written.
 func TestHandleReaderList_KnownTranscriptResolvesPlanAndBroadcastsBeforeResponding(t *testing.T) {
@@ -246,20 +246,20 @@ func TestHandleReaderList_KnownTranscriptResolvesPlanAndBroadcastsBeforeRespondi
 	assert.True(t, msg.Session.Plan.Exists)
 }
 
-// TestScanPlan_StickyOnceNamed covers REQ-8/D7 (kb:adr/reader-plan-sticky-once-named):
+// TestScanPlan_StickyOnceNamed checks (kb:adr/reader-plan-sticky-once-named):
 // once a session has a plan, a scan that finds nothing must never clear it, and must
 // re-derive exists by stat against whichever path is in play; a scan that finds a plan
 // always replaces. The table crosses every starting retention state — none yet, a
 // retained plan whose file is still on disk, a retained plan whose file has since been
 // deleted — against every scan outcome a real transcript can produce, so the invariant
 // is checked from every reachable source state rather than only the transition that
-// motivated the fix. It also covers D2/D3/D5's broadcast half: each row dials its own WS
+// motivated the fix. It also covers the broadcast half: each row dials its own WS
 // client after setup and computes "changed" from the session's actual pre-scan state
 // (read fresh via Get, not from setup's returned retainedPath/retainedExists — those name
 // what a scan finding nothing must leave in place, which for the "file since deleted"
 // row differs from the session's actual stored exists until a scan re-derives it), then
-// asserts a sessionUpsert carrying the final plan arrives exactly once when changed
-// (D2/D3), and none at all when the scan reproduced what was already committed (D5).
+// asserts a sessionUpsert carrying the final plan arrives exactly once when changed,
+// and none at all when the scan reproduced what was already committed.
 func TestScanPlan_StickyOnceNamed(t *testing.T) {
 	const claudeID = "scan-plan-claude"
 
@@ -392,9 +392,9 @@ func TestScanPlan_StickyOnceNamed(t *testing.T) {
 						assert.Equal(t, wantPath, msg.Session.Plan.Path)
 						assert.Equal(t, wantExists, msg.Session.Plan.Exists)
 					}
-					assertNoSessionUpsertArrives(t, c) // D2's "broadcast once": exactly one, not a second
+					assertNoSessionUpsertArrives(t, c) // the "broadcast once": exactly one, not a second
 				} else {
-					assertNoSessionUpsertArrives(t, c) // D5: a scan reproducing what was already committed broadcasts nothing
+					assertNoSessionUpsertArrives(t, c) // A scan reproducing what was already committed broadcasts nothing
 				}
 			})
 		}
@@ -402,7 +402,7 @@ func TestScanPlan_StickyOnceNamed(t *testing.T) {
 }
 
 // TestScanPlan_PlanlessScanOfOneSessionLeavesAnotherSessionsPlanUntouched covers
-// D6/edge case 10: a planless scan against one session must never read or write another
+// edge case 10: a planless scan against one session must never read or write another
 // session's retained plan, and must broadcast nothing for it.
 func TestScanPlan_PlanlessScanOfOneSessionLeavesAnotherSessionsPlanUntouched(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -456,7 +456,7 @@ func TestScanPlan_PlanlessScanOfOneSessionLeavesAnotherSessionsPlanUntouched(t *
 	assertNoSessionUpsertArrives(t, c)
 }
 
-// TestHandleReaderList_WrittenAtNonNullOnlyForARecordedWrite covers D19: writtenAt is
+// TestHandleReaderList_WrittenAtNonNullOnlyForARecordedWrite: writtenAt is
 // non-null exactly for a path a routed write has recorded, and null for every other
 // listed file.
 func TestHandleReaderList_WrittenAtNonNullOnlyForARecordedWrite(t *testing.T) {
@@ -484,7 +484,7 @@ func TestHandleReaderList_WrittenAtNonNullOnlyForARecordedWrite(t *testing.T) {
 	assert.Nil(t, byPath["b.md"].WrittenAt)
 }
 
-// TestHandleReaderFile_ServesExactBytesAsMarkdown covers D10.
+// TestHandleReaderFile_ServesExactBytesAsMarkdown checks.
 func TestHandleReaderFile_ServesExactBytesAsMarkdown(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	dir := t.TempDir()
@@ -522,9 +522,9 @@ func TestHandleReaderFile_MissingOrRelativePathIs400(t *testing.T) {
 	}
 }
 
-// TestHandleReaderFile_OutsideConfinementIs404NotFound covers D11 at the HTTP layer:
+// TestHandleReaderFile_OutsideConfinementIs404NotFound checks at the HTTP layer:
 // every disallowed shape returns 404 not_found, indistinguishable from a missing file,
-// while the plan path outside the directory still serves 200 (INV-2's positive half).
+// while the plan path outside the directory still serves 200 (the positive half).
 func TestHandleReaderFile_OutsideConfinementIs404NotFound(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	dir := t.TempDir()
@@ -571,7 +571,7 @@ func TestHandleReaderFile_OutsideConfinementIs404NotFound(t *testing.T) {
 	})
 }
 
-// TestHandleReaderFile_SizeCap covers D12: exactly 10 MiB serves 200, one byte over is
+// TestHandleReaderFile_SizeCap: exactly 10 MiB serves 200, one byte over is
 // 413 too_large.
 func TestHandleReaderFile_SizeCap(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -591,9 +591,9 @@ func TestHandleReaderFile_SizeCap(t *testing.T) {
 	assert.Equal(t, "too_large", decodeErrorCode(t, rec))
 }
 
-// ---- readerFeature.Observe wiring: docChanged, plan-exists-before-docChanged (D13), subagent (D16), stragglers (D20) ----
+// ---- readerFeature.Observe wiring: docChanged, plan-exists-before-docChanged, subagent, stragglers ----
 
-// TestReaderObserve_RoutedWriteToPlanPathFlipsExistsBeforeDocChanged covers D13: a
+// TestReaderObserve_RoutedWriteToPlanPathFlipsExistsBeforeDocChanged: a
 // routed write naming the plan path, when plan.exists was false, must broadcast the
 // sessionUpsert carrying exists:true strictly before the docChanged for that path.
 func TestReaderObserve_RoutedWriteToPlanPathFlipsExistsBeforeDocChanged(t *testing.T) {
@@ -628,7 +628,7 @@ func TestReaderObserve_RoutedWriteToPlanPathFlipsExistsBeforeDocChanged(t *testi
 	assert.Equal(t, planPath, second.Path)
 }
 
-// TestReaderObserve_RoutedWriteToOrdinaryMarkdownBroadcastsDocChangedOnly covers D13's
+// TestReaderObserve_RoutedWriteToOrdinaryMarkdownBroadcastsDocChangedOnly covers the
 // other positive clause: a write under the directory naming a .md file broadcasts
 // exactly one docChanged and no sessionUpsert (there is no plan to flip).
 func TestReaderObserve_RoutedWriteToOrdinaryMarkdownBroadcastsDocChangedOnly(t *testing.T) {
@@ -656,7 +656,7 @@ func TestReaderObserve_RoutedWriteToOrdinaryMarkdownBroadcastsDocChangedOnly(t *
 	assert.Equal(t, written, msg.Path)
 }
 
-// TestReaderObserve_WriteToNonMarkdownNonPlanPathBroadcastsNothing covers D13's negative
+// TestReaderObserve_WriteToNonMarkdownNonPlanPathBroadcastsNothing covers the negative
 // clause.
 func TestReaderObserve_WriteToNonMarkdownNonPlanPathBroadcastsNothing(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -679,7 +679,7 @@ func TestReaderObserve_WriteToNonMarkdownNonPlanPathBroadcastsNothing(t *testing
 	assertNoSessionUpsertArrives(t, c)
 }
 
-// TestIngestRouting_SubagentMarkedWriteBroadcastsDocChanged covers D16 end to end
+// TestIngestRouting_SubagentMarkedWriteBroadcastsDocChanged checks end to end
 // through the real ingest pipeline: a subagent-marked PostToolUse Write under the
 // directory must still fire docChanged.
 func TestIngestRouting_SubagentMarkedWriteBroadcastsDocChanged(t *testing.T) {
@@ -740,7 +740,7 @@ func readUntilDocChanged(t *testing.T, c *websocket.Conn) docChangedMessage {
 	return docChangedMessage{}
 }
 
-// TestIngestRouting_UnroutedWriteBroadcastsNothing covers D13's "an unrouted one
+// TestIngestRouting_UnroutedWriteBroadcastsNothing covers the "an unrouted one
 // broadcasts nothing" clause: a hook for a claude session id with no Muster binding at
 // all never reaches the reader (ingest.go only calls files.Observe for a routed event).
 func TestIngestRouting_UnroutedWriteBroadcastsNothing(t *testing.T) {
@@ -762,7 +762,7 @@ func TestIngestRouting_UnroutedWriteBroadcastsNothing(t *testing.T) {
 	rec := postIngest(t, srv, "/ingest/"+testIngestToken+"/hook", body)
 	require.Equal(t, 200, rec.Code)
 
-	// REQ-3/REQ-14: Drain, not a fixed-duration Eventually — it returns once the post
+	// Drain, not a fixed-duration Eventually — it returns once the post
 	// above has been fully processed (through Observe), so the persistence check below
 	// is a direct assertion, not a poll.
 	drainCtx, drainCancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -773,11 +773,11 @@ func TestIngestRouting_UnroutedWriteBroadcastsNothing(t *testing.T) {
 	assertNoSessionUpsertArrives(t, c)
 }
 
-// TestIngestRouting_StragglerFromBeforeAClearNeverMovesTranscriptOrPlan covers D20/INV-8:
+// TestIngestRouting_StragglerFromBeforeAClearNeverMovesTranscriptOrPlan checks:
 // after a /clear rebinds the session from Claude id A to B, a reordered hook still
 // naming A — for a SessionEnd, a PostToolUse Write and a PreToolUse ExitPlanMode — must
 // never move transcript_file or plan away from what B already established, though the
-// write itself is still recorded (REQ-26's "the write was real").
+// write itself is still recorded ("the write was real").
 func TestIngestRouting_StragglerFromBeforeAClearNeverMovesTranscriptOrPlan(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	srv.Start()
@@ -790,7 +790,7 @@ func TestIngestRouting_StragglerFromBeforeAClearNeverMovesTranscriptOrPlan(t *te
 	transcriptA := "/tmp/transcript-a.jsonl"
 	transcriptB := "/tmp/transcript-b.jsonl"
 
-	// REQ-3/REQ-14: every wait below on the ingest worker having processed a post is
+	// Every wait below on the ingest worker having processed a post is
 	// Drain, not a fixed-duration require.Eventually — it returns once every event
 	// enqueued before the call has been fully processed (through Observe, the reader's
 	// write record), so the assertions that follow are direct, not polled.
@@ -803,7 +803,7 @@ func TestIngestRouting_StragglerFromBeforeAClearNeverMovesTranscriptOrPlan(t *te
 
 	// Bind to A, then /clear-rebind to B: SessionEnd(A, reason:"clear") then
 	// SessionStart(B, source:"clear") — kb:fact/clear-mints-new-session-id's own
-	// sequence, both enveloped (with the seeded pane, REQ-12) so Apply's rebind logic
+	// sequence, both enveloped (with the seeded pane) so Apply's rebind logic
 	// actually runs.
 	bindA := postIngest(t, srv, "/ingest/"+testIngestToken+"/hook",
 		claudecodetest.EnvelopedSessionStartTranscript(claudeA, transcriptA, claudecodetest.SessionStartOpts{MusterSession: int(sess.ID), TmuxPane: "%1"}))
@@ -829,7 +829,7 @@ func TestIngestRouting_StragglerFromBeforeAClearNeverMovesTranscriptOrPlan(t *te
 	_, _, err := srv.manager.SetPlan(context.Background(), sess.ID, claudeB, planB, true)
 	require.NoError(t, err)
 
-	// Now three reordered, raw (non-enveloped — REQ-10) hooks arrive naming the old id
+	// Now three reordered, raw (non-enveloped) hooks arrive naming the old id
 	// A, which byClaude still remembers as this session's (monotonic rebind, never
 	// backwards): a straggler SessionEnd, a straggler PostToolUse Write naming a
 	// different transcript path, and a straggler PreToolUse ExitPlanMode.
@@ -849,7 +849,7 @@ func TestIngestRouting_StragglerFromBeforeAClearNeverMovesTranscriptOrPlan(t *te
 	// original require.Eventually(..., 2*time.Second, ...) asserted ==3 and passed only
 	// because its polling occasionally caught a transient in-between count while the
 	// worker was still processing the stragglers one at a time — a race, not a proof;
-	// Drain's determinism is exactly what REQ-3 exists to replace that with.
+	// Drain's determinism is exactly what the drain exists to replace that with.
 	assert.Equal(t, 5, countEventsForSession(t, srv, claudeA), "all events under claudeA must persist: bindA, endA and all three stragglers")
 
 	got, ok = srv.manager.Get(sess.ID)
@@ -858,7 +858,7 @@ func TestIngestRouting_StragglerFromBeforeAClearNeverMovesTranscriptOrPlan(t *te
 	assert.Equal(t, planB, got.PlanPath, "a straggler's scan must never move the plan")
 	assert.True(t, got.PlanExists)
 
-	// REQ-26: the straggler's written path is still recorded as a write (a docChanged
+	// The straggler's written path is still recorded as a write (a docChanged
 	// would have fired for it), even though it never touched transcript/plan. drain()
 	// above already waited past Observe (which records the write) — the same single
 	// worker's pipeline Drain's own doc comment names — so this is a direct read.
@@ -867,10 +867,10 @@ func TestIngestRouting_StragglerFromBeforeAClearNeverMovesTranscriptOrPlan(t *te
 }
 
 // TestIngestRouting_SessionStartClearAppliedBeforeLateSessionEndPlanRetained covers
-// D4/edge case 3: a /clear pair delivered out of order, SessionStart(B) processed before
+// edge case 3: a /clear pair delivered out of order, SessionStart(B) processed before
 // A's SessionEnd arrives late. The rebind's own SessionStart(B) fires its own scan
 // (PlanMaybeReady, claudecode.InterpretFiles) against a transcript naming no plan, which
-// must retain the pre-clear plan on the strength of D7's retention rule alone — not
+// must retain the pre-clear plan on the strength of the retention rule alone — not
 // because the SessionEnd happened to come first, since here it does not. The late
 // SessionEnd(A) that follows must not move anything further: SessionEnd's event type
 // never sets PlanMaybeReady, so it triggers no scan regardless of arrival order, and its

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { composeNoteSection } from "./issue";
 
-// W4: "The note-section composer produces the empty string for a whitespace-only note,
+// "The note-section composer produces the empty string for a whitespace-only note,
 // and `"## What happened\n\n<note>\n\n"` otherwise, with CRLF normalised to LF." Pinned
-// identically on the daemon side (plan Implementation Notes: "One composer for the note
-// section, two callers") — INV-2's E2E byte-identity assertion depends on both sides
+// identically on the daemon side ("One composer for the note
+// section, two callers") — the E2E byte-identity assertion depends on both sides
 // agreeing on exactly this rule, so every clause of it gets its own case here.
 describe("composeNoteSection (W4, plan issue-capture Implementation Notes)", () => {
   it("returns the empty string for an empty note", () => {

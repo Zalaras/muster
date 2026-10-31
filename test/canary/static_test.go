@@ -18,7 +18,7 @@ import (
 )
 
 // scanChunkSize and scanOverlap bound TestInstalledBinaryCarriesInterfaceStrings' read of
-// the installed binary (the Mach-O bundle is ~200 MB — D8/Edge Case 18): read in fixed
+// the installed binary (the Mach-O bundle is ~200 MB): read in fixed
 // chunks, never the whole file into memory, keeping the tail of the previous chunk as
 // overlap so a needle spanning a chunk boundary is still found. The longest needle below
 // is "CLAUDE_CODE_SCROLL_SPEED" at 24 bytes; scanOverlap is comfortably above that.
@@ -27,7 +27,7 @@ const (
 	scanOverlap   = 64
 )
 
-// TestInstalledBinaryCarriesInterfaceStrings is the static tier (REQ-7): it resolves the
+// TestInstalledBinaryCarriesInterfaceStrings is the static tier: it resolves the
 // `claude` on PATH to the real binary it symlinks to and asserts, by byte-string
 // presence only, that interface surface Muster depends on but cannot drive through a
 // canary run is still there — CLAUDE_CODE_SCROLL_SPEED (read from
@@ -37,7 +37,7 @@ const (
 // string surviving does not prove semantics — it catches rename or removal, the
 // silent-degrade failure class named for CLAUDE_CODE_SCROLL_SPEED in launch.go. Launches
 // no session and opens no network connection, so it runs under MUSTER_CANARY_OFFLINE=1
-// (REQ-10/INV-1) — it does not call harness(t) or live(t) at all.
+// — it does not call harness(t) or live(t) at all.
 func TestInstalledBinaryCarriesInterfaceStrings(t *testing.T) {
 	binPath, err := exec.LookPath(claudeBin)
 	require.NoError(t, err, "claude must be on PATH")
@@ -56,9 +56,9 @@ func TestInstalledBinaryCarriesInterfaceStrings(t *testing.T) {
 	needles["credential JSON key"] = "claudeAiOauth"
 	needles["Keychain mechanism"] = "find-generic-password"
 	needles["permission-mode flag"] = "permission-mode"
-	// REQ-9: the two flags and the stderr sentence REQ-1's pre-check depends on
+	// The two flags and the stderr sentence the pre-check depends on
 	// (kb:fact/model-catalog-precheck-zero-token) — internal/claudecode/modelcheck.go's own
-	// strings, mirrored here rather than imported (D11 scopes to internal/ and cmd/, where
+	// strings, mirrored here rather than imported (that check scopes to internal/ and cmd/, where
 	// test files are inside the net too; test/canary sits outside that boundary entirely,
 	// and modelCatalogSentence is unexported, so mirroring rather than importing is the
 	// only option here).
@@ -66,7 +66,7 @@ func TestInstalledBinaryCarriesInterfaceStrings(t *testing.T) {
 	needles["model catalog sentence 2.1.299+"] = "Claude Code doesn't recognize the model"
 	needles["--bare flag"] = "--bare"
 	needles["--no-session-persistence flag"] = "--no-session-persistence"
-	// REQ-9 (status-inconsistencies): the hook event and the two transcript marker texts the
+	// The hook event and the two transcript marker texts the
 	// turn-state fixes depend on — internal/claudecode's own literals (the hook list and the
 	// marker prefix are unexported), mirrored for the same reason.
 	// A rename silently breaks plan-feedback recovery (kb:fact/plan-feedback-emits-only-post-tool-batch)
@@ -106,7 +106,7 @@ func TestInstalledBinaryCarriesInterfaceStrings(t *testing.T) {
 
 // scanForNeedles reads path in bounded, overlapping chunks and returns the name of every
 // needle in needles that never appeared anywhere in it. It never holds the whole file in
-// memory at once (D8).
+// memory at once.
 func scanForNeedles(path string, needles map[string]string) ([]string, error) {
 	f, err := os.Open(path)
 	if err != nil {

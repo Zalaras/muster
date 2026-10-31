@@ -19,7 +19,7 @@ func envMap(m map[string]string) func(string) string {
 	return func(k string) string { return m[k] }
 }
 
-// TestClassify_Table covers D13 exhaustively: every named case from REQ-21's table.
+// TestClassify_Table checks exhaustively: every named case from the table.
 func TestClassify_Table(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -55,7 +55,7 @@ func TestClassify_Table(t *testing.T) {
 			access: writableAccess, wantKind: KindHomebrew, wantRemedy: HomebrewRemedy,
 		},
 		{
-			// D1: the composed remedy (wantRemedy filled in below, once exePath/dir are
+			// The composed remedy (wantRemedy filled in below, once exePath/dir are
 			// both known) names the resolved path, its directory, and the probe's
 			// innermost error text — not a shared fixed string; InstallerRemedy no longer
 			// exists (kb:adr/update-remedy-names-path-and-cause).
@@ -63,7 +63,7 @@ func TestClassify_Table(t *testing.T) {
 			access: unwritableAccess, wantKind: KindUnmanaged,
 		},
 		{
-			// D2: the composed remedy (wantRemedy filled in below) names the resolved
+			// The composed remedy (wantRemedy filled in below) names the resolved
 			// path and the checkout root the git walk found.
 			name: "git tree below home is unmanaged", version: "0.10.0",
 			access: writableAccess, wantKind: KindUnmanaged,
@@ -85,7 +85,7 @@ func TestClassify_Table(t *testing.T) {
 			wantRemedy := tt.wantRemedy
 			switch tt.name {
 			case "non-writable exe dir is unmanaged":
-				// D1's exact composed sentence: unwritableAccess's own error ("not
+				// the exact composed sentence: unwritableAccess's own error ("not
 				// writable") is innermostCause's whole (unwrapped) text here.
 				wantRemedy = fmt.Sprintf("can't update %s: %s is not writable (%s) — %s",
 					exePath, filepath.Dir(exePath), "not writable", installScriptRemedy)
@@ -96,7 +96,7 @@ func TestClassify_Table(t *testing.T) {
 				require.NoError(t, os.MkdirAll(filepath.Join(repo, ".git"), 0o755))
 				require.NoError(t, os.MkdirAll(filepath.Join(repo, "bin"), 0o755))
 				exePath = filepath.Join(repo, "bin", "musterd")
-				// D2's exact composed sentence: the checkout root is repo, not exePath's
+				// the exact composed sentence: the checkout root is repo, not exePath's
 				// own immediate directory.
 				wantRemedy = fmt.Sprintf("can't update %s: it is inside the git checkout %s — %s",
 					exePath, repo, installScriptRemedy)
@@ -124,7 +124,7 @@ func TestClassify_Table(t *testing.T) {
 	}
 }
 
-// TestReclassify_UnwritableDirectoryRemedy covers D1 exhaustively: the composed remedy
+// TestReclassify_UnwritableDirectoryRemedy checks exhaustively: the composed remedy
 // names the resolved path, its directory, and the write probe's innermost error text, for
 // both a plain unwrapped error and the wrapped os.PathError/syscall.Errno chain
 // WritableDir's own production error actually forms.
@@ -154,9 +154,9 @@ func TestReclassify_UnwritableDirectoryRemedy(t *testing.T) {
 	}
 }
 
-// TestReclassify_UnwritableDirectory_RealFilesystem covers D1 against a real chmod'd
-// directory through the production access func (WritableDir) — the same fixture E2
-// drives end to end, proven here at the pure-function level too.
+// TestReclassify_UnwritableDirectory_RealFilesystem checks against a real chmod'd
+// directory through the production access func (WritableDir) — the same fixture an end-to-end
+// test drives, proven here at the pure-function level too.
 func TestReclassify_UnwritableDirectory_RealFilesystem(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root ignores directory write permission bits")
@@ -173,11 +173,11 @@ func TestReclassify_UnwritableDirectory_RealFilesystem(t *testing.T) {
 	assert.Equal(t, want, got.Remedy)
 }
 
-// TestReclassify_GitTreeRemedy covers D2 exhaustively: the composed remedy names the
+// TestReclassify_GitTreeRemedy checks exhaustively: the composed remedy names the
 // checkout root the walk actually found — one level up, several levels up, and never for
 // a .git at home itself — plus the write-probe/git-tree precedence Reclassify's own code
-// order implies (an unwritable directory reports REQ-1's remedy even when it also sits
-// inside a git checkout, never REQ-2's).
+// order implies (an unwritable directory reports its own remedy even when it also sits
+// inside a git checkout, never the git-tree one).
 func TestReclassify_GitTreeRemedy(t *testing.T) {
 	t.Run("git in the immediate parent directory", func(t *testing.T) {
 		home := t.TempDir()
@@ -235,7 +235,7 @@ func TestReclassify_GitTreeRemedy(t *testing.T) {
 	})
 }
 
-// TestReclassify_FlipsBetweenInstallerAndUnmanaged covers D4 at the pure-function level:
+// TestReclassify_FlipsBetweenInstallerAndUnmanaged checks at the pure-function level:
 // Reclassify is stateless, so the same exePath/home flips kind whenever the caller's
 // access func's own answer changes — installer to unmanaged and back, matching a
 // directory's writability changing between two checks.
@@ -265,7 +265,7 @@ func TestReclassify_FlipsBetweenInstallerAndUnmanaged(t *testing.T) {
 	assert.Empty(t, got.Remedy)
 }
 
-// TestReclassify_FlipsWhenGitTreeIsRemoved covers D4/edge case 1 at the pure-function
+// TestReclassify_FlipsWhenGitTreeIsRemoved covers edge case 1 at the pure-function
 // level: removing the .git ancestor between two Reclassify calls flips unmanaged back to
 // installer.
 func TestReclassify_FlipsWhenGitTreeIsRemoved(t *testing.T) {
@@ -287,9 +287,9 @@ func TestReclassify_FlipsWhenGitTreeIsRemoved(t *testing.T) {
 	assert.Empty(t, got.Remedy)
 }
 
-// TestClassify_HomebrewChecksBeforeWritability covers REQ-21's precedence: a homebrew
+// TestClassify_HomebrewChecksBeforeWritability covers the precedence: a homebrew
 // path wins even when the access func would separately report it unwritable — Homebrew
-// installs are typically not user-writable, and REQ-21's remedy for that case must still
+// installs are typically not user-writable, and the remedy for that case must still
 // be the Homebrew one, never the generic installer one.
 func TestClassify_HomebrewChecksBeforeWritability(t *testing.T) {
 	got := Classify("0.10.0", "/opt/homebrew/bin/musterd", envMap(nil), t.TempDir(), unwritableAccess)

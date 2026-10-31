@@ -44,11 +44,11 @@ func authedRequest(t *testing.T, srv *testServer, method, path, body string) *ht
 // the refactor — the migration was meant to be purely mechanical (one spelling instead of
 // six), never a wire change.
 //
-// This table cannot be made to fail against the pre-FW-D3 code: the migration's own log
+// This table cannot be made to fail against the pre-migration code: the migration's own log
 // records the output as byte-identical by construction (every site already spelled the
 // exact same code+message before Minor 4, and issue.go's wireTime(now) resolves to the
 // same string as the old now.Format(time.RFC3339) call because now is already UTC there)
-// — confirmed directly, per daemon-tests-FW-D3.md: this same table run against
+// — confirmed directly: this same table run against
 // sessions.go/respond.go/issue.go with parseSessionID restored to its pre-move body and
 // handleCreateCapture's hand-rolled Get-or-404 restored passes identically. What this
 // test guards against is a *future* divergence now that six sites share one spelling

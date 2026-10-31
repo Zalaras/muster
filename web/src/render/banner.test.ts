@@ -36,8 +36,8 @@ describe("renderBanner", () => {
   });
 });
 
-// Plan settings-update-failures REQ-14/17/19: renderBannerContent is the sole writer of
-// the banner's text and its REQ-19 neutral modifier — connection.ts composes the text,
+// renderBannerContent is the sole writer of
+// the banner's text and its neutral modifier — connection.ts composes the text,
 // this only ever writes it in once.
 describe("renderBannerContent", () => {
   it("writes the given text verbatim", () => {

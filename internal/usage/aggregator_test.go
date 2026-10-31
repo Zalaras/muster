@@ -45,7 +45,7 @@ func newTestAggregator(st *store.Store, onChange func(Snapshot)) *Aggregator {
 
 // fullSample returns a complete Sample (both buckets, a model, source) — the shape
 // Record only ever receives, since InterpretStatus never produces a partial one
-// (REQ-3/REQ-5). Resets sit in 2099: an arrival whose reset has passed is refused
+// Resets sit in 2099: an arrival whose reset has passed is refused
 // (kb:adr/usage-past-reset-reads-unknown). SampledAt is left zero; Record stamps it itself.
 func fullSample(fiveHourPct, sevenDayPct float64) Sample {
 	return Sample{
@@ -56,7 +56,7 @@ func fullSample(fiveHourPct, sevenDayPct float64) Sample {
 	}
 }
 
-// TestAggregator_Current_BootStateIsUnknown covers REQ-7/D10: the aggregator starts
+// TestAggregator_Current_BootStateIsUnknown: the aggregator starts
 // unknown at construction — no hydration from persisted usage_sample rows.
 func TestAggregator_Current_BootStateIsUnknown(t *testing.T) {
 	st, _ := openTestStore(t)
@@ -71,7 +71,7 @@ func TestAggregator_Current_BootStateIsUnknown(t *testing.T) {
 	assert.Equal(t, defaultSource, snap.Source, "Source is the one field that is never null, matching the wire shape")
 }
 
-// TestAggregator_Record_FirstSamplePersistsAndBroadcasts covers REQ-5/REQ-6's happy
+// TestAggregator_Record_FirstSamplePersistsAndBroadcasts covers the happy
 // path: a fresh sample updates in-memory state, persists exactly one row, and invokes
 // OnChange once.
 func TestAggregator_Record_FirstSamplePersistsAndBroadcasts(t *testing.T) {
@@ -97,7 +97,7 @@ func TestAggregator_Record_FirstSamplePersistsAndBroadcasts(t *testing.T) {
 }
 
 // TestAggregator_Record_IdenticalBackToBackSamplesDedupToOneRowAndOneBroadcast covers
-// D9/INV-5 directly: the ~435ms pair posts (canary-fields.md) carry identical bucket
+// The exact-dedup requirement directly: the ~435ms pair posts (canary-fields.md) carry identical bucket
 // and model values and must collapse to one usage_sample row and one broadcast, not two.
 func TestAggregator_Record_IdenticalBackToBackSamplesDedupToOneRowAndOneBroadcast(t *testing.T) {
 	st, dbPath := openTestStore(t)
@@ -120,7 +120,7 @@ func TestAggregator_Record_IdenticalBackToBackSamplesDedupToOneRowAndOneBroadcas
 }
 
 // TestAggregator_Record_AThirdChangedSampleAfterTwoIdenticalOnesPersistsASecondRow is
-// E6's exact scenario at the unit level: two identical posts, then a changed one.
+// The same scenario at the unit level: two identical posts, then a changed one.
 func TestAggregator_Record_AThirdChangedSampleAfterTwoIdenticalOnesPersistsASecondRow(t *testing.T) {
 	st, dbPath := openTestStore(t)
 	var calls int

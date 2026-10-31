@@ -61,7 +61,7 @@ func TestInterpretStatus_PromptCacheRequestsAndWarm(t *testing.T) {
 	})
 }
 
-// TestStatusCacheLifetime is the REQ-1..4 prediction as a pure function of one reading and the
+// TestStatusCacheLifetime is the cache-lifetime prediction as a pure function of one reading and the
 // last adopted request count: a 5m-class ttl with a changed count is a request, so the cache is
 // held an hour of keep-alives plus the ttl past it; the same count is a keep-alive (not
 // adopted); warm false is the post's own expiry; a ttl of an hour or more, or no count, is the

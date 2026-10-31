@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestToWireSession_UnreadAndLastPromptAreNeverNullExceptLastPrompt covers D14/the
+// TestToWireSession_UnreadAndLastPromptAreNeverNullExceptLastPrompt covers the
 // Protocol Contract delta (kb:anchor/ws.session): unread is a plain, never-null boolean
 // carried verbatim (mirroring pinned/railPos's own test in sessionwire_test.go), and
 // lastPrompt is nil until a first prompt exists.
@@ -34,7 +34,7 @@ func TestToWireSession_UnreadAndLastPromptAreNeverNullExceptLastPrompt(t *testin
 
 // TestSessionWire_JSONShapeHasUnreadAndLastPromptFields extends
 // TestSessionWire_JSONShapeHasNoUnexpectedNulls's field-presence check
-// (sessionwire_test.go) to the two new required keys — D14: every Session object on
+// (sessionwire_test.go) to the two new required keys: every Session object on
 // snapshot/sessionUpsert carries them.
 func TestSessionWire_JSONShapeHasUnreadAndLastPromptFields(t *testing.T) {
 	s := minimalSession()

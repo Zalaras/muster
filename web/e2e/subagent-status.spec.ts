@@ -1,16 +1,16 @@
-// Plan claude-status-fixes — REQ-1 through REQ-5 (#14 subagent-idle-while-working, #15/
+// Subagent status (#14 subagent-idle-while-working, #15/
 // #20 stale attention/failure). kb:anchor/state.tracked / kb:anchor/state.transitions / kb:anchor/state.ordering: a subagent-marked
 // turn-activity or PermissionRequest event for an already-closed prompt is NOT a
 // straggler — it moves the session to ACTIVE / needs_input without reopening the closed
 // prompt — and every transition into ACTIVE clears both `attention` and `failure`
-// (INV-A, INV-F).
+// (the state invariants).
 //
 // Authored against a tree with none of this built yet — every test here was
 // collection-only at authoring. Validated live against daemon-impl's landed
 // `FromSubagent`/attention-failure-clear changes (including its Fix Attempt 1, which
-// closed an INV-F gap in the permission/idle doors too). The pre-existing straggler
-// test this plan pins unchanged (REQ-5, INV-G) lives in sessions.spec.ts ("a straggler
-// turn-activity for an already-closed prompt does not move the card off idle (E6)") and
+// closed a gap in the permission/idle doors too). The pre-existing straggler
+// test this work pins unchanged lives in sessions.spec.ts ("a straggler
+// turn-activity for an already-closed prompt does not move the card off idle") and
 // is not duplicated here.
 //
 // Fixture shapes (`agentId`, `backgroundTasks`) come from docs/history/spikes/canary-fields.md
@@ -20,7 +20,7 @@
 // realism only (plan decision 3) — never asserted as a state input, only posted so the
 // `Stop` payload matches what a real background-work `Stop` actually carries.
 //
-// Plan status-inconsistencies adds E1-E4 at the bottom (REQ-1 through REQ-4, REQ-8): a
+// The status-inconsistencies work adds four tests at the bottom: a
 // prompt-less idle_prompt changes nothing (kb:fact/clear-idle-prompt-carries-no-prompt-id),
 // PostToolBatch is turn activity (kb:fact/plan-feedback-emits-only-post-tool-batch), a
 // permission wait is cleared only by the agent that raised it
@@ -86,7 +86,7 @@ test("subagent permission after the parent Stop moves the card to needs input, a
     });
     await expect(stateBadge(card)).toHaveText(/idle/i);
 
-    // REQ-3: a marked PermissionRequest for the now-closed p1 is not a straggler.
+    // A marked PermissionRequest for the now-closed p1 is not a straggler.
     await request.post(daemon().ingestURL("hook"), {
       data: rawPermissionRequest(claudeId, "p1", { agentId: "agent-1" }),
     });
@@ -113,7 +113,7 @@ test("subagent permission after the parent Stop moves the card to needs input, a
     const afterNotification = findSession(await getState(page, daemon()), session.id);
     expect(afterNotification.attention?.since).toBe(sinceAfterPermission);
 
-    // REQ-2: a marked PostToolUse for the closed p1 resumes the session and clears
+    // A marked PostToolUse for the closed p1 resumes the session and clears
     // attention — the subagent's work continuing past the permission grant.
     await request.post(daemon().ingestURL("hook"), {
       data: rawPostToolUse(claudeId, { promptId: "p1", agentId: "agent-1" }),
@@ -154,7 +154,7 @@ test("#20's shape — attention latched under plan mode clears when activity arr
     expect(latched.attention?.reason).toBe("permission");
 
     // Same open prompt, activity arrives under a different permission_mode (#20's
-    // plan-acceptance path) — REQ-4: every transitioning turn-activity event clears
+    // acceptance path): every transitioning turn-activity event clears
     // attention and failure, not only Stop-family events.
     await request.post(daemon().ingestURL("hook"), {
       data: rawUserPromptSubmit(claudeId, { promptId: "p1", permissionMode: "auto" }),
@@ -253,7 +253,7 @@ test("subagent tool activity past the parent Stop keeps the card working, with s
     expect(idleState.state).toBe("idle");
     const idleSince = new Date(idleState.stateSince).getTime();
 
-    // REQ-2: marked PostToolUse for the closed p1 is not a straggler — the subagent is
+    // Marked PostToolUse for the closed p1 is not a straggler — the subagent is
     // still working past the parent's Stop. stateSince is whole-second RFC3339 (see
     // waitForNextClockSecond's doc comment in helpers/session.ts); force a real second
     // boundary before the next transition so its stateSince is provably later, not
@@ -280,7 +280,7 @@ test("subagent tool activity past the parent Stop keeps the card working, with s
   }
 });
 
-// Plan status-inconsistencies E1 (REQ-1, #57): after /clear Claude Code posts an idle_prompt
+// Status inconsistencies (#57): after /clear Claude Code posts an idle_prompt
 // with no prompt_id; Muster used to read the missing id as an open turn and flip the card to
 // needs input.
 test("a prompt-less idle_prompt leaves an idle card idle with no attention (E1, REQ-1)", async ({
@@ -326,7 +326,7 @@ test("a prompt-less idle_prompt leaves an idle card idle with no attention (E1, 
   }
 });
 
-// E2 (REQ-2, #32): rejecting a plan with feedback emits only PostToolBatch, so it has to
+// Status inconsistencies (#32): rejecting a plan with feedback emits only PostToolBatch, so it has to
 // count as turn activity and take the wait to planning (the session is still in plan mode).
 test("an unmarked PostToolBatch moves a card waiting on ExitPlanMode from needs input to planning (E2, REQ-2)", async ({
   page,
@@ -368,7 +368,7 @@ test("an unmarked PostToolBatch moves a card waiting on ExitPlanMode from needs 
   }
 });
 
-// E3 (REQ-3, #40): a background subagent keeps emitting tool hooks while the main agent
+// Status inconsistencies (#40): a background subagent keeps emitting tool hooks while the main agent
 // waits on a permission prompt; only the main agent's own activity ends that wait.
 test("subagent-marked tool activity leaves a main-agent permission wait on needs input, and the main agent's own PostToolUse then ends it (E3, REQ-3)", async ({
   page,
@@ -428,7 +428,7 @@ test("subagent-marked tool activity leaves a main-agent permission wait on needs
   }
 });
 
-// REQ-3's other half: a wait raised by a subagent is ended by that subagent, and is not
+// The other half: a wait raised by a subagent is ended by that subagent, and is not
 // ended by the main agent's unmarked activity or a second subagent's.
 test("a subagent-raised permission wait survives main-agent and second-subagent activity and ends on the owning subagent's PostToolUse (REQ-3, INV-B)", async ({
   page,
@@ -478,7 +478,7 @@ test("a subagent-raised permission wait survives main-agent and second-subagent 
   }
 });
 
-// REQ-8: the main turn ending does not answer a subagent's open prompt.
+// The main turn ending does not answer a subagent's open prompt.
 test("a main Stop while a subagent owns the permission wait keeps needs input and its attention (REQ-8)", async ({
   page,
   request,
@@ -518,7 +518,7 @@ test("a main Stop while a subagent owns the permission wait keeps needs input an
   }
 });
 
-// E4 (REQ-4, #59): Esc emits no hook at all; the daemon finds the interrupt in the
+// Status inconsistencies (#59): Esc emits no hook at all; the daemon finds the interrupt in the
 // transcript the hooks name, on its ~5 s liveness-poll tick.
 test("a working card whose transcript gains an interrupt line for its current prompt reads idle within 10 s (E4, REQ-4)", async ({
   page,
@@ -596,7 +596,7 @@ test("declining a permission prompt, an interrupt for tool use, takes a needs in
   }
 });
 
-// Edge case 7 (D8): an interrupt line for an older prompt is not the current turn's.
+// Edge case 7: an interrupt line for an older prompt is not the current turn's.
 test("an interrupt line for an older prompt id leaves a working card working until the current prompt's line arrives (REQ-4)", async ({
   page,
   request,

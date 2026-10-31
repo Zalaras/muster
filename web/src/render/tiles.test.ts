@@ -23,7 +23,7 @@ function fakeElement(): HTMLElement {
   } as unknown as HTMLElement;
 }
 
-/** `.nm`'s real shape (plan ui-text-and-focus REQ-13(b)): a wrapper with no text of its
+/** `.nm`'s real shape: a wrapper with no text of its
  * own, holding one `button.rename` child whose text `updateTileChrome` writes (see
  * render/tiles.ts's `updateTileChrome`, which reads `nameEl.dataset["editing"]` and
  * writes `nameEl.querySelector("button.rename")`'s textContent, never `.nm`'s own). This
@@ -398,7 +398,7 @@ describe("updateTile — REQ-9 (plan move-tiles): the state dot gets a title = t
   });
 });
 
-// REQ-15/INV-4/W12 (plan ui-text-and-focus): the 1s render tick (`updateTile` ->
+// The 1s render tick (`updateTile` ->
 // `updateTileChrome`) must leave an open rename field's value untouched — review Minor 3
 // moved this decision from `.nm`'s `data-editing` DOM attribute to asking the tile's own
 // `refs.rename?.isEditing()`, so these fixtures now carry a `fakeRenameController` instead

@@ -7,7 +7,7 @@
 // dialog wrapper itself are `helpers/theme.ts`'s `settingsButton`/`settingsDialog`/
 // `openSettingsDialog` — reused, not redefined: `getByRole("button", { name:
 // "Settings" })`'s default substring match already covers the badged accessible name
-// "Settings, update available" (REQ-9), and the dialog's own accessible name ("Settings")
+// "Settings, update available", and the dialog's own accessible name ("Settings")
 // is unaffected by the new Updates fieldset inside it.
 import { expect } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
@@ -55,7 +55,7 @@ export function restartConfirmDialog(page: Page): Locator {
   return page.getByRole("dialog", { name: "Restart musterd?" });
 }
 
-/** `#update-restart-body` — the shells-that-will-close summary (REQ-11). */
+/** `#update-restart-body` — the shells-that-will-close summary. */
 export function restartConfirmBody(dialog: Locator): Locator {
   return dialog.locator("#update-restart-body");
 }

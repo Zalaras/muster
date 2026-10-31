@@ -1,12 +1,12 @@
-// Fake GitHub Issues API for the issue-capture plan (REQ-8, E2/E3/E4/E8), modelled on
+// Fake GitHub Issues API for the issue-capture plan, modelled on
 // helpers/usageapi.ts's FakeUsageAPI. musterd's `-issue-api-url` points here instead of
 // the real GitHub REST API host (helpers/daemon.ts's `issueApiURL` option), so no E2E
 // run ever reaches the real GitHub API or spends a real token against a real repo — the same
 // discipline CLAUDE.md's hard rule applies to a real `claude` binary, extended to a real
-// `gh`/GitHub call (REQ-17). Records every request (method, path, headers, parsed JSON
-// body) so a test can assert both what the daemon composed (INV-2's body-equality check)
+// `gh`/GitHub call. Records every request (method, path, headers, parsed JSON
+// body) so a test can assert both what the daemon composed (the body-equality check)
 // and what it sent to authenticate (the `Authorization: Bearer <token>` header, never
-// logged per INV-3).
+// logged).
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { ISSUE_REPO_FIXTURE } from "./daemon";
 
@@ -26,7 +26,7 @@ interface PendingResponse {
   body: unknown;
 }
 
-/** Default success body for a bare `setResponse(201)` call — REQ-8's response shape
+/** Default success body for a bare `setResponse(201)` call — the response shape
  * (`number`/`html_url`, the only two fields the daemon reads) plus a little of the real
  * API's noise, so a response the daemon ignores still round-trips like the genuine
  * thing. */
@@ -117,15 +117,15 @@ export class FakeGitHubAPI {
 
   /** Sets the status/body every subsequent request receives. Pass an explicit `body`
    * (e.g. `{ number: 14, html_url: "https://github.com/…/issues/14" }`) to pin the
-   * values E3's success-panel assertion checks; omit `body` on a 201 to auto-increment a
+   * values the success-panel assertion checks; omit `body` on a 201 to auto-increment a
    * default one. For an error status, `body` should carry GitHub's own `message` field
-   * (REQ-8's `502 issue_post_failed` message composition reads it). */
+   * (the `502 issue_post_failed` message composition reads it). */
   setResponse(status: number, body?: unknown): void {
     this.response = { status, body };
   }
 
   /** Holds every incoming request open (no response sent) until `release()` — used to
-   * observe Submit's in-flight-disabled window deterministically (REQ-19/edge case 12)
+   * observe Submit's in-flight-disabled window deterministically
    * instead of racing a fast fake response, mirroring `FakeUsageAPI.hold()`. */
   hold(): void {
     this.held = true;
@@ -153,12 +153,12 @@ export class FakeGitHubAPI {
 }
 
 /** A distinctive, fixed (never random) fake bearer token — mirrors usage-model-bar's
- * `FAKE_TOKEN` pattern so INV-3's "never in a log line" grep has something unambiguous
+ * `FAKE_TOKEN` pattern so the "never in a log line" grep has something unambiguous
  * to look for. */
 export const FAKE_GH_TOKEN = "MUSTER-E2E-FAKE-GH-TOKEN-7c31ae";
 
 /**
- * `-issue-token-file` content (REQ-14: the file's TRIMMED contents are the bearer token
+ * `-issue-token-file` content (the file's TRIMMED contents are the bearer token
  * — plain text, unlike `-usage-token-file`'s JSON). The trailing newline exercises the
  * daemon's trim, matching how a real `printf`/editor-saved file would look.
  */

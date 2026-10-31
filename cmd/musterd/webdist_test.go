@@ -13,9 +13,9 @@ import (
 )
 
 // TestCheckWebDist_DiskOverridePresent covers the -web-dist-set branch when the
-// directory genuinely has a built dashboard: no error, no warning (REQ-2's disk
-// override behaves exactly as before this plan). dashboard is an empty fstest.MapFS —
-// the disk branch returns before ever consulting it (D7's precedence).
+// directory genuinely has a built dashboard: no error, no warning (the disk
+// override behaves exactly as before). dashboard is an empty fstest.MapFS —
+// the disk branch returns before ever consulting it (the precedence).
 func TestCheckWebDist_DiskOverridePresent(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.html"), []byte("<!doctype html>"), 0o644))
@@ -29,7 +29,7 @@ func TestCheckWebDist_DiskOverridePresent(t *testing.T) {
 	assert.Empty(t, buf.String(), "a present index.html must not log any warning")
 }
 
-// TestCheckWebDist_DiskOverrideEmptyDirWarnsButDoesNotFail covers REQ-9/D6: an explicit
+// TestCheckWebDist_DiskOverrideEmptyDirWarnsButDoesNotFail: an explicit
 // -web-dist pointing at a directory with no index.html is permissive — startup succeeds
 // (cmd/musterd/onexit_test.go:125 relies on exactly this with a bare t.TempDir()) but a
 // warning is logged naming the directory, since this is a dev override, not the
@@ -63,7 +63,7 @@ func TestCheckWebDist_DiskOverridePointsAtMissingDirectoryWarnsButDoesNotFail(t 
 	assert.Contains(t, buf.String(), "no index.html")
 }
 
-// TestCheckWebDist_DiskOverridePrecedenceOverNonEmptyDashboard covers D7/D10's other
+// TestCheckWebDist_DiskOverridePrecedenceOverNonEmptyDashboard covers the other
 // half of the precedence clause: even when the embedded dashboard genuinely has a
 // dashboard, an explicit -web-dist still wins (returns before webui.HasDashboard is ever
 // consulted) — proven by an embedded fs.FS that actually has an index.html, which would
@@ -81,10 +81,10 @@ func TestCheckWebDist_DiskOverridePrecedenceOverNonEmptyDashboard(t *testing.T) 
 	assert.Contains(t, buf.String(), "no index.html")
 }
 
-// TestCheckWebDist_NothingOnDiskNothingEmbeddedIsFatal covers REQ-3/REQ-9's fatal branch
-// (D5/D8): webDist unset and an empty embedded fs.FS — a binary built before any
+// TestCheckWebDist_NothingOnDiskNothingEmbeddedIsFatal covers the fatal branch
+// WebDist unset and an empty embedded fs.FS — a binary built before any
 // `make web-build` — refuses to start, naming both remedies. Passing dashboard as a
-// parameter (REQ-9) is what makes this deterministically testable: the real webui.FS()
+// parameter is what makes this deterministically testable: the real webui.FS()
 // embed var varies with this checkout's own build state (a fresh clone has only
 // .gitkeep; a checkout with a prior `make web-build` does not), which is exactly why
 // checkWebDist takes an injected fs.FS instead of calling webui.FS() itself.

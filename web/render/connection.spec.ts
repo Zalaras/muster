@@ -1,12 +1,11 @@
 // connection — the display properties of the dashboard shell (the masthead, the connection
-// status and the empty rail after the handshake, the unknown usage readouts), plan
-// ui-text-and-focus REQ-6/REQ-7 (the type ramp, E10) and plans version-claude-interface
-// and claude-version-watch (the masthead's Claude Code version readout per
-// `hello.claudeCode.status`, E1–E3, E6, REQ-5), re-levelled on 2026-10-20 from
+// status and the empty rail after the handshake, the unknown usage readouts), the type ramp
+// and the masthead's Claude Code version readout per
+// `hello.claudeCode.status`, re-levelled on 2026-10-20 from
 // web/e2e/{shell,type-scale,claude-version}.spec.ts (plans/_audit/relevel/misc-core.md).
 // Nothing here changes state: the readout is a pure function of the fixture's hello
 // (`claude-version-{below,above,unknown}`, and every other fixture's `verified`), the
-// REQ-5 flip is a `claudeCode` frame taken from the `claude-version-below` fixture's own
+// version flip is a `claudeCode` frame taken from the `claude-version-below` fixture's own
 // hello, and the rail card the type-scale test measures comes from `three-states`. The
 // journeys — the daemon still serving when its version check fails, the capture POST's
 // claudeCode keys, the 7 s check landing within 3 s of startup — stay in
@@ -54,8 +53,8 @@ test("renders both usage readouts as the word unknown, never an empty gauge", as
   await expect(page.getByText(/5h[\s\S]*unknown/i)).toBeVisible();
   await expect(page.getByText(/7d[\s\S]*unknown/i)).toBeVisible();
 
-  // The DOM-structural half of REQ-16 (no gauge/meter markup at all when null) is a
-  // Vitest concern per the plan's Reviewer-Verified W8 row — not re-guessed here against
+  // The DOM-structural half of this (no gauge/meter markup at all when null) is a
+  // Vitest concern per the plan's review — not re-guessed here against
   // markup this spec hasn't seen yet.
 });
 

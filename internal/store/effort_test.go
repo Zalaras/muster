@@ -82,7 +82,7 @@ func TestUpdateSession_EffortNullBearingShapesRoundTrip(t *testing.T) {
 	assert.Nil(t, cleared.EffortWarningModel)
 }
 
-// TestRepo_LastEffort covers REQ-4's storage half: UpsertRepo records the launch's effort
+// TestRepo_LastEffort covers the storage half: UpsertRepo records the launch's effort
 // (a level, or NULL for default, overwriting the previous one either way), TouchRepo leaves
 // it alone and a repo row it creates gets NULL, and GetRepo/ListRepos read it back.
 func TestRepo_LastEffort(t *testing.T) {

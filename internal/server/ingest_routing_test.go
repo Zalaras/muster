@@ -45,7 +45,7 @@ func eventSessionID(t *testing.T, srv *testServer, claudeSessionID string) *int6
 }
 
 // TestIngestRouting_EnvelopedSessionStartBindsThenRawHookRoutesByClaudeSessionID covers
-// D8: the enveloped SessionStart's musterSession binds the claude session id, and a
+// The enveloped SessionStart's musterSession binds the claude session id, and a
 // subsequent raw (non-enveloped) hook for that same claude session id routes to it
 // through the manager's byClaude index, with event.session_id populated both times.
 func TestIngestRouting_EnvelopedSessionStartBindsThenRawHookRoutesByClaudeSessionID(t *testing.T) {
@@ -89,7 +89,7 @@ func TestIngestRouting_EnvelopedSessionStartBindsThenRawHookRoutesByClaudeSessio
 	assert.Equal(t, "idle", got.State)
 }
 
-// TestIngestRouting_UnknownClaudeSessionIDPersistsUnroutedAndLogs covers D9: a raw
+// TestIngestRouting_UnknownClaudeSessionIDPersistsUnroutedAndLogs: a raw
 // event whose claude session id has no binding must persist with a NULL
 // event.session_id, log a line (never the payload), and cause no state effect —
 // nothing to assert state-wise here since no Muster session is even named.
@@ -140,10 +140,9 @@ func TestIngestRouting_EnvelopeNamingAnUnknownMusterSessionPersistsUnrouted(t *t
 }
 
 // ---------------------------------------------------------------------------------------
-// Envelope corroboration table (general-cleanup REQ-12, kb:adr/ingest-envelope-pane-must-corroborate,
-// D9/D10, INV-CORROBORATE/INV-EMPTY-PANE-ROUTES).
+// Envelope corroboration table (kb:adr/ingest-envelope-pane-must-corroborate).
 
-// corroborationSnapshot is the set of fields INV-CORROBORATE says a mismatched or absent
+// corroborationSnapshot is the set of fields the corroboration rule says a mismatched or absent
 // envelope pane must never move — captured before and compared after.
 type corroborationSnapshot struct {
 	State           session.State
@@ -224,7 +223,7 @@ func setupCorroborationSession(t *testing.T, srv *testServer, binding, state str
 	return sess.ID, claudeID
 }
 
-// TestIngestRouting_CorroborationTable covers D9/INV-CORROBORATE: crossed across every
+// TestIngestRouting_CorroborationTable: crossed across every
 // reachable (binding, displayed-state) source state, an enveloped event whose pane
 // mismatches the session's recorded "%1" pane, and one carrying no pane at all, both
 // leave state/binding/compactions/transcript/plan/title byte-identical and persist with a
@@ -305,9 +304,8 @@ func TestIngestRouting_CorroborationTable(t *testing.T) {
 	}
 }
 
-// TestIngestRouting_EmptyStoredPaneRoutesOnMusterSessionAlone covers D10/
-// INV-EMPTY-PANE-ROUTES: an enveloped SessionStart arriving while the session's pane is
-// still empty (the spawn-to-record window: CreateSession's row before RecordLaunch has
+// TestIngestRouting_EmptyStoredPaneRoutesOnMusterSessionAlone: an enveloped SessionStart arriving while
+// the session's pane is still empty (the spawn-to-record window: CreateSession's row before RecordLaunch has
 // ever run) routes and binds on musterSession alone — corroboration is "cannot
 // corroborate", not "cannot match".
 func TestIngestRouting_EmptyStoredPaneRoutesOnMusterSessionAlone(t *testing.T) {

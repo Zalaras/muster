@@ -47,7 +47,7 @@ func newBucketPoller(t *testing.T, stub *usageAPIStub, reader claudecode.TokenRe
 	return newUsagePoller(stub.srv.Client(), stub.srv.URL, reader, time.Hour, agg, ms, zerolog.Nop()), agg, ms
 }
 
-// TestUsagePoller_Tick_SuccessFeedsBucketsAndWindows covers REQ-1/D1: a successful call
+// TestUsagePoller_Tick_SuccessFeedsBucketsAndWindows: a successful call
 // offers the 5h and 7d windows to the aggregator alongside the per-model windows.
 func TestUsagePoller_Tick_SuccessFeedsBucketsAndWindows(t *testing.T) {
 	five := &claudecodetest.UsageBucketOpt{Percent: 40, ResetsAt: rfc3339(time.Now().Add(time.Hour))}
@@ -87,7 +87,7 @@ func TestUsagePoller_Tick_SuccessFeedsBucketsAndWindows(t *testing.T) {
 	}
 }
 
-// TestUsagePoller_Tick_PastResetBucketsAreNotAdopted covers REQ-3 at the seam: a call
+// TestUsagePoller_Tick_PastResetBucketsAreNotAdopted checks at the seam: a call
 // answering with the old window (its reset already passed) leaves the bars as they were.
 func TestUsagePoller_Tick_PastResetBucketsAreNotAdopted(t *testing.T) {
 	stub := newUsageAPIStub("success")
@@ -105,7 +105,7 @@ func TestUsagePoller_Tick_PastResetBucketsAreNotAdopted(t *testing.T) {
 	assert.NotNil(t, ms.Current().Windows, "the model windows are unaffected")
 }
 
-// TestUsagePoller_Tick_RepeatedIdenticalCallBroadcastsNothingNew covers REQ-9 at the
+// TestUsagePoller_Tick_RepeatedIdenticalCallBroadcastsNothingNew checks at the
 // seam: the second identical call changes neither holder, so neither notifies.
 func TestUsagePoller_Tick_RepeatedIdenticalCallBroadcastsNothingNew(t *testing.T) {
 	stub := newUsageAPIStub("success")
@@ -124,7 +124,7 @@ func TestUsagePoller_Tick_RepeatedIdenticalCallBroadcastsNothingNew(t *testing.T
 	assert.Equal(t, afterFirst, atomic.LoadInt32(&changes))
 }
 
-// TestUsagePoller_Tick_FailureLeavesBucketsAsTheyWere covers REQ-7/D10 from both source
+// TestUsagePoller_Tick_FailureLeavesBucketsAsTheyWere checks from both source
 // states (never fetched, a good fetch before) for every failure kind.
 func TestUsagePoller_Tick_FailureLeavesBucketsAsTheyWere(t *testing.T) {
 	failures := []struct {
@@ -248,7 +248,7 @@ func recordStatus(t *testing.T, agg *usage.Aggregator, fiveResetsAt, sevenResets
 	}))
 }
 
-// TestUsagePoller_ResetWake covers REQ-4/D4: a call is made at the reset instant of the
+// TestUsagePoller_ResetWake: a call is made at the reset instant of the
 // 5h bucket, the 7d bucket and a per-model window, each wakes it exactly once, and the
 // endpoint is hit after the instant.
 func TestUsagePoller_ResetWake(t *testing.T) {
@@ -308,7 +308,7 @@ func TestUsagePoller_ResetWake_FollowsAMovedReset(t *testing.T) {
 	assert.Never(t, func() bool { return stub.reqCount() > 1 }, time.Second, 20*time.Millisecond, "the earlier instant is no longer a known reset")
 }
 
-// TestUsagePoller_ResetWake_CoalescesWithTheCallInFlight covers D4/Edge Case 7: resets
+// TestUsagePoller_ResetWake_CoalescesWithTheCallInFlight covers Edge Case 7: resets
 // falling while a call is in flight cost at most one extra call.
 func TestUsagePoller_ResetWake_CoalescesWithTheCallInFlight(t *testing.T) {
 	release := make(chan struct{})
@@ -370,7 +370,7 @@ func TestUsagePoller_StopEndsAnArmedWatcher(t *testing.T) {
 	assert.NoError(t, ctx.Err(), "Stop returns promptly while the watcher waits on an hour-away reset")
 }
 
-// TestUsageFeature_PollingDisabledHasNoWatcher covers D5: with polling off there is no
+// TestUsageFeature_PollingDisabledHasNoWatcher: with polling off there is no
 // poller, so no reset wakes a call, and the holders' change callbacks cope with that.
 func TestUsageFeature_PollingDisabledHasNoWatcher(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})

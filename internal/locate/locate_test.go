@@ -14,7 +14,7 @@ import (
 )
 
 // stubFinder is a Finder whose Find is entirely scripted, so Locator.Locate's own
-// fallback/short-circuit logic (REQ-5) can be tested independently of any real
+// fallback/short-circuit logic can be tested independently of any real
 // discovery mechanism (Spotlight, the walk).
 type stubFinder struct {
 	candidates []string
@@ -35,7 +35,7 @@ func writeFile(t *testing.T, path string, content []byte) string {
 	return path
 }
 
-// dirSnapshot lists every file under root with its size, for INV-2 before/after
+// dirSnapshot lists every file under root with its size, for before/after
 // comparisons ("no locate request creates or modifies any file").
 func dirSnapshot(t *testing.T, root string) map[string]int64 {
 	t.Helper()
@@ -156,7 +156,7 @@ func TestLocate_FallsThroughToNextFinderWhenFirstYieldsNoVerifiedCandidate(t *te
 
 func TestLocate_FallsThroughWhenFirstFinderCandidateFailsByteCompare(t *testing.T) {
 	// A finder can return a raw candidate that turns out not to verify (different
-	// bytes); REQ-5 still lets a later finder have a turn — "verified" is what
+	// bytes); a later finder still gets a turn — "verified" is what
 	// matters, not merely "found by the first finder".
 	dir := t.TempDir()
 	upload := []byte("the true contents")
@@ -221,7 +221,7 @@ func TestLocate_VerifyCandidatesDropsVanishedCandidateInsteadOfErroring(t *testi
 	assert.ErrorIs(t, err, ErrNotLocated, "an unreadable candidate must be dropped, not treated as a match or an error")
 }
 
-// TestLocate_NeverWritesToDisk is INV-2's Locate-level pin: every outcome above must
+// TestLocate_NeverWritesToDisk is the Locate-level pin: every outcome above must
 // leave the walk root byte-for-byte as it was. Re-runs the outcome matrix and snapshots
 // the directory before/after each.
 func TestLocate_NeverWritesToDisk(t *testing.T) {

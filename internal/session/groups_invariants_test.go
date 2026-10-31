@@ -16,9 +16,9 @@ import (
 
 // The invariants of the groups plan, each asserted from every reachable source rather than
 // from the convenient one (kb:lesson/invariant-missed-by-per-transition-tests):
-//   I1  per-section pinned-before-unpinned, railPos unique        -> D4
-//   I2  every groupId is null or names an existing group          -> D5
-//   I3  an operation never changes a session outside its request  -> D6
+//   I1  per-section pinned-before-unpinned, railPos unique
+//   I2  every groupId is null or names an existing group
+//   I3  an operation never changes a session outside its request
 // All run on the grouped fixture, so two groups and Ungrouped coexist with pinned and
 // unpinned members in each.
 
@@ -119,7 +119,7 @@ func (r *groupsRig) deleteGroup(id int64, d GroupDisposition, to int64) {
 	require.True(r.t, res.Deleted)
 }
 
-// TestRailInvariants_HoldAfterEverySourceAndAReload is D4 and D5: after each source the
+// TestRailInvariants_HoldAfterEverySourceAndAReload: after each source the
 // per-section invariant, unique railPos and "every groupId names a group" hold in memory and in
 // the database, and again after the daemon restarts and reloads everything through LoadAll —
 // with the sessions byte-for-byte what they were.
@@ -153,7 +153,7 @@ func factsByID(sessions []*Session) map[int64]sessionFacts {
 	return out
 }
 
-// TestBystanders_AreNeverChangedOrBroadcast is D6 / I3: for every group, batch and
+// TestBystanders_AreNeverChangedOrBroadcast covers I3: for every group, batch and
 // delete-group path, sessions outside the request keep their group, pin, railPos and alive
 // flag and are not broadcast. "Outside the request" means every session the operation did
 // not name: the touched list below names the request's own sessions plus, where a pinned
@@ -220,7 +220,7 @@ func TestBystanders_AreNeverChangedOrBroadcast(t *testing.T) {
 	}
 }
 
-// TestGroupID_SurvivesClearRebindStragglerLateSessionEndAndResume is D7: nothing in the
+// TestGroupID_SurvivesClearRebindStragglerLateSessionEndAndResume: nothing in the
 // state machine reads or writes a session's group, so each event that rebinds, reorders or
 // resumes a conversation leaves it where it was, and no upsert in between carries another
 // groupId.
@@ -270,7 +270,7 @@ func TestGroupID_SurvivesClearRebindStragglerLateSessionEndAndResume(t *testing.
 	r.assertConsistent()
 }
 
-// --- restart (D8) ---
+// --- restart ---
 
 func TestLoadAll_RestoresGroupsLayoutAndMembership(t *testing.T) {
 	r := newFixtureRig(t)
@@ -315,7 +315,7 @@ func TestLoadAll_WithNoGroupsHasNoSectionsToShow(t *testing.T) {
 	assert.Equal(t, UngroupedLayout{}, ungrouped)
 }
 
-// --- concurrency (D18) ---
+// --- concurrency ---
 
 // isExpectedGroupRace reports whether err is one a concurrent operation may legitimately
 // meet because another worker deleted the group or session it named a moment before.

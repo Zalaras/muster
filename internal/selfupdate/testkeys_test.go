@@ -31,14 +31,14 @@ func newTestKeypair(t *testing.T) testKeypair {
 }
 
 // signLegacy signs message in minisign's legacy "Ed" mode (unhashed, minisign.Sign's own
-// shape) — one of the two modes REQ-15 requires accepting.
+// shape) — one of the two modes that must be accepted.
 func (k testKeypair) signLegacy(message []byte) []byte {
 	return minisign.Sign(k.priv, message)
 }
 
 // signPrehashed signs message in minisign's prehashed "ED" mode (BLAKE2b-512 then
 // Ed25519, via minisign.Reader — the shape a real `minisign -S` binary produces) — the
-// other of the two modes REQ-15 requires accepting.
+// other of the two modes that must be accepted.
 func (k testKeypair) signPrehashed(message []byte) []byte {
 	r := minisign.NewReader(bytes.NewReader(message))
 	_, _ = io.ReadAll(r) // drains the reader so its internal digest covers the whole message

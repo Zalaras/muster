@@ -1,17 +1,17 @@
-// Fake GitHub Releases host for the auto-update plan (REQ-5/REQ-14/REQ-15/REQ-16),
+// Fake GitHub Releases host for the auto-update plan,
 // modelled on helpers/ghapi.ts's FakeGitHubAPI. musterd's `-update-base-url` points here
 // instead of the real `github.com/Zalaras/muster/releases`, so no E2E run ever reaches
 // the real host or a real GitHub rate limit (mirrors CLAUDE.md's "no real claude" hard
 // rule, extended to a real GitHub Release). Every daemon this file's `publish()` targets
 // verifies against an in-process Ed25519 keypair this server generates itself — never
-// the real committed `internal/selfupdate/minisign.pub` (D5's production key, which no
+// the real committed `internal/selfupdate/minisign.pub` (the production key, which no
 // test may reference: this file's `writePublicKey()` is the ONLY public key any scratch
-// daemon here is ever pointed at, via `-update-public-key-file`, plan REQ-15's test seam).
+// daemon here is ever pointed at, via `-update-public-key-file` test seam).
 //
-// Wire shapes: REQ-5 ("latest" is the last path segment of `{base}/latest`'s redirect
-// `Location`, absolute or relative both accepted), REQ-14 (asset layout under
-// `{base}/download/{tag}/`), REQ-16 (`checksums.txt`'s `<hex>  <asset>` two-space
-// format, GoReleaser's own `checksum` artefact shape). The minisign byte layout below
+// Wire shapes: "latest" is the last path segment of `{base}/latest`'s redirect
+// `Location`, absolute or relative both accepted; asset layout under
+// `{base}/download/{tag}/`; `checksums.txt`'s `<hex>  <asset>` two-space
+// format, GoReleaser's own `checksum` artefact shape. The minisign byte layout below
 // (Implementation Notes > Minisign) was cross-checked against a REAL `minisign` 0.12
 // binary during authoring: a keypair and signature produced by this file's own Node
 // `crypto` calls verify cleanly under `minisign -V`, and a byte flipped anywhere in the
@@ -31,7 +31,7 @@ const execFileAsync = promisify(execFile);
 
 /**
  * Maps this test process's own `process.arch` to the Go `runtime.GOARCH` string the
- * daemon under test resolves internally (there is no flag for it — REQ-14 says "for
+ * daemon under test resolves internally (there is no flag for it — the spec says "for
  * `runtime.GOARCH`"). Both sides run on the SAME machine, so they must agree without
  * either hardcoding one. Extend the switch, don't hardcode a literal, if this ever runs
  * on a third architecture.
@@ -49,7 +49,7 @@ export function goArch(): string {
   }
 }
 
-/** GoReleaser's `name_template` (REQ-14): `musterd_<ver>_<os>_<arch>.tar.gz`, `<ver>`
+/** GoReleaser's `name_template`: `musterd_<ver>_<os>_<arch>.tar.gz`, `<ver>`
  * bare (no leading "v"), `<os>` always "darwin" for this harness. */
 export function archiveAssetName(version: string, arch: string, goos = "darwin"): string {
   return `musterd_${version}_${goos}_${arch}.tar.gz`;
@@ -87,7 +87,7 @@ function minisignPublicKeyFile(kp: MinisignKeypair): string {
 /**
  * Minisign signature-file format, legacy `Ed` mode only (Implementation Notes >
  * Minisign: "the fake can use legacy `Ed` and skip BLAKE2b" — the prehashed `ED` path a
- * real `minisign -S` writes is exercised by D10's Go unit test, not here). Line 1
+ * real `minisign -S` writes is exercised by a Go unit test, not here). Line 1
  * `untrusted comment:`; line 2 base64 of `alg`(2, literal `"Ed"`) ‖ `key_id`(8) ‖
  * `sig`(64) where `sig` is Ed25519 over the raw file bytes; line 3 `trusted comment:
  * <text>`; line 4 base64 of Ed25519 over `sig` ‖ the trusted comment's TEXT bytes
@@ -109,7 +109,7 @@ function minisignSign(kp: MinisignKeypair, data: Buffer, trustedComment: string)
 }
 
 /** Builds `musterd_<ver>_<os>_<arch>.tar.gz` containing `binaryPath`'s bytes as
- * `musterd` (mode 0755) plus a `README.md` (REQ-14/plan Affected Files) — shells out to
+ * `musterd` (mode 0755) plus a `README.md` — shells out to
  * the system `tar` (BSD tar on every macOS runner this harness targets) rather than
  * adding a tar dependency for one fixture builder. */
 async function buildTarGz(binaryPath: string): Promise<Buffer> {
@@ -139,7 +139,7 @@ export interface PublishOptions {
    * `buildVersionedMusterd`) — packaged verbatim as the archive's `musterd` member, so a
    * genuine `-version`/SHA-256 oracle exists after a test drives an apply. */
   binaryPath: string;
-  /** Go arch string for the asset name (REQ-14's `runtime.GOARCH`). Defaults to this
+  /** Go arch string for the asset name (`runtime.GOARCH`). Defaults to this
    * machine's own (`goArch()`) — the daemon under test resolves the SAME machine's
    * arch, so the two must agree without either side hardcoding one. */
   arch?: string;
@@ -161,7 +161,7 @@ interface PublishedRelease {
  * `scripts/install.sh` issues `curl -I`) 302s to `{self}/tag/<tag>` per `setLatest()`;
  * `/download/<tag>/<asset>` serves whatever `publish()` built for that tag. Every
  * request is counted by its exact path (`requestCount`), so a test can prove a check
- * never fired (E2/E8) or fired exactly once (E3/E11/E15).
+ * never fired or fired exactly once.
  */
 export class FakeReleaseServer {
   private readonly server: Server;
@@ -199,21 +199,21 @@ export class FakeReleaseServer {
     return `http://127.0.0.1:${this.port}`;
   }
 
-  /** Sets which tag `{base}/latest` redirects to (REQ-5). Call after `publish(tag)` so
+  /** Sets which tag `{base}/latest` redirects to. Call after `publish(tag)` so
    * the redirect always names a release this server can actually serve assets for. */
   setLatest(tag: string): void {
     this.latestTag = tag;
   }
 
   /** Requests recorded against an exact request path (e.g. `"/latest"`, or
-   * `` `/download/${tag}/${asset}` ``) — E2/E3/E8/E11/E15's request-count oracle. Never
+   * `` `/download/${tag}/${asset}` ``) — the request-count oracle. Never
    * matched by substring, so a caller must spell the full path. */
   requestCount(path: string): number {
     return this.counts.get(path) ?? 0;
   }
 
   /** Holds every subsequent request open (no response sent) until `release()` —
-   * deterministic phase observation (E4) and the concurrent-apply fixture (E11).
+   * deterministic phase observation and the concurrent-apply fixture.
    * Mirrors `FakeGitHubAPI.hold()`/`FakeUsageAPI.hold()`. */
   hold(): void {
     this.held = true;
@@ -249,7 +249,7 @@ export class FakeReleaseServer {
         res.end();
         return;
       }
-      // REQ-5: absolute-or-relative Location both parse to the last path segment — an
+      // Absolute-or-relative Location both parse to the last path segment — an
       // absolute Location (this server's own baseURL) exercises that branch for real,
       // matching the real GitHub host's own absolute redirect.
       res.writeHead(302, { Location: `${this.baseURL}/tag/${this.latestTag}` });
@@ -267,7 +267,7 @@ export class FakeReleaseServer {
 
   /** Serves one release asset: the archive, its checksums, or the minisig — 404 for an
    * unknown tag or asset, and for the minisig when this fixture is deliberately missing
-   * one (REQ-15's unsigned-release case). */
+   * one (the unsigned-release case). */
   private routeDownload(
     tag: string | undefined,
     asset: string | undefined,
@@ -299,7 +299,7 @@ export class FakeReleaseServer {
   }
 
   /** Writes this server's own minisign public key file — the ONLY key any daemon this
-   * file starts should be pointed at (`-update-public-key-file`, REQ-15's test seam).
+   * file starts should be pointed at (`-update-public-key-file` test seam).
    * Never the real committed `internal/selfupdate/minisign.pub`. */
   async writePublicKey(path: string): Promise<void> {
     await writeFile(path, minisignPublicKeyFile(this.keypair), "utf-8");
@@ -307,7 +307,7 @@ export class FakeReleaseServer {
 
   /**
    * Builds and publishes one release for `opts.tag`: the archive, a `checksums.txt`
-   * with the archive's real SHA-256 (`<hex>  <asset>`, REQ-16), and a
+   * with the archive's real SHA-256 (`<hex>  <asset>`), and a
    * `checksums.txt.minisig` signed in legacy `Ed` mode with this server's own keypair.
    * The trusted comment mirrors GoReleaser's own `signs:` args (Implementation Notes:
    * `-t "muster {{ .Version }}"`).
@@ -336,18 +336,18 @@ export class FakeReleaseServer {
   }
 
   /**
-   * Corrupts an already-`publish()`ed release in place, for E7's four refusal
+   * Corrupts an already-`publish()`ed release in place, for the four refusal
    * fixtures — each leaves every OTHER file exactly as `publish()` left it, so only the
    * named check fails:
    *  - `"checksums"`: flips a byte in `checksums.txt` after it was signed, so the
-   *    (untouched) signature no longer verifies against the (changed) content — REQ-15.
-   *  - `"missing-minisig"`: `checksums.txt.minisig` 404s from then on — REQ-24.
+   *    (untouched) signature no longer verifies against the (changed) content.
+   *  - `"missing-minisig"`: `checksums.txt.minisig` 404s from then on.
    *  - `"foreign-key"`: re-signs the SAME `checksums.txt` bytes with a fresh, unrelated
    *    keypair — internally well-formed, but not the key in the daemon's
-   *    `-update-public-key-file` — REQ-15.
+   *    `-update-public-key-file`.
    *  - `"sha-mismatch"`: appends a byte to the archive after `checksums.txt` was
    *    computed, so the archive's real SHA-256 no longer matches the (validly signed)
-   *    line — REQ-16.
+   *    line.
    */
   tamper(tag: string, kind: TamperKind): void {
     const release = this.releases.get(tag);

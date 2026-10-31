@@ -384,7 +384,7 @@ export async function titleFloorAndReadoutProblems(
 
 /**
  * A long folder (`muster-app /`, 12 characters) is held to the repo block's floor rule, not to
- * "reads whole": REQ-10 and E27 were amended 2026-10-05 (user decision,
+ * "reads whole": the earlier rule was amended 2026-10-05 (user decision,
  * plans/groups/decisions/focus-header-floor-rule/decision.md, kb:adr/focus-repo-block-keeps-floor-beside-group-control).
  * The block is present (never hidden) and its folder line is at least 8 characters wide, measured
  * against a clone of the line itself so the font, and so the `ch` unit, is the line's own. The

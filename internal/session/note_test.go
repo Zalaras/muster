@@ -48,7 +48,7 @@ func (r *effortRig) restart() {
 	r.mgr = fresh
 }
 
-// TestSetNote_StoresTextVerbatimAndBlankAsNull covers D1, D2 and edge cases 6 and 7 as one
+// TestSetNote_StoresTextVerbatimAndBlankAsNull checks and edge cases 6 and 7 as one
 // run of steps on one session: the changed flag and the upsert count of each, the stored
 // value, and that the store holds what memory holds.
 func TestSetNote_StoresTextVerbatimAndBlankAsNull(t *testing.T) {
@@ -130,7 +130,7 @@ func TestSetNote_DoesNotMutateAnEarlierClone(t *testing.T) {
 	assert.Equal(t, lvl("second"), r.get(id).Note)
 }
 
-// TestSetNote_NoteSurvivesTheSessionsLifeAndRemoveDeletesIt covers D5, D6 and REQ-4: a dead
+// TestSetNote_NoteSurvivesTheSessionsLifeAndRemoveDeletesIt: a dead
 // session's note can be set and read, Stop (End), resume and a daemon restart keep it, and
 // Remove deletes it with the session while a second session's note stays.
 func TestSetNote_NoteSurvivesTheSessionsLifeAndRemoveDeletesIt(t *testing.T) {
@@ -208,7 +208,7 @@ func TestSetNote_ConcurrentWritesLeaveMemoryAndStoreAgreeing(t *testing.T) {
 	assert.Equal(t, got.Note, r.reloaded(id).Note, "memory and store agree on the winner")
 }
 
-// noteSourceState builds the session under test in one state INV-1 names; want is the
+// noteSourceState builds the session under test in one state the invariant names; want is the
 // state the builder must leave it in, so a builder that drifts fails here, not silently.
 type noteSourceState struct {
 	name      string
@@ -393,7 +393,7 @@ func noteDaemonInputs() []noteInput {
 	}
 }
 
-// TestNote_INV1_EveryInputFromEveryState is D4: the note changes only through SetNote. Every
+// TestNote_INV1_EveryInputFromEveryState: the note changes only through SetNote. Every
 // input that is not a note PUT is crossed with every starting state (kb:lesson/invariant-missed-by-per-transition-tests),
 // with a second session beside it whose note must come out untouched, and each result
 // compared with what a restarted daemon loads from the store.
@@ -436,7 +436,7 @@ func TestNote_INV1_EveryInputFromEveryState(t *testing.T) {
 	}
 }
 
-// TestNote_INV1_ASessionWithNoNoteGainsNoneFromAnyInput is INV-1's other half: a null note
+// TestNote_INV1_ASessionWithNoNoteGainsNoneFromAnyInput is the other half: a null note
 // stays null (no input invents text), checked from every state for every input.
 func TestNote_INV1_ASessionWithNoNoteGainsNoneFromAnyInput(t *testing.T) {
 	for _, start := range noteSourceStates() {

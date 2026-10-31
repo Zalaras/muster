@@ -24,10 +24,10 @@ import (
 )
 
 // ---------------------------------------------------------------------------------------
-// updateManager.reclassify (D4-D7, D10, D12, REQ-4/5/6/7/11) — the recheck-on-every-check
+// updateManager.reclassify — the recheck-on-every-check
 // half of kb:adr/update-install-rechecked-on-every-check.
 
-// TestUpdateManager_Reclassify_RunsBeforeEveryCheck covers D5's first half: both the
+// TestUpdateManager_Reclassify_RunsBeforeEveryCheck covers the first half: both the
 // manual (POST /api/update/check) and automatic (tick) paths call the reclassify seam
 // before the network request, and exactly once per check attempt — win or lose.
 func TestUpdateManager_Reclassify_RunsBeforeEveryCheck(t *testing.T) {
@@ -63,7 +63,7 @@ func TestUpdateManager_Reclassify_RunsBeforeEveryCheck(t *testing.T) {
 	}
 }
 
-// TestUpdateManager_Reclassify_BroadcastsOnceOnChangeNeverOnNoChange covers D5/REQ-5's
+// TestUpdateManager_Reclassify_BroadcastsOnceOnChangeNeverOnNoChange covers the
 // second half, isolated from the check's own separate broadcast by failing the check
 // itself (edge case 5/8: "a manual check against a stopped host still reclassifies and
 // broadcasts the change, then returns 502" — a no-change case never reaching the network
@@ -117,7 +117,7 @@ func TestUpdateManager_Reclassify_BroadcastsOnceOnChangeNeverOnNoChange(t *testi
 	})
 }
 
-// TestUpdateManager_Reclassify_NeverRerunsForDevOrHomebrew covers D7/REQ-6: the
+// TestUpdateManager_Reclassify_NeverRerunsForDevOrHomebrew: the
 // reclassify seam is never even invoked when the current kind is dev or homebrew, so
 // neither can be silently swapped to installer/unmanaged later however its directory's
 // writability changes (edge case 7).
@@ -144,7 +144,7 @@ func TestUpdateManager_Reclassify_NeverRerunsForDevOrHomebrew(t *testing.T) {
 	}
 }
 
-// TestUpdateManager_Reclassify_DuringInFlightApplyLeavesItRunning covers D6: a recheck
+// TestUpdateManager_Reclassify_DuringInFlightApplyLeavesItRunning: a recheck
 // that changes the classification while an apply is already downloading must not cancel
 // or otherwise disturb it — the apply already passed RequestApply's MayApply gate, and
 // finishes exactly as it would have (edge case 4).
@@ -188,8 +188,8 @@ func TestUpdateManager_Reclassify_DuringInFlightApplyLeavesItRunning(t *testing.
 	assert.Equal(t, []byte("new content"), got, "the apply must have actually installed despite the classification changing mid-flight")
 }
 
-// TestUpdateManager_ReclassifyRacesRequestApplyAndCurrent covers D14's still-missing half:
-// the D6 test above calls reclassify() once, sequentially, only after RequestApply has
+// TestUpdateManager_ReclassifyRacesRequestApplyAndCurrent covers the still-missing half:
+// the in-flight-apply test above calls reclassify() once, sequentially, only after RequestApply has
 // already returned. This instead drives checkAvailability
 // (reclassify's own caller), RequestApply and Current concurrently against the same
 // manager for many iterations, with the Reclassify seam flipping installer<->unmanaged on
@@ -279,7 +279,7 @@ func TestUpdateManager_ReclassifyRacesRequestApplyAndCurrent(t *testing.T) {
 	assertINV1(t, m.Current())
 }
 
-// assertINV1 checks the plan's INV-1: remedy is non-null iff install is homebrew or
+// assertINV1 checks that remedy is non-null iff install is homebrew or
 // unmanaged.
 func assertINV1(t *testing.T, got UpdateInfo) {
 	t.Helper()
@@ -291,7 +291,7 @@ func assertINV1(t *testing.T, got UpdateInfo) {
 	}
 }
 
-// TestUpdateManager_Reclassify_INV1HoldsAcrossSourceStates covers D10: INV-1 crossed
+// TestUpdateManager_Reclassify_INV1HoldsAcrossSourceStates: that rule crossed
 // against every source state the plan names — the *startup* kind reclassify is running
 // from, the reclassified (next) kind, the apply phase in progress at the time (with
 // `installed` set to match runApply's own done-phase state, not applyVersion alone), the
@@ -352,7 +352,7 @@ func TestUpdateManager_Reclassify_INV1HoldsAcrossSourceStates(t *testing.T) {
 	}
 }
 
-// TestHandleApplyUpdate_UnsupportedUsesTheCurrentRemedyAfterARecheck covers D12/REQ-7: the
+// TestHandleApplyUpdate_UnsupportedUsesTheCurrentRemedyAfterARecheck: the
 // 409 update_unsupported body is the *current* remedy — the one a recheck just produced —
 // never the one computed at daemon construction.
 func TestHandleApplyUpdate_UnsupportedUsesTheCurrentRemedyAfterARecheck(t *testing.T) {
@@ -379,10 +379,10 @@ func TestHandleApplyUpdate_UnsupportedUsesTheCurrentRemedyAfterARecheck(t *testi
 }
 
 // ---------------------------------------------------------------------------------------
-// REQ-11: log level (warn for a user-initiated failure, debug for the daily schedule's
+// Log level (warn for a user-initiated failure, debug for the daily schedule's
 // own silent failure; an apply failure is always request-triggered, so always warn).
 
-// TestUpdateManager_CheckAvailability_LogsAtWarnForManualDebugForAutomatic covers REQ-11's
+// TestUpdateManager_CheckAvailability_LogsAtWarnForManualDebugForAutomatic covers the
 // check half.
 func TestUpdateManager_CheckAvailability_LogsAtWarnForManualDebugForAutomatic(t *testing.T) {
 	t.Run("manual failure logs at warn, not debug", func(t *testing.T) {
@@ -416,7 +416,7 @@ func TestUpdateManager_CheckAvailability_LogsAtWarnForManualDebugForAutomatic(t 
 	})
 }
 
-// TestUpdateManager_FinishApplyFailed_LogsAtWarn covers REQ-11's apply half: every apply
+// TestUpdateManager_FinishApplyFailed_LogsAtWarn covers the apply half: every apply
 // failure logs the full chain at warn, since an apply is always request-triggered, never
 // automatic.
 func TestUpdateManager_FinishApplyFailed_LogsAtWarn(t *testing.T) {
@@ -432,12 +432,12 @@ func TestUpdateManager_FinishApplyFailed_LogsAtWarn(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------------------
-// D8/D9: the exact REQ-8/REQ-9 wire text, wired all the way through the HTTP layer (the
+// The exact check- and apply-failure wire text, wired all the way through the HTTP layer (the
 // pure-function exhaustiveness lives in internal/selfupdate/failure_test.go; these prove
 // handleCheckUpdate/setApplyPhase actually call it).
 
-// TestHandleCheckUpdate_ExactREQ8Message covers D8 at the HTTP layer: the 502 body's
-// message is REQ-8's exact sentence, not a generic "fail" substring.
+// TestHandleCheckUpdate_ExactREQ8Message checks at the HTTP layer: the 502 body's
+// message is the exact sentence, not a generic "fail" substring.
 func TestHandleCheckUpdate_ExactREQ8Message(t *testing.T) {
 	t.Run("transport failure", func(t *testing.T) {
 		origin := newFakeOrigin(t)
@@ -484,7 +484,7 @@ func TestHandleCheckUpdate_ExactREQ8Message(t *testing.T) {
 		assert.Equal(t, `update check failed: the latest release tag "nightly" is not a release version`, decodeErrorMessage(t, rec))
 	})
 
-	// The fourth REQ-8 class ("anything else", e.g. no Location header) goes through
+	// The fourth check-failure class ("anything else", e.g. no Location header) goes through
 	// checkAvailability's own return path exactly like the three typed classes above,
 	// end to end through handleCheckUpdate; a bare errors.New passed straight to
 	// DescribeCheckFailure (selfupdate's own table) never crosses that path, so it can't
@@ -508,7 +508,7 @@ func TestHandleCheckUpdate_ExactREQ8Message(t *testing.T) {
 	})
 }
 
-// TestHandleApplyUpdate_FailedDownloadReportsTheExactREQ9Sentence covers D9's download
+// TestHandleApplyUpdate_FailedDownloadReportsTheExactREQ9Sentence covers the download
 // failure class end to end: apply.error on the wire is the exact one-sentence, URL-free
 // text, not Go's raw transport chain.
 func TestHandleApplyUpdate_FailedDownloadReportsTheExactREQ9Sentence(t *testing.T) {
@@ -544,7 +544,7 @@ func TestHandleApplyUpdate_FailedDownloadReportsTheExactREQ9Sentence(t *testing.
 	assert.Equal(t, []byte("old"), got2, "a failed download must leave the binary untouched")
 }
 
-// TestHandleApplyUpdate_MissingSignatureReportsTheExactREQ9Sentence covers D9's minisig-404
+// TestHandleApplyUpdate_MissingSignatureReportsTheExactREQ9Sentence covers the minisig-404
 // class end to end.
 func TestHandleApplyUpdate_MissingSignatureReportsTheExactREQ9Sentence(t *testing.T) {
 	origin := newFakeOrigin(t)

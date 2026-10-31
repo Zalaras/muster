@@ -11,12 +11,12 @@ import {
 } from "./helpers/session";
 import { terminalRegion } from "./helpers/terminal";
 
-// Plan m4-reconcile — REQ-1 (reconcile on start), REQ-2 (unknown panes reported, never
-// adopted), REQ-3 (shutdown policy: ask/leave/kill). Plan acceptance: E2, E3, E4.
+// Reconcile on start, unknown panes reported, never
+// adopted, and the shutdown policy (ask/leave/kill).
 //
 // Every test here restarts (kills + respawns) its own daemon, which would corrupt any
 // concurrently-running test sharing that process — so every test takes the per-test
-// `daemon` fixture (helpers/fixtures.ts). E4 is the one test that needs a non-default
+// `daemon` fixture (helpers/fixtures.ts). The kill-on-exit test is the one test that needs a non-default
 // `-on-exit`, so it alone uses `startDaemon({ onExit: "kill" })` rather than wrapping a
 // single test in a describe just to carry `daemonOptions`.
 
@@ -37,8 +37,8 @@ test("a session whose pane died while the daemon was down reconciles to ended an
     await expect(stateBadge(card)).toHaveText(/started/i);
 
     // Kill the pane, then restart immediately — this exercises reconcile's
-    // alive=1-but-pane-gone branch (REQ-1), not the live ~5s liveness poll that
-    // sessions.spec.ts's E9 already covers.
+    // alive=1-but-pane-gone branch, not the live ~5s liveness poll that
+    // sessions.spec.ts already covers.
     await daemon.killTmuxWindow(session.tmuxTarget);
     await daemon.restart();
 
@@ -55,10 +55,10 @@ test("a session whose pane died while the daemon was down reconciles to ended an
     expect(found1.alive).toBe(false);
     expect(found1.endedAt).not.toBeNull();
 
-    // REQ-1 kept the row (the user's resume chance) rather than deleting it on THIS
+    // Reconcile kept the row (the user's resume chance) rather than deleting it on THIS
     // restart. Remove it explicitly, then restart a second time: only a row that was
     // already alive=0 at startup gets deleted by reconcile — so it must be gone from
-    // this second lifetime's very first snapshot (INV-3, "removed stays removed",
+    // this second lifetime's very first snapshot ("removed stays removed",
     // including after a daemon restart).
     const delRes = await page.request.delete(`${daemon.baseURL}/api/sessions/${session.id}`);
     expect(delRes.status()).toBe(204);
@@ -78,7 +78,7 @@ test("a live session survives the default ask-on-exit policy under this harness'
 }) => {
   // No onExit option -> the daemon's own default (`ask`); the harness's stdin is always
   // "ignore" (never a character device — see helpers/daemon.ts spawnAndWait), which per
-  // REQ-3 makes `ask` behave as `leave`.
+  // the shutdown policy makes `ask` behave as `leave`.
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -129,10 +129,10 @@ test("stopping the daemon with -on-exit=kill kills the tmux session and the next
     expect(await daemon.tmuxPaneExists(session.tmuxTarget)).toBe(true);
 
     // restart() = SIGTERM then respawn on the same port/data dir/-on-exit. Under
-    // -on-exit=kill, REQ-3 says the shutdown path itself kills the pane and sets
+    // -on-exit=kill, the shutdown path itself kills the pane and sets
     // alive:false/endedAt BEFORE exit — so the row is already alive=0 when THIS
-    // restart's own reconcile runs, and REQ-1 deletes alive=0 rows immediately (no
-    // "kept one more lifecycle" grace, unlike E2's pane-died-while-down case).
+    // restart's own reconcile runs, and reconcile deletes alive=0 rows immediately (no
+    // "kept one more lifecycle" grace, unlike the pane-died-while-down case).
     await daemon.restart();
 
     expect(await daemon.tmuxPaneExists(session.tmuxTarget)).toBe(false);
@@ -148,9 +148,9 @@ test("stopping the daemon with -on-exit=kill kills the tmux session and the next
   }
 });
 
-// Plan session-lifecycle — REQ-9 (reconcile classifies ownership from tmux, repairing
+// Reconcile classifies ownership from tmux, repairing
 // tmux_target/tmux_pane every time, not just when the row was placeholder/stale). The
-// daemon-level repair branches (row was '', row was stale, row was alive=0) are D8-D10 in
+// daemon-level repair branches (row was '', row was stale, row was alive=0) are covered in
 // internal/session/manager_test.go — this is the E2E-observable outcome across an
 // ordinary restart: the row comes back alive, its target still resolves to a real pane
 // (not a stale value carried over unexamined), and the dashboard can still attach to it.
@@ -202,14 +202,14 @@ test("reconcile reports an unknown tmux session on the socket without creating a
   const beforeCount = before.sessions.length;
 
   // A tmux session on the daemon's own socket that musterd never launched — the exact
-  // "muster-<n> with no row" shape REQ-2 says must be logged, never adopted.
+  // "muster-<n> with no row" shape that must be logged, never adopted.
   await daemon.createForeignTmuxSession("muster-99999-foreign");
   expect(await daemon.tmuxSessions()).toContain("muster-99999-foreign");
 
   await daemon.restart();
 
   // Reconcile ran again on this restart; the foreign session is untouched (never
-  // killed — REQ-2 only says "never adopted", not "cleaned up") and still no row
+  // killed — reconcile only says "never adopted", not "cleaned up") and still no row
   // exists for it.
   expect(await daemon.tmuxSessions()).toContain("muster-99999-foreign");
   const after = await getState(page, daemon);

@@ -65,7 +65,7 @@ func TestResolvePath(t *testing.T) {
 	}
 }
 
-// TestNormalizeAddedDirs is REQ-1/REQ-2 and D1/D3/D4 as a table over real directories: the
+// TestNormalizeAddedDirs is the normalisation rules as a table over real directories: the
 // launch directory goes under any spelling, relative entries join the launch directory,
 // duplicates collapse to the first, and a directory already held keeps its git reading.
 func TestNormalizeAddedDirs(t *testing.T) {
@@ -114,8 +114,8 @@ func TestNormalizeAddedDirs(t *testing.T) {
 	}
 }
 
-// TestAdoptAddedDirs is the change report the broadcast and the nudge hang off, with D2 (an
-// absent key changes nothing) and D7 (a dead session never adopts).
+// TestAdoptAddedDirs is the change report the broadcast and the nudge hang off, with an
+// absent key changing nothing and a dead session never adopting.
 func TestAdoptAddedDirs(t *testing.T) {
 	root := scratchDir(t)
 	launch := mkdir(t, filepath.Join(root, "launch"))
@@ -182,9 +182,9 @@ func (h *repoHarness) rowAdded(t *testing.T, id int64) []string {
 	return row.AddedDirs
 }
 
-// TestApplyStatus_AddedDirs drives the list through the manager: D1/D2/D3 on a live session,
+// TestApplyStatus_AddedDirs drives the list through the manager: on a live session,
 // one upsert and one nudge per real change, none for a repeat, the persisted row carrying
-// only paths, and D15's null repo on the upsert a status post triggers.
+// only paths, and the null repo on the upsert a status post triggers.
 func TestApplyStatus_AddedDirs(t *testing.T) {
 	h := newRepoHarness(t)
 	sess := h.launched(t)
@@ -274,7 +274,7 @@ func TestAddedDirs_ClonesAreNeverWrittenThrough(t *testing.T) {
 	assert.Equal(t, []Location{{Directory: infra}}, snapshot.AddedDirs)
 }
 
-// TestRecordLaunchAndResume_EmptyAddedDirs is REQ-3's launch and resume half: both start the
+// TestRecordLaunchAndResume_EmptyAddedDirs is the launch and resume half: both start the
 // list empty (Claude re-reports it on its first post), and the post that follows brings it
 // back; another session's list is not touched.
 func TestRecordLaunchAndResume_EmptyAddedDirs(t *testing.T) {
@@ -315,7 +315,7 @@ func TestRecordLaunchAndResume_EmptyAddedDirs(t *testing.T) {
 	}
 }
 
-// TestAddedDirs_ClearPairInEitherOrder is D6 / edge cases 6 and 7: the old id's
+// TestAddedDirs_ClearPairInEitherOrder covers edge cases 6 and 7: the old id's
 // SessionEnd(clear) and the new id's SessionStart in either order, with a status post
 // before, between or after, never empty the list (the session did not die) and the list is
 // always what the last post reported. Persisted rows agree.
@@ -381,7 +381,7 @@ func TestAddedDirs_ClearPairInEitherOrder(t *testing.T) {
 	}
 }
 
-// TestAddedDirs_SurviveADaemonRestart is D8 / REQ-4 / edge case 10: an alive session's paths
+// TestAddedDirs_SurviveADaemonRestart covers edge case 10: an alive session's paths
 // come back from the store, in order, with no reading (only paths persist), whether or not
 // a /clear happened first; a session that never had any comes back with none.
 func TestAddedDirs_SurviveADaemonRestart(t *testing.T) {

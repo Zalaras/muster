@@ -16,7 +16,7 @@ func fakeRunReturning(output string, err error) func(ctx context.Context, name s
 	return func(context.Context, string, ...string) ([]byte, error) { return []byte(output), err }
 }
 
-// TestProbeVersion_ParsesRecognisedFormats covers D25's accepted half: both the full
+// TestProbeVersion_ParsesRecognisedFormats covers the accepted half: both the full
 // "-version" output shape ("musterd 0.11.0 (Claude Code verified ...)") and the bare
 // "musterd v0.11.0" shape parse to the same version string.
 func TestProbeVersion_ParsesRecognisedFormats(t *testing.T) {
@@ -39,7 +39,7 @@ func TestProbeVersion_ParsesRecognisedFormats(t *testing.T) {
 	}
 }
 
-// TestProbeVersion_RejectsDevAndUnparseableOutput covers D25's rejected half: "musterd
+// TestProbeVersion_RejectsDevAndUnparseableOutput covers the rejected half: "musterd
 // dev" has no digit run in the right place and must fail like any other unparseable
 // output, not silently succeed with a bogus version.
 func TestProbeVersion_RejectsDevAndUnparseableOutput(t *testing.T) {
@@ -57,9 +57,8 @@ func TestProbeVersion_RejectsDevAndUnparseableOutput(t *testing.T) {
 	}
 }
 
-// TestProbeVersion_RunFailurePropagates covers a failing/hanging run func (D24's
-// underlying unit): ProbeVersion must surface the error rather than parsing empty output
-// as if it were valid.
+// TestProbeVersion_RunFailurePropagates covers a failing/hanging run func: ProbeVersion
+// must surface the error rather than parsing empty output as if it were valid.
 func TestProbeVersion_RunFailurePropagates(t *testing.T) {
 	wantErr := errors.New("boom")
 

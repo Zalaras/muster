@@ -169,7 +169,7 @@ describe("formatTokens (W5): < 1000 verbatim, < 1M as NNk, >= 1M as N.NM", () =>
   });
 });
 
-// R5: formatResets renders using the *local* timezone (Date's local getters), while the
+// FormatResets renders using the *local* timezone (Date's local getters), while the
 // daemon ships UTC RFC3339Nano. To keep these tests correct under any CI/dev machine's
 // timezone (not just UTC), every fixture is built with the local Date constructor
 // (`new Date(y, m, d, h, mi)`) and converted to an ISO string via `.toISOString()` — that

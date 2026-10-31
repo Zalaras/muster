@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestElsewhere is D4 / INV-1's rule as a table. Paths arrive already resolved and cleaned,
+// TestElsewhere is the rule as a table. Paths arrive already resolved and cleaned,
 // and the git top levels are passed in, so no git runs: a git-checkout row decides by top
 // level, a non-git row by path containment.
 func TestElsewhere(t *testing.T) {
@@ -40,7 +40,7 @@ func TestElsewhere(t *testing.T) {
 	}
 }
 
-// TestAdoptClaudeDir covers REQ-3's absent/empty rule and the change report the nudge hangs
+// TestAdoptClaudeDir covers the absent/empty rule and the change report the nudge hangs
 // off: only a non-empty, different directory records and reports a change.
 func TestAdoptClaudeDir(t *testing.T) {
 	cases := []struct {

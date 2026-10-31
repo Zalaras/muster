@@ -2,19 +2,18 @@ import { access } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, fileDaemon, test } from "./helpers/fixtures";
 
-// Plan embed-dashboard — REQ-1 through REQ-8, acceptance E1: the built dashboard is now
+// The built dashboard is now
 // embedded into the musterd binary via `//go:embed all:assets` (internal/webui), and
 // `-web-dist` becomes a dev-only disk override (default flips to ""). Every other spec
 // in this suite exercises the disk-override branch (helpers/daemon.ts's `webDist`
-// constant, repointed at internal/webui/assets by this same plan's REQ-7) — this file is
+// constant, repointed at internal/webui/assets) — this file is
 // the ONLY one that exercises the embedded branch: a musterd binary physically copied
 // away from the checkout, spawned with no -web-dist flag at all, from a cwd containing
 // no web/ or internal/ tree.
 //
-// No protocol/UI changes ship with this plan (see plan.md's Protocol Contract and UI
-// Specifications: "No dashboard views, flows, or DOM change"), so this file asserts only
-// the existing Testable UI Elements table against the embedded-serving daemon, plus the
-// R5 auth-gating parity the plan calls out as reviewer-verified-but-cheap-to-check here.
+// No protocol or UI changes ship with embedding (no dashboard views, flows, or DOM
+// change), so this file asserts only the existing UI elements against the
+// embedded-serving daemon, plus auth-gating parity, which is cheap to check here.
 //
 // One embedded-serving daemon per file via fileDaemon(): no test here creates a session
 // or mutates daemon state, so nothing one test does is visible to another.
@@ -22,7 +21,7 @@ import { expect, fileDaemon, test } from "./helpers/fixtures";
 const daemon = fileDaemon({ serveEmbedded: true });
 
 test("fixture sanity: the scratch dir has no web/ or internal/ tree next to the copied binary", async () => {
-  // R7: the embedded-serving fixture must genuinely prove the binary is self-contained,
+  // The embedded-serving fixture must genuinely prove the binary is self-contained,
   // not merely that -web-dist was left off while a real checkout still sat next door.
   // daemon().dataDir is an OS tmpdir this harness mkdtemp'd fresh for this run (see
   // helpers/daemon.ts start()), so asserting the absence of both trees here is what
@@ -65,7 +64,7 @@ test("serves the working dashboard from the embedded FS with no -web-dist flag: 
 test("still gates the embedded static handler on the auth cookie (401 relaunch page)", async ({
   page,
 }) => {
-  // R5: requireCookie wraps the embedded http.FileServer branch identically to the disk
+  // RequireCookie wraps the embedded http.FileServer branch identically to the disk
   // branch — a fresh, cookie-less context hitting "/" on the embedded-serving daemon
   // must see exactly the same 401 relaunch page auth.spec.ts asserts for the disk path.
   const res = await page.goto(`${daemon().baseURL}/`);
@@ -77,7 +76,7 @@ test("serves /healthz without authentication from the embedded-serving daemon", 
   request,
 }) => {
   // Sanity that the embedded fixture is a normally-functioning daemon in every other
-  // respect, not just for the one route this plan touches.
+  // respect, not just for the one route this file touches.
   const res = await request.get(`${daemon().baseURL}/healthz`);
   expect(res.status()).toBe(200);
   const body = (await res.json()) as { status: string };

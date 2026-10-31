@@ -1,4 +1,4 @@
-// The issue feature's masthead button and dialog (plan issue-capture REQ-1). Pure DOM — the
+// The issue feature's masthead button and dialog. Pure DOM — the
 // button's presence per view is a display property — so both tiers use it: the render spec
 // here directly, the E2E journeys through `web/e2e/helpers/issue.ts`, which re-exports it
 // beside the dialog's form locators (every one of those needs the capture POST the dialog

@@ -1,6 +1,6 @@
 package main
 
-// D8, D9, D9b and D10 exercise auto-open through a real musterd-under-test subprocess
+// These tests exercise auto-open through a real musterd-under-test subprocess
 // (built once by onexit_test.go's TestMain, shared by this file) rather than calling
 // openDashboard in-process: the load-bearing condition under test is main.go's own
 // `*openFlag && isTerminal(stdin)` wiring plus a real subprocess's real fd 0, which an
@@ -28,7 +28,7 @@ import (
 )
 
 // newRecordingStub returns an executable standing in for -open-cmd's program: it appends
-// its first argument (the dashboard URL, REQ-6's single argument) as its own line to the
+// its first argument (the dashboard URL, the single argument) as its own line to the
 // file named by MUSTER_TEST_OPEN_RECORD, which the daemon passes through to it — the env
 // entry is returned for the test to add to the daemon's cmd.Env. Follows -claude-bin's
 // seam pattern exactly (Implementation Notes), the way onexit_test.go's
@@ -55,7 +55,7 @@ func newPTYPair(t *testing.T) (ptmx, tty *os.File) {
 	return ptmx, tty
 }
 
-// newPTYStdin returns the slave end of a fresh pty (D8's "a pty from creack/pty").
+// newPTYStdin returns the slave end of a fresh pty ("a pty from creack/pty").
 func newPTYStdin(t *testing.T) *os.File {
 	t.Helper()
 	_, tty := newPTYPair(t)
@@ -74,7 +74,7 @@ func openTestDaemonArgs(t *testing.T, extra ...string) (args []string, dataDir s
 	dataDir = t.TempDir()
 	webDist := t.TempDir()
 
-	// tmuxSocket (plan v1-cleanup REQ-4): tmuxtest.Socket replaces this file's own copy
+	// tmuxSocket: tmuxtest.Socket replaces this file's own copy
 	// of the shared os.MkdirTemp + kill-server idiom — never a bare -L name in tmux's
 	// shared socket directory and never the user's default server (CLAUDE.md hard rule),
 	// even though nothing here ever creates a tmux session on it.
@@ -93,8 +93,8 @@ func openTestDaemonArgs(t *testing.T, extra ...string) (args []string, dataDir s
 }
 
 // waitForTokensFile blocks until dataDir/tokens.json exists and carries a populated
-// dashboardUrl — proof the daemon reached its serving state (D10's "still reaches
-// serving state"). Bounded by tokensFileWriteBound (onexit_test.go, REQ-8/D8): the same
+// dashboardUrl — proof the daemon reached its serving state. Bounded by
+// tokensFileWriteBound (onexit_test.go): the same
 // 7s-legitimate-blocking-steps-plus-margin derivation applies here — this file spawns
 // musterd-under-test exactly the way onexit_test.go's spawnDaemon does.
 func waitForTokensFile(t *testing.T, dataDir string) tokensFileShape {
@@ -129,7 +129,7 @@ func terminate(cmd *exec.Cmd) {
 	}
 }
 
-// TestOpen_DefaultOpenWithTerminalStdinRunsStubOnce covers D8: with -open defaulted, a
+// TestOpen_DefaultOpenWithTerminalStdinRunsStubOnce: with -open defaulted, a
 // real terminal stdin, and -open-cmd pointed at a stub, the stub is executed exactly
 // once with the dashboard URL from tokens.json as its only argument.
 func TestOpen_DefaultOpenWithTerminalStdinRunsStubOnce(t *testing.T) {
@@ -150,13 +150,13 @@ func TestOpen_DefaultOpenWithTerminalStdinRunsStubOnce(t *testing.T) {
 	// Bounded by tokensFileWriteBound (onexit_test.go): this wait starts only after
 	// waitForTokensFile already succeeded, so it inherits the same startup-load
 	// conditions that bound derives against, kept at the same value for one shared,
-	// documented derivation rather than a second bespoke number (REQ-8).
+	// documented derivation rather than a second bespoke number.
 	require.Eventually(t, func() bool {
 		b, err := os.ReadFile(recordFile)
 		return err == nil && len(b) > 0
 	}, tokensFileWriteBound, 50*time.Millisecond, "the stub must be invoked; stderr so far: %s", &stderr)
 
-	// A late second invocation would be a real defect (REQ-8 promises a single run) —
+	// A late second invocation would be a real defect (auto-open promises a single run) —
 	// give one long enough for a bug to show up before reading the final content.
 	time.Sleep(300 * time.Millisecond)
 
@@ -167,7 +167,7 @@ func TestOpen_DefaultOpenWithTerminalStdinRunsStubOnce(t *testing.T) {
 	assert.Equal(t, tf.DashboardURL, lines[0])
 }
 
-// TestOpen_OpenFalseNeverRunsStub covers D9: -open=false with a terminal stdin must
+// TestOpen_OpenFalseNeverRunsStub: -open=false with a terminal stdin must
 // never execute the stub, even though the terminal condition alone would otherwise fire.
 func TestOpen_OpenFalseNeverRunsStub(t *testing.T) {
 	recordFile := filepath.Join(t.TempDir(), "record.txt")
@@ -209,7 +209,7 @@ func TestOpen_DefaultOpenWithDevNullStdinNeverRunsStub(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "D9b: a /dev/null stdin must never trigger auto-open regardless of the -open flag")
 }
 
-// TestOpen_MusterRestartedSuppressesAutoOpenEvenWithATerminalStdin covers D22: a startup
+// TestOpen_MusterRestartedSuppressesAutoOpenEvenWithATerminalStdin: a startup
 // with MUSTER_RESTARTED set must skip auto-open even though every other condition that
 // would normally trigger it holds (-open defaulted true, a real terminal stdin) — a
 // restart must never pop a second browser tab. Mirrors
@@ -235,10 +235,10 @@ func TestOpen_MusterRestartedSuppressesAutoOpenEvenWithATerminalStdin(t *testing
 	assert.True(t, os.IsNotExist(err), "MUSTER_RESTARTED must suppress auto-open even with a terminal stdin; stderr: %s", &stderr)
 }
 
-// TestOpen_NonexistentOpenCmdStillReachesServingState covers D10/REQ-8: a -open-cmd
+// TestOpen_NonexistentOpenCmdStillReachesServingState: a -open-cmd
 // naming a program that does not exist must not block startup — the daemon still
 // reaches its serving state (tokens.json written, HTTP reachable) and only logs a
-// warning, which per R4 must never carry the dashboard URL itself.
+// warning, which must never carry the dashboard URL itself.
 func TestOpen_NonexistentOpenCmdStillReachesServingState(t *testing.T) {
 	args, dataDir := openTestDaemonArgs(t, "-open-cmd", "/nonexistent-binary-xyz-does-not-exist")
 
@@ -258,12 +258,12 @@ func TestOpen_NonexistentOpenCmdStillReachesServingState(t *testing.T) {
 
 	const warningMsg = "could not auto-open the dashboard"
 	// Bounded by tokensFileWriteBound (onexit_test.go) — same shared derivation as
-	// waitForTokensFile above, see REQ-8's comment there.
+	// waitForTokensFile above, see the comment there.
 	require.Eventually(t, func() bool {
 		return strings.Contains(stderr.String(), warningMsg)
 	}, tokensFileWriteBound, 50*time.Millisecond, "stderr so far: %s", &stderr)
 
-	// R4 only constrains the auto-open warning line itself — the token and dashboard URL
+	// The no-URL rule only constrains the auto-open warning line itself — the token and dashboard URL
 	// are expected (and already documented) elsewhere in stderr, on the "musterd
 	// starting" log line, so the assertion isolates just the one line under test rather
 	// than scanning the whole buffer.

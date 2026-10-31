@@ -5,8 +5,8 @@
 // scope here — no jsdom is configured (web/vitest.config.ts), same category as
 // render/tiles.ts's `buildTile` (excluded from tiles.test.ts for the identical reason).
 // It is not covered here; the Testable UI Elements table's `role="group"`/button-name/
-// accessible-name (INV-3) assertions are Playwright's job (web/e2e/shell-activity.spec.ts's
-// W5-style coverage). The pure per-session surface-switch state this reads
+// accessible-name assertions are Playwright's job (web/e2e/shell-activity.spec.ts's
+// coverage). The pure per-session surface-switch state this reads
 // (DEFAULT_SURFACE_STATE/SessionSurfaceState) is tested in
 // `../terminal/surfaceswitch.test.ts`, not here.
 import { describe, expect, it } from "vitest";

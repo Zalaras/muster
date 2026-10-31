@@ -35,10 +35,10 @@ async function partitionByLiveTile(
   return { live, stripped };
 }
 
-// Plan code-breakup's E2E split (plan.md UI Specifications → E2E split) merges the
+// The code-breakup E2E split merged the
 // Tiles-view tests that used to live in actions.spec.ts (End/Remove from a tile footer,
-// plan m4-reconcile REQ-11/REQ-12/REQ-2/REQ-10 and their review fix-cycle follow-ups) and
-// in views.spec.ts (density/promotion/socket-count/drag-reorder, plans m2-terminal and
+// the m4-reconcile work and their review fix-cycle follow-ups) and
+// in views.spec.ts (density/promotion/socket-count/drag-reorder, the m2-terminal and
 // move-tiles) into one file scoped to the Tiles view. See actions.spec.ts's and
 // views.spec.ts's file headers for what stayed in each.
 //
@@ -51,7 +51,7 @@ async function partitionByLiveTile(
 //
 // The display properties — a footer button surviving a render tick, focus surviving a drag
 // reorder, the backward drag, a strip-card promotion's slot and a drag released over the
-// strip (m4-reconcile REQ-12; move-tiles REQ-1, REQ-10, E2, E6, E7, E8) — are render tests in
+// strip (m4-reconcile and move-tiles) — are render tests in
 // web/render/tiles.spec.ts since 2026-10-20 (plans/_audit/relevel/shortcuts-views-tiles.md):
 // tile order and membership are per-window client state, so what a drag or a click does to
 // the grid for a given snapshot needs no daemon to falsify. What stays here is every
@@ -129,7 +129,7 @@ test("Tiles: End from a tile footer keeps the tile in its slot and leaves other 
     // review m4-reconcile cycle-3 Critical 1 / Minor 2: the second of the two
     // dead-surface sites the Critical named — a dead tile's *cloned* `.dead-surface`
     // (`#dead-surface-template`), distinct from Focus's static `#dead-surface`
-    // exercised by the E6 test. `toBeVisible()` alone would have stayed green through
+    // exercised by the Focus dead-surface test. `toBeVisible()` alone would have stayed green through
     // the opacity-0 defect here too, so read the computed style: both the cap's
     // Resume button and its `.acts-row` must resolve to opacity 1.
     const tileResumeBtn = tileA.locator(".endcap").getByRole("button", { name: "Resume" });
@@ -161,7 +161,7 @@ test("Tiles: Removing a dead tile backfills its slot from the strip and broadcas
     // (Playwright: "only WebSockets created after this method was called will be
     // routed"). Setting `server.onMessage` disables the route's default forwarding, so
     // each captured message is re-sent to the page manually to keep the connection
-    // transparent — same pattern the E14 test above uses for interception.
+    // transparent — same pattern the test above uses for interception.
     const wsFrames: string[] = [];
     await page.routeWebSocket("**/ws", (ws) => {
       const server = ws.connectToServer();
@@ -250,15 +250,15 @@ test("Tiles: Removing a dead tile backfills its slot from the strip and broadcas
   }
 });
 
-// Plan move-tiles removes the auto-sort these two tests used to exercise together
-// (`applyDensity` re-sorting `tilesLive` by priority on every render). REQ-1's grid is now
-// slot-stable — a priority change updates chrome only (REQ-2) — and the only thing that
-// ever moves a tile's DOM node is a user drag (REQ-3/REQ-5). Retargeted per plan Affected
+// The move-tiles work removed the auto-sort these two tests used to exercise together
+// (`applyDensity` re-sorting `tilesLive` by priority on every render). The grid is now
+// slot-stable — a priority change updates chrome only — and the only thing that
+// ever moves a tile's DOM node is a user drag. Retargeted per the Affected
 // Files ("web/e2e/actions.spec.ts — e2e-specs only: ... Retarget: the reorder trigger
-// becomes a drag (REQ-10), and the priority change becomes the REQ-2 'does not move'
+// becomes a drag, and the priority change becomes the 'does not move'
 // assertion"), split into the two independent behaviours the old single test conflated.
 
-// review m4-reconcile cycle-4 Minor 2/3, retargeted by plan move-tiles REQ-2/E5: a
+// review m4-reconcile cycle-4 Minor 2/3, retargeted by move-tiles: a
 // Notification making a live tile's session needs_input must NOT move its node anymore —
 // membership is unchanged, so the grid's DOM order stays exactly as it was; only the
 // tile's own chrome (state class driving the dot/border colour) updates.
@@ -313,7 +313,7 @@ test("a priority change updates a live tile's chrome but never moves it in the T
       data: rawNotification("claude-tile-prio-b", "p1", "permission_prompt"),
     });
 
-    // Chrome DOES update — REQ-2's exact carve-out ("only chrome (dot/border/timer)
+    // Chrome DOES update — the exact carve-out ("only chrome (dot/border/timer)
     // updates") — the tile's state class flips to the needs-input token.
     await expect(tileB).toHaveClass(/s-blocked/, { timeout: 15_000 });
 
@@ -342,7 +342,7 @@ test("switching density 2x2 to 3x2 promotes the next session by sort order into 
     await page.getByRole("button", { name: "Tiles" }).click();
     await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
 
-    // Should-have REQ-15: tile footers show real geometry.
+    // Tile footers show real geometry.
     await expect(liveTile(page, titles[0] ?? "").getByText(/\d+\s*×\s*\d+/)).toBeVisible();
 
     // Critical 6 (review cycle 1): the pattern check above is satisfied by a stale or
@@ -464,7 +464,7 @@ test("a density change leaves a still-stripped session's tmux geometry untouched
       baselineWidth.set(t, await daemon.tmuxDisplay(session.tmuxTarget, "#{window_width}"));
     }
 
-    // Critical 6 (review cycle 1): INV-3 has a second half this test never asserted —
+    // Critical 6 (review cycle 1): the density invariant has a second half this test never asserted —
     // a session that stays LIVE across the density change must have its geometry
     // actually moved (2x2's grid has 2 columns, 3x2 has 3, so a continuing tile's
     // fitted width changes), not merely re-render a stale footer string. Pick a live
@@ -641,7 +641,7 @@ test("killing one of several live tiles ends only that tile without misrouting k
     // socket must close (4001) while B's stays open, and A's tile must settle on the
     // dead surface. Not the "session ended" overlay: that is a ~25 ms transient the
     // `alive:false` render pass replaces (it disposes A's surface and mounts the cloned
-    // `.dead-surface` in A's tile body) — see terminal.spec.ts E12 for the measurements.
+    // `.dead-surface` in A's tile body) — see terminal.spec.ts for the measurements.
     await expect
       .poll(() => tracker.liveCount, {
         message: "waiting for A's terminal socket to close (4001); B's stays open",
@@ -672,7 +672,7 @@ test("killing one of several live tiles ends only that tile without misrouting k
   }
 });
 
-// Plan move-tiles — REQ-1 through REQ-10, INV-3/6/7. The Tiles grid stops re-sorting
+// The Tiles grid stops re-sorting
 // itself on every render (m2-terminal's `promote`/`applyDensity` auto-sort, the same
 // re-sort behind the m4-reconcile focus-on-reorder Minor); only a drag reorders it. Every
 // test below takes the `daemon` fixture for the same reason as the rest of this file:
@@ -704,7 +704,7 @@ test("dragging a tile's header onto another tile reorders forward, preserves tmu
     const [slot1, slot2, slot3, slot4] = orderBefore;
     if (!slot1 || !slot2 || !slot3 || !slot4) throw new Error("expected 4 distinct tile titles");
 
-    // E3/INV-6 baseline: every live tile's real tmux geometry before the drop.
+    // Baseline: every live tile's real tmux geometry before the drop.
     //
     // A freshly-launched 2x2 grid does not arrive at its final fitted size the instant
     // its tiles become visible: the initial refit reaches tmux asynchronously (same race
@@ -745,11 +745,11 @@ test("dragging a tile's header onto another tile reorders forward, preserves tmu
       .poll(() => tilesGridOrder(page), { timeout: 15_000 })
       .toEqual([slot2, slot3, slot1, slot4]);
 
-    // E4: both drag-feedback classes are cleared once the drop completes.
+    // Both drag-feedback classes are cleared once the drop completes.
     await expect(page.locator("article.tile.dragging")).toHaveCount(0);
     await expect(page.locator("article.tile.drop-target")).toHaveCount(0);
 
-    // E3/INV-6: geometry is untouched by a pure reorder — read the tmux oracle fresh on
+    // Geometry is untouched by a pure reorder — read the tmux oracle fresh on
     // both sides (not the tile footer, which a stale value would satisfy just as well).
     for (const t of titles) {
       const s = byTitle.get(t);
@@ -791,7 +791,7 @@ test("a drag still reorders the grid while the daemon is down (E9, REQ-8)", asyn
     const banner = page.getByRole("alert");
     await expect(banner).toBeVisible({ timeout: 15_000 });
 
-    // REQ-8: ordering is client-only state — a drag while the banner shows still
+    // Ordering is client-only state — a drag while the banner shows still
     // reorders the grid, exactly per Edge Case 2's forward case.
     await dragTileOnto(page, slot1, slot3);
     await expect

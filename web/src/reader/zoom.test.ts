@@ -1,4 +1,4 @@
-// Plan mermaid-support (W21, REQ-9, INV-5): the diagram modal's zoom/pan arithmetic, pure.
+// The diagram modal's zoom/pan arithmetic, pure.
 // zoomAround's point-invariance checks decode the canvas-space point a stage point maps to
 // (the inverse of transformOf's translate-then-scale) rather than re-deriving the transform
 // string, so the assertion is independent of how transformOf happens to format it.

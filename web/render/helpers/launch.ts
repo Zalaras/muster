@@ -40,8 +40,8 @@ export function launchError(dialog: Locator): Locator {
   return dialog.locator("#launch-error");
 }
 
-/** `#model-error` — the Model row's invalid-field message (plan
- * maintainability-regressions REQ-8/9). Its `⚠` glyph sits in its own `aria-hidden` span,
+/** `#model-error` — the Model row's invalid-field message.
+ * Its `⚠` glyph sits in its own `aria-hidden` span,
  * so callers match its text with `toHaveText(/regex/)` (a substring test) rather than an
  * exact string, since the glyph is still part of `textContent` even though it is excluded
  * from the accessible name. */
@@ -49,7 +49,7 @@ export function modelError(dialog: Locator): Locator {
   return dialog.locator("#model-error");
 }
 
-// --- the Effort row (plan effort) ---
+// --- the Effort row ---
 
 /** The five levels `--effort` accepts and the dialog offers beyond `default`
  * (kb:fact/effort-flag-values). */
@@ -75,7 +75,7 @@ export async function pickEffort(dialog: Locator, name: string): Promise<void> {
   await effortSegment(dialog, name).click();
 }
 
-// --- the bypass segment and the primary button (plan resume-and-dangerously-allow) ---
+// --- the bypass segment and the primary button ---
 
 /** `#bypass-warning` — hidden except while the bypass radio is checked. Its exact
  * `textContent` per the Testable UI Elements table (the `<b>` wrapping the first two

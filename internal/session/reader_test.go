@@ -19,7 +19,7 @@ func bindClaude(t *testing.T, mgr *Manager, id int64, claudeID string) {
 	require.NoError(t, err)
 }
 
-// TestSetTranscript_PersistsOnlyOnChangeAndNeverBroadcasts covers D15: a real change
+// TestSetTranscript_PersistsOnlyOnChangeAndNeverBroadcasts: a real change
 // persists (visible on reload through the store) and reports changed=true; reapplying
 // the same path is a no-op (changed=false); across every call here, zero broadcasts
 // reach OnUpsert — every hook carries transcript_path, and a no-op upsert per hook would
@@ -56,7 +56,7 @@ func TestSetTranscript_PersistsOnlyOnChangeAndNeverBroadcasts(t *testing.T) {
 }
 
 // TestSetTranscript_RefusesWhenClaudeSessionIDDoesNotMatchCurrentBinding covers
-// REQ-26/INV-8's transcript half: a straggler naming an id the session has already left
+// the transcript half: a straggler naming an id the session has already left
 // must never move transcript_file — the correct id still works afterward.
 func TestSetTranscript_RefusesWhenClaudeSessionIDDoesNotMatchCurrentBinding(t *testing.T) {
 	st := openTestStore(t)
@@ -151,7 +151,7 @@ func TestSetPlan_BroadcastsOnlyOnARealChange(t *testing.T) {
 }
 
 // TestSetPlan_RefusesWhenClaudeSessionIDDoesNotMatchCurrentBinding covers
-// REQ-26/INV-8's plan half: a straggler's scan result must never move the plan — the
+// the plan half: a straggler's scan result must never move the plan — the
 // existing plan (and its snapshot) survives untouched, with no broadcast.
 func TestSetPlan_RefusesWhenClaudeSessionIDDoesNotMatchCurrentBinding(t *testing.T) {
 	st := openTestStore(t)
@@ -185,7 +185,7 @@ func TestSetPlan_UnknownSessionReturnsErrUnknownSession(t *testing.T) {
 	assert.ErrorIs(t, err, ErrUnknownSession)
 }
 
-// TestReaderFields_RoundTripThroughLoadAll covers D14: transcript_file, plan_path and
+// TestReaderFields_RoundTripThroughLoadAll: transcript_file, plan_path and
 // plan_exists survive a daemon restart (a fresh Manager loading the same store), the
 // session-package twin of the store package's own TestUpdateSession_ReaderFieldsRoundTrip.
 func TestReaderFields_RoundTripThroughLoadAll(t *testing.T) {

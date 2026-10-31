@@ -15,33 +15,33 @@ import {
   weeklyScopedUsageResponse,
 } from "./helpers/usageapi";
 
-// Plan usage-model-bar — REQ-1 through REQ-14 driven end-to-end via a fake
+// The usage-model journeys driven end-to-end via a fake
 // `GET /api/oauth/usage` endpoint (helpers/usageapi.ts) that musterd's `-usage-api-url`
 // is pointed at, and a scratch `-usage-token-file` (helpers/daemon.ts) that stands in
 // for the macOS Keychain. Nothing here launches a real `claude` or touches the real
-// Keychain/api.anthropic.com (CLAUDE.md hard rule; REQ-13/INV-4). Plan acceptance:
-// E1, E3 to E7 (E8 is `make e2e` itself, not a spec) and the list-restored regression. The
-// readout for a null list (E2), the select's node identity across a render tick and the
+// Keychain/api.anthropic.com (CLAUDE.md hard rule).
+// The list-restored regression is covered here too. The
+// readout for a null list, the select's node identity across a render tick and the
 // placeholder for a pref the list lacks are render tests in web/render/usage.spec.ts
 // (re-levelled 2026-10-20, plans/_audit/relevel/usage.md).
 //
 // A distinctive, fixed (never random — deterministic fixtures only) token string so
-// E7/INV-4's log grep has something unambiguous to look for.
+// the log grep has something unambiguous to look for.
 const FAKE_TOKEN = "MUSTER-E2E-FAKE-OAUTH-TOKEN-4f19bd2c";
 
 // The measured `resets_at` form (docs/history/spikes/canary-fields.md: RFC3339 with micros and a
 // `+00:00` offset) — reused across fixtures so every test exercises the same shape the
-// real endpoint actually sends (REQ-4/edge case 12).
+// real endpoint actually sends.
 //
-// A far-future instant, not the capture's 2026-09-01: plan usage-bar-consistency REQ-5
+// A far-future instant, not the capture's 2026-09-01: the dashboard
 // renders any readout whose reset is past as `unknown`, so a past reset would hide the very
 // values these journeys assert. It is still an other-day instant, so the bracketed form is
 // unchanged.
 const RESETS_AT = "2099-09-01T13:59:59.522599+00:00";
 
 // The reset the dashboard shows for a usage-call window is the call's instant rounded UP to
-// the whole second (kb:adr/usage-call-resets-rounded-up-to-the-second, plan
-// usage-bar-consistency REQ-9): 13:59:59.522599 reads 14:00:00, the minute the limit really
+// the whole second (kb:adr/usage-call-resets-rounded-up-to-the-second):
+// 13:59:59.522599 reads 14:00:00, the minute the limit really
 // rolls over, not the one before it. Derived from the raw instant, never hardcoded.
 const RESETS_INSTANT_ROUNDED = new Date(Math.ceil(Date.parse(RESETS_AT) / 1000) * 1000);
 
@@ -68,7 +68,7 @@ test("with the fake endpoint returning a Fable 61% window, the readout shows the
     });
     await page.goto(daemon.dashboardUrl);
 
-    // REQ-1: the poller's immediate on-Start fetch, not a timer, is what produces
+    // The poller's immediate on-Start fetch, not a timer, is what produces
     // this without the test waiting out any poll interval.
     await expect(mastheadModelWeekPercent(page)).toHaveText("61%");
     await expect(mastheadModelSelect(page)).toHaveValue("Fable");
@@ -77,8 +77,8 @@ test("with the fake endpoint returning a Fable 61% window, the readout shows the
     await expect(mastheadModelWeekWarn(page)).toHaveCount(1);
     await expect(mastheadModelWeekTrack(page)).toHaveCount(1);
     // RESETS_AT (2099-09-01) is a future, other-day instant: the bracketed (HH:MM Ddd)
-    // form, evaluated for that exact instant in the page's own zone (plan
-    // masthead-indicators REQ-4/REQ-12), with the HH:MM also in the hover title.
+    // form, evaluated for that exact instant in the page's own zone,
+    // with the HH:MM also in the hover title.
     const resetsInstant = RESETS_INSTANT_ROUNDED;
     await expect(mastheadModelWeekResets(page)).toHaveText(
       await expectedResetsText(page, resetsInstant),
@@ -118,7 +118,7 @@ test("choosing a second model in the select re-renders to that model's percent a
     await mastheadModelSelect(page).selectOption("Opus");
     await expect(mastheadModelWeekPercent(page)).toHaveText("20%");
 
-    // REQ-8: the pref is actually persisted server-side, not merely rendered —
+    // The pref is actually persisted server-side, not merely rendered —
     // check the wire value directly rather than only the DOM.
     const stateRes = await page.request.get(`${daemon.baseURL}/api/state`);
     expect(stateRes.status()).toBe(200);
@@ -201,10 +201,10 @@ test("the fake endpoint switched to 401 marks the readout stale while keeping th
 
     await expect(mastheadModelWeek(page)).toHaveClass(/stale/);
     await expect(mastheadModelWeek(page)).toHaveAttribute("title", "unauthorized");
-    // INV-3: a failed poll never changes the last-good list.
+    // A failed poll never changes the last-good list.
     await expect(mastheadModelWeekPercent(page)).toHaveText("61%");
     await expect(mastheadModelWeekTrack(page)).toHaveCount(1);
-    // Plan masthead-indicators E2: the stale readout keeps its last-good reset text, in
+    // The stale readout keeps its last-good reset text, in
     // the bracketed format.
     await expect(mastheadModelWeekResets(page)).toHaveText(
       await expectedResetsText(page, RESETS_INSTANT_ROUNDED),
@@ -271,7 +271,7 @@ test("the daemon's captured log output never contains the usage token string, ac
     await page.goto(daemon.dashboardUrl);
     await expect(mastheadModelWeekPercent(page)).toHaveText("61%");
 
-    // REQ-6's Warn-once-per-error-kind path must not log the token either.
+    // The warn-once-per-error-kind path must not log the token either.
     api.setResponse(401, { error: "unauthorized" });
     const refreshRes = await page.request.post(`${daemon.baseURL}/api/usage/refresh`);
     expect(refreshRes.status()).toBe(202);
@@ -366,8 +366,8 @@ test("a model dropped from the list and later restored becomes selectable again 
 }) => {
   const api = await FakeUsageAPI.start();
   try {
-    // Default pref is "Fable" (REQ-8); the fetched list starts without it, so the
-    // control shows the disabled placeholder (Minor 3 / INV-2).
+    // Default pref is "Fable"; the fetched list starts without it, so the
+    // control shows the disabled placeholder.
     api.setResponse(
       200,
       weeklyScopedUsageResponse([{ displayName: "Opus", percent: 20, resetsAt: RESETS_AT }]),
@@ -436,7 +436,7 @@ test("a model dropped from the list and later restored becomes selectable again 
     await expect(mastheadModelWeekPercent(page)).toHaveText("61%");
     await expect(mastheadModelWeekTrack(page)).toHaveCount(1);
 
-    // REQ-8: the keyboard-driven change actually persisted server-side, not just in
+    // The keyboard-driven change actually persisted server-side, not just in
     // the DOM.
     const stateRes = await page.request.get(`${daemon.baseURL}/api/state`);
     expect(stateRes.status()).toBe(200);

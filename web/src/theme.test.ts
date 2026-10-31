@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { ClaudeFamily } from "./protocol/theme";
 import { isThemeChoice, resolveTheme, THEMES, writeThemeHint, type ThemeHint } from "./theme";
 
-// REQ-7/INV-1: resolveTheme is pure — a known theme name always wins outright; "follow"
+// ResolveTheme is pure — a known theme name always wins outright; "follow"
 // or any name the client doesn't recognise (edge case 6: a renamed/removed theme, or an
 // older client against a newer daemon) resolves by Claude's family. All 12 pref x family
-// cells (4 pref values x 3 families), plus an unrecognised name in each family, per W6.
+// cells (4 pref values x 3 families), plus an unrecognised name in each family.
 describe("resolveTheme (REQ-7, INV-1)", () => {
   const families: ClaudeFamily[] = ["light", "dark", "unknown"];
 
@@ -45,7 +45,7 @@ describe("resolveTheme (REQ-7, INV-1)", () => {
   });
 });
 
-// REQ-9: the Settings radios' guard. The daemon stores `prefs.theme` opaquely
+// The Settings radios' guard. The daemon stores `prefs.theme` opaquely
 // (kb:adr/theme-pref-enum-follow-not-nullable), so this is the only validation between a
 // radio click and the PUT — a value it rejects drops the click silently, leaving the radio
 // dead. The registry loop below is the point of the whole test: it fails if the guard is
@@ -66,7 +66,7 @@ describe("isThemeChoice (REQ-9)", () => {
   });
 });
 
-// REQ-11/W10: writeThemeHint against an injectable storage seam (the exported function
+// WriteThemeHint against an injectable storage seam (the exported function
 // accepts `Pick<Storage, "setItem">`, so no jsdom/localStorage is needed here — a plain
 // in-memory fake stands in).
 function fakeStorage(initial: Record<string, string> = {}): {

@@ -10,7 +10,7 @@ import {
   WsScrollRecorder,
 } from "./helpers/shellinput";
 
-// Plan terminal-fixes-cleanup — REQ-7 through REQ-12, INV-2. Fixture plan: `daemon` per
+// Fixture plan: `daemon` per
 // test — these assert tmux copy-mode state for the only session on the socket.
 //
 // The daemon and tmux are real throughout (plain-shell.spec.ts's own header applies
@@ -21,7 +21,7 @@ import {
 // diagram-zoom test is this suite's existing precedent for the same two-call shape).
 
 /** Fills the pane with enough real history that a wheel-up has somewhere to scroll to
- * (E4/E5/E10) — the plan's own spike measured 179 real lines from ordinary use; 200
+ * — a spike measured 179 real lines from ordinary use; 200
  * generated lines comfortably exceeds any Focus-pane viewport height. */
 async function fillShellHistory(shellRegion: Locator): Promise<void> {
   await shellRegion.click();
@@ -177,7 +177,7 @@ test("a wheel-up over a shell surface with real history enters copy-mode, and wh
       })
       .not.toBe("0");
 
-    // E5: wheeling back down to the bottom leaves copy-mode by itself (`copy-mode -e`),
+    // Wheeling back down to the bottom leaves copy-mode by itself (`copy-mode -e`),
     // no explicit exit frame.
     await wheelOverRegion(page, shellRegion, 3000);
     await expect
@@ -186,7 +186,7 @@ test("a wheel-up over a shell surface with real history enters copy-mode, and wh
       })
       .toBe("0");
 
-    // INV-2: scrolling through copy-mode and back never turned tmux mouse tracking on.
+    // Scrolling through copy-mode and back never turned tmux mouse tracking on.
     expect(await tmuxMouseOption(daemon)).toBe("off");
   } finally {
     await cleanup();

@@ -472,7 +472,7 @@ func TestClaudeVersion_WireSendsOneClaudeCodeMessagePerChangedResult(t *testing.
 	assert.Nil(t, installed)
 }
 
-// TestClaudeVersion_HelloOfALateClientReadsTheLatestValueNotTheStartupOne covers REQ-1/2:
+// TestClaudeVersion_HelloOfALateClientReadsTheLatestValueNotTheStartupOne checks:
 // the hello is built per connection from the held value.
 func TestClaudeVersion_HelloOfALateClientReadsTheLatestValueNotTheStartupOne(t *testing.T) {
 	srv := newTestServer(t, notCheckedClaudeCode())
@@ -505,7 +505,8 @@ func keysOf(m map[string]any) []string {
 	return keys
 }
 
-// TestClaudeVersion_IssueSnapshotReadsTheLatestValueNotTheStartupOne is REQ-4.
+// TestClaudeVersion_IssueSnapshotReadsTheLatestValueNotTheStartupOne checks that the
+// issue snapshot reads the held value.
 func TestClaudeVersion_IssueSnapshotReadsTheLatestValueNotTheStartupOne(t *testing.T) {
 	srv := newTestServer(t, notCheckedClaudeCode())
 	rig := &versionRig{}

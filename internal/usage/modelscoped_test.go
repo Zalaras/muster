@@ -41,7 +41,7 @@ func opusWindow(pct float64) ModelWindow {
 	}
 }
 
-// TestModelScoped_Current_BootStateIsNilBothWindowsAndAt covers REQ-14/INV-1's boot
+// TestModelScoped_Current_BootStateIsNilBothWindowsAndAt covers the boot
 // state: nothing has been fetched yet, so both Windows and At are nil (the "never
 // fetched" state), Error is nil, and Source is never empty.
 func TestModelScoped_Current_BootStateIsNilBothWindowsAndAt(t *testing.T) {
@@ -56,7 +56,7 @@ func TestModelScoped_Current_BootStateIsNilBothWindowsAndAt(t *testing.T) {
 	assert.Equal(t, defaultModelScopedSource, snap.Source)
 }
 
-// TestModelScoped_Record_FirstSuccessPersistsAndBroadcasts covers REQ-5's happy path:
+// TestModelScoped_Record_FirstSuccessPersistsAndBroadcasts covers the happy path:
 // a fresh non-empty list persists one row per window, updates Current(), and broadcasts
 // exactly once.
 func TestModelScoped_Record_FirstSuccessPersistsAndBroadcasts(t *testing.T) {
@@ -79,7 +79,7 @@ func TestModelScoped_Record_FirstSuccessPersistsAndBroadcasts(t *testing.T) {
 }
 
 // TestModelScoped_Record_EmptySuccessfulFetchIsDistinctFromNeverFetched covers Edge
-// Case 4 and REQ-14/INV-1 directly: a caller passing a non-nil empty slice (the
+// Case 4 and the At-null-iff-windows-null invariant directly: a caller passing a non-nil empty slice (the
 // poller's own construction, never InterpretUsageReport's ambiguous nil) must produce a
 // non-nil Windows and a non-nil At, not the "never fetched" nil/nil state — while
 // persisting zero rows, since there is nothing to write.
@@ -98,7 +98,7 @@ func TestModelScoped_Record_EmptySuccessfulFetchIsDistinctFromNeverFetched(t *te
 	assert.Equal(t, 0, countUsageModelSampleRows(t, dbPath), "an empty list has nothing to persist")
 }
 
-// TestModelScoped_Record_IdenticalListDedupsNoRowsNoBroadcast covers REQ-5's dedup: an
+// TestModelScoped_Record_IdenticalListDedupsNoRowsNoBroadcast covers the dedup: an
 // identical list produces no broadcast and no rows.
 func TestModelScoped_Record_IdenticalListDedupsNoRowsNoBroadcast(t *testing.T) {
 	st, dbPath := openTestStore(t)
@@ -113,7 +113,7 @@ func TestModelScoped_Record_IdenticalListDedupsNoRowsNoBroadcast(t *testing.T) {
 }
 
 // TestModelScoped_Record_ChangedListPersistsNewRowsAndBroadcasts covers the other half
-// of REQ-5: a changed list persists one row per window and broadcasts again.
+// of dedup: a changed list persists one row per window and broadcasts again.
 func TestModelScoped_Record_ChangedListPersistsNewRowsAndBroadcasts(t *testing.T) {
 	st, dbPath := openTestStore(t)
 	var calls int
@@ -129,7 +129,7 @@ func TestModelScoped_Record_ChangedListPersistsNewRowsAndBroadcasts(t *testing.T
 	require.Len(t, snap.Windows, 2)
 }
 
-// TestModelScoped_Record_SortsByDisplayNameBeforeDedupIgnoringInputOrder covers REQ-5's
+// TestModelScoped_Record_SortsByDisplayNameBeforeDedupIgnoringInputOrder covers the
 // "dedups on the full list (sorted by displayName)" clause directly: the same windows
 // arriving in a different order must still dedup as identical.
 func TestModelScoped_Record_SortsByDisplayNameBeforeDedupIgnoringInputOrder(t *testing.T) {
@@ -150,7 +150,7 @@ func TestModelScoped_Record_SortsByDisplayNameBeforeDedupIgnoringInputOrder(t *t
 }
 
 // TestModelScoped_Record_PersistFailureLeavesMemoryAndDedupStateUnchanged mirrors
-// TestAggregator_Record_PersistFailureLeavesMemoryUnchanged (D6): a failed
+// TestAggregator_Record_PersistFailureLeavesMemoryUnchanged: a failed
 // usage_model_sample write must leave Current() at its previous value and must not
 // advance the dedup state, so the identical list arriving again retries persistence
 // instead of being silently deduped away forever.
@@ -176,7 +176,7 @@ func TestModelScoped_Record_PersistFailureLeavesMemoryAndDedupStateUnchanged(t *
 	require.Error(t, err, "retry of an unpersisted list must not be deduped away")
 }
 
-// TestModelScoped_SetError_FirstOccurrenceBroadcastsRepeatDoesNot covers REQ-6's
+// TestModelScoped_SetError_FirstOccurrenceBroadcastsRepeatDoesNot covers the
 // logging/broadcast clause: the first occurrence of an error kind broadcasts, and a
 // repeat of the same kind does not.
 func TestModelScoped_SetError_FirstOccurrenceBroadcastsRepeatDoesNot(t *testing.T) {
@@ -208,7 +208,7 @@ func TestModelScoped_SetError_DifferentKindTransitionBroadcastsAgain(t *testing.
 	assert.Equal(t, "unauthorized", *ms.Current().Error)
 }
 
-// TestModelScoped_SetError_AfterSuccessKeepsLastGoodListAndAt covers REQ-6's
+// TestModelScoped_SetError_AfterSuccessKeepsLastGoodListAndAt covers the
 // "leaves the last-good list in place" clause, asserted from the "after a good fetch"
 // source state (not just boot) — the m1-sessions lesson that invariants need
 // cross-state coverage.
@@ -251,8 +251,8 @@ func TestModelScoped_Record_SuccessAfterFailureClearsErrorEvenWhenListUnchanged(
 	assert.Equal(t, 61.0, ms.Current().Windows[0].UsedPct)
 }
 
-// TestModelScoped_INV1_AtNullIffWindowsNull asserts REQ-14/INV-1 from every source
-// state the plan names: boot, first success, failure-after-success, success-after-
+// TestModelScoped_INV1_AtNullIffWindowsNull asserts the invariant from every source
+// state: boot, first success, failure-after-success, success-after-
 // failure, and an explicit [] result — a nil-check-both-or-neither invariant checked
 // after each transition rather than only at the end (m1-sessions lesson: an invariant
 // needs cross-state coverage, not just a final-state check).
@@ -297,7 +297,7 @@ func TestModelScoped_INV1_FailureBeforeAnySuccessKeepsBothNil(t *testing.T) {
 }
 
 // TestWindowsEqual_NilVsEmptyAreNeverEqual is a pure-function test of the exact
-// distinction REQ-14/INV-1 depends on.
+// distinction that invariant depends on.
 func TestWindowsEqual_NilVsEmptyAreNeverEqual(t *testing.T) {
 	assert.True(t, windowsEqual(nil, nil))
 	assert.True(t, windowsEqual([]ModelWindow{}, []ModelWindow{}))

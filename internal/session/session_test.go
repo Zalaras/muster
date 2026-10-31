@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestSession_DisplayTitle covers D4/REQ-11's precedence exhaustively: all four cells of
+// TestSession_DisplayTitle covers the precedence exhaustively: all four cells of
 // override x Claude-name, each null/non-null. TitleOverride always wins when non-nil;
 // Title (Claude's last-known name) is the fallback; nil/nil yields nil (the client shows
 // "untitled").

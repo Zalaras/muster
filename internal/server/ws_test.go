@@ -103,8 +103,8 @@ func TestHandleWS_SendsHelloThenSnapshot(t *testing.T) {
 }
 
 func TestHandleWS_ClaudeCodeInstalledNullWhenVersionCheckFailed(t *testing.T) {
-	// INV-1/Edge Case 1: installed is null (never "", never a guessed value) when the
-	// startup `claude --version` check failed; floor/verified stay populated (INV-2).
+	// Edge Case 1: installed is null (never "", never a guessed value) when the
+	// startup `claude --version` check failed; floor/verified stay populated.
 	srv := newTestServer(t, ClaudeCodeInfo{Installed: nil, Floor: "2.1.246", Verified: "2.1.267", Status: "unknown"})
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
@@ -121,9 +121,9 @@ func TestHandleWS_ClaudeCodeInstalledNullWhenVersionCheckFailed(t *testing.T) {
 	assert.Equal(t, "unknown", hello.ClaudeCode.Status)
 }
 
-// TestHandleWS_ClaudeCodeKeySetExactAndInstalledNullIffUnknown is D13: across every
+// TestHandleWS_ClaudeCodeKeySetExactAndInstalledNullIffUnknown: across every
 // reachable status, the hello's claudeCode object carries exactly the four keys, and
-// installed is null iff status is "unknown" (INV-1) — checked against the raw wire bytes,
+// installed is null iff status is "unknown" — checked against the raw wire bytes,
 // not just the typed helloWire struct, so an accidental extra/missing key would be caught.
 func TestHandleWS_ClaudeCodeKeySetExactAndInstalledNullIffUnknown(t *testing.T) {
 	installed2270 := "2.2.70"
@@ -196,7 +196,7 @@ func TestHandleWS_RequiresCookie(t *testing.T) {
 }
 
 func TestHandleWS_RejectsForeignOrigin(t *testing.T) {
-	// REQ-7 / Edge Case 11: an Origin header present but whose host differs from the
+	// Edge Case 11: an Origin header present but whose host differs from the
 	// request Host is rejected with a plain 403 — the daemon's own default behaviour
 	// (coder/websocket's Accept, before any hijack), not a bespoke check.
 	srv := newTestServer(t, ClaudeCodeInfo{})

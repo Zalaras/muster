@@ -80,7 +80,7 @@ func TestToWireSession_GroupIDIsARequiredKey(t *testing.T) {
 	}
 }
 
-// --- POST /api/groups (D11) ---
+// --- POST /api/groups ---
 
 func TestCreateGroup_Succeeds(t *testing.T) {
 	h := newGroupsHarness(t)
@@ -110,7 +110,7 @@ func TestCreateGroup_SecondGroupLandsAboveUngroupedAndRenumbers(t *testing.T) {
 	assert.Equal(t, map[string]any{"pos": float64(2), "collapsed": false}, h.wire.last(t, "groups")["ungrouped"])
 }
 
-// TestCreateGroup_WithSessionsBroadcastsGroupsBeforeEveryUpsert is D15's create half over the
+// TestCreateGroup_WithSessionsBroadcastsGroupsBeforeEveryUpsert is the create half over the
 // wire: a client applying messages in order never sees a groupId naming an unknown group.
 func TestCreateGroup_WithSessionsBroadcastsGroupsBeforeEveryUpsert(t *testing.T) {
 	h := newGroupsHarness(t)
@@ -144,7 +144,7 @@ func TestCreateGroup_AcceptsAFortyCharacterNameInBytesAndRunes(t *testing.T) {
 	}
 }
 
-// TestCreateGroup_RefusesAndCreatesNothing is D11 plus the other 400s and the 404: every
+// TestCreateGroup_RefusesAndCreatesNothing covers the refusals: the 400s and the 404, where every
 // refusal leaves no group, no broadcast and no membership change.
 func TestCreateGroup_RefusesAndCreatesNothing(t *testing.T) {
 	tests := []struct {
@@ -229,7 +229,7 @@ func TestUpdateGroup_Succeeds(t *testing.T) {
 	}
 }
 
-// TestUpdateGroup_AlreadyInTheRequestedStateBroadcastsNothing is D14 for PUT /api/groups/{id}.
+// TestUpdateGroup_AlreadyInTheRequestedStateBroadcastsNothing covers PUT /api/groups/{id}.
 func TestUpdateGroup_AlreadyInTheRequestedStateBroadcastsNothing(t *testing.T) {
 	for _, body := range []string{`{"collapsed":false}`, `{"name":"A"}`, `{"name":" A ","collapsed":false}`} {
 		t.Run(body, func(t *testing.T) {
@@ -297,7 +297,7 @@ func TestUpdateGroup_Refuses(t *testing.T) {
 	}
 }
 
-// --- PUT /api/groups/order (D12) ---
+// --- PUT /api/groups/order ---
 
 func TestSetGroupsOrder_Succeeds(t *testing.T) {
 	h := newGroupsHarness(t)
@@ -332,7 +332,7 @@ func TestSetGroupsOrder_UnchangedBroadcastsNothing(t *testing.T) {
 	assert.Empty(t, h.wire.kinds())
 }
 
-// TestSetGroupsOrder_RefusesAnInvalidOrderAndChangesNothing is D12 at the endpoint: a
+// TestSetGroupsOrder_RefusesAnInvalidOrderAndChangesNothing covers the endpoint: a
 // missing, duplicate or unknown id, an absent 0, or a non-array each answer 400 with the
 // documented message, and the order is as it was.
 func TestSetGroupsOrder_RefusesAnInvalidOrderAndChangesNothing(t *testing.T) {
@@ -503,7 +503,7 @@ func TestDeleteGroup_DispositionsOverTheWire(t *testing.T) {
 	})
 }
 
-// TestDeleteGroup_BroadcastsMemberChangesBeforeGroups is D15's delete half: the groups
+// TestDeleteGroup_BroadcastsMemberChangesBeforeGroups is the delete half: the groups
 // message follows every upsert or sessionRemoved that leaves the group. A removed live member
 // is first stopped, so its alive:false upsert precedes its sessionRemoved.
 func TestDeleteGroup_BroadcastsMemberChangesBeforeGroups(t *testing.T) {
@@ -549,7 +549,7 @@ func TestDeleteGroup_RemoveTearsDownEachRemovedSessionAndNoOther(t *testing.T) {
 		"only the members' Claude tmux sessions are killed")
 }
 
-// TestDeleteGroup_RemoveWithAFailedKillKeepsTheGroupAndTearsDownOnlyWhatWasRemoved is D9's
+// TestDeleteGroup_RemoveWithAFailedKillKeepsTheGroupAndTearsDownOnlyWhatWasRemoved is the
 // delete-group half over the wire.
 func TestDeleteGroup_RemoveWithAFailedKillKeepsTheGroupAndTearsDownOnlyWhatWasRemoved(t *testing.T) {
 	f := newDeleteFixture(t)
@@ -587,7 +587,7 @@ func TestDeleteGroup_Refuses(t *testing.T) {
 		{"a body that is not JSON", func(f *deleteFixture) string { return groupPath(f.a) }, func(*deleteFixture) string { return `{` }, 400, "invalid_request", "invalid JSON body"},
 		{"an unknown group", func(*deleteFixture) string { return groupPath(424242) }, func(*deleteFixture) string { return "" }, 404, "unknown_group", "unknown group"},
 		{"an unknown group with remove", func(*deleteFixture) string { return groupPath(424242) }, func(*deleteFixture) string { return `{"sessions":"remove"}` }, 404, "unknown_group", "unknown group"},
-		// D13: the target names no group, and the message says it is the target.
+		// The target names no group, and the message says it is the target.
 		{"move to an unknown target", func(f *deleteFixture) string { return groupPath(f.a) }, func(*deleteFixture) string { return `{"sessions":"move","to":424242}` }, 404, "unknown_group", "unknown target group"},
 	}
 	for _, tt := range tests {
@@ -620,7 +620,7 @@ func TestDeleteGroup_EmptyGroupIs200WithNothingDone(t *testing.T) {
 	assert.Equal(t, []string{"groups"}, h.wire.kinds())
 }
 
-// TestGroupsContribute_SnapshotCarriesTheReloadedGroups is D8's snapshot half: after a daemon
+// TestGroupsContribute_SnapshotCarriesTheReloadedGroups is the snapshot half: after a daemon
 // restart (a fresh manager over the same store, loaded through LoadAll) the snapshot's two
 // keys hold every group's name, pos and collapsed state and the Ungrouped layout, and each
 // session's groupId rides the Session object.

@@ -189,7 +189,7 @@ func (k *removingKiller) KillSession(ctx context.Context, name string) error {
 	return k.fakeTmuxSessions.KillSession(ctx, name)
 }
 
-// TestRemoveMany_ASessionRemovedBeforeItsTurnIsSkipped is D9's "removed before its turn":
+// TestRemoveMany_ASessionRemovedBeforeItsTurnIsSkipped is the "removed before its turn":
 // the second id goes away while the first is being removed, so it is skipped, never failed.
 func TestRemoveMany_ASessionRemovedBeforeItsTurnIsSkipped(t *testing.T) {
 	r := batchRig(t)

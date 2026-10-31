@@ -11,25 +11,23 @@ import {
 } from "./helpers/picker";
 import { browseScratchDirectory, getState, launchSession, sessionCard } from "./helpers/session";
 
-// Plan new-session-improvement (#29) — REQ-1, REQ-2, REQ-3, INV-1, INV-2 (E2E slice).
-// Plan acceptance: E3, E4.
+// New-session improvement (#29): the model catalog pre-check, E2E slice.
 //
 // The daemon's pre-check (`claude --bare --no-session-persistence --model <model> -p
 // ''`, kb:fact/model-catalog-precheck-zero-token) is answered end to end by the shared
 // stub `claude` (helpers/daemon.ts's STUB_CLAUDE_SCRIPT, extended by this plan): a model
 // starting with `muster-e2e-unrecognized` gets the measured catalog-refusal sentence on
-// stderr, every other model passes through clean. REQ-2's fail-open contract (a run that
-// errors, times out or prints no sentence) is a daemon-unit concern (D4/D6) — this file
+// stderr, every other model passes through clean. The fail-open contract (a run that
+// errors, times out or prints no sentence) is a daemon-unit concern — this file
 // drives only the two observable dashboard outcomes: refused and recognised.
 //
-// The two tests above take the per-test `daemon` fixture (helpers/fixtures.ts): INV-1
-// asserts the rail's card count and the Recent sidebar are exactly as before a refusal,
+// The two tests above take the per-test `daemon` fixture (helpers/fixtures.ts): one
+// test asserts the rail's card count and the Recent sidebar are exactly as before a refusal,
 // which a neighbour test's launch on a shared daemon would corrupt.
 //
-// Plan maintainability-regressions (#55) adds the dialog-open catalog check below:
-// REQ-1, REQ-2, REQ-4 through REQ-10, INV-1 through INV-2 (E2E slice; INV-3/INV-4 are
-// D3/D4's job, INV-5 is D7/D8's). Plan acceptance: E1-E5 (E6's two tests above keep every
-// assertion they had — REQ-1's exact refusal message, REQ-3's field retention, INV-1's
+// A later change (#55) adds the dialog-open catalog check below (E2E slice; the daemon-level
+// invariants are covered by daemon unit tests). The two tests above keep every
+// assertion they had — the exact refusal message, the field retention, the
 // untouched rail/Recent state — except where that message is read from, amended in review
 // cycle 1 to `#model-error` per decision A, kb:adr/launch-model-refusal-shown-in-field-error-only).
 // Every new test takes `startDaemon` (helpers/fixtures.ts) with its own
@@ -37,7 +35,7 @@ import { browseScratchDirectory, getState, launchSession, sessionCard } from "./
 // gained for this plan, alongside the pre-existing `muster-e2e-unrecognized*` prefix —
 // since none of them assert daemon-global rail state the way the two tests above do.
 //
-// REQ-10's fail-open display (E5, "with the daemon down, opening the dialog marks and
+// The fail-open display ("with the daemon down, opening the dialog marks and
 // disables nothing") is a render test in web/render/launch.spec.ts since 2026-10-20
 // (plans/_audit/relevel/launch-update.md): a failed verdict request leaves the store
 // untouched whether it failed at the connection or with the harness's 404, and the
@@ -56,7 +54,7 @@ test("an unrecognized custom model into a never-launched directory is refused, w
   await page.goto(daemon.dashboardUrl);
   const dialog = await openLaunchDialog(page);
 
-  // Fresh daemon, opened straight onto the browse root with no recents — E3's
+  // Fresh daemon, opened straight onto the browse root with no recents — the
   // "never-launched directory".
   await dialog.getByRole("radio", { name: "other…" }).check();
   await dialog.getByLabel("Custom model").fill(UNRECOGNIZED_MODEL);
@@ -64,28 +62,28 @@ test("an unrecognized custom model into a never-launched directory is refused, w
   await dialog.getByLabel("Title").fill("model-check-refused");
   await dialog.getByRole("button", { name: "Launch" }).click();
 
-  // REQ-1: the refusal's exact message. Decision A
+  // The refusal's exact message. Decision A
   // (kb:adr/launch-model-refusal-shown-in-field-error-only) puts a model_unrecognized
   // refusal in #model-error only; #launch-error is never used for this code.
   await expect(modelError(dialog)).toBeVisible();
   await expect(modelError(dialog)).toHaveText(new RegExp(escapeForRegExp(REFUSAL_MESSAGE)));
   await expect(launchError(dialog)).toBeHidden();
 
-  // REQ-3: the dialog stays open with every field exactly as typed.
+  // The dialog stays open with every field exactly as typed.
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Title")).toHaveValue("model-check-refused");
   await expect(dialog.getByLabel("Custom model")).toHaveValue(UNRECOGNIZED_MODEL);
   await expect(dialog.getByRole("radio", { name: "other…" })).toBeChecked();
   await expect(dialog.getByRole("radio", { name: "plan" })).toBeChecked();
 
-  // INV-1 (E2E slice): a refused launch writes nothing the dashboard can see — no card
+  // A refused launch writes nothing the dashboard can see — no card
   // anywhere, and the Recent sidebar has no entry for the directory the refusal targeted
-  // (the byte-identical settings.local.json / repo-row half of INV-1 is D7's job).
+  // (the byte-identical settings.local.json / repo-row half is covered by daemon unit tests).
   await expect(page.getByTestId("session-card")).toHaveCount(0);
   await expect(recentsSidebar(dialog).getByText("No recent directories")).toBeVisible();
   await expect(recentsSidebar(dialog).getByRole("button")).toHaveCount(0);
 
-  // E4: retrying with a recognised model closes the dialog and launches, from the very
+  // Retrying with a recognised model closes the dialog and launches, from the very
   // same open dialog the refusal left in place.
   await dialog.getByRole("radio", { name: "sonnet" }).check();
   await dialog.getByRole("button", { name: "Launch" }).click();
@@ -118,7 +116,7 @@ test("an unrecognized model into a previously-launched directory leaves its rail
     });
 
     const dialog = await openLaunchDialog(page);
-    // Opens straight onto the one recent (REQ-8, launch spec).
+    // Opens straight onto the one recent (launch spec).
     await expect(currentCrumb(dialog)).toHaveText(basename(dir.path));
 
     await dialog.getByRole("radio", { name: "other…" }).check();
@@ -126,13 +124,13 @@ test("an unrecognized model into a previously-launched directory leaves its rail
     await dialog.getByLabel("Title").fill("model-check-retry-seeded");
     await dialog.getByRole("button", { name: "Launch" }).click();
 
-    // REQ-1: decision A (kb:adr/launch-model-refusal-shown-in-field-error-only) puts a
+    // Decision A (kb:adr/launch-model-refusal-shown-in-field-error-only) puts a
     // model_unrecognized refusal in #model-error only.
     await expect(modelError(dialog)).toBeVisible();
     await expect(modelError(dialog)).toHaveText(new RegExp(escapeForRegExp(REFUSAL_MESSAGE)));
     await expect(launchError(dialog)).toBeHidden();
 
-    // INV-1: still exactly the one seeded card — the refused attempt added nothing.
+    // Still exactly the one seeded card — the refused attempt added nothing.
     await expect(page.getByTestId("session-card")).toHaveCount(1);
 
     await dialog.getByRole("button", { name: "Cancel" }).click();
@@ -163,12 +161,12 @@ test("an unrecognised preset is disabled while the currently-selected preset sta
   // The form's own default — no recent, so the dialog opens with sonnet selected.
   await expect(dialog.getByRole("radio", { name: "sonnet" })).toBeChecked();
 
-  // REQ-6/REQ-7: the dialog-open request covers every preset; fable's verdict arrives
+  // The dialog-open request covers every preset; fable's verdict arrives
   // unrecognised and, since it isn't the current selection, disables it.
   await expect(dialog.getByRole("radio", { name: UNRECOGNIZED_PRESET })).toBeDisabled();
   await expect(dialog.getByRole("radio", { name: UNRECOGNIZED_PRESET })).not.toBeChecked();
 
-  // INV-1: the selected sonnet preset was never touched by fable's verdict.
+  // The selected sonnet preset was never touched by fable's verdict.
   await expect(dialog.getByRole("radio", { name: "sonnet" })).not.toHaveAttribute(
     "aria-invalid",
     "true",
@@ -185,7 +183,7 @@ test("the selected preset is marked invalid and blocks Launch when its own verdi
   await page.goto(daemon.dashboardUrl);
 
   // Holds GET /api/models open until fable is selected, so the selection change always
-  // lands before its verdict — REQ-8's "kept selected, marked invalid" path exercised
+  // lands before its verdict — the "kept selected, marked invalid" path exercised
   // deterministically (edge case 4's ordering) rather than racing the real round trip.
   let releaseModelsResponse: () => void = () => {};
   const modelsHeld = new Promise<void>((resolve) => {
@@ -213,7 +211,7 @@ test("the selected preset is marked invalid and blocks Launch when its own verdi
 
   releaseModelsResponse();
 
-  // REQ-8: the selection is kept and marked invalid — not disabled, since REQ-7 only
+  // The selection is kept and marked invalid — not disabled, since only
   // disables an unrecognised preset that ISN'T the current selection.
   await expect(dialog.getByRole("radio", { name: UNRECOGNIZED_PRESET })).toBeChecked();
   await expect(dialog.getByRole("radio", { name: UNRECOGNIZED_PRESET })).toBeEnabled();
@@ -241,7 +239,7 @@ test("switching away from an invalid preset selection clears the mark and re-ena
   const daemon = await startDaemon({ stubUnrecognizedModels: [UNRECOGNIZED_PRESET] });
   await page.goto(daemon.dashboardUrl);
 
-  // Same deterministic ordering as E2: select fable before its verdict lands.
+  // Same deterministic ordering as the test above: select fable before its verdict lands.
   let releaseModelsResponse: () => void = () => {};
   const modelsHeld = new Promise<void>((resolve) => {
     releaseModelsResponse = resolve;
@@ -259,8 +257,8 @@ test("switching away from an invalid preset selection clears the mark and re-ena
 
   await dialog.getByRole("radio", { name: "sonnet" }).check();
 
-  // E3: the mark and message clear, Launch re-enables, and fable — now unselected and
-  // still unrecognised — becomes disabled (REQ-7).
+  // The mark and message clear, Launch re-enables, and fable — now unselected and
+  // still unrecognised — becomes disabled.
   await expect(modelError(dialog)).toBeHidden();
   await expect(dialog.getByRole("radio", { name: "sonnet" })).not.toHaveAttribute(
     "aria-invalid",
@@ -283,7 +281,7 @@ test("an unrecognised custom model submitted via Launch marks Custom model inval
   await dialog.getByLabel("Title").fill("model-check-custom-invalid");
   await dialog.getByRole("button", { name: "Launch" }).click();
 
-  // REQ-9: the refused custom field is marked invalid the same way REQ-8 marks a preset
+  // The refused custom field is marked invalid the same way a a preset
   // — via #model-error. Decision A
   // (kb:adr/launch-model-refusal-shown-in-field-error-only, review cycle 1 browser Major
   // 1 / Minor 2) means #launch-error is never used for a model_unrecognized refusal —
@@ -300,7 +298,7 @@ test("an unrecognised custom model submitted via Launch marks Custom model inval
   );
   await expect(dialog.getByRole("button", { name: "Launch" })).toBeDisabled();
 
-  // REQ-9: editing the text has no verdict yet, so the mark clears and Launch
+  // Editing the text has no verdict yet, so the mark clears and Launch
   // re-enables; #launch-error stays hidden throughout, never naming a model that is no
   // longer selected.
   await dialog.getByLabel("Custom model").fill("muster-e2e-custom-edited");
@@ -332,8 +330,8 @@ test("navigating to a recent whose stored model is not a preset re-requests its 
     );
     const dialog = await openLaunchDialog(page);
 
-    // REQ-8 (launch spec): a single recent opens the dialog straight onto it, restoring
-    // its stored (non-preset) model — REQ-6 says that value gets its own verdict
+    // Launch spec: a single recent opens the dialog straight onto it, restoring
+    // its stored (non-preset) model — that value gets its own verdict
     // request too, not just the four presets'.
     await expect(currentCrumb(dialog)).toHaveText(basename(dir.path));
     await expect(dialog.getByRole("radio", { name: "other…" })).toBeChecked();

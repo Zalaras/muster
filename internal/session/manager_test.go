@@ -23,7 +23,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// sleepCommand is the long-running dummy command plan session-lifecycle's real-tmux
+// sleepCommand is the long-running dummy command the real-tmux
 // Reconcile/End tests spawn — mirrors internal/tmux/tmux_test.go's own helper of the same
 // name (unexported there, so it can't be imported directly).
 func sleepCommand() []string {
@@ -103,9 +103,9 @@ type fakeTmuxSessions struct {
 	sessions []string
 	killErr  map[string]error
 	killed   []string
-	// listErr, when set, makes every ListSessions call fail (plan session-lifecycle
-	// D17: a tmux-server-level listing failure must be treated as transient, never as
-	// grounds to believe every pane is gone).
+	// listErr, when set, makes every ListSessions call fail (a tmux-server-level
+	// listing failure must be treated as transient, never as grounds to believe every
+	// pane is gone).
 	listErr error
 }
 
@@ -164,7 +164,7 @@ func (f *fakeTmuxSessions) ResolveSessionTarget(_ context.Context, _ string) (st
 }
 
 // fakePaneSnapshotter is a PaneSnapshotter double: fully test-controlled CapturePane
-// answers per target, no real tmux socket needed (m4-reconcile REQ-4).
+// answers per target, no real tmux socket needed.
 type fakePaneSnapshotter struct {
 	mu    sync.Mutex
 	texts map[string]string
@@ -305,7 +305,7 @@ func seedRepo(t *testing.T, st *store.Store, dir string) int64 {
 	return repo.ID
 }
 
-// TestCreateSession_DoesNotBroadcast covers REQ-2's other half: CreateSession inserts
+// TestCreateSession_DoesNotBroadcast covers the other half: CreateSession inserts
 // and registers the row but does not broadcast — RecordLaunch is the point at which the
 // session becomes visible, once a real tmux target exists.
 func TestCreateSession_DoesNotBroadcast(t *testing.T) {
@@ -326,7 +326,7 @@ func TestCreateSession_DoesNotBroadcast(t *testing.T) {
 	assert.True(t, mgr.Exists(sess.ID))
 }
 
-// TestRecordLaunch_BroadcastsOnceWithTheRealTarget covers REQ-2's "sessionUpsert
+// TestRecordLaunch_BroadcastsOnceWithTheRealTarget covers the "sessionUpsert
 // broadcast before any hook can arrive" — the first (and only, here) broadcast carries
 // the real tmux target/pane.
 func TestRecordLaunch_BroadcastsOnceWithTheRealTarget(t *testing.T) {
@@ -387,7 +387,7 @@ func TestDeleteSession_RemovesFromMemoryAndStoreAndByClaudeIndex(t *testing.T) {
 	assert.Error(t, err, "the row must be gone from the store too")
 }
 
-// TestApply_RoutesByClaudeSessionIDAndBroadcasts covers REQ-7/D8: binding a claude
+// TestApply_RoutesByClaudeSessionIDAndBroadcasts: binding a claude
 // session id, then applying a subsequent input for that id, both persist and broadcast
 // through the same session.
 func TestApply_RoutesByClaudeSessionIDAndBroadcasts(t *testing.T) {
@@ -465,7 +465,7 @@ func TestLoadAll_ReconstructsInMemoryStateAndClaudeBinding(t *testing.T) {
 	assert.Equal(t, StateStarted, list[0].State)
 }
 
-// TestCheckLiveness_FlipsAliveFalseOnMissingPaneAndBroadcasts covers REQ-11/D16: the
+// TestCheckLiveness_FlipsAliveFalseOnMissingPaneAndBroadcasts: the
 // poll flips alive on the first miss and broadcasts, without touching state.
 func TestCheckLiveness_FlipsAliveFalseOnMissingPaneAndBroadcasts(t *testing.T) {
 	st := openTestStore(t)
@@ -638,7 +638,7 @@ func TestGet_ReturnsCloneForAKnownSessionFalseForUnknown(t *testing.T) {
 	assert.False(t, ok)
 }
 
-// TestNudge_FlipsAliveFalseImmediatelyWithoutWaitingForThePollTicker covers REQ-6/D6:
+// TestNudge_FlipsAliveFalseImmediatelyWithoutWaitingForThePollTicker:
 // Nudge re-checks liveness right away rather than lagging the ~5s poll interval — proven
 // here by giving the manager a poll interval far longer than the test's timeout, so any
 // observed alive:false flip can only have come from Nudge itself, never the ticker.
@@ -816,7 +816,7 @@ func TestCheckOneLiveness_StoppedGuard_PeriodicPollAndNudgeSkipPersistAfterStop(
 // itself: `-on-exit=kill`'s EndAllSessions -> End -> endLocked -> checkOneLiveness(...,
 // true) chain must stay unaffected by Stop having already run, since Stop is now called
 // as shutdownGracefully's own first statement ahead of the kill branch. A bystander
-// session stays alive throughout and must be untouched (INV-2, matches
+// session stays alive throughout and must be untouched (matches
 // TestEnd_MarksEndedWhenPostKillPaneCheckErrors's shape).
 func TestEnd_StillMarksEndedAfterStop(t *testing.T) {
 	st := openTestStore(t)
@@ -943,7 +943,7 @@ func (f *fakePaneChecker) callCount() int {
 	return f.calls
 }
 
-// TestApply_NonClearSessionEndEndsSessionPromptlyOnceThePaneDies covers REQ-1 (e1): a
+// TestApply_NonClearSessionEndEndsSessionPromptlyOnceThePaneDies covers the prompt end of a non-clear SessionEnd: a
 // non-clear SessionEnd applied while its pane still exists (the hook beats the process
 // exit) arms a bounded re-check, so the card flips alive:false within a second of the pane
 // dying instead of waiting for the next poll tick (held at an hour here so only the
@@ -1032,7 +1032,7 @@ func TestApply_SessionEndRecheckExpiresAtTheCapWithThePaneAlive(t *testing.T) {
 	assert.True(t, got.Alive, "a live pane keeps the session alive past the cap")
 }
 
-// TestApply_ClearSessionEndStartsNoPaneRecheck covers REQ-2's first half: a clear
+// TestApply_ClearSessionEndStartsNoPaneRecheck covers the first half: a clear
 // SessionEnd (the old conversation ending in a live pane) arms no watch, so the pane
 // check count stays put across several re-check cadences and a pane that then dies is left
 // to the ordinary poll. Passes today on purpose: it guards behaviour the fix must keep.
@@ -1056,7 +1056,7 @@ func TestApply_ClearSessionEndStartsNoPaneRecheck(t *testing.T) {
 	assert.Equal(t, before, pc.callCount(), "no pane check ran")
 }
 
-// TestApply_SessionEndRecheckDoesNotPersistAfterStop covers REQ-2's second half: a watch
+// TestApply_SessionEndRecheckDoesNotPersistAfterStop covers the second half: a watch
 // armed by a non-clear SessionEnd that finds the pane gone after Manager.Stop has begun
 // hits checkOneLiveness's stopped guard and persists nothing, mirroring
 // TestCheckOneLiveness_StoppedGuard_PeriodicPollAndNudgeSkipPersistAfterStop for the
@@ -1091,7 +1091,7 @@ func TestApply_SessionEndRecheckDoesNotPersistAfterStop(t *testing.T) {
 	assert.True(t, persisted.Alive, "the store row must be untouched by a post-Stop re-check")
 }
 
-// TestApplyStatus_PersistsAndBroadcastsOnAChange covers REQ-4's happy path: a status
+// TestApplyStatus_PersistsAndBroadcastsOnAChange covers the happy path: a status
 // post carrying new title/model/context data persists the row and broadcasts once.
 func TestApplyStatus_PersistsAndBroadcastsOnAChange(t *testing.T) {
 	st := openTestStore(t)
@@ -1131,7 +1131,7 @@ func TestApplyStatus_PersistsAndBroadcastsOnAChange(t *testing.T) {
 	assert.Equal(t, "Opus 5", *persisted.ModelDisplayName)
 }
 
-// TestApplyStatus_NoChangeDoesNotBroadcast covers REQ-4/INV-5's session-side twin:
+// TestApplyStatus_NoChangeDoesNotBroadcast covers the session-side twin:
 // status posts fire on every tool use, so applying the same data twice must not
 // double-broadcast a no-op sessionUpsert.
 func TestApplyStatus_NoChangeDoesNotBroadcast(t *testing.T) {
@@ -1168,8 +1168,8 @@ func TestApplyStatus_UnknownSessionErrors(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// TestApplyStatus_NeverTouchesAttentionWhileNeedsInput is INV-1's manager-level twin
-// (E8's unit-level equivalent): a status post applied while a session is needs_input
+// TestApplyStatus_NeverTouchesAttentionWhileNeedsInput is the manager-level twin
+// (the unit-level equivalent): a status post applied while a session is needs_input
 // must leave its state and attention exactly as they were.
 func TestApplyStatus_NeverTouchesAttentionWhileNeedsInput(t *testing.T) {
 	st := openTestStore(t)
@@ -1202,7 +1202,7 @@ func TestApplyStatus_NeverTouchesAttentionWhileNeedsInput(t *testing.T) {
 	assert.True(t, before.Attention.Since.Equal(final.Attention.Since))
 }
 
-// TestApplyStatus_ModelDisplayNamePersistsAcrossARestart covers REQ-16: a restarted
+// TestApplyStatus_ModelDisplayNamePersistsAcrossARestart: a restarted
 // daemon shows the real display name a status post provided, not one re-derived from
 // the model id.
 func TestApplyStatus_ModelDisplayNamePersistsAcrossARestart(t *testing.T) {
@@ -1246,7 +1246,7 @@ func TestRowToSession_ModelDisplayNameFallsBackToIDForPreM3Rows(t *testing.T) {
 }
 
 // TestReconcile_DeletesEndedRowsMarksDeadPanesEndedLeavesLivePanesByteIdentical covers
-// D9/REQ-1: a fresh Manager over a store seeded (by an earlier "daemon lifetime") with an
+// A fresh Manager over a store seeded (by an earlier "daemon lifetime") with an
 // already-ended row, an alive row whose pane is now gone, and an alive row whose pane
 // still exists — Reconcile must delete the first, mark the second ended (alive:false,
 // endedAt set) and keep it, and leave the third byte-identical to its pre-reconcile state.
@@ -1319,11 +1319,11 @@ func TestReconcile_DeletesEndedRowsMarksDeadPanesEndedLeavesLivePanesByteIdentic
 	assert.Equal(t, livePaneBefore, livePaneAfter, "a row whose pane still exists must be left byte-identical by Reconcile")
 }
 
-// TestReconcile_ReportsUnknownMusterSessionsWithoutCreatingRows covers D10/REQ-2: a
+// TestReconcile_ReportsUnknownMusterSessionsWithoutCreatingRows: a
 // muster-prefixed tmux session on the socket with no matching row is reported and never
 // adopted (no row created); a session whose row IS known, and a tmux session that isn't
 // muster-prefixed at all, are both left out of the report. Also covers the log half of
-// D10's criterion ("logs (and reports)"): review cycle 2 Minor 6 flagged that only the
+// the criterion ("logs (and reports)"): review cycle 2 Minor 6 flagged that only the
 // report was asserted, leaving a future refactor free to drop the warn log without this
 // test noticing — the logger is now a buffer instead of zerolog.Nop() so the warn line
 // itself is asserted, not just observed live by the reviewer.
@@ -1366,12 +1366,12 @@ func TestReconcile_ReportsUnknownMusterSessionsWithoutCreatingRows(t *testing.T)
 		"the warn line must name the specific unknown session")
 }
 
-// TestReconcile_ReportsAndLogsAMusterPrefixedNameMatchingNeitherShapeAsUnknown covers plan
-// session-lifecycle D22/review Major 1 (Edge Case 22): a tmux session whose name is
+// TestReconcile_ReportsAndLogsAMusterPrefixedNameMatchingNeitherShapeAsUnknown covers
+// Edge Case 22: a tmux session whose name is
 // muster-prefixed but matches neither the bare "muster-<id>" shape nor the
 // "muster-<id>-shell" shape (e.g. "muster-99999-foreign") must still be reported in
-// UnknownSessions and warn-logged, exactly as any other unknown muster session — REQ-9's
-// own words ("reported ... and warn-logged exactly as today") and
+// UnknownSessions and warn-logged, exactly as any other unknown muster session — the
+// original wording ("reported ... and warn-logged exactly as today") and
 // kb:adr/lifecycle-reconcile-converges-with-the-socket both promise this. classifyTmuxNames
 // today does `id, ok := tmux.ParseSessionName(name); if !ok { continue }` — silently
 // dropping any muster-prefixed name that isn't a bare integer suffix, never reaching the
@@ -1401,11 +1401,11 @@ func TestReconcile_ReportsAndLogsAMusterPrefixedNameMatchingNeitherShapeAsUnknow
 	assert.Empty(t, rows, "never adopted — no row created for it")
 }
 
-// TestReconcile_ListSessionsFailureActsOnNothing covers plan session-lifecycle D26/review
-// cycle 2 Major (the consequence of D25): when Reconcile cannot enumerate the socket at
+// TestReconcile_ListSessionsFailureActsOnNothing covers
+// the consequence of ListSessions collapsing an unreachable socket to an empty list: when Reconcile cannot enumerate the socket at
 // all, it must act on nothing — never mark an alive row ended, never delete a not-alive
 // one. Reconcile's own fallback on a ListSessions error is the trap: it warn-logs and
-// falls through to classifySessions, the pre-REQ-9 function, whose `if !r.alive {
+// falls through to classifySessions, the older function, whose `if !r.alive {
 // toSweep = append(...); continue }` sweeps every not-alive row completely
 // unconditionally — no pane check, no tmux call, nothing — which is the original bug this
 // whole plan exists to close, now reachable again through the fallback path. The alive
@@ -1457,7 +1457,7 @@ func TestReconcile_ListSessionsFailureActsOnNothing(t *testing.T) {
 	assert.False(t, persisted.Alive)
 }
 
-// TestRecordResume_UpdatesTargetClearsSnapshotLeavesStateUntouched covers REQ-7: a
+// TestRecordResume_UpdatesTargetClearsSnapshotLeavesStateUntouched: a
 // resumed session's tmux target/pane are updated, alive is set true and endedAt cleared,
 // the stale pane snapshot is cleared (a fresh pane has nothing captured yet), and state is
 // left exactly as it was — it only becomes idle once the enveloped
@@ -1500,7 +1500,7 @@ func TestRecordResume_UpdatesTargetClearsSnapshotLeavesStateUntouched(t *testing
 	assert.Nil(t, persisted.LastSnapshot)
 }
 
-// TestRecordResume_AliveTracksPaneExistenceOnTheNextPoll covers INV-1's resumed-then-alive
+// TestRecordResume_AliveTracksPaneExistenceOnTheNextPoll covers the resumed-then-alive
 // and resumed-then-immediately-dead cases: after RecordResume, the very next liveness poll
 // must set alive to exactly whatever the resumed pane's real existence is — true if it's
 // still there, false (with endedAt set) if it died right away (Edge Case 3 in the plan:
@@ -1549,7 +1549,7 @@ func TestRecordResume_AliveTracksPaneExistenceOnTheNextPoll(t *testing.T) {
 	}
 }
 
-// TestCaptureSnapshot_NeverMutatesStateFields covers D14/INV-4: a pane capture, applied
+// TestCaptureSnapshot_NeverMutatesStateFields: a pane capture, applied
 // against a session parked in every one of the six displayed states, must change only
 // LastSnapshot/LastSnapshotAt — every other field (including the unexported prompt-guard
 // fields Clone() also copies) must be byte-identical before and after.
@@ -1801,7 +1801,7 @@ func TestSnapshot_VeryFirstCaptureBlankStillSetsCapturedAt(t *testing.T) {
 	assert.False(t, at.IsZero(), "capturedAt must be set on the very first capture even though the text is empty")
 }
 
-// TestEnd_OnATwoSessionManagerFlipsOnlyTheTargetsAlive covers D15/INV-2: End must never
+// TestEnd_OnATwoSessionManagerFlipsOnlyTheTargetsAlive: End must never
 // touch a bystander session sharing the same manager/tmux socket — its alive, state,
 // tmuxTarget and kill-call count must all be untouched.
 func TestEnd_OnATwoSessionManagerFlipsOnlyTheTargetsAlive(t *testing.T) {
@@ -1858,7 +1858,7 @@ func TestEnd_OnATwoSessionManagerFlipsOnlyTheTargetsAlive(t *testing.T) {
 // endOnCheckError=true (End's caller) must fall through to markEnded instead of leaving
 // the row untouched for the next poll, unlike the ordinary periodic poll/nudge path. A
 // bystander session with a clean (non-erroring) pane check is present throughout and must
-// be unaffected (INV-2).
+// be unaffected.
 func TestEnd_MarksEndedWhenPostKillPaneCheckErrors(t *testing.T) {
 	st := openTestStore(t)
 	ctx := context.Background()
@@ -1933,11 +1933,11 @@ func TestEnd_UnknownAndAlreadyEndedSessions(t *testing.T) {
 	assert.ErrorIs(t, err, ErrSessionNotAlive)
 }
 
-// TestRemove_EndsAnAliveSessionFirstAndLeavesTheRowOnAFailingKill covers D16/Edge Case 5:
+// TestRemove_EndsAnAliveSessionFirstAndLeavesTheRowOnAFailingKill covers Edge Case 5:
 // a successful Remove of an alive session runs the kill path first, and OnRemoved fires
 // only then; a failing kill leaves the row (and the claude-id binding) untouched and
 // propagates the error — never a deleted row with a running pane. A bystander session is
-// present throughout and must be unaffected either way (INV-2).
+// present throughout and must be unaffected either way.
 func TestRemove_EndsAnAliveSessionFirstAndLeavesTheRowOnAFailingKill(t *testing.T) {
 	st := openTestStore(t)
 	ctx := context.Background()
@@ -2035,7 +2035,7 @@ func TestList_ReturnsClonesNotLiveReferences(t *testing.T) {
 	assert.Equal(t, sess.ID, again[0].ID)
 }
 
-// --- m4-hook-lifetime: REQ-9/REQ-10/REQ-11 envelope-authoritative binding invariants ---
+// --- envelope-authoritative binding invariants ---
 //
 // Per docs/conventions.md and the m1-sessions review lesson (both review Criticals were
 // stated invariants that 157 passing per-transition tests missed because every rebind
@@ -2060,7 +2060,7 @@ func createLaunchedSession(t *testing.T, mgr *Manager, st *store.Store, dir stri
 
 // advanceToState drives sess (already created+launched, in Started/unbound) toward the
 // given displayed state via Apply, either binding it to claudeID along the way
-// (enveloped=true) or leaving it permanently unbound (enveloped=false — REQ-10's raw
+// (enveloped=true) or leaving it permanently unbound (enveloped=false — the raw
 // path never binds, which is exactly how a "never bound but in state X" fixture is
 // built for the invariant tables below).
 func advanceToState(t *testing.T, mgr *Manager, sessID int64, claudeID string, state State, enveloped bool) {
@@ -2092,7 +2092,7 @@ func advanceToState(t *testing.T, mgr *Manager, sessID int64, claudeID string, s
 	require.NoError(t, err)
 }
 
-// assertBindingConsistent is INV-1 itself: whenever a session has a bound claude id, the
+// assertBindingConsistent is the binding invariant itself: whenever a session has a bound claude id, the
 // manager's reverse index must resolve that id back to exactly this session.
 func assertBindingConsistent(t *testing.T, mgr *Manager, sess *Session) {
 	t.Helper()
@@ -2104,10 +2104,10 @@ func assertBindingConsistent(t *testing.T, mgr *Manager, sess *Session) {
 	assert.Equal(t, sess.ID, got, "INV-1: byClaude[sess.ClaudeSessionID] must equal sess.ID")
 }
 
-// TestApply_INV1_BindingMapConsistencyAcrossStatesAndInputClasses covers D14: after any
+// TestApply_INV1_BindingMapConsistencyAcrossStatesAndInputClasses: after any
 // Apply, byClaude[sess.ClaudeSessionID] == sess.ID whenever ClaudeSessionID != "" —
 // asserted from every displayed state plus the alive=false (ended, kept-for-resume) row,
-// crossed against every REQ-9/REQ-10 input class: an enveloped event naming the same
+// crossed against every input class: an enveloped event naming the same
 // bound id, one naming a different id (rebind), one on a never-bound session (bind), and
 // a raw event (never binds).
 func TestApply_INV1_BindingMapConsistencyAcrossStatesAndInputClasses(t *testing.T) {
@@ -2208,7 +2208,7 @@ func TestApply_INV1_BindingMapConsistencyAcrossStatesAndInputClasses(t *testing.
 	}
 }
 
-// TestApply_NeverBoundSessionBindsWithNoTransitionThenAppliesItsOwnEvent covers REQ-9's
+// TestApply_NeverBoundSessionBindsWithNoTransitionThenAppliesItsOwnEvent covers the
 // precise "no transition" clause: the binding step itself must cause no state change —
 // only the triggering event's own row does. Proven with an inert input (a Kind that has no
 // transition of its own), so any state movement observed would have to have come from
@@ -2246,7 +2246,7 @@ func TestApply_EnvelopedSameBoundIDNeverRebindsEvenForClearDeathHint(t *testing.
 	assert.Equal(t, StateStarted, final.State, "no rebind means no reset-to-started either")
 }
 
-// TestApply_INV2_RebindResetsContextAndCompactionsBeforeItsOwnRowApplies covers D15:
+// TestApply_INV2_RebindResetsContextAndCompactionsBeforeItsOwnRowApplies:
 // an enveloped different-id event resets context to nil and compactions to 0 *before*
 // its own row applies, from every displayed source state, for both a UserPromptSubmit-
 // like trigger (ends working) and a Stop trigger (ends idle).
@@ -2303,7 +2303,7 @@ func TestApply_INV2_RebindResetsContextAndCompactionsBeforeItsOwnRowApplies(t *t
 // (byClaude[id] already points at this session, but it is not the current
 // ClaudeSessionID) is a reordered straggler, not a forward rebind. It must be routed
 // and applied, but must never move the binding backwards, reset the context gauge, or
-// zero the compaction counter. This is INV-2's mirror case: INV-2 (above) proves a
+// zero the compaction counter. This is the mirror case: the rebind test above proves a
 // genuine forward rebind resets those fields before its own row; this proves a
 // backward-looking straggler must not.
 //
@@ -2317,7 +2317,7 @@ func TestApply_MonotonicRebindGuard_ReorderedStragglerNeverRebindsBackwards(t *t
 	// including the sanity checkpoint, and returns the manager/store/recorder/session
 	// for the subtest's own reordered-straggler step. The store and recorder are handed
 	// back (rather than built fresh per subtest) so each subtest can assert, after its
-	// own straggler Apply call, that it persisted and broadcast exactly once (D18's
+	// own straggler Apply call, that it persisted and broadcast exactly once (the
 	// guarantee, extended to this path per review.md cycle 1 Minor 2) with the
 	// straggler's own content already in the row — not merely inferred from the
 	// broadcast count alone.
@@ -2396,7 +2396,7 @@ func TestApply_MonotonicRebindGuard_ReorderedStragglerNeverRebindsBackwards(t *t
 		final, err := mgr.Apply(context.Background(), sess.ID, "claude-old", nil, claudecode.StateInput{Kind: claudecode.KindTurnActivity, PermissionMode: &mode}, true)
 		require.NoError(t, err)
 
-		// The straggler's own row still applies (REQ-9: "route and apply the event") —
+		// The straggler's own row still applies (the event is routed and applied) —
 		// proven by the permission-mode latch actually moving, which a plain no-op
 		// could not produce.
 		assert.Equal(t, PermissionMode("acceptEdits"), final.PermissionMode, "the straggler's own row must still apply")
@@ -2419,7 +2419,7 @@ func TestApply_MonotonicRebindGuard_ReorderedStragglerNeverRebindsBackwards(t *t
 	})
 }
 
-// TestApply_INV3_RawEventNeverBindsFromAnyState covers D16's first half: a raw event
+// TestApply_INV3_RawEventNeverBindsFromAnyState covers the first half: a raw event
 // with an unknown session_id changes no session's ClaudeSessionID and creates no
 // byClaude entry, from every displayed source state.
 func TestApply_INV3_RawEventNeverBindsFromAnyState(t *testing.T) {
@@ -2447,9 +2447,9 @@ func TestApply_INV3_RawEventNeverBindsFromAnyState(t *testing.T) {
 	}
 }
 
-// TestApplyStatus_INV4_NeverTouchesBindingOrStateFromAnyState covers D16's other half:
+// TestApplyStatus_INV4_NeverTouchesBindingOrStateFromAnyState covers the other half:
 // a status post never binds, rebinds, or changes any state-machine-owned field, from
-// every displayed source state (m3-gauges INV-1's cross-state twin).
+// every displayed source state (the cross-state twin of the gauge invariant).
 func TestApplyStatus_INV4_NeverTouchesBindingOrStateFromAnyState(t *testing.T) {
 	states := []State{StateStarted, StatePlanning, StateWorking, StateNeedsInput, StateFailed, StateIdle}
 	for _, state := range states {
@@ -2476,7 +2476,7 @@ func TestApplyStatus_INV4_NeverTouchesBindingOrStateFromAnyState(t *testing.T) {
 	}
 }
 
-// TestApply_INV7_RebindOnOneSessionLeavesABystanderUntouched covers D17: two live
+// TestApply_INV7_RebindOnOneSessionLeavesABystanderUntouched: two live
 // sessions sharing a manager/directory — a rebind on one must never touch the other's
 // ClaudeSessionID or byClaude entry (the m2-terminal multi-instance lesson: a
 // destructive/identity-changing path must be proven safe with a bystander present, not
@@ -2506,8 +2506,8 @@ func TestApply_INV7_RebindOnOneSessionLeavesABystanderUntouched(t *testing.T) {
 	assert.Equal(t, bystander.ID, got)
 }
 
-// TestApply_RebindThenApplyPersistsAndBroadcastsExactlyOnce covers D18: even though the
-// rebind-then-apply path (REQ-9) performs two logical mutations (the /clear-style reset,
+// TestApply_RebindThenApplyPersistsAndBroadcastsExactlyOnce: even though the
+// rebind-then-apply path performs two logical mutations (the /clear-style reset,
 // then the triggering event's own transition), Manager.Apply must coalesce them into a
 // single persist and a single broadcast — never two separate sessionUpsert messages for
 // one ingest POST. The store side is verified by content (the persisted row already
@@ -2538,9 +2538,9 @@ func TestApply_RebindThenApplyPersistsAndBroadcastsExactlyOnce(t *testing.T) {
 	assert.Equal(t, "claude-new", *persisted.ClaudeSessionID)
 }
 
-// --- plan order-sidebar: CreateSession's RailPos assignment ---
+// --- CreateSession's RailPos assignment ---
 
-// TestCreateSession_FirstSessionRailPosIsZeroAndUnpinned covers REQ-1/D5's base case:
+// TestCreateSession_FirstSessionRailPosIsZeroAndUnpinned covers the base case:
 // with no existing sessions, the first one gets railPos 0 and pinned:false.
 func TestCreateSession_FirstSessionRailPosIsZeroAndUnpinned(t *testing.T) {
 	st := openTestStore(t)
@@ -2556,11 +2556,11 @@ func TestCreateSession_FirstSessionRailPosIsZeroAndUnpinned(t *testing.T) {
 	assert.False(t, sess.Pinned)
 }
 
-// TestCreateSession_RailPosIsMaxOfExistingPlusOne covers REQ-1/D5: each new session's
+// TestCreateSession_RailPosIsMaxOfExistingPlusOne: each new session's
 // railPos is strictly greater than every existing session's — "opened order = bottom of
 // the unpinned block" — computed from the manager's in-memory registry, not a
 // pinned-aware MAX (a later session must still sort after an earlier pinned one on
-// creation, since REQ-1 only promises "greater than every existing session's railPos",
+// creation, since only "greater than every existing session's railPos",
 // not "greater than every unpinned one's").
 func TestCreateSession_RailPosIsMaxOfExistingPlusOne(t *testing.T) {
 	st := openTestStore(t)
@@ -2584,7 +2584,7 @@ func TestCreateSession_RailPosIsMaxOfExistingPlusOne(t *testing.T) {
 	assert.False(t, third.Pinned)
 }
 
-// TestCreateSession_RailPosAccountsForAPinnedExistingSession covers REQ-1's own wording
+// TestCreateSession_RailPosAccountsForAPinnedExistingSession covers the requirement's wording
 // precisely from a non-trivial starting state (m1-sessions lesson: don't only test the
 // all-unpinned case) — a pinned existing session (with a high railPos, since pinning
 // renumbers the whole rail) must still be beaten by the new session's railPos.
@@ -2610,11 +2610,11 @@ func TestCreateSession_RailPosAccountsForAPinnedExistingSession(t *testing.T) {
 	assert.Greater(t, third.RailPos, after.RailPos, "the new session's railPos must exceed even the pinned bystander's")
 }
 
-// --- plan order-sidebar: SetPinned ---
+// --- SetPinned ---
 
-// TestSetPinned_PinPersistsAndBroadcastsOnlyChangedSessions covers D6/D15: pinning the
+// TestSetPinned_PinPersistsAndBroadcastsOnlyChangedSessions: pinning the
 // second-of-two unpinned sessions changes *both* of them — b becomes pinned at railPos
-// 0, and a (previously railPos 0) is pushed to railPos 1 to keep INV-1, since the
+// 0, and a (previously railPos 0) is pushed to railPos 1 to keep the rail invariant, since the
 // unpinned block can no longer start at 0 once a pinned block exists ahead of it. Both
 // are real changes the invariant requires, so both (and only both) are broadcast —
 // there is no third bystander here to prove the "nothing else" half; that is covered by
@@ -2654,7 +2654,7 @@ func TestSetPinned_PinPersistsAndBroadcastsOnlyChangedSessions(t *testing.T) {
 	assert.Equal(t, int64(1), aPersisted.RailPos, "D6: the untouched bystander moves down one slot only because the invariant requires it, but is still persisted with its new position")
 }
 
-// TestSetPinned_UnpinPersistsAndBroadcasts covers D7's happy path at the Manager level.
+// TestSetPinned_UnpinPersistsAndBroadcasts covers the happy path at the Manager level.
 func TestSetPinned_UnpinPersistsAndBroadcasts(t *testing.T) {
 	st := openTestStore(t)
 	rec := &upsertsRecorder{}
@@ -2675,7 +2675,7 @@ func TestSetPinned_UnpinPersistsAndBroadcasts(t *testing.T) {
 	assert.False(t, persisted.Pinned)
 }
 
-// TestSetPinned_NoOpDoesNotPersistOrBroadcast covers D8 at the Manager level: pinning a
+// TestSetPinned_NoOpDoesNotPersistOrBroadcast checks at the Manager level: pinning a
 // session already in the requested state issues no store write and no broadcast at all.
 func TestSetPinned_NoOpDoesNotPersistOrBroadcast(t *testing.T) {
 	st := openTestStore(t)
@@ -2696,10 +2696,10 @@ func TestSetPinned_NoOpDoesNotPersistOrBroadcast(t *testing.T) {
 }
 
 // TestSetPinned_NoOpWithABystanderGapFromAnEarlierRemoveStillBroadcastsNothing extends
-// D8 to a dirty rail (m2-terminal lesson: a destructive path — Remove — leaves a shared
+// the no-op rule to a dirty rail (a lesson from the terminal work: a destructive path — Remove — leaves a shared
 // substrate, here the rail's railPos sequence, in a state every other test's tidy setup
 // never reaches). Three sessions are created (railPos 0,1,2); the middle one is removed,
-// leaving a REQ-14-sanctioned gap between the two survivors. A pin call whose flag
+// leaving a permitted gap between the two survivors. A pin call whose flag
 // already matches the current state on one of the survivors must still broadcast and
 // persist nothing — including for the *other*, untouched survivor.
 func TestSetPinned_NoOpWithABystanderGapFromAnEarlierRemoveStillBroadcastsNothing(t *testing.T) {
@@ -2772,9 +2772,9 @@ func TestSetPinned_UnknownSessionReturnsErrUnknownSession(t *testing.T) {
 	assert.ErrorIs(t, err, ErrUnknownSession)
 }
 
-// --- plan order-sidebar: SetOrder ---
+// --- SetOrder ---
 
-// TestSetOrder_AppliesAndBroadcastsOnlyChangedSessions covers D9/D15 at the Manager
+// TestSetOrder_AppliesAndBroadcastsOnlyChangedSessions checks at the Manager
 // level: the listed ids/pinnedCount are applied, persisted, and broadcast — a session
 // whose position/flag didn't change is not among the broadcasts.
 func TestSetOrder_AppliesAndBroadcastsOnlyChangedSessions(t *testing.T) {
@@ -2806,7 +2806,7 @@ func TestSetOrder_AppliesAndBroadcastsOnlyChangedSessions(t *testing.T) {
 	assert.Less(t, bRow.RailPos, aRow.RailPos)
 }
 
-// TestSetOrder_InvalidRequestReturnsErrInvalidOrderAndChangesNothing covers D10/D11 at
+// TestSetOrder_InvalidRequestReturnsErrInvalidOrderAndChangesNothing checks at
 // the Manager level: a 400-shaped request leaves the store and every broadcast list
 // untouched.
 func TestSetOrder_InvalidRequestReturnsErrInvalidOrderAndChangesNothing(t *testing.T) {
@@ -2828,13 +2828,13 @@ func TestSetOrder_InvalidRequestReturnsErrInvalidOrderAndChangesNothing(t *testi
 	assert.Equal(t, beforeRow, afterRow)
 }
 
-// --- plan order-sidebar: Remove and the state machine leave pinned/railPos alone ---
+// --- Remove and the state machine leave pinned/railPos alone ---
 
-// TestRemove_LeavesBystandersPinnedAndRailPosUnchanged covers D18 with the multi-session
+// TestRemove_LeavesBystandersPinnedAndRailPosUnchanged checks with the multi-session
 // coexistence coverage the m2-terminal lesson calls for on a destructive path sharing a
 // substrate (here: the rail's railPos sequence spans every session, not just the removed
 // one) — removing one session must leave every other session's pinned/railPos exactly as
-// they were, gaps and all (REQ-14).
+// they were, gaps and all.
 func TestRemove_LeavesBystandersPinnedAndRailPosUnchanged(t *testing.T) {
 	st := openTestStore(t)
 	mgr := newTestManager(t, st, nil, nil)
@@ -2864,8 +2864,8 @@ func TestRemove_LeavesBystandersPinnedAndRailPosUnchanged(t *testing.T) {
 	assert.Error(t, err, "the removed session's own row is gone")
 }
 
-// TestApply_NeverTouchesPinnedOrRailPos covers D17 (state machine transitions must never
-// write pinned/railPos — display-only columns, m3-gauges INV-1 style discipline): a
+// TestApply_NeverTouchesPinnedOrRailPos covers state machine transitions never writing
+// pinned/railPos (display-only columns): a
 // session pinned at a non-zero railPos is driven through bind, working, needs_input and
 // idle transitions, and pinned/railPos must be byte-identical throughout.
 func TestApply_NeverTouchesPinnedOrRailPos(t *testing.T) {
@@ -2903,7 +2903,7 @@ func TestApply_NeverTouchesPinnedOrRailPos(t *testing.T) {
 }
 
 // TestApplyStatus_NeverTouchesPinnedOrRailPos is TestApply_NeverTouchesPinnedOrRailPos's
-// twin for status-line posts (D17).
+// twin for status-line posts.
 func TestApplyStatus_NeverTouchesPinnedOrRailPos(t *testing.T) {
 	st := openTestStore(t)
 	mgr := newTestManager(t, st, nil, nil)
@@ -2924,7 +2924,7 @@ func TestApplyStatus_NeverTouchesPinnedOrRailPos(t *testing.T) {
 	assert.Equal(t, wantRailPos, final.RailPos)
 }
 
-// --- plan session-lifecycle: identity, reconcile-convergence, atomicity red tests ---
+// --- identity, reconcile-convergence, atomicity red tests ---
 //
 // Every test below is written and run against the unmodified tree (Implementation Notes
 // § Red-first): each documents, in its own comment, the current (buggy) behaviour it
@@ -2942,10 +2942,10 @@ func realTmuxManager(t *testing.T, st *store.Store, onUpsert func(*Session)) (*M
 	return mgr, client
 }
 
-// TestCreateSession_AfterRemovingTheHighestIDTheNextIDIsStrictlyGreater covers D7/REQ-2:
+// TestCreateSession_AfterRemovingTheHighestIDTheNextIDIsStrictlyGreater:
 // a session id must never be reissued, including right after the highest row is deleted
 // by Remove/DeleteSession. session.id is currently an ordinary SQLite ROWID column with
-// no AUTOINCREMENT and no watermark (REQ-1's gap) — deleting the highest row lets the very
+// no AUTOINCREMENT and no watermark (the gap) — deleting the highest row lets the very
 // next insert compute the same max(rowid)+1 and reuse it.
 func TestCreateSession_AfterRemovingTheHighestIDTheNextIDIsStrictlyGreater(t *testing.T) {
 	st := openTestStore(t)
@@ -2969,7 +2969,7 @@ func TestCreateSession_AfterRemovingTheHighestIDTheNextIDIsStrictlyGreater(t *te
 	assert.Greater(t, third.ID, second.ID, "D7/REQ-2: a session id must never be reissued, even right after the highest row is deleted")
 }
 
-// TestReconcile_LiveMusterSessionUnderAPlaceholderTargetIsRepairedAndKeptAlive covers D8
+// TestReconcile_LiveMusterSessionUnderAPlaceholderTargetIsRepairedAndKeptAlive covers
 // (Edge Case 5, SIGKILL between NewSession and RecordLaunch): a row whose tmux_target is
 // still the InsertSession placeholder ("") but whose muster-<id> tmux session is actually
 // live must be repaired and kept alive, not swept. classifySessions today reads
@@ -3005,7 +3005,7 @@ func TestReconcile_LiveMusterSessionUnderAPlaceholderTargetIsRepairedAndKeptAliv
 	assert.True(t, persisted.Alive)
 }
 
-// TestReconcile_AliveFalseRowWithALiveMusterSessionIsRevivedNotSwept covers D9 (Edge Cases
+// TestReconcile_AliveFalseRowWithALiveMusterSessionIsRevivedNotSwept covers (Edge Cases
 // 6/7): a row already marked alive=false — e.g. a SIGKILL landed between a resume's spawn
 // and its persist, or an earlier KillSession silently failed — whose muster-<id> tmux
 // session is nonetheless still live must be revived, not deleted.
@@ -3047,7 +3047,7 @@ func TestReconcile_AliveFalseRowWithALiveMusterSessionIsRevivedNotSwept(t *testi
 	assert.Nil(t, got.EndedAt)
 }
 
-// TestReconcile_AliveRowWithAStaleWindowTargetIsRepairedNotMarkedEnded covers D10 (Edge
+// TestReconcile_AliveRowWithAStaleWindowTargetIsRepairedNotMarkedEnded covers (Edge
 // Case 8): an alive=true row whose stored tmux_target names a window that no longer
 // exists, while its owning muster-<id> tmux session is genuinely still live (under a
 // different window id), must have its target repaired rather than being marked ended —
@@ -3089,7 +3089,7 @@ func TestReconcile_AliveRowWithAStaleWindowTargetIsRepairedNotMarkedEnded(t *tes
 	assert.Equal(t, realTarget, got.TmuxTarget, "the stale window target must be repaired to the real one")
 }
 
-// TestEnd_AlreadyGoneTmuxSessionIsSuccessNotError covers D12/REQ-6 (Edge Case 9): a pane
+// TestEnd_AlreadyGoneTmuxSessionIsSuccessNotError covers Edge Case 9: a pane
 // that died moments before End runs must be treated as an already-successful kill —
 // KillSession today has no "already gone" tolerance (unlike PaneExists/ListSessions) and
 // returns a genuine error for a "no such session" tmux exit, which End propagates as a 500.
@@ -3120,13 +3120,13 @@ func TestEnd_AlreadyGoneTmuxSessionIsSuccessNotError(t *testing.T) {
 	require.NotNil(t, got.EndedAt)
 }
 
-// TestEnd_ConcurrentEndsProduceExactlyOneMarkEndedAndNeverAKillError covers D14/REQ-11:
+// TestEnd_ConcurrentEndsProduceExactlyOneMarkEndedAndNeverAKillError:
 // two concurrent End calls on the same session must serialise the check-then-act so at
 // most one observes ErrSessionNotAlive, exactly one persists+broadcasts the alive:false
 // flip, and neither ever surfaces a raw kill error. End has no per-session lock today, so
 // both goroutines can pass the initial "is it alive" gate before either flips state, and
 // whichever loses the race against the real tmux kill-session gets a genuine "no such
-// session" error back (REQ-6 not yet in effect either) instead of ErrSessionNotAlive.
+// session" error back (an already-gone session was not yet treated as success either) instead of ErrSessionNotAlive.
 func TestEnd_ConcurrentEndsProduceExactlyOneMarkEndedAndNeverAKillError(t *testing.T) {
 	st := openTestStore(t)
 	ctx := context.Background()
@@ -3183,10 +3183,10 @@ func TestEnd_ConcurrentEndsProduceExactlyOneMarkEndedAndNeverAKillError(t *testi
 	assert.Equal(t, 1, endedBroadcasts, "D14: exactly one alive:false broadcast, never zero or two")
 }
 
-// TestHandleRemoveSession... (D15) lives in internal/server/actions_test.go: it needs
+// TestHandleRemoveSession... lives in internal/server/actions_test.go: it needs
 // the shell registry and HTTP handler, which this package doesn't have.
 
-// TestMarkEnded_APersistFailureLeavesTheInMemorySessionAliveMatchingTheDB covers D16: when
+// TestMarkEnded_APersistFailureLeavesTheInMemorySessionAliveMatchingTheDB: when
 // UpdateSession fails inside markEnded, the in-memory alive:=false mutation must roll back
 // so memory never disagrees with the DB — today's markEnded flips sess.Alive before the
 // persist and never rolls it back on a persist error.
@@ -3219,7 +3219,7 @@ func TestMarkEnded_APersistFailureLeavesTheInMemorySessionAliveMatchingTheDB(t *
 }
 
 // TestCheckLiveness_ListSessionsFailureLeavesSessionsAsIsDespitePaneExistsFalse covers
-// D17/REQ-16: before believing a pane is gone, checkOneLiveness must confirm the tmux
+// Before believing a pane is gone, checkOneLiveness must confirm the tmux
 // server is reachable at all (a successful ListSessions) — a server-level failure (tmux
 // unreachable) must be treated as transient and leave sessions untouched, never as N
 // simultaneous deaths. checkOneLiveness today consults only PaneExists.
@@ -3254,11 +3254,11 @@ func TestCheckLiveness_ListSessionsFailureLeavesSessionsAsIsDespitePaneExistsFal
 }
 
 // ---------------------------------------------------------------------------------------
-// KillAllShells / ShellCount / PaneOf (general-cleanup REQ-13, D11/D12; REQ-12)
+// KillAllShells / ShellCount / PaneOf
 
-// TestKillAllShells_KillsEveryShellAndNoClaudeSessions covers D11: KillAllShells kills
+// TestKillAllShells_KillsEveryShellAndNoClaudeSessions: KillAllShells kills
 // every muster-<n>-shell tmux session on the socket and none of the muster-<n> ones, and
-// counts an already-gone shell as killed (REQ-13/kb:adr/actions-kill-is-idempotent — the
+// counts an already-gone shell as killed (kb:adr/actions-kill-is-idempotent — the
 // fake's KillSession has no notion of "already gone" to fail on, mirroring
 // tmux.Client.KillSession's own idempotence).
 func TestKillAllShells_KillsEveryShellAndNoClaudeSessions(t *testing.T) {
@@ -3274,10 +3274,10 @@ func TestKillAllShells_KillsEveryShellAndNoClaudeSessions(t *testing.T) {
 		"D11: only muster-<n>-shell names are killed, never a muster-<n> claude session or an unrelated tmux session")
 }
 
-// TestKillAllShells_OneShellAlreadyGoneStillCountsAsKilled covers D11's idempotence
+// TestKillAllShells_OneShellAlreadyGoneStillCountsAsKilled covers the idempotence
 // clause directly: a shell whose KillSession happens to fail is logged and skipped, never
 // stopping the rest — mirroring reportAndSweepUnknown's own "one id's failure does not
-// stop the rest" discipline (REQ-10).
+// stop the rest" discipline.
 func TestKillAllShells_OneShellFailingDoesNotStopTheRest(t *testing.T) {
 	st := openTestStore(t)
 	killer := newFakeTmuxSessions("muster-1-shell", "muster-2-shell")
@@ -3306,9 +3306,9 @@ func TestKillAllShells_EmptySocketReadsAsNoShells(t *testing.T) {
 	assert.Equal(t, 0, killed)
 }
 
-// TestKillAllShells_ListSessionsFailureIsReturnedAsAnError covers D12: a ShellCount/
+// TestKillAllShells_ListSessionsFailureIsReturnedAsAnError: a ShellCount/
 // KillAllShells error (the socket unreachable) is returned to the caller — cmd/musterd's
-// shutdown path is the one that logs it and treats it as zero, per REQ-13's Implementation
+// shutdown path is the one that logs it and treats it as zero, per the Implementation
 // Notes ("ShellCount runs before resolveOnExit... error path logs at Warn and uses 0");
 // the manager method itself just reports the failure honestly.
 func TestKillAllShells_ListSessionsFailureIsReturnedAsAnError(t *testing.T) {
@@ -3322,7 +3322,7 @@ func TestKillAllShells_ListSessionsFailureIsReturnedAsAnError(t *testing.T) {
 	require.Error(t, err, "D12: a socket-unreachable failure must be reported, not swallowed as zero shells")
 }
 
-// TestShellCount_CountsOnlyShellNames covers D12's positive half: ShellCount counts every
+// TestShellCount_CountsOnlyShellNames covers the positive half: ShellCount counts every
 // muster-<n>-shell name and ignores muster-<n> and unrelated names, without killing
 // anything.
 func TestShellCount_CountsOnlyShellNames(t *testing.T) {
@@ -3337,7 +3337,7 @@ func TestShellCount_CountsOnlyShellNames(t *testing.T) {
 	assert.Empty(t, killer.killedNames(), "ShellCount must never kill anything")
 }
 
-// TestShellCount_ListSessionsFailureIsReturnedAsAnError covers D12's error-propagation
+// TestShellCount_ListSessionsFailureIsReturnedAsAnError covers the error-propagation
 // half, the ShellCount-specific twin of TestKillAllShells_ListSessionsFailureIsReturnedAsAnError.
 func TestShellCount_ListSessionsFailureIsReturnedAsAnError(t *testing.T) {
 	st := openTestStore(t)
@@ -3350,7 +3350,7 @@ func TestShellCount_ListSessionsFailureIsReturnedAsAnError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestPaneOf_KnownSessionReturnsItsStoredPaneEmptyPaneIsOKTrue covers REQ-12's
+// TestPaneOf_KnownSessionReturnsItsStoredPaneEmptyPaneIsOKTrue covers the
 // corroboration read: PaneOf reports id's stored pane, with an empty pane and ok:true
 // distinguished from an unknown id (ok:false) — INV-EMPTY-PANE-ROUTES depends on that
 // distinction (an empty stored pane is "not yet recorded", not "unknown").
@@ -3480,7 +3480,7 @@ func TestAliveByClaudeSessionID_TwoAliveSessionsDoNotCrossOver(t *testing.T) {
 	assert.Equal(t, sessB.ID, idB2)
 }
 
-// TestAliveByClaudeSessionID_NewAliveBindWinsOverADeadRowsStaleMapping is D12's
+// TestAliveByClaudeSessionID_NewAliveBindWinsOverADeadRowsStaleMapping is the
 // underlying mechanism: Apply's bind step overwrites byClaude unconditionally
 // (apply.go), so once a second, alive session binds to a claude id a now-dead session
 // also carries, the lookup must report only the new alive row — proving the launcher's

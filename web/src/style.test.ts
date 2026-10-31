@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-// W6/REQ-10: the connection health dot's three colours are semantic tokens declared in each
+// The connection health dot's three colours are semantic tokens declared in each
 // of the three theme blocks, and the dot's component rule paints with those tokens only.
 // style.css is plain text, so this reads the shipped file rather than a copy of its values.
 const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");

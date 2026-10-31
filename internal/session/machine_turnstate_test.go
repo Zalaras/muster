@@ -48,7 +48,7 @@ func assertTurnStateInvariants(t *testing.T, sess *Session) {
 func strp(s string) *string { return &s }
 func intp(n int) *int       { return &n }
 
-// TestApplyInput_PromptlessIdlePrompt covers REQ-4: a prompt-less idle_prompt (the shape
+// TestApplyInput_PromptlessIdlePrompt: a prompt-less idle_prompt (the shape
 // that follows /clear, kb:fact/clear-idle-prompt-carries-no-prompt-id) changes no field from
 // any of the six states, whoever owns the wait.
 func TestApplyInput_PromptlessIdlePrompt(t *testing.T) {
@@ -97,7 +97,7 @@ func TestApplyInput_PromptlessIdlePrompt(t *testing.T) {
 	})
 }
 
-// TestApplyInput_PostToolBatchLandsActive covers D4's machine half: PostToolBatch interprets
+// TestApplyInput_PostToolBatchLandsActive covers the machine half: PostToolBatch interprets
 // to ordinary turn activity, so from a main-owned needs_input an unmarked one lands ACTIVE
 // with attention cleared and the latch updated — the plan-rejected-with-feedback path
 // (kb:fact/plan-feedback-emits-only-post-tool-batch).
@@ -130,7 +130,7 @@ func TestApplyInput_PostToolBatchLandsActive(t *testing.T) {
 	}
 }
 
-// TestApplyInput_WaitOwnership_INVB covers D5/INV-B: for every source state a wait can be
+// TestApplyInput_WaitOwnership_INVB covers wait ownership: for every source state a wait can be
 // entered from, the wait raised by main and then by subagent A, and turn activity from main,
 // from A and from a second subagent B, asserts after each row that only the owner's activity
 // clears the wait — and INV-A holds either way. A needs_input source is crossed against both
@@ -289,7 +289,7 @@ func TestApplyInput_PermissionOwnerRecorded(t *testing.T) {
 	}
 }
 
-// TestApplyInput_SubagentOwnedWaitSurvivesMainStop covers D14/REQ-8 and D6: a main Stop while a
+// TestApplyInput_SubagentOwnedWaitSurvivesMainStop: a main Stop while a
 // subagent owns the wait keeps needs_input, attention and the owner, yet still closes the prompt
 // and captures lastActivity, backgroundTasks and the latch; while a main-owned wait still ends
 // at Stop. A main StopFailure or an interrupt ends a subagent's wait (edge 5).
@@ -367,7 +367,7 @@ func TestApplyInput_SubagentOwnedWaitSurvivesMainStop(t *testing.T) {
 	})
 }
 
-// TestApplyInput_TurnInterrupted covers REQ-4/D8/D9's machine arm.
+// TestApplyInput_TurnInterrupted covers the machine arm.
 func TestApplyInput_TurnInterrupted(t *testing.T) {
 	interrupt := claudecode.StateInput{Kind: claudecode.KindTurnInterrupted}
 
@@ -449,7 +449,7 @@ func TestApplyInput_TurnInterrupted(t *testing.T) {
 	})
 }
 
-// TestApplyInput_BackgroundTasksCount covers D13/REQ-5: a Stop sets the count, a later empty
+// TestApplyInput_BackgroundTasksCount: a Stop sets the count, a later empty
 // Stop zeroes it, a Stop with no list, StopFailure and every other event leave it alone, and
 // clear-rebind (explicit and escalated) and resume-bind reset it — a plain same-id bind does not.
 func TestApplyInput_BackgroundTasksCount(t *testing.T) {

@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { parseMessage } from "./messages";
 
-// Plan auto-update (kb:anchor/ws.update): a fully-populated UpdateInfo, badge showing
+// (kb:anchor/ws.update) A fully-populated UpdateInfo, badge showing
 // (available set, installed null), no apply in flight. A real daemon always sends a full
-// object here (never an explicit `null` — only a pre-plan daemon omits the key entirely,
+// object here (never an explicit `null` — only an older daemon omits the key entirely,
 // which `parseSnapshot` treats differently from an explicit `null`, see the "parseSnapshot
 // — update" describe block below), so this — not `null` — is what belongs on validSnapshot.
 const validUpdateInfo = {
   running: "0.10.0",
   install: "installer",
   remedy: null,
-  // Plan rail-card-improvements-2 (kb:anchor/ws.update): true iff a release check is
+  // (kb:anchor/ws.update) True iff a release check is
   // possible at all — see the "canCheck is missing/not a boolean" cases in the
   // "parseSnapshot — update" describe block below.
   canCheck: true,
@@ -72,8 +72,8 @@ describe("parsePrefs — railSort (plan order-sidebar REQ-5 / kb:anchor/prefs.pu
     expect(parseMessage(snapshot)).toBeNull();
   });
 });
-// Plan rail-card-improvements (kb:anchor/prefs.put, W7): same missing-key-defaults /
-// out-of-enum-rejects shape as railSort above — a pre-plan daemon payload (no
+// (kb:anchor/prefs.put) Same missing-key-defaults /
+// out-of-enum-rejects shape as railSort above — an older daemon payload (no
 // railDensity/railActivity keys at all) must still parse, defaulting to the daemon's own
 // documented defaults ("comfortable"/"turn").
 describe("parsePrefs — railDensity (plan rail-card-improvements / kb:anchor/prefs.put)", () => {

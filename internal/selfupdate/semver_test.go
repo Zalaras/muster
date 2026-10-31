@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestParseRelease_Table covers D7: ParseRelease accepts exactly v?MAJOR.MINOR.PATCH and
+// TestParseRelease_Table: ParseRelease accepts exactly v?MAJOR.MINOR.PATCH and
 // rejects anything with a pre-release/build suffix or a short form.
 func TestParseRelease_Table(t *testing.T) {
 	tests := []struct {
@@ -39,7 +39,7 @@ func TestParseRelease_Table(t *testing.T) {
 	}
 }
 
-// TestVersion_Compare covers D9: numeric ordering field by field, never lexicographic —
+// TestVersion_Compare: numeric ordering field by field, never lexicographic —
 // "0.9.0" must precede "0.10.0" despite "10" < "9" as strings.
 func TestVersion_Compare(t *testing.T) {
 	tests := []struct {
@@ -68,7 +68,7 @@ func TestVersion_String(t *testing.T) {
 	assert.Equal(t, "12.345.6789", Version{12, 345, 6789}.String())
 }
 
-// TestVersion_CompareOnlyStrictlyGreaterIsAvailable covers D9's second clause via the
+// TestVersion_CompareOnlyStrictlyGreaterIsAvailable covers the second clause via the
 // three-way comparator a caller (updateManager) uses to decide "available": equal or
 // lesser must never look "greater than zero".
 func TestVersion_CompareOnlyStrictlyGreaterIsAvailable(t *testing.T) {

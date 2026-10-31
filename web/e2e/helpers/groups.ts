@@ -377,7 +377,7 @@ export interface GroupsFrameHold {
 
 /**
  * Proxies the dashboard's `/ws` socket and can withhold the whole-list `groups` frames — the
- * "dropped frame" the protocol is built to tolerate (REQ-26) — so a test can hold a dialog's view of
+ * "dropped frame" the protocol is built to tolerate — so a test can hold a dialog's view of
  * the groups stale deterministically instead of racing the 1 s render tick. Every other frame passes
  * through untouched. Register before the page navigates: only sockets opened afterwards are routed.
  */

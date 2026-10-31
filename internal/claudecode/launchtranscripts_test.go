@@ -12,7 +12,7 @@ import (
 )
 
 // writePastTranscript is this file's own fixture writer: unlike claudecodetest's exported
-// WriteTranscript (which every other package's tests must go through, D17), this package
+// WriteTranscript (which every other package's tests must go through), this package
 // owns the transcript wire format outright, so its own tests spell the JSONL lines
 // directly rather than round-tripping through the helper package they define.
 func writePastTranscript(t *testing.T, folder, sessionID string, lines ...string) string {
@@ -116,7 +116,7 @@ func TestCandidateFolders(t *testing.T) {
 	})
 }
 
-// TestPastSessions_SharedFolderFiltersByCwd covers D3: two directories that share one
+// TestPastSessions_SharedFolderFiltersByCwd: two directories that share one
 // transcript folder ("a.b" and "a-b" both encode to "-a-b") are told apart by each
 // session's own recorded cwd, never by the folder they happen to share.
 func TestPastSessions_SharedFolderFiltersByCwd(t *testing.T) {
@@ -142,7 +142,7 @@ func TestPastSessions_SharedFolderFiltersByCwd(t *testing.T) {
 	assert.Equal(t, "session-dash", gotDash[0].ClaudeSessionID)
 }
 
-// TestPastSessions_LongDirectoryFoundByPrefix covers D4: a directory whose encoded name
+// TestPastSessions_LongDirectoryFoundByPrefix: a directory whose encoded name
 // exceeds 200 characters is found by its folder's 200-char prefix, and the real content
 // is still filtered by cwd exactly like any other directory.
 func TestPastSessions_LongDirectoryFoundByPrefix(t *testing.T) {
@@ -164,7 +164,7 @@ func TestPastSessions_LongDirectoryFoundByPrefix(t *testing.T) {
 	assert.Equal(t, "session-long", got[0].ClaudeSessionID)
 }
 
-// TestPastSessions_TitlePrecedence covers D5: last custom-title wins over ai-title, an
+// TestPastSessions_TitlePrecedence: last custom-title wins over ai-title, an
 // empty later value never overwrites an earlier non-empty one, and a transcript with
 // neither line yields a nil title.
 func TestPastSessions_TitlePrecedence(t *testing.T) {
@@ -248,7 +248,7 @@ func TestPastSessions_LastPromptPermissionModeAndModelTakeTheLastLine(t *testing
 	assert.Equal(t, "claude-opus", *s.Model)
 }
 
-// TestPastSessions_StubsAndNestedTreesAreNotListed covers D6: a transcript with no cwd
+// TestPastSessions_StubsAndNestedTreesAreNotListed: a transcript with no cwd
 // line at all is a stub and never listed, and neither memory/ nor a subagent tree
 // nested a level down under the transcript folder is ever read as a session — both are
 // directories os.ReadDir(folder) reports without descending into.
@@ -280,7 +280,7 @@ func TestPastSessions_StubsAndNestedTreesAreNotListed(t *testing.T) {
 	assert.Equal(t, "real-session", got[0].ClaudeSessionID)
 }
 
-// TestPastSessions_LargeTranscriptTailMissingCwdFallsBackToHead covers D7: a transcript
+// TestPastSessions_LargeTranscriptTailMissingCwdFallsBackToHead: a transcript
 // over transcriptTailBytes whose tail alone carries no cwd line is resolved from its
 // head instead — the shape a session recorded early (cwd, near the start) and then grew
 // well past the tail-read window without another cwd line ever being written.
@@ -312,7 +312,7 @@ func TestPastSessions_LargeTranscriptTailMissingCwdFallsBackToHead(t *testing.T)
 
 // TestPastSessions_HeadFallbackDoesNotClobberATailFoundValue is an implementation-bug
 // finding, not a passing acceptance test: scanTranscript's head fallback (triggered by a
-// missing cwd in the tail, D7) re-scans the *whole* head chunk into the same
+// missing cwd in the tail) re-scans the *whole* head chunk into the same
 // transcriptScan the tail already populated, so an earlier, stale line of a type the
 // tail already found a later value for (permission-mode here) unconditionally
 // overwrites it — apply() only checks "is the new value non-empty", never "which chunk,
@@ -321,7 +321,7 @@ func TestPastSessions_LargeTranscriptTailMissingCwdFallsBackToHead(t *testing.T)
 // any field whose true last value sits in the tail while an earlier value of the same
 // type also sits within the head window. A long resumed-from-list session that changed
 // permission mode once early and again later (well within the measured ~34 KB "always
-// last" bound, kb:fact/transcript-session-lines) can have D9's resume seed the mode from
+// last" bound, kb:fact/transcript-session-lines) can have the resume seed the mode from
 // the wrong, earlier line whenever the file is also large enough to push cwd out of the
 // tail. Left failing (red) rather than adjusted to match the actual output: see this
 // plan's daemon-tests report for the reproduction. Not fixed here — the constraints bar
@@ -333,7 +333,7 @@ func TestPastSessions_HeadFallbackDoesNotClobberATailFoundValue(t *testing.T) {
 	require.NoError(t, os.MkdirAll(folder, 0o700))
 
 	// Head: an early, stale permission-mode line, plus the one cwd line (so the head
-	// fallback triggers per D7 — the tail below carries no cwd at all).
+	// fallback triggers — the tail below carries no cwd at all).
 	head := permissionModeLine("default") + "\n" + cwdLine(dir) + "\n"
 	fillerLine := "not valid json filler line\n"
 	filler := strings.Repeat(fillerLine, 2*transcriptTailBytes/len(fillerLine)+10)
@@ -355,7 +355,7 @@ func TestPastSessions_HeadFallbackDoesNotClobberATailFoundValue(t *testing.T) {
 		"the transcript's actual last permission-mode line is in the tail; the head fallback must not let an earlier line win")
 }
 
-// TestPastSessions_AbsentOrUnreadableProjectsDirYieldsEmptyListNotError covers D8: a
+// TestPastSessions_AbsentOrUnreadableProjectsDirYieldsEmptyListNotError: a
 // projects directory that does not exist (a fresh machine's Claude Code may never have
 // created one) degrades to an empty list rather than failing the request.
 func TestPastSessions_AbsentOrUnreadableProjectsDirYieldsEmptyListNotError(t *testing.T) {

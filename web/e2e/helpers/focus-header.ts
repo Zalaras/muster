@@ -1,6 +1,5 @@
-// Helpers for the Focus header: its give-way order (plan title-crop-stop-resume-button
-// REQ-2), its right-aligned cluster and the one Session actions ⋯ button that holds the place
-// of the Stop/Resume and Remove buttons (plan remove-unread-right-click-1 REQ-4, REQ-5),
+// Helpers for the Focus header: its give-way order, its right-aligned cluster and the one
+// Session actions ⋯ button that holds the place of the Stop/Resume and Remove buttons,
 // measured from the live layout.
 //
 // Everything here is pure layout — boxes read from the live header, never a pixel

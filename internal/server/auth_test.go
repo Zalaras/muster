@@ -131,7 +131,7 @@ func TestHandleHealthz(t *testing.T) {
 }
 
 func TestHandleHealthz_NoCookieRequired(t *testing.T) {
-	// REQ-1: /healthz responds with no auth at all, unlike every other route.
+	// /healthz responds with no auth at all, unlike every other route.
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
@@ -208,7 +208,7 @@ func TestRoutes_APIStateRequiresCookie(t *testing.T) {
 }
 
 func TestRoutes_StaticRequiresCookie(t *testing.T) {
-	// REQ-5 / Edge Case 14: unauthenticated (or stale/garbage-cookie) static requests get
+	// Unauthenticated (or stale/garbage-cookie) static requests get
 	// the HTML relaunch page, never the SPA — for any path under "/", not just "/".
 	srv := newTestServer(t, ClaudeCodeInfo{})
 

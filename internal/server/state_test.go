@@ -74,7 +74,7 @@ func TestHandleState_ReturnsSnapshotJSON(t *testing.T) {
 	assert.Equal(t, "unknown", snap.ClaudeTheme.Family)
 }
 
-// TestCurrentSnapshot_FreshDaemonHasFollowThemeAndUnknownFamily covers D15 directly: a
+// TestCurrentSnapshot_FreshDaemonHasFollowThemeAndUnknownFamily checks directly: a
 // fresh daemon built with the zero-value (polling-disabled) Config has prefs.theme
 // "follow" and claudeTheme.family "unknown" — the same assertion as
 // TestHandleState_ReturnsSnapshotJSON's added lines, but against currentSnapshot
@@ -88,7 +88,7 @@ func TestCurrentSnapshot_FreshDaemonHasFollowThemeAndUnknownFamily(t *testing.T)
 	assert.Equal(t, "unknown", snap.ClaudeTheme.Family)
 }
 
-// TestCurrentSnapshot_UsesThemePollerCurrentFamilyWhenPollingEnabled covers REQ-15's
+// TestCurrentSnapshot_UsesThemePollerCurrentFamilyWhenPollingEnabled covers the
 // wiring in currentSnapshot: once the theme poller has read a known family, a snapshot
 // reflects it rather than the fixed "unknown" default buildSnapshot returns. tick() is
 // called directly (not Start()) so the test has no goroutine-timing dependency.
@@ -115,7 +115,7 @@ func TestCurrentSnapshot_UsesThemePollerCurrentFamilyWhenPollingEnabled(t *testi
 }
 
 // TestCurrentSnapshot_LoadsPersistedPrefsFromKV covers the currentSnapshot half of
-// REQ-10 directly (D10's daemon-restart half lives in prefs_test.go): once a prefs PUT
+// the persisted-prefs requirement directly (the daemon-restart half lives in prefs_test.go): once a prefs PUT
 // has landed in kv, a later snapshot (GET /api/state or the WS `snapshot`) reflects it,
 // not the fixed default buildSnapshot returns.
 func TestCurrentSnapshot_LoadsPersistedPrefsFromKV(t *testing.T) {

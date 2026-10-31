@@ -1,10 +1,9 @@
-// usage — the display properties of plan rail-card-organise's prompt-cache warmth (#84:
+// usage — the display properties of the prompt-cache warmth (#84:
 // the card timer's tint, underline and hover panel, the group header's extra timer and the
-// popover's row timers, REQ-1 to REQ-3 and REQ-24 to REQ-31), plan m3-gauges (the context
-// gauge and the masthead bars, E1/E3/E4/E5/E12), plan masthead-indicators (the bracketed
-// reset suffix, its hover and the dot-sized status, REQ-4/REQ-7/REQ-12), the masthead's
-// width tiers (ADR usage-masthead-narrow-width-shrinks-bars, #52) and plan usage-model-bar's
-// select (E2 and its two review regressions), re-levelled on 2026-10-20 from
+// popover's row timers), the context gauge and the masthead bars, the bracketed
+// reset suffix, its hover and the dot-sized status, the masthead's
+// width tiers (ADR usage-masthead-narrow-width-shrinks-bars, #52) and the per-model
+// select (and its two review regressions), re-levelled on 2026-10-20 from
 // web/e2e/{cache-warmth,gauges,masthead-indicators,masthead-layout,usage-model}.spec.ts
 // (plans/_audit/relevel/usage.md). Nothing here changes state: every cache, bucket, model
 // window and view comes from the `cache-warmth-*`, `usage-*` scenarios' prefs and sessions.
@@ -92,7 +91,7 @@ function warmCard(
   return { timer: cardTimer(railCardExact(page, title)), remaining };
 }
 
-// --- prompt-cache warmth: the card timer (plan rail-card-organise E14, REQ-24 to REQ-28) ---
+// --- prompt-cache warmth: the card timer ---
 
 test("an idle session's timer is tinted and hovers as warm, turns cooling with a dotted underline in the last 15% of its lifetime and plain cold past expiry as the page clock advances with no new post (REQ-24, REQ-25, REQ-27, REQ-28, E14)", async ({
   page,
@@ -236,7 +235,7 @@ test("every state shows an unknown plain timer before a first reply and a tinted
     await expect(timer).toHaveAttribute("data-cache", "warm");
     await expect(timer).toHaveAttribute("aria-description", warmHover(remaining));
   }
-  // E17: a working session's timer is tinted, part way along the ramp.
+  // A working session's timer is tinted, part way along the ramp.
   const working = warmCard(page, fixture, "known-working", 3600);
   await expectTimerFade(page, working.timer, working.remaining / 3600);
 
@@ -290,7 +289,7 @@ test("a Tiles strip card's timer carries the same warmth as its rail card (REQ-2
   await expect(timer).toHaveAttribute("aria-description", "cache cold");
 });
 
-// --- the cache hover panel (plan rail-card-organise REQ-1 to REQ-3) ---
+// --- the cache hover panel ---
 
 test("a pointer that leaves a card timer inside the popover delay opens no panel, even though it stays on the card (REQ-1, edge case 1)", async ({
   page,
@@ -376,10 +375,10 @@ test("a Tiles strip card's timer opens the same cache panel on hover and closes 
   await expect(tip).toHaveCount(0);
 });
 
-// --- the group header's extra timer and the popover's row timers (REQ-29 to REQ-31, E18, E19) ---
+// --- the group header's extra timer and the popover's row timers ---
 
 /** `<warm> of <known> warm · next cold in …` for a header, from its waiting members' caches
- * `secondsOn` after the epoch — the plan's hover wording (REQ-30). */
+ * `secondsOn` after the epoch — the plan's hover wording. */
 function headerHover(remaining: number[], secondsOn = 0): string {
   const left = remaining.map((r) => r - secondsOn);
   const warm = left.filter((r) => r > 0);
@@ -531,7 +530,7 @@ test("the header popover shows a state timer beside every session's title, carry
     .toBe(true);
 });
 
-// --- the context gauge and the masthead bars (plan m3-gauges) ---
+// --- the context gauge and the masthead bars ---
 
 /** The one session of a single-session fixture. */
 function onlySession(fixture: RenderFixture): RenderFixture["snapshot"]["sessions"][number] {
@@ -614,7 +613,7 @@ test("a full status post fills both masthead gauge bars with rounded percentages
 
   await expect(mastheadBucket(page, "5h")).toContainText("5h");
   await expect(mastheadBucket(page, "5h")).toContainText(`${Math.round(fiveHour.usedPct)}%`);
-  // REQ-14 / plan masthead-indicators REQ-4: the reset suffix is present whenever the
+  // The reset suffix is present whenever the
   // bucket is known, as `(HH:MM)` or `(HH:MM Ddd)`; which of the two is the page clock's
   // business and has its own tests below.
   await expect(mastheadBucketResets(page, "5h")).toHaveText(
@@ -629,7 +628,7 @@ test("a full status post fills both masthead gauge bars with rounded percentages
   );
   await expect(mastheadBucketTrack(page, "7d")).toHaveCount(1);
 
-  // Plan masthead-indicators REQ-1: the model the status line carried no longer shows
+  // The model the status line carried no longer shows
   // in the masthead at all.
   await expect(removedModelReadout(page)).toHaveCount(0);
 });
@@ -652,12 +651,12 @@ test("a status post at or above 60% renders the hot context track and the warn m
     `${Math.round(knownBucket(fixture, "fiveHour").usedPct)}%`,
   );
   await expect(mastheadBucketWarn(page, "5h")).toHaveCount(1);
-  // The 7d bucket stays under threshold — R1's honesty check: no surface renders a
+  // The 7d bucket stays under threshold — an honesty check: no surface renders a
   // threshold class it hasn't earned.
   await expect(mastheadBucketWarn(page, "7d")).toHaveCount(0);
 });
 
-// --- the reset suffix and the health dot (plan masthead-indicators REQ-4, REQ-7, REQ-12) ---
+// --- the reset suffix and the health dot ---
 
 function resetsOf(fixture: RenderFixture, bucket: "fiveHour" | "sevenDay"): Date {
   return new Date(knownBucket(fixture, bucket).resetsAt);
@@ -918,7 +917,7 @@ async function openWidestMasthead(
 }
 
 // 1280 is the width browser review cycle 3 found the readout's reserved width pushing
-// #connection-status off-screen at, with every gauge known (plan REQ-5).
+// #connection-status off-screen at, with every gauge known.
 for (const width of [1512, 1440, 1280]) {
   test(`at ${width}px with every gauge known, the model-week selector showing and other-day resets on all three bars, the masthead is one row with no wrapped text and no model readout (E7, REQ-11, issue #52)`, async ({
     page,
@@ -1046,7 +1045,7 @@ test("at and below the 1840px tier the masthead gauge bars shrink to 40px, and a
   await expect(wideBar).toHaveCSS("width", "96px");
 });
 
-// --- the per-model window's select (plan usage-model-bar E2 and its review regressions) ---
+// --- the per-model window's select (and its review regressions) ---
 
 test("before the first fetch completes, the readout reads unknown with a disabled single-option select and no track markup (E2)", async ({
   page,
@@ -1126,7 +1125,7 @@ test("a usageModel pref naming a model absent from a non-null list shows a disab
   expect(listed.length).toBeGreaterThan(0);
   expect(listed).not.toContain(pref);
 
-  // INV-2 still holds: the honest "unknown" reading with zero track markup, even
+  // The honest "unknown" reading with zero track markup, even
   // though the underlying list is non-null and non-empty.
   await expect(mastheadModelWeekPercent(page)).toHaveText(/unknown/i);
   await expect(mastheadModelWeekTrack(page)).toHaveCount(0);

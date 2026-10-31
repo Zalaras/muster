@@ -31,22 +31,20 @@ import { queryEvents } from "./helpers/db";
 import { readerRegion, renderedBody } from "./helpers/reader";
 import { dropFiles, dropNotice, liveTile, liveTileById, terminalRegion } from "./helpers/terminal";
 
-// Plan plain-terminal-session — REQ-1 through REQ-13, INV-1 through INV-6.
-// Plan acceptance: E1-E16 (E15 pairs with E7; there is no E14-numbered daemon gap here —
-// the plan's own list simply orders E15 after E7/E8 rather than at the tail).
+// The plain-shell journeys.
 //
 // The daemon and tmux are real throughout, same as terminal.spec.ts/drop.spec.ts — but
 // unlike every OTHER surface this suite tests, a plain shell is a REAL interactive
-// `$SHELL` process (REQ-1: "the user's $SHELL (fallback /bin/zsh)"), never the
+// `$SHELL` process (the requirement: "the user's $SHELL (fallback /bin/zsh)"), never the
 // `-claude-bin` stub. That is not the "never launch a real claude" hard rule being
 // bent — `/bin/zsh`/`/bin/sh` is not Claude Code, carries no subscription cost, and is
-// exactly what REQ-1 specifies must run. The Claude side of every session here still
+// exactly what the requirement specifies must run. The Claude side of every session here still
 // only ever runs the harness's stub (no real `claude` process anywhere in this file).
 //
 // Every test takes the per-test `daemon` fixture (helpers/fixtures.ts), mirroring
 // terminal.spec.ts's file header: Focus auto-focuses "top of sort", which is only THIS
 // test's lone session when no other test shares the daemon. Several tests also assert
-// the daemon-global tmux session list (`daemon.tmuxSessions()`), and E8 restarts its
+// the daemon-global tmux session list (`daemon.tmuxSessions()`), and one test restarts its
 // daemon — both need a daemon nobody else is using.
 
 test("switching to shell in Focus shows a live shell whose prompt responds to typed input, and switching back to claude shows the Claude pane again (E1)", async ({
@@ -86,7 +84,7 @@ test("switching to shell in Focus shows a live shell whose prompt responds to ty
     await expect(claudeRegion).toHaveCount(0);
     await expect(shellBtn).toHaveAttribute("aria-pressed", "true");
     await expect(claudeBtn).toHaveAttribute("aria-pressed", "false");
-    // REQ-1: a freshly spawned, still-idle shell puts no indicator in the segment — the
+    // A freshly spawned, still-idle shell puts no indicator in the segment — the
     // "no data yet" and "idle" states are deliberately indistinguishable.
     await expect(shellActivityIndicator(shellBtn)).toHaveCount(0);
 
@@ -102,7 +100,7 @@ test("switching to shell in Focus shows a live shell whose prompt responds to ty
     await expect(terminalRegion(page, "plain-shell-e1")).toBeVisible({ timeout: 15_000 });
     await expect(shellSurfaceRegion(page, "plain-shell-e1")).toHaveCount(0);
     await expect(claudeBtn).toHaveAttribute("aria-pressed", "true");
-    // Still no indicator — the shell is still running, but idle (REQ-1).
+    // Still no indicator — the shell is still running, but idle.
     await expect(shellActivityIndicator(mainheadSurfaceButton(page, "shell"))).toHaveCount(0);
   } finally {
     await cleanup();
@@ -203,7 +201,7 @@ test("a shell can be started on a session whose alive is false, and the claude s
     await expect(page.locator("#dead-surface")).toBeVisible({ timeout: 15_000 });
     await expect(mainheadSurfaceButton(page, "claude")).toHaveAttribute("aria-pressed", "true");
 
-    // REQ-7: the shell route never consults `alive` — spawning on a dead session works.
+    // The shell route never consults `alive` — spawning on a dead session works.
     await mainheadSurfaceButton(page, "shell").click();
     const shellRegion = shellSurfaceRegion(page, "plain-shell-e5-b");
     await expect(shellRegion).toBeVisible({ timeout: 15_000 });
@@ -245,7 +243,7 @@ test("typing exit closes the shell socket and swaps the visible surface back to 
     await expect(mainheadSurfaceButton(page, "claude")).toHaveAttribute("aria-pressed", "true");
     await expect(mainheadSurfaceButton(page, "shell")).toHaveAttribute("aria-pressed", "false");
 
-    // REQ-8's respawn: the next switch to shell spawns a fresh one.
+    // The respawn: the next switch to shell spawns a fresh one.
     await mainheadSurfaceButton(page, "shell").click();
     await expect(shellSurfaceRegion(page, "plain-shell-e6")).toBeVisible({ timeout: 15_000 });
   } finally {
@@ -277,7 +275,7 @@ test("running claude inside a shell leaves the parent session's state, stateSinc
     const before = await getState(page, daemon);
     const parentBefore = findSession(before, session.id);
 
-    // Spawn the shell (isolation is asserted from this source state too — INV-1's "spawned
+    // Spawn the shell (isolation is asserted from this source state too — the "spawned
     // after the parent was Resumed" is separate; this is the plain "freshly spawned" one).
     await mainheadSurfaceButton(page, "shell").click();
     await expect(shellSurfaceRegion(page, "plain-shell-e7")).toBeVisible({ timeout: 15_000 });
@@ -312,7 +310,7 @@ test("running claude inside a shell leaves the parent session's state, stateSinc
     expect(parentAfter.claudeSessionId).toBe(parentBefore.claudeSessionId);
     expect(parentAfter.context).toEqual(parentBefore.context);
 
-    // E15: the nested events land with a NULL session_id — neither dropped nor routed to
+    // The nested events land with a NULL session_id — neither dropped nor routed to
     // the parent's own claude_session_id.
     const nestedRows = await queryEvents(daemon.dbPath, nestedClaudeId);
     expect(nestedRows.length).toBeGreaterThan(0);
@@ -364,15 +362,15 @@ test("switching to shell with the directory removed shows the daemon's error in 
 
     await mainheadSurfaceButton(page, "shell").click();
 
-    // The surface stays on claude — no shell tab is left behind (REQ-12: "no
+    // The surface stays on claude — no shell tab is left behind ("no
     // half-created shell tab").
     await expect(mainheadSurfaceButton(page, "claude")).toHaveAttribute("aria-pressed", "true");
     await expect(mainheadSurfaceButton(page, "shell")).toHaveAttribute("aria-pressed", "false");
     await expect(shellSurfaceRegion(page, "plain-shell-e9")).toHaveCount(0);
 
     // `dropNotice` locates the one `role="status"` element `TerminalSurface` owns per
-    // surface (helpers/terminal.ts) — REQ-12 reuses that exact element for the spawn
-    // failure's `message`, not a distinct notice of its own.
+    // surface (helpers/terminal.ts) — the spawn
+    // failure reuses that exact element for its `message`, not a distinct notice of its own.
     const claudeRegion = terminalRegion(page, "plain-shell-e9");
     await expect(dropNotice(claudeRegion)).toBeVisible({ timeout: 15_000 });
     await expect(dropNotice(claudeRegion)).toContainText(dir);
@@ -385,13 +383,13 @@ test("switching to shell on a DEAD session with its directory removed shows the 
   page,
   daemon,
 }) => {
-  // Review Major 1: E9 above only covers the live-session half of REQ-12 — a live
+  // Review Major 1: the test above only covers the live-session half of the spawn failure — a live
   // `TerminalSurface` is mounted for `claude`, so `handleSurfaceSelect`'s error routes
   // through its `showNotice`. A DEAD session showing `claude` has NO `TerminalSurface`
-  // mounted at all (`#dead-surface` replaces it, REQ-13), which the web-impl fix
+  // mounted at all (`#dead-surface` replaces it), which the web-impl fix
   // addresses via `findDeadSurfaceRefs`/`showDeadSurfaceNotice` (`web/src/main.ts`,
   // `web/src/render/dead.ts`). This is edge case 13 (start a shell on a dead session,
-  // REQ-7) combined with edge case 4 (the directory is gone) — exactly the combination
+  // the shell spawn) combined with edge case 4 (the directory is gone) — exactly the combination
   // the review measured producing zero visible feedback before this fix.
   const { path: dir, cleanup } = await scratchDirectory();
   let cleaned = false;
@@ -407,14 +405,14 @@ test("switching to shell on a DEAD session with its directory removed shows the 
     const deadSurface = page.locator("#dead-surface");
     await expect(deadSurface).toBeVisible({ timeout: 15_000 });
 
-    // Remove the directory only after the session is dead — mirrors E9's own ordering
+    // Remove the directory only after the session is dead — mirrors the test above's own ordering
     // (the daemon checks existence at spawn time, not before).
     await cleanup();
     cleaned = true;
 
     await mainheadSurfaceButton(page, "shell").click();
 
-    // The segment reverts to claude with no half-created shell tab (REQ-12), and the
+    // The segment reverts to claude with no half-created shell tab, and the
     // dead surface stays mounted throughout — it was never replaced by a live pane.
     await expect(mainheadSurfaceButton(page, "claude")).toHaveAttribute("aria-pressed", "true");
     await expect(mainheadSurfaceButton(page, "shell")).toHaveAttribute("aria-pressed", "false");
@@ -646,7 +644,7 @@ test("removing one session kills only its own shell; a second session's shell ke
     expect(endRes.status()).toBe(200);
 
     // Both sessions get a shell via the API directly (no need to click through the UI
-    // for this INV-4 setup).
+    // for this setup).
     await createShellViaApi(page, daemon.baseURL, sessionA.id);
     await createShellViaApi(page, daemon.baseURL, sessionB.id);
     expect(await daemon.tmuxSessions()).toEqual(
@@ -683,7 +681,7 @@ test("a file dropped on a shell surface pastes its escaped path (E14, REQ-11)", 
     const shellRegion = shellSurfaceRegion(page, "plain-shell-e14");
     await expect(shellRegion).toBeVisible({ timeout: 15_000 });
 
-    // REQ-4: wait for the pane to actually attach (E16's own oracle) before dropping —
+    // Wait for the pane to actually attach (the same oracle as the earlier test) before dropping —
     // a drop that lands before attach still shows "Pane isn't connected — nothing
     // pasted" (edge case 4, behaviour unchanged), which raced this test flaky.
     await expect(page.getByText(/one live client/i)).toBeVisible({ timeout: 15_000 });
@@ -791,12 +789,12 @@ test("a tile footer renders the same segment as the mainhead, scoped per session
 });
 
 // The "pip resolves to its dedicated colour token" pin (review plain-terminal-session
-// Major 3) is retired here, not adapted: plan terminal-fixes-cleanup REQ-1 removes the
-// pip and that token entirely (kb:adr/theme-shell-pip-retired-for-activity-indicator
+// Major 3) is retired here, not adapted: the
+// pip and that token were removed entirely (kb:adr/theme-shell-pip-retired-for-activity-indicator
 // supersedes kb:adr/theme-shell-pip-own-token). shell-activity.spec.ts covers its
 // replacement, the busy/done indicator.
 
-// Plan focus-lands REQ-2 (#76): switching a surface moves keyboard focus into the surface
+// Focus lands (#76): switching a surface moves keyboard focus into the surface
 // switched to. Each oracle reads `document.activeElement` inside the surface's own region,
 // never xterm's inner DOM, and polls because a shell surface mounts after its spawn
 // resolves. Setup moves focus with `.focus()` only to start a keyboard sequence; the
@@ -893,7 +891,7 @@ test("switching a tile's footer to shell moves keyboard focus into that tile's s
   }
 });
 
-// Plan focus-lands R1 / edge case 5: a shell spawn that resolves after the developer moved
+// Focus lands, edge case 5: a shell spawn that resolves after the developer moved
 // focus into a field must not steal it. The shell-create POST is held so the order is
 // deterministic: click `shell`, click the title to rename (a real pointer press puts focus
 // in the rename field), then release the spawn.

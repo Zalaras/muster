@@ -16,7 +16,7 @@ import {
   weeklyScopedUsageResponse,
 } from "./helpers/usageapi";
 
-// Plan usage-bar-consistency — E1 to E4: the 5h and 7d bars follow the usage call as well as
+// The 5h and 7d bars follow the usage call as well as
 // the status line (the newest arrival wins per bucket), the daemon calls again at the instant
 // a bar's reset passes, and a bar past its reset reads `unknown` until a fresh value arrives.
 // Claude Code is faked twice over: status-line posts are synthesized from the measured shape
@@ -26,10 +26,10 @@ import {
 // Nothing launches a real `claude` or reaches api.anthropic.com.
 //
 // Fixture plan: `startDaemon` for every test — each computes `-usage-poll`, `-usage-api-url`
-// and the fake endpoint's responses, and E4 restarts its daemon. Account usage is
+// and the fake endpoint's responses, and one test restarts its daemon. Account usage is
 // daemon-global, so no test shares one.
 //
-// The reset-time journeys (E2, E3) need a reset a few real seconds ahead of the daemon's own
+// The reset-time journeys need a reset a few real seconds ahead of the daemon's own
 // clock; that is the one wall-clock read here, taken once per test and offset by a fixed
 // number of seconds. Every other value is fixed.
 
@@ -203,7 +203,7 @@ test("a 100% 5h bar reads unknown the moment its reset passes, then shows the en
       usageTokenContent: credentialsFileContent(FAKE_TOKEN),
     });
     await page.goto(daemon.dashboardUrl);
-    // REQ-6: the start-up call fills the bars with no status post.
+    // The start-up call fills the bars with no status post.
     await expect(mastheadBucket(page, "5h")).toContainText("30%");
     await expect(mastheadBucket(page, "7d")).toContainText("40%");
 
@@ -225,7 +225,7 @@ test("a 100% 5h bar reads unknown the moment its reset passes, then shows the en
     await expect(mastheadBucket(page, "7d")).toContainText("55%");
     const callsBeforeReset = api.requestCount;
 
-    // REQ-5: with no daemon message, the bar turns unknown once the dashboard's clock passes
+    // With no daemon message, the bar turns unknown once the dashboard's clock passes
     // the reset — no track, no reset suffix — while the 7d bar (reset 2099) is untouched.
     await expect(mastheadBucket(page, "5h")).toContainText(/unknown/i);
     await expect(mastheadBucket(page, "5h")).not.toContainText("100%");
@@ -233,7 +233,7 @@ test("a 100% 5h bar reads unknown the moment its reset passes, then shows the en
     await expect(mastheadBucketResets(page, "5h")).toHaveCount(0);
     await expect(mastheadBucket(page, "7d")).toContainText("55%");
 
-    // REQ-4: the daemon itself made a call, at or after the reset instant.
+    // The daemon itself made a call, at or after the reset instant.
     await expect
       .poll(() => api.requestCount, {
         message: "expected the daemon to call the usage endpoint when the 5h reset passed",
@@ -293,7 +293,7 @@ test("when the reset-time call fails the 5h bar stays unknown and never goes bac
       .toBeGreaterThan(callsBeforeReset);
     expect(api.requestTimes[callsBeforeReset]).toBeGreaterThanOrEqual(resetEpoch * 1000);
 
-    // The failure has landed (the model readout is the call's failure display, REQ-7)…
+    // The failure has landed (the model readout is the call's failure display)…
     await expect(mastheadModelWeek(page)).toHaveAttribute("title", "unreachable");
     // …and the bar it could not refresh is still unknown, never the pre-reset percentage.
     await settleFor(page, 1_500);

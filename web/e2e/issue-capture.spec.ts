@@ -23,13 +23,13 @@ import {
 import { envelopedSessionStart, rawStopFailure, rawUserPromptSubmit } from "./helpers/payloads";
 import { envelopeOpts, launchSession, scratchDirectory, sessionCard } from "./helpers/session";
 
-// Plan issue-capture — E1 through E8, plus REQ-6/Edge Case 20 (client-side Submit
+// The acceptance criteria, plus edge case 20 (client-side Submit
 // gating), which has no dedicated E-acceptance id but is a Must-Have requirement this
-// suite still owes coverage; the masthead button's presence in both views (REQ-1) is a
+// suite still owes coverage; the masthead button's presence in both views is a
 // render test in web/render/issue.spec.ts (re-levelled 2026-10-20,
 // plans/_audit/relevel/misc-core.md). Nothing here reaches real
 // GitHub or runs a real `gh`: every daemon in this file gets `-issue-api-url` and
-// `-issue-token-file` unconditionally (helpers/daemon.ts, REQ-17) — either pointed at a
+// `-issue-token-file` unconditionally (helpers/daemon.ts) — either pointed at a
 // local `FakeGitHubAPI` (helpers/ghapi.ts) this file starts and controls, or at the
 // daemon's own per-run deny stub for tests that never call POST /api/issues.
 //
@@ -38,8 +38,9 @@ import { envelopeOpts, launchSession, scratchDirectory, sessionCard } from "./he
 // mid-test — sharing a daemon/fake pair across concurrently running tests (this config
 // is `fullyParallel`) would race those responses. Tests that point the daemon at a
 // FakeGitHubAPI spawn it through `startDaemon(opts)` (helpers/fixtures.ts) because the
-// fake's URL is only known once it has started; the three that never file (E6, E7,
-// REQ-6) take the plain per-test `daemon` fixture, which routes to the deny stub.
+// fake's URL is only known once it has started; the three that never file (the daemon-kill,
+// unknown-context and Submit-gating tests) take the plain per-test `daemon` fixture, which routes to the
+// deny stub.
 
 interface CaptureSnapshotSession {
   context: unknown;
@@ -104,7 +105,7 @@ test("sentinel title/directory/last-assistant-message never leak into the previe
     try {
       await page.goto(daemon.dashboardUrl);
 
-      // Bystanders (INV-1's "with other sessions present" bullet): distinct
+      // Bystanders (the "with other sessions present" case): distinct
       // identifying data that must leave no trace in a capture scoped to a
       // different session.
       const bystanderA = await launchSession(page, daemon, {
@@ -270,7 +271,7 @@ test("the preview text at submit time is byte-identical to the body the fake Git
       await issueTitleInput(dialog).fill("tricky note check");
 
       // Real per-key events — not `.fill()` — so this is a genuine keyboard round
-      // trip through the live-preview wiring (REQ-7), not a value set from outside
+      // trip through the live-preview wiring, not a value set from outside
       // the page.
       const note = "line one with `code` and a | pipe\n```fence```\nand a </details> tag";
       const textarea = issueNoteTextarea(dialog);
@@ -323,7 +324,7 @@ test("filing succeeds against the fake GitHub server — Submit disables while t
       await expect(issuePreview(dialog)).not.toHaveText(/fetching snapshot…/);
       await issueTitleInput(dialog).fill("filed via e2e");
 
-      // Hold-and-release (usage-model.spec.ts E4 pattern): observe the in-flight
+      // Hold-and-release (the usage-model.spec.ts pattern): observe the in-flight
       // disabled window deterministically instead of racing a fast fake response.
       gh.setResponse(201, {
         number: 14,
@@ -346,7 +347,7 @@ test("filing succeeds against the fake GitHub server — Submit disables while t
       await expect(issueCancelButton(dialog)).toBeHidden();
       await expect(issueCloseButton(dialog)).toBeVisible();
 
-      // REQ-8's protocol contract: the exact headers the daemon must send.
+      // The protocol contract: the exact headers the daemon must send.
       expect(gh.lastRequest?.authorization).toBe(`Bearer ${FAKE_GH_TOKEN}`);
       expect(gh.lastRequest?.accept).toBe("application/vnd.github+json");
       expect(gh.lastRequest?.apiVersion).toBe("2022-11-28");
@@ -500,7 +501,7 @@ test("a session with no context yet renders unknown in the preview, never 0% (E7
     // `POST /api/sessions` requires a non-empty `model` (kb:anchor/sessions.create), and
     // `internal/session/machine.go`'s `applyBind` only ever overwrites `sess.Model`,
     // never nulls it — so `session.model` can never be null for a session reachable
-    // through the real launch API. That state (REQ-12's "model" branch) is exercised
+    // through the real launch API. That state (the "model" branch) is exercised
     // by the daemon's own `TestRenderSnapshotMarkdown_UnknownRendering` unit test
     // against a directly-constructed Session instead. This test owns the other
     // reachable half of Edge Case 16: `context` stays null until a status line
@@ -596,7 +597,7 @@ test("a capture consumed by a concurrent filing shows the capture_expired remedy
 
       // Consume the exact capture the dialog is holding, out from under it — a real
       // browser cookie'd request (page.request shares the UI cookie), mirroring the
-      // daemon's own D10 second-POST-with-a-consumed-id scenario. The dialog does not
+      // daemon's own second-POST-with-a-consumed-id scenario. The dialog does not
       // learn about this; its next Submit click still carries the same captureId.
       const externalFile = await page.request.post(`${daemon.baseURL}/api/issues`, {
         data: { captureId: capture.captureId, title: "filed from elsewhere", note: "" },
@@ -617,7 +618,7 @@ test("a capture consumed by a concurrent filing shows the capture_expired remedy
         "capture is unknown, expired, in flight, or already filed; reopen the dialog to take a fresh snapshot",
       );
 
-      // Edge Case 2's behavioural half: unlike a generic filing failure (E4, which
+      // Edge Case 2's behavioural half: unlike a generic filing failure (the 403 test, which
       // re-enables Submit), a capture_expired response nulls the held capture, so
       // Submit stays disabled until the session selection changes or the dialog
       // reopens — a bare retry click cannot resubmit the dead capture.
@@ -689,7 +690,7 @@ test("a 2xx GitHub body with no issue number/URL shows the filing failure state,
       expect(visibleDialogText).not.toMatch(/Filed \S*#\d/);
 
       // A generic post failure (unlike capture_expired) leaves the capture usable —
-      // Submit re-enables and the form survives for a retry (REQ-10).
+      // Submit re-enables and the form survives for a retry.
       await expect(issueSubmitButton(dialog)).toBeEnabled();
       await expect(issueTitleInput(dialog)).toHaveValue("maybe created upstream");
       await expect(dialog).toBeVisible();

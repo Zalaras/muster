@@ -14,7 +14,7 @@ import (
 	"github.com/Zalaras/muster/internal/tmux"
 )
 
-// TestHandleShellTerminal_SuccessfulAttachMarksSessionSeen covers D8/Edge Case 31: the
+// TestHandleShellTerminal_SuccessfulAttachMarksSessionSeen covers Edge Case 31: the
 // shell surface's attach side effect mirrors the Claude surface's exactly (terminal.go
 // and shells.go both call manager.MarkSeen after a successful takeover, before any PTY
 // byte is forwarded) — proven here on the shell socket the same way

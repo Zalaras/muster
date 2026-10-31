@@ -50,7 +50,7 @@ function fakeDropEvent(defaultPrevented: boolean): {
   return event;
 }
 
-// REQ-1: a foreign drag/drop anywhere on the dashboard never navigates the browser away.
+// A foreign drag/drop anywhere on the dashboard never navigates the browser away.
 describe("installDropGuard — foreign drag (REQ-1)", () => {
   it("prevents default on a dragover that nothing else has claimed, and sets dropEffect to 'none'", () => {
     const doc = new FakeDoc();
@@ -82,7 +82,7 @@ describe("installDropGuard — foreign drag (REQ-1)", () => {
   });
 });
 
-// REQ-9/INV-3: an event a more specific handler (a terminal surface, or a tile/rail
+// An event a more specific handler (a terminal surface, or a tile/rail
 // reorder container) already claimed via preventDefault() must not be re-touched here —
 // in particular the guard must never overwrite a `dropEffect` an internal drag or the
 // terminal surface already set (e.g. "copy") back to "none".

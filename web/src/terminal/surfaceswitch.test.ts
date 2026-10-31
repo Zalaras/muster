@@ -1,4 +1,4 @@
-// Plan plain-terminal-session (REQ-4/REQ-7/REQ-8): covers the pure per-session
+// Covers the pure per-session
 // surface-switch state (getSurfaceState/selectSurface/setShellRunning/shellEnded/
 // forgetSession/isSurfaceAttachable) and the composite (id, kind) key helpers
 // (surfaceKey/parseSurfaceKey). Per the module's own header comment this state is
@@ -202,7 +202,7 @@ describe("surfaceswitch — isSurfaceAttachable (REQ-7: shell never consults ali
     expect(isSurfaceAttachable(state, 1, false)).toBe(false);
   });
 
-  // Plan markdown-viewing INV-1, W4: docs never has a TerminalSurface, across every
+  // Docs never has a TerminalSurface, across every
   // alive x shellRunning combination.
   it("docs selected, shellRunning=false: never attachable regardless of alive=true", () => {
     const state: SurfaceSwitchState = new Map([[1, { selected: "docs", shellRunning: false }]]);

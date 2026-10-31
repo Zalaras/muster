@@ -41,8 +41,8 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
   };
 }
 
-// Plan rail-card-improvements REQ-11 (W5): the seven-group attention priority table,
-// amended from the six-state REQ-16 table — idle now splits into an unread "your turn"
+// The seven-group attention priority table,
+// amended from the six-state table — idle now splits into an unread "your turn"
 // group ahead of started, and a read group that stays last.
 describe("sortSessions — state priority (REQ-11)", () => {
   it("orders needs_input, failed, unread idle, started, planning, working, read idle", () => {
@@ -521,7 +521,7 @@ describe("pickNeediest — highest-attention live session (plan shortcut-fixes R
     expect(pickNeediest(sessions)?.id).toBe(2);
   });
 
-  // Plan rail-card-improvements (E6, W5): pickNeediest reads REQ-11's amended table, so an
+  // PickNeediest reads the amended table, so an
   // unread idle session outranks a merely working one — the Option-Command-0 chord's target.
   it("picks an unread idle session over a working one (REQ-11's 'your turn' group)", () => {
     const sessions = [
@@ -541,7 +541,7 @@ describe("pickNeediest — no live session is a null no-op, never a fallback (RE
     const sessions = [
       makeSession({ id: 1, alive: false, endedAt: "2026-08-22T00:10:00Z" }),
       // sortSessions would otherwise hand this one back first — it's the most recently
-      // ended — which is exactly the fallback REQ-7 forbids.
+      // ended — which is exactly the fallback that is forbidden.
       makeSession({ id: 2, alive: false, endedAt: "2026-08-22T00:20:00Z" }),
     ];
     expect(pickNeediest(sessions)).toBeNull();
@@ -614,7 +614,7 @@ describe("pickNeediest — ignores pinned and railPos entirely (INV-4/W9)", () =
   });
 });
 
-// plan groups W10 / I7: the Tiles grid and strip keep ordering every session flat. A session's
+// The Tiles grid and strip keep ordering every session flat. A session's
 // `groupId` is display-only and never reaches this order (kb:adr/rail-pin-invariant-scoped-per-section).
 describe("orderRail / sortSessions — groupId is ignored, so the Tiles order stays flat (plan groups W10)", () => {
   const grouped = [

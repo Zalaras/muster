@@ -60,7 +60,7 @@ export interface ScratchRepo {
   /**
    * Removes the launch directory in one step. `rm -rf` is not atomic: a poll tick that lands
    * mid-removal finds a directory that still exists but is no longer a checkout, which reads
-   * as "no repo" rather than as a deleted directory (REQ-2). A rename leaves no such window;
+   * as "no repo" rather than as a deleted directory. A rename leaves no such window;
    * `cleanup` still removes what is left.
    */
   vanish: () => Promise<void>;

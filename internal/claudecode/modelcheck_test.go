@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- stderrSaysUnrecognised (D4/INV-2: only the measured sentence blocks) ---
+// --- stderrSaysUnrecognised (only the measured sentence blocks) ---
 
 func TestStderrSaysUnrecognised(t *testing.T) {
 	tests := []struct {
@@ -69,10 +69,10 @@ Claude Code doesn't recognize the model "zephyr", so it assumes a context window
 	}
 }
 
-// --- CheckModel (D5/D6: the argv it builds, the dir it runs in, and how it fails open) ---
+// --- CheckModel (the argv it builds, the dir it runs in, and how it fails open) ---
 
-// TestCheckModel_ArgvAndDir is D5: CheckModel invokes its run func with exactly the seven
-// REQ-1 argv elements, in the given directory.
+// TestCheckModel_ArgvAndDir: CheckModel invokes its run func with exactly the seven
+// argv elements, in the given directory.
 func TestCheckModel_ArgvAndDir(t *testing.T) {
 	var gotDir string
 	var gotArgv []string
@@ -117,7 +117,7 @@ func TestCheckModel_VerdictFollowsStderr(t *testing.T) {
 	}
 }
 
-// TestCheckModel_ExitErrorIsNotAFailure covers REQ-2's "the exit code is not a signal: it
+// TestCheckModel_ExitErrorIsNotAFailure covers the claim "the exit code is not a signal: it
 // is 1 for known and unknown models alike" — a run func reporting the process merely
 // exited non-zero (the shape runModelCheck itself never returns as an error, since it
 // unwraps *exec.ExitError) must not surface as a CheckModel error either.
@@ -132,9 +132,9 @@ func TestCheckModel_ExitErrorIsNotAFailure(t *testing.T) {
 	assert.Equal(t, ModelRecognised, verdict)
 }
 
-// TestCheckModel_RunError_FailsOpen is D6's CheckModel half: a run func reporting an
+// TestCheckModel_RunError_FailsOpen is the CheckModel half: a run func reporting an
 // error (the binary could not start, or was killed past its deadline) yields an error
-// from CheckModel and a ModelRecognised verdict — REQ-2's fail-open default, so a caller
+// from CheckModel and a ModelRecognised verdict — the fail-open default, so a caller
 // that ignores the error and only branches on ModelUnrecognised never blocks a launch on
 // a broken check.
 func TestCheckModel_RunError_FailsOpen(t *testing.T) {
@@ -149,7 +149,7 @@ func TestCheckModel_RunError_FailsOpen(t *testing.T) {
 	assert.Equal(t, ModelRecognised, verdict, "a run error must fail open, never refuse a launch on its own")
 }
 
-// TestCheckModel_ContextDeadlineExceeded_FailsOpen is D6's other half: a run func that
+// TestCheckModel_ContextDeadlineExceeded_FailsOpen is the other half: a run func that
 // reports the context's own deadline error (the shape a blocked-past-deadline run
 // produces) is treated the same as any other run error.
 func TestCheckModel_ContextDeadlineExceeded_FailsOpen(t *testing.T) {
@@ -169,7 +169,7 @@ func TestCheckModel_ContextDeadlineExceeded_FailsOpen(t *testing.T) {
 // --- runModelCheck (the production modelCheckRun seam: real subprocess mechanics only —
 // argv/verdict wiring is CheckModel's own and already covered above without a subprocess) ---
 
-// TestRunModelCheck_ReturnsStderrRegardlessOfExitCode is REQ-2's "the exit code is not a
+// TestRunModelCheck_ReturnsStderrRegardlessOfExitCode checks "the exit code is not a
 // signal" at the seam that actually runs a process: a plain non-zero exit must not be
 // reported as an error, and stderr must come back byte for byte.
 func TestRunModelCheck_ReturnsStderrRegardlessOfExitCode(t *testing.T) {
@@ -181,7 +181,7 @@ func TestRunModelCheck_ReturnsStderrRegardlessOfExitCode(t *testing.T) {
 	assert.Equal(t, "hello-stderr", string(stderr))
 }
 
-// TestRunModelCheck_StdinIsEmpty is D5's stdin clause: the run must not inherit the
+// TestRunModelCheck_StdinIsEmpty is the stdin clause: the run must not inherit the
 // test process's stdin — a `cat` fed runModelCheck's stdin exits at once with nothing to
 // echo, which would hang instead if a live terminal or pipe were attached.
 func TestRunModelCheck_StdinIsEmpty(t *testing.T) {
@@ -193,7 +193,7 @@ func TestRunModelCheck_StdinIsEmpty(t *testing.T) {
 	assert.Empty(t, string(stderr), "stdin must already be at EOF, never blocking on input")
 }
 
-// TestRunModelCheck_UsesGivenDirectory is D5's dir clause.
+// TestRunModelCheck_UsesGivenDirectory is the dir clause.
 func TestRunModelCheck_UsesGivenDirectory(t *testing.T) {
 	dir := t.TempDir()
 
@@ -204,7 +204,7 @@ func TestRunModelCheck_UsesGivenDirectory(t *testing.T) {
 }
 
 // TestRunModelCheck_CommandCannotStart_ReturnsError covers "the binary can't start" half
-// of D6/REQ-2's fail-open trigger.
+// of the fail-open trigger.
 func TestRunModelCheck_CommandCannotStart_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
 
@@ -214,7 +214,7 @@ func TestRunModelCheck_CommandCannotStart_ReturnsError(t *testing.T) {
 }
 
 // TestRunModelCheck_ContextDeadlineBoundsAHungProcess covers "blocks past the context
-// deadline" (D6/REQ-2/Edge Case 1: "the launch proceeds and a warn line is logged").
+// deadline" (Edge Case 1: "the launch proceeds and a warn line is logged").
 // The warn line is Launch's own `if err != nil` branch (internal/server/launcher.go), so
 // a killed-by-ctx run must come back as an error, the same as a run that could not start
 // at all — CheckModel's fail-open path only fires the warning when runModelCheck reports
@@ -233,7 +233,7 @@ func TestRunModelCheck_ContextDeadlineBoundsAHungProcess(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestRunModelCheck_HarmlessSmokeTestNeverUsesRealClaude documents D11's boundary the
+// TestRunModelCheck_HarmlessSmokeTestNeverUsesRealClaude documents the boundary the
 // same way credentials_test.go's TestRunCommand_HarmlessSmokeTestNeverUsedByKeychainTests
 // does: every test above passes its own sh -c script, never a real `claude` invocation —
 // this is the one place runModelCheck itself runs, against a harmless, always-installed
@@ -247,7 +247,7 @@ func TestRunModelCheck_HarmlessSmokeTestNeverUsesRealClaude(t *testing.T) {
 	assert.Empty(t, string(stderr), "echo writes to stdout, not stderr")
 }
 
-// --- ResolveBinaryIdentity (REQ-2/REQ-3: the binary-identity cache key modelsFeature
+// --- ResolveBinaryIdentity (the binary-identity cache key modelsFeature
 // invalidates on) ---
 
 // writeExecutableOnPath creates an executable file dir/name and points $PATH at dir
@@ -299,7 +299,7 @@ func TestResolveBinaryIdentity_FollowsSymlink(t *testing.T) {
 }
 
 // TestResolveBinaryIdentity_NotOnPath_Errors and
-// TestResolveBinaryIdentity_DanglingSymlink_Errors are REQ-3's "cannot resolve the
+// TestResolveBinaryIdentity_DanglingSymlink_Errors is the "cannot resolve the
 // binary's identity" trigger: modelsFeature treats either as unchecked, never cached.
 func TestResolveBinaryIdentity_NotOnPath_Errors(t *testing.T) {
 	t.Setenv("PATH", t.TempDir()) // an empty dir: nothing named this is on $PATH
@@ -320,9 +320,9 @@ func TestResolveBinaryIdentity_DanglingSymlink_Errors(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestResolveBinaryIdentity_ChangedContentChangesIdentity is D3's identity half: a binary
+// TestResolveBinaryIdentity_ChangedContentChangesIdentity is the identity half: a binary
 // replaced at the same path (a Claude Code update, or any in-place replacement) changes
-// size, which is the whole invalidation signal modelsFeature relies on (REQ-2) — never
+// size, which is the whole invalidation signal modelsFeature relies on — never
 // Claude Code's own versions/ layout.
 func TestResolveBinaryIdentity_ChangedContentChangesIdentity(t *testing.T) {
 	dir := t.TempDir()

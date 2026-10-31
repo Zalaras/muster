@@ -11,8 +11,7 @@ import (
 )
 
 // TestLoadPrefs_DefaultRailDensityAndRailActivity covers kb:anchor/prefs.put's
-// default-before-any-PUT clause for the two new fields (plan rail-card-improvements
-// REQ-3/REQ-13).
+// default-before-any-PUT clause for the two new fields.
 func TestLoadPrefs_DefaultRailDensityAndRailActivity(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
@@ -22,7 +21,7 @@ func TestLoadPrefs_DefaultRailDensityAndRailActivity(t *testing.T) {
 	assert.Equal(t, "turn", got.RailActivity)
 }
 
-// TestHandlePutPrefs_RailDensityValidationErrors covers D13's 400 invalid_request clause
+// TestHandlePutPrefs_RailDensityValidationErrors covers the 400 invalid_request clause
 // for railDensity, including the plan's exact error message.
 func TestHandlePutPrefs_RailDensityValidationErrors(t *testing.T) {
 	tests := []struct {
@@ -46,7 +45,7 @@ func TestHandlePutPrefs_RailDensityValidationErrors(t *testing.T) {
 	}
 }
 
-// TestHandlePutPrefs_RailActivityValidationErrors covers D13's 400 invalid_request
+// TestHandlePutPrefs_RailActivityValidationErrors covers the 400 invalid_request
 // clause for railActivity, including the plan's exact error message.
 func TestHandlePutPrefs_RailActivityValidationErrors(t *testing.T) {
 	tests := []struct {
@@ -70,7 +69,7 @@ func TestHandlePutPrefs_RailActivityValidationErrors(t *testing.T) {
 	}
 }
 
-// TestHandlePutPrefs_RailDensityAcceptsAllThreeEnumValues covers D13's accepted half for
+// TestHandlePutPrefs_RailDensityAcceptsAllThreeEnumValues covers the accepted half for
 // railDensity.
 func TestHandlePutPrefs_RailDensityAcceptsAllThreeEnumValues(t *testing.T) {
 	for _, v := range []string{"compact", "comfortable", "expanded"} {
@@ -85,7 +84,7 @@ func TestHandlePutPrefs_RailDensityAcceptsAllThreeEnumValues(t *testing.T) {
 	}
 }
 
-// TestHandlePutPrefs_RailActivityAcceptsAllFourEnumValues covers D13's accepted half for
+// TestHandlePutPrefs_RailActivityAcceptsAllFourEnumValues covers the accepted half for
 // railActivity.
 func TestHandlePutPrefs_RailActivityAcceptsAllFourEnumValues(t *testing.T) {
 	for _, v := range []string{"turn", "prompt", "reply", "both"} {
@@ -172,7 +171,7 @@ func TestLoadPrefs_InvalidRailActivityInKVFallsBackToTurnIndependently(t *testin
 	assert.Equal(t, "expanded", got.RailDensity, "a sibling field's valid persisted value must survive independently")
 }
 
-// TestHandlePutPrefs_PersistsRailDensityAndRailActivityToKV covers D13's persistence
+// TestHandlePutPrefs_PersistsRailDensityAndRailActivityToKV covers the persistence
 // clause directly against the store, pinning the exact full-object shape (including
 // both new keys) the way the other fields' own "PersistsToKV" tests do.
 func TestHandlePutPrefs_PersistsRailDensityAndRailActivityToKV(t *testing.T) {
@@ -187,7 +186,7 @@ func TestHandlePutPrefs_PersistsRailDensityAndRailActivityToKV(t *testing.T) {
 	assert.JSONEq(t, `{"view":"focus","density":"2x2","usageModel":"Fable","railSort":"manual","theme":"follow","updateCheck":true,"railDensity":"compact","railActivity":"both"}`, raw)
 }
 
-// TestHandlePutPrefs_BroadcastsRailDensityAndRailActivityInPrefsMessage covers INV-4's
+// TestHandlePutPrefs_BroadcastsRailDensityAndRailActivityInPrefsMessage covers the
 // echo clause for the two new fields: an accepted PUT broadcasts the full prefs object
 // including both to every connected UI socket.
 func TestHandlePutPrefs_BroadcastsRailDensityAndRailActivityInPrefsMessage(t *testing.T) {

@@ -26,7 +26,7 @@ test("Check now is disabled on a daemon started with an empty update base URL (E
 });
 
 // The display half of "a dev build never checks or badges, and the dialog shows no Update
-// buttons" (E8, REQ-8); the zero-`/latest`-requests half stays in web/e2e/update.spec.ts.
+// buttons"; the zero-`/latest`-requests half stays in web/e2e/update.spec.ts.
 test("a dev build shows the not-checked readout, no Update buttons and no badge (E8, REQ-8)", async ({
   page,
   dashboard,
@@ -41,7 +41,7 @@ test("a dev build shows the not-checked readout, no Update buttons and no badge 
   // `display:none` CSS companion in style.css, never removed) — `updateRestartButton`
   // is an id locator, not a role query, so it doesn't benefit from getByRole's default
   // accessibility-tree exclusion of hidden elements the way updateApplyButton above
-  // does. toBeHidden() is the correct "absent" check for it (REQ-13).
+  // does. toBeHidden() is the correct "absent" check for it.
   await expect(updateRestartButton(dialog)).toBeHidden();
   await expect(settingsBadgeDot(page)).toBeHidden();
 });

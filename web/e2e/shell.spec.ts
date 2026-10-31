@@ -21,8 +21,8 @@ test("GET /api/state returns exactly the empty-daemon snapshot object once authe
   // Values that follow from this scratch daemon's setup rather than from the defaults:
   // it writes no usage-token-file content, so its immediate on-Start fetch fails fast
   // with "no-credentials" (what a machine with no Keychain item sees) and
-  // `modelScoped`/`modelScopedAt` stay null; `usage` carries no `model` key at all (plan
-  // masthead-indicators REQ-2); `claudeTheme.family` is "unknown" because no
+  // `modelScoped`/`modelScopedAt` stay null; `usage` carries no `model` key at all;
+  // `claudeTheme.family` is "unknown" because no
   // `-claude-theme-poll` is passed; `update.install` is "dev" because `bin/musterd` is
   // stamped by `git describe`, so it never checks (`available`/`checkedAt`/`installed`
   // null, no remedy, `canCheck` false regardless of `-update-base-url`), and

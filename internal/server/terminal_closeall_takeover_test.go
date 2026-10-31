@@ -67,8 +67,8 @@ func dialRealWSConnCapturingClose(t *testing.T) (*websocket.Conn, <-chan websock
 // attach returns) are what closes it instead, with the same shutdown code closeAll itself
 // uses.
 //
-// Written to FAIL on the pre-FW-D3 code: see daemon-tests-FW-D3.md for the captured
-// failure against the restored pre-fix internal/server/terminal.go (no closed field, no
+// Written to FAIL on the pre-fix code: the captured
+// failure was against the restored pre-fix internal/server/terminal.go (no closed field, no
 // second check).
 func TestTerminalRegistry_TakeoverAfterCloseAllClosesNewConnWithShutdownCode(t *testing.T) {
 	r := newTerminalRegistry()

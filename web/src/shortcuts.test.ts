@@ -1,4 +1,4 @@
-// Pure matcher tests for shortcuts.ts (plan shortcut-fixes). No jsdom is configured in
+// Pure matcher tests for shortcuts.ts. No jsdom is configured in
 // this Vitest environment (see render/context.test.ts) — matchShortcut only reads plain
 // boolean/string properties off the event, so a cast plain object stands in for a real
 // KeyboardEvent, same pattern render/*.test.ts uses for fake DOM elements.
@@ -131,7 +131,7 @@ describe("matchShortcut — unbound codes and bare modifier keydowns", () => {
   });
 });
 
-// INV-2: `matchShortcut` returns non-null iff the event is exactly one of the bound
+// `matchShortcut` returns non-null iff the event is exactly one of the bound
 // chords. For each bound chord, every one of the 15 *other* modifier signatures must
 // return null — only the exact signature matches. Written as a loop over all 16
 // signatures per chord (the plan requires this, not "a handful of cases").
@@ -217,7 +217,7 @@ const MODIFIER_COMBOS = BOOLS.flatMap((metaKey) =>
 );
 
 /** One cell of the modifier grid below: the chord matches iff every one of the four
- * modifiers matches the binding exactly (INV-2). Lives at module scope, not inside the
+ * modifiers matches the binding exactly. Lives at module scope, not inside the
  * five nested loops, so the assertion reads at zero nesting. */
 function expectExactModifierMatch(
   bound: (typeof BOUND_CHORDS)[number],
@@ -254,7 +254,7 @@ describe("matchShortcut — INV-2 exact modifier match (W6)", () => {
 // delivers `key: "¡"` — never "n" or "1". Playwright cannot emulate this transform
 // (`press("Alt+Meta+Digit1")` delivers `key: "1"`), so this is the only place in the
 // suite that can prove the matcher is `code`-based rather than incidentally working
-// because tests always send a plausible `key`. W16.
+// because tests always send a plausible `key`.
 describe("matchShortcut — macOS Opt dead-key proof (W16)", () => {
   it("matches Opt+Cmd+N when `key` carries the dead-key glyph '˜' instead of 'n'", () => {
     expect(

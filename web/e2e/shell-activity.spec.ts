@@ -9,15 +9,14 @@ import {
 import { shellActivityIndicator } from "./helpers/shellinput";
 import { liveTileById, terminalRegion } from "./helpers/terminal";
 
-// Plan terminal-fixes-cleanup — REQ-2, REQ-3, REQ-4, REQ-13, REQ-14, INV-3, INV-4.
+// Shell activity indicator journeys.
 // Fixture plan: `daemon` per test — indicator assertions depend on which session is
 // auto-focused, so each test needs a daemon nobody else is sharing sessions on. The
-// indicator's display for a given `shellsBusy` — an idle shell showing nothing (INV-3
-// baseline), the busy circle's and done tick's computed geometry (rail-card-improvements-2
-// E7, E8) and the spinner under reduced motion (shell-pane-fixes REQ-2) — is a render test
+// indicator's display for a given `shellsBusy` — an idle shell showing nothing, the
+// busy circle's and done tick's computed geometry, and the spinner under reduced motion (shell-pane-fixes) — is a render test
 // in web/render/surfaces.spec.ts (re-levelled 2026-10-20, plans/_audit/relevel/misc-core.md).
 //
-// `sleep N` is used throughout as the "silent, zero-output foreground command" REQ-14
+// `sleep N` is used throughout as the "silent, zero-output foreground command" the requirement
 // names directly (`sleep`, "a quiet go build", a network-bound download) — busy-ness
 // comes from tmux's own process/tty state (Protocol Contract), never from anything the
 // command prints, so a command that produces no output at all is exactly the case that
@@ -177,7 +176,7 @@ test("a daemon restart mid-command clears the shell activity indicator to nothin
     await expect(indicator).toHaveAttribute("data-act", "busy", { timeout: 15_000 });
 
     // Switch back to Claude first — it's the indicator, not the currently selected
-    // surface, that E8 pins; reconcile kills every muster-<n>-shell session at startup
+    // surface, that the restart test pins; reconcile kills every muster-<n>-shell session at startup
     // regardless of which surface a window happened to be showing.
     await mainheadSurfaceButton(page, "claude").click();
     await expect(terminalRegion(page, "shell-activity-e8")).toBeVisible({ timeout: 15_000 });

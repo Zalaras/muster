@@ -21,12 +21,12 @@ import {
 } from "./helpers/session";
 import { cardContextRow } from "./helpers/gauges";
 
-// Plan code-breakup's E2E split (plan.md UI Specifications → E2E split) moved these
+// The code-breakup E2E split moved these
 // tests out of actions.spec.ts: they exercise a rail card's own chrome (sort position,
 // keyboard activation, hover/focus-reveal opacity, and focus survival across a render
 // tick or a real re-sort) rather than the End/Remove/Resume/dead-surface flow the rest
-// of that plan (m4-reconcile) covered — see actions.spec.ts's file header for what
-// stayed there. Originally REQ-9, REQ-11 (m4-reconcile) and their review fix-cycle
+// of the reconcile work covered — see actions.spec.ts's file header for what
+// stayed there. Originally written for the reconcile work and its review fix-cycle
 // follow-ups (Major 1/2/5, Minor 1/2/3).
 //
 // Daemon shape (docs/conventions.md §Testing): every test here reads the file-shared
@@ -35,10 +35,10 @@ import { cardContextRow } from "./helpers/gauges";
 // daemon is harmless. They stay in file order rather than being grouped into a describe
 // so no test is renamed or moved.
 
-// Plan status-inconsistencies (REQ-6, REQ-7): a live card offers no action button (End is
+// A live card offers no action button (End is
 // in the mainhead and tile footers), and a card whose session has background work shows a
-// `N background task(s)` line. E5-E7 and E9 join the file-shared daemon (each test titles
-// its own session); E8 needs Tiles, whose view pref is daemon-global, so it takes the
+// `N background task(s)` line. Most of these tests join the file-shared daemon (each test titles
+// its own session); one needs Tiles, whose view pref is daemon-global, so it takes the
 // per-test `daemon` fixture. The keyboard and focus tests that used to press End on a
 // rail card now press the header's Session actions ⋯ (the Stop button it replaced is gone),
 // or a control a live card still has (Pin). Those assert new behaviour and were
@@ -94,7 +94,7 @@ test("the header's Session actions ⋯ opens its menu via keyboard Enter and Spa
 
     const state = await getState(page, sharedDaemon());
     expect(findSession(state, session.id).alive).toBe(false);
-    // INV-D: the card never offered a button the keys could have been pressed on.
+    // The card never offered a button the keys could have been pressed on.
     await expect(card.getByRole("button", { name: "Stop" })).toHaveCount(0);
   } finally {
     await cleanup();
@@ -138,7 +138,7 @@ test("a focused card control survives a rail re-sort triggered by a real priorit
     await expect(cardA).toBeVisible();
     await expect(cardB).toBeVisible();
 
-    // A priority-driven DOM reorder only happens in Attention mode (plan order-sidebar:
+    // A priority-driven DOM reorder only happens in Attention mode (order-sidebar:
     // manual mode, the default, never moves a card on a state change).
     await page.locator("#rail-sort").selectOption("attention");
     await expect(page.locator("#rail-sort")).toHaveValue("attention");
@@ -189,7 +189,7 @@ test("a focused card control survives a rail re-sort triggered by a real priorit
   }
 });
 
-// E6: the task-notification turn that follows a finished background command ends with an
+// The task-notification turn that follows a finished background command ends with an
 // empty list.
 test("a later Stop with an empty background_tasks list removes the line (E6, REQ-5, REQ-6)", async ({
   page,
@@ -231,7 +231,7 @@ test("a later Stop with an empty background_tasks list removes the line (E6, REQ
   }
 });
 
-// E7 (REQ-7, INV-D): End is gone from a live rail card — at rest, under hover, and while
+// End is gone from a live rail card — at rest, under hover, and while
 // the card is the current one.
 test("a live rail card has no End button, on hover and while current (E7, REQ-7, INV-D)", async ({
   page,
@@ -276,8 +276,8 @@ test("a live rail card has no End button, on hover and while current (E7, REQ-7,
   }
 });
 
-// E9 (REQ-7): stopping from the card menu leaves an ended card whose menu (plan
-// rail-card-organise REQ-2: the card has no buttons) offers Resume then Remove…; with a second
+// Stopping from the card menu leaves an ended card whose menu (the card has
+// no buttons) offers Resume then Remove…; with a second
 // live session, only the stopped one ends.
 test("stopping from the card menu ends only that session, and its card's menu then offers Resume and Remove… in that order (E9, REQ-7)", async ({
   page,
@@ -335,7 +335,7 @@ test("stopping from the card menu ends only that session, and its card's menu th
   }
 });
 
-// Plan focus-lands REQ-1 (#69): a render pass must leave a known context row's elements
+// Focus lands (#69): a render pass must leave a known context row's elements
 // in place, because Chrome fires no click when the pressed element is replaced before the
 // release. The tag is a JS property on the live node, so it survives only if the node does.
 test("a status line that changes a card's context percent updates its context row in place, so the row's track is the same element (REQ-1, E1)", async ({

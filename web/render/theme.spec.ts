@@ -1,5 +1,4 @@
-// theme — the display properties of plan new-ui-design-colors (REQ-7, REQ-9, REQ-11,
-// REQ-15, INV-1, INV-2: the Settings dialog's structure, what a prefs state paints on
+// theme — the display properties of the theme (the Settings dialog's structure, what a prefs state paints on
 // `<html>`, the head hint's first paint, and the per-theme computed styles of the header's
 // buttons and the cards' badges), re-levelled on 2026-10-20 from web/e2e/theme.spec.ts
 // (plans/_audit/relevel/misc-core.md). Nothing here changes state: `html[data-theme]` is
@@ -58,7 +57,7 @@ test("after choosing Dark, a reload shows data-theme=dark on the very first pain
   dashboard,
 }) => {
   // The first load adopts `dark` from the fixture's prefs broadcast and writes the hint the
-  // head script reads (`muster.theme-hint` in localStorage, REQ-11) — the same entry a
+  // head script reads (`muster.theme-hint` in localStorage) — the same entry a
   // chosen Dark leaves behind.
   const fixture = await dashboard.open("theme-dark");
   expect(fixture.snapshot.prefs.theme).toBe("dark");
@@ -66,7 +65,7 @@ test("after choosing Dark, a reload shows data-theme=dark on the very first pain
 
   // Tags the attribute's value at DOMContentLoaded — before the WebSocket has any
   // chance to connect and any `snapshot` to arrive — so reading it back after
-  // navigation proves the head-inline hint script (REQ-11), not the broadcast round trip,
+  // navigation proves the head-inline hint script, not the broadcast round trip,
   // painted the first frame. The harness's routes survive the reload.
   await page.addInitScript(() => {
     document.addEventListener(

@@ -27,24 +27,23 @@ import {
 } from "./helpers/groups";
 import { railCard, railOrderIds } from "./helpers/railorder";
 
-// Plan groups — the bulk actions: Move to, bulk Stop and Remove (#27), the partial-batch
-// report, leaving the mode with Tiles and the daemon-down behaviour. Plan acceptance E14-E16,
-// E24, with REQ-12 to REQ-14, REQ-22, REQ-27 and invariant I3. The display properties — the
-// checkboxes and the bar's enablement for a selection (E12), what drags while selecting
-// (REQ-24), the selected card's token, a card click toggling instead of focusing and a
-// header checkbox (E13), Select all from a header, the dialogs' singular copy and their
-// Cancel and Escape, Escape and Done leaving the mode (E16), and the controls' focus across
+// Groups — the bulk actions: Move to, bulk Stop and Remove (#27), the partial-batch
+// report, leaving the mode with Tiles and the daemon-down behaviour. The display
+// properties — the checkboxes and the bar's enablement for a selection, what drags while
+// selecting, the selected card's token, a card click toggling instead of focusing and a
+// header checkbox, Select all from a header, the dialogs' singular copy and their
+// Cancel and Escape, Escape and Done leaving the mode, and the controls' focus across
 // a render tick — are render tests in web/render/groups.spec.ts since 2026-10-20
 // (plans/_audit/relevel/groups.md). What stays here is every journey: a batch endpoint
 // answering and the rail re-rendering, the view switch (adopted from the prefs broadcast),
 // and the daemon going down and coming back.
 //
-// Daemon shape (the plan's Fixture plan header): every test takes the per-test `daemon` fixture.
+// Daemon shape: every test takes the per-test `daemon` fixture.
 // Bulk Remove must leave "No sessions yet", a daemon-global state, and the others read counts,
 // selections and every session's liveness; a neighbour's session on a shared daemon would corrupt
 // them.
 //
-// Every bulk action is asserted as ONE batch request (REQ-22): the dashboard never loops the
+// Every bulk action is asserted as ONE batch request: the dashboard never loops the
 // single-session endpoints.
 
 /** `#action-error`, the global failure alert (render/actionerror.ts); hidden while empty. */

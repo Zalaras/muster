@@ -17,7 +17,7 @@ func storedAddedDirs(t *testing.T, st *Store, id int64) *string {
 	return raw
 }
 
-// TestSession_AddedDirsColumn is REQ-4's storage half: the list is a JSON array of paths in
+// TestSession_AddedDirsColumn is the storage half: the list is a JSON array of paths in
 // order, an empty or nil list is NULL (never "[]" or an empty string), a new row starts NULL,
 // and each row reads back its own list.
 func TestSession_AddedDirsColumn(t *testing.T) {

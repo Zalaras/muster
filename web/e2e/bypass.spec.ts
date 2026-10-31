@@ -28,20 +28,20 @@ import {
 } from "./helpers/session";
 import { activeElementInsideTerminal, liveTile } from "./helpers/terminal";
 
-// Plan resume-and-dangerously-allow (closes #61) — REQ-1..5, INV-1..3. Fixture plan
-// header: this file takes the per-test `daemon` fixture (a launch opens the launched
-// session — auto-focus is daemon-global — and the chip is asserted on the rail's only
-// card and its only tile, so a neighbour session sharing a daemon would corrupt both).
+// Bypass launches and resumes (closes #61). This file takes the per-test `daemon` fixture
+// (a launch opens the launched session — auto-focus is daemon-global — and the chip is
+// asserted on the rail's only card and its only tile, so a neighbour session sharing a
+// daemon would corrupt both).
 //
-// The Resume-tab half of this plan (past sessions, resuming from the list) lives in
+// The Resume-tab half (past sessions, resuming from the list) lives in
 // past-sessions.spec.ts; this file covers only the New tab's bypass segment and the
 // chip it leaves behind on every hosting surface.
 //
-// The display properties — the bypass face and warning before any launch (INV-2), the
+// The display properties — the bypass face and warning before any launch, the
 // chip and the combined note a bypass launch leaves on the card, the mainhead and a tile
-// before any hook (E2, the chip-shown half of E12) — are render tests in
+// before any hook — are render tests in
 // web/render/launch.spec.ts since 2026-10-20 (plans/_audit/relevel/launch-update.md).
-// What stays here is every launch, resume and hook: E1 keeps its pre-launch face half
+// What stays here is every launch, resume and hook: the first test keeps its pre-launch face half
 // because the launch it leads into is the claim.
 
 test('checking "bypass" shows the warning and turns Launch into a danger "Launch without checks"; launching posts permissionMode: bypassPermissions and spawns the flag verbatim (REQ-1, REQ-2, E1)', async ({
@@ -72,7 +72,7 @@ test('checking "bypass" shows the warning and turns Launch into a danger "Launch
     await launchPrimaryButton(dialog).click();
     await expect(dialog).toBeHidden();
 
-    // E1: daemon API oracle — the launched session's own permissionMode, not the
+    // Daemon API oracle — the launched session's own permissionMode, not the
     // dialog's rendering of what it thinks it sent.
     const state = await getState(page, daemon);
     const launchedMatches = state.sessions.filter((s) => s.title === "bypass-launch-e1");
@@ -86,7 +86,7 @@ test('checking "bypass" shows the warning and turns Launch into a danger "Launch
     const startCommand = await daemon.paneStartCommand(launched.tmuxTarget);
     expect(startCommand).toContain("--permission-mode bypassPermissions");
 
-    // REQ-13/kb:adr/launch-opens-launched-session: a bypass launch opens like any other.
+    // kb:adr/launch-opens-launched-session: a bypass launch opens like any other.
     const card = railCard(page, "bypass-launch-e1");
     await expect(card).toHaveAttribute("aria-current", "true");
     expect(await activeElementInsideTerminal(page, "bypass-launch-e1")).toBe(true);
@@ -201,7 +201,7 @@ test("in Tiles, the bypass session's tile header shows the chip, and a hook repo
       data: rawUserPromptSubmit(claudeId, { permissionMode: "default" }),
     });
 
-    // See the E3 test's comment: the chip's element is a permanent template slot, toggled
+    // See the earlier chip test's comment: the chip's element is a permanent template slot, toggled
     // by its `hidden` attribute, never added/removed.
     await expect(bypassChip(tile)).toBeHidden();
   } finally {
@@ -275,7 +275,7 @@ test("the bypass chip is shown on the rail card in every state (alive and dead),
     await request.post(daemon.ingestURL("hook"), {
       data: rawUserPromptSubmit(claudeId, { promptId: "p3", permissionMode: "default" }),
     });
-    // See the E3 test's comment: the chip's element is a permanent template slot, toggled
+    // See the earlier chip test's comment: the chip's element is a permanent template slot, toggled
     // by its `hidden` attribute, never added/removed.
     await expect(bypassChip(card)).toBeHidden();
 
@@ -312,12 +312,12 @@ test("a directory whose last launch was bypass opens the dialog on auto, from a 
     await expect(dialog).toBeHidden();
 
     // Explicitly re-navigate elsewhere then click the Recent back onto this directory
-    // — the other restore path (REQ-3 names both "on open and on a Recent click").
+    // — the other restore path (restore happens both "on open and on a Recent click").
     const other = await browseScratchDirectory(daemon, "muster-e2e-bypass-norestore-other-");
     try {
       const dialog2 = await openLaunchDialog(page);
-      // initOpen's restore lands on `dir` (the only launched-into directory so far,
-      // REQ-8) — go up to the browse root, then descend into `other`, before clicking
+      // initOpen's restore lands on `dir` (the only launched-into directory so far) —
+      // go up to the browse root, then descend into `other`, before clicking
       // the Recent back onto `dir` (launch-opens-session.spec.ts's own pattern).
       await crumbButton(dialog2, basename(daemon.browseRoot)).click();
       await childEntry(dialog2, basename(other.path)).click();

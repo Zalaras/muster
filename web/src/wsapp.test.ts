@@ -95,7 +95,7 @@ describe("coreWsHandlers — groups", () => {
   });
 });
 
-// REQ-10: the update-restart signals are relayed by the pop-out's set as well as the dashboard's, so
+// The update-restart signals are relayed by the pop-out's set as well as the dashboard's, so
 // an open pop-out reloads onto the new version (kb:adr/update-restart-reloads-dashboard).
 describe("update relays — popoutWsHandlers and dashboardWsHandlers share them", () => {
   const updateInfo = { available: true } as never;

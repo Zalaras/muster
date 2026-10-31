@@ -29,12 +29,12 @@ import (
 func p[T any](v T) *T { return &v }
 
 // issueTestToken is a sentinel bearer token used across issue-capture tests: any test
-// that asserts INV-3 ("the token never escapes") looks for this exact string in a
+// that asserts that the token never escapes looks for this exact string in a
 // response body or log line.
 const issueTestToken = "issue-capture-sentinel-token-should-never-leak"
 
 // newIssueTestServer builds a full Server with issue capture enabled against a fake
-// GitHub endpoint and a scratch token file (REQ-14's test seams) — mirrors
+// GitHub endpoint and a scratch token file (the test seams) — mirrors
 // newUsageRefreshTestServer's shape in usage_test.go for the equivalent feature.
 func newIssueTestServer(t *testing.T, ghURL, repo, token string) *testServer {
 	t.Helper()
@@ -143,7 +143,7 @@ type capturedGHRequest struct {
 // and the response is swappable mid-test (setResponse) so a failure-then-retry sequence
 // can be driven from one server. block, if set, is closed by request 0's handler after
 // recording the request but before responding — used to hold one request in flight for
-// the D10/Edge-Case-12 concurrency test.
+// the concurrency test.
 type fakeGitHubAPI struct {
 	mu       sync.Mutex
 	status   int
@@ -195,7 +195,7 @@ func (f *fakeGitHubAPI) requestAt(i int) capturedGHRequest {
 }
 
 // ===========================================================================
-// captureStore (white-box: REQ-15, D10, Edge Case 12)
+// captureStore (white-box)
 // ===========================================================================
 
 func TestCaptureStore_PutAndReserve_RoundTrip(t *testing.T) {
@@ -272,7 +272,7 @@ func TestCaptureStore_Consume_ClearsInFlightAndPermanentlyBlocksReuse(t *testing
 	assert.Nil(t, cs.reserve("a", now))
 }
 
-// TestCaptureStore_Put_EvictsOldestByCapturedAtWhenOverCapacity covers REQ-15's "at most
+// TestCaptureStore_Put_EvictsOldestByCapturedAtWhenOverCapacity covers the "at most
 // 8 captures are held; taking a 9th evicts the oldest by capturedAt" — deliberately
 // inserted out of chronological order so the eviction can't be passing by coincidence of
 // insertion order.
@@ -472,7 +472,7 @@ func TestRenderSnapshotMarkdown_EndedRowPresentAfterAliveRowWhenEndedAtSet(t *te
 	assert.True(t, aliveIdx < endedIdx && endedIdx < attentionIdx, "ended must sit between alive and attention")
 }
 
-// TestRenderSnapshotMarkdown_UnknownRendering covers REQ-12: unknown values render the
+// TestRenderSnapshotMarkdown_UnknownRendering: unknown values render the
 // literal word "unknown", never 0 or a blank cell, for each of the documented fields.
 func TestRenderSnapshotMarkdown_UnknownRendering(t *testing.T) {
 	t.Run("context nil", func(t *testing.T) {
@@ -494,7 +494,7 @@ func TestRenderSnapshotMarkdown_UnknownRendering(t *testing.T) {
 		snap.ClaudeCode.Installed = nil
 		// Status is left "above" from the fixture; the rule is that claudeCodeCell
 		// branches solely on Installed == nil, so the status word must never leak
-		// into this cell once installed is unknown (INV-1's daemon-side counterpart).
+		// into this cell once installed is unknown (the daemon-side counterpart).
 		got := renderSnapshotMarkdown(snap)
 		assert.Contains(t, got, "| Claude Code | installed unknown · verified 2.1.246–2.1.267 |")
 		assert.NotContains(t, got, "| Claude Code | installed unknown · verified 2.1.246–2.1.267 · above |")
@@ -509,7 +509,7 @@ func TestRenderSnapshotMarkdown_UnknownRendering(t *testing.T) {
 	})
 }
 
-// TestClaudeCodeCell is D14's direct unit coverage of the cell text
+// TestClaudeCodeCell is the direct unit coverage of the cell text
 // (kb:anchor/issue.captures), independent of the full markdown row-order fixture above.
 func TestClaudeCodeCell(t *testing.T) {
 	tests := []struct {
@@ -584,7 +584,7 @@ func TestRenderSnapshotMarkdown_JSONBlockIsTwoSpaceIndentedStructOrder(t *testin
 }
 
 // ===========================================================================
-// buildIssueSnapshot: D4 (exact key set), INV-1 (hard exclusions), REQ-12 (unknown)
+// buildIssueSnapshot: exact key set, hard exclusions, unknown values
 // ===========================================================================
 
 // hardExclusionSentinels names every value fullyPopulatedSession sets on an excluded
@@ -602,7 +602,7 @@ var hardExclusionSentinels = []string{
 }
 
 // fullyPopulatedSession builds a *session.Session with every field set, including all
-// six hard-exclusion classes carrying distinct sentinel values (D4/INV-1) — deliberately
+// six hard-exclusion classes carrying distinct sentinel values — deliberately
 // combining Attention+Failure+EndedAt at once even though the real state machine would
 // never produce that combination, because buildIssueSnapshot/renderSnapshotMarkdown
 // operate on whatever fields are set, not on state-machine legality.
@@ -664,7 +664,7 @@ func assertNoHardExclusionLeak(t *testing.T, srv *testServer, sess *session.Sess
 	return snap
 }
 
-// TestBuildIssueSnapshot_HardExclusionsNeverLeak_AcrossEveryReachableState is INV-1's
+// TestBuildIssueSnapshot_HardExclusionsNeverLeak_AcrossEveryReachableState is the
 // core cross-state assertion (m1-sessions lesson: assert an "iff"/"never" rule from
 // every reachable source state, not the convenient one) — all six displayed states, with
 // Attention/Failure present only where the real state machine would set them.
@@ -794,7 +794,7 @@ func TestBuildIssueSnapshot_LastReceivedAtIsPlainRFC3339NoFraction(t *testing.T)
 	assert.NotContains(t, *snap.Session.Events.LastReceivedAt, ".", "no fractional-second component")
 }
 
-// TestBuildIssueSnapshot_DashboardScope_KeySetExactly covers D4 for scope == "dashboard":
+// TestBuildIssueSnapshot_DashboardScope_KeySetExactly checks for scope == "dashboard":
 // exactly the 13 always-present keys, and no "session" key at all.
 func TestBuildIssueSnapshot_DashboardScope_KeySetExactly(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{Floor: "2.1.246", Verified: "2.1.267", Status: "verified"})
@@ -815,7 +815,7 @@ func TestBuildIssueSnapshot_DashboardScope_KeySetExactly(t *testing.T) {
 	assert.Equal(t, "dashboard", snap.Scope)
 }
 
-// TestBuildIssueSnapshot_SessionScope_KeySetMatchesAllowlistExactly is D4: a session
+// TestBuildIssueSnapshot_SessionScope_KeySetMatchesAllowlistExactly: a session
 // populated in every field (fullyPopulatedSession, including all six excluded classes)
 // must marshal to exactly the key set pinned in the plan's "The allowlist" — nothing
 // more, nothing less, at every level.
@@ -847,7 +847,7 @@ func TestBuildIssueSnapshot_SessionScope_KeySetMatchesAllowlistExactly(t *testin
 	got := collectJSONPaths(t, raw)
 	assert.Equal(t, want, got)
 
-	// The negative half of D4/INV-1: none of the excluded field NAMES ever appear as the
+	// The negative half of the exact-key-set and hard-exclusion rules: none of the excluded field NAMES ever appear as the
 	// final path component of any leaf key, even though some are lexically close to
 	// allowed ones (claudeSessionIdBound vs. the excluded claudeSessionId value). This is
 	// deliberately a leaf-name check, not slice-element containment against the dotted
@@ -983,7 +983,7 @@ func TestHandleCreateCapture_RequiresCookie(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
-// TestHandleCreateCapture_DisabledWhenIssueAPIURLEmpty covers REQ-14/Edge Case 14: the
+// TestHandleCreateCapture_DisabledWhenIssueAPIURLEmpty covers Edge Case 14: the
 // default newTestServer leaves IssueAPIURL at its zero value, so the endpoint 404s.
 func TestHandleCreateCapture_DisabledWhenIssueAPIURLEmpty(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -1073,7 +1073,7 @@ func TestHandleCreateCapture_EachCallReturnsDistinctCaptureId(t *testing.T) {
 }
 
 // TestHandleCreateCapture_D12_WithThreeSessionsPresent_ScopedCaptureLeaksNoBystanderData
-// is D12/INV-1's "with other sessions present" clause: a session-scoped capture taken
+// is the "with other sessions present" clause: a session-scoped capture taken
 // while 3+ sessions exist must contain nothing from the bystanders — no other session's
 // tmuxTarget, state, or context — and the dashboard counts are the only trace they leave.
 func TestHandleCreateCapture_D12_WithThreeSessionsPresent_ScopedCaptureLeaksNoBystanderData(t *testing.T) {
@@ -1193,7 +1193,7 @@ func TestHandleCreateIssue_TitleExactly200CharsIsAccepted(t *testing.T) {
 
 // TestHandleCreateIssue_TitleExactly200MultibyteRunesIsAccepted covers review cycle 1
 // Minor 1: the limits are rune counts, not byte counts. "é" is one rune but two bytes in
-// UTF-8, so a 200-rune title built from it is exactly at the limit by REQ-6's ("chars")
+// UTF-8, so a 200-rune title built from it is exactly at the limit by the "chars" definition
 // and the client's UTF-16-code-unit maxlength gate, yet its byte length (400) sails past
 // what a naive len(title) > 200 byte check would reject.
 func TestHandleCreateIssue_TitleExactly200MultibyteRunesIsAccepted(t *testing.T) {
@@ -1271,7 +1271,7 @@ func TestHandleCreateIssue_UnknownCaptureIdIs409CaptureExpired(t *testing.T) {
 	assert.Zero(t, gh.count())
 }
 
-// TestHandleCreateIssue_ExpiredCaptureIs409CaptureExpired covers REQ-15/Edge Case 2 via
+// TestHandleCreateIssue_ExpiredCaptureIs409CaptureExpired covers Edge Case 2 via
 // white-box manipulation of the held capture's capturedAt (this package's own type) —
 // the alternative, actually sleeping 15 minutes, isn't practical for a unit test.
 func TestHandleCreateIssue_ExpiredCaptureIs409CaptureExpired(t *testing.T) {
@@ -1310,7 +1310,7 @@ func TestHandleCreateIssue_CaptureExpired_MessageNamesTheRemedy(t *testing.T) {
 	assert.Contains(t, envelope.Error.Message, "reopen the dialog to take a fresh snapshot")
 }
 
-// TestHandleCreateIssue_D10_ConsumedCaptureIsRejectedOnSecondPost is D10: a second POST
+// TestHandleCreateIssue_D10_ConsumedCaptureIsRejectedOnSecondPost: a second POST
 // with an already-consumed captureId is 409 capture_expired and posts nothing upstream.
 func TestHandleCreateIssue_D10_ConsumedCaptureIsRejectedOnSecondPost(t *testing.T) {
 	gh := newFakeGitHubAPI(http.StatusCreated, `{"number":5,"html_url":"https://x/5"}`)
@@ -1362,7 +1362,7 @@ func TestHandleCreateIssue_ConcurrentDoublePost_SecondIsRejected(t *testing.T) {
 }
 
 // TestHandleCreateIssue_CaptureNotConsumedOnFailure_RetryWorksWithoutRecapture covers
-// REQ-10: a failed filing attempt does not consume the capture, so a retry with the same
+// A failed filing attempt does not consume the capture, so a retry with the same
 // captureId works without taking a fresh snapshot.
 func TestHandleCreateIssue_CaptureNotConsumedOnFailure_RetryWorksWithoutRecapture(t *testing.T) {
 	gh := newFakeGitHubAPI(http.StatusForbidden, `{"message":"Forbidden"}`)
@@ -1424,7 +1424,7 @@ func TestHandleCreateIssue_NoteCRLFIsNormalizedInPostedBody(t *testing.T) {
 }
 
 // TestHandleCreateIssue_Success_LogsNumberUrlScopeAndLengthsNeverTitleOrNoteText covers
-// REQ-16: info log carries number/url/scope/title-and-note lengths, never their text.
+// Info log carries number/url/scope/title-and-note lengths, never their text.
 func TestHandleCreateIssue_Success_LogsNumberUrlScopeAndLengthsNeverTitleOrNoteText(t *testing.T) {
 	gh := newFakeGitHubAPI(http.StatusCreated, `{"number":21,"html_url":"https://github.com/acme/widgets/issues/21"}`)
 	srv := newIssueTestServer(t, gh.server(t).URL, "acme/widgets", issueTestToken)
@@ -1507,7 +1507,7 @@ func TestHandleCreateIssue_PostFailure_403WithMessage_Returns502WithGitHubMessag
 // TestHandleCreateIssue_PostFailure_WarnLogCarriesStageAndMessage covers review cycle 1
 // Major 1's post-step branch: the warn line must carry postErr.Message, which is already
 // where GitHub's upstream status and message live (built by ghissue.CreateIssue as
-// "github returned %d: %s") — one field closing both halves of REQ-16 for this branch.
+// "github returned %d: %s") — one field closing both halves of the requirement for this branch.
 func TestHandleCreateIssue_PostFailure_WarnLogCarriesStageAndMessage(t *testing.T) {
 	gh := newFakeGitHubAPI(http.StatusForbidden, `{"message":"token lacks repo scope"}`)
 	srv := newIssueTestServer(t, gh.server(t).URL, "acme/widgets", issueTestToken)
@@ -1557,7 +1557,7 @@ func TestHandleCreateIssue_PostFailure_2xxUnparseableBody_Returns502MentioningMa
 // TestHandleCreateIssue_PostFailure_2xxEmptyObjectBody_Returns502AndCaptureNotConsumed
 // covers review cycle 1 Minor 4 at the handler level: a "{}" 2xx body from GitHub must
 // not surface as a 201 "Filed <repo>#0" (an empty href the user could never follow), and
-// must leave the capture usable for a retry exactly like every other post failure (REQ-10).
+// must leave the capture usable for a retry exactly like every other post failure.
 func TestHandleCreateIssue_PostFailure_2xxEmptyObjectBody_Returns502AndCaptureNotConsumed(t *testing.T) {
 	gh := newFakeGitHubAPI(http.StatusCreated, `{}`)
 	srv := newIssueTestServer(t, gh.server(t).URL, "acme/widgets", issueTestToken)
@@ -1596,8 +1596,8 @@ func TestHandleCreateIssue_TransportFailure_Returns502(t *testing.T) {
 	assert.Equal(t, "issue_post_failed", decodeErrorCode(t, rec))
 }
 
-// TestHandleCreateIssue_TokenNeverAppearsInResponseOrLogOnAnyFailurePath is INV-3
-// exercised at the full HTTP-handler level (not just ghissue's own unit tests): across
+// TestHandleCreateIssue_TokenNeverAppearsInResponseOrLogOnAnyFailurePath is the
+// token-never-escapes rule exercised at the full HTTP-handler level (not just ghissue's own unit tests): across
 // GitHub 401/403/404/500 and an unparseable 2xx, neither the response body nor any log
 // line emitted may contain the bearer token.
 func TestHandleCreateIssue_TokenNeverAppearsInResponseOrLogOnAnyFailurePath(t *testing.T) {
@@ -1629,7 +1629,7 @@ func TestHandleCreateIssue_TokenNeverAppearsInResponseOrLogOnAnyFailurePath(t *t
 }
 
 // TestHandleCreateIssue_D11_CaptureIsImmutable_FiledBodyReflectsPreTransitionState is
-// D11/INV-4: the snapshot filed is the one previewed, regardless of a state transition
+// The snapshot filed is the one previewed, regardless of a state transition
 // that happens in between capture and filing.
 func TestHandleCreateIssue_D11_CaptureIsImmutable_FiledBodyReflectsPreTransitionState(t *testing.T) {
 	gh := newFakeGitHubAPI(http.StatusCreated, `{"number":1,"html_url":"https://x/1"}`)

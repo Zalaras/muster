@@ -3,7 +3,7 @@ import { formatResets, formatResetsTitle } from "./format";
 import type { UsageBucket as UsageBucketSource } from "../protocol/usage";
 import { buildUsageBucketViewModel } from "./usage";
 
-// R5: `formatResets` (which this derivation delegates to for `resetsText`) renders using
+// `formatResets` (which this derivation delegates to for `resetsText`) renders using
 // the *local* timezone, while the daemon ships UTC RFC3339Nano — same `localIso` idiom as
 // format.test.ts, so these fixtures are correct under any CI/dev machine's timezone.
 function localIso(year: number, month: number, day: number, hour = 0, minute = 0): string {

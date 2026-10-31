@@ -1,6 +1,6 @@
-// Plain-terminal-session helpers (plan plain-terminal-session).
+// Plain-terminal-session helpers.
 //
-// The segmented `claude | shell` control is one component rendered in two places (REQ-4)
+// The segmented `claude | shell` control is one component rendered in two places
 // — the Focus mainhead (`.mainhead .surfseg`) and every tile's footer (`.tfoot .acts
 // .surfseg`, scoped through `article.tile[data-session-id]` since six tiles carry
 // identically-named buttons, exactly as they already do for End — Testable UI Elements).
@@ -27,11 +27,11 @@ export {
 /**
  * Review Major 1: a dead surface's own `role="status"` notice (`.terminal-notice`,
  * `web/index.html`'s `#dead-surface` and `#dead-surface-template`, populated by
- * `render/dead.ts`'s `showDeadSurfaceNotice`) — REQ-12's fallback for a spawn failure on
+ * `render/dead.ts`'s `showDeadSurfaceNotice`) — the fallback for a spawn failure on
  * a session whose `claude` segment currently shows the dead surface, not a live pane.
  * Deliberately NOT `root.getByRole("status")`: the same dead-surface root also contains
  * `<b role="status">session ended</b>` inside `.endcap` (`web/index.html`), so a bare
- * role query would match both elements (file-drop-fix's exact E9 lesson) — scope to the
+ * role query would match both elements (file-drop-fix's exact lesson) — scope to the
  * `.terminal-notice` class instead, mirroring `helpers/terminal.ts`'s `dropNotice` for a
  * live `TerminalSurface`.
  */
@@ -40,7 +40,7 @@ export function deadSurfaceNotice(deadSurfaceRoot: Locator): Locator {
 }
 
 /**
- * The `muster-<id>-shell` tmux session name (Protocol Contract / REQ-1) — the single
+ * The `muster-<id>-shell` tmux session name (Protocol Contract) — the single
  * definition every test in this file uses, mirroring the daemon's own
  * `ShellSessionName(id)` (plan Affected Files: `internal/tmux/tmux.go`). Never re-derive
  * this string ad hoc elsewhere in a test.
@@ -70,7 +70,7 @@ export async function createShellViaApi(
 
 /**
  * Tracks open `/ws/shell/` sockets — same shape as `helpers/terminal.ts`'s
- * `TerminalSocketTracker`, scoped to the shell route so a test can assert INV-3 (a
+ * `TerminalSocketTracker`, scoped to the shell route so a test can assert that (a
  * session's Claude socket and its shell socket are independent attach targets) without
  * the two trackers ever double-counting each other's opens. Must be constructed before
  * the action that opens the socket(s) under test (Playwright's `websocket` event only

@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// defaultRecord is the real record's shape at the time this plan landed (D6): two rows,
+// defaultRecord is the real record's shape at the time it was written: two rows,
 // already sorted ascending.
 const defaultRecord = "2.1.246 2026-08-29 m4-canary\n2.1.267 2026-09-10 canary-full-coverage\n"
 
@@ -78,7 +78,7 @@ func writeClaudeVersionStub(t *testing.T, output string) string {
 }
 
 // ---------------------------------------------------------------------------------------
-// gen / check (D15)
+// gen / check
 
 func TestCmdGen_FillsEveryFragmentInEveryListedFile(t *testing.T) {
 	root := newFixtureRoot(t, defaultRecord)
@@ -104,7 +104,7 @@ func TestCmdGen_FillsEveryFragmentInEveryListedFile(t *testing.T) {
 	assert.Contains(t, buf.String(), "all fragments fresh")
 }
 
-// TestCmdGen_TableSortedAscendingRegardlessOfRecordOrder covers D7/D15/Edge Case 13: the
+// TestCmdGen_TableSortedAscendingRegardlessOfRecordOrder: the
 // on-disk record need not be sorted; the generated table always is.
 func TestCmdGen_TableSortedAscendingRegardlessOfRecordOrder(t *testing.T) {
 	unsorted := "2.1.267 2026-09-10 canary-full-coverage\n2.1.246 2026-08-29 m4-canary\n"
@@ -116,7 +116,7 @@ func TestCmdGen_TableSortedAscendingRegardlessOfRecordOrder(t *testing.T) {
 	assert.Less(t, strings.Index(doc, "| 2.1.246 |"), strings.Index(doc, "| 2.1.267 |"))
 }
 
-// TestCmdCheck_ExitsNonZeroNamingOnlyTheStaleFile covers D15/Edge Case 7: a hand-edit to a
+// TestCmdCheck_ExitsNonZeroNamingOnlyTheStaleFile: a hand-edit to a
 // generated fragment (simulating someone editing the doc instead of the record) makes
 // check fail, naming that file and not the others.
 func TestCmdCheck_ExitsNonZeroNamingOnlyTheStaleFile(t *testing.T) {
@@ -136,7 +136,7 @@ func TestCmdCheck_ExitsNonZeroNamingOnlyTheStaleFile(t *testing.T) {
 	assert.NotContains(t, err.Error(), "claude-code-versions.md", "must name only the stale file")
 }
 
-// TestCmdGenAndCheck_FailNamingAFileWithNoFragmentMarkerAtAll covers D15/Edge Case 20: a
+// TestCmdGenAndCheck_FailNamingAFileWithNoFragmentMarkerAtAll: a
 // listed file whose markers were deleted entirely fails both gen and check, naming it.
 func TestCmdGenAndCheck_FailNamingAFileWithNoFragmentMarkerAtAll(t *testing.T) {
 	root := newFixtureRoot(t, defaultRecord)
@@ -153,7 +153,7 @@ func TestCmdGenAndCheck_FailNamingAFileWithNoFragmentMarkerAtAll(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------------------
-// bump (D16)
+// bump
 
 func TestCmdBump_OfflineEditsNothing(t *testing.T) {
 	t.Setenv(offlineEnv, "1")
@@ -334,7 +334,7 @@ func TestCmdBump_RefusesWhenGitFails(t *testing.T) {
 // TestCmdBump_RefusesWhenGitDiffFails covers the second git call failing after the
 // record has already been appended in memory-adjacent state — the append itself has
 // already happened on disk by this point (gen already ran too), so this pins that the
-// error still surfaces rather than being swallowed; it does not re-assert INV-5 (that is
+// error still surfaces rather than being swallowed; it does not re-assert that guarantee (that is
 // about a red `go test` never reaching bump at all, guarded by the Makefile chain).
 func TestCmdBump_RefusesWhenGitDiffFails(t *testing.T) {
 	claudeBin := writeClaudeVersionStub(t, "2.1.270 (Claude Code)")

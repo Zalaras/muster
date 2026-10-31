@@ -10,7 +10,7 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode"
 )
 
-// assertINV1Holds asserts kb:anchor/ws.session / plan ui-text-and-focus INV-1: whenever
+// assertINV1Holds asserts kb:anchor/ws.session's title rule: whenever
 // titleOverride is non-nil, the wire title (DisplayTitle()) equals it exactly.
 func assertINV1Holds(t *testing.T, sess *Session, wantOverride string) {
 	t.Helper()
@@ -20,7 +20,7 @@ func assertINV1Holds(t *testing.T, sess *Session, wantOverride string) {
 	assert.Equal(t, wantOverride, *sess.DisplayTitle())
 }
 
-// TestTitleOverride_INV1_SurvivesEverySourceState covers D5: INV-1 ("title ==
+// TestTitleOverride_INV1_SurvivesEverySourceState: the rule ("title ==
 // titleOverride whenever titleOverride != null") must hold after every source state the
 // Invariants section lists — a rebind, a resume, a status post (with or without a new
 // Claude-provided name), the liveness sweep, a daemon restart, and the PUT itself. Per the
@@ -177,12 +177,12 @@ func TestTitleOverride_INV1_SurvivesEverySourceState(t *testing.T) {
 	})
 }
 
-// TestApplyStatusUpdate_NeverTouchesTitleOverride covers D6/INV-2: applyStatusUpdate has
+// TestApplyStatusUpdate_NeverTouchesTitleOverride: applyStatusUpdate has
 // no path to TitleOverride at all — a status post carrying a session_name (or not) leaves
 // it bit-identical from every one of the six displayed states, plus a dead session. Reuses
 // status_test.go's baselineForState/fullStatusUpdate helpers (same package), extended with
 // an override, so this doesn't duplicate that file's own state coverage. Still true of
-// applyStatusUpdate itself after rename-claude-session: the REQ-7 clear of a *delivered*
+// applyStatusUpdate itself after rename-claude-session: the clear of a *delivered*
 // override lives one level up in Manager.ApplyStatus, covered by
 // TestApplyStatus_TitleOverrideDelivery.
 func TestApplyStatusUpdate_NeverTouchesTitleOverride(t *testing.T) {
@@ -213,7 +213,7 @@ func TestApplyStatusUpdate_NeverTouchesTitleOverride(t *testing.T) {
 	})
 }
 
-// TestSetTitle_BroadcastsOnceOnARealChangeZeroOnEdgeCases3And4 covers D7: SetTitle
+// TestSetTitle_BroadcastsOnceOnARealChangeZeroOnEdgeCases3And4: SetTitle
 // broadcasts (and reports changed=true) exactly once per real change, and neither
 // persists-with-broadcast nor reports changed for edge cases 3 (clear when no override
 // exists) and 4 (set to the same string as the current override).
@@ -328,8 +328,8 @@ func TestSetTitle_BroadcastsOnceOnARealChangeZeroOnEdgeCases3And4(t *testing.T) 
 	})
 }
 
-// TestApplyStatus_OverrideSetAndClaudeNameChanges_PersistsButDoesNotBroadcast covers D10/
-// REQ-12: while an override is set, a status post that changes only Claude's last-known
+// TestApplyStatus_OverrideSetAndClaudeNameChanges_PersistsButDoesNotBroadcast checks:
+// While an override is set, a status post that changes only Claude's last-known
 // name (the wire title is unaffected, since the override still wins) persists the row but
 // broadcasts nothing — the wire object is unchanged, so kb:anchor/ws.session's no-no-op-upserts rule
 // stands.

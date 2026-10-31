@@ -135,7 +135,7 @@ func TestInsertEvent_SeqAssignmentPerClaudeSessionID(t *testing.T) {
 	ctx := context.Background()
 
 	// Interleaved inserts across two claude_session_id values — the seq counter must be
-	// scoped per session, not global (REQ-12, D5). event.id (global arrival order) must
+	// scoped per session, not global. event.id (global arrival order) must
 	// still increase monotonically across the interleaving.
 	require.NoError(t, st.InsertEvent(ctx, Event{ClaudeSessionID: "sess-a", Type: "SessionStart", Payload: []byte(`{}`)}))
 	require.NoError(t, st.InsertEvent(ctx, Event{ClaudeSessionID: "sess-b", Type: "SessionStart", Payload: []byte(`{}`)}))
@@ -282,7 +282,7 @@ func TestInsertEvent_PopulatedEnvelopeAndCorrelationFields(t *testing.T) {
 	assert.Equal(t, "%3", tmuxPane)
 }
 
-// TestInsertEvent_SessionIDRoutingColumn covers m1-sessions' D8/D9: a routed event
+// TestInsertEvent_SessionIDRoutingColumn covers a routed event
 // persists with its Muster session_id populated; an unrouted one (nil SessionID) must
 // still persist with a NULL session_id rather than erroring or guessing.
 func TestInsertEvent_SessionIDRoutingColumn(t *testing.T) {

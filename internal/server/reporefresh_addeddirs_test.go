@@ -29,7 +29,7 @@ func repoReading(name, branch string, isWorktree bool) *session.LocationRepo {
 	return &session.LocationRepo{Name: name, Branch: branch, IsWorktree: isWorktree}
 }
 
-// TestRepoPoll_AddedDirsGetTheirReading is D9 and D15 / REQ-5, REQ-5a: a directory is listed
+// TestRepoPoll_AddedDirsGetTheirReading: a directory is listed
 // with a null repo by the status post that reports it, even when it is a git checkout (no git
 // runs on the status path); one tick reads each (name of the checkout's top level, branch,
 // worktree flag, null for a plain directory or a detached HEAD); an unchanged tick broadcasts
@@ -84,7 +84,7 @@ func mkSubdir(t *testing.T, dir, name string) string {
 	return sub
 }
 
-// TestRepoPoll_AddedDirGoneKeepsItsLastReading is D9's last clause / edge case 12: a directory
+// TestRepoPoll_AddedDirGoneKeepsItsLastReading is the last clause / edge case 12: a directory
 // that was deleted, or replaced by a file, stays listed with the reading it had, and nothing
 // is broadcast.
 func TestRepoPoll_AddedDirGoneKeepsItsLastReading(t *testing.T) {
@@ -161,7 +161,7 @@ func TestRepoPoll_AddedDirsAreReadPerAliveSession(t *testing.T) {
 	assert.Equal(t, "main", e.get(t, a).AddedDirs[0].Repo.Branch)
 }
 
-// TestRepoPoll_RestartRereadsAddedDirs is D8 / E4's daemon half and edge case 10: the paths
+// TestRepoPoll_RestartRereadsAddedDirs is the daemon half and edge case 10: the paths
 // come back from the store with no reading, and the start-up tick (which runs even with
 // -repo-poll 0) reads them.
 func TestRepoPoll_RestartRereadsAddedDirs(t *testing.T) {
@@ -186,7 +186,7 @@ func TestRepoPoll_RestartRereadsAddedDirs(t *testing.T) {
 	assert.Equal(t, []session.Location{{Directory: infra, Repo: repoReading("infra", "main", false)}, {Directory: plain}}, second.get(t, id).AddedDirs)
 }
 
-// TestRepoPoll_AddedDirsNudgeReadsThemAtOnce is REQ-5's "at once when the list changes": with
+// TestRepoPoll_AddedDirsNudgeReadsThemAtOnce is the "at once when the list changes": with
 // no timer, a status post that adds a directory wakes the loop, and the reading follows the
 // post's own upsert without waiting for a tick.
 func TestRepoPoll_AddedDirsNudgeReadsThemAtOnce(t *testing.T) {
@@ -245,7 +245,7 @@ func TestReadAddedRepos(t *testing.T) {
 	}
 }
 
-// TestReadAddedRepos_SubdirectoryNamesItsCheckoutsTopLevel is REQ-5's reading of a directory
+// TestReadAddedRepos_SubdirectoryNamesItsCheckoutsTopLevel is the reading of a directory
 // inside a checkout: the checkout's folder name and branch (the top level's basename, not the
 // subdirectory's), and the checkout's worktree flag, not a property of where git ran: false
 // under an ordinary checkout, true under a linked worktree.

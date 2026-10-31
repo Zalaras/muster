@@ -1,6 +1,5 @@
-// reader — the display properties of plans markdown-viewing (REQ-1 through REQ-28, INV-1
-// through INV-8, acceptance E1-E29), markdown-render-fixes, frontmatter, mermaid-support
-// (REQ-1 through REQ-15, acceptance E2-E15), reader-expanded-persists and the review
+// reader — the display properties of the markdown reader (nav, outline, frontmatter,
+// mermaid diagrams, reader-expanded-persists and the review
 // cycles, re-levelled from web/e2e/reader.spec.ts and web/e2e/reader-mermaid.spec.ts on
 // 2026-10-20 (plans/_audit/test-audit-2026-10-20-relevel.md): what the docs surface shows
 // for a listing and documents the fixture carries — the nav tree, the outline, the docbar,
@@ -468,7 +467,7 @@ test("the Files and Outline header toggles fold independently, and the nav toggl
   await expect(fileEntry(region, "TODO.md")).toHaveCount(0);
   await expect(outlineHeaderToggle(region)).toHaveAttribute("aria-expanded", "true");
 
-  // plan markdown-render-fixes REQ-1..REQ-3: one button, never hidden, whose glyph and
+  // One button, never hidden, whose glyph and
   // aria-expanded track the nav's own state.
   const toggle = navToggle(region);
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -518,7 +517,7 @@ test("on an ended session the plan block and the nav's plan header row are absen
   await expect(region).toBeVisible();
   await expect(planSlotEntry(region)).toHaveCount(0);
   await expect(noPlanText(region)).toHaveCount(0);
-  // REQ-6: the plan header row is hidden with the slot it labels — no empty padded
+  // The plan header row is hidden with the slot it labels — no empty padded
   // strip at the top of the nav on a dead session.
   await expect(planHeaderRow(region)).toBeHidden();
 
@@ -764,10 +763,10 @@ test("opening a file with flat frontmatter shows a Frontmatter table as the body
   await expect(frontmatterKeyCell(region, "status")).toBeVisible();
   await expect(frontmatterValueCell(region, "status")).toHaveText("accepted");
 
-  // REQ-5: the frontmatter table is the first child of the rendered body.
+  // The frontmatter table is the first child of the rendered body.
   expect(await body.evaluate((el) => el.firstElementChild?.tagName)).toBe("TABLE");
 
-  // REQ-6: no outline entry for any frontmatter key; the outline starts at the
+  // No outline entry for any frontmatter key; the outline starts at the
   // document's own first real heading and has exactly the document's two headings.
   await expect(outlineEntry(region, "id")).toHaveCount(0);
   await expect(outlineEntry(region, "tags")).toHaveCount(0);
@@ -815,12 +814,12 @@ test("opening a file with nested-YAML frontmatter shows the raw block verbatim i
   await expect(frontmatterTable(region)).toHaveCount(0);
   const fallback = frontmatterFallback(region);
   await expect(fallback).toBeVisible();
-  // REQ-3's "verbatim" is exact bytes, not the whitespace-normalized comparison
+  // "Verbatim" is exact bytes, not the whitespace-normalized comparison
   // `toHaveText` performs — a raw `textContent()` equality check is the only oracle
   // that can tell a preserved newline from a collapsed one.
   await expect.poll(async () => fallback.textContent()).toBe(FM_RAW_INNER);
 
-  // REQ-6 / edge case 23: the "# Not a real heading" line lives inside the raw block
+  // The "# Not a real heading" line lives inside the raw block
   // and never reaches the outline or becomes a body heading.
   await expect(outlineEntry(region, "Not a real heading")).toHaveCount(0);
   await expect(outlineEntries(region)).toHaveCount(1);
@@ -833,7 +832,7 @@ test("a long frontmatter key never forces article.md to scroll horizontally in a
   dashboard,
 }) => {
   // 3x2, explorer open: the browser review's Major 1 host (tile 425×316, article.md
-  // 233px with the nav open) — the tile starts compact (E27's `navCollapsedDefault`),
+  // 233px with the nav open) — the tile starts compact (`navCollapsedDefault`),
   // then the nav toggle opens the file explorer.
   const { region } = await openTileReader(page, dashboard, TILES_3X2, "3×2");
   await expect(readerNav(region)).toHaveCount(0);
@@ -848,7 +847,7 @@ test("a long frontmatter key never forces article.md to scroll horizontally in a
     frontmatterKeyCell(region, "an_extremely_long_frontmatter_key_used_to_test_line_wrapping"),
   ).toBeVisible();
 
-  // REQ-10 / W16: article.md must never force horizontal scroll, whatever the key's
+  // Article.md must never force horizontal scroll, whatever the key's
   // length — the key column caps and breaks instead (the ADR's accepted trade-off).
   // Poll re-reads scrollWidth and clientWidth together on each attempt so a layout
   // that is still narrowing can't pass against a stale, already-captured value.
@@ -891,7 +890,7 @@ test("expanded folders and folds survive selecting Claude and then Docs again (r
   await expect(outlineHeaderToggle(back)).toHaveAttribute("aria-expanded", "false");
 });
 
-// Plan reader-expanded-persists, review cycle 2 (browser Minor 1): while a filter is
+// While a filter is
 // typed the tree shows every match expanded, so a folder click has no visible effect and
 // must not be saved either — what a later return shows is something the developer saw.
 test("a folder click while a filter is typed saves nothing that shows after switching away with the filter still typed (reader-expanded-persists REQ-3)", async ({
@@ -1156,7 +1155,7 @@ test("a file with a fence of each of the kb's eight diagram kinds, plus case, at
 });
 
 // REGRESSION PIN: heading ids and the outline come from the reader's pre-existing
-// markdown path, and the diagram pass must leave both alone — REQ-12's own text: "it runs
+// markdown path, and the diagram pass must leave both alone — the diagram pass's own contract: "it runs
 // after renderMarkdown has assigned ids and touches only pre > code mermaid blocks."
 test("heading ids and the outline are unchanged by a document that also carries mermaid fences, valid and malformed, between its headings (REQ-12)", async ({
   page,
@@ -1271,8 +1270,7 @@ test("a flowchart naming layout: elk in frontmatter and one naming no layout bot
   await expect(keptMermaidSource(region)).toHaveCount(0);
 });
 
-// ── reading position survives surface and session switches and a reload (plan bugs-one-batch-1
-// R2, REQ-6; #109) ───────────────────────────────────────────────────────────────────────────
+// ── reading position survives surface and session switches and a reload (#109) ──────
 
 const LARGE_PAIR = "reader-docs-large-pair";
 const READING_OFFSET = 600;
@@ -1354,8 +1352,7 @@ test("the reading position survives switching to another session's card and back
   await expectScrolledBack(page, "reader-large-a");
 });
 
-// ── the restore policy: which opens restore, and what a reader's own input does to a pending one
-// (plan bugs-one-batch-1 R2, REQ-6; web-implementation Decisions) ─────────────────────────────
+// ── the restore policy: which opens restore, and what a reader's own input does to a pending one ──
 
 test("a wheel on the body after the restore moves the reading position and nothing jumps it back (R2, REQ-6)", async ({
   page,

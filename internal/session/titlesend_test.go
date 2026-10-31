@@ -28,7 +28,7 @@ func (r *titleRig) wantPending(wantTitle string, wantPending bool) {
 	}
 }
 
-// TestTitleToSend covers REQ-1/REQ-2/REQ-6 at the session layer, crossed with every source
+// TestTitleToSend checks at the session layer, crossed with every source
 // state: an override is handed out for sending at most once per value, only while it
 // differs from Claude's name ("Orig"); only a rename to a different value arms a new send.
 func TestTitleToSend(t *testing.T) {

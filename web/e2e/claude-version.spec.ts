@@ -3,24 +3,22 @@ import { observedVersionRange, STUB_CLAUDE_VERSION } from "./helpers/daemon";
 import { expect, test } from "./helpers/fixtures";
 import { issueButton } from "./helpers/issue";
 
-// Plan version-claude-interface — E4 and E5, and plan claude-version-watch REQ-1/REQ-2
-// (E7 is `make e2e` itself, covering this file): the daemon still serving when its
+// The claude-version-watch journeys: the daemon still serving when its
 // version check fails, the capture POST's claudeCode keys, and a 7 s check that neither
 // delays startup nor needs a reload to land. The daemon's WS `hello.claudeCode` carries
 // `{installed, floor, verified, status}` (kb:anchor/ws.hello delta, protocol 2); the
 // masthead's `#claude-version` readout (web/src/render/masthead.ts's
 // `renderClaudeVersion`/`describeClaudeVersion`) renders one of four states from it (plan
 // UI Specifications > DOM table). What the readout shows per status — below, verified,
-// above, the inert glyph, the reserved width across the unknown → below flip (E1, E2, E3,
-// E6, claude-version-watch REQ-5) — is a render test in web/render/connection.spec.ts
+// above, the inert glyph, the reserved width across the unknown → below flip — is a render test in web/render/connection.spec.ts
 // (re-levelled 2026-10-20, plans/_audit/relevel/misc-core.md). Every daemon here is the
-// harness's own scratch musterd with the stub `claude` (helpers/daemon.ts) — REQ-13's
+// harness's own scratch musterd with the stub `claude` (helpers/daemon.ts) — the
 // knobs (`stubClaudeVersionFails`, `stubClaudeVersionDelaySeconds`) make the stub's
 // `--version` reply fail or stall without ever touching a real `claude` binary
 // (CLAUDE.md hard rule: no test here launches one).
 //
 // Floor/ceiling come from `observedVersionRange()` (helpers/daemon.ts), which reads
-// REQ-1's own record (`internal/claudecode/observed_versions.txt`) off disk — never a
+// the observed-versions record (`internal/claudecode/observed_versions.txt`) off disk — never a
 // version literal hardcoded here — so a future `go run ./tools/versions bump` moving the
 // ceiling doesn't require an edit to this file. The default stub reply
 // (`STUB_CLAUDE_VERSION`, unset knob) is below the record's floor by construction (Edge
@@ -45,7 +43,7 @@ test("stub whose --version fails: the dashboard still serves and the readout rea
   const daemon = await startDaemon({ stubClaudeVersionFails: true });
   await page.goto(daemon.dashboardUrl);
 
-  // INV-3: no version-check outcome makes musterd exit non-zero or skip serving.
+  // No version-check outcome makes musterd exit non-zero or skip serving.
   // Reaching "connected" is the functional proof (embedded.spec.ts's own idiom); it is also
   // the hello, so the readout below is the hello's `unknown`, not the pre-hello placeholder.
   await expect(page.getByRole("status")).toHaveText(/connected/i);
@@ -85,7 +83,7 @@ test("a stub whose --version takes 7 s: the daemon serves within 3 s and the ope
 }) => {
   const daemon = await startDaemon({ stubClaudeVersionDelaySeconds: 7 });
 
-  // REQ-1: /healthz answered, measured from the spawn, without waiting on the version check.
+  // /healthz answered, measured from the spawn, without waiting on the version check.
   expect(daemon.startupMs).toBeLessThan(3_000);
 
   await page.goto(daemon.dashboardUrl);
@@ -97,7 +95,7 @@ test("a stub whose --version takes 7 s: the daemon serves within 3 s and the ope
   await expect(readout).toHaveText("claude unknown");
   await expect(readout).toHaveAttribute("title", UNKNOWN_HINT);
 
-  // REQ-2: the same page, never reloaded, re-renders from the pushed `claudeCode` message.
+  // The same page, never reloaded, re-renders from the pushed `claudeCode` message.
   await expect(readout).toHaveText(
     new RegExp(`^claude ${DEFAULT_STUB_INSTALLED.replace(/\./g, "\\.")}(\\s|$)`),
   );

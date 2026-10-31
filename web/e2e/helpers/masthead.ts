@@ -1,6 +1,6 @@
 // Daemon-side setup, the health recorder and the dot's colour oracles for the
-// masthead-indicators plan: the bracketed reset suffix on every usage readout (REQ-4/REQ-12)
-// and the connection health dot (REQ-6..10, INV-1). Nothing here launches a real `claude`;
+// masthead-indicators plan: the bracketed reset suffix on every usage readout
+// and the connection health dot. Nothing here launches a real `claude`;
 // the specs that use it fake Claude Code with synthesized status-line POSTs
 // (helpers/payloads.ts).
 //
@@ -95,7 +95,7 @@ export async function recordHealth(page: Page): Promise<HealthSample[]> {
 }
 
 /**
- * INV-1 over a recorded run: at every sample the dot's `data-health` agrees with the
+ * The health invariant over a recorded run: at every sample the dot's `data-health` agrees with the
  * banner. Banner showing the updating text -> pending; the daemon-down text -> down; the
  * neutral post-update confirmation -> ok; no banner -> pending while the word reads
  * `connecting…`, ok while it reads `connected`. Returns one line per violation, so an
@@ -121,7 +121,7 @@ export function healthViolations(samples: HealthSample[]): string[] {
   return out;
 }
 
-/** The health INV-1 requires for one sample, or `null` when the sample is not judged. */
+/** The health the invariant requires for one sample, or `null` when the sample is not judged. */
 function healthWanted(sample: HealthSample): Health | "unrecognised" | null {
   if (sample.word === "") return null;
   if (sample.bannerHidden) {
@@ -135,7 +135,7 @@ function healthWanted(sample: HealthSample): Health | "unrecognised" | null {
 }
 
 /**
- * The colour the dot paints, as the browser computes it. The plan pins `data-health` on
+ * The colour the dot paints, as the browser computes it. The spec pins `data-health` on
  * `#connection-status` but not which node carries the colour, so this reads the first
  * non-transparent background among the host, its pseudo-elements and its element
  * children.

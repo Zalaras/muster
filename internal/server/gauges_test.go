@@ -25,9 +25,9 @@ func countUsageSampleRows(t *testing.T, srv *testServer) int {
 
 // TestIngestStatusLine_UpdatesSessionAndRecordsUsageSample covers m3-gauges' whole
 // happy path in one wiring test: a routed, full (post-first-API-response) status post
-// refreshes the session's title/model/context (REQ-4) and records an account usage
-// sample (REQ-5/6), via the real ingest → InterpretStatus → ApplyStatus/aggregator path
-// (R4's "sequentially, on this single ingest worker goroutine").
+// refreshes the session's title/model/context and records an account usage
+// sample, via the real ingest → InterpretStatus → ApplyStatus/aggregator path
+// (posts are processed "sequentially, on this single ingest worker goroutine").
 func TestIngestStatusLine_UpdatesSessionAndRecordsUsageSample(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	srv.Start()
@@ -71,7 +71,7 @@ func TestIngestStatusLine_UpdatesSessionAndRecordsUsageSample(t *testing.T) {
 }
 
 // TestIngestStatusLine_PreFirstResponsePostLeavesContextUnknownAndRecordsNoSample
-// covers E2/D7/D8 at the wiring level: the measured pre-first-API-response shape
+// checks at the wiring level: the measured pre-first-API-response shape
 // (null percentages, zero tokens, rate_limits entirely absent) must never surface as
 // "0%" and must never produce an account sample.
 func TestIngestStatusLine_PreFirstResponsePostLeavesContextUnknownAndRecordsNoSample(t *testing.T) {
@@ -100,7 +100,7 @@ func TestIngestStatusLine_PreFirstResponsePostLeavesContextUnknownAndRecordsNoSa
 }
 
 // TestIngestStatusLine_IdenticalPairPostDedupsThenAThirdChangedPostAddsASecondRow is
-// E6/D9/INV-5's exact scenario, exercised through the real HTTP ingest path rather than
+// the dedup scenario, exercised through the real HTTP ingest path rather than
 // calling the aggregator directly: two identical rapid status posts must persist
 // exactly one usage_sample row, and a third with changed values must add a second.
 func TestIngestStatusLine_IdenticalPairPostDedupsThenAThirdChangedPostAddsASecondRow(t *testing.T) {
@@ -118,7 +118,7 @@ func TestIngestStatusLine_IdenticalPairPostDedupsThenAThirdChangedPostAddsASecon
 	})
 	require.Equal(t, 200, postIngest(t, srv, "/ingest/"+testIngestToken+"/status", changed).Code)
 
-	// The ingest worker processes posts in submission order (R4/plan Note 8): waiting for
+	// The ingest worker processes posts in submission order: waiting for
 	// the third, distinct post's own visible effect guarantees the first two already
 	// finished processing (or deduping), without a fixed sleep.
 	require.Eventually(t, func() bool {
@@ -129,8 +129,8 @@ func TestIngestStatusLine_IdenticalPairPostDedupsThenAThirdChangedPostAddsASecon
 	assert.Equal(t, 2, countUsageSampleRows(t, srv), "two identical posts collapse to one row; the changed third adds a second")
 }
 
-// TestIngestStatusLine_NeverTouchesSessionStateWhileNeedsInput is INV-1's end-to-end
-// wiring twin (E8): a status post applied through the real ingest path while a session
+// TestIngestStatusLine_NeverTouchesSessionStateWhileNeedsInput is the end-to-end
+// wiring twin: a status post applied through the real ingest path while a session
 // is needs_input must leave its state and attention untouched.
 func TestIngestStatusLine_NeverTouchesSessionStateWhileNeedsInput(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -171,8 +171,8 @@ func TestIngestStatusLine_NeverTouchesSessionStateWhileNeedsInput(t *testing.T) 
 	assert.True(t, after.Alive)
 }
 
-// TestIngestStatusLine_RoutedToOneSessionLeavesTheOtherUnaffected is INV-4's wiring
-// twin (E9, m2-terminal retro rule: shared-substrate invariants need multi-instance
+// TestIngestStatusLine_RoutedToOneSessionLeavesTheOtherUnaffected is the wiring
+// twin (m2-terminal retro rule: shared-substrate invariants need multi-instance
 // source states): with two live sessions, a status post routed to one must change
 // nothing on the other's session object, while the account-global usage aggregator
 // updates regardless of which session's post drove it.
@@ -222,7 +222,7 @@ func TestIngestStatusLine_RoutedToOneSessionLeavesTheOtherUnaffected(t *testing.
 	assert.Equal(t, 61.0, snap.FiveHour.UsedPct)
 }
 
-// TestIngestStatusLine_UnroutedPostFeedsNothing covers REQ-6: a status post whose
+// TestIngestStatusLine_UnroutedPostFeedsNothing: a status post whose
 // envelope names an unknown Muster session is untrusted the same way an unknown
 // claude-session-id hook is (ingest_routing_test.go's own pattern) — it persists as an
 // event only, never reaching ApplyStatus or the usage aggregator.
@@ -243,7 +243,7 @@ func TestIngestStatusLine_UnroutedPostFeedsNothing(t *testing.T) {
 	assert.Equal(t, 0, countUsageSampleRows(t, srv), "REQ-6: an untrusted envelope's account data must never reach the aggregator")
 }
 
-// TestIngestStatusLine_PromptCacheIsAdoptedAndKeptThroughIngest is REQ-21/D2 through the
+// TestIngestStatusLine_PromptCacheIsAdoptedAndKeptThroughIngest checks adoption through the
 // real ingest path: a routed status post carrying prompt_cache lands on the session, and a
 // later routed post without one leaves it as it was (absent means unknown for that post,
 // never cold).

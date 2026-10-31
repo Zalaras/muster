@@ -448,9 +448,9 @@ describe("parseSession — plan (plan markdown-viewing kb:anchor/ws.session REQ-
     expect(parseSession({ ...validSession, plan: "no plan yet" })).toBeNull();
   });
 });
-// Plan rail-card-improvements (kb:anchor/ws.session REQ-7/REQ-12, W7): required on every
-// wire Session, same "no pre-plan-daemon tolerance" reasoning as pinned/railPos/
-// titleOverride/plan above — the daemon and client ship together for this plan.
+// (kb:anchor/ws.session) Required on every
+// wire Session, same "no older-daemon tolerance" reasoning as pinned/railPos/
+// titleOverride/plan above — the daemon and client ship together.
 describe("parseSession — unread/lastPrompt (plan rail-card-improvements kb:anchor/ws.session)", () => {
   it("parses unread:true", () => {
     const session = { ...validSession, unread: true };
@@ -539,7 +539,7 @@ describe("parseSession — groupId (plan groups kb:anchor/ws.session)", () => {
   });
 });
 
-// kb:anchor/ws.session `effort` / `effortWarning` (plan effort REQ-5, REQ-7): both required on
+// kb:anchor/ws.session `effort` / `effortWarning`: both required on
 // every wire Session. `effort: null` is the measured "never reported" state and decodes (a view
 // reads `(…)`); `effort.level: null` is a model with no effort setting; a wrong shape rejects.
 describe("parseSession — effort / effortWarning (plan effort)", () => {
@@ -590,7 +590,7 @@ describe("parseSession — effort / effortWarning (plan effort)", () => {
   });
 });
 
-// kb:anchor/ws.session `note` (plan session-notes W1): required on every wire Session; a string
+// kb:anchor/ws.session `note`: required on every wire Session; a string
 // is kept exactly as written, `null` is "no note", an absent key or another type rejects the
 // whole message.
 describe("parseSession — note (plan session-notes)", () => {

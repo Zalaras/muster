@@ -20,10 +20,10 @@ import (
 	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 )
 
-// newTestSocket returns a private, per-test tmux socket *path* (plan v1-cleanup REQ-4:
+// newTestSocket returns a private, per-test tmux socket *path* (
 // the shared helper every one of this file's tests now uses instead of its own copy of
 // the same os.MkdirTemp + kill-server idiom — see tmuxtest.Socket's own doc comment for
-// the sun_path rationale). This also exercises the -S code path (REQ-5) on every test
+// the sun_path rationale). This also exercises the -S code path on every test
 // that uses it.
 func newTestSocket(t *testing.T) string {
 	t.Helper()
@@ -194,7 +194,7 @@ func splitLines(s string) []string {
 	return out
 }
 
-// TestNewSession_ASlashContainingSocketCreatesTheSocketFileAtThatPath covers D9: a
+// TestNewSession_ASlashContainingSocketCreatesTheSocketFileAtThatPath: a
 // -tmux-socket value containing "/" is used as a filesystem path (-S), and a session on
 // it actually creates the socket file there.
 func TestNewSession_ASlashContainingSocketCreatesTheSocketFileAtThatPath(t *testing.T) {
@@ -213,10 +213,10 @@ func TestNewSession_ASlashContainingSocketCreatesTheSocketFileAtThatPath(t *test
 	require.FileExists(t, socket, "a socket value containing \"/\" must create the socket file at that exact path")
 }
 
-// TestSocketFlag_PathUsesDashSBareNameUsesDashL covers D9's other half directly against
+// TestSocketFlag_PathUsesDashSBareNameUsesDashL covers the other half directly against
 // the flag-building logic, without spawning any real tmux server for the bare-name case
 // (which would otherwise land a socket in tmux's shared $TMPDIR/tmux-$UID/ directory —
-// exactly what D12 forbids in tests).
+// exactly what must never happen in tests).
 func TestSocketFlag_PathUsesDashSBareNameUsesDashL(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -253,14 +253,14 @@ func TestPaneExists_TrueForALiveWindowFalseAfterKill(t *testing.T) {
 	assert.False(t, exists, "the liveness poll's only signal: a killed pane must report as gone")
 }
 
-// TestPaneExists_CancelledContextReturnsWrappedContextCanceled covers REQ-11/D8: an
+// TestPaneExists_CancelledContextReturnsWrappedContextCanceled: an
 // already-cancelled context must never read as "tmux answered and said gone" — run wraps
 // ctx.Err() rather than returning a bare *exec.ExitError, so errors.As inside PaneExists
 // misses the ExitError branch and this returns (false, err) with errors.Is(err,
 // context.Canceled) holding, not (false, nil). The session stays genuinely alive
 // throughout (sanity check below) — a regression that reverted run's ctx.Err() wrap would
 // make this read (false, nil) instead, exactly the "deadline mistaken for not there" bug
-// REQ-11 exists to close.
+// the cancelled-context handling exists to close.
 func TestPaneExists_CancelledContextReturnsWrappedContextCanceled(t *testing.T) {
 	c := New(newTestSocket(t))
 	dir := t.TempDir()
@@ -328,7 +328,7 @@ func TestAttachArgv_IncludesTheSocketFlagAndTarget(t *testing.T) {
 	assert.Equal(t, []string{"tmux", "-S", "/tmp/scratch/tmux.sock", "attach-session", "-t", "=muster-7:@1"}, argv)
 }
 
-// TestResizeWindowAndDisplayVar_RoundTripTheRequestedGeometry covers D4: a
+// TestResizeWindowAndDisplayVar_RoundTripTheRequestedGeometry: a
 // resize-window call is reflected exactly by the #{window_width}/#{window_height}
 // oracle (never clipped/padded) — the same oracle daemon-impl's manual smoke test used.
 func TestResizeWindowAndDisplayVar_RoundTripTheRequestedGeometry(t *testing.T) {
@@ -400,8 +400,8 @@ func TestDisplayVar_UnknownTargetReturnsEmptyWithNoError(t *testing.T) {
 	assert.Empty(t, out)
 }
 
-// TestNewSession_AppliesServerOptionsOnFreshServer covers D8 (window-size manual) plus
-// the rest of REQ-4's carry-over config (FINDINGS §7) and the manually-verified `prefix
+// TestNewSession_AppliesServerOptionsOnFreshServer covers the window-size manual option plus
+// the rest of the carry-over config (FINDINGS §7) and the manually-verified `prefix
 // None` (daemon-implementation.md Decisions) — asserted here automatically via
 // show-options rather than only by hand.
 func TestNewSession_AppliesServerOptionsOnFreshServer(t *testing.T) {
@@ -455,7 +455,7 @@ func TestNewSession_AppliesServerOptionsOnlyOnceOnAnAlreadyRunningServer(t *test
 }
 
 // TestNewNamedSession_ApplyServerOptionsFailureLeavesNoSessionAndReturnsTheOriginalError
-// covers D6/REQ-5/Edge Case 4: `tmux new-session` succeeds, then applyServerOptions fails
+// covers Edge Case 4: `tmux new-session` succeeds, then applyServerOptions fails
 // on the fresh server — the session it just created must be killed before NewNamedSession
 // returns, and the returned error must still be the original applyServerOptions failure,
 // not a kill failure masking it. serverOptions is swapped for a deliberately invalid tmux
@@ -482,7 +482,7 @@ func TestNewNamedSession_ApplyServerOptionsFailureLeavesNoSessionAndReturnsTheOr
 	assert.NotContains(t, names, name, "D6/REQ-5: a session created just before a fatal applyServerOptions failure must not be leaked")
 }
 
-// TestKillLeakedSession_RemovesAnExistingSessionAndIsANoOpForAnUnknownName covers REQ-5's
+// TestKillLeakedSession_RemovesAnExistingSessionAndIsANoOpForAnUnknownName covers the
 // shared cleanup helper (tmux.go's killLeakedSession) directly: it removes a session that
 // actually exists, and is a silent no-op — never a panic, never a hang — for a name
 // nothing ever created. This is what closes the len(fields)!=2 post-create branch's
@@ -512,7 +512,7 @@ func TestKillLeakedSession_RemovesAnExistingSessionAndIsANoOpForAnUnknownName(t 
 	c.killLeakedSession(context.Background(), "muster-does-not-exist-at-all")
 }
 
-// TestMaxSessionID_NoServerReturnsZero covers D2: a socket with no tmux server at all
+// TestMaxSessionID_NoServerReturnsZero: a socket with no tmux server at all
 // (mirroring ListSessions' own "no server yet" shape) floors at 0, never erroring.
 func TestMaxSessionID_NoServerReturnsZero(t *testing.T) {
 	c := New(newTestSocket(t))
@@ -523,9 +523,9 @@ func TestMaxSessionID_NoServerReturnsZero(t *testing.T) {
 	assert.Equal(t, int64(0), id)
 }
 
-// TestMaxSessionID_ReturnsTheHighestIDAcrossBothClaudeAndShellSessionNames covers REQ-3:
+// TestMaxSessionID_ReturnsTheHighestIDAcrossBothClaudeAndShellSessionNames:
 // the floor is the max over one ListSessions of both "muster-<id>" and
-// "muster-<id>-shell" — a shell session's id must count too, since REQ-9's watermark-raise
+// "muster-<id>-shell" — a shell session's id must count too, since the watermark-raise
 // on a killed shell depends on the same primitive.
 func TestMaxSessionID_ReturnsTheHighestIDAcrossBothClaudeAndShellSessionNames(t *testing.T) {
 	socket := newTestSocket(t)
@@ -545,7 +545,7 @@ func TestMaxSessionID_ReturnsTheHighestIDAcrossBothClaudeAndShellSessionNames(t 
 	assert.Equal(t, int64(9), got, "the shell session's id must count toward the floor too")
 }
 
-// TestMaxSessionID_IgnoresNonMusterSessions covers REQ-3's other half: a tmux session on
+// TestMaxSessionID_IgnoresNonMusterSessions covers the other half: a tmux session on
 // the socket that doesn't match either naming convention at all must never move the floor.
 func TestMaxSessionID_IgnoresNonMusterSessions(t *testing.T) {
 	socket := newTestSocket(t)
@@ -561,7 +561,7 @@ func TestMaxSessionID_IgnoresNonMusterSessions(t *testing.T) {
 	assert.Equal(t, int64(0), got)
 }
 
-// TestParseSessionName covers REQ-3's bare "muster-<N>" mirror of IsShellSessionName:
+// TestParseSessionName covers the bare "muster-<N>" mirror of IsShellSessionName:
 // only the plain Claude-pane shape parses, never the shell suffix or an unrelated name.
 func TestParseSessionName(t *testing.T) {
 	id, ok := ParseSessionName("muster-42")
@@ -578,7 +578,7 @@ func TestParseSessionName(t *testing.T) {
 	assert.False(t, ok)
 }
 
-// TestNewNamedSession_DuplicateNameWrapsErrSessionExists covers REQ-4: a tmux
+// TestNewNamedSession_DuplicateNameWrapsErrSessionExists: a tmux
 // "duplicate session" failure on new-session is wrapped so callers can branch on it with
 // errors.Is, never by matching tmux's own stderr text themselves.
 func TestNewNamedSession_DuplicateNameWrapsErrSessionExists(t *testing.T) {
@@ -597,7 +597,7 @@ func TestNewNamedSession_DuplicateNameWrapsErrSessionExists(t *testing.T) {
 }
 
 // TestNewClient_UsesAPerTestSocketNeverTheSharedDefault is a documentation-style
-// regression guard for the CLAUDE.md hard rule and D12: this package's own New must
+// regression guard for the CLAUDE.md hard rule: this package's own New must
 // never be called with the literal default socket name in a test. It doesn't call tmux
 // at all — it just pins the expectation that "muster" (the production default) is never
 // passed to New() anywhere in this file.
@@ -607,12 +607,12 @@ func TestNewClient_UsesAPerTestSocketNeverTheSharedDefault(t *testing.T) {
 }
 
 // TestKillSession_RemovesTheWholeSessionIdempotentForAnUnknownName covers m4-reconcile
-// REQ-5's End path (kill-session by name actually removes the session — not just one
+// the End path (kill-session by name actually removes the session — not just one
 // window; under the one-window-per-session topology the two are equivalent per the
-// plan's Implementation Notes) and plan session-lifecycle REQ-6: killing an already-gone
+// implementation notes) and the idempotent-kill rule: killing an already-gone
 // session name is success, not an error — the same "no such session" exit PaneExists and
 // ListSessions already treat as "not there" rather than a real failure. This replaces the
-// pre-session-lifecycle assertion that an unknown name must error; REQ-6 changes that
+// earlier assertion that an unknown name must error; the idempotent-kill rule changes that
 // contract deliberately (kb:adr/actions-kill-is-idempotent).
 func TestKillSession_RemovesTheWholeSessionIdempotentForAnUnknownName(t *testing.T) {
 	socket := newTestSocket(t)
@@ -694,8 +694,8 @@ func TestExactTarget_RealTmux_NeverPrefixMatchesADifferentLiveSession(t *testing
 	}
 }
 
-// TestKillSession_UnreachableSocketReturnsAnErrorWhileTheSessionIsStillAlive covers plan
-// session-lifecycle D20/review Critical 1: an unreachable socket must never read as "the
+// TestKillSession_UnreachableSocketReturnsAnErrorWhileTheSessionIsStillAlive covers
+// the unreachable-socket case: an unreachable socket must never read as "the
 // session is gone". PaneExists collapses every *exec.ExitError — including tmux's own
 // "error connecting to <path> (Permission denied)" for a chmod'd-unreadable socket — to
 // (false, nil), so KillSession's own ExitError-then-PaneExists-verify (tmux.go's
@@ -751,13 +751,13 @@ func TestKillSession_UnreachableSocketReturnsAnErrorWhileTheSessionIsStillAlive(
 	assert.Contains(t, names, name, "sanity: the session was genuinely alive behind the unreachable socket the whole time")
 }
 
-// TestKillSession_CancelledContextNeverReadsAsASuccessfulKill covers REQ-5(d)/D8's own
+// TestKillSession_CancelledContextNeverReadsAsASuccessfulKill covers the
 // "checkErr != nil" clause via a cancelled context rather than the chmod-based repro
-// above (session-lifecycle D20's own scenario is unreachable-socket specific): run wraps
-// ctx.Err() rather than a bare *exec.ExitError (REQ-11), so KillSession's own
+// above (the chmod scenario is unreachable-socket specific): run wraps
+// ctx.Err() rather than a bare *exec.ExitError, so KillSession's own
 // errors.As(err, &exitErr) misses and it returns the wrapped context error directly,
 // without ever reaching the post-kill PaneExists verify at all — the session is
-// genuinely alive throughout, proving this never silently reads as REQ-6's idempotent
+// genuinely alive throughout, proving this never silently reads as the idempotent
 // "already gone" success.
 func TestKillSession_CancelledContextNeverReadsAsASuccessfulKill(t *testing.T) {
 	socket := newTestSocket(t)
@@ -781,12 +781,12 @@ func TestKillSession_CancelledContextNeverReadsAsASuccessfulKill(t *testing.T) {
 	assert.Contains(t, names, name, "sanity: the cancelled call must not itself have killed anything")
 }
 
-// TestKillSession_PostKillRecheckStillThereReturnsTheOriginalKillError covers REQ-5(d)/D8's
+// TestKillSession_PostKillRecheckStillThereReturnsTheOriginalKillError covers the
 // "stillThere" clause: kill-session exits non-zero (an *exec.ExitError, the branch
 // KillSession treats as "maybe gone, maybe a real failure — go verify"), and the post-kill
 // PaneExists recheck itself reports the target is still there. KillSession's doc comment
 // says the honest report in that case is the *original* kill-session error, not a
-// synthesized "still there" error and not REQ-6's idempotent success. Real tmux gives no
+// synthesized "still there" error and not the idempotent success. Real tmux gives no
 // deterministic way to make kill-session fail with an ExitError while the target
 // demonstrably survives (daemon-tests' own analysis, plans/general-cleanup/daemon-tests.md
 // implementation-bug row), so this drives it through Client.exec directly — the seam
@@ -830,7 +830,7 @@ func TestKillSession_PostKillRecheckStillThereReturnsTheOriginalKillError(t *tes
 	assert.ErrorAs(t, killErr, &exitErr, "the original error's *exec.ExitError must still be in the chain")
 }
 
-// TestIsConnectionFailure covers plan session-lifecycle D24/review cycle 2 Critical:
+// TestIsConnectionFailure checks:
 // isConnectionFailure matches only EACCES's wording ("Permission denied"), so EPERM's
 // distinct wording ("Operation not permitted" — measured by the reviewer under
 // sandbox-exec, not reproduced here per the lead's instruction: a sandbox-exec dependency
@@ -888,12 +888,12 @@ func TestIsConnectionFailure(t *testing.T) {
 	}
 }
 
-// TestListSessions_UnreachableSocketReturnsAnErrorWhileASessionIsStillAlive covers plan
-// session-lifecycle D25/review cycle 2 Major: ListSessions still collapses every
+// TestListSessions_UnreachableSocketReturnsAnErrorWhileASessionIsStillAlive covers
+// the unreachable-socket case: ListSessions still collapses every
 // *exec.ExitError to (nil, nil), so an unreachable socket reads as "no sessions at all"
 // rather than "I couldn't find out" — the worst call site for that collapse, since
-// Reconcile treats an empty ListSessions snapshot as ground truth (D26 covers the
-// consequence). Same shape as D20: a self-managed socket directory (not
+// Reconcile treats an empty ListSessions snapshot as ground truth (the Reconcile
+// tests cover the consequence). Same shape as the KillSession case: a self-managed socket directory (not
 // tmuxtest.Socket(t), whose kill-server cleanup would itself fail against a still-
 // unreadable socket and leak the server), chmod 000, restore-then-kill-server registered
 // after the chmod so LIFO ordering runs it first, skipped under a root euid.
@@ -932,7 +932,7 @@ func TestListSessions_UnreachableSocketReturnsAnErrorWhileASessionIsStillAlive(t
 }
 
 // TestListSessions_ReturnsEveryNameNoServerIsAnEmptyResultNotAnError covers m4-reconcile
-// REQ-2's tmux primitive: every session name on the socket comes back, and a socket with
+// the tmux primitive: every session name on the socket comes back, and a socket with
 // no server running yet (never touched by NewSession) is an empty, non-error result — the
 // same shape PaneExists already treats as "not there" rather than a real failure.
 func TestListSessions_ReturnsEveryNameNoServerIsAnEmptyResultNotAnError(t *testing.T) {
@@ -979,7 +979,7 @@ func TestListSessions_ReturnsEveryNameNoServerIsAnEmptyResultNotAnError(t *testi
 	})
 }
 
-// TestCapturePane_ReturnsPaneTextAndTrimsTrailingBlankLines covers m4-reconcile REQ-4's
+// TestCapturePane_ReturnsPaneTextAndTrimsTrailingBlankLines covers the
 // snapshot primitive: the captured text contains what the pane actually printed, and
 // trailing blank lines (capture-pane pads to the pane's height) are trimmed so the UI's
 // pre.snapshot doesn't scroll into emptiness.
@@ -1018,8 +1018,8 @@ func TestCapturePane_UnknownTargetErrors(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// TestCapturePane_FailureNeverLeaksPaneTextIntoTheError covers review cycle 1 Minor
-// 4/R3: runCapture keeps stdout and stderr in separate buffers (unlike run's
+// TestCapturePane_FailureNeverLeaksPaneTextIntoTheError covers review cycle 1 Minor:
+// runCapture keeps stdout and stderr in separate buffers (unlike run's
 // CombinedOutput), so a failing capture-pane's error can only ever carry tmux's own
 // stderr diagnostic, never the pane text that was captured moments earlier from the same
 // target. Captures a marker successfully, kills the window (so the target genuinely

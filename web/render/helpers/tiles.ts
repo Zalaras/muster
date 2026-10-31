@@ -21,7 +21,7 @@ export function liveTile(page: Page, title: string): Locator {
 
 /**
  * Live tile locator scoped by `data-session-id` rather than title text. Validate-mode
- * repair (plan ui-text-and-focus): once a tile's rename editor is open, its title text
+ * repair: once a tile's rename editor is open, its title text
  * lives in the `input.name-edit`'s `value` attribute, which `filter({ hasText })` never
  * sees (`textContent` doesn't include form-control values) — so `liveTile(page, title)`
  * stops matching the very tile whose editor was just opened by title. Use this id-scoped
@@ -60,9 +60,9 @@ export async function tilesGridOrder(page: Page): Promise<string[]> {
 }
 
 /**
- * Plan move-tiles' drag handle locator: the Testable UI Elements table pins
+ * The drag handle locator: the Testable UI Elements table pins
  * `article.tile .thead[draggable="true"]` as "the only draggable element in a tile"
- * (REQ-4) — this is the sole source locator for every drag-based reorder in the suite.
+ * — this is the sole source locator for every drag-based reorder in the suite.
  * Scoped through `liveTile` so a dragged/target title still disambiguates from the same
  * session's strip/rail card the way every other tile locator in this file does.
  */
@@ -72,7 +72,7 @@ export function tileDragHandle(page: Page, title: string): Locator {
 
 /**
  * Drag-handle locator scoped by `data-session-id` (`liveTileById`) rather than title
- * text. Validate-mode repair (plan ui-text-and-focus): a Playwright `Locator` is a lazy
+ * text. Validate-mode repair: a Playwright `Locator` is a lazy
  * definition re-resolved on every `expect`/action call, not a snapshot taken at
  * construction — so a single `tileDragHandle(page, title)` captured before a rename
  * stops matching once that tile's rename editor swaps its title text for
@@ -85,10 +85,10 @@ export function tileDragHandleById(page: Page, id: number): Locator {
 }
 
 /**
- * Drags a live tile's header onto another live tile — move-tiles REQ-5: "Dropping a tile
+ * Drags a live tile's header onto another live tile — "Dropping a tile
  * drag on another tile (anywhere on that tile, header or body) applies `moveTile`", so the
- * source must be the `.thead` handle (REQ-4) but the drop target is the whole tile.
- * `locator.dragTo` drives real HTML5 DnD in Chromium (plan Implementation Notes) as long
+ * source must be the `.thead` handle but the drop target is the whole tile.
+ * `locator.dragTo` drives real HTML5 DnD in Chromium as long
  * as the source element itself is `draggable="true"`, which is exactly what `.thead` is.
  */
 export async function dragTileOnto(
@@ -100,7 +100,7 @@ export async function dragTileOnto(
 }
 
 /**
- * The state dot inside a tile (move-tiles REQ-9: gains a `title` attribute with the
+ * The state dot inside a tile (gains a `title` attribute with the
  * lowercase state word — `.sdot[title]` per the Testable UI Elements table).
  */
 export function tileStateDot(page: Page, title: string): Locator {

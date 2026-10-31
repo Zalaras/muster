@@ -47,8 +47,8 @@ func (s *themeReaderSequence) callCount() int {
 	return s.calls
 }
 
-// recordingThemeBroadcaster records every broadcast call — the hub-spy pattern D10/D11
-// need to assert exact broadcast counts and payloads without a real wsHub.
+// recordingThemeBroadcaster records every broadcast call — the hub-spy pattern the
+// tests need to assert exact broadcast counts and payloads without a real wsHub.
 type recordingThemeBroadcaster struct {
 	mu    sync.Mutex
 	calls []claudecode.ThemeFamily
@@ -72,7 +72,7 @@ func (b *recordingThemeBroadcaster) reset() {
 	b.calls = nil
 }
 
-// TestThemePoller_Tick_FirstTickFromUnknownBroadcastsTheReadFamily covers REQ-14's
+// TestThemePoller_Tick_FirstTickFromUnknownBroadcastsTheReadFamily covers the
 // "immediate first tick" from the poller's initial state: a fresh poller starts at
 // ThemeUnknown, so its very first tick — reading any known family — is itself a change
 // and must broadcast once.
@@ -88,7 +88,7 @@ func TestThemePoller_Tick_FirstTickFromUnknownBroadcastsTheReadFamily(t *testing
 	assert.Equal(t, claudecode.ThemeDark, b.calls[0])
 }
 
-// TestThemePoller_Tick_BroadcastsExactlyOnceOnChangeZeroTimesOtherwise covers D10
+// TestThemePoller_Tick_BroadcastsExactlyOnceOnChangeZeroTimesOtherwise checks
 // directly: after establishing a known baseline family, three ticks with no change
 // broadcast zero times, and a single tick where the family flips broadcasts exactly
 // once, carrying the new family.
@@ -118,7 +118,7 @@ func TestThemePoller_Tick_BroadcastsExactlyOnceOnChangeZeroTimesOtherwise(t *tes
 	assert.Equal(t, claudecode.ThemeLight, p.Current())
 }
 
-// TestThemePoller_Tick_SingleFailedReadSelfHealsWithoutBroadcast covers D11's first
+// TestThemePoller_Tick_SingleFailedReadSelfHealsWithoutBroadcast covers the first
 // branch: a lone Unknown read after a previously-known family retries once after 250 ms
 // (themeRetryDelay); when the retry read recovers the same known family, nothing
 // changed and nothing broadcasts.
@@ -145,7 +145,7 @@ func TestThemePoller_Tick_SingleFailedReadSelfHealsWithoutBroadcast(t *testing.T
 	assert.Equal(t, 3, reader.callCount(), "the retry must have issued a second read")
 }
 
-// TestThemePoller_Tick_TwoConsecutiveFailuresDoBroadcastUnknown covers D11's second
+// TestThemePoller_Tick_TwoConsecutiveFailuresDoBroadcastUnknown covers the second
 // branch: when both the initial read and the 250 ms retry read come back Unknown, that
 // is a real change from a previously-known family and must broadcast.
 func TestThemePoller_Tick_TwoConsecutiveFailuresDoBroadcastUnknown(t *testing.T) {
@@ -188,7 +188,7 @@ func TestThemePoller_Tick_UnknownReadWhileAlreadyUnknownNeverRetries(t *testing.
 	assert.Equal(t, claudecode.ThemeUnknown, p.Current())
 }
 
-// TestThemePoller_NeverWritesTheConfigFile covers D9/INV-6 at the poller level (theme.go
+// TestThemePoller_NeverWritesTheConfigFile checks at the poller level (theme.go
 // already gets its own function-level version): three ticks against a real fixture file,
 // through the real claudecode.ReadThemeFamily reader, must never change its bytes or
 // mtime.
@@ -215,7 +215,7 @@ func TestThemePoller_NeverWritesTheConfigFile(t *testing.T) {
 	assert.Equal(t, statBefore.ModTime(), statAfter.ModTime(), "the poller must never modify the config file's mtime")
 }
 
-// TestThemePoller_StartStop_ImmediateFirstTickThenPromptStop covers REQ-14's "immediate
+// TestThemePoller_StartStop_ImmediateFirstTickThenPromptStop covers the "immediate
 // first tick on Start" and guards against a goroutine leak, mirroring
 // TestUsagePoller_StartStop_LoopExitsPromptly.
 func TestThemePoller_StartStop_ImmediateFirstTickThenPromptStop(t *testing.T) {
@@ -233,7 +233,7 @@ func TestThemePoller_StartStop_ImmediateFirstTickThenPromptStop(t *testing.T) {
 	assert.NoError(t, ctx.Err(), "Stop must return well within its deadline for a loop with no in-flight work")
 }
 
-// TestServer_ClaudeThemePollZeroConstructsNoPoller covers D17: a Config with
+// TestServer_ClaudeThemePollZeroConstructsNoPoller: a Config with
 // ClaudeThemePoll <= 0 (the -claude-theme-poll 0 flag value) must construct no poller at
 // all — nil field, so Start/Stop and currentSnapshot's poller read all skip it safely.
 func TestServer_ClaudeThemePollZeroConstructsNoPoller(t *testing.T) {
@@ -241,8 +241,8 @@ func TestServer_ClaudeThemePollZeroConstructsNoPoller(t *testing.T) {
 	assert.Nil(t, srv.theme.poller, "a Config built with the zero-value ClaudeThemePoll must never construct a poller")
 }
 
-// TestServer_ClaudeThemePollPositiveConstructsAPoller covers the reverse of D17: a
-// positive ClaudeThemePoll does construct one, from the reachable source state D17's own
+// TestServer_ClaudeThemePollPositiveConstructsAPoller covers the reverse of the zero case: a
+// positive ClaudeThemePoll does construct one, from the reachable source state the zero-case
 // assertion needs a counterpart for.
 func TestServer_ClaudeThemePollPositiveConstructsAPoller(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "muster.db")

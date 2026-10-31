@@ -159,7 +159,7 @@ func TestLaunchGroup_NoGroupAndNullGroupBothLandInUngrouped(t *testing.T) {
 	}
 }
 
-// TestLaunchGroup_NewGroupIsCreatedWithTheSessionAndAnnouncedFirst is D15's launch half: the
+// TestLaunchGroup_NewGroupIsCreatedWithTheSessionAndAnnouncedFirst is the launch half: the
 // groups message goes out before the session upsert that names it, and only one goes out.
 func TestLaunchGroup_NewGroupIsCreatedWithTheSessionAndAnnouncedFirst(t *testing.T) {
 	h := newGroupsHarness(t)
@@ -202,7 +202,7 @@ func sectionNamesOf(h *groupsHarness) []string {
 	return out
 }
 
-// --- failures after the group row exists (D10) ---
+// --- failures after the group row exists ---
 
 func TestLaunchGroup_ASpawnFailureLeavesNoGroupAndAnnouncesNone(t *testing.T) {
 	tests := []struct {

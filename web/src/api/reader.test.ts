@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchReaderFile, fetchReaderListing } from "./reader";
 import { fakeResponse, fakeTextResponse } from "./testfakes";
 
-// Plan markdown-viewing (kb:anchor/sessions.reader, W10): decoding the reader listing,
+// (kb:anchor/sessions.reader) Decoding the reader listing,
 // including the "measured absence" shapes — a session with no known plan (`plan: null`)
 // and a file whose write log has no entry (`writtenAt: null`) — which must decode
 // successfully rather than being rejected, per the same "no data yet" discipline as

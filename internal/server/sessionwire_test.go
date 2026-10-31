@@ -48,8 +48,7 @@ func TestToWireSession_MinimalShapeRendersEveryNullableFieldNull(t *testing.T) {
 	assert.Nil(t, w.Plan, "plan is null when the session's latest known transcript names none")
 }
 
-// TestToWireSessionPlan covers kb:anchor/ws.session's plan field (plan
-// markdown-viewing REQ-17): null when unresolved (PlanPath == ""), otherwise the path
+// TestToWireSessionPlan covers kb:anchor/ws.session's plan field: null when unresolved (PlanPath == ""), otherwise the path
 // and exists flag verbatim.
 func TestToWireSessionPlan(t *testing.T) {
 	s := minimalSession()
@@ -154,7 +153,7 @@ func TestToWireSession_ContextGaugesAreAlwaysNullExceptCompactions(t *testing.T)
 }
 
 // TestToWireSession_ContextGaugesPopulateAllThreeFieldsTogetherWhenPresent covers
-// m3-gauges REQ-4/INV-2: once a routed status post has filled Session.Context, all
+// that once a routed status post has filled Session.Context, all
 // three numeric fields render together (never a partial gauge), alongside compactions.
 func TestToWireSession_ContextGaugesPopulateAllThreeFieldsTogetherWhenPresent(t *testing.T) {
 	s := minimalSession()
@@ -172,7 +171,7 @@ func TestToWireSession_ContextGaugesPopulateAllThreeFieldsTogetherWhenPresent(t 
 	assert.Equal(t, int64(200000), *w.Context.WindowSize)
 }
 
-// TestToWireSession_PinnedAndRailPosAreNeverNull covers plan order-sidebar's Protocol
+// TestToWireSession_PinnedAndRailPosAreNeverNull covers the Protocol
 // Contract delta (kb:anchor/ws.session): pinned/railPos are plain, never-null fields on every Session
 // object — carried through verbatim from the domain type, with no nil-check branch
 // (unlike Attention/Failure/Model etc., which are pointer fields precisely because they
@@ -228,7 +227,7 @@ func TestSessionWire_JSONShapeHasNoUnexpectedNulls(t *testing.T) {
 	assert.Equal(t, "seed", permMode["source"])
 }
 
-// TestSessionWire_BackgroundTasksIsAlwaysPresentAndAttentionAgentNeverOnTheWire covers D15:
+// TestSessionWire_BackgroundTasksIsAlwaysPresentAndAttentionAgentNeverOnTheWire checks:
 // every serialized Session carries backgroundTasks as an integer — 0 included, never
 // omitted or null — and the wait owner (AttentionAgent) stays daemon-internal.
 func TestSessionWire_BackgroundTasksIsAlwaysPresentAndAttentionAgentNeverOnTheWire(t *testing.T) {
@@ -272,7 +271,7 @@ func wireJSON(t *testing.T, s *session.Session) map[string]any {
 	return got
 }
 
-// TestToWireSession_ClaudeLocationKeyIsAlwaysPresent is D10: the key is on every Session
+// TestToWireSession_ClaudeLocationKeyIsAlwaysPresent: the key is on every Session
 // object, JSON null when there is no location, so the dashboard can tell "not moved" from a
 // daemon that predates the field.
 func TestToWireSession_ClaudeLocationKeyIsAlwaysPresent(t *testing.T) {
@@ -355,7 +354,7 @@ func TestToWireSession_RepoFollowsTheRefreshedBranch(t *testing.T) {
 	assert.Nil(t, toWireSession(s).Repo, "a detached HEAD reads as repo null")
 }
 
-// TestToWireSession_CacheKeyIsAlwaysPresent is D8: every Session object carries the
+// TestToWireSession_CacheKeyIsAlwaysPresent: every Session object carries the
 // cache key, JSON null when warmth is unknown (including a dead session), otherwise
 // {expiresAt, ttlSeconds} with expiresAt RFC3339 UTC whatever zone the stored time is in and
 // ttlSeconds an integer.

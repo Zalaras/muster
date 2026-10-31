@@ -18,9 +18,8 @@ import {
   terminalRegion,
 } from "./helpers/terminal";
 
-// Plan m2-terminal — REQ-1 (bridge), REQ-2/INV-1 (one-live-client), REQ-3 (resize),
-// REQ-6 (PTY env/EOF), REQ-7 (Focus live pane), REQ-13 (degraded states).
-// Plan acceptance: E1-E4, E12, E13.
+// The bridge, one-live-client, resize,
+// PTY env/EOF, Focus live pane and degraded states.
 //
 // The terminal bridge is exercised entirely through the Focus view's live pane — the one
 // terminal surface that exists with a single launched session — driven against the real
@@ -38,7 +37,7 @@ import {
 // directly (`--workers=1`, whole file sequential: 3/8 tests failed on exactly this
 // depends-on-execution-order symptom; each test passed 5/5 in isolation). Per-test
 // isolation removes the ordering dependency instead of just hiding it behind lucky worker
-// scheduling. The E13 restart test below needs it for a second reason: it kills and
+// scheduling. The restart test below needs it for a second reason: it kills and
 // restarts its daemon, which no neighbour test could tolerate.
 
 test("focusing a launched session streams the stub's readback and echoes typed input (E1, E2)", async ({
@@ -54,7 +53,7 @@ test("focusing a launched session streams the stub's readback and echoes typed i
 
     const region = terminalRegion(page, "bridge-e1e2");
     await expect(region).toBeVisible();
-    // E1: the daemon-owned PTY's `tmux attach` streams the stub's startup line verbatim.
+    // The daemon-owned PTY's `tmux attach` streams the stub's startup line verbatim.
     // 15s, not the default 5s: attaching a real tmux/PTY bridge under this suite's fully
     // parallel scratch-daemon load (each test spins up its own musterd + tmux server +
     // Chromium) is occasionally slower than the default assertion timeout — observed
@@ -62,7 +61,7 @@ test("focusing a launched session streams the stub's readback and echoes typed i
     // parallelism) — never a case where the readback fails to arrive at all.
     await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
 
-    // E2: typed bytes reach the stub process and its echoed line streams back — the full
+    // Typed bytes reach the stub process and its echoed line streams back — the full
     // round trip (client -> binary WS frame -> PTY -> tmux -> stub -> PTY -> WS -> xterm).
     await region.click();
     await page.keyboard.type("hello");
@@ -91,7 +90,7 @@ test("clicking a rail card swaps the live terminal to the newly focused session 
     const regionB = terminalRegion(page, "focus-swap-b");
     await expect(regionB).toBeVisible();
     await expect(regionB).toContainText("MUSTER-STUB-READY");
-    // The old surface is gone from the DOM entirely, not merely hidden — REQ-12/INV-2:
+    // The old surface is gone from the DOM entirely, not merely hidden:
     // a session that is not the live surface never keeps an open terminal socket.
     await expect(terminalRegion(page, "focus-swap-a")).toHaveCount(0);
     await expect(page.locator('[aria-label^="Terminal: "]')).toHaveCount(1);
@@ -115,7 +114,7 @@ test("focusing the same session from a second browser context supersedes the fir
 
     // A second window authenticates via the same UI token URL (auth.spec.ts's pattern)
     // and, being the only session, also auto-focuses it — claiming the one-live-client
-    // slot out from under the first window (INV-1: second-browser-context source state).
+    // slot out from under the first window (second-browser-context source state).
     const contextB = await browser.newContext();
     try {
       const pageB = await contextB.newPage();
@@ -123,7 +122,7 @@ test("focusing the same session from a second browser context supersedes the fir
       const regionB = terminalRegion(pageB, "takeover-e3");
       await expect(regionB).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
 
-      // E3: the superseded overlay appears on the OLDER window's surface.
+      // The superseded overlay appears on the OLDER window's surface.
       await expect(terminalOverlay(regionA)).toHaveText(/another window/i);
 
       // The reclaimed surface must still round-trip input after supersede.
@@ -153,7 +152,7 @@ test("supersede reclaims cleanly even when the older client was mid-keystroke (I
     await expect(regionA).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
 
     // Start typing in the first window but do not submit — it is "mid-typing" when the
-    // second window claims the socket (INV-1's fourth named source state).
+    // second window claims the socket (a named source state).
     await regionA.click();
     await page.keyboard.type("still-typ");
 
@@ -167,7 +166,7 @@ test("supersede reclaims cleanly even when the older client was mid-keystroke (I
 
       // The new owner's own round trip still works — the mid-typing takeover left the
       // bridge in a healthy state, not a stuck one. Window A's unsubmitted "still-typ"
-      // is still sitting in the real tty's canonical-mode line buffer (REQ-1: the daemon
+      // is still sitting in the real tty's canonical-mode line buffer (the daemon
       // transforms nothing — supersede swaps which socket owns the PTY, it does not, and
       // must not, touch the underlying line discipline's pending input), so Ctrl+U
       // (POSIX VKILL) clears it first — observed directly: without this, "world"+Enter
@@ -205,7 +204,7 @@ test("the tmux oracle's window geometry matches the terminal's own fitted size (
     // parallelism) — never a case where the readback fails to arrive at all.
     await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
 
-    // REQ-15's sizenote line renders "<cols>×<rows> · one live client · ...".
+    // The sizenote line renders "<cols>×<rows> · one live client · ...".
     const sizenote = page.getByText(/one live client/i);
     await expect(sizenote).toBeVisible();
 
@@ -215,7 +214,7 @@ test("the tmux oracle's window geometry matches the terminal's own fitted size (
     // reserved row is not a transient this poll waits out. The re-parse per attempt is for
     // load: under a fully parallel suite the 1 s tick's refit and tmux's resize can land a
     // moment apart, and re-reading both sides inside the retry lets them be compared fresh,
-    // which is what E4 asserts: the two stay equal once both are read together, not that a
+    // which is what the test asserts: the two stay equal once both are read together, not that a
     // single early snapshot survives unchanged.
     await expect
       .poll(
@@ -277,7 +276,7 @@ test("killing the stub's tmux session ends its live surface: socket closed, dead
     // terminal socket's `close` event — a failure no timeout can fix. The close *code* is
     // unit-covered by TestHandleTerminal_KillingTheTmuxSessionCloses4001AndNudgesLiveness;
     // here we assert the socket actually closed and the UI settled where the product means
-    // it to (same shape as the REQ-13 test below and actions.spec.ts's End tests).
+    // it to (same shape as the dead-surface test below and actions.spec.ts's End tests).
     await expect
       .poll(() => tracker.liveCount, {
         message: "waiting for the terminal socket to close (4001) after kill-window",
@@ -289,7 +288,7 @@ test("killing the stub's tmux session ends its live surface: socket closed, dead
     await expect(deadSurface.locator(".endcap")).toContainText(/session ended/i);
     await expect(terminalRegion(page, "pane-ended-e12")).toHaveCount(0);
 
-    // REQ-6: PTY EOF also nudges the liveness poll, so `alive` eventually flips too —
+    // PTY EOF also nudges the liveness poll, so `alive` eventually flips too —
     // corroborating evidence that this is the EOF path, not a hung/broken bridge.
     await expect
       .poll(
@@ -309,9 +308,9 @@ test("focusing a dead session shows the dead surface, never the terminal region,
   page,
   daemon,
 }) => {
-  // Sanctioned breakage (plan m4-reconcile, validate-mode step 5): this test originally
+  // Sanctioned breakage (m4-reconcile, validate-mode step 5): this test originally
   // asserted a "session ended" overlay INSIDE the mounted terminal region
-  // (`terminalOverlay(terminalRegion(...))`). m4-reconcile's approved delta (REQ-13,
+  // (`terminalOverlay(terminalRegion(...))`). The reconcile work's approved delta (
   // UI Specifications "Dead surface", States: "never an empty terminal pretending to be
   // live") replaces that with a dedicated `#dead-surface` — `renderFocusView` in
   // `web/src/main.ts` now hides/clears `mainSlotEl` entirely for `alive:false` and never
@@ -333,9 +332,9 @@ test("focusing a dead session shows the dead surface, never the terminal region,
     await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
 
     // Wait for at least one liveness-poll snapshot capture to land WHILE the pane is still
-    // alive (REQ-4: captured on every tick the pane exists) before killing it — otherwise
+    // alive (captured on every tick the pane exists) before killing it — otherwise
     // killing races the ~5s poll interval and the capture can land empty, same trap as
-    // actions.spec.ts's E13 ("killed before the first tick"). Polling the pane endpoint
+    // actions.spec.ts's equivalent ("killed before the first tick"). Polling the pane endpoint
     // itself (rather than a fixed sleep) is exact regardless of the poll's real interval.
     await expect
       .poll(
@@ -368,11 +367,11 @@ test("focusing a dead session shows the dead surface, never the terminal region,
     await expect(deadSurface.locator(".endcap")).toContainText(/session ended/i);
     await expect(deadSurface.locator("pre.snapshot")).toContainText("MUSTER-STUB-READY");
 
-    // The terminal region itself never mounts for a dead session (m4-reconcile REQ-13) —
+    // The terminal region itself never mounts for a dead session —
     // stronger than "no attach attempt": there is no live-surface DOM at all to attach to.
     await expect(terminalRegion(page, "dead-on-focus")).toHaveCount(0);
 
-    // REQ-13: "no attach attempt" — the client must never even request /ws/terminal/ for
+    // "no attach attempt" — the client must never even request /ws/terminal/ for
     // a session it already knows is dead (409 not_attachable is the server-side backstop).
     // totalOpened, not liveCount: a socket that opened and then closed nets to zero on the
     // live gauge, but "no attempt" means the gross count must be zero too.
@@ -414,7 +413,7 @@ test.describe("daemon down while a terminal is attached (E13)", () => {
       await daemon.restart();
       await expect(banner).toBeHidden({ timeout: 15_000 });
 
-      // REQ-13: on `hello` the client reattaches its current live surface; tmux itself
+      // On `hello` the client reattaches its current live surface; tmux itself
       // survived the daemon restart (a separate process), so the pane repaints intact.
       await expect(terminalOverlay(region)).toBeHidden({ timeout: 15_000 });
       // 15s, not the default 5s: attaching a real tmux/PTY bridge under this suite's fully
@@ -429,13 +428,13 @@ test.describe("daemon down while a terminal is attached (E13)", () => {
   });
 });
 
-// Plan terminal-focus — REQ-1 through REQ-8, INV-1 through INV-4.
-// Plan acceptance: E1-E9. Every INV-1 source state (a-f) and every INV-4 source state
-// (i-iii) is asserted from, not just the acceptance IDs' convenient subset — the
+// Terminal focus journeys.
+// Every focus-invariant source state (a-f) and every drag source state
+// (i-iii) is asserted from, not just a convenient subset — the
 // Invariants section names them explicitly and the m1-sessions lesson in the e2e-specs
 // brief is exactly this: assert every listed source state, not the convenient one.
 //
-// Not covered here, on purpose (Scope decisions, plan terminal-focus): the Tiles strip's
+// Not covered here, on purpose (Scope decisions, terminal-focus): the Tiles strip's
 // promote click, ⌥⌘1–9 (`focusNth`), and any keyboard-activation path other than Enter on
 // a card — none of them move focus into a terminal, and none of them are in scope for
 // this plan to change.
@@ -452,25 +451,25 @@ test("clicking a rail card in Focus moves keyboard focus into its terminal with 
 
     // A is launched first, so it is manual order's top-of-rail and the session Focus
     // auto-selects on load (main.ts's default-focus fallback in `render()`) — "two live
-    // sessions A (focused) and B" per the plan's E1 setup, with no click needed to
+    // sessions A (focused) and B" per the setup, with no click needed to
     // establish A as the live pane's session.
     await expect(terminalRegion(page, "focus-e1-a")).toBeVisible();
     // Auto-focus on load never moves keyboard focus into the terminal — only a pointer
-    // click on a rail card does that (REQ-1's deliberately narrow scope).
+    // click on a rail card does that (a deliberately narrow scope).
     expect(await activeElementInsideTerminal(page, "focus-e1-a")).toBe(false);
 
     await railCard(page, "focus-e1-b").click();
 
-    // REQ-1: the click alone — no second click on the region — lands keyboard focus
+    // The click alone — no second click on the region — lands keyboard focus
     // inside B's terminal container.
     expect(await activeElementInsideTerminal(page, "focus-e1-b")).toBe(true);
-    // E9/INV-2: exactly one live terminal exists — the old surface is gone, not hidden.
+    // Exactly one live terminal exists — the old surface is gone, not hidden.
     await expect(page.locator('[aria-label^="Terminal: "]')).toHaveCount(1);
 
     const regionB = terminalRegion(page, "focus-e1-b");
     await expect(regionB).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
 
-    // E2 (behavioural proof): typing with NO click on the region at all proves the whole
+    // Behavioural proof: typing with NO click on the region at all proves the whole
     // path end to end — the callback moved DOM focus, not just some internal flag.
     await page.keyboard.type("hello");
     await page.keyboard.press("Enter");
@@ -491,7 +490,7 @@ test("re-clicking the already-focused session's card returns keyboard focus to i
     const region = terminalRegion(page, "focus-e3-solo");
     await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
 
-    // First click puts focus in the terminal (REQ-1).
+    // First click puts focus in the terminal.
     await railCard(page, "focus-e3-solo").click();
     expect(await activeElementInsideTerminal(page, "focus-e3-solo")).toBe(true);
 
@@ -526,7 +525,7 @@ test("clicking a card's pin button pins the session, leaves the live pane unchan
     await expect(btn).toHaveAttribute("aria-pressed", "false");
     await btn.click();
 
-    // REQ-5: pinning B doesn't select it — the live pane stays on A — and INV-3: focus
+    // Pinning B doesn't select it — the live pane stays on A — and focus
     // never lands in any terminal from a card-control click. The pin button is icon-only
     // (its accessible name lives in `aria-label`, not text content — `pinButton`'s
     // role/name locator already proves that), so the state flip is asserted the same way
@@ -565,7 +564,7 @@ test("a live rail card offers no Stop button, and Stop… from its menu opens th
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toBeHidden();
 
-    // Plan status-inconsistencies REQ-7/INV-D: neither live card offers End.
+    // Neither live card offers End.
     await expect(
       railCard(page, "focus-inv3-end-b").getByRole("button", { name: "Stop" }),
     ).toHaveCount(0);
@@ -592,8 +591,8 @@ test("choosing Resume or Remove… from an ended card's menu never selects the s
     });
     await expect(terminalRegion(page, "focus-inv3-dead-a")).toBeVisible();
 
-    // Give B a claudeSessionId (via a real SessionStart) so its menu offers Resume (plan
-    // rail-card-organise REQ-3: absent while `claudeSessionId` is null), then end it so the
+    // Give B a claudeSessionId (via a real SessionStart) so its menu offers Resume (it is
+    // absent while `claudeSessionId` is null), then end it so the
     // card's menu switches to the ended pair (Resume + Remove…).
     await request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart("claude-inv3-dead-b", await envelopeOpts(sessionB, daemon)),
@@ -656,7 +655,7 @@ test("clicking an ended session's card shows the dead surface and leaves keyboar
 
     await cardB.click();
 
-    // REQ-6/Edge Case 2: the dead surface replaces the terminal slot entirely; no
+    // Edge Case 2: the dead surface replaces the terminal slot entirely; no
     // Terminal container ever mounts for a dead session, and (browser default click
     // focus on the tabindex="0" card, un-overridden since `surfaces.get(id)` is
     // undefined) keyboard focus lands, and stays, on the clicked card.
@@ -692,16 +691,16 @@ test("dragging a rail card onto another in manual mode reorders the rail without
     await expect(railSortSelect(page)).toHaveValue("manual");
 
     // A is the default-focused, top-of-manual-order session — click its own card to put
-    // keyboard focus inside its terminal before dragging (INV-4 source state (i)).
+    // keyboard focus inside its terminal before dragging (a drag source state).
     await railCard(page, "focus-e6-a").click();
     expect(await activeElementInsideTerminal(page, "focus-e6-a")).toBe(true);
 
     await railCard(page, "focus-e6-c").dragTo(railCard(page, "focus-e6-a"));
     await expect.poll(() => railOrderIds(page), { timeout: 15_000 }).toEqual([c.id, a.id, b.id]);
 
-    // The drag never changes focusedId (the live pane stays on A, REQ-7) and never
+    // The drag never changes focusedId (the live pane stays on A) and never
     // leaves keyboard focus inside any terminal (Edge Case 4: the drag's `mousedown`
-    // blurs the terminal; nothing re-throws focus into it afterwards, INV-4).
+    // blurs the terminal; nothing re-throws focus into it afterwards).
     await expect(page.locator("#mainhead .name")).toHaveText("focus-e6-a");
     expect(await activeElementInsideAnyTerminal(page)).toBe(false);
   } finally {
@@ -768,7 +767,7 @@ test("Enter on a keyboard-focused rail card selects the session but leaves focus
 
     await page.keyboard.press("Enter");
 
-    // REQ-8: the live pane swaps to B, but focus stays on B's card — never the terminal.
+    // The live pane swaps to B, but focus stays on B's card — never the terminal.
     await expect(page.locator("#mainhead .name")).toHaveText("focus-e7-b");
     await expect(cardB).toBeFocused();
     expect(await activeElementInsideAnyTerminal(page)).toBe(false);
@@ -789,7 +788,7 @@ test("a 1s render tick never moves focus into a terminal when it starts outside 
     await expect(region).toBeVisible();
 
     // On load the session is auto-focused (the live pane shows it) but keyboard focus is
-    // deliberately NOT moved there — only a pointer click does that (REQ-1's scope).
+    // deliberately NOT moved there — only a pointer click does that (by design).
     expect(await activeElementInsideTerminal(page, "focus-e8-solo")).toBe(false);
     // 2.5s spans at least two of main.ts's 1s render ticks — a hold so the negative check
     // below can prove focus STAYED outside the terminal, not a wait for anything to happen.
@@ -837,7 +836,7 @@ test("a sessionUpsert for the focused session doesn't move keyboard focus into i
 
     const initialBadge = await stateBadge(railCard(page, "focus-inv1b-solo")).textContent();
 
-    // Focus deliberately outside any terminal beforehand (INV-1's precondition).
+    // Focus deliberately outside any terminal beforehand (the precondition).
     await railSortSelect(page).focus();
     await expect(railSortSelect(page)).toBeFocused();
 
@@ -889,12 +888,12 @@ test("a rail reorder from a state change in attention mode doesn't move keyboard
     await expect(railSortSelect(page)).toHaveValue("attention");
     await expect.poll(() => railOrderIds(page)).toEqual([a.id, b.id, c.id]);
 
-    // Focus deliberately outside any terminal beforehand (INV-1's precondition).
+    // Focus deliberately outside any terminal beforehand (the precondition).
     await railSortSelect(page).focus();
     await expect(railSortSelect(page)).toBeFocused();
 
     // Drive C to needs-input — attention mode's pinned-then-need-sorted order (order-
-    // sidebar REQ-7) puts it first, reordering the rail with no click anywhere.
+    // sidebar) puts it first, reordering the rail with no click anywhere.
     await request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart("claude-inv1c-c", await envelopeOpts(c, daemon)),
     });

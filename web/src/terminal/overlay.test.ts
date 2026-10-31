@@ -3,7 +3,7 @@ import { overlayForCloseCode, overlayText } from "./overlay";
 
 // kb:anchor/terminal.ws close codes: 4000 superseded, 4001 pane_ended; everything else
 // (1000/1001 shutdown, 1006 abnormal/daemon-down, or any other value) reads as
-// "disconnected" — the bridge is down, not the session (plan m2-terminal REQ-13).
+// "disconnected" — the bridge is down, not the session.
 describe("overlayForCloseCode", () => {
   it("maps 4000 to 'superseded' (one-live-client takeover, INV-1)", () => {
     expect(overlayForCloseCode(4000)).toBe("superseded");

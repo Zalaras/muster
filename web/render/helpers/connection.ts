@@ -1,5 +1,4 @@
-// The masthead's Claude Code version readout (plan version-claude-interface, plan
-// claude-version-watch): its locator, the hover text its unknown state carries and the
+// The masthead's Claude Code version readout: its locator, the hover text its unknown state carries and the
 // text pattern a known version renders. Pure DOM — no daemon, no fixture knowledge — so
 // both tiers use it: the render spec here directly (the readout for a fixture's
 // `hello.claudeCode`), the E2E journeys through `web/e2e/helpers/connection.ts`, which
@@ -13,7 +12,7 @@ export function claudeVersionReadout(page: Page): Locator {
 }
 
 /** The readout's hover text while its state is unknown — pre-hello and `status: "unknown"`
- * both render it (plan REQ-5, decision readout-reserved-width B). Cleared by every other state. */
+ * both render it (decision readout-reserved-width B). Cleared by every other state. */
 export const UNKNOWN_HINT = "The Claude Code version check failed or hasn't completed yet";
 
 /** `claude <installed>` at the start of the readout, followed by a space (the warning glyph's

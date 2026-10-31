@@ -1,5 +1,5 @@
-// rename — the display properties of plan ui-text-and-focus REQ-9 to REQ-16 (the shared
-// rename editor, #10) and the header's title fit, re-levelled on 2026-10-20 from
+// rename — the display properties of the shared rename editor (#10) and the header's title fit,
+// re-levelled on 2026-10-20 from
 // web/e2e/rename.spec.ts (plans/_audit/relevel/misc-core.md): opening the mainhead's field
 // and cancelling it with Escape touches no API (the request log proves no PUT was sent),
 // and a 300-character title's clipping is header geometry for a given snapshot. Nothing
@@ -63,7 +63,7 @@ test("a 300-character unbroken mainhead title ellipsises in place and never push
           Number.parseFloat(getComputedStyle(mainhead).paddingRight),
         viewportWidth: document.documentElement.clientWidth,
         // Every action button, the surface switch's segments left out: the header has one
-        // Session actions button since plan remove-unread-right-click-1 (REQ-4).
+        // Session actions button.
         buttons: [...acts.querySelectorAll<HTMLElement>("button")]
           .filter((button) => !button.closest(".surfseg"))
           .map((button) => ({

@@ -1,5 +1,4 @@
-// tiles — the display properties of plans m4-reconcile (REQ-12) and move-tiles (REQ-1,
-// REQ-10, E2, E6, E7, E8), re-levelled from web/e2e/tiles.spec.ts on 2026-10-20
+// tiles — the display properties of the Tiles grid and strip, re-levelled from web/e2e/tiles.spec.ts on 2026-10-20
 // (plans/_audit/relevel/shortcuts-views-tiles.md): what the Tiles grid does for a given
 // snapshot when the user drags a tile, clicks a strip card or presses Enter on a footer
 // button needs no daemon to falsify — order and membership are per-window client state
@@ -108,7 +107,7 @@ test("a tile footer's End button survives a render tick and still opens the End 
   await expect(dialog).toBeHidden();
 });
 
-// review m4-reconcile cycle-4 Minor 2/3, retargeted by plan move-tiles REQ-10/E6: the only
+// The only
 // thing that still moves a tile's DOM node is a user drag, so the focus-survives-a-reorder
 // contract (`captureFocusedControl`/`restoreFocusedControl` inside `reconcileTilesGrid`)
 // must be exercised via a drop, not a priority change.
@@ -137,7 +136,7 @@ test("a focused tile-footer action button survives a drag-drop reorder (REQ-10, 
   await expect(endBtnB).toBeFocused();
 
   // Dragging A's header onto B moves A's node past B — B (and its focused button)
-  // shifts in the DOM, exercising the exact `insertBefore` path REQ-10 must survive.
+  // shifts in the DOM, exercising the exact `insertBefore` path must survive.
   await dragTileOnto(page, slotA, slotB);
   await expect.poll(() => tilesGridOrder(page)).toEqual([slotB, slotA, slotC, slotD]);
 
@@ -151,7 +150,7 @@ test("a focused tile-footer action button survives a drag-drop reorder (REQ-10, 
   await expect(dialog).toBeHidden();
 });
 
-// Plan move-tiles — REQ-1 through REQ-10, INV-3/6/7. The Tiles grid stops re-sorting
+// The Tiles grid stops re-sorting
 // itself on every render; only a drag reorders it, and the order is client-only state.
 test("dragging a tile's header onto an earlier tile reorders backward (E2)", async ({
   page,
@@ -171,7 +170,7 @@ test("dragging a tile's header onto an earlier tile reorders backward (E2)", asy
   await dragTileOnto(page, slot4, slot2);
 
   await expect.poll(() => tilesGridOrder(page)).toEqual([slot1, slot4, slot2, slot3]);
-  // E4: both drag-feedback classes are cleared once the drop completes, and the order
+  // Both drag-feedback classes are cleared once the drop completes, and the order
   // holds across the next render tick.
   await expect(page.locator("article.tile.dragging")).toHaveCount(0);
   await expect(page.locator("article.tile.drop-target")).toHaveCount(0);
@@ -203,7 +202,7 @@ test("clicking a strip card at capacity places the promoted tile into the demote
   const orderAfter = await tilesGridOrder(page);
   expect(orderAfter).toHaveLength(4);
 
-  // REQ-1: the promoted id lands in the demoted (worst-ranked) member's slot, and
+  // The promoted id lands in the demoted (worst-ranked) member's slot, and
   // every other index is untouched — assert both halves at once by reconstructing the
   // expected array from `orderBefore` with only the demoted slot swapped.
   const demotedTitle = orderBefore.find((t) => !orderAfter.includes(t));

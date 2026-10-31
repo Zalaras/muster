@@ -1,4 +1,4 @@
-// groups — the display properties of plan groups, re-levelled from web/e2e/groups.spec.ts,
+// groups — the display properties of groups, re-levelled from web/e2e/groups.spec.ts,
 // groups-select.spec.ts, groups-focus.spec.ts and groups-launch.spec.ts on 2026-10-20
 // (plans/_audit/relevel/groups.md): what the rail's sections, their header summary and
 // popover, select mode, the filter, the chords, the Focus header's group control and the
@@ -837,14 +837,13 @@ test("the Focus header's group control keeps its node and its open menu across a
   await expect(openMenu(page)).toHaveCount(0);
 });
 
-// The Focus header at the four widths the plan names, measured on the header itself (the control's
+// The Focus header at the four widths the spec names, measured on the header itself (the control's
 // 640px rule is a container query on the header's own width, not the window's). A long title proves
 // the title floor; `groups-focus-header` holds both checkouts under it in one group, so the card is
 // picked by its folder line: `muster-app` (12 characters, held to the repo block's 8-character floor)
 // and `muster` (`muster /` is exactly the floor, so it can never be truncated, where a longer folder
-// ellipsizes only once the header is on two rows and then before the title does — plan
-// title-crop-stop-resume-button, REQ-2: the readout gives way ahead of the title, which keeps its
-// 6rem floor last).
+// ellipsizes only once the header is on two rows and then before the title does: the readout
+// gives way ahead of the title, which keeps its 6rem floor last).
 const LONG_TITLE = "rework shift-swap approval for the weekend rostering rule changes";
 const REPO_FOLDER = "muster-app";
 const FLOOR_FOLDER = "muster";

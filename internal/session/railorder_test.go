@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// assertInvariants is INV-1/INV-2's shared check (kb:anchor/ws.session, plan
+// assertInvariants is the shared check (kb:anchor/ws.session, plan
 // order-sidebar Invariants): every pinned entry's RailPos is smaller than every
-// unpinned entry's (INV-1), and no two entries share a RailPos (INV-2). Used after
-// every applyPin/applyOrder case in the table tests below (D13/D14) — asserted
+// unpinned entry's, and no two entries share a RailPos. Used after
+// every applyPin/applyOrder case in the table tests below — asserted
 // against the *reconstructed* full set (unchanged entries carried forward plus the
 // returned changed ones), never just the changed subset, since the invariant is a
 // property of the whole rail.
@@ -66,9 +66,9 @@ func TestApplyPin_UnknownSessionReturnsErrUnknownSession(t *testing.T) {
 	assert.ErrorIs(t, err, ErrUnknownSession)
 }
 
-// TestApplyPin_InvariantsHoldFromEveryStartingConfiguration is D13/D14's exhaustive
-// table: INV-1/INV-2 are asserted after every pin/unpin, crossed against every starting
-// configuration the plan's Invariants section names — no sessions (trivial single
+// TestApplyPin_InvariantsHoldFromEveryStartingConfiguration is the exhaustive
+// table: the rail invariants are asserted after every pin/unpin, crossed against every starting
+// configuration the invariants name — no sessions (trivial single
 // case), all unpinned, all pinned, mixed — with the mutated session at the top, middle
 // and bottom of its own block, and with bystanders present throughout (m1-sessions
 // lesson: a table that always mutates the same convenient position proves nothing about
@@ -211,7 +211,7 @@ func TestApplyPin_InvariantsHoldFromEveryStartingConfiguration(t *testing.T) {
 	}
 }
 
-// TestApplyPin_PinMovesToBottomOfPinnedBlock covers D6 precisely
+// TestApplyPin_PinMovesToBottomOfPinnedBlock checks precisely
 // (kb:anchor/sessions.pin): pinning places id immediately after the current last pinned session (or at
 // the very top, when nothing was pinned before), never reordering the rest of the
 // pinned block.
@@ -237,7 +237,7 @@ func TestApplyPin_PinMovesToBottomOfPinnedBlock(t *testing.T) {
 	assert.Less(t, got[4].RailPos, got[3].RailPos, "id 4 must precede every remaining unpinned session")
 }
 
-// TestApplyPin_UnpinMovesToTopOfUnpinnedBlock covers D7 precisely: unpinning places id
+// TestApplyPin_UnpinMovesToTopOfUnpinnedBlock checks precisely: unpinning places id
 // immediately after the last remaining pinned session (top of the unpinned block),
 // ahead of every session that was already unpinned.
 func TestApplyPin_UnpinMovesToTopOfUnpinnedBlock(t *testing.T) {
@@ -260,7 +260,7 @@ func TestApplyPin_UnpinMovesToTopOfUnpinnedBlock(t *testing.T) {
 	assert.Less(t, got[1].RailPos, got[4].RailPos)
 }
 
-// TestApplyPin_NoOpWhenFlagAlreadyMatchesBroadcastsNothing covers D8/INV-5 from a clean
+// TestApplyPin_NoOpWhenFlagAlreadyMatchesBroadcastsNothing checks from a clean
 // (gap-free) starting rail: pinning/unpinning a session already in the requested state
 // changes nothing at all, for any bystander configuration.
 func TestApplyPin_NoOpWhenFlagAlreadyMatchesBroadcastsNothing(t *testing.T) {
@@ -308,11 +308,11 @@ func TestApplyPin_NoOpWhenFlagAlreadyMatchesBroadcastsNothing(t *testing.T) {
 	}
 }
 
-// TestApplyPin_NoOpWithPreExistingGapsStillBroadcastsNothing is D8 asserted from a
+// TestApplyPin_NoOpWithPreExistingGapsStillBroadcastsNothing asserts the no-op rule from a
 // *dirty* starting state instead of the clean contiguous rail every other no-op case
-// above uses: REQ-14 permits railPos gaps to survive a Remove (removing session 2
+// above uses: railPos gaps are permitted to survive a Remove (removing session 2
 // below leaves ids 1 and 3 at railPos 0 and 2, a gap at 1). A pin call whose flag
-// already matches must still broadcast nothing — D8 makes no exception for a rail that
+// already matches must still broadcast nothing — the no-op rule makes no exception for a rail that
 // happens to have gaps in it — even though rebuild's own "railPos = index" renumbering
 // would silently close that gap and report every bystander whose numeric railPos
 // shifted as "changed" if this path did not special-case the true no-op. Both no-op
@@ -331,7 +331,7 @@ func TestApplyPin_NoOpWithPreExistingGapsStillBroadcastsNothing(t *testing.T) {
 			name: "already-unpinned session unpinned again, gap among unpinned bystanders",
 			// Simulates: 3 sessions created (railPos 0,1,2), then the middle one
 			// (id 2) is removed — ids 1 and 3 remain at railPos 0 and 2, a
-			// REQ-14-sanctioned gap.
+			// permitted gap.
 			before: []railEntry{
 				{ID: 1, Pinned: false, RailPos: 0},
 				{ID: 3, Pinned: false, RailPos: 2},
@@ -446,7 +446,7 @@ func TestApplyOrder_UnknownIDReturnsErrInvalidOrder(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalidOrder)
 }
 
-// TestApplyOrder_InvalidRequestChangesNothing covers D10/D11's other half: on the
+// TestApplyOrder_InvalidRequestChangesNothing covers the other half: on the
 // invalid-request path, nothing at all is computed (nil), not merely an error alongside
 // a partial result a careless caller might persist.
 func TestApplyOrder_InvalidRequestChangesNothing(t *testing.T) {
@@ -460,7 +460,7 @@ func TestApplyOrder_InvalidRequestChangesNothing(t *testing.T) {
 
 // TestApplyOrder_EmptyIDsIsALiteralNoOpEvenWithGaps covers the plan's Decisions entry:
 // an empty ids list short-circuits before the general rebuild-and-diff path, so a
-// bystander's pre-existing REQ-14 gap is never silently closed by a request that is
+// bystander's pre-existing gap is never silently closed by a request that is
 // supposed to be a pure no-op.
 func TestApplyOrder_EmptyIDsIsALiteralNoOpEvenWithGaps(t *testing.T) {
 	sessions := []railEntry{
@@ -482,7 +482,7 @@ func TestApplyOrder_EmptyIDsWithNonZeroPinnedCountIsInvalid(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalidOrder)
 }
 
-// TestApplyOrder_AppliesListedIDsAsPositionsAndFlags covers D9: the first pinnedCount
+// TestApplyOrder_AppliesListedIDsAsPositionsAndFlags: the first pinnedCount
 // listed ids become pinned in listed order, the rest unpinned in listed order, railPos
 // = index in the final rebuilt order.
 func TestApplyOrder_AppliesListedIDsAsPositionsAndFlags(t *testing.T) {
@@ -508,7 +508,7 @@ func TestApplyOrder_AppliesListedIDsAsPositionsAndFlags(t *testing.T) {
 	assert.Equal(t, int64(3), got[7].RailPos)
 }
 
-// TestApplyOrder_UnlistedSessionsKeepFlagAndFollowInExistingRelativeOrder covers D12:
+// TestApplyOrder_UnlistedSessionsKeepFlagAndFollowInExistingRelativeOrder:
 // a session that exists but isn't named in ids keeps its pinned flag and is placed
 // after every listed id, in its own existing relative railPos order among the other
 // unlisted ones.
@@ -534,7 +534,7 @@ func TestApplyOrder_UnlistedSessionsKeepFlagAndFollowInExistingRelativeOrder(t *
 
 // TestApplyOrder_UnlistedPinnedBystanderIsPushedToEndOfPinnedBlockNotStranded covers the
 // applyOrder doc comment's specific invariant-enforcement case: an unlisted session that
-// was pinned must still end up inside the pinned block (INV-1), even though the general
+// was pinned must still end up inside the pinned block, even though the general
 // "unlisted sessions follow the listed ones" placement rule would otherwise strand it
 // after a listed *unpinned* id.
 func TestApplyOrder_UnlistedPinnedBystanderIsPushedToEndOfPinnedBlockNotStranded(t *testing.T) {
@@ -554,8 +554,8 @@ func TestApplyOrder_UnlistedPinnedBystanderIsPushedToEndOfPinnedBlockNotStranded
 }
 
 // TestApplyOrder_InvariantsHoldFromEveryStartingConfiguration mirrors applyPin's own
-// exhaustive table for D13/D14 — every named starting configuration, this time crossed
-// with the order-request shapes REQ-4 defines (full reorder, partial reorder with
+// exhaustive table — every named starting configuration, this time crossed
+// with the order-request shapes the request allows (full reorder, partial reorder with
 // bystanders, a boundary-crossing pinnedCount).
 func TestApplyOrder_InvariantsHoldFromEveryStartingConfiguration(t *testing.T) {
 	tests := []struct {
@@ -656,7 +656,7 @@ func TestApplyOrder_InvariantsHoldFromEveryStartingConfiguration(t *testing.T) {
 	}
 }
 
-// TestApplyOrder_OnlyChangedSessionsAreReturned covers D15/INV-5 directly: a session
+// TestApplyOrder_OnlyChangedSessionsAreReturned checks directly: a session
 // whose pinned flag and railPos both come out identical to before must not appear in
 // the returned diff, even though it was named in ids and rebuild recomputed it.
 func TestApplyOrder_OnlyChangedSessionsAreReturned(t *testing.T) {
@@ -672,7 +672,7 @@ func TestApplyOrder_OnlyChangedSessionsAreReturned(t *testing.T) {
 	assert.Empty(t, changed, "resubmitting the identical order and flags must change nothing")
 }
 
-// TestApplyOrder_PartialChangeOnlyReturnsTheSessionsThatActuallyMoved covers D15/INV-5's
+// TestApplyOrder_PartialChangeOnlyReturnsTheSessionsThatActuallyMoved covers the
 // more realistic case: reordering two sessions must not report a third, untouched
 // bystander as changed.
 func TestApplyOrder_PartialChangeOnlyReturnsTheSessionsThatActuallyMoved(t *testing.T) {

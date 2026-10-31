@@ -296,7 +296,7 @@ func TestSetGroupsOrder_UnchangedOrderBroadcastsNothing(t *testing.T) {
 	assert.Empty(t, r.log.kinds())
 }
 
-// TestSetGroupsOrder_RefusesAnInvalidOrderAndChangesNothing is D12 at the manager.
+// TestSetGroupsOrder_RefusesAnInvalidOrderAndChangesNothing checks the manager's section-order refusal.
 func TestSetGroupsOrder_RefusesAnInvalidOrderAndChangesNothing(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -807,7 +807,7 @@ func (r *groupsRig) groupIDByName(name string) int64 {
 	return 0
 }
 
-// TestDeleteGroup_RefusesAndChangesNothing covers D13 and the other refusals: every one
+// TestDeleteGroup_RefusesAndChangesNothing checks and the other refusals: every one
 // leaves the group, its members and the layout exactly as they were.
 func TestDeleteGroup_RefusesAndChangesNothing(t *testing.T) {
 	tests := []struct {
@@ -848,7 +848,7 @@ func TestDeleteGroup_RefusesAndChangesNothing(t *testing.T) {
 	}
 }
 
-// TestDeleteGroup_RemoveWithAFailedKillKeepsTheGroupAndTheMember is D9's delete-group half:
+// TestDeleteGroup_RemoveWithAFailedKillKeepsTheGroupAndTheMember is the delete-group half:
 // the kill that genuinely fails leaves its session in the group, the group is kept and
 // reports Deleted false, and the other members are gone.
 func TestDeleteGroup_RemoveWithAFailedKillKeepsTheGroupAndTheMember(t *testing.T) {

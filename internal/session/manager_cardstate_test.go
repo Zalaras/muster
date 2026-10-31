@@ -11,7 +11,7 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode"
 )
 
-// TestApply_CardStateUnread covers the manager half of REQ-2 and REQ-8: Apply sets unread
+// TestApply_CardStateUnread covers the manager half of the unread rule: Apply sets unread
 // only when the input actually ended a turn into idle, from the watcher's answer at that
 // moment, and the inputs that change nothing (a no-op idle_prompt, a stale compact
 // SessionStart, an idle_prompt a permission wait survives) never set it.
@@ -116,7 +116,7 @@ func TestApply_CompactionStateThroughTheManager(t *testing.T) {
 	assert.Equal(t, StateIdle, mustGet(t, mgr, a.ID).State)
 }
 
-// TestApply_CompactionEndedBinding covers REQ-9's binding half through the enveloped path,
+// TestApply_CompactionEndedBinding covers the binding half through the enveloped path,
 // where the compact SessionStart is not a binder and goes through Apply's envelope guard: a
 // never-bound session binds on it with no transition; a different session_id is the
 // clear-rebind, applied once, with the reverse index following and the counters reset.
@@ -160,7 +160,7 @@ func TestApply_CompactionEndedBinding(t *testing.T) {
 	}
 }
 
-// TestApply_CompactionEndedFromALeftIdIsAStraggler covers REQ-9's monotonic half through the
+// TestApply_CompactionEndedFromALeftIdIsAStraggler covers the monotonic half through the
 // enveloped path: bind A, clear-rebind to B, then a compact SessionStart naming A (a reordered
 // straggler) neither rebinds backwards nor resets or applies anything, from every state B
 // can be in, with the reverse index still resolving B and A still resolving to the session.
@@ -276,7 +276,7 @@ func TestApply_SubagentEventsThroughTheManager(t *testing.T) {
 	})
 }
 
-// TestSweepInterrupts_CompactionPromptIsInsideTheSweep covers REQ-11: a card a compaction
+// TestSweepInterrupts_CompactionPromptIsInsideTheSweep: a card a compaction
 // moved to working is an open turn like any other for the interrupt sweep, which asks the
 // checker about the compaction's prompt and, the transcript holding no interrupt line for
 // it, leaves the card working.

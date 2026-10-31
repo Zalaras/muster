@@ -10,7 +10,7 @@ import (
 )
 
 // baselineForState returns a Session in the given state with every state-machine-owned
-// field populated non-trivially, so INV-1's table test below has something to actually
+// field populated non-trivially, so the table test below has something to actually
 // leak into if applyStatusUpdate ever reaches state/stateSince/attention/failure/alive/
 // permissionMode/compactions.
 func baselineForState(state State) *Session {
@@ -44,7 +44,7 @@ func fullStatusUpdate() claudecode.StatusUpdate {
 	}
 }
 
-// TestApplyStatusUpdate_NeverTouchesStateMachineOwnedFields covers INV-1 exhaustively
+// TestApplyStatusUpdate_NeverTouchesStateMachineOwnedFields checks exhaustively
 // (m2-terminal retro rule: assert from every reachable source state, not just the
 // convenient one): a full status-line update leaves state/stateSince/attention/
 // failure/alive/permissionMode/compactions bit-identical from all six displayed states,
@@ -254,7 +254,7 @@ func TestApplyStatusUpdate_ContextOnlyAdoptedWhenPresentAndDifferent(t *testing.
 	})
 
 	t.Run("a token-count-only difference at an unchanged percentage still counts as changed", func(t *testing.T) {
-		// INV-2 treats the triple as one unit; a diff hiding in totalInputTokens or
+		// The invariant treats the triple as one unit; a diff hiding in totalInputTokens or
 		// windowSize alone must not be missed just because usedPct happens to match.
 		sess := newTestSession()
 		sess.Context = &Context{UsedPct: 42, TotalInputTokens: 84000, WindowSize: 200000}

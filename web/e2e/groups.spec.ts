@@ -51,20 +51,19 @@ import { launchDialog } from "./helpers/picker";
 import { removeFromCardMenu } from "./helpers/rail-menu";
 import { pinViaApi, railCard, railOrderIds, railSortSelect } from "./helpers/railorder";
 
-// Plan groups — the rail's sections: creating, renaming, collapsing, deleting, ungrouping and
+// Groups — the rail's sections: creating, renaming, collapsing, deleting, ungrouping and
 // stopping a group, a state change moving a summary, dragging cards and headers, the
-// daemon-down and two-window behaviour. Plan acceptance E1-E8, E10, E24, E25, with REQ-1 to
-// REQ-9, REQ-15, REQ-16, REQ-18, REQ-20, REQ-23 to REQ-25 and invariants I1 to I3, I6, I8.
-// The display properties — a pending or editing name field discarded (E2, edge case 12),
+// daemon-down and two-window behaviour.
+// The display properties — a pending or editing name field discarded,
 // the header's CSS, the empty sections' lines, a cancelled Delete dialog, the summary and
-// popover for a given set of states (E8, E9), what is draggable and what a drop sends nothing
-// for (E10, E11), the filter (E22's REQ-17 half), the keyboard menus and the header menu's
+// popover for a given set of states, what is draggable and what a drop sends nothing
+// for, the filter, the keyboard menus and the header menu's
 // items — are render tests in web/render/groups.spec.ts since 2026-10-20
 // (plans/_audit/relevel/groups.md): what the rail shows for a given snapshot needs no daemon
 // to falsify. What stays here is every journey: a group endpoint answering, a hook changing
 // a member, a drop that moves, a reload or restart, a second window.
 //
-// Daemon shape (the plan's Fixture plan header): every test takes the per-test `daemon`
+// Daemon shape: every test takes the per-test `daemon`
 // fixture. Each asserts section order, counts or the Ungrouped header's presence, which are
 // daemon-global, and the restart tests restart their daemon; a neighbour's session or group on a
 // shared daemon would corrupt every one of them.
@@ -597,7 +596,7 @@ test("⋯ → Stop all… confirms with the count, stops every member, keeps the
     }
     await expect(summaryState(groupHead(page, groupA.id), "ended")).toHaveText("3");
     expect(await sectionCardIds(page, groupA.id)).toEqual([a1.id, a2.id, a3.id]);
-    // One batch request, never a loop of single Stops (REQ-22).
+    // One batch request, never a loop of single Stops.
     expect(net.requests().filter((r) => r.endsWith("/end"))).toEqual(["POST /api/sessions/end"]);
 
     const state = await getGroupsState(page, daemon);

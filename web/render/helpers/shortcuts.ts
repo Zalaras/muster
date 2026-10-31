@@ -18,9 +18,8 @@ export async function openLaunchDialog(page: Page): Promise<Locator> {
   return launchDialog(page);
 }
 
-/** The `New` tab (`#launch-tab-new`) — always the selected tab on a fresh dialog open
- * (plan resume-and-dangerously-allow REQ-7), regardless of which tab a previous open was
- * left on. */
+/** The `New` tab (`#launch-tab-new`) — always the selected tab on a fresh dialog open,
+ * regardless of which tab a previous open was left on. */
 export function newTab(dialog: Locator): Locator {
   return dialog.getByRole("tab", { name: "New" });
 }

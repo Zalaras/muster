@@ -28,17 +28,17 @@ import {
 } from "./helpers/session";
 import { activeElementInsideTerminal } from "./helpers/terminal";
 
-// Plan resume-and-dangerously-allow (closes #62) — REQ-6..15, INV-2 (Resume-tab half),
-// INV-4. Fixture plan header: this file takes the per-test `daemon` fixture (a resume
+// Resume tab and dangerously-allow (closes #62), Resume-tab half.
+// Fixture plan header: this file takes the per-test `daemon` fixture (a resume
 // opens the launched session — auto-focus and rail counts are daemon-global, so a
 // neighbour test's session on a shared daemon would corrupt both).
 //
 // The bypass Start-in segment and its chip live in bypass.spec.ts; this file covers only
 // the Resume tab itself: the past-session list, filtering, selection, and resuming from it.
 //
-// The tab pair's own mechanics — a fresh open landing on New (REQ-7), a tab round trip
+// The tab pair's own mechanics — a fresh open landing on New, a tab round trip
 // keeping the form (User Flow 3), ArrowLeft/ArrowRight between the tabs and the dialog's
-// accessible name — and the Resume tab's fetch-error line (E9) are render tests in
+// accessible name — and the Resume tab's fetch-error line are render tests in
 // web/render/past-sessions.spec.ts since 2026-10-20 (plans/_audit/relevel/launch-update.md).
 // What stays here needs a listed row: every `GET /api/past-sessions` answer is the daemon's
 // reading of a transcript on disk.
@@ -99,7 +99,7 @@ test("the Resume tab lists fixture sessions newest first, disables the one alrea
     await expect(boundRow.locator(".lp")).toHaveText("open in Muster");
 
     // A POST anyway (the disabled row can't be clicked) is refused regardless — the
-    // server-side half of the same guard (D11).
+    // server-side half of the same guard.
     const resumed = await postResume(page, daemon, {
       directory: dir.path,
       resumeSessionId: "past-id-open",
@@ -164,13 +164,13 @@ test("resuming a fixture session spawns claude --resume <id> --permission-mode p
 
     const startCommand = await daemon.paneStartCommand(session.tmuxTarget);
     // Two separate checks rather than one exact adjacent substring: the contract names
-    // both flag values (REQ-10) but not their relative order in argv.
+    // both flag values but not their relative order in argv.
     expect(startCommand).toContain("--resume claude-past-resume-e6");
     expect(startCommand).toContain("--permission-mode plan");
     expect(startCommand).not.toContain("--model");
     expect(startCommand).not.toContain("--name");
 
-    // REQ-13/kb:adr/launch-opens-launched-session: opens like any launch.
+    // kb:adr/launch-opens-launched-session: opens like any launch.
     await expect(currentRailCard(page)).toHaveCount(1);
     expect(await activeElementInsideTerminal(page, "Fix e2e flake in shell.spec")).toBe(true);
 
@@ -563,7 +563,7 @@ test("a resume-bound row (source: resume) stays disabled and refuses a second re
     const dialog = await openLaunchDialog(page);
     // The resume above just made `dir` the most-recently-launched directory, so
     // `initOpen`'s restore lands the picker on `dir` itself rather than the browse
-    // root — go up first, matching the E5 test's own precedent.
+    // root — go up first, matching the earlier test's own precedent.
     await crumbButton(dialog, basename(daemon.browseRoot)).click();
     await childEntry(dialog, basename(dir.path)).click();
     await resumeTab(dialog).click();

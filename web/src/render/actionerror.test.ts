@@ -1,4 +1,4 @@
-// REQ-17/W2 (plan session-lifecycle): the global `#action-error` alert (index.html, right
+// The global `#action-error` alert (index.html, right
 // after `#banner`) that surfaces a failed Stop/Resume/Remove from any surface — mainhead,
 // rail card or tile footer. Today `features/actions.ts`'s `doEnd`/`doResume`/`doRemove`
 // (actions.ts:107-140) only `console.error` on a failed result, so nothing renders — this

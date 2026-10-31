@@ -59,9 +59,8 @@ import {
 import { shellActivityIndicator } from "./helpers/shellinput";
 import { liveTileById, TerminalSocketTracker, terminalRegion } from "./helpers/terminal";
 
-// Plan markdown-viewing — REQ-1 through REQ-28, INV-1 through INV-8, acceptance E1-E29 —
-// plus plans markdown-render-fixes (REQ-1..REQ-17, INV-ONE-ARROW..INV-CUES-PER-INSTANCE,
-// E1-E16), frontmatter (REQ-8/REQ-9's /clear retention, E1/E2) and reader-expanded-persists
+// The reader journeys, plus the markdown-render-fixes work,
+// frontmatter (the /clear retention) and reader-expanded-persists
 // (the shared browser memory across the dashboard and its pop-out): the journeys. Every test
 // here needs the daemon and the UI together — a Write/Edit hook lighting the changed dot,
 // refreshing the cue or re-rendering the open file; a listing or file response held in
@@ -77,7 +76,7 @@ import { liveTileById, TerminalSocketTracker, terminalRegion } from "./helpers/t
 //
 // Fixture plan (plan.md header): every test takes the test-scoped `daemon` fixture — a
 // fresh scratch daemon per test — because auto-focus needs "the only session" in Focus,
-// and `docChanged`, the plan slot and (E28) one daemon restart are all asserted per
+// and `docChanged`, the plan slot and one daemon restart are all asserted per
 // session, exactly the daemon-global-state cases docs/conventions.md's fixture rule
 // mandates the `daemon` fixture for.
 //
@@ -85,13 +84,13 @@ import { liveTileById, TerminalSocketTracker, terminalRegion } from "./helpers/t
 // itself is faked, via envelopedSessionStart/rawPostToolUse — no real `claude` process
 // ever runs here (CLAUDE.md hard rule).
 //
-// Plan frontmatter reversed the markdown-viewing/markdown-render-fixes "planless scan
-// clears the slot" contract (REQ-8, kb:adr/reader-plan-sticky-once-named). Two
-// markdown-viewing tests asserted exactly the behaviour REQ-8 reverses, so they were
-// rewritten in place rather than left beside a contradicting pair: the test at what was E5
+// The frontmatter work reversed the markdown-viewing/markdown-render-fixes "planless scan
+// clears the slot" contract (kb:adr/reader-plan-sticky-once-named). Two
+// markdown-viewing tests asserted exactly the behaviour that contract reverses, so they were
+// rewritten in place rather than left beside a contradicting pair: the first test
 // ("after a /clear pair naming a planless transcript, the slot returns to no plan yet") and
-// at what was E29 (its straggler-hook counterpart) — both below, still at their original
-// position, titled and asserting that plan's E1/E2.
+// its straggler-hook counterpart — both below, still at their original
+// position, titled and asserting the retained plan.
 
 test("in Tiles, selecting docs in one tile shows the reader there only and leaves the other tile's terminal socket and geometry untouched (E2, INV-6)", async ({
   page,
@@ -177,9 +176,9 @@ test("after a /clear pair naming a planless transcript, the plan slot still show
       }),
     });
 
-    // REQ-8 / kb:adr/reader-plan-sticky-once-named: the fresh transcript names no plan,
+    // kb:adr/reader-plan-sticky-once-named: the fresh transcript names no plan,
     // so the scan the rebind's SessionStart triggers must keep the retained plan rather
-    // than clearing the slot — the reversal of markdown-viewing's old E5 this plan makes.
+    // than clearing the slot — the reversal of the old markdown-viewing behaviour this makes.
     // Nothing is expected to change here, so the wait is a settle, not a state transition
     // to poll for (docs/conventions.md §Testing: settleFor is the sanctioned fixed hold
     // for a stays-unchanged check).
@@ -636,7 +635,7 @@ test("compact follows the current host across a Focus/Tiles switch, not the moun
       data: rawPostToolUse(claudeId, { toolName: "Write", filePath: fx.todoPath }),
     });
     await expect(freshnessCue(focusRegion)).toBeVisible({ timeout: 15_000 });
-    // REQ-4 order before any round trip: basename, path, cue, pop out.
+    // The order before any round trip: basename, path, cue, pop out.
     await expect(docBar(focusRegion).locator(".path ~ .chg")).toHaveCount(1);
 
     // Switch to Tiles — the SAME session's reader must now read compact. Before review
@@ -649,14 +648,14 @@ test("compact follows the current host across a Focus/Tiles switch, not the moun
     await expect(tileRegion).toHaveClass(/compact/);
     await expect(barPath(tileRegion)).toHaveCount(0);
     await expect(fileCount(tileRegion)).toHaveCount(0);
-    // `.chg` does not depend on compact (only `.path` does, REQ-15) — the cue stays.
+    // `.chg` does not depend on compact (only `.path` does) — the cue stays.
     await expect(freshnessCue(tileRegion)).toBeVisible();
 
     // And back to Focus — reverts, proving it tracks the host every render tick rather
     // than the tile's own mount moment. This is the combination review cycle 2 Major 1
     // measured broken: `.path` re-inserted while `.chg` was already connected from the
     // write above landed `.path` AFTER `.chg` (`fname / chg / path / pop out`, instead of
-    // REQ-4's `fname / path / chg / pop out`).
+    // the required `fname / path / chg / pop out`).
     await page.keyboard.press("Meta+Backslash");
     await expect(page.locator("#view-focus")).toBeVisible();
     const focusRegionAgain = readerRegion(page, "reader-live-compact");
@@ -744,16 +743,16 @@ test("after a /clear pair naming a planless transcript, a straggler Write hook f
 
     await mainheadSurfaceButton(page, "docs").click();
     const region = readerRegion(page, "reader-e29");
-    // The rebind's planless scan retains the pre-clear plan (REQ-8, isolated by the E1
+    // The rebind's planless scan retains the pre-clear plan (isolated by the first
     // test above) rather than clearing to "no plan yet".
     await expect(barPlanBadge(region)).toBeVisible({ timeout: 15_000 });
     await expect(barFileName(region)).toHaveText("reader-e29-old.md");
     await expect(noPlanText(region)).toHaveCount(0);
 
     // Straggler: the OLD claude id and OLD transcript path, arriving after the rebind —
-    // REQ-9's gate (kb:adr/reader-plan-located-by-transcript-scan, unchanged by this
-    // plan) must still hold: a hook whose Claude session id the session has already left
-    // never moves plan, so the retained plan from REQ-8 is exactly what survives here too.
+    // The gate (kb:adr/reader-plan-located-by-transcript-scan, unchanged by this
+    // work) must still hold: a hook whose Claude session id the session has already left
+    // never moves plan, so the retained plan is exactly what survives here too.
     await page.request.post(daemon.ingestURL("hook"), {
       data: rawPostToolUse(oldClaudeId, {
         toolName: "Write",
@@ -874,7 +873,7 @@ test("the pop-out reader bounds itself to the viewport so the body scrolls, the 
     await fileEntry(region, fx.outlineFileName).click();
     await expect(renderedBody(region)).toContainText(fx.lastHeading, { timeout: 15_000 });
 
-    // Must go through the real link (REQ-8) — a hand-built /doc.html?... URL drops the
+    // Must go through the real link — a hand-built /doc.html?... URL drops the
     // dashboard token and lands on "Muster is not running here" (review cycle 3 note).
     const [popup] = await Promise.all([context.waitForEvent("page"), popOutLink(region).click()]);
     await popup.waitForLoadState();
@@ -923,7 +922,7 @@ test("the pop-out reader bounds itself to the viewport so the body scrolls, the 
   }
 });
 
-// review cycle 3 Major 2: no prior reader spec used focus + keys anywhere (E8/E17/E18 all
+// review cycle 3 Major 2: no prior reader spec used focus + keys anywhere (the other tests all
 // use `.click()`), so none could see review cycle 3's Major 1 (every tree/outline/plan-slot
 // button destroyed and rebuilt on any `current`/`dirty` change, dropping keyboard focus to
 // `<body>`). This test drives the plan slot, a tree file and an outline entry with real
@@ -960,7 +959,7 @@ test("keyboard-activating the plan slot, a tree file and an outline entry keeps 
     await expect(barPlanBadge(region)).toBeVisible({ timeout: 15_000 });
 
     // Expand the nested folders up front so `x.md`'s button exists for the docChanged
-    // step below — folder children render only while expanded (REQ-10), and expanding a
+    // step below — folder children render only while expanded, and expanding a
     // folder is itself the structural rebuild the next test in this file covers on its
     // own; this setup click happens before any focus-survival assertion begins.
     await folderEntry(region, "docs").click();
@@ -1030,13 +1029,13 @@ test("keyboard-activating the plan slot, a tree file and an outline entry keeps 
   }
 });
 
-// plan markdown-render-fixes deletes the two-arrow pair (`Hide files` / `Show files`,
+// The markdown-render-fixes work deletes the two-arrow pair (`Hide files` / `Show files`,
 // hidden/rebuilt by review markdown-viewing cycle-4's `prepareNavArrowFocusRestore`) and
-// replaces it with a single button that is never hidden (REQ-1..REQ-4). REQ-4/E2's whole
+// replaces it with a single button that is never hidden. The whole
 // point is now simpler than the pair it replaces: activating the one button that never
 // disappears leaves focus exactly where it was, with no counterpart to restore focus onto
-// and no `hidden` flip to race — `prepareNavArrowFocusRestore` itself is gone (Overview,
-// W6), so there is nothing left in the product for a focus-restore test to exercise. This
+// and no `hidden` flip to race — `prepareNavArrowFocusRestore` itself is gone (Overview).
+// There is nothing left in the product for a focus-restore test to exercise. This
 // replaces the cycle-4 Major 2 test and its `assertArrowFocusSurvivesToggle` helper below,
 // which existed only to prove the now-deleted hide/rebuild dance didn't drop focus to
 // `<body>`; the "also assert the negative" case that followed it (toggling from anywhere
@@ -1076,13 +1075,13 @@ test("keyboard-activating the nav toggle leaves focus on it, in both directions,
     await expect(navToggle(region)).toBeVisible({ timeout: 15_000 });
     await assertNavToggleKeepsFocus(page, region);
 
-    // A file must be open for `pop out ↗` to exist (markdown-viewing REQ-4/REQ-8); the
+    // A file must be open for `pop out ↗` to exist (markdown-viewing); the
     // toggles above leave the nav open, so the tree is reachable here.
     await fileEntry(region, "TODO.md").click();
     await expect(renderedBody(region)).toContainText("TODO", { timeout: 15_000 });
 
-    // Pop out (REQ-8) and repeat both directions there — the same shared component, a
-    // second composition root (REQ-27).
+    // Pop out and repeat both directions there — the same shared component, a
+    // second composition root.
     const [popup] = await Promise.all([context.waitForEvent("page"), popOutLink(region).click()]);
     await popup.waitForLoadState();
     const popRegion = readerRegion(popup, "reader-arrow-focus");
@@ -1093,8 +1092,8 @@ test("keyboard-activating the nav toggle leaves focus on it, in both directions,
   }
 });
 
-// ─── plan markdown-render-fixes: the remaining acceptance criteria (E3-E4, E6-E10,
-// E13-E16) not already folded into an updated markdown-viewing test above. Every held-
+// ─── markdown-render-fixes: the remaining acceptance criteria
+// not already folded into an updated markdown-viewing test above. Every held-
 // response test below copies actions.spec.ts:703-756's shape (Implementation Notes): hold
 // the real `/reader` or `/reader/file` response behind a promise gate rather than
 // fabricating a payload, so the otherwise sub-second loading window is observable.
@@ -1165,11 +1164,11 @@ test("with the file response held, selecting a tree file moves aria-current and 
     await folderEntry(region, "adr").click();
     await fileEntry(region, "x.md").click();
 
-    // E6/REQ-7: the bar and aria-current move synchronously, before the fetch resolves.
+    // The bar and aria-current move synchronously, before the fetch resolves.
     await expect(barFileName(region)).toHaveText("x.md");
     await expect(fileEntry(region, "x.md")).toHaveAttribute("aria-current", "true");
 
-    // E7/E16/REQ-8/REQ-14: the status line names the file in flight; the body stays put
+    // The status line names the file in flight; the body stays put
     // and greys out rather than being replaced or blanked.
     await expect(readerStatusLine(region)).toHaveText("loading x.md…");
     await expect(renderedBody(region)).toContainText("TODO");
@@ -1177,7 +1176,7 @@ test("with the file response held, selecting a tree file moves aria-current and 
 
     held.release();
 
-    // E8: releasing clears the status line, renders the new document and lifts the grey-out.
+    // Releasing clears the status line, renders the new document and lifts the grey-out.
     await expect(renderedBody(region)).toContainText("ADR X", { timeout: 15_000 });
     await expect(readerStatusLine(region)).toBeHidden();
     await expect(renderedBody(region)).not.toHaveAttribute("aria-busy", "true");
@@ -1205,7 +1204,7 @@ test("with the listing response held, the body reads loading… and the tree sho
     await expect(region).toBeVisible({ timeout: 15_000 });
     await expect(bodyLoadingPlaceholder(region)).toBeVisible();
     await expect(treeLoadingRow(region)).toBeVisible();
-    // INV-ONE-ARROW's "listing pending" state: the toggle is unaffected.
+    // The "listing pending" state: the toggle is unaffected.
     await expect(navToggle(region)).toBeVisible();
 
     held.release();
@@ -1274,7 +1273,7 @@ test("a window focus event on an open plan and a routed write for an open tree f
     });
     const claudeId = "claude-reader-silent-refetch";
 
-    // `handleWindowFocus` (markdown-viewing REQ-19, unchanged by this plan) only
+    // `handleWindowFocus` (markdown-viewing, unchanged by this work) only
     // re-fetches when the OPEN file is the plan — a plain tree file never refetches on
     // focus — so this half needs a plan, established before mount so it auto-opens
     // (decideInitialOpen), same shape as the "opens it automatically" test above.
@@ -1307,7 +1306,7 @@ test("a window focus event on an open plan and a routed write for an open tree f
     await expect(readerStatusLine(region)).toBeHidden();
     await expect(renderedBody(region)).not.toHaveAttribute("aria-busy", "true");
 
-    // docChanged path (REQ-18: any open file, not gated to the plan): switch to a plain
+    // docChanged path (any open file, not gated to the plan): switch to a plain
     // tree file, then repeat with a routed write instead of a focus event.
     await fileEntry(region, "TODO.md").click();
     await expect(renderedBody(region)).toContainText("TODO", { timeout: 15_000 });
@@ -1390,7 +1389,7 @@ test("stopping the daemon mid-load shows the unreachable text and leaves no load
 
     // Releasing now lets the held request reach the dead daemon and reject with a network
     // error — edge case 6: the rejected fetch clears loadingPath itself, ahead of any
-    // restart, while the unreachable text has already won the status line (REQ-15).
+    // restart, while the unreachable text has already won the status line.
     held.release();
     await expect(readerStatusLine(region)).toContainText(/unreachable/i, { timeout: 15_000 });
     await expect(renderedBody(region)).not.toHaveAttribute("aria-busy", "true");
@@ -1455,8 +1454,8 @@ test("with two tiles on docs, holding one tile's file response shows the loading
   }
 });
 
-// ─── plan reader-expanded-persists: the browser memory shared by the dashboard and its
-// pop-out. (Plan frontmatter's rendering split — the flat table, a value carrying markup,
+// ─── reader-expanded-persists: the browser memory shared by the dashboard and its
+// pop-out. (The frontmatter rendering split — the flat table, a value carrying markup,
 // the raw fallback — is a property of the display and lives in web/render/reader.spec.ts.)
 
 // The `muster.reader.<id>` record as THIS page's localStorage view of it. Chromium
@@ -1474,7 +1473,7 @@ async function storedReaderMemory(
   });
 }
 
-// Plan reader-expanded-persists, review cycle 2 (browser Major 1): the dashboard and its
+// reader-expanded-persists, review cycle 2 (browser Major 1): the dashboard and its
 // pop-out share `muster.reader.<id>`; a toggle in one host must leave the other host's
 // stored changes intact. Pins the fix — expected to pass.
 test("a pop-out's Outline fold leaves the dashboard's expanded folders intact on its next Claude to Docs switch (reader-expanded-persists REQ-1, REQ-2, shared memory)", async ({
@@ -1649,7 +1648,7 @@ async function openBothHostsWithAdrExpanded(
   return { region, popup, popRegion };
 }
 
-// Plan reader-expanded-persists, review cycle 3 (cycle-2 browser Minor 1): a host adopts the
+// reader-expanded-persists, review cycle 3 (cycle-2 browser Minor 1): a host adopts the
 // other host's write, so its display is current without any click of its own, and a click
 // then does what it looks like it does. Pins the fix — expected to pass.
 test("a dashboard's collapse of adr/ shows in the pop-out with no click there and the pop-out's next adr/ click expands it in both (reader-expanded-persists REQ-1, shared memory live adoption)", async ({

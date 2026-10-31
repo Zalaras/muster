@@ -17,7 +17,7 @@ import (
 )
 
 // live gates the live tier behind the same MUSTER_CANARY_OFFLINE skip harness(t) uses
-// (REQ-10): offline means no session, no Keychain read, no network connection (INV-1).
+// Offline means no session, no Keychain read, no network connection.
 // Unlike harness(t), a live-tier failure below this point is never a build failure to
 // share across tests — each of the three tests below re-reads the real credential itself.
 func live(t *testing.T) {
@@ -33,7 +33,7 @@ func live(t *testing.T) {
 // liveToken resolves the production Keychain token the same way cmd/musterd/main.go's
 // keychainUser + claudecode.KeychainTokenReader does. It FAILS the test (never skips) on
 // ErrNoCredentials — decision 2026-09-10: a skip passes silently on the one machine this
-// gate exists for (Edge Case 6). The token itself is never logged (REQ-2/INV-2).
+// gate exists for (Edge Case 6). The token itself is never logged.
 func liveToken(t *testing.T) string {
 	t.Helper()
 	u, err := user.Current()
@@ -47,16 +47,16 @@ func liveToken(t *testing.T) string {
 }
 
 // TestKeychainCredentialShape runs the production Keychain reader for the current OS
-// user (REQ-8/D9).
+// user.
 func TestKeychainCredentialShape(t *testing.T) {
 	live(t)
 	_ = liveToken(t)
 }
 
 // TestUsageAPIResponseShape calls the production FetchUsage and separately performs one
-// raw GET with the two measured headers, asserting the wire shape REQ-8 lists. A 401/403
+// raw GET with the two measured headers, asserting the wire shape. A 401/403
 // fails the test (Edge Case 7); every assertion message carries key names and named
-// scalars only, never a response body or the token (REQ-2/INV-2).
+// scalars only, never a response body or the token.
 func TestUsageAPIResponseShape(t *testing.T) {
 	live(t)
 	testStart := time.Now()
@@ -108,7 +108,7 @@ func TestUsageAPIResponseShape(t *testing.T) {
 
 // rawUsageGET performs one GET against the real usage endpoint with the two measured
 // headers (docs/history/spikes/canary-fields.md "GET /api/oauth/usage measured live") and decodes the
-// body into a generic map — callers must read key names and scalars only (REQ-2/INV-2),
+// body into a generic map — callers must read key names and scalars only,
 // never log the map itself.
 func rawUsageGET(t *testing.T, client *http.Client, token string) map[string]any {
 	t.Helper()
@@ -128,7 +128,7 @@ func rawUsageGET(t *testing.T, client *http.Client, token string) map[string]any
 }
 
 // TestThemeConfigParses asserts the production theme reader against the real global
-// config file, read-only — ReadThemeFamily never opens its path for writing (REQ-8).
+// config file, read-only — ReadThemeFamily never opens its path for writing.
 func TestThemeConfigParses(t *testing.T) {
 	live(t)
 	path, err := claudecode.DefaultConfigPath()

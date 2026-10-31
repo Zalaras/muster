@@ -1,4 +1,4 @@
-// Plan markdown-viewing (W9, REQ-18): changedText composes over sessions/format.ts's
+// ChangedText composes over sessions/format.ts's
 // formatAge buckets through the shared agoSuffix helper (review cycle-1 Major 2), so the
 // sub-minute bucket reads "changed now" rather than the ungrammatical "changed now ago"
 // despite the illustrative "changed 0s ago" in plan.md's User Flow 3 — every other bucket

@@ -19,7 +19,7 @@ import (
 )
 
 // newUsageRefreshTestServer builds a full Server with polling enabled against a fake
-// usage endpoint and a scratch token file (REQ-13's test seams) — handleUsageRefresh's
+// usage endpoint and a scratch token file (the test seams) — handleUsageRefresh's
 // happy path needs a real, non-nil usagePoller, unlike newTestServer's default (which
 // deliberately leaves UsagePoll at zero so no test-server ever touches the network by
 // construction).
@@ -55,7 +55,7 @@ func usageRefreshRequest(t *testing.T, srv *Server, withCookie bool) *httptest.R
 	return rec
 }
 
-// TestHandleUsageRefresh_DisabledPollingReturns404 covers Edge Case 14/REQ-7's error
+// TestHandleUsageRefresh_DisabledPollingReturns404 covers Edge Case 14, the error
 // clause: -usage-poll 0 means the poller was never constructed, so refresh 404s.
 func TestHandleUsageRefresh_DisabledPollingReturns404(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{}) // UsagePoll left at zero: no poller
@@ -74,7 +74,7 @@ func TestHandleUsageRefresh_RequiresCookie(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
-// TestHandleUsageRefresh_EnabledPollingReturns202AndTriggersAFetch covers REQ-7's happy
+// TestHandleUsageRefresh_EnabledPollingReturns202AndTriggersAFetch covers the happy
 // path end to end through the real HTTP handler.
 func TestHandleUsageRefresh_EnabledPollingReturns202AndTriggersAFetch(t *testing.T) {
 	var requests int32

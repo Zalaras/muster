@@ -1,5 +1,5 @@
-// Locators, oracles and the documents for the docs reader (plans markdown-viewing,
-// markdown-render-fixes, frontmatter, mermaid-support, reader-expanded-persists). Pure DOM —
+// Locators, oracles and the documents for the docs reader (
+// markdown, frontmatter, mermaid, expanded-state persistence). Pure DOM —
 // no daemon, no fixture knowledge — so both tiers use it: the render spec
 // `web/render/reader.spec.ts` and `web/render/helpers/reader-find.ts` directly, the E2E
 // journeys through `web/e2e/helpers/reader.ts`, which re-exports it and keeps what a render
@@ -40,7 +40,7 @@ export function docBar(region: Locator): Locator {
   return region.locator(".docbar");
 }
 
-/** Present only while the plan is open (REQ-4). */
+/** Present only while the plan is open. */
 export function barPlanBadge(region: Locator): Locator {
   return docBar(region).locator(".badge");
 }
@@ -49,12 +49,12 @@ export function barFileName(region: Locator): Locator {
   return docBar(region).locator(".fname");
 }
 
-/** Absent in `.reader.compact` (REQ-15). */
+/** Absent in `.reader.compact`. */
 export function barPath(region: Locator): Locator {
   return docBar(region).locator(".path");
 }
 
-/** Absent until a write hook is seen this daemon lifetime (REQ-24) — assert
+/** Absent until a write hook is seen this daemon lifetime — assert
  * `.toHaveCount(0)` for "no cue yet", never a visibility check. */
 export function freshnessCue(region: Locator): Locator {
   return docBar(region).locator(".chg");
@@ -64,7 +64,7 @@ export function popOutLink(region: Locator): Locator {
   return docBar(region).getByRole("link", { name: "pop out ↗" });
 }
 
-/** The single nav-toggle button (plan markdown-render-fixes REQ-1..REQ-3): last child of
+/** The single nav-toggle button: last child of
  * `.docbar`, present and unhidden in every state, `aria-label="File explorer"` throughout
  * — its glyph (`›`/`‹`) and `aria-expanded` track the nav's own open/collapsed state, so
  * this one locator covers both. */
@@ -83,7 +83,7 @@ export function readerNav(region: Locator): Locator {
 
 /** The nav's plan header row (`[data-role="plan-header"]`) — `renderPlanSlot` sets its
  * `hidden` attribute (the codebase's existing `.hidden =` idiom, never removal) when the
- * plan slot is absent (REQ-6, a dead session), so `.toBeHidden()` is the "no empty padded
+ * plan slot is absent (a dead session), so `.toBeHidden()` is the "no empty padded
  * strip" oracle, not `.toHaveCount(0)`. */
 export function planHeaderRow(region: Locator): Locator {
   return readerNav(region).locator('[data-role="plan-header"]');
@@ -101,7 +101,7 @@ export function filesHeaderToggle(region: Locator): Locator {
   return readerNav(region).getByRole("button", { name: "Files", exact: true });
 }
 
-/** Absent before the listing arrives and in compact mode (REQ-15, States). */
+/** Absent before the listing arrives and in compact mode. */
 export function fileCount(region: Locator): Locator {
   return filesHeaderToggle(region).locator(".n");
 }
@@ -118,7 +118,7 @@ export function navTreeSection(region: Locator): Locator {
 }
 
 /** The single `loading…` row shown inside the tree while the listing is in flight
- * (REQ-10) — a `div`, not a button (Testable UI Elements: "not focusable"), styled like
+ * — a `div`, not a button (Testable UI Elements: "not focusable"), styled like
  * `.f.none`. */
 export function treeLoadingRow(region: Locator): Locator {
   return navTreeSection(region).getByText("loading…");
@@ -142,7 +142,7 @@ export function fileEntry(region: Locator, fileBasename: string): Locator {
 }
 
 /** The changed-dot span inside a tree/plan-slot entry — its presence in the DOM (not a
- * CSS state) is the whole indicator (REQ-13). */
+ * CSS state) is the whole indicator. */
 export function changedDot(entry: Locator): Locator {
   return entry.locator(".dot");
 }
@@ -168,27 +168,27 @@ export function bodyPlaceholder(region: Locator): Locator {
 }
 
 /** `article.md > p.placeholder` while nothing has rendered yet (mount, or a user-initiated
- * open with `bodyRendered` still false) — plan markdown-render-fixes REQ-9. Neither
+ * open with `bodyRendered` still false). Neither
  * `article.md` nor `p` carries an implicit role (Testable UI Elements), so this is a text
  * locator like `bodyPlaceholder` above, never a role query. */
 export function bodyLoadingPlaceholder(region: Locator): Locator {
   return renderedBody(region).getByText("loading…");
 }
 
-/** `/doc.html?session=<id>&path=<abs>` (REQ-8) — for asserting a pop-out tab's URL, or
+/** `/doc.html?session=<id>&path=<abs>` — for asserting a pop-out tab's URL, or
  * navigating to it directly rather than through the `pop out ↗` link. */
 export function popOutURL(id: number, path: string): string {
   return `/doc.html?session=${id}&path=${encodeURIComponent(path)}`;
 }
 
-// ── Frontmatter (plan frontmatter) ──────────────────────────────────────────────────────
+// ── Frontmatter ──────────────────────────────────────────────────────
 //
 // The flat-block table is a native `<table aria-label="Frontmatter">` with `<th scope="row">`
 // key cells (role `rowheader`) and `<td>` value cells (role `cell`); the fallback block is
 // `pre.frontmatter > code`, which — like a `<details><summary>` — carries no implicit
 // role, so it's a plain CSS locator rather than a `getByRole` query.
 
-/** The frontmatter key/value table (REQ-2, REQ-5) — always the body's first element when
+/** The frontmatter key/value table — always the body's first element when
  * present (assert via `renderedBody(region).evaluate(el => el.firstElementChild?.tagName)`,
  * since a role query alone can't answer position). Absent for the raw-fallback or empty
  * shapes, or when the file carries no frontmatter at all. */
@@ -196,13 +196,13 @@ export function frontmatterTable(region: Locator): Locator {
   return renderedBody(region).getByRole("table", { name: "Frontmatter" });
 }
 
-/** Every row's key cell in document order — the REQ-2 "one row per key, in file order"
+/** Every row's key cell in document order — the "one row per key, in file order"
  * oracle without pinning a specific key. */
 export function frontmatterKeyCells(region: Locator): Locator {
   return frontmatterTable(region).getByRole("rowheader");
 }
 
-/** A frontmatter row, scoped by its key cell's exact text — duplicate keys (W8) each get
+/** A frontmatter row, scoped by its key cell's exact text — duplicate keys each get
  * their own `<tr>`, so this can match more than one row. `filter({has})` re-applies the
  * inner locator's full selector chain scoped to each `tr` candidate, so the inner locator
  * must be rooted at `page` rather than at any ancestor of the `tr`. */
@@ -223,20 +223,20 @@ export function frontmatterValueCell(region: Locator, key: string): Locator {
   return frontmatterRow(region, key).getByRole("cell");
 }
 
-/** The raw fallback block (REQ-3) — `pre.frontmatter > code`, inner text verbatim. Absent
+/** The raw fallback block — `pre.frontmatter > code`, inner text verbatim. Absent
  * for the flat-table or empty shapes, or when the file carries no frontmatter at all. */
 export function frontmatterFallback(region: Locator): Locator {
   return renderedBody(region).locator("pre.frontmatter");
 }
 
-/** Every outline entry button in document order — the REQ-6 "frontmatter contributes no
+/** Every outline entry button in document order — the "frontmatter contributes no
  * outline entry" oracle: assert `.first()`'s name against the document's own first real
  * heading, or the full list against the headings a fixture expects and nothing else. */
 export function outlineEntries(region: Locator): Locator {
   return navOutlineSection(region).getByRole("button");
 }
 
-// ── Diagrams (plan mermaid-support) ─────────────────────────────────────────────────────
+// ── Diagrams ─────────────────────────────────────────────────────
 //
 // A diagram figure carries no implicit role, so it's a plain CSS locator; the enlarge
 // button, the dialog and its toolbar buttons all pin role + accessible name.
@@ -259,7 +259,7 @@ export function enlargeButton(figure: Locator): Locator {
 }
 
 /** `pre > code.language-mermaid` still present after a render pass — only for a fence
- * that failed to parse/render (REQ-6); a succeeded fence leaves none. */
+ * that failed to parse/render; a succeeded fence leaves none. */
 export function keptMermaidSource(region: Locator): Locator {
   return renderedBody(region).locator("pre > code.language-mermaid");
 }
@@ -272,13 +272,12 @@ export function diagramErrorLine(region: Locator): Locator {
 
 /** The one `dialog.modal.diagram-modal` per reader root, by its accessible name
  * ("Diagram", Testable UI Elements) — matches only while `[open]`, since a closed
- * `<dialog>` has no accessible role. Use `diagramDialogRaw` to count regardless of state
- * (INV-3). */
+ * `<dialog>` has no accessible role. Use `diagramDialogRaw` to count regardless of state. */
 export function diagramDialog(region: Locator): Locator {
   return region.getByRole("dialog", { name: "Diagram" });
 }
 
-/** Raw `dialog.diagram-modal` locator, open or closed — INV-3's "exactly one per root"
+/** Raw `dialog.diagram-modal` locator, open or closed — the "exactly one per root"
  * oracle, which a role query can't answer once the dialog is closed. */
 export function diagramDialogRaw(region: Locator): Locator {
   return region.locator("dialog.diagram-modal");
@@ -309,7 +308,7 @@ export function diagramClose(dialog: Locator): Locator {
 }
 
 /** Parses the canvas's inline `transform: translate(<x>px, <y>px) scale(<s>)` (DOM sketch)
- * into numbers — the pan/zoom oracle for E14, since Playwright has no numeric-CSS matcher. */
+ * into numbers — the pan/zoom oracle, since Playwright has no numeric-CSS matcher. */
 export async function canvasTransform(
   canvas: Locator,
 ): Promise<{ x: number; y: number; scale: number }> {
@@ -322,7 +321,7 @@ export async function canvasTransform(
 }
 
 /**
- * Records every request's URL for the lifetime of `page` — INV-2's "no request leaves the
+ * Records every request's URL for the lifetime of `page` — the "no request leaves the
  * page's origin" oracle (unfiltered by path, since a mermaid chunk's hashed name isn't
  * known ahead of a build). `data:`/`blob:` URLs carry no origin and are excluded rather
  * than treated as violations.
@@ -348,9 +347,9 @@ export class OriginRequestTracker {
   }
 
   /** Every `.js` request recorded so far whose URL contains `substr` (case-insensitive)
-   * — the "engine chunk loaded" oracle for E5, without hardcoding a Vite-hashed
+   * — the "engine chunk loaded" oracle, without hardcoding a Vite-hashed
    * filename. Applies no origin filter of its own: pair it with `assertAllSameOrigin()`,
-   * as E5 does, when the point is that the chunk came from the page's origin. */
+   * as that test does, when the point is that the chunk came from the page's origin. */
   scriptRequestsContaining(substr: string): string[] {
     const needle = substr.toLowerCase();
     return this.urls.filter((u) => u.endsWith(".js") && u.toLowerCase().includes(needle));
@@ -413,7 +412,7 @@ export interface ReaderDocument {
   body: string;
 }
 
-/** The tree `docs/features/reader/spec.md`'s E6/D8 fixtures describe: a top-level `.md`, a
+/** The tree `docs/features/reader/spec.md` describes for its fixtures: a top-level `.md`, a
  * two-deep nested `.md`, a non-`.md` sibling and a `.md` inside a dot-directory — the last
  * two are never listed. */
 export const MARKDOWN_TREE_DOCUMENTS = {
@@ -435,7 +434,7 @@ export const LONG_NAMES = {
   heading: "A very long heading that is far wider than the outline panel can show",
 } as const;
 
-/** The raw frontmatter block of `fm-raw.md`, verbatim — the REQ-3 oracle compares
+/** The raw frontmatter block of `fm-raw.md`, verbatim — the raw-block oracle compares
  * `textContent` against exactly these bytes. */
 export const FM_RAW_INNER = "tags:\n  - a\n  - b\nnotes: |\n  # Not a real heading\n  just text\n";
 
@@ -450,7 +449,7 @@ const LONG_FILLER = filler(80);
 
 /** Every document web/e2e/reader.spec.ts wrote inline for a rendering property, by key. */
 export const READER_DOCUMENTS = {
-  /** A GFM table, a task list and a fenced code block (E15). */
+  /** A GFM table, a task list and a fenced code block. */
   gfm: {
     path: "gfm.md",
     body: [
@@ -469,7 +468,7 @@ export const READER_DOCUMENTS = {
       "",
     ].join("\n"),
   },
-  /** A script element, an onerror attribute and a javascript: link (E16). */
+  /** A script element, an onerror attribute and a javascript: link. */
   unsafe: {
     path: "unsafe.md",
     body: [
@@ -483,7 +482,7 @@ export const READER_DOCUMENTS = {
       "",
     ].join("\n"),
   },
-  /** Three headings with 80 filler paragraphs between each, so the body scrolls (E17). */
+  /** Three headings with 80 filler paragraphs between each, so the body scrolls. */
   long: {
     path: "long.md",
     body: `# Top\n\n${LONG_FILLER}\n\n## Middle\n\n${LONG_FILLER}\n\n## Bottom\n\n${LONG_FILLER}\n`,
@@ -495,7 +494,7 @@ export const READER_DOCUMENTS = {
     path: `${LONG_NAMES.folder}/${LONG_NAMES.file}`,
     body: `# Top\n\n## ${LONG_NAMES.heading}\n\nBody.\n`,
   },
-  /** Flat frontmatter, three keys, two real headings (plan frontmatter E3). */
+  /** Flat frontmatter, three keys, two real headings. */
   front: {
     path: "front.md",
     body: [
@@ -516,7 +515,7 @@ export const READER_DOCUMENTS = {
   },
   /** Frontmatter and nothing else (edge case 20). */
   onlyFront: { path: "only-front.md", body: ["---", "solo: value", "---", ""].join("\n") },
-  /** Frontmatter values carrying markup (plan frontmatter E4). */
+  /** Frontmatter values carrying markup. */
   fmUnsafe: {
     path: "fm-unsafe.md",
     body: [
@@ -530,9 +529,9 @@ export const READER_DOCUMENTS = {
       "",
     ].join("\n"),
   },
-  /** Nested YAML frontmatter: the raw fallback (plan frontmatter E5). */
+  /** Nested YAML frontmatter: the raw fallback. */
   fmRaw: { path: "fm-raw.md", body: `---\n${FM_RAW_INNER}---\n# Real Heading\n\nBody text.\n` },
-  /** A long frontmatter key (correctness review cycle 1, W16). */
+  /** A long frontmatter key. */
   wideKey: {
     path: "wide-key.md",
     body: [
@@ -574,9 +573,9 @@ export const LARGE_TREE_DOCUMENTS: readonly ReaderDocument[] = [
  * smallest syntactically valid (or deliberately invalid, for `broken`) mermaid text for each
  * construct — inputs to the real bundled mermaid engine, never simulated output. */
 export const MERMAID_DOCUMENTS = {
-  /** One valid `flowchart TD` — E2. */
+  /** One valid `flowchart TD`. */
   flow: { path: "flow.md", body: "# Flow\n\n```mermaid\nflowchart TD\n  A --> B\n```\n" },
-  /** One fence missing an arrow target, one valid fence after it — E3. */
+  /** One fence missing an arrow target, one valid fence after it. */
   broken: {
     path: "broken.md",
     body: [
@@ -595,7 +594,7 @@ export const MERMAID_DOCUMENTS = {
     ].join("\n"),
   },
   /** Script/onerror/`javascript:` labels plus a `securityLevel: "loose"` init directive
-   * that must have no effect — E4. */
+   * that must have no effect. */
   unsafe: {
     path: "unsafe.md",
     body: [
@@ -613,7 +612,7 @@ export const MERMAID_DOCUMENTS = {
     ].join("\n"),
   },
   /** One fence of each of the kb's eight diagram kinds, plus case, attribute, blockquote
-   * and duplicate-fence variants — E12. */
+   * and duplicate-fence variants. */
   kinds: {
     path: "kinds.md",
     body: [
@@ -694,7 +693,7 @@ export const MERMAID_DOCUMENTS = {
       "",
     ].join("\n"),
   },
-  /** A flowchart naming `layout: elk` in frontmatter, and one naming no layout — E15. */
+  /** A flowchart naming `layout: elk` in frontmatter, and one naming no layout. */
   elk: {
     path: "elk.md",
     body: [
@@ -716,16 +715,16 @@ export const MERMAID_DOCUMENTS = {
       "",
     ].join("\n"),
   },
-  /** A `flowchart LR` with 40 chained nodes, wider than the reader body — E11. */
+  /** A `flowchart LR` with 40 chained nodes, wider than the reader body. */
   wide: {
     path: "wide.md",
     body: `# Wide\n\n\`\`\`mermaid\nflowchart LR\n  ${Array.from({ length: 40 }, (_, i) => `N${i}`).join(" --> ")}\n\`\`\`\n`,
   },
-  /** No mermaid fence at all — E5 (the engine chunk must never load for this file). */
+  /** No mermaid fence at all (the engine chunk must never load for this file). */
   plain: { path: "plain.md", body: "# Plain\n\nNo diagrams here.\n" },
 } as const satisfies Record<string, ReaderDocument>;
 
-/** REQ-12's document: headings with filler and a valid and a malformed fence between them. */
+/** The interleaved document: headings with filler and a valid and a malformed fence between them. */
 export const INTERLEAVED_DOCUMENT: ReaderDocument = {
   path: "interleaved.md",
   body: [

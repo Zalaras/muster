@@ -1,9 +1,8 @@
-// Plan ui-text-and-focus — REQ-1 through REQ-3, INV-3 (the "shown in the Focus pane"
-// rail marker, #16). Plan acceptance: E1-E3.
+// The "shown in the Focus pane" rail marker (#16).
 //
 // The journeys: the marker across a view switch, a Remove and a persisted drag reorder. The
 // marker for a given snapshot — the top card current by default and a click or ⌥⌘2 moving it, a
-// click into the terminal leaving it, `.card.current`'s ground and ring (E1, E2, REQ-2, REQ-3) —
+// click into the terminal leaving it, `.card.current`'s ground and ring —
 // moved to the render tier on 2026-10-20: web/render/focus.spec.ts against the
 // `unbound-sessions` fixture (plans/_audit/relevel/focus.md).
 //
@@ -42,9 +41,9 @@ test("Tiles never shows a current strip card; switching back to Focus restores e
     );
 
     // Both sessions fit the default 2x2 grid as live tiles, so #tiles-strip is empty —
-    // but the assertion is on the STRIP's own current-marker locator regardless (REQ-1:
-    // "the Tiles strip passes null, so a strip card is never current"), matching
-    // INV-3's "never one" clause independent of how many sessions are stripped.
+    // but the assertion is on the STRIP's own current-marker locator regardless
+    // ("the Tiles strip passes null, so a strip card is never current"), matching
+    // the "never one" clause independent of how many sessions are stripped.
     await expect(currentStripCard(page)).toHaveCount(0);
 
     await page.getByRole("button", { name: "Focus" }).click();
@@ -82,12 +81,12 @@ test("removing the focused session falls the marker through to the remaining ses
     expect(endRes.status()).toBe(200);
     await expect(cardA).toHaveClass(/ended/, { timeout: 15_000 });
 
-    // The Focus header holds no Remove button (plan remove-unread-right-click-1, REQ-4): the
+    // The Focus header holds no Remove button: the
     // focused session is removed from its card's menu.
     await removeFromCardMenu(page, cardA);
     await expect(cardA).toHaveCount(0, { timeout: 15_000 });
 
-    // Only B remains — the fallthrough must land the marker there (REQ-3).
+    // Only B remains — the fallthrough must land the marker there.
     await expect(cardB).toHaveAttribute("aria-current", "true", { timeout: 15_000 });
     await expect(currentRailCard(page)).toHaveCount(1);
   } finally {

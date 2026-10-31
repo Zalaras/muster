@@ -78,14 +78,14 @@ async function openEmptyDialog(page: Page, dashboard: Dashboard) {
 // exposing every Testable UI Element and none of the removed legacy browse controls" (its
 // crumb half — the browse root, the Launch-in readout, the composed crumb path — stays in
 // web/e2e/launch.spec.ts), folded together with permission-mode.spec.ts's "the Start in
-// radiogroup keeps its role and accessible name across the rename" (REQ-1 regression).
+// radiogroup keeps its role and accessible name across the rename" (regression).
 test("with no recents the dialog exposes every Testable UI Element and none of the removed legacy browse controls, and the Start in radiogroup keeps its role and accessible name (REQ-2, REQ-9, REQ-10, REQ-11, REQ-16, E2; fix-auto-mode-select REQ-1)", async ({
   page,
   dashboard,
 }) => {
   const dialog = await openEmptyDialog(page, dashboard);
 
-  // REQ-2: no Browse… button, no unfold panel, no Up button, no Use this folder
+  // No Browse… button, no unfold panel, no Up button, no Use this folder
   // button, no raw path field survives the rebuild. Exact names: every ancestor crumb is
   // a button, and a scratch dir name containing "up" would match a substring.
   await expect(dialog.getByRole("button", { name: "Browse…", exact: true })).toHaveCount(0);
@@ -101,7 +101,7 @@ test("with no recents the dialog exposes every Testable UI Element and none of t
     await expect(dialog.locator(removedId)).toHaveCount(0);
   }
 
-  // REQ-16: no recents -> sidebar empty state, no recent buttons at all.
+  // No recents -> sidebar empty state, no recent buttons at all.
   await expect(recentsSidebar(dialog).getByText("No recent directories")).toBeVisible();
   await expect(recentsSidebar(dialog).getByRole("button")).toHaveCount(0);
 
@@ -114,9 +114,9 @@ test("with no recents the dialog exposes every Testable UI Element and none of t
   await dialog.getByRole("radio", { name: "other…" }).check();
   await expect(dialog.getByLabel("Custom model")).toBeVisible();
 
-  // REQ-1 (fix-auto-mode-select): renamed to Claude Code's own vocabulary, plus the new
+  // Renamed to Claude Code's own vocabulary, plus the new
   // `auto` fourth radio, in Shift+Tab cycle order — under a radiogroup whose role and
-  // accessible name the rename left alone (the plan's one row marked "existing
+  // accessible name the rename left alone (the one row marked "existing
   // aria-label; unchanged").
   await expect(dialog.getByRole("radiogroup", { name: "Start in" })).toBeVisible();
   for (const mode of ["manual", "accept edits", "plan", "auto"]) {
@@ -168,7 +168,7 @@ test("a recent's title attribute is its full absolute path (REQ-18)", async ({
   }
 });
 
-// review cycle 1 Major 4 of plan new-session-dialog: the one proof that a card for a known
+// The one proof that a card for a known
 // directory still reaches the "no signal yet" state. `firstLaunchNote`
 // (web/src/sessions/card.ts) derives it from `state: started`, `claudeSessionId: null`,
 // `firstLaunchHere: false` and `elapsedSeconds(createdAt, now) ≥ NO_SIGNAL_THRESHOLD_SECONDS`;
@@ -327,7 +327,7 @@ test("clicking the max segment checks it, and it stays the checked one across a 
 
 // ═══ web/e2e/launch-model-check.spec.ts — the fail-open display ═══
 
-// REQ-10's fail-open display: with no verdicts nothing is marked or disabled. In the harness the
+// The fail-open display: with no verdicts nothing is marked or disabled. In the harness the
 // dialog-open `GET /api/models` answers 404, which `requestModelVerdicts`
 // (web/src/features/launch.ts) treats exactly as a connection failure — `{ok: false}` leaves
 // the verdict store untouched — so the dialog looks as it would with no daemon at all.
@@ -362,7 +362,7 @@ test("a fresh dialog with no launch history checks auto and sonnet (REQ-5, E1, E
 // ═══ web/e2e/bypass.spec.ts — the bypass face, the chip and the note ═══
 
 // Carries the pre-launch face half of "checking "bypass" shows the warning and turns Launch
-// into a danger "Launch without checks"…" (REQ-1, E1) as well — the exact warning sentence and
+// into a danger "Launch without checks"…" as well — the exact warning sentence and
 // the not-checked-yet face; that journey keeps its launch half whole.
 test('unchecking "bypass" restores the ordinary "Launch" face (INV-2)', async ({
   page,
@@ -410,7 +410,7 @@ test("the launched bypass session's rail card and the Focus mainhead show the by
   await focusSession(page, "bypass-chip-e2");
   await expect(bypassChip(page.locator("#mainhead"))).toHaveText("bypass");
 
-  // REQ-5: no SessionStart has arrived yet, and this is a first launch into a never
+  // No SessionStart has arrived yet, and this is a first launch into a never
   // before-seen directory — `firstLaunchHere` is true, so the note is the combined
   // trust-prompt-then-bypass-warning form (card.ts's `firstLaunchNote`), not the plain
   // "likely waiting on Claude Code's bypass warning" text that only applies once a
@@ -423,7 +423,7 @@ test("the launched bypass session's rail card and the Focus mainhead show the by
 });
 
 // The chip-shown half of "in Tiles, the bypass session's tile header shows the chip, and a
-// hook reporting default removes it" (E12); the hook-driven clear stays in
+// hook reporting default removes it"; the hook-driven clear stays in
 // web/e2e/bypass.spec.ts. The view is a pref the dashboard adopts only from the broadcast, so
 // the fixture holds it.
 test("in Tiles, the bypass session's tile header shows the chip (E12)", async ({
@@ -449,7 +449,7 @@ test("Tiles shows the masthead New session button, with no Tiles-only button, an
   expect(fixture.snapshot.prefs.view).toBe("tiles");
   expect(fixture.snapshot.sessions).toEqual([]);
 
-  // REQ-6/INV-3 (rail-card-improvements): one button total, visible in Tiles too — not
+  // One button total, visible in Tiles too — not
   // hidden with the rail, and the old Tiles-only toolbar button is gone.
   await expect(newSessionButton(page)).toBeVisible();
   await expect(page.locator("#tiles-new-session-button")).toHaveCount(0);

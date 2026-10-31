@@ -16,10 +16,10 @@ import (
 )
 
 // ---------------------------------------------------------------------------------------
-// POST /api/update/check (kb:anchor/update.check, D1-D13) — checkAvailability's manual
+// POST /api/update/check (kb:anchor/update.check) — checkAvailability's manual
 // path. The periodic-tick (manual=false) half of this same method is exercised by the
-// checkAvailability tests above (D11 by TestUpdateManager_DisabledCheckingMakesNoRequests,
-// D13 by TestUpdateManager_FailedCheckKeepsPreviousResultAndBroadcastsNothing); this file
+// checkAvailability tests above (the disabled case by TestUpdateManager_DisabledCheckingMakesNoRequests,
+// the failed case by TestUpdateManager_FailedCheckKeepsPreviousResultAndBroadcastsNothing); this file
 // covers the manual=true path and handleCheckUpdate's own error mapping.
 
 func postCheckUpdate(t *testing.T, srv *testServer) *httptest.ResponseRecorder {
@@ -31,8 +31,8 @@ func postCheckUpdate(t *testing.T, srv *testServer) *httptest.ResponseRecorder {
 	return rec
 }
 
-// TestHandleCheckUpdate_Success covers D1 (200 with the update object), D2 (checkedAt
-// set to the time of this check), D9 (exactly one broadcast) and the wire presence of
+// TestHandleCheckUpdate_Success covers a 200 with the update object, checkedAt
+// set to the time of this check, exactly one broadcast, and the wire presence of
 // canCheck.
 func TestHandleCheckUpdate_Success(t *testing.T) {
 	origin := newFakeOrigin(t)
@@ -77,7 +77,7 @@ func TestHandleCheckUpdate_Success(t *testing.T) {
 	assert.Error(t, err, "D9: exactly one broadcast — a second must not arrive")
 }
 
-// TestHandleCheckUpdate_Errors covers D3-D8's error table.
+// TestHandleCheckUpdate_Errors covers the error table.
 func TestHandleCheckUpdate_Errors(t *testing.T) {
 	t.Run("release host unreachable is 502 check_failed", func(t *testing.T) {
 		origin := newFakeOrigin(t)
@@ -145,7 +145,7 @@ func TestHandleCheckUpdate_Errors(t *testing.T) {
 	})
 }
 
-// TestHandleCheckUpdate_ManualCheckSurvivesTheAutomaticDiscardGuard covers D10 and Edge
+// TestHandleCheckUpdate_ManualCheckSurvivesTheAutomaticDiscardGuard covers Edge
 // Cases 8/9: unlike a periodic tick, a manual check's result is kept even though
 // prefs.updateCheck is off, both when the pref is already off before the request starts
 // and when it is switched off while the request is in flight.
@@ -195,7 +195,7 @@ func TestHandleCheckUpdate_ManualCheckSurvivesTheAutomaticDiscardGuard(t *testin
 	})
 }
 
-// TestUpdateManager_CanCheck covers D12: canCheck is true iff the base URL is non-empty
+// TestUpdateManager_CanCheck: canCheck is true iff the base URL is non-empty
 // (a manager only exists when it is) and the install kind is not dev.
 func TestUpdateManager_CanCheck(t *testing.T) {
 	for _, kind := range []selfupdate.Kind{selfupdate.KindInstaller, selfupdate.KindHomebrew, selfupdate.KindUnmanaged} {

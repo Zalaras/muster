@@ -15,7 +15,7 @@ import (
 	"github.com/Zalaras/muster/internal/selfupdate"
 )
 
-// TestResolveOnExit_ExplicitLeaveAndKillNeverConsultStdin covers REQ-3: the two explicit
+// TestResolveOnExit_ExplicitLeaveAndKillNeverConsultStdin: the two explicit
 // flag values pass straight through without ever looking at stdin (nil is deliberately
 // passed here — a real *os.File would panic isCharDevice-adjacent code if it were
 // consulted, so a nil that's never touched proves the short-circuit).
@@ -24,7 +24,7 @@ func TestResolveOnExit_ExplicitLeaveAndKillNeverConsultStdin(t *testing.T) {
 	assert.Equal(t, onExitKill, resolveOnExit("kill", nil, io.Discard, 3, 0, "muster"))
 }
 
-// TestResolveOnExit_AskWithNonTTYStdinIsLeave covers D21's underlying unit: "ask" against
+// TestResolveOnExit_AskWithNonTTYStdinIsLeave covers the underlying unit: "ask" against
 // a non-terminal stdin (a pipe, exactly what daemon-implementation.md's Decisions
 // records run()'s stdin parameter exists to inject in tests — never a real terminal,
 // unlike a pty) resolves to leave without ever reading a line.
@@ -53,7 +53,7 @@ func TestResolveOnExit_InvalidFlagValueFallsThroughToTheAskPath(t *testing.T) {
 	assert.Equal(t, onExitLeave, got, "an unrecognized value must never silently resolve to kill")
 }
 
-// TestIsTerminal covers D12 (REQ-9): isTerminal must report false for nil, a pipe, a
+// TestIsTerminal: isTerminal must report false for nil, a pipe, a
 // regular file, and /dev/null — the last is the regression case this plan exists for,
 // since /dev/null is also a character device (measured 2026-08-31:
 // mode=Dcrw-rw-rw- charDevice=true) and the old isCharDevice check wrongly treated it as
@@ -97,7 +97,7 @@ func TestIsTerminal(t *testing.T) {
 	})
 }
 
-// TestAskKillPrompt covers Edge Case 10 and REQ-3's answer parsing: only y/Y/yes
+// TestAskKillPrompt covers Edge Case 10 and the answer parsing: only y/Y/yes
 // (case-insensitive) answers kill; anything else — including an empty line — answers
 // leave. Every case also asserts the prompt text names the live-session count and socket.
 func TestAskKillPrompt(t *testing.T) {

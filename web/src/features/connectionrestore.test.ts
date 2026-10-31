@@ -1,4 +1,4 @@
-// Plan general-cleanup (REQ-7, W2): the pure decision table `features/connection.ts`
+// The pure decision table `features/connection.ts`
 // drives around the disconnect->reconnect render pair. No DOM — `RestorableCandidate` is
 // duck-typed, so a plain object stands in for `document.activeElement`.
 import { describe, expect, it } from "vitest";

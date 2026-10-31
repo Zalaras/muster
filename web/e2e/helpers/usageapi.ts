@@ -1,4 +1,4 @@
-// Fake `GET /api/oauth/usage` endpoint for the usage-model-bar plan (REQ-13's E2E test
+// Fake `GET /api/oauth/usage` endpoint for usage-model-bar (E2E test
 // seam): musterd's `-usage-api-url` points here instead of https://api.anthropic.com, so
 // no E2E run ever calls the real subscription endpoint. Response shapes synthesized here
 // must stay capture-faithful to docs/history/spikes/canary-fields.md's "GET /api/oauth/usage measured
@@ -12,14 +12,14 @@ export interface FakeUsageWindow {
    * (int)"). */
   percent: number;
   /** RFC3339 string, with fractional seconds and an offset — the measured `resets_at`
-   * form (e.g. `"2026-09-01T13:59:59.522599+00:00"`), not epoch seconds (REQ-4 accepts
+   * form (e.g. `"2026-09-01T13:59:59.522599+00:00"`), not epoch seconds (the decoder accepts
    * either on decode, but this fixture exercises the shape Claude Code actually sends). */
   resetsAt: string;
 }
 
-/** A top-level `five_hour` / `seven_day` window of the response (plan usage-bar-consistency
- * REQ-1): `utilization` is the measured percent-scale float, `resetsAt` the measured RFC3339
- * string with microseconds and an offset (kb:fact/usage-api-oauth-shape). */
+/** A top-level `five_hour` / `seven_day` window of the response: `utilization` is the
+ * measured percent-scale float, `resetsAt` the measured RFC3339 string with microseconds
+ * and an offset (kb:fact/usage-api-oauth-shape). */
 export interface FakeUsageBucket {
   utilization: number;
   resetsAt: string;
@@ -27,7 +27,7 @@ export interface FakeUsageBucket {
 
 export interface FakeUsageBuckets {
   /** Omitted: the capture's own `{utilization: 7.0, resets_at: 2026-08-30…}` (a reset long
-   * past, so the daemon refuses it — plan usage-bar-consistency REQ-3). `null`: the window
+   * past, so the daemon refuses it). `null`: the window
    * is JSON null, which the capture shows for `seven_day_opus` and the like. */
   fiveHour?: FakeUsageBucket | null;
   sevenDay?: FakeUsageBucket | null;
@@ -45,7 +45,7 @@ function bucketBody(bucket: FakeUsageBucket | null | undefined): unknown {
 }
 
 /** A reset far in the future, in the measured string form — never "past" against any
- * real clock, so a test that is not about resets never trips plan usage-bar-consistency's
+ * real clock, so a test that is not about resets never trips the
  * past-reset refusal. */
 export const FAR_FUTURE_RESETS_AT = "2099-01-01T00:00:00.000000+00:00";
 
@@ -56,7 +56,7 @@ export const FAR_FUTURE_RESETS_AT = "2099-01-01T00:00:00.000000+00:00";
  * `weekly_scoped` `limits[]` entry per window with the full measured field set
  * (`kind`/`group`/`percent`/`severity`/`resets_at`/`scope`/`is_active`), and one
  * feature-flag-noise top-level key (`amber_ladder`, named in the capture) to exercise
- * REQ-4's "unknown keys ignored" the way the real response actually looks — never an
+ * "unknown keys ignored" the way the real response actually looks — never an
  * invented shape.
  */
 export function weeklyScopedUsageResponse(
@@ -99,8 +99,8 @@ interface PendingResponse {
 
 /**
  * A fake `/api/oauth/usage` HTTP server. Settable response/status, a request counter for
- * cadence/coalescing assertions (E4, edge case 7), and a hold/release gate so a test can
- * observe the pre-first-fetch state deterministically (E2) instead of racing a poll
+ * cadence/coalescing assertions, and a hold/release gate so a test can
+ * observe the pre-first-fetch state deterministically instead of racing a poll
  * interval.
  */
 export class FakeUsageAPI {
@@ -108,7 +108,7 @@ export class FakeUsageAPI {
   port = 0;
   requestCount = 0;
   /** `Date.now()` at each request's arrival, in order — lets a test assert a call was
-   * made after an instant (plan usage-bar-consistency E2), not merely that one was made. */
+   * made after an instant, not merely that one was made. */
   readonly requestTimes: number[] = [];
   private response: PendingResponse = { status: 200, body: { limits: [] } };
   private held = false;
@@ -141,7 +141,7 @@ export class FakeUsageAPI {
   }
 
   private handle(req: IncomingMessage, res: ServerResponse): void {
-    // Only /api/oauth/usage is meaningful (REQ-3); anything else 404s harmlessly rather
+    // Only /api/oauth/usage is meaningful; anything else 404s harmlessly rather
     // than hanging a request this fixture was never meant to receive.
     if (req.url !== "/api/oauth/usage") {
       res.writeHead(404).end();
@@ -168,8 +168,8 @@ export class FakeUsageAPI {
   }
 
   /** Holds every incoming request open (no response sent) until `release()` — used to
-   * observe the pre-first-fetch "unknown" state deterministically (E2) and to make a
-   * refresh's `aria-busy` window observable (E4) instead of racing a fast response. */
+   * observe the pre-first-fetch "unknown" state deterministically and to make a
+   * refresh's `aria-busy` window observable instead of racing a fast response. */
   hold(): void {
     this.held = true;
   }

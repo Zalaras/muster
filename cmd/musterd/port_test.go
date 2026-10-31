@@ -93,7 +93,7 @@ func TestPortFromArg_AbsentIsNotGiven(t *testing.T) {
 	}
 }
 
-// TestParseFlags_Port covers REQ-1 at the flag set: -addr is gone, -port is validated by
+// TestParseFlags_Port checks at the flag set: -addr is gone, -port is validated by
 // parseFlags itself with the message unwrapped, and absent differs from -port 0.
 func TestParseFlags_Port(t *testing.T) {
 	tests := []struct {
@@ -127,7 +127,7 @@ func TestParseFlags_Port(t *testing.T) {
 	}
 }
 
-// TestRun_InvalidPortFailsBeforePreflightAndDataDir covers D1: with tmux absent the run
+// TestRun_InvalidPortFailsBeforePreflightAndDataDir: with tmux absent the run
 // would fail the preflight, so an error naming -port instead proves the flag is checked
 // first, and the data dir proves nothing else ran.
 func TestRun_InvalidPortFailsBeforePreflightAndDataDir(t *testing.T) {
@@ -201,8 +201,8 @@ func TestLoadSavedPort_UnreadableFileIsAnError(t *testing.T) {
 
 func ptr(s string) *string { return &s }
 
-// TestResolvePort is REQ-2 / REQ-4's "differs from what it would pick without the flag"
-// rule over every combination of flag and saved state: D2-D7 and D13.
+// TestResolvePort is the "differs from what it would pick without the flag"
+// rule over every combination of flag and saved state.
 func TestResolvePort(t *testing.T) {
 	given := func(n int) portFlag { return portFlag{value: n, given: true} }
 	tests := []struct {
@@ -251,7 +251,7 @@ func TestResolvePort(t *testing.T) {
 	}
 }
 
-// TestResolvePort_SavedPortIsScopedToTheDataDir covers REQ-3: -data-dir scopes the saved
+// TestResolvePort_SavedPortIsScopedToTheDataDir: -data-dir scopes the saved
 // port, so two profiles keep their own.
 func TestResolvePort_SavedPortIsScopedToTheDataDir(t *testing.T) {
 	a, b := t.TempDir(), t.TempDir()
@@ -270,8 +270,8 @@ func TestResolvePort_SavedPortIsScopedToTheDataDir(t *testing.T) {
 	assert.Equal(t, defaultPort, gotNone.listen)
 }
 
-// TestSavePort covers D14 (a saved port is read back) and REQ-6 (saving the default
-// clears it) from every starting state.
+// TestSavePort covers a saved port being read back and saving the default
+// clearing it, from every starting state.
 func TestSavePort(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -323,7 +323,7 @@ func TestSavePort_FailsWhenTheDataDirIsMissing(t *testing.T) {
 	assert.Contains(t, err.Error(), "saving port")
 }
 
-// TestOfferSavePort covers REQ-5 / D11 / V1: the exact prompt text, and only y or yes in
+// TestOfferSavePort covers the exact prompt text, and only y or yes in
 // any case saving.
 func TestOfferSavePort(t *testing.T) {
 	tests := []struct {
@@ -366,7 +366,7 @@ func TestOfferSavePort(t *testing.T) {
 	}
 }
 
-// TestOfferSavePort_NoAnswerNeverTouchesAnExistingSavedPort is the other half of D11: a
+// TestOfferSavePort_NoAnswerNeverTouchesAnExistingSavedPort is the other half of the offer test: a
 // declined prompt leaves what was saved before exactly as it was.
 func TestOfferSavePort_NoAnswerNeverTouchesAnExistingSavedPort(t *testing.T) {
 	dataDir := t.TempDir()
@@ -379,7 +379,7 @@ func TestOfferSavePort_NoAnswerNeverTouchesAnExistingSavedPort(t *testing.T) {
 	assert.Equal(t, "18765\n", string(raw))
 }
 
-// TestOfferSavePort_DefaultAnsweredYesClearsTheSavedPort covers D6 end to end over the
+// TestOfferSavePort_DefaultAnsweredYesClearsTheSavedPort checks end to end over the
 // pure pieces: the start that would prompt, the answer, and the next resolution.
 func TestOfferSavePort_DefaultAnsweredYesClearsTheSavedPort(t *testing.T) {
 	dataDir := t.TempDir()
@@ -411,8 +411,8 @@ func TestOfferSavePort_AFailedSaveIsLoggedNotFatal(t *testing.T) {
 	assert.NotContains(t, logs.String(), "port saved for future starts")
 }
 
-// TestMaybeOfferSavePort_Guards covers D5/D7 (the serving flag), D8 (stdin must be a
-// terminal) and D9 (a restarted daemon) at the one function that applies them, with a
+// TestMaybeOfferSavePort_Guards covers the serving flag, stdin having to be a
+// terminal and a restarted daemon, at the one function that applies them, with a
 // pty for the terminal and "y" already typed so a prompt that wrongly appears would save.
 func TestMaybeOfferSavePort_Guards(t *testing.T) {
 	tests := []struct {

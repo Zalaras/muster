@@ -19,11 +19,10 @@ import { launchEndedSession, stateSession, trackMutationBodies } from "./helpers
 import { pinViaApi, railCard, railOrderIds, railSortSelect } from "./helpers/railorder";
 import { scratchDirectory } from "./helpers/session";
 
-// Plan rail-card-organise — dragging rail cards into groups in both sort orders (#77) and
+// Rail card organise: dragging rail cards into groups in both sort orders (#77) and
 // dragging a selection in Select mode. The journeys where a drop commits through a daemon
-// request (group, order) or the daemon refuses one: acceptance E10, E11, E13 with REQ-12 to
-// REQ-17, REQ-20 and INV-4. The display properties — a drag that sends nothing and changes
-// nothing, which the request log proves — are render tests in web/render/rail.spec.ts
+// request (group, order) or the daemon refuses one. The display properties
+// — a drag that sends nothing and changes nothing, which the request log proves — are render tests in web/render/rail.spec.ts
 // (plans/_audit/relevel/rail.md).
 //
 // Daemon shape (the plan's Fixture plan header): every test takes the per-test `daemon` fixture —
@@ -226,7 +225,7 @@ test("outside Select mode a drag carries only the dragged card, even after a sel
     expect(await sectionCardIds(page, alpha.id)).toEqual([a2.id]);
     const sent = net.requests();
     expect(sent).toHaveLength(1);
-    // A header drop in manual order is one group request for the dragged card alone, as in the REQ-14 test above.
+    // A header drop in manual order is one group request for the dragged card alone, as in the test above.
     expect(sent[0]).toEqual({
       method: "PUT",
       path: "/api/sessions/group",

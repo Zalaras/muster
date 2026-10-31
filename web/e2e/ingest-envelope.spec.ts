@@ -3,7 +3,7 @@ import { expect, test } from "./helpers/fixtures";
 import { envelopedSessionStart } from "./helpers/payloads";
 import { findSession, getState, launchSession, scratchDirectory } from "./helpers/session";
 
-// Plan general-cleanup — REQ-12 (envelope pane corroboration,
+// Envelope pane corroboration (
 // kb:adr/ingest-envelope-pane-must-corroborate). Takes the test-scoped `daemon` fixture:
 // the assertion is that an unrouted event leaks into no session row, which a shared file
 // daemon's neighbouring sessions would muddy.

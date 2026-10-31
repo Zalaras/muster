@@ -34,7 +34,7 @@ import (
 // ---------------------------------------------------------------------------------------
 // A fake GitHub Releases origin: /latest redirects to a configurable tag, and
 // /download/<tag>/<name> serves configurable release assets. hold()/release() pause every
-// request until released — D16/D18's "response arrives late"/"second request while one is
+// request until released — the "response arrives late"/"second request while one is
 // in flight" fixtures need this, mirroring the plan's own FakeReleaseServer shape at unit
 // scale.
 
@@ -201,7 +201,7 @@ func newUpdateTestKey(t *testing.T) (pub minisign.PublicKey, priv minisign.Priva
 }
 
 // ---------------------------------------------------------------------------------------
-// updateManager unit tests (D14-D17, D24) — constructed directly (white-box: this file is
+// updateManager unit tests — constructed directly (white-box: this file is
 // package server) rather than through a full Server/HTTP round trip, since the assertions
 // are about the checker's own state machine, not wiring.
 
@@ -224,7 +224,7 @@ func newTestUpdateManager(t *testing.T, mutate func(*updateManagerConfig)) (*upd
 	return newUpdateManager(cfg), changes
 }
 
-// TestUpdateManager_DisabledCheckingMakesNoRequests covers D14: with updateCheck false,
+// TestUpdateManager_DisabledCheckingMakesNoRequests: with updateCheck false,
 // construction, Start, three direct ticks and Refresh together make zero requests to the
 // update base URL.
 func TestUpdateManager_DisabledCheckingMakesNoRequests(t *testing.T) {
@@ -247,7 +247,7 @@ func TestUpdateManager_DisabledCheckingMakesNoRequests(t *testing.T) {
 	assert.Equal(t, 0, origin.totalRequests(), "checking disabled must make zero requests to the update base URL")
 }
 
-// TestUpdateManager_SetCheckEnabledFalseClearsAndBroadcastsOnce covers D15's disable
+// TestUpdateManager_SetCheckEnabledFalseClearsAndBroadcastsOnce covers the disable
 // half: clears available/checkedAt and broadcasts exactly one update.
 func TestUpdateManager_SetCheckEnabledFalseClearsAndBroadcastsOnce(t *testing.T) {
 	origin := newFakeOrigin(t)
@@ -270,7 +270,7 @@ func TestUpdateManager_SetCheckEnabledFalseClearsAndBroadcastsOnce(t *testing.T)
 	}
 }
 
-// TestUpdateManager_SetCheckEnabledTrueTriggersImmediateCheck covers D15's enable half:
+// TestUpdateManager_SetCheckEnabledTrueTriggersImmediateCheck covers the enable half:
 // re-enabling wakes an immediate check rather than waiting for the (here, very long)
 // interval to elapse.
 func TestUpdateManager_SetCheckEnabledTrueTriggersImmediateCheck(t *testing.T) {
@@ -295,7 +295,7 @@ func TestUpdateManager_SetCheckEnabledTrueTriggersImmediateCheck(t *testing.T) {
 	}
 }
 
-// TestUpdateManager_LateResponseAfterDisableIsDiscarded covers D16: a check already in
+// TestUpdateManager_LateResponseAfterDisableIsDiscarded: a check already in
 // flight when the pref is switched off must not clobber the disable with a stale result,
 // and must broadcast nothing itself.
 func TestUpdateManager_LateResponseAfterDisableIsDiscarded(t *testing.T) {
@@ -327,7 +327,7 @@ func TestUpdateManager_LateResponseAfterDisableIsDiscarded(t *testing.T) {
 	assert.Nil(t, m.Current().CheckedAt)
 }
 
-// TestUpdateManager_FailedCheckKeepsPreviousResultAndBroadcastsNothing covers D17: a
+// TestUpdateManager_FailedCheckKeepsPreviousResultAndBroadcastsNothing: a
 // failed check leaves available/checkedAt exactly as they were and produces no broadcast.
 func TestUpdateManager_FailedCheckKeepsPreviousResultAndBroadcastsNothing(t *testing.T) {
 	origin := newFakeOrigin(t)
@@ -352,7 +352,7 @@ func TestUpdateManager_FailedCheckKeepsPreviousResultAndBroadcastsNothing(t *tes
 	assert.Equal(t, first.CheckedAt, got.CheckedAt)
 }
 
-// TestUpdateManager_CheckSwap_DetectsAnExternalSwap covers D24's success half: a stat
+// TestUpdateManager_CheckSwap_DetectsAnExternalSwap covers the success half: a stat
 // change plus a successful probe sets Installed. checkSwap's own probe call is faked at
 // m.probeVersion (the consumer port over selfupdate.ProbeVersion), never a forked
 // subprocess — docs/conventions.md § Testing.
@@ -379,7 +379,7 @@ func TestUpdateManager_CheckSwap_DetectsAnExternalSwap(t *testing.T) {
 	assert.Equal(t, "0.11.0", *got.Installed)
 }
 
-// TestUpdateManager_CheckSwap_ProbeFailureOrTimeoutLeavesInstalledNull covers D24's
+// TestUpdateManager_CheckSwap_ProbeFailureOrTimeoutLeavesInstalledNull covers the
 // failure half: a probe that errors, or one that never returns before its deadline, must
 // leave Installed null rather than committing a bogus value.
 func TestUpdateManager_CheckSwap_ProbeFailureOrTimeoutLeavesInstalledNull(t *testing.T) {
@@ -427,7 +427,7 @@ func TestUpdateManager_CheckSwap_ProbeFailureOrTimeoutLeavesInstalledNull(t *tes
 }
 
 // ---------------------------------------------------------------------------------------
-// HTTP-level tests (D18, D19, D20, D23) — built through a real *Server so routing, auth
+// HTTP-level tests — built through a real *Server so routing, auth
 // and the WS broadcast wiring are exercised too.
 
 func newUpdateTestServer(t *testing.T, mutate func(*Config)) *testServer {
@@ -467,7 +467,7 @@ func getRestartImpact(t *testing.T, srv *testServer) *httptest.ResponseRecorder 
 	return rec
 }
 
-// TestHandleApplyUpdate_ErrorTable covers D18's whole error table (bar the "second
+// TestHandleApplyUpdate_ErrorTable covers the whole error table (bar the "second
 // request in flight" and success cases, covered by their own tests below).
 func TestHandleApplyUpdate_ErrorTable(t *testing.T) {
 	t.Run("bad JSON body is 400", func(t *testing.T) {
@@ -577,7 +577,7 @@ func decodeErrorMessage(t *testing.T, rec *httptest.ResponseRecorder) string {
 func ptr(s string) *string { return &s }
 
 // TestHandleApplyUpdate_SecondRequestWhileInFlightReturns202WithoutASecondDownload
-// covers D18/D20's REQ-20 half: a second POST while an apply is downloading returns 202
+// covers the in-flight half: a second POST while an apply is downloading returns 202
 // without starting a second download, and the first request's own restart value wins.
 func TestHandleApplyUpdate_SecondRequestWhileInFlightReturns202WithoutASecondDownload(t *testing.T) {
 	origin := newFakeOrigin(t)
@@ -621,9 +621,9 @@ func TestHandleApplyUpdate_SecondRequestWhileInFlightReturns202WithoutASecondDow
 	}
 }
 
-// TestHandleApplyUpdate_SuccessfulApplyBroadcastsPhasesInOrder covers D19: a successful
+// TestHandleApplyUpdate_SuccessfulApplyBroadcastsPhasesInOrder: a successful
 // apply broadcasts downloading -> verifying -> installing -> done in order with version
-// set, and INV-4 holds after every broadcast.
+// set, and the update invariant holds after every broadcast.
 func TestHandleApplyUpdate_SuccessfulApplyBroadcastsPhasesInOrder(t *testing.T) {
 	origin := newFakeOrigin(t)
 	_, key, pubFile := newUpdateTestKey(t)
@@ -660,7 +660,7 @@ func TestHandleApplyUpdate_SuccessfulApplyBroadcastsPhasesInOrder(t *testing.T) 
 	assert.Equal(t, []string{"downloading", "verifying", "installing", "done"}, phases)
 }
 
-// TestHandleApplyUpdate_RestartTrueBroadcastsRestartingAndSignalsExactlyOnce covers D20.
+// TestHandleApplyUpdate_RestartTrueBroadcastsRestartingAndSignalsExactlyOnce checks.
 func TestHandleApplyUpdate_RestartTrueBroadcastsRestartingAndSignalsExactlyOnce(t *testing.T) {
 	origin := newFakeOrigin(t)
 	_, key, pubFile := newUpdateTestKey(t)
@@ -736,7 +736,7 @@ func assertINV4(t *testing.T, apply struct {
 }
 
 // ---------------------------------------------------------------------------------------
-// GET /api/update/restart-impact (D23) — uses a real per-test tmux socket, since the
+// GET /api/update/restart-impact — uses a real per-test tmux socket, since the
 // endpoint's own job is to read real tmux state (docs/conventions.md: real tmux only
 // where the assertion is about a tmux-observable effect).
 
@@ -764,7 +764,7 @@ func createRealShellSession(t *testing.T, socket, name string) {
 	})
 }
 
-// TestHandleRestartImpact_EmptyWhenNoShellsAreOpen covers D23's empty case.
+// TestHandleRestartImpact_EmptyWhenNoShellsAreOpen covers the empty case.
 func TestHandleRestartImpact_EmptyWhenNoShellsAreOpen(t *testing.T) {
 	srv := newRestartImpactTestServer(t)
 
@@ -776,7 +776,7 @@ func TestHandleRestartImpact_EmptyWhenNoShellsAreOpen(t *testing.T) {
 	assert.Empty(t, body.Shells)
 }
 
-// TestHandleRestartImpact_ListsEachShellWithItsSessionTitle covers D23's happy path: an
+// TestHandleRestartImpact_ListsEachShellWithItsSessionTitle covers the happy path: an
 // alive muster-<n>-shell session is listed with its owning session's title, and a shell
 // whose id matches no known session lists a null title.
 func TestHandleRestartImpact_ListsEachShellWithItsSessionTitle(t *testing.T) {

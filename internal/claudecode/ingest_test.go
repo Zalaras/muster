@@ -67,7 +67,7 @@ func TestParseIngestBody_EnvelopedVsRaw(t *testing.T) {
 			wantTmuxPane:      nil,
 		},
 		{
-			// REQ-11: the status endpoint's enveloped body, built from canary-fields.md's
+			// The status endpoint's enveloped body, built from canary-fields.md's
 			// pre-first-API-response status-line shape (rate_limits entirely absent,
 			// context_window nulls). No hook_event_name of its own — kind decides Type.
 			name: "enveloped status line pre-first-response",
@@ -82,7 +82,7 @@ func TestParseIngestBody_EnvelopedVsRaw(t *testing.T) {
 			wantTmuxPane:      ptr("%12"),
 		},
 		{
-			// REQ-11: "a raw body is tolerated" on the status endpoint too.
+			// "a raw body is tolerated" on the status endpoint too.
 			name: "raw status line body tolerated",
 			body: `{"session_id":"e2e-s1","version":"2.1.233","context_window":{"used_percentage":19}}`,
 			kind: KindStatus,
@@ -161,7 +161,7 @@ func TestParseIngestBody_Drops(t *testing.T) {
 	})
 
 	t.Run("valid JSON with no usable session_id is ErrNoSessionID", func(t *testing.T) {
-		// Edge Case 4 / REQ-13: every measured hook and status post carries session_id, so
+		// Edge Case 4: every measured hook and status post carries session_id, so
 		// this is a deliberately atypical payload exercising the drop path.
 		_, err := ParseIngestBody([]byte(`{"hook_event_name":"Stop"}`), KindHook)
 		require.Error(t, err)

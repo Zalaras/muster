@@ -15,8 +15,7 @@ import {
 } from "./helpers/session";
 import { activeElementInsideTerminal, liveTile, terminalRegion } from "./helpers/terminal";
 
-// Plan new-session-improvement (#41) — REQ-7, REQ-8, INV-4. Plan acceptance: E5, E6, E7,
-// E8.
+// New-session improvement (#41): launching opens the launched session.
 //
 // Before this plan, Focus's `onLaunched` rendered the new card but never called
 // `app.focus(id)` or `surfaces.focusSelected(id)` at all. Two different things are new,
@@ -30,8 +29,8 @@ import { activeElementInsideTerminal, liveTile, terminalRegion } from "./helpers
 //   - keyboard FOCUS landing in the terminal with no click is new regardless of session
 //     count, since pre-plan `onLaunched` never touched keyboard focus at all — there is
 //     no pre-existing default to confuse it with. The first test below launches a LONE
-//     session into an empty Focus view to cover exactly this state (INV-4's fifth source
-//     state), which a second-session launch can't isolate.
+//     session into an empty Focus view to cover exactly this state (one of the focus source
+//     states), which a second-session launch can't isolate.
 // The Tiles tests further down (free slot, full grid) each launch only one session too —
 // Tiles has no analogous "default landed there anyway" behaviour to distinguish from, so
 // one launch already proves both halves in that view.
@@ -65,7 +64,7 @@ test("launching the only session in Focus focuses it and routes typed keys to it
     const region = terminalRegion(page, "opens-focus-lone");
     await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
 
-    // REQ-7/E5/E6, isolated from marker-reassignment: keyboard focus lands in the
+    // Isolated from marker-reassignment: keyboard focus lands in the
     // terminal at launch time with no click, and survives a full render tick, even for
     // the very first session — proving this doesn't depend on stealing focus back from
     // an already-focused sibling.
@@ -95,7 +94,7 @@ test("launching a second session in Focus focuses it, shows its title in the mai
     await expect(cardA).toHaveAttribute("aria-current", "true"); // the only session so far
 
     const dialog = await openLaunchDialog(page);
-    // initOpen's initial restore navigates onto dirA (the one recent, REQ-8) before this
+    // initOpen's initial restore navigates onto dirA (the one recent) before this
     // test does anything — go up to the browse root, then descend into dirB.
     await crumbButton(dialog, basename(daemon.browseRoot)).click();
     await childEntry(dialog, basename(dirB.path)).click();
@@ -107,7 +106,7 @@ test("launching a second session in Focus focuses it, shows its title in the mai
     await expect(cardB).toHaveAttribute("aria-current", "true");
     await expect(cardA).not.toHaveAttribute("aria-current", "true");
     await expect(currentRailCard(page)).toHaveCount(1);
-    // Bystander (INV-4): A's own card is untouched by B's launch.
+    // Bystander: A's own card is untouched by B's launch.
     await expect(cardA).toBeVisible();
 
     await expect(mainheadRenameButton(page)).toHaveText("opens-focus-b");
@@ -115,7 +114,7 @@ test("launching a second session in Focus focuses it, shows its title in the mai
     const regionB = terminalRegion(page, "opens-focus-b");
     await expect(regionB).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
 
-    // E6: keyboard focus lands in B's terminal at launch time with no click, and
+    // Keyboard focus lands in B's terminal at launch time with no click, and
     // survives a full render tick (terminal.spec.ts/tiles.spec.ts's Critical-2
     // precedent for "typable across the 1s render tick") rather than a synchronous
     // snapshot taken right after dialog.close() restores focus to the opener.
@@ -254,7 +253,7 @@ test("in attention sort with another session needing input, the launched session
 
     const dialog = await openLaunchDialog(page);
     // initOpen's initial restore navigates onto dirNeedy (the most-recently-launched
-    // recent, REQ-8) before this test does anything — go up to the browse root, then
+    // recent) before this test does anything — go up to the browse root, then
     // descend into dirC.
     await crumbButton(dialog, basename(daemon.browseRoot)).click();
     await childEntry(dialog, basename(dirC.path)).click();

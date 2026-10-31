@@ -38,10 +38,10 @@ const execFileAsync = promisify(execFile);
 // since 2026-10-20 (plans/_audit/relevel/launch-update.md): what the form's own controls
 // show needs no daemon to falsify. What stays here is every journey through the browse pane
 // (each crumb, listing and Launch-in readout is a `GET /api/browse` answer), every launch,
-// and the REQ-13 failures against the real daemon.
+// and the failure modes against the real daemon.
 //
 // Every test takes the per-test `daemon` fixture (helpers/fixtures.ts): the recents list
-// is daemon-global, and the dialog opens straight onto the most recent recent (REQ-8) —
+// is daemon-global, and the dialog opens straight onto the most recent recent —
 // so even the browse-only tests assume "no recents, opened at the browse root", which a
 // neighbour test's launch on a shared daemon would break. Order/count/pressed-state
 // assertions on the sidebar need the same isolation.
@@ -57,16 +57,16 @@ test("opens on the browse root with an empty sidebar when there are no recents (
   const dialog = await openLaunchDialog(page);
   await expect(dialog).toBeVisible();
 
-  // REQ-16: no recents -> sidebar empty state, no recent buttons at all.
+  // No recents -> sidebar empty state, no recent buttons at all.
   await expect(recentsSidebar(dialog).getByText("No recent directories")).toBeVisible();
   await expect(recentsSidebar(dialog).getByRole("button")).toHaveCount(0);
 
-  // E2 / edge case 1: opened on the browse root — crumbs compose to it, footer echoes
+  // Edge case 1: opened on the browse root — crumbs compose to it, footer echoes
   // it, and (implicitly, via the empty sidebar above) nothing is pressed.
   const rootName = basename(daemon.browseRoot);
   await expect(currentCrumb(dialog)).toHaveText(rootName);
   await expect(launchTargetPath(dialog)).toHaveText(daemon.browseRoot);
-  // INV-1 (review cycle 1 Major 5): the composed ancestor chain, not just the crumb
+  // Review cycle 1 Major 5: the composed ancestor chain, not just the crumb
   // bar's basename, must equal the readout — here, opened with no recents, at root.
   expect(await composedCrumbPath(dialog)).toBe(daemon.browseRoot);
 
@@ -84,7 +84,7 @@ test("opening the dialog with two prior launches lists both recents, marks the m
     await execFileAsync("git", ["init"], { cwd: newer.path });
     // An unborn branch resolves to nothing (internal/gitutil.Branch: `rev-parse
     // --abbrev-ref HEAD` errors before any commit exists) — commit so the daemon can
-    // read a real branch name, matching REQ-17's "never invent one" the other way:
+    // read a real branch name, matching the "never invent one" the other way:
     // this fixture must genuinely have a branch to show one.
     await execFileAsync(
       "git",
@@ -100,7 +100,7 @@ test("opening the dialog with two prior launches lists both recents, marks the m
       ],
       { cwd: newer.path },
     );
-    // Independent oracle for REQ-17's exact value (review cycle 1 Major 2): the
+    // Independent oracle for the exact value (review cycle 1 Major 2): the
     // fixture's own git checkout, not the daemon's rendering of it. A regex like
     // `/^ · \S+$/` would pass against an invented branch name just as happily.
     const { stdout: branchOut } = await execFileAsync(
@@ -152,13 +152,13 @@ test("opening the dialog with two prior launches lists both recents, marks the m
 
     await expect(currentCrumb(dialog)).toHaveText(newerName);
     await expect(launchTargetPath(dialog)).toHaveText(newer.path);
-    // INV-1 (review cycle 1 Major 5): composed ancestor chain after open with recents.
+    // Review cycle 1 Major 5: composed ancestor chain after open with recents.
     expect(await composedCrumbPath(dialog)).toBe(newer.path);
     await expect(launchTargetBranch(dialog)).toBeVisible();
     expect(await launchTargetBranch(dialog).innerText()).toBe(` · ${branch}`);
 
     await expect(dialog.getByRole("radio", { name: "opus" })).toBeChecked();
-    // REQ-1: was named for the old shorthand; the stored value is still `acceptEdits`.
+    // Was named for the old shorthand; the stored value is still `acceptEdits`.
     await expect(dialog.getByRole("radio", { name: "accept edits" })).toBeChecked();
   } finally {
     await older.cleanup();
@@ -185,7 +185,7 @@ test("clicking a child entry descends into it, updating the crumb bar and Launch
     await childEntry(dialog, parentName).click();
     await expect(currentCrumb(dialog)).toHaveText(parentName);
     await expect(launchTargetPath(dialog)).toHaveText(parent.path);
-    // INV-1 (review cycle 1 Major 5): composed ancestor chain after a child click.
+    // Review cycle 1 Major 5: composed ancestor chain after a child click.
     expect(await composedCrumbPath(dialog)).toBe(parent.path);
 
     // The entry's `.chev` glyph (›) is `aria-hidden` (Testable UI Elements) — it stays
@@ -203,7 +203,7 @@ test("clicking a child entry descends into it, updating the crumb bar and Launch
     await expect(currentCrumb(dialog)).toHaveText(childName);
     await expect(crumbButton(dialog, parentName)).toBeVisible();
     await expect(launchTargetPath(dialog)).toHaveText(join(parent.path, childName));
-    // INV-1 (review cycle 1 Major 5): composed ancestor chain after a second descend.
+    // Review cycle 1 Major 5: composed ancestor chain after a second descend.
     expect(await composedCrumbPath(dialog)).toBe(join(parent.path, childName));
   } finally {
     await parent.cleanup();
@@ -228,7 +228,7 @@ test("clicking an ancestor crumb navigates up, and the previously-current direct
     await expect(currentCrumb(dialog)).toHaveText(rootName);
     await expect(childEntry(dialog, dirName)).toBeVisible();
     await expect(launchTargetPath(dialog)).toHaveText(daemon.browseRoot);
-    // INV-1 (review cycle 1 Major 5): composed ancestor chain after a crumb click.
+    // Review cycle 1 Major 5: composed ancestor chain after a crumb click.
     expect(await composedCrumbPath(dialog)).toBe(daemon.browseRoot);
   } finally {
     await dir.cleanup();
@@ -250,11 +250,11 @@ test("Cmd+ArrowUp navigates to the parent, and is a no-op at the filesystem root
     await page.keyboard.press("Meta+ArrowUp");
     const rootName = basename(daemon.browseRoot);
     await expect(currentCrumb(dialog)).toHaveText(rootName);
-    // INV-1 (review cycle 1 Major 5): composed ancestor chain after ⌘↑.
+    // Review cycle 1 Major 5: composed ancestor chain after ⌘↑.
     expect(await composedCrumbPath(dialog)).toBe(daemon.browseRoot);
 
     // Jump straight to the filesystem root via its own crumb (always the first
-    // ancestor, REQ-5) rather than pressing Cmd+Up once per remaining ancestor.
+    // ancestor) rather than pressing Cmd+Up once per remaining ancestor.
     await crumbButton(dialog, "/").click();
     await expect(currentCrumb(dialog)).toHaveText("/");
     await expect(crumbsNav(dialog).getByRole("button")).toHaveCount(0);
@@ -303,15 +303,15 @@ test("clicking a second recent swaps the pressed mark and the model/mode radios 
 
     await expect(recentButton(dialog, firstName)).toHaveAttribute("aria-pressed", "true");
     await expect(recentButton(dialog, secondName)).toHaveAttribute("aria-pressed", "false");
-    // INV-2 (review cycle 1 Minor 4): "at most one" pressed, properly — a count over
+    // Review cycle 1 Minor 4: "at most one" pressed, properly — a count over
     // the whole sidebar, not just the two named buttons individually true/false.
     await expect(recentsSidebar(dialog).locator('[aria-pressed="true"]')).toHaveCount(1);
     await expect(dialog.getByRole("radio", { name: "haiku" })).toBeChecked();
-    // REQ-1: was named "default"; the stored value is still `default`.
+    // Was named "default"; the stored value is still `default`.
     await expect(dialog.getByRole("radio", { name: "manual" })).toBeChecked();
     await expect(currentCrumb(dialog)).toHaveText(firstName);
     await expect(launchTargetPath(dialog)).toHaveText(first.path);
-    // INV-1 (review cycle 1 Major 5): composed ancestor chain after a recent click.
+    // Review cycle 1 Major 5: composed ancestor chain after a recent click.
     expect(await composedCrumbPath(dialog)).toBe(first.path);
   } finally {
     await first.cleanup();
@@ -340,7 +340,7 @@ test("navigating to a child of the pressed recent clears every aria-pressed mark
     await expect(recentButton(dialog, recentName)).toHaveAttribute("aria-pressed", "false");
     await expect(recentsSidebar(dialog).locator('[aria-pressed="true"]')).toHaveCount(0);
 
-    // INV-2's untested "may set" direction (review cycle 1 Minor 4): navigating back
+    // The untested "may set" direction (review cycle 1 Minor 4): navigating back
     // *onto* the recent's own path via its ancestor crumb must re-set the mark —
     // "pressed iff path matches", not "pressed iff clicked directly".
     await crumbButton(dialog, recentName).click();
@@ -372,7 +372,7 @@ test("launching with no interaction after open relaunches the first recent's dir
     await expect(dialog).toBeVisible();
     await expect(recentButton(dialog, basename(dir.path))).toHaveAttribute("aria-pressed", "true");
     await expect(dialog.getByRole("radio", { name: "opus" })).toBeChecked();
-    // REQ-1: was named for the old shorthand; the stored value is still `acceptEdits`.
+    // Was named for the old shorthand; the stored value is still `acceptEdits`.
     await expect(dialog.getByRole("radio", { name: "accept edits" })).toBeChecked();
     await expect(launchTargetPath(dialog)).toHaveText(dir.path);
 
@@ -432,8 +432,8 @@ test("launching into a fresh directory reached via crumbs and entries creates th
     if (!launched) throw new Error("unreachable: toHaveLength(1) just passed");
     expect(launched.directory).toBe(join(parent.path, childName));
 
-    // REQ-14: existing launch behaviour outside the dialog's internals is unchanged —
-    // settings.local.json is still written before the 201 (D7, plan m1-sessions).
+    // Existing launch behaviour outside the dialog's internals is unchanged —
+    // settings.local.json is still written before the 201 (m1-sessions).
     await expect(
       access(join(parent.path, childName, ".claude", "settings.local.json")),
     ).resolves.toBeUndefined();
@@ -458,7 +458,7 @@ test("choosing fable launches with model=fable (REQ-9, E10)", async ({ page, dae
   const [launched] = launchedMatches;
   if (!launched) throw new Error("unreachable: toHaveLength(1) just passed");
   expect(launched.model?.id).toBe("fable");
-  // review cycle 1 Minor 6 (plan E10's named oracle): the fake-claude argv capture the
+  // review cycle 1 Minor 6 (the named oracle): the fake-claude argv capture the
   // harness already records, proving `--model fable` reached the process itself — not
   // just that "fable" round-tripped through our own DB.
   expect(await daemon.paneStartCommand(launched.tmuxTarget)).toContain("--model fable");
@@ -545,14 +545,14 @@ test("a browse 404 shows the daemon's error and leaves crumbs, listing, Launch i
 
     const before = {
       crumbs: await crumbsNav(dialog).innerText(),
-      // review cycle 1 Minor 3: plan E12 says listing *count* unchanged — snapshot the
+      // review cycle 1 Minor 3: the requirement says listing *count* unchanged — snapshot the
       // whole listing (including the entry about to vanish) so its disappearance from
       // the DOM, not just the survivor's continued presence, would fail this.
       dirs: await dialog.locator("#browse-dirs").innerText(),
       launchTarget: await launchTargetPath(dialog).innerText(),
       pressed: await recentButton(dialog, dirName).getAttribute("aria-pressed"),
     };
-    // INV-1 (review cycle 1 Major 5): composed ancestor chain equals the readout
+    // Review cycle 1 Major 5: composed ancestor chain equals the readout
     // before the failure — combined with the byte-identical crumbs check below, this
     // proves the composed chain is also unchanged after.
     expect(await composedCrumbPath(dialog)).toBe(before.launchTarget);
@@ -570,7 +570,7 @@ test("a browse 404 shows the daemon's error and leaves crumbs, listing, Launch i
     expect(await launchTargetPath(dialog).innerText()).toBe(before.launchTarget);
     expect(await recentButton(dialog, dirName).getAttribute("aria-pressed")).toBe(before.pressed);
     await expect(childEntry(dialog, survivorName)).toBeVisible(); // stale listing unchanged
-    // The vanished entry's own listing row is still there too — INV-3's "stale
+    // The vanished entry's own listing row is still there too — the "stale
     // listing" point, not just the survivor.
     await expect(childEntry(dialog, vanishingName)).toBeVisible();
 
@@ -612,7 +612,7 @@ test("the dialog's bounding height is unchanged after open, a child click, a cru
     // review cycle 1 Major 1's "worth also" fixture-overflow suggestion, made
     // concrete: with 25 entries the listing must actually stay *inside* its 300px
     // picker via `#browse-dirs`'s own internal scroll (`overflow: auto`, style.css),
-    // per REQ-1 ("panes scroll internally") and INV-4's "fixed 300px grid... listing
+    // per the requirement ("panes scroll internally") and the "fixed 300px grid... listing
     // and sidebar are internally scrollable" — not visually spill out past it. See
     // this run's E2E Implementation Bugs entry: `.browse` (style.css:1384) has no
     // `min-height: 0`, so its content blows out past the grid row instead of
@@ -670,12 +670,12 @@ test("a failed GET /api/repos shows the error and renders the sidebar empty-stat
 
 // review cycle 2 Critical 1: `web/src/api.ts`'s functions used to call `fetch` unguarded,
 // so a connection-level failure (daemon down, connection refused, sleep/wake, an aborted
-// request — REQ-13's `network` mode) propagated out as an uncaught rejection instead of
+// request — the `network` mode) propagated out as an uncaught rejection instead of
 // the documented `{ ok: false, error }` result. web-impl Fix Attempt 3 added a `safeFetch`
 // choke point (`api.ts`) that catches the rejection and returns a `network_error`
 // `ApiResult`. The two tests below exercise that path with a real `page.route(...).abort()`
 // — a genuine network-layer failure, not a decodable HTTP error body like the 404/500
-// tests above — which is exactly the gap cycle 1's tests missed (both of its REQ-13 probes
+// tests above — which is exactly the gap cycle 1's tests missed (both of its probes
 // returned real HTTP responses that decode fine).
 test("a route.abort() on GET /api/repos shows the network error and the sidebar's empty state (REQ-13)", async ({
   page,
@@ -823,7 +823,7 @@ test("keyboard traversal: descending and ascending re-anchors focus on the first
 
     await page.goto(daemon.dashboardUrl);
     // Launching straight into `dir.path` (rather than clicking through) means the
-    // dialog opens directly onto it (REQ-8), whose only child is `branch-a`.
+    // dialog opens directly onto it, whose only child is `branch-a`.
     await launchSession(page, daemon, { directory: dir.path, title: "kbd-continuity-seed" });
 
     const dialog = await openLaunchDialog(page);
@@ -937,7 +937,7 @@ test("opening on a deep path scrolls the crumb bar to its right edge, keeping th
 
     await page.goto(daemon.dashboardUrl);
     // Launching straight into the deep path means the dialog opens directly onto it
-    // (REQ-8) — exactly the "fresh open" moment review cycle 1 Minor 2 measured
+    // — exactly the "fresh open" moment review cycle 1 Minor 2 measured
     // (`scrollLeft: 0` immediately after render).
     await launchSession(page, daemon, { directory: deepPath, title: "deep-crumb-seed" });
 
@@ -997,8 +997,8 @@ test("GET /api/browse returns 400 for a relative path and 404 for a directory th
   expect(missingBody.error.code).toBe("not_found");
 });
 
-// Plan session-lifecycle — REQ-7 (floor probe + bounded retry loop). This is the E2E-level
-// proof of issue #26's own reproducer (daemon-level: D3,
+// Floor probe + bounded retry loop). This is the E2E-level
+// proof of issue #26's own reproducer (daemon-level:
 // TestHandleCreateSession_OrphanedTmuxSessionDoesNotBlockLaunch): before the fix, ANY
 // launch 500'd forever once an orphaned `muster-1` sat on the socket with an empty
 // database, because the next allocated id was always 1 and `tmux new-session` refused
@@ -1018,7 +1018,7 @@ test("an orphaned muster-1 on the socket does not block launching from the dashb
   await dialog.getByRole("button", { name: "Launch" }).click();
   await expect(dialog).toBeHidden();
 
-  // REQ-13's error surface (`#action-error`) is a different region than the dialog's
+  // The error surface (`#action-error`) is a different region than the dialog's
   // own `#launch-error` — this asserts the dialog's own alert, which the old bug never
   // even got this far to show (the dialog stayed open on a 500).
   await expect(launchError(dialog)).toBeHidden();
@@ -1033,16 +1033,16 @@ test("an orphaned muster-1 on the socket does not block launching from the dashb
   );
   const [launched] = launchedMatches;
   if (!launched) throw new Error("unreachable: toHaveLength(1) just passed");
-  // REQ-1/REQ-7: the floor probe saw muster-1 on the socket and allocated strictly
+  // The floor probe saw muster-1 on the socket and allocated strictly
   // above it — never the id-1 collision issue #26 reported.
   expect(launched.id).toBeGreaterThan(1);
 
-  // REQ-9/REQ-2's never-adopt, never-kill policy: the orphan itself is untouched by the
+  // The never-adopt, never-kill policy: the orphan itself is untouched by the
   // launch that worked around it.
   expect(await daemon.tmuxSessions()).toContain("muster-1");
 });
 
-// Plan launch-inflight-guard — REQ-1, REQ-2. Nothing in the dialog used to record that a launch
+// Nothing in the dialog used to record that a launch
 // request was out, so every press before the daemon answered was another POST /api/sessions and
 // another session. The two presses are two synchronous click() calls on the button's own node,
 // so no answer can arrive between them: a button disabled by the first press swallows the
@@ -1078,13 +1078,13 @@ test("a second press on Launch while the first is in flight sends nothing: one s
   const state = await getState(page, daemon);
   expect(state.sessions, "the daemon holds exactly one session").toHaveLength(1);
 
-  // REQ-2's enabled half: the flag cleared with the daemon's answer, so a reopened dialog
+  // The enabled half: the flag cleared with the daemon's answer, so a reopened dialog
   // offers Launch again.
   const reopened = await openLaunchDialog(page);
   await expect(reopened.getByRole("button", { name: "Launch" })).toBeEnabled();
 });
 
-// Plan launch-inflight-guard review cycle 1, Major 1 — REQ-2 ("any other error re-enables it")
+// Launch-inflight-guard review cycle 1, Major 1: any other error re-enables it,
 // and the focus hand-back. Disabling a focused button drops focus to <body>, so without
 // `restoreLaunchFocus` a keyboard user who pressed Launch and was refused is left nowhere. The
 // refusal is a 500, not `model_unrecognized`: that code has its own focus target (the invalid

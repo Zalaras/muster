@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAcquireLock_SecondHolderFailsFastWithErrInProgress covers D12: a non-blocking
+// TestAcquireLock_SecondHolderFailsFastWithErrInProgress: a non-blocking
 // exclusive flock — a second acquirer in the same test process must fail immediately
 // with ErrInProgress, never block, while the first holder has not released.
 func TestAcquireLock_SecondHolderFailsFastWithErrInProgress(t *testing.T) {

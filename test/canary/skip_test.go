@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-// TestSkipDecision is D17: skipDecision's pure decision table. The harness/live tiers
+// TestSkipDecision covers skipDecision's pure decision table. The harness/live tiers
 // skip iff installed equals the verified ceiling with both force and offline unset —
-// offline always wins over force (INV-4), and any version difference never skips
+// offline always wins over force, and any version difference never skips
 // regardless of the flags.
 func TestSkipDecision(t *testing.T) {
 	tests := []struct {

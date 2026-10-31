@@ -1,5 +1,5 @@
-// card-location — the display properties of plan stale-dirs-models-branches (REQ-10 to
-// REQ-13, REQ-16) and its review cycles, re-levelled from web/e2e/card-location.spec.ts on
+// card-location — the display properties of the card location (long folder and branch names,
+// the other-checkout block) and its review cycles, re-levelled from web/e2e/card-location.spec.ts on
 // 2026-10-20 (plans/_audit/test-audit-2026-10-20-relevel.md): what a rail card and the Focus
 // header show for a session whose names are long, whose Claude is in another checkout, or
 // whose window is narrow. Nothing here changes state: the density comes from the fixture's
@@ -87,8 +87,8 @@ test("the ↳ glyph is --fg-muted and the ↳ text --fg-dim, on the rail card an
   page,
   dashboard,
 }) => {
-  // The ↳ block hides first as the header narrows (REQ-2 a), and with the uncapped readout
-  // (REQ-1) the repo's row no longer fits beside the cluster in the default 1280px window.
+  // The ↳ block hides first as the header narrows, and with the uncapped readout
+  // the repo's row no longer fits beside the cluster in the default 1280px window.
   await page.setViewportSize({ width: 1400, height: 720 });
   const fixture = await dashboard.open("moved-to-worktree");
   onlySession(fixture);
@@ -112,7 +112,7 @@ test("the ↳ glyph is --fg-muted and the ↳ text --fg-dim, on the rail card an
   await expect.poll(() => computedColor(mainheadClaudeAt(page).locator(".rb"))).toBe(dim);
 });
 
-// 60-character folder and 80-character branch (plan edge case 24, E11): the `long-names`
+// 60-character folder and 80-character branch : the `long-names`
 // scenarios carry them, and each test proves the lengths before relying on them.
 const LONG_NAMES: Record<"comfortable" | "compact" | "expanded", string> = {
   comfortable: "long-names",
@@ -232,7 +232,7 @@ test("with a 60-character folder and an 80-character branch at 2000x1000 the Foc
   expect(modelMetrics.scrollWidth).toBeLessThanOrEqual(modelMetrics.clientWidth);
   expect(modelMetrics.right).toBeLessThanOrEqual(modelMetrics.metaRight + 0.5);
 
-  // No cap (plan title-crop-stop-resume-button, REQ-1): at a 1700 px header, with room to
+  // No cap: at a 1700 px header, with room to
   // spare, each line is as wide as its own text. The oracle is the line's max-content
   // width, measured on a clone in the line's own font; it is re-read with the line
   // inside the poll, so a stale or capped display times out instead of passing.
@@ -356,7 +356,7 @@ async function assertFocusHeaderFits(
   modelId: string,
 ): Promise<void> {
   await page.setViewportSize({ width, height: 800 });
-  // Plan effort REQ-6: a bound session that has posted no status line reads `(…)` after its
+  // A bound session that has posted no status line reads `(…)` after its
   // model while alive, and a dead one that never reported reads the model alone — the
   // brackets are part of the model that never truncates.
   await expect(mainheadModel(page)).toHaveText(state === "ended" ? modelId : `${modelId} (…)`);
@@ -377,8 +377,8 @@ async function assertFocusHeaderFits(
   }
   // Not a pixel breakpoint: a window too narrow for one row gets a second one, so the
   // header grows rather than a control leaving the screen.
-  // The header holds one Session actions ⋯ button and no Stop, Resume or Remove
-  // (plan remove-unread-right-click-1, REQ-4), whatever the session's state.
+  // The header holds one Session actions ⋯ button and no Stop, Resume or Remove,
+  // whatever the session's state.
   await expect(
     page.locator("#mainhead").getByRole("button", { name: "Session actions", exact: true }),
   ).toBeInViewport({ ratio: 1 });
@@ -444,7 +444,7 @@ for (const nameSet of ["long", "short", "tiny"] as const) {
       }
       // The blank check applied across the sweep: the title was clipped somewhere in it,
       // so the sweep was not silent about the Minor it guards. Plan
-      // title-crop-stop-resume-button (REQ-2) makes the title give way last, after the
+      // title-crop-stop-resume-button makes the title give way last, after the
       // readout is at its floor, so how much of the sweep clips it depends on how long the
       // readout is: with the 60-character names the readout reaches its floor early and the
       // title clips over a quarter of the sweep as before; with short names the title
@@ -511,7 +511,7 @@ for (const density of ["comfortable", "compact", "expanded"] as const) {
 }
 
 // ---------------------------------------------------------------------------------------
-// Plan see-added-dirs — REQ-6, REQ-7, REQ-9, W2, W3, W4 and edge case 15: what the Focus
+// What the Focus
 // header shows for a session's `addedDirs` — the `+N` suffix after the folder name, the
 // hover panel listing Location (and the ↳ row while Claude is in an added checkout) then
 // every added directory with its folder, branch and path, and where the panel sits when its
@@ -551,7 +551,7 @@ test("hovering the header readout opens a tooltip listing Location then Added di
   // recorded: the second on its own `feature-x` branch.
   expect(session.addedDirs.map((d) => d.repo?.branch)).toEqual(["main", "feature-x"]);
 
-  // The readout's plain `title` is replaced by the panel (REQ-7, W2).
+  // The readout's plain `title` is replaced by the panel.
   await expect(mainheadLoc(page)).not.toHaveAttribute("title");
 
   await expectLocationPanel(page, {

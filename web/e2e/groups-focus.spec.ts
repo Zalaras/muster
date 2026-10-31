@@ -22,21 +22,20 @@ import {
 import { expectedManualOrder, railCard, railSortSelect, stripOrderIds } from "./helpers/railorder";
 import { liveTile, tilesGridOrder } from "./helpers/terminal";
 
-// Plan groups — the Focus header's group control's moves, the chords and view switches that
-// reach the daemon, and Tiles ignoring groups. Plan acceptance E21, E23, with REQ-10, REQ-19,
-// REQ-1, W11 and invariant I7.
+// Groups — the Focus header's group control's moves, the chords and view switches that
+// reach the daemon, and Tiles ignoring groups.
 //
 // Re-levelled 2026-10-20 (plans/_audit/relevel/groups.md): what the display shows for a given
 // state — the group control's place, tokens and keyboard-opened menu, its presence at every header
-// width beside the title and repo floors (E27), the chords indexing displayed cards under a
-// collapsed section or the filter (E20), ⌥⌘0's filter flip (E22), the page load's default focus
-// and the chords' inertness under a dialog (E26) — lives in `web/render/groups.spec.ts` against
+// width beside the title and repo floors, the chords indexing displayed cards under a
+// collapsed section or the filter, ⌥⌘0's filter flip, the page load's default focus
+// and the chords' inertness under a dialog — lives in `web/render/groups.spec.ts` against
 // the `groups-titled*`, `groups-needs-input` and `groups-focus-header` fixtures. What stays here
 // needs the daemon: a move or a new group committed from the header's menu, ⌥⌘0 expanding a
 // collapsed section (a PUT the daemon's `collapsed` answers for), ⌥⌘G's POST, and every view
 // switch (the dashboard adopts `view` only from the prefs broadcast).
 //
-// Daemon shape (the plan's Fixture plan header): every test takes the per-test `daemon` fixture.
+// Daemon shape: every test takes the per-test `daemon` fixture.
 // The chords index the whole displayed rail and Tiles membership is a function of the daemon's
 // total sessions, all daemon-global. This file is an addition beside the plan's three named spec
 // files (see the log's Handoff): it holds what is Focus-, shortcut- and Tiles-shaped, so no other
@@ -106,7 +105,7 @@ test("New group… in the Focus header's menu names a group that the focused ses
 
     await mainheadGroupButton(page).click();
     await menuItem(page, "New group…").click();
-    // The plan pins no surface for this entry: a name field, wherever it is, takes the name.
+    // No surface is pinned for this entry: a name field, wherever it is, takes the name.
     const field = page.getByRole("textbox", { name: "Group name" });
     await expect(field.first()).toBeFocused();
     await page.keyboard.type("From the header");

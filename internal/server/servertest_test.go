@@ -37,7 +37,7 @@ func postSessionsRequest(t *testing.T, srv *testServer, body string) *httptest.R
 }
 
 // sessionActionRequest fires one cookie-authed request at srv's mux and returns the
-// recorded response — the shared shape D17/D18's End/Resume/Remove/Pane tests all need.
+// recorded response — the shared shape the End/Resume/Remove/Pane tests all need.
 func sessionActionRequest(t *testing.T, srv *testServer, method, path string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, path, nil)
@@ -48,7 +48,7 @@ func sessionActionRequest(t *testing.T, srv *testServer, method, path string) *h
 }
 
 // seedSessionRow inserts a repo+session row directly via the store (no real tmux/launch
-// needed for D17/D18's error-path tests) and loads it into srv's manager so the HTTP
+// needed for the error-path tests) and loads it into srv's manager so the HTTP
 // handlers under test can find it. mutate, if non-nil, edits the freshly-inserted row
 // before it's persisted and loaded — e.g. to seed a dead session or one with no
 // claudeSessionId.
@@ -155,12 +155,11 @@ func stubSessionOutFile(dir string, sessionID int64) string {
 	return filepath.Join(dir, "muster-stub-session-"+strconv.FormatInt(sessionID, 10))
 }
 
-// newTestTmuxClient returns a tmux.Client bound to a private, per-test socket (plan
-// v1-cleanup REQ-4: tmuxtest.Socket replaces this file's own copy of the shared
+// newTestTmuxClient returns a tmux.Client bound to a private, per-test socket (tmuxtest.Socket replaces this file's own copy of the shared
 // os.MkdirTemp + kill-server idiom) — never a bare -L name in tmux's shared socket
-// directory (D12) and never the user's default server (CLAUDE.md hard rule). Used only
-// by TestLauncher_SuccessfulLaunchEndToEnd (this file's keep-real test, per REQ-3's
-// Implementation Notes list); TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault
+// directory and never the user's default server (CLAUDE.md hard rule). Used only
+// by TestLauncher_SuccessfulLaunchEndToEnd (this file's keep-real test, per the
+// keep-real list); TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault
 // uses a fakeTmux instead.
 func newTestTmuxClient(t *testing.T) *tmux.Client {
 	t.Helper()
@@ -168,7 +167,7 @@ func newTestTmuxClient(t *testing.T) *tmux.Client {
 }
 
 // putSessionPinRequest issues PUT /api/sessions/{id}/pin with the UI cookie attached
-// (plan order-sidebar, mirrors putPrefsRequest/postSessionsRequest for the other write
+// (mirrors putPrefsRequest/postSessionsRequest for the other write
 // endpoints).
 func putSessionPinRequest(t *testing.T, srv *testServer, id int64, body string) *httptest.ResponseRecorder {
 	t.Helper()
@@ -180,7 +179,7 @@ func putSessionPinRequest(t *testing.T, srv *testServer, id int64, body string) 
 }
 
 // assertNoSessionUpsertArrives mirrors prefs_test.go's assertNoPrefsMessageArrives for
-// the sessionUpsert message type (D8/INV-5's no-broadcast half): a short read either
+// the sessionUpsert message type (the no-broadcast half): a short read either
 // times out (nothing arrived) or, if something did arrive, it must never be a
 // sessionUpsert.
 func assertNoSessionUpsertArrives(t *testing.T, c *websocket.Conn) {

@@ -25,9 +25,9 @@ import {
   railSortSelect,
 } from "./helpers/railorder";
 
-// Plan order-sidebar — REQ-1 through REQ-15 (Must Have) plus REQ-16/17 (Should Have),
+// Rail ordering,
 // driven end-to-end: the real launch/pin/order endpoints and the client-side
-// `orderRail`/`moveCard` wiring. Plan acceptance: E2-E16.
+// `orderRail`/`moveCard` wiring.
 //
 // Every test here takes the per-test `daemon` fixture (helpers/fixtures.ts; mirrors
 // views.spec.ts's rationale): rail-order assertions read the FULL `#sessions` DOM order,
@@ -271,7 +271,7 @@ test("dragging an unpinned card onto a pinned card pins it at that position (E8)
     await pinButton(railCard(page, "order-e8-a")).click();
     await expect.poll(() => railOrderIds(page)).toEqual([a.id, b.id, c.id]);
 
-    // B (unpinned) dropped onto A (pinned) — REQ-11: inserted at A's index, taking A's
+    // B (unpinned) dropped onto A (pinned) — inserted at A's index, taking A's
     // pinned value (true).
     await railCard(page, "order-e8-b").dragTo(railCard(page, "order-e8-a"));
 
@@ -349,7 +349,7 @@ test("switching to Attention resorts unpinned cards by need while the pinned blo
 
     await makeNeedsInput(request, daemon, c, "claude-e10-c");
     await expect(stateBadge(railCard(page, "order-e10-c"))).toHaveText(/needs input/i);
-    // Still manual — order unaffected by the state change (REQ-7).
+    // Still manual — order unaffected by the state change.
     expect(await railOrderIds(page)).toEqual([a.id, b.id, c.id]);
 
     // Real keyboard interaction, not `selectOption` (usage-model-bar precedent): a
@@ -361,10 +361,10 @@ test("switching to Attention resorts unpinned cards by need while the pinned blo
     await expect(select).toHaveValue("attention");
 
     // Pinned A stays first; unpinned C (needs_input) now sorts ahead of unpinned B
-    // (idle) — §3.4's priority order applied only within the unpinned group (REQ-6).
+    // (idle) — §3.4's priority order applied only within the unpinned group.
     await expect.poll(() => railOrderIds(page)).toEqual([a.id, c.id, b.id]);
 
-    // Plan rail-card-organise REQ-12/REQ-13 (kb:adr/rail-cards-drag-in-both-sort-modes-selection-together):
+    // Rail card organise (kb:adr/rail-cards-drag-in-both-sort-modes-selection-together):
     // cards stay draggable while in attention mode — a drop there changes the group only.
     for (const title of ["order-e10-a", "order-e10-b", "order-e10-c"]) {
       await expect(railCard(page, title)).toHaveAttribute("draggable", "true");
@@ -442,7 +442,7 @@ test("clicking Pin does not change the focused session (E15)", async ({ page, da
   const { cleanup } = await launchTitled(page, daemon, ["order-e15-a", "order-e15-b"]);
   try {
     // A is opened first and manual order's default is opened-order, so A is the
-    // default-focus fallback (REQ-6's third call site).
+    // default-focus fallback (the third call site).
     await expect(page.locator("#mainhead .name")).toHaveText("order-e15-a");
 
     await pinButton(railCard(page, "order-e15-b")).click();
@@ -475,7 +475,7 @@ test("a Pin click while the daemon is down leaves the card unpinned and the orde
     const cardA = railCard(page, "order-e16-a");
     await pinButton(cardA).click();
 
-    // REQ-15: no optimistic state — the failed PUT changes nothing on screen.
+    // No optimistic state — the failed PUT changes nothing on screen.
     await expect(cardA.getByRole("button", { name: "Pin" })).toHaveAttribute(
       "aria-pressed",
       "false",

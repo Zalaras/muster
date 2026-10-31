@@ -43,7 +43,7 @@ type kaStep struct {
 	wantTTL     int64
 }
 
-// TestCacheKeepAlive_Sequences drives the plan's lifetime rules (REQ-1 to REQ-4, edge cases 5 to 7)
+// TestCacheKeepAlive_Sequences drives the lifetime rules (edge cases 5 to 7)
 // through applyStatusUpdate with real status-line JSON. An unchanged step keeps the cache pointer
 // (the broadcast check compares pointers) and its value.
 func TestCacheKeepAlive_Sequences(t *testing.T) {
@@ -136,7 +136,7 @@ func TestCacheKeepAlive_Sequences(t *testing.T) {
 }
 
 // TestCacheKeepAlive_HeldFieldsFollowEveryPost: the held count and last reported expiry are updated
-// in place by a keep-alive (no new pointer, so no broadcast) and are what REQ-5 and REQ-6 read.
+// in place by a keep-alive (no new pointer, so no broadcast) and are what the ended-session expiry cap and the restart restore read.
 func TestCacheKeepAlive_HeldFieldsFollowEveryPost(t *testing.T) {
 	sess := newTestSession()
 	applyStatusUpdate(sess, kaPost{"5m", 300, 3, "true"}.update())
@@ -187,7 +187,7 @@ func TestCacheKeepAlive_HeldFieldsFollowEveryPost(t *testing.T) {
 	})
 }
 
-// TestCacheKeepAlive_BroadcastsOnlyAnAnchor is REQ-2 through the Manager: an anchor is one
+// TestCacheKeepAlive_BroadcastsOnlyAnAnchor checks through the Manager that only an anchor broadcasts: an anchor is one
 // sessionUpsert carrying the predicted lifetime; keep-alives, the repeated post of a render pair
 // and a keep-alive reordered ahead of the next request's post send nothing and write no row; the
 // request's own post is one upsert again.
@@ -256,7 +256,7 @@ func TestCacheKeepAlive_IsPerSession(t *testing.T) {
 	assert.Equal(t, a.ID, rec.all()[before].ID)
 }
 
-// TestCacheKeepAlive_SurvivesARestartAndClearsOnClear is REQ-6: the count and last reported expiry
+// TestCacheKeepAlive_SurvivesARestartAndClearsOnClear: the count and last reported expiry
 // are on the row; a Manager restarted from the database still takes a keep-alive post as no
 // change (no upsert, same pointer); a request after the restart still anchors; and a /clear rebind
 // nulls them on the row with the cache, so the new conversation's identical count anchors fresh.
@@ -314,7 +314,7 @@ func TestCacheKeepAlive_SurvivesARestartAndClearsOnClear(t *testing.T) {
 	assert.True(t, kaAt(23600).Equal(fresh.Cache.ExpiresAt))
 }
 
-// TestCapCacheAtExit is REQ-5's rule on a bare session: the earlier of the predicted and the last
+// TestCapCacheAtExit is the rule on a bare session: the earlier of the predicted and the last
 // reported expiry, lifetime untouched; unknown stays unknown; a row from before migration 0015
 // (no reported expiry) cannot be capped.
 func TestCapCacheAtExit(t *testing.T) {
@@ -410,7 +410,7 @@ func launchedOwnTarget(t *testing.T, mgr *Manager) *Session {
 	return sess
 }
 
-// TestCacheKeepAlive_EndedSessionDropsToTheLastReportedExpiry is REQ-5 through the Manager, from
+// TestCacheKeepAlive_EndedSessionDropsToTheLastReportedExpiry checks through the Manager, from
 // both ways a live row ends, with a second live session beside it: the target's expiry becomes the
 // last reported one (in memory, on the row and in the ended upsert), its lifetime stays, a
 // one-hour-regime or cold session is unchanged, a null cache stays null, and the bystander's cache
@@ -485,10 +485,10 @@ func TestCacheKeepAlive_EndedSessionDropsToTheLastReportedExpiry(t *testing.T) {
 	}
 }
 
-// TestCacheKeepAlive_ReconcileEndsAtTheLastPersistedReportedExpiry is REQ-5's third way in, with
-// REQ-6: a daemon restarted over a row whose tmux session is gone marks it ended at the reported
+// TestCacheKeepAlive_ReconcileEndsAtTheLastPersistedReportedExpiry is the third way in, with
+// A daemon restarted over a row whose tmux session is gone marks it ended at the reported
 // expiry the row carries, while a row whose session is still there keeps its predicted lifetime.
-// A keep-alive in memory is not persisted (REQ-2), so the cap reads the expiry of the last write.
+// A keep-alive in memory is not persisted, so the cap reads the expiry of the last write.
 func TestCacheKeepAlive_ReconcileEndsAtTheLastPersistedReportedExpiry(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)

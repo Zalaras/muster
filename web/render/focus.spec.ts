@@ -1,8 +1,8 @@
-// focus — the display properties of plan effort (the header's bracketed effort and the
-// launch-mismatch warning strip, REQ-5 to REQ-9, REQ-12), plan title-crop-stop-resume-button
+// focus — the display properties of the effort header (the header's bracketed effort and the
+// launch-mismatch warning strip), the title-crop and Stop/Resume work
 // (the Focus header's give-way order, its right-aligned cluster and the one Stop/Resume
-// button at every width, REQ-1 to REQ-7), the state machine's fresh card (W7) and plan
-// ui-text-and-focus (the Focus-pane marker, REQ-1 to REQ-3), re-levelled on 2026-10-20 from
+// button at every width), the state machine's fresh card and
+// the Focus-pane marker, re-levelled on 2026-10-20 from
 // web/e2e/{effort-header,focus-header,sessions,focus-marker}.spec.ts
 // (plans/_audit/relevel/focus.md). Nothing here changes state: the launched, bound, warned,
 // moved and ended sessions come from the `effort-header`, `focus-header-rows-*` and
@@ -88,7 +88,7 @@ test("a launched session with no status post yet reads <model> (…), a dead one
 }) => {
   const fixture = await dashboard.open("effort-header");
 
-  // E5: no hook and no status post at all — the launch alias with the unreported brackets.
+  // No hook and no status post at all — the launch alias with the unreported brackets.
   const noPost = sessionTitled(fixture, "effort-no-post");
   expect(noPost.claudeSessionId).toBeNull();
   await focusSession(page, "effort-no-post");
@@ -103,7 +103,7 @@ test("a launched session with no status post yet reads <model> (…), a dead one
   await expect(headerModel(page)).toHaveText(/\(…\)$/);
   expect(bound.effort).toBeNull();
 
-  // E6: it ended before any report — no brackets.
+  // It ended before any report — no brackets.
   const dead = sessionTitled(fixture, "effort-dead-never");
   expect(dead.alive).toBe(false);
   await focusSession(page, "effort-dead-never");
@@ -290,7 +290,7 @@ for (const [label, data] of [
 }
 
 // =======================================================================================
-// Plan title-crop-stop-resume-button — REQ-1 to REQ-7 (web/e2e/focus-header.spec.ts): the
+// The Focus header layout (web/e2e/focus-header.spec.ts): the
 // readout as wide as its text giving way before the title, the surface switch in one
 // right-aligned cluster with the actions, Stop and Resume one button in one box. The
 // invariants are asserted by sweeps in 16 px steps, never at chosen widths
@@ -522,7 +522,7 @@ async function openRow(
 }
 
 // ---------------------------------------------------------------------------------------
-// E3 — the give-way order and its invariants, swept
+// The give-way order and its invariants, swept
 // ---------------------------------------------------------------------------------------
 
 for (const row of ROWS) {
@@ -535,7 +535,7 @@ for (const row of ROWS) {
   });
 }
 
-// The plan's pre-fix anchor (E3's "at least one row fails against the pre-fix build"): the
+// The pre-fix anchor (at least one row fails against the pre-fix build): the
 // 35-character folder at a 1700 px header shows its whole line, not the 30ch cap, with the
 // width of the line's own text as the oracle. Both sides are re-read inside the poll.
 test("a 35-character folder at a 1700px header shows its whole folder line on one row (E3, REQ-1)", async ({
@@ -566,7 +566,7 @@ test("a 35-character folder at a 1700px header shows its whole folder line on on
 
 // Fix wave of validate attempt 1: where the row cannot hold the title floor, the readout floor
 // and the model, the model stacks under the readout (the title and readout stay side by side,
-// REQ-2 and INV-4). The sweeps' INV-1 and INV-2 would also catch an overlap or a clipped
+// the give-way order). The sweeps would also catch an overlap or a clipped
 // model there, but only this test proves the band is reached and that the model is under the
 // readout, whole and inside the viewport, rather than assuming it.
 test("at 640px a 300-character title keeps the readout beside it at its floor and the model stacks under the readout, whole and inside the viewport (REQ-2, REQ-3, INV-2, INV-4)", async ({
@@ -599,9 +599,9 @@ test("at 640px a 300-character title keeps the readout beside it at its floor an
 });
 
 // ---------------------------------------------------------------------------------------
-// INV-6 at every width — Stop and Resume move nothing (review cycle 1, browser Major 1)
+// At every width — Stop and Resume move nothing (review cycle 1, browser Major 1)
 //
-// E1 and E2 (web/e2e/focus-header.spec.ts) prove the swap in place at 1600 px, where the
+// The swap tests (web/e2e/focus-header.spec.ts) prove the swap in place at 1600 px, where the
 // header is one row and the ended clause has room, so they could not fail for the shift the
 // review measured below 784 px (the ended clause took a row of its own and pushed the cluster
 // down 13 px), nor for the shifts web-impl found at 1112-1184, 1248-1320 and 1416-1488 px (the
@@ -710,7 +710,7 @@ for (const row of SWAP_ROWS) {
 }
 
 // ---------------------------------------------------------------------------------------
-// E5 — the disabled state
+// The disabled state
 // ---------------------------------------------------------------------------------------
 
 test("a dead session with no bound Claude id has no Stop, Resume or Remove button in the Focus header (E5, REQ-4)", async ({
@@ -778,7 +778,7 @@ test("the header ⋯ opens the focused card's own menu: labelled Actions for <ti
 });
 
 // ---------------------------------------------------------------------------------------
-// REQ-4, E4 — the right-aligned cluster
+// The right-aligned cluster
 // ---------------------------------------------------------------------------------------
 
 for (const viewport of [2000, 1200, 800]) {
@@ -817,8 +817,8 @@ for (const viewport of [2000, 1200, 800]) {
 }
 
 // =======================================================================================
-// The state machine's fresh card (web/e2e/sessions.spec.ts, W7) and plan ui-text-and-focus's
-// Focus-pane marker (web/e2e/focus-marker.spec.ts, REQ-1 to REQ-3, INV-3): the
+// The state machine's fresh card (web/e2e/sessions.spec.ts) and the
+// Focus-pane marker (web/e2e/focus-marker.spec.ts): the
 // `unbound-sessions` scenario holds two titled and one untitled fresh launch no SessionStart
 // ever bound, in launch order under the default manual sort, plus the dead `no-id` session.
 // The marker is client-side state, so a click or a chord moves it with no API.
@@ -849,7 +849,7 @@ test("the top rail card is current by default, and clicking another card moves t
   const cardB = railCardByTitle(page, "marker-b");
 
   // Default focus: the first-launched session's card is at the top of the rail and current,
-  // and it is the ONLY current card (INV-3).
+  // and it is the ONLY current card.
   await expect(page.locator('#sessions [data-testid="session-card"]').first()).toHaveText(
     /marker-a/,
   );

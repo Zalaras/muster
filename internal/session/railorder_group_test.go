@@ -498,7 +498,7 @@ func TestApplyGroupMove_DoesNotMutateItsInput(t *testing.T) {
 	assert.Equal(t, snapshot, before)
 }
 
-// --- I1 across every source (D4, pure half) ---
+// --- I1 across every source (pure half) ---
 
 // TestI1_HoldsFromEveryMutationSource crosses every pure source of a railPos change with the
 // grouped fixture and asserts the per-section invariant on the whole rail afterwards

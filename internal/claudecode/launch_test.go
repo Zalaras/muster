@@ -34,7 +34,7 @@ func TestPermissionModes_IncludesBypass(t *testing.T) {
 	assert.Equal(t, []string{"default", "plan", "acceptEdits", "auto", "bypassPermissions"}, PermissionModes)
 }
 
-// TestBuildArgv covers the CLI argv construction confirmed by spike S2 and REQ-4: every
+// TestBuildArgv covers the CLI argv construction confirmed by spike S2: every
 // accepted mode, "default" included, now emits its own --permission-mode flag
 // (kb:fact/permission-mode-no-flag-follows-configured-default — with no flag Claude Code
 // starts in its own configured default, which is not always manual), and --name is only
@@ -61,7 +61,7 @@ func TestBuildArgv(t *testing.T) {
 			want:   []string{"claude", "--model", "opus", "--permission-mode", "acceptEdits"},
 		},
 		{
-			// D5: 2026-09-03 permission-mode probe against 2.1.259 confirmed
+			// 2026-09-03 permission-mode probe against 2.1.259 confirmed
 			// `--permission-mode auto` (docs/history/spikes/canary-fields.md § Hook payloads).
 			name:   "auto mode adds --permission-mode auto",
 			params: LaunchParams{Model: "sonnet", PermissionMode: "auto"},
@@ -92,9 +92,9 @@ func TestBuildArgv(t *testing.T) {
 			want:   []string{"claude", "--model", "sonnet", "--permission-mode", "default"},
 		},
 		{
-			// REQ-6 (kb:adr/rename-pushed-to-claude-once): a resume relaunch carries the
+			// A resume relaunch (kb:adr/rename-pushed-to-claude-once) carries the
 			// not-yet-sent title override as --name beside --resume, between --resume and
-			// --permission-mode (--permission-mode stays explicit on a resume, REQ-4/INV-3).
+			// --permission-mode (--permission-mode stays explicit on a resume).
 			name:   "ResumeSessionID with a Title emits --resume then --name",
 			params: LaunchParams{Model: "sonnet", Title: "Renamed In Muster", PermissionMode: "default", ResumeSessionID: "abc-123"},
 			want:   []string{"claude", "--model", "sonnet", "--resume", "abc-123", "--name", "Renamed In Muster", "--permission-mode", "default"},
@@ -120,21 +120,21 @@ func TestBuildArgv(t *testing.T) {
 			want:   []string{"claude", "--model", "sonnet", "--resume", "abc-123", "--permission-mode", "plan"},
 		},
 		{
-			// D1: the bypass mode emits --permission-mode bypassPermissions exactly like
+			// The bypass mode emits --permission-mode bypassPermissions exactly like
 			// any other recognized mode.
 			name:   "bypassPermissions mode adds --permission-mode bypassPermissions",
 			params: LaunchParams{Model: "sonnet", PermissionMode: "bypassPermissions"},
 			want:   []string{"claude", "--model", "sonnet", "--permission-mode", "bypassPermissions"},
 		},
 		{
-			// D2/REQ-10: a resume-from-list never names a model — the transcript's own
+			// A resume-from-list never names a model — the transcript's own
 			// model already comes back without one.
 			name:   "an empty model omits --model",
 			params: LaunchParams{Model: "", PermissionMode: "default"},
 			want:   []string{"claude", "--permission-mode", "default"},
 		},
 		{
-			// D2 combined with D9's resume shape: no --model, --resume present, mode explicit.
+			// An empty model combined with the resume shape: no --model, --resume present, mode explicit.
 			name:   "an empty model with ResumeSessionID omits --model but keeps --resume and --permission-mode",
 			params: LaunchParams{Model: "", PermissionMode: "plan", ResumeSessionID: "abc-123"},
 			want:   []string{"claude", "--resume", "abc-123", "--permission-mode", "plan"},
@@ -149,7 +149,7 @@ func TestBuildArgv(t *testing.T) {
 	}
 }
 
-// TestBuildArgv_PermissionModeAlwaysExplicit is D10/INV-3: every accepted mode emits
+// TestBuildArgv_PermissionModeAlwaysExplicit: every accepted mode emits
 // --permission-mode <mode> exactly once, on both a plain launch and a resume relaunch.
 func TestBuildArgv_PermissionModeAlwaysExplicit(t *testing.T) {
 	for _, mode := range []string{"default", "plan", "acceptEdits", "auto", "bypassPermissions"} {
@@ -177,7 +177,7 @@ func TestBuildArgv_PermissionModeAlwaysExplicit(t *testing.T) {
 }
 
 func TestBuildArgv_UsesTheGivenBinaryName(t *testing.T) {
-	// REQ-19: the -claude-bin flag lets E2E launch a stub binary instead of the real one.
+	// The -claude-bin flag lets E2E launch a stub binary instead of the real one.
 	got := BuildArgv("/tmp/stub-claude.sh", LaunchParams{Model: "sonnet", PermissionMode: "default"})
 
 	assert.Equal(t, []string{"/tmp/stub-claude.sh", "--model", "sonnet", "--permission-mode", "default"}, got)

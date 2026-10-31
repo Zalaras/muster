@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestInsertUsageSample_PersistsConvertedValues covers REQ-8's usage_sample row: the
+// TestInsertUsageSample_PersistsConvertedValues covers the usage_sample row: the
 // store persists the aggregator's already-converted forms (RFC3339 reset times,
 // verbatim floats) and stamps its own receipt time, rather than trusting a caller value.
 func TestInsertUsageSample_PersistsConvertedValues(t *testing.T) {

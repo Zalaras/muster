@@ -29,7 +29,7 @@ describe("effort — effortToCheck / isEffortLevel", () => {
   });
 });
 
-// REQ-6: the header's bracket suffix. Never reported and alive reads `(…)` (unknown, never an
+// The header's bracket suffix. Never reported and alive reads `(…)` (unknown, never an
 // empty value); a model with no effort setting reads no brackets; a dead session that never
 // reported reads no brackets, with the width reserved separately (effortReadout).
 describe("effort — effortBrackets", () => {
@@ -99,7 +99,7 @@ describe("effort — effortReadout", () => {
     expect(readout.strip).toBeNull();
   });
 
-  // INV-6: Stop/Resume never moves the Focus header, so the dead-and-never-reported case reads no
+  // Stop/Resume never moves the Focus header, so the dead-and-never-reported case reads no
   // brackets yet holds the width of ` (…)`.
   it.each([
     ["alive, never reported", { effort: null, alive: true }, false, " (…)"],

@@ -12,9 +12,9 @@ function session(
   return { title, titleOverride };
 }
 
-// REQ-14/W5: "Enter or blur commits ... Escape cancels" — cancel has no wire
+// "Enter or blur commits ... Escape cancels" — cancel has no wire
 // representation (the caller just discards the input), so this pure function only ever
-// needs to model a commit's four outcomes. Every case below trims first, per REQ-14's
+// needs to model a commit's four outcomes. Every case below trims first, per the
 // stated order ("Commit trims the input, then: ...").
 describe("titleCommand — REQ-14 commit semantics (W5)", () => {
   it("noop: the trimmed input equals the current display title", () => {

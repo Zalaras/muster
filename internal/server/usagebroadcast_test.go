@@ -75,7 +75,7 @@ func modelOnlyScenario(t *testing.T) (srv *testServer, first, second json.RawMes
 	return srv, first, second
 }
 
-// TestIngestStatusLine_ModelOnlyChangeBroadcastsNoModelAndLeavesWireUnchanged covers D1 (every
+// TestIngestStatusLine_ModelOnlyChangeBroadcastsNoModelAndLeavesWireUnchanged checks (every
 // `usage` broadcast has no `model` key, with known buckets) and Edge Case 2 (a model-only
 // change leaves the wire usage identical to the previous broadcast).
 func TestIngestStatusLine_ModelOnlyChangeBroadcastsNoModelAndLeavesWireUnchanged(t *testing.T) {
@@ -99,7 +99,7 @@ func TestIngestStatusLine_ModelOnlyChangeBroadcastsNoModelAndLeavesWireUnchanged
 	assert.Equal(t, firstKeys, secondKeys, "a model-only change must leave the wire usage unchanged")
 }
 
-// TestIngestStatusLine_ModelOnlyChangeRecordsRowCarryingModel covers D2 and D7: a status post
+// TestIngestStatusLine_ModelOnlyChangeRecordsRowCarryingModel: a status post
 // that changes only the model still writes a usage_sample row carrying that model, so history
 // keeps the model even though the wire dropped it.
 func TestIngestStatusLine_ModelOnlyChangeRecordsRowCarryingModel(t *testing.T) {
@@ -122,7 +122,7 @@ func TestIngestStatusLine_ModelOnlyChangeRecordsRowCarryingModel(t *testing.T) {
 	}, got, "history keeps recording the model even though the wire dropped it")
 }
 
-// TestIngestStatusLine_ModelOnlyChangeKeepsStateSnapshotFreeOfModel covers D1 for the
+// TestIngestStatusLine_ModelOnlyChangeKeepsStateSnapshotFreeOfModel checks for the
 // GET /api/state snapshot after a model-bearing status post.
 func TestIngestStatusLine_ModelOnlyChangeKeepsStateSnapshotFreeOfModel(t *testing.T) {
 	srv, _, _ := modelOnlyScenario(t)

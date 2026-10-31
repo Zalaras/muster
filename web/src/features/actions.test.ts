@@ -1,5 +1,5 @@
 // loadPane wraps GET /api/sessions/{id}/pane into the three-state PaneState the dead
-// surface renders (REQ-13, plan m4-reconcile) — a bare fetch-result mapper, no DOM
+// surface renders — a bare fetch-result mapper, no DOM
 // involved. Mocking ../api/sessions keeps this a pure logic test. render/dead.ts's own
 // DOM-facing exports (renderDeadSurface, showDeadSurfaceNotice, etc.) are tested in
 // ../render/dead.test.ts, not here.

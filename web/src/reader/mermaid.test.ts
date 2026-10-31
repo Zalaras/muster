@@ -1,7 +1,7 @@
-// Plan mermaid-support (W7, W8, W9): isMermaidLanguageClass, mermaidThemeFor and
+// IsMermaidLanguageClass, mermaidThemeFor and
 // diagramErrorText are the pure fence-recognition/theme/error-text helpers the DOM diagram
-// pass (render/mermaid.ts, render/diagrams.ts) is built on; diagramId's uniqueness backs
-// REQ-14 (two identical fences still get distinct ids).
+// pass (render/mermaid.ts, render/diagrams.ts) is built on; diagramId's uniqueness keeps
+// two identical fences getting distinct ids.
 import { describe, expect, it } from "vitest";
 import { diagramErrorText, diagramId, isMermaidLanguageClass, mermaidThemeFor } from "./mermaid";
 

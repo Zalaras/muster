@@ -34,11 +34,11 @@ func newTestModelsFeature(t *testing.T) *modelsFeature {
 	}
 }
 
-// --- modelsFeature.verdict (D1/D3/D4/D5/INV-3/INV-4) ---
+// --- modelsFeature.verdict ---
 
-// TestModelsFeature_TwoLookupsSameIdentityOneCheckRun is D1: a model already answered
+// TestModelsFeature_TwoLookupsSameIdentityOneCheckRun: a model already answered
 // under the current identity is served from the cache — a second lookup runs no
-// subprocess (REQ-2).
+// subprocess.
 func TestModelsFeature_TwoLookupsSameIdentityOneCheckRun(t *testing.T) {
 	f := newTestModelsFeature(t)
 	var calls int32
@@ -55,7 +55,7 @@ func TestModelsFeature_TwoLookupsSameIdentityOneCheckRun(t *testing.T) {
 	assert.Equal(t, int32(1), atomic.LoadInt32(&calls), "D1: a cached model must never re-run the check")
 }
 
-// TestModelsFeature_FourUncachedModelsCheckedConcurrently is D2: verdicts() fans out one
+// TestModelsFeature_FourUncachedModelsCheckedConcurrently: verdicts() fans out one
 // goroutine per requested model, so four cold checks run concurrently rather than one
 // after another — proven by having the fake run block until all four have started.
 func TestModelsFeature_FourUncachedModelsCheckedConcurrently(t *testing.T) {
@@ -83,7 +83,7 @@ func TestModelsFeature_FourUncachedModelsCheckedConcurrently(t *testing.T) {
 	}
 }
 
-// TestModelsFeature_ChangedIdentityNeverReturnsOldVerdict is D3/INV-3: a changed
+// TestModelsFeature_ChangedIdentityNeverReturnsOldVerdict: a changed
 // identity (a Claude Code update, or any in-place replacement of the resolved binary)
 // re-runs the check and never returns the superseded identity's cached verdict.
 func TestModelsFeature_ChangedIdentityNeverReturnsOldVerdict(t *testing.T) {
@@ -115,7 +115,7 @@ func TestModelsFeature_ChangedIdentityNeverReturnsOldVerdict(t *testing.T) {
 	assert.Equal(t, int32(2), atomic.LoadInt32(&calls), "the identity change must force a fresh check run")
 }
 
-// TestModelsFeature_CheckError_UncheckedAndNeverCached is D4/REQ-3/INV-4's run-error and
+// TestModelsFeature_CheckError_UncheckedAndNeverCached is the run-error and
 // timeout half: an errored check answers unchecked and is never cached, so every
 // subsequent lookup runs it again.
 func TestModelsFeature_CheckError_UncheckedAndNeverCached(t *testing.T) {
@@ -135,7 +135,7 @@ func TestModelsFeature_CheckError_UncheckedAndNeverCached(t *testing.T) {
 		"REQ-3/INV-4: an errored check must never be cached, so a second lookup must run it again")
 }
 
-// TestModelsFeature_UnresolvableIdentity_UncheckedWithoutRunningCheck is D4/REQ-3's
+// TestModelsFeature_UnresolvableIdentity_UncheckedWithoutRunningCheck is the
 // other half: an identity that cannot be resolved (not on $PATH, a dangling symlink)
 // answers unchecked without ever invoking the check subprocess.
 func TestModelsFeature_UnresolvableIdentity_UncheckedWithoutRunningCheck(t *testing.T) {
@@ -155,7 +155,7 @@ func TestModelsFeature_UnresolvableIdentity_UncheckedWithoutRunningCheck(t *test
 	assert.Equal(t, int32(0), atomic.LoadInt32(&calls), "REQ-3: an unresolvable identity must never run the check")
 }
 
-// TestModelsFeature_ConcurrentLookupsShareOneRun is D5/REQ-5: two concurrent lookups of
+// TestModelsFeature_ConcurrentLookupsShareOneRun: two concurrent lookups of
 // one (identity, model) must share one run rather than spawning a second check —
 // covering the dialog's open-time request racing a Launch pressed before it answers.
 func TestModelsFeature_ConcurrentLookupsShareOneRun(t *testing.T) {
@@ -192,8 +192,8 @@ func TestModelsFeature_ConcurrentLookupsShareOneRun(t *testing.T) {
 	assert.Equal(t, []modelVerdict{catalogRecognized, catalogRecognized}, results)
 }
 
-// TestModelsFeature_CheckInFlightWhenIdentityChanges_NotCachedNorServed is INV-3's only
-// non-trivial path, the concurrent one D3 doesn't reach: a check started under identity A
+// TestModelsFeature_CheckInFlightWhenIdentityChanges_NotCachedNorServed is the only
+// non-trivial path, the concurrent one the changed-identity test doesn't reach: a check started under identity A
 // is still blocked in f.check when a lookup under a new identity B arrives, resets the
 // maps and registers its own in-flight run — and A's check then finishes while B's run is
 // still going. A's finish must not remove B's still-live in-flight entry (the guard this
@@ -282,7 +282,7 @@ func TestModelsFeature_CheckInFlightWhenIdentityChanges_NotCachedNorServed(t *te
 }
 
 // TestModelsFeature_LeaderCancellation_JoinerGetsRealVerdictAndOwnCancelReturnsPromptly is
-// REQ-5's other half: sharing one run must not make a joiner's answer depend on whichever
+// the other half: sharing one run must not make a joiner's answer depend on whichever
 // caller happened to start it, and must not make a joiner ignore its own ctx either. The
 // leader's ctx is cancelled while the shared run is still going: a joined waiter with a
 // live ctx must still get the run's real verdict, not unchecked, and the leader's own
@@ -351,7 +351,7 @@ func TestModelsFeature_LeaderCancellation_JoinerGetsRealVerdictAndOwnCancelRetur
 		"only the leader may run a check; every other caller here must share it")
 }
 
-// --- GET /api/models handler (D6) ---
+// --- GET /api/models handler ---
 
 // newModelsTestHandler mounts f on its own mux behind the same cookie guard
 // server.go's routes() wires every feature through, without building a full *Server —
@@ -388,8 +388,8 @@ func TestHandleModels_RequiresCookie(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
-// TestHandleModels_ResponseShape covers D6's 200 body: one entry per distinct requested
-// model in first-seen order (REQ-1/D10), and message present iff the verdict is
+// TestHandleModels_ResponseShape covers the 200 body: one entry per distinct requested
+// model in first-seen order, and message present iff the verdict is
 // unrecognized (Protocol Contract).
 func TestHandleModels_ResponseShape(t *testing.T) {
 	f := newTestModelsFeature(t)
@@ -440,7 +440,7 @@ func TestHandleModels_ResponseShape(t *testing.T) {
 	}
 }
 
-// TestHandleModels_EightDistinctModelsAllowed is D6/D10's boundary: exactly 8 distinct
+// TestHandleModels_EightDistinctModelsAllowed is the boundary: exactly 8 distinct
 // values is the documented cap, not yet a refusal (kb:lesson/threshold-tested-only-far-from-its-boundary).
 func TestHandleModels_EightDistinctModelsAllowed(t *testing.T) {
 	f := newTestModelsFeature(t)
@@ -457,7 +457,7 @@ func TestHandleModels_EightDistinctModelsAllowed(t *testing.T) {
 	assert.Len(t, out.Models, 8)
 }
 
-// TestHandleModels_InvalidRequest covers D6/D10's error cases: no model parameter, an
+// TestHandleModels_InvalidRequest covers the error cases: no model parameter, an
 // empty value (alone or among others), and more than 8 distinct values.
 func TestHandleModels_InvalidRequest(t *testing.T) {
 	f := newTestModelsFeature(t)
@@ -484,10 +484,10 @@ func TestHandleModels_InvalidRequest(t *testing.T) {
 	}
 }
 
-// --- Launch reads the same cache (D9/REQ-4) ---
+// --- Launch reads the same cache ---
 
-// TestLauncher_CachedVerdict_LaunchRunsNoCheck is D9: newSessionLauncher's production
-// checkModel closure (REQ-4) takes its verdict from modelsFeature's cache rather than
+// TestLauncher_CachedVerdict_LaunchRunsNoCheck: newSessionLauncher's production
+// checkModel closure takes its verdict from modelsFeature's cache rather than
 // running a fresh check, for both a cached unrecognized verdict (refuses) and a cached
 // recognized one (proceeds) — the same cache a prior GET /api/models call would have
 // already filled.

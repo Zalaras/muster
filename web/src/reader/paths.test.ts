@@ -1,4 +1,4 @@
-// Plan markdown-render-fixes (REQ-13, W7): loadingText is the reader's pure text
+// LoadingText is the reader's pure text
 // derivation — no DOM, Vitest-tested directly. `basename` itself moved to
 // `sessions/paths.ts`; its own coverage lives in `sessions/paths.test.ts` now — this file
 // only imports it to check loadingText composes with it correctly.

@@ -4,7 +4,7 @@ import { readerStatusLine } from "./helpers/reader";
 import { launchSession, scratchDirectory, sessionCard } from "./helpers/session";
 import { liveTile } from "./helpers/terminal";
 
-// REQ-2, REQ-9, REQ-17, REQ-19, REQ-20 — daemon-down banner + reconnect, restart
+// Daemon-down banner + reconnect, restart
 // behaviour (token/migration persistence). Every test kills or restarts its daemon, so
 // each takes the test-scoped `daemon` fixture (a fresh scratch daemon per test); the
 // three are independent scenarios, so nothing here needs to run in sequence.
@@ -25,7 +25,7 @@ test.describe("daemon resilience", () => {
 
     await daemon.restart();
 
-    // REQ-17: the banner clears when `hello` arrives again — no page reload needed (E12).
+    // The banner clears when `hello` arrives again — no page reload needed.
     await expect(banner).toBeHidden({ timeout: 15_000 });
     await expect(page.getByRole("status")).toHaveText(/connected/i);
   });
@@ -107,7 +107,7 @@ test.describe("daemon resilience", () => {
   });
 });
 
-// Plan general-cleanup — REQ-7 (focus restore across a drop and reconnect) and REQ-8 (a
+// Focus restore across a drop and reconnect, and a
 // pop-out never shows unreachable before its first hello). Each test kills or routes its own
 // daemon's socket, so each takes the test-scoped `daemon` fixture.
 
@@ -129,7 +129,7 @@ test("focus stays on the header's Session actions ⋯ by node identity through a
     // §Testing / kb:lesson/select-rebuilt-every-tick-passed-selectoption): the renders
     // the drop and the reconnect each run must leave focus on this exact DOM node, not a
     // same-role-and-name replacement. The ⋯ stays enabled while disconnected — its menu
-    // opens with every item disabled (plan remove-unread-right-click-1, edge case 5).
+    // opens with every item disabled (edge case 5).
     const moreHandle = await more.elementHandle();
     if (!moreHandle) throw new Error("header Session actions button not found");
 
@@ -188,13 +188,13 @@ test("a pop-out that has never connected shows connecting…, never musterd unre
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "popout-e3" });
 
-    // The plan's own E3 acceptance criterion names `daemon.kill()` before the pop-out's
+    // The original acceptance criterion names `daemon.kill()` before the pop-out's
     // own navigation, but a genuinely killed daemon has no listener left to serve
     // `/doc.html` at all — there is no HTTP response to assert a status line against.
     // Routing (transparently proxying) the pop-out's OWN WebSocket and simply
-    // withholding `connectToServer()` reproduces the exact same observable state INV-
-    // POPOUT-CONNECTING names ("daemon down before load" — no hello has ever arrived)
-    // without that contradiction; it is the same technique actions.spec.ts's E14/Major 4
+    // withholding `connectToServer()` reproduces the exact same observable state
+    // ("daemon down before load" — no hello has ever arrived)
+    // without that contradiction; it is the same technique actions.spec.ts's Major 4
     // test already uses to force a connection outage without touching the daemon
     // process. Registered before the pop-out's navigation (Playwright: only sockets
     // created after this call are routed).

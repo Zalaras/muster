@@ -30,9 +30,9 @@ func TestUpsertRepo_CreatesOnFirstLaunch(t *testing.T) {
 	assert.Equal(t, "default", *repo.LastPermissionMode)
 }
 
-// TestUpsertRepo_SecondLaunchIncrementsCountAndUpdatesDefaults covers D6: launching
+// TestUpsertRepo_SecondLaunchIncrementsCountAndUpdatesDefaults: launching
 // twice into one directory yields one repo row with launch_count == 2 and updated
-// defaults (REQ-3/REQ-5).
+// defaults.
 func TestUpsertRepo_SecondLaunchIncrementsCountAndUpdatesDefaults(t *testing.T) {
 	st := openTestStore(t)
 	ctx := context.Background()
@@ -62,7 +62,7 @@ func TestUpsertRepo_SecondLaunchIncrementsCountAndUpdatesDefaults(t *testing.T) 
 	assert.Len(t, rows, 1)
 }
 
-// TestListRepos_OrdersPinnedThenMostRecentlyLaunched covers D20/REQ-5's MRU ordering:
+// TestListRepos_OrdersPinnedThenMostRecentlyLaunched covers the MRU ordering:
 // `pinned DESC, lastLaunchedAt DESC`. last_launched_at is set directly via SQL rather
 // than real wall-clock gaps: the column is RFC3339 with second resolution, so two
 // inserts in the same test process could otherwise land in the same second and make
@@ -145,7 +145,7 @@ func mustUpsertRepo(t *testing.T, st *Store, path string) Repo {
 	return repo
 }
 
-// TestTouchRepo_NeverBeforeSeenPathCreatesRowWithNullModelAndMode covers D15/REQ-15's
+// TestTouchRepo_NeverBeforeSeenPathCreatesRowWithNullModelAndMode covers the
 // new-directory half: a resume from the list carries no model or Start-in choice of its
 // own, so a first-ever row for its directory gets both columns null, not empty strings.
 func TestTouchRepo_NeverBeforeSeenPathCreatesRowWithNullModelAndMode(t *testing.T) {
@@ -164,7 +164,7 @@ func TestTouchRepo_NeverBeforeSeenPathCreatesRowWithNullModelAndMode(t *testing.
 	assert.Nil(t, repo.LastPermissionMode)
 }
 
-// TestTouchRepo_ExistingRowAdvancesMRUAndCountButNeverTouchesModelOrMode is D15's core
+// TestTouchRepo_ExistingRowAdvancesMRUAndCountButNeverTouchesModelOrMode is the core
 // guarantee: a resume from an already-known directory bumps launch_count and
 // last_launched_at like any launch, refreshes name/is_git like UpsertRepo does, but must
 // never clobber the model/mode a real launch last remembered there.

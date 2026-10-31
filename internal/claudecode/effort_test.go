@@ -27,7 +27,7 @@ func TestValidEffort(t *testing.T) {
 	assert.Equal(t, []string{"low", "medium", "high", "xhigh", "max"}, EffortLevels)
 }
 
-// TestBuildArgv_Effort covers D4/D9/D12's argv half: --effort <level> follows
+// TestBuildArgv_Effort covers the argv half: --effort <level> follows
 // --permission-mode on a launch and on a resume, appears only for a non-empty level, and
 // appears exactly once.
 func TestBuildArgv_Effort(t *testing.T) {
@@ -78,7 +78,7 @@ func assistantEffortLine(model, effort string) string {
 	return `{"type":"assistant","effort":"` + effort + `","message":{"model":"` + model + `"}}`
 }
 
-// TestPastSessions_Effort covers D12's transcript half against the measured shape
+// TestPastSessions_Effort covers the transcript half against the measured shape
 // (kb:fact/resume-does-not-restore-effort): every assistant line carries a top-level
 // "effort" beside message.model, the last such line wins, and a session with no completed
 // turn records none.
@@ -144,7 +144,7 @@ func statusBodyWithEffort(t *testing.T, keyJSON string) []byte {
 	return out
 }
 
-// TestInterpretStatus_Effort covers REQ-5's reading: Effort is non-nil on every
+// TestInterpretStatus_Effort covers the reading: Effort is non-nil on every
 // interpreted post, and Level is nil for an absent key (the measured shape of a model with
 // no effort setting, kb:fact/status-line-effort-key) and for the defensive null, empty and
 // wrong-shape readings; a level comes through verbatim.

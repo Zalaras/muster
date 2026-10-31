@@ -1,4 +1,4 @@
-// Plan markdown-viewing (W5/W6, REQ-10/REQ-11/REQ-12/REQ-13): buildTree/countFiles/
+// BuildTree/countFiles/
 // filterTree/flattenTree are the reader nav's pure derivation — no DOM, per this
 // module's own header comment.
 import { describe, expect, it } from "vitest";

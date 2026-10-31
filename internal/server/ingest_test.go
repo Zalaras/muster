@@ -102,7 +102,7 @@ func TestMount_RegistersRoutesAtClaudecodeIngestPathDeclaration(t *testing.T) {
 }
 
 func TestHandleIngest_ReturnsBefore200WithNoSynchronousDBWork(t *testing.T) {
-	// D10: the handler enqueues and returns 200 with no DB work on the request path.
+	// The handler enqueues and returns 200 with no DB work on the request path.
 	// Proof: the ingest worker is never started here, yet the handler still returns 200 —
 	// if persistence happened synchronously in the handler this would deadlock or error
 	// instead (there'd be nowhere for a synchronous insert to come from but the handler
@@ -133,7 +133,7 @@ func TestHandleIngest_HookPersistsAsynchronously(t *testing.T) {
 }
 
 func TestHandleIngest_StatusPersistsAsTypeStatusLine(t *testing.T) {
-	// REQ-11 (E8).
+	// A status post persists as type status_line.
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	srv.Start()
 	t.Cleanup(func() { srv.Shutdown(context.Background()) })
@@ -153,7 +153,7 @@ func TestHandleIngest_StatusPersistsAsTypeStatusLine(t *testing.T) {
 }
 
 func TestHandleIngest_MalformedJSONReturns200AndPersistsNothing(t *testing.T) {
-	// REQ-13 (E10).
+	// A malformed body still answers 200 and persists nothing.
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	srv.Start()
 	t.Cleanup(func() { srv.Shutdown(context.Background()) })
@@ -171,7 +171,7 @@ func TestHandleIngest_MalformedJSONReturns200AndPersistsNothing(t *testing.T) {
 }
 
 func TestHandleIngest_MissingSessionIDReturns200AndPersistsNothing(t *testing.T) {
-	// REQ-13 / Edge Case 4 (E10 sibling).
+	// Edge Case 4: a missing session id still answers 200 and persists nothing.
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	srv.Start()
 	t.Cleanup(func() { srv.Shutdown(context.Background()) })
@@ -189,7 +189,7 @@ func TestHandleIngest_MissingSessionIDReturns200AndPersistsNothing(t *testing.T)
 }
 
 func TestHandleIngest_NeverLogsPayloadBodies(t *testing.T) {
-	// D11 / CLAUDE.md hard rule: hook/status payload bodies (which carry prompt text) are
+	// CLAUDE.md hard rule: hook/status payload bodies (which carry prompt text) are
 	// never written to any log output — including on the drop paths, which do log a
 	// message about the drop.
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -332,8 +332,8 @@ func TestHandleIngest_OversizedBodyLogsKindAndLimitButNoPayload(t *testing.T) {
 }
 
 func TestIngestPipeline_SeqAssignmentAcrossHookAndStatusEndpoints(t *testing.T) {
-	// D5: seq assignment per claude_session_id, shared across both ingest endpoints
-	// (REQ-12), exercised end-to-end through the real HTTP handlers rather than a direct
+	// Seq assignment per claude_session_id, shared across both ingest endpoints
+	// is exercised end-to-end through the real HTTP handlers rather than a direct
 	// store call.
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	srv.Start()
@@ -343,7 +343,7 @@ func TestIngestPipeline_SeqAssignmentAcrossHookAndStatusEndpoints(t *testing.T) 
 
 	// One real call through /hook (needs a genuine hook-event-name field to parse) interleaved
 	// with a /status call for the same session — enough to prove the seq counter is
-	// shared across both endpoints (D5), since both funnel through the same
+	// shared across both endpoints, since both funnel through the same
 	// Store.InsertEvent call (internal/server/ingest.go's process()). The exhaustive,
 	// endpoint-agnostic seq-assignment logic itself is unit-tested directly against
 	// Store.InsertEvent in internal/store/store_test.go.
@@ -360,7 +360,7 @@ func TestIngestPipeline_SeqAssignmentAcrossHookAndStatusEndpoints(t *testing.T) 
 }
 
 func TestIngestQueue_OverflowDropsCountsAndLogs(t *testing.T) {
-	// REQ-23 / Edge Case 9: a full queue drops the job, counts it, and logs — it must
+	// A full queue drops the job, counts it, and logs — it must
 	// never block the caller. Build a tiny queue directly (bypassing the HTTP layer, which
 	// would need a slow store to actually observe backpressure) and never start its
 	// worker, so every enqueue after the buffer fills is an overflow.
@@ -377,7 +377,7 @@ func TestIngestQueue_OverflowDropsCountsAndLogs(t *testing.T) {
 }
 
 // Drain returns once every job enqueued before this call has been fully processed —
-// through Observe, the reader's write record (REQ-3) — by sending a marker job behind
+// through Observe, the reader's write record — by sending a marker job behind
 // them on the same channel and waiting for the single worker to reach it. It returns
 // ctx.Err() if that does not happen before ctx is done: nothing was queued (returns at
 // once), and the worker is not running (blocks until the deadline) both fall out of this
@@ -398,7 +398,7 @@ func (q *ingestQueue) Drain(ctx context.Context) error {
 	}
 }
 
-// TestIngestQueue_Drain_NothingQueuedReturnsImmediately covers D3/Edge Case 3's first
+// TestIngestQueue_Drain_NothingQueuedReturnsImmediately covers the first
 // half: with the worker running and nothing else on the channel, Drain's own marker job
 // is reached at once — it must not wait out ctx's deadline.
 func TestIngestQueue_Drain_NothingQueuedReturnsImmediately(t *testing.T) {
@@ -417,7 +417,7 @@ func TestIngestQueue_Drain_NothingQueuedReturnsImmediately(t *testing.T) {
 	assert.Less(t, time.Since(start), 500*time.Millisecond, "D3: nothing queued must return at once, not wait out ctx's deadline")
 }
 
-// TestIngestQueue_Drain_WorkerNotRunningBlocksToDeadline covers D3/Edge Case 3's second
+// TestIngestQueue_Drain_WorkerNotRunningBlocksToDeadline covers the second
 // half: with no worker ever draining q.ch, Drain's marker job is enqueued (the channel has
 // room) but never reached, so Drain blocks until ctx's own deadline and returns its error.
 func TestIngestQueue_Drain_WorkerNotRunningBlocksToDeadline(t *testing.T) {

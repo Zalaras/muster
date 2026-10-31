@@ -1,12 +1,12 @@
 // dragreorder.ts is DOM event-wiring glue (delegated listeners mapping DOM events to
 // session ids, calling back into features/tiles.ts/features/rail.ts) — per
 // docs/conventions.md, "interaction and rendering are Playwright's job", and
-// e2e/actions.spec.ts's REQ-10/E6 already covers the real-browser drag+focus behaviour end
+// e2e/actions.spec.ts already covers the real-browser drag+focus behaviour end
 // to end (a focused tile-footer button surviving a drag-drop reorder). This file does NOT
 // re-test that: no template cloning, no visual `.dragging`/`.drop-target` class assertions
-// (already Playwright's/E2E's, see plan move-tiles Testable UI Elements), no rendering.
+// (already Playwright's/E2E's), no rendering.
 //
-// What IS a pinnable unit here, added in plan move-tiles' web-impl Fix Attempt 2 (originally
+// What IS a pinnable unit here, added in a later fix (originally
 // against the tile-only `installTileDrag` wrapper this module has since absorbed — review
 // maintainability Major 6: the wrapper only existed so this file's predecessor,
 // `tiledrag.test.ts`, kept compiling, once `features/tiles.ts` was the wrapper's only

@@ -1,4 +1,4 @@
-// Plan markdown-viewing (W8, REQ-14): headingSlug/dedupeIds are the outline's heading-id
+// HeadingSlug/dedupeIds are the outline's heading-id
 // derivation, shared with markdown.ts's heading walk (see that module for why this stays
 // its own pure unit).
 import { describe, expect, it } from "vitest";

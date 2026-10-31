@@ -19,7 +19,7 @@ import (
 	"github.com/Zalaras/muster/internal/store"
 )
 
-// --- the dismiss route (REQ-9, D13) ---
+// --- the dismiss route ---
 
 func deleteEffortWarning(t *testing.T, srv *testServer, id int64) *httptest.ResponseRecorder {
 	t.Helper()
@@ -46,7 +46,7 @@ func TestHandleDismissEffortWarning_RequiresCookie(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
-// TestHandleDismissEffortWarning_UnknownSessionIs404WithTheSharedBody covers D13's last
+// TestHandleDismissEffortWarning_UnknownSessionIs404WithTheSharedBody covers the last
 // clause. The route serves the one shared unknown-session envelope every other session
 // route serves (kb:adr/focus-effort-dismiss-404-uses-shared-body), spelled literally in
 // wantUnknownSessionBody (respond_unknown_session_test.go).
@@ -70,7 +70,7 @@ func TestHandleDismissEffortWarning_UnknownSessionIs404WithTheSharedBody(t *test
 	}
 }
 
-// TestHandleDismissEffortWarning_ClearsPersistsAndBroadcastsOnce covers D13's first
+// TestHandleDismissEffortWarning_ClearsPersistsAndBroadcastsOnce covers the first
 // clause through the real handler and a connected socket: 204 with no body, the row's
 // warning columns cleared (effort kept), exactly one sessionUpsert carrying a null
 // effortWarning, and the other warned session untouched.
@@ -141,7 +141,7 @@ func TestHandleDismissEffortWarning_NullWarningIs204WithNoBroadcast(t *testing.T
 	assert.Equal(t, http.StatusNoContent, again.Code, "edge case 18: a second window's dismiss is still 204")
 }
 
-// --- the Session wire (REQ-5, REQ-7) ---
+// --- the Session wire ---
 
 func TestToWireSession_EffortShapes(t *testing.T) {
 	high, maxLevel := "high", "max"
@@ -181,7 +181,7 @@ func TestToWireSession_EffortShapes(t *testing.T) {
 	}
 }
 
-// --- POST /api/sessions: the effort field (REQ-2, REQ-3, REQ-4, D3, D4) ---
+// --- POST /api/sessions: the effort field ---
 
 func newEffortLauncher(st *store.Store, mgr *session.Manager, fake *fakeTmux) *sessionLauncher {
 	return &sessionLauncher{
@@ -192,7 +192,7 @@ func newEffortLauncher(st *store.Store, mgr *session.Manager, fake *fakeTmux) *s
 
 const effortInvalidMessage = "effort must be one of low, medium, high, xhigh, max"
 
-// TestHandleCreateSession_InvalidEffortIs400AndWritesNothing covers D3 through the real
+// TestHandleCreateSession_InvalidEffortIs400AndWritesNothing checks through the real
 // handler: every value outside the five (case, other vocabulary, empty, wrong JSON type)
 // is refused with the contract's message, and no repo row, settings file or session row is
 // written.
@@ -286,7 +286,7 @@ func TestLauncher_InvalidEffortNeverReachesTheModelCheck(t *testing.T) {
 	assert.Equal(t, 0, fake.newSessionCalls)
 }
 
-// TestLauncher_LaunchEffort covers D4/D8/REQ-2/REQ-4: a level reaches the argv right
+// TestLauncher_LaunchEffort: a level reaches the argv right
 // after --permission-mode and is recorded as the repo's lastEffort; absent and null send
 // no flag and record null (a later default launch clears a remembered level); the session
 // starts with effort null and warning null.
@@ -378,7 +378,7 @@ func TestLauncher_LaunchEffortStartsTheFirstReportCheck(t *testing.T) {
 	}
 }
 
-// --- GET /api/repos: lastEffort (REQ-4, D8) ---
+// --- GET /api/repos: lastEffort ---
 
 func TestHandleListRepos_LastEffort(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -403,7 +403,7 @@ func TestHandleListRepos_LastEffort(t *testing.T) {
 	assert.Equal(t, map[string]string{"/tmp/a": `"xhigh"`, "/tmp/b": `null`}, byPath)
 }
 
-// --- the resume form (REQ-3, REQ-11, D12) ---
+// --- the resume form ---
 
 func TestValidateResumeRequest_EffortOnTheResumeForm(t *testing.T) {
 	dir := t.TempDir()

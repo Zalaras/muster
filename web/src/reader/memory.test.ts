@@ -1,4 +1,4 @@
-// Plan markdown-viewing (W7, REQ-7/REQ-13/REQ-27): loadMemory/saveMemory round-trip
+// LoadMemory/saveMemory round-trip
 // through a fake Storage, degrade to the empty default on a throwing storage or a foreign
 // JSON shape, and key strictly per session id — see memory.ts's header comment for why
 // isDirty/withOpened are keyed by writtenAt rather than a live event history.
@@ -155,7 +155,7 @@ describe("loadMemory — fallback argument", () => {
   });
 });
 
-// REQ-4 (plan reader-expanded-persists): memory written by an older build, or hand-edited,
+// Memory written by an older build, or hand-edited,
 // loads field by field — each new field defaults on its own and never drags the others down.
 describe("loadMemory — expanded and fold fields (REQ-4)", () => {
   const stored = (value: unknown) => fakeStorage({ "muster.reader.1": JSON.stringify(value) });
@@ -382,7 +382,7 @@ describe("isMemoryWrite (a storage event is another window writing this session'
   });
 });
 
-// REQ-17/W4 (plan session-lifecycle): `handleRemoved` (features/actions.ts:139) clears
+// `handleRemoved` (features/actions.ts:139) clears
 // `muster.reader.<id>` on `sessionRemoved` through this helper, which does not exist yet —
 // red until it's added. Same "every access is try/caught" contract as loadMemory/saveMemory
 // above (memory.ts's header comment), for the same reason: a private window or blocked
@@ -421,7 +421,7 @@ describe("forget (REQ-17/W4: clears muster.reader.<id> on sessionRemoved)", () =
   });
 });
 
-// Plan bugs-one-batch-1 (REQ-6, W2). Names assumed from the plan: `scroll` on ReaderMemory,
+// Names assumed: `scroll` on ReaderMemory,
 // `withScroll(memory, path, top)` and `withScrollPruned(memory, listedPaths)`.
 describe("withScroll (REQ-6: a per-path scroll position)", () => {
   it("records the offset for a path and leaves every other field alone", () => {

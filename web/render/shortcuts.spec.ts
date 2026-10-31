@@ -1,4 +1,4 @@
-// shortcuts — the display properties of plan shortcut-fixes (E1–E10, INV-3, edge cases 2, 3,
+// shortcuts — the display properties of the shortcuts (edge cases 2, 3,
 // 4 and 6), re-levelled from web/e2e/shortcuts.spec.ts on 2026-10-20
 // (plans/_audit/relevel/shortcuts-views-tiles.md): what a chord does to the page for a given
 // snapshot — opens the launch dialog, moves the Focus header to the nth or the neediest card,
@@ -194,7 +194,7 @@ test("pressing Opt+Cmd+0 focuses the longest-blocked needs-input session, ignori
   await expect(mainheadName(page)).toHaveText("rail-c");
 
   // Contrast, same setup: Opt+Cmd+1 (the rail's actual first card) reaches the
-  // pinned a, not c — the exact case Opt+Cmd+0 exists to bypass (INV-4).
+  // pinned a, not c — the exact case Opt+Cmd+0 exists to bypass.
   await railCardByTitle(page, "rail-b").click();
   await expect(mainheadName(page)).toHaveText("rail-b");
   await page.keyboard.press("Alt+Meta+Digit1");

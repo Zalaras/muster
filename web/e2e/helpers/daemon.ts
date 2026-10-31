@@ -47,7 +47,7 @@ const musterdBin = join(repoRoot, "bin", "musterd");
 // Tags every scratch dir with the worktree that made it, so orch-cleanup.sh sweeps only its
 // own tree's dirs and processes; the script derives the same tag from the same root path.
 export const scratchOwner = createHash("sha256").update(repoRoot).digest("hex").slice(0, 8);
-// Plan embed-dashboard REQ-7: the disk-override fixture every non-embedded spec in this
+// The disk-override fixture every non-embedded spec in this
 // suite uses now points at the daemon's new build output (internal/webui/assets), not
 // the retired web/dist — the flag was always passed explicitly, but the path it named
 // stopped being produced once web-impl repointed vite.config.ts's outDir.
@@ -69,7 +69,7 @@ export type OnExitPolicy = "ask" | "leave" | "kill";
  * What the harness's stub `claude` answers to `--version` by default (see
  * STUB_CLAUDE_SCRIPT). The daemon parses the leading semver ("2.0.0") for the masthead
  * and its version classification; the suffix keeps it from ever being mistaken for a
- * real Claude Code build. Plan version-claude-interface REQ-13: a per-run
+ * real Claude Code build. A per-run
  * `stubClaudeVersion` option overrides this via the environment (see below) without
  * changing this constant, which several existing specs (e.g. shell.spec.ts's
  * `/claude\s+2\./i` assertion) still rely on as the unset-knob default.
@@ -77,16 +77,16 @@ export type OnExitPolicy = "ask" | "leave" | "kill";
 export const STUB_CLAUDE_VERSION = "2.0.0-e2e-stub";
 
 /**
- * The fake `claude` musterd spawns (REQ-19's `-claude-bin` seam), upgraded by m2-terminal
- * from a plain sleep loop to an echo loop so the terminal bridge (REQ-1) has something
- * deterministic to stream both directions: it prints `MUSTER-STUB-READY` (E1's readback
+ * The fake `claude` musterd spawns (the `-claude-bin` seam), upgraded
+ * from a plain sleep loop to an echo loop so the terminal bridge has something
+ * deterministic to stream both directions: it prints `MUSTER-STUB-READY` (the readback
  * token) once at startup, then `stub-echo:<line>` for every line it reads from its
- * controlling pty (E2's round trip), then — once stdin hits EOF, which only happens when
+ * controlling pty (the round trip), then — once stdin hits EOF, which only happens when
  * the pane itself is torn down — falls into the old sleep-forever loop. Liveness tests
- * still kill the tmux window explicitly (E9/E12) rather than relying on the stub to exit
+ * still kill the tmux window explicitly rather than relying on the stub to exit
  * on its own. No real `claude` binary is ever invoked by this harness (CLAUDE.md hard rule).
  *
- * Plan version-claude-interface REQ-13: the `--version` branch now reads two environment
+ * The `--version` branch now reads two environment
  * variables at RUN time rather than answering a value baked into the script's own bytes
  * — `ensureSharedStubClaude` keys the on-disk file by the script's content hash, so one
  * shared file must be able to answer differently per scratch daemon. `-claude-bin`'s
@@ -100,7 +100,7 @@ const STUB_CLAUDE_SCRIPT = [
   // loop for the daemon's whole version-check timeout on every start.
   `if [ "$1" = "--version" ]; then`,
   // MUSTER_E2E_STUB_VERSION_FAIL set (to anything) means "answer like a broken
-  // install": exit non-zero, print nothing — REQ-13's `stubClaudeVersionFails`/E4.
+  // install": exit non-zero, print nothing — `stubClaudeVersionFails`.
   `  if [ -n "\${MUSTER_E2E_STUB_VERSION_FAIL:-}" ]; then exit 1; fi`,
   // MUSTER_E2E_STUB_VERSION_DELAY_SECONDS set means "answer like the first run of a newly
   // written binary": hold the reply that many seconds first
@@ -109,21 +109,21 @@ const STUB_CLAUDE_SCRIPT = [
   // Otherwise reply shape-faithful to a real install's "2.1.246 (Claude Code)" — the
   // masthead and the daemon's classification both parse only the leading
   // major.minor.patch, ignoring the "-e2e-stub" suffix — using
-  // MUSTER_E2E_STUB_VERSION when the caller set one (REQ-13's `stubClaudeVersion`),
+  // MUSTER_E2E_STUB_VERSION when the caller set one (`stubClaudeVersion`),
   // else the shared default above.
   `  echo "\${MUSTER_E2E_STUB_VERSION:-${STUB_CLAUDE_VERSION}} (Claude Code)"`,
   "  exit 0",
   "fi",
-  // Plan new-session-improvement REQ-1: the daemon's per-launch model-catalog pre-check
+  // The daemon's per-launch model-catalog pre-check
   // runs `<claude> --bare --no-session-persistence --model <model> -p ''` before every
   // launch (kb:fact/model-catalog-precheck-zero-token). Without this branch that argv
   // falls straight into the read loop below with stdin already at EOF, hanging until
-  // REQ-1's 5s bound on every single E2E launch once the daemon wires the check in. A
+  // the 5s bound on every single E2E launch once the daemon wires the check in. A
   // model starting with `muster-e2e-unrecognized` gets the measured catalog-refusal
   // sentence on stderr; every other model passes through clean and exit 1 either way,
   // matching the real binary's "the sentence is the only signal" contract.
   //
-  // Plan maintainability-regressions: `GET /api/models` (kb:anchor/models.check) checks
+  // `GET /api/models` (kb:anchor/models.check) checks
   // arbitrary preset names (sonnet/opus/haiku/fable), which the prefix rule above can't
   // mark unrecognised — a per-run list of exact names, `MUSTER_E2E_STUB_UNRECOGNIZED_MODELS`
   // (space-separated, `ScratchDaemonOptions.stubUnrecognizedModels`), is checked alongside
@@ -185,7 +185,7 @@ async function ensureSharedStubClaude(): Promise<string> {
 }
 
 /**
- * Plan issue-capture REQ-17/REQ-14: `-issue-repo` value the harness passes
+ * `-issue-repo` value the harness passes
  * unconditionally for every scratch daemon, regardless of whether a given test cares
  * about the feature. Deliberately NOT the daemon's own default (`Zalaras/muster`) —
  * a distinct, obviously-fake identifier means no scratch run's response can ever be
@@ -195,11 +195,11 @@ async function ensureSharedStubClaude(): Promise<string> {
 export const ISSUE_REPO_FIXTURE = "muster-e2e/fake-repo";
 
 /**
- * Plan issue-capture REQ-17: every scratch daemon that doesn't opt into a real fake
+ * Every scratch daemon that doesn't opt into a real fake
  * GitHub server (helpers/ghapi.ts's `FakeGitHubAPI`) still gets `-issue-api-url` pointed
  * somewhere — this run-local stub, which 403s every request with a loud, diagnosable
  * body. Never the real GitHub API host; never silently unset (an unset `-issue-api-url` means
- * the flag is empty, which *disables* the feature per REQ-14 rather than reaching a real
+ * the flag is empty, which *disables* the feature rather than reaching a real
  * host — but E2E always passes a live URL so `POST /api/issue/captures` still works for
  * tests that don't care about the filing step).
  */
@@ -230,13 +230,13 @@ export interface TranscriptFixtureOpts {
    * fixture (stub/quit-before-turn transcript, edge case 3). */
   title?: string;
   /** `custom-title` line's value, written for `--name` — takes precedence over `title`
-   * per the daemon's "last custom-title, else last ai-title" rule (D5); a test exercising
+   * per the daemon's "last custom-title, else last ai-title" rule; a test exercising
    * that precedence passes both. */
   customTitle?: string;
   /** `last-prompt` line's value. */
   lastPrompt?: string;
   /**
-   * Plan effort (REQ-11): one `assistant` line per entry, in order, each carrying the top-level
+   * One `assistant` line per entry, in order, each carrying the top-level
    * `"effort": "<level>"` that kb:fact/resume-does-not-restore-effort measured on every assistant
    * line of a completed turn — `null` writes that line without the key. The LAST entry is the
    * one a Resume-tab resume reads. Each line carries `message.model` when `model` is set. It
@@ -244,7 +244,7 @@ export interface TranscriptFixtureOpts {
    */
   assistantEfforts?: readonly (string | null)[];
   /** `permission-mode` line's value. Omit for the "no permission-mode line recorded"
-   * fixture (REQ-10's `default`-fallback path, edge case 16). */
+   * fixture (the `default`-fallback path). */
   permissionMode?: string;
   /** The `assistant` line's `message.model` value. Omit to write no `assistant` line at
    * all (a stub transcript never completed a turn). */
@@ -258,14 +258,14 @@ export interface TranscriptFixtureOpts {
 export interface ScratchDaemonOptions {
   onExit?: OnExitPolicy;
   /**
-   * Plan usage-model-bar REQ-13 test seam: `-usage-poll` duration string (e.g. `"0"` to
-   * exercise the disabled-poller path, E6). Omit to leave the daemon's own 5m default —
-   * every test still observes the poller's immediate on-Start fetch (REQ-1), so a short
+   * Test seam: `-usage-poll` duration string (e.g. `"0"` to
+   * exercise the disabled-poller path). Omit to leave the daemon's own 5m default —
+   * every test still observes the poller's immediate on-Start fetch, so a short
    * interval is rarely needed and no spec here relies on a second, timer-driven tick.
    */
   usagePoll?: string;
   /**
-   * Plan stale-dirs-models-branches test seam: `-repo-poll` duration string. The daemon's
+   * Test seam: `-repo-poll` duration string. The daemon's
    * own default is 5s, too slow for a checkout to show inside the 15 s expect timeout
    * with margin across a soak, so specs asserting a polled branch pass a short interval
    * (e.g. `"200ms"`); `"0"` disables the timer, leaving only the nudge a reported move
@@ -273,7 +273,7 @@ export interface ScratchDaemonOptions {
    */
   repoPoll?: string;
   /**
-   * Plan usage-model-bar REQ-13 test seam: `-usage-api-url` base, pointed at a
+   * Test seam: `-usage-api-url` base, pointed at a
    * `FakeUsageAPI` (helpers/usageapi.ts) so this run's poller never reaches
    * api.anthropic.com. Omit to leave the daemon's real default — still safe, because
    * `usageTokenPath` is always a scratch path (see below), so every run without
@@ -284,43 +284,43 @@ export interface ScratchDaemonOptions {
    * JSON content to write to the scratch `-usage-token-file` before spawning — the
    * `{"claudeAiOauth":{"accessToken":"…"}}` shape `internal/claudecode` reads
    * (docs/history/spikes/canary-fields.md; use helpers/usageapi.ts's `credentialsFileContent`). Omit
-   * to leave the file absent — the "no-credentials" fixture (REQ-6 edge case 1).
+   * to leave the file absent — the "no-credentials" fixture.
    */
   usageTokenContent?: string;
   /**
-   * Plan embed-dashboard REQ-7/E1 test seam: the embedded-serving fixture. When true,
+   * Test seam: the embedded-serving fixture. When true,
    * this run copies `bin/musterd` into the scratch data dir, spawns that copy with
    * `cwd` set to the data dir, and omits `-web-dist` entirely — proving the binary
    * serves its `go:embed`-ed dashboard rather than a disk directory. The scratch data
    * dir is an OS tmpdir this harness creates fresh per run, so it genuinely contains no
-   * `web/` or `internal/` tree next to the copied binary (R7). Omit (default false) to
+   * `web/` or `internal/` tree next to the copied binary. Omit (default false) to
    * keep every other spec's existing disk-override behaviour, passing `-web-dist`
    * pointed at `webDist` exactly as before.
    */
   serveEmbedded?: boolean;
   /**
-   * Plan issue-capture REQ-13/E3/E4: `-issue-api-url` base, pointed at a
+   * `-issue-api-url` base, pointed at a
    * `FakeGitHubAPI` (helpers/ghapi.ts) so a filing test never reaches the real GitHub API host.
    * Omit to get this run's own per-run deny stub (`startIssueDenyStub`), which answers
    * every request `403 {"message":"e2e: no fake GitHub configured for this test"}` —
    * loud and diagnosable, never the real host. Either way the flag is passed
-   * unconditionally (REQ-17).
+   * unconditionally.
    */
   issueApiURL?: string;
   /**
-   * Plain-text content (the trimmed-contents-are-the-token shape, REQ-14 — unlike
+   * Plain-text content (the trimmed-contents-are-the-token shape — unlike
    * `-usage-token-file`'s JSON) written to the scratch `-issue-token-file` before
    * spawning. Omit to leave the file absent — safe for every test that never calls
    * `POST /api/issues` (capture-only assertions), since `-issue-token-file` is still
-   * passed unconditionally (REQ-17) so `gh` is never executed regardless.
+   * passed unconditionally so `gh` is never executed regardless.
    */
   issueTokenContent?: string;
   /**
-   * Plan new-ui-design-colors REQ-18/REQ-14 test seam: `-claude-theme-poll` duration
-   * string (e.g. `"200ms"` for E9/E10's fast-flip fixtures, or `"0"` to exercise the
-   * disabled-poller path, edge case 11). Omit to leave the daemon's own 10s default —
+   * Test seam: `-claude-theme-poll` duration
+   * string (e.g. `"200ms"` for the fast-flip fixtures, or `"0"` to exercise the
+   * disabled-poller path). Omit to leave the daemon's own 10s default —
    * most tests never need a second, timer-driven tick since `Start()`'s immediate first
-   * tick (REQ-14) already observes whatever's on disk at boot.
+   * tick already observes whatever's on disk at boot.
    */
   claudeThemePoll?: string;
   /**
@@ -332,17 +332,17 @@ export interface ScratchDaemonOptions {
    */
   claudeConfigContent?: string;
   /**
-   * Plan post-worktree-spike-issues REQ-12 test seam: the binary to spawn instead of the
+   * Test seam: the binary to spawn instead of the
    * module-relative `bin/musterd` every other caller resolves. Harness-self-test-only —
    * it exists so `web/scripts/e2e-fixture-leak-check.mjs` can induce an unhealthy daemon
    * (a stub that never answers `/healthz`) without mutating `bin/musterd` itself, which
    * every concurrent build and E2E run (4 Playwright workers) also reads. Omit to keep
    * today's resolution byte-identical for every existing caller (`daemon`, `startDaemon`,
-   * `fileDaemon()`) — see W7: no spec file may pass this.
+   * `fileDaemon()`) — no spec file may pass this.
    */
   musterdBinOverride?: string;
   /**
-   * Plan version-claude-interface REQ-13 test seam: the leading version the shared stub
+   * Test seam: the leading version the shared stub
    * `claude` echoes to `--version` for this run only (env var `MUSTER_E2E_STUB_VERSION`
    * — see STUB_CLAUDE_SCRIPT). Omit to leave the stub answering `STUB_CLAUDE_VERSION`
    * (today's unconditional default, still asserted verbatim by shell.spec.ts) —
@@ -352,7 +352,7 @@ export interface ScratchDaemonOptions {
    */
   stubClaudeVersion?: string;
   /**
-   * Plan version-claude-interface REQ-13/E4 test seam: when true, the stub's
+   * Test seam: when true, the stub's
    * `--version` branch exits 1 and prints nothing — a broken/missing-binary reply —
    * regardless of `stubClaudeVersion` (mutually exclusive in practice; the stub checks
    * this one first). Omit (default false/absent) for every other test's normal
@@ -360,14 +360,14 @@ export interface ScratchDaemonOptions {
    */
   stubClaudeVersionFails?: boolean;
   /**
-   * Plan claude-version-watch test seam: seconds the stub's `--version` branch sleeps before
+   * Test seam: seconds the stub's `--version` branch sleeps before
    * answering (`MUSTER_E2E_STUB_VERSION_DELAY_SECONDS`), for this run only — the first run of
    * a newly written `claude` binary on macOS takes ~11 s with no CPU of its own. Omit for an
    * immediate answer.
    */
   stubClaudeVersionDelaySeconds?: number;
   /**
-   * Plan maintainability-regressions test seam: exact model names the stub's `--bare`
+   * Test seam: exact model names the stub's `--bare`
    * branch answers as unrecognised (`MUSTER_E2E_STUB_UNRECOGNIZED_MODELS`, space-joined),
    * for `GET /api/models`/`POST /api/sessions` fixtures that need a *preset* (sonnet,
    * opus, haiku, fable) to fail the catalog check — the pre-existing
@@ -376,7 +376,7 @@ export interface ScratchDaemonOptions {
    */
   stubUnrecognizedModels?: string[];
   /**
-   * Plan auto-update test seam: `-update-base-url` base. Unlike every opt-in flag above,
+   * Test seam: `-update-base-url` base. Unlike every opt-in flag above,
    * this one is passed UNCONDITIONALLY for every scratch daemon (Implementation Notes >
    * E2E harness — "so the guarantee is structural, not incidental"): omitting the option
    * passes an explicit empty string, which the daemon's own Config treats as "construct
@@ -387,23 +387,23 @@ export interface ScratchDaemonOptions {
    */
   updateBaseURL?: string;
   /**
-   * Plan auto-update test seam: `-update-check-interval` duration string (e.g. `"1s"` for
+   * Test seam: `-update-check-interval` duration string (e.g. `"1s"` for
    * a fast-tick fixture). Omit to leave the daemon's own 24h default — most tests only
-   * need the immediate on-listen check (REQ-4), not a second timer-driven tick.
+   * need the immediate on-listen check, not a second timer-driven tick.
    */
   updateCheckInterval?: string;
   /**
-   * Plan auto-update test seam: `-update-public-key-file` path — every test's daemon
+   * Test seam: `-update-public-key-file` path — every test's daemon
    * verifies against a `FakeReleaseServer`'s own generated minisign keypair
    * (`writePublicKey`), never the real committed `internal/selfupdate/minisign.pub`
-   * (D5's production key). Omit to leave the daemon's own embedded key (irrelevant when
+   * (the production key). Omit to leave the daemon's own embedded key (irrelevant when
    * `updateBaseURL` is also omitted/empty, since no manager is constructed at all).
    */
   updatePublicKeyFile?: string;
   /**
-   * Plan auto-update test seam: run this executable instead of the module-relative
+   * Test seam: run this executable instead of the module-relative
    * `bin/musterd` every other caller resolves — unlike `musterdBinOverride` (harness-
-   * self-test-only, W7 of a different plan), this is the general-purpose seam a spec uses
+   * self-test-only), this is the general-purpose seam a spec uses
    * to run a `buildVersionedMusterd`/`stageBinary` fixture (a real, differently-versioned,
    * installer/homebrew/unmanaged-classified binary) as the scratch daemon's own process.
    * Takes precedence over `musterdBinOverride` when both are somehow given. Omit to keep
@@ -411,7 +411,7 @@ export interface ScratchDaemonOptions {
    */
   binary?: string;
   /**
-   * Plan auto-update test seam: extra environment variables merged over `process.env` for
+   * Test seam: extra environment variables merged over `process.env` for
    * this run's spawn (e.g. `HOMEBREW_PREFIX`, simulating what `brew shellenv` exports) —
    * merged UNDER the version-claude-interface stub-version overrides below, so those two
    * env vars always win if a caller's `env` collides with them (it shouldn't in practice:
@@ -478,7 +478,7 @@ export class ScratchDaemon {
    */
   readonly browseRoot: string;
   /**
-   * Plan resume-and-dangerously-allow REQ-6: per-run scratch stand-in for Claude Code's
+   * Per-run scratch stand-in for Claude Code's
    * own `~/.claude/projects` (`-claude-projects-dir`), passed unconditionally for every
    * scratch daemon — same discipline as `usageTokenPath`/`claudeConfigPath` — so
    * `GET /api/past-sessions` can never read the real developer's transcripts.
@@ -486,46 +486,46 @@ export class ScratchDaemon {
    */
   readonly claudeProjectsDir: string;
   /**
-   * Plan usage-model-bar REQ-13/INV-4: always a scratch path inside `dataDir`, passed
+   * Always a scratch path inside `dataDir`, passed
    * unconditionally via `-usage-token-file` for every scratch daemon — regardless of
    * whether a given test cares about the usage-model feature — so no E2E run, in this
    * file or any other, can ever fall through to the real macOS Keychain.
    */
   readonly usageTokenPath: string;
   /**
-   * Plan embed-dashboard REQ-7/E1: absolute path this run copies `bin/musterd` to
+   * Absolute path this run copies `bin/musterd` to
    * inside `dataDir`, used only when `serveEmbedded` is true. Living inside `dataDir`
    * means `teardown()`'s `rm` cleans it up like everything else this run creates.
    */
   readonly embeddedBinPath: string;
   /**
-   * Plan issue-capture REQ-17/REQ-14: always a scratch path inside `dataDir`, passed
+   * Always a scratch path inside `dataDir`, passed
    * unconditionally via `-issue-token-file` for every scratch daemon — mirroring
    * `usageTokenPath`'s discipline — so no E2E run can ever fall through to a real `gh`
    * invocation.
    */
   readonly issueTokenPath: string;
   /**
-   * Plan issue-capture REQ-17: this run's `-issue-api-url` value — either the caller's
+   * This run's `-issue-api-url` value — either the caller's
    * `FakeGitHubAPI` base URL or this run's own deny stub (`startIssueDenyStub`). Always
-   * set, always passed (REQ-17), never the real GitHub API host.
+   * set, always passed, never the real GitHub API host.
    */
   readonly issueApiURL: string;
   /**
-   * Plan new-ui-design-colors REQ-18/INV-5: always a scratch path inside `dataDir`,
+   * Always a scratch path inside `dataDir`,
    * passed unconditionally via `-claude-config-file` for every scratch daemon —
    * mirroring `usageTokenPath`'s discipline — so no E2E run can ever read the real
    * Claude Code config file. Written to at construction time only when the caller
    * supplies `claudeConfigContent`; otherwise the path simply doesn't exist (the
    * "missing config file" fixture, edge case 1). `writeClaudeConfig()` overwrites it
-   * mid-test for the poller-flip fixtures (E9/E10).
+   * mid-test for the poller-flip fixtures.
    */
   readonly claudeConfigPath: string;
   /** The deny stub server started for this run when no `issueApiURL` option was given,
    * or `null` when the caller supplied its own (nothing here to close). Closed in
    * `teardown()`. */
   private denyStubServer: HttpServer | null = null;
-  /** Plan embed-dashboard REQ-7: true iff this run spawns the copied binary from
+  /** True iff this run spawns the copied binary from
    * `embeddedBinPath` with `cwd` = `dataDir` and no `-web-dist` flag at all — the
    * embedded-serving fixture — rather than the shared `musterdBin` with `-web-dist
    * webDist` every other spec uses. */
@@ -535,59 +535,56 @@ export class ScratchDaemon {
   dashboardUrl = "";
   private proc: ChildProcess | null = null;
   /** Tail of the current process's stdout+stderr, kept for crash diagnostics and for
-   * INV-4/E7's "the token never appears in a log line" grep. */
+   * the "token never appears in a log line" grep. */
   private output = "";
-  /** Plan general-cleanup REQ-12: `tmuxPaneId`'s memo, keyed by tmux target — cleared on
+  /** `tmuxPaneId`'s memo, keyed by tmux target — cleared on
    * `restart()` since a respawned daemon's panes are re-created (a memoised pre-restart
    * pane id would be stale). */
   private readonly paneIdMemo: Map<string, string> = new Map();
   /** `-on-exit` policy this run's process is (re)spawned with — set once at construction
-   * and reused by every `restart()` (plan m4-reconcile REQ-3). `undefined` omits the flag
+   * and reused by every `restart()`. `undefined` omits the flag
    * entirely, exercising the daemon's own default (`ask`). */
   private readonly onExit: OnExitPolicy | undefined;
-  /** `-usage-poll` value for this run, or `undefined` to omit the flag (plan
-   * usage-model-bar REQ-13). */
+  /** `-usage-poll` value for this run, or `undefined` to omit the flag. */
   private readonly usagePoll: string | undefined;
-  /** `-repo-poll` value for this run, or `undefined` to omit the flag (plan
-   * stale-dirs-models-branches). */
+  /** `-repo-poll` value for this run, or `undefined` to omit the flag. */
   private readonly repoPoll: string | undefined;
-  /** `-usage-api-url` value for this run, or `undefined` to omit the flag (plan
-   * usage-model-bar REQ-13). */
+  /** `-usage-api-url` value for this run, or `undefined` to omit the flag. */
   private readonly usageApiURL: string | undefined;
   /** `-claude-theme-poll` value for this run, or `undefined` to omit the flag — the
-   * daemon's own 10s default (plan new-ui-design-colors REQ-18). */
+   * daemon's own 10s default. */
   private readonly claudeThemePoll: string | undefined;
-  /** Plan post-worktree-spike-issues REQ-12: the binary this run's non-embedded spawns
+  /** The binary this run's non-embedded spawns
    * invoke — `opts.musterdBinOverride` if the caller passed one, else the module's own
    * `musterdBin` constant. Resolved once at construction, mirroring every other per-run
    * option field here. */
   private readonly resolvedMusterdBin: string;
-  /** Plan version-claude-interface REQ-13: this run's `MUSTER_E2E_STUB_VERSION` value,
+  /** This run's `MUSTER_E2E_STUB_VERSION` value,
    * or `undefined` to leave the stub answering `STUB_CLAUDE_VERSION`. */
   private readonly stubClaudeVersion: string | undefined;
-  /** Plan version-claude-interface REQ-13: true iff this run's stub answers
+  /** True iff this run's stub answers
    * `--version` with a failure instead of a version string. */
   private readonly stubClaudeVersionFails: boolean;
-  /** Plan claude-version-watch: seconds this run's stub holds its `--version` reply, or
+  /** Seconds this run's stub holds its `--version` reply, or
    * `undefined` for an immediate answer. */
   private readonly stubClaudeVersionDelaySeconds: number | undefined;
   /** Milliseconds from this run's spawn until `/healthz` first answered (set by
-   * `spawnAndWait`, re-set by `restart()`). Plan claude-version-watch: measures the daemon
+   * `spawnAndWait`, re-set by `restart()`). Measures the daemon
    * becoming reachable, not the harness's own setup around it. */
   startupMs = 0;
-  /** Plan maintainability-regressions: exact model names this run's stub answers as
+  /** Exact model names this run's stub answers as
    * unrecognised from its `--bare` branch (`MUSTER_E2E_STUB_UNRECOGNIZED_MODELS`). */
   private readonly stubUnrecognizedModels: string[];
-  /** Plan auto-update: `-update-base-url` value, always passed (never omitted) — `""` by
+  /** `-update-base-url` value, always passed (never omitted) — `""` by
    * default, structurally guaranteeing no scratch daemon ever reaches a real host. */
   private readonly updateBaseURL: string;
-  /** Plan auto-update: `-update-check-interval` value, or `undefined` to omit the flag
+  /** `-update-check-interval` value, or `undefined` to omit the flag
    * (the daemon's own 24h default). */
   private readonly updateCheckInterval: string | undefined;
-  /** Plan auto-update: `-update-public-key-file` value, or `undefined` to omit the flag
+  /** `-update-public-key-file` value, or `undefined` to omit the flag
    * (the daemon's own embedded production key). */
   private readonly updatePublicKeyFile: string | undefined;
-  /** Plan auto-update: extra environment variables merged over `process.env` for this
+  /** Extra environment variables merged over `process.env` for this
    * run's spawn, or `undefined` for no override beyond the stub-version env below. */
   private readonly extraEnv: Record<string, string> | undefined;
 
@@ -653,7 +650,7 @@ export class ScratchDaemon {
     // of the two command hooks must survive. Do not "fix" a spec that breaks on the space
     // — that's the harness doing its job; report it instead.
     const dataDir = await mkdtemp(join(tmpdir(), `muster e2e-${scratchOwner}-`));
-    // Plan issue-capture REQ-17: resolve the deny stub BEFORE constructing, since the
+    // Resolve the deny stub BEFORE constructing, since the
     // constructor wants a concrete `issueApiURL` string, never `undefined`.
     let denyStubServer: HttpServer | null = null;
     let daemon: ScratchDaemon | undefined;
@@ -669,7 +666,7 @@ export class ScratchDaemon {
         dataDir,
         await ensureSharedStubClaude(),
         issueApiURL,
-        // Plan auto-update: `binary` takes precedence — the general-purpose seam — over
+        // `binary` takes precedence — the general-purpose seam — over
         // `musterdBinOverride` (harness-self-test-only), which in turn beats the shared
         // `musterdBin` default.
         opts.binary ?? opts.musterdBinOverride ?? musterdBin,
@@ -692,7 +689,7 @@ export class ScratchDaemon {
       await mkdir(daemon.browseRoot, { recursive: true });
       await mkdir(daemon.claudeProjectsDir, { recursive: true });
       if (daemon.serveEmbedded) {
-        // Plan embed-dashboard REQ-7: a COPY, not the shared musterdBin in place — the
+        // A COPY, not the shared musterdBin in place — the
         // fixture must prove a binary can be moved away from the checkout and still serve
         // its own dashboard. copyFile doesn't preserve the executable bit on all
         // platforms, so chmod it explicitly.
@@ -711,7 +708,7 @@ export class ScratchDaemon {
       await daemon.spawnAndWait();
       return daemon;
     } catch (err) {
-      // REQ-4/REQ-5: a failed start() must leave nothing behind (spawned process
+      // A failed start() must leave nothing behind (spawned process
       // signalled + reaped, private tmux server killed, the deny-stub listener closed,
       // the tmpdir removed) but must never replace the original diagnostic — the
       // unhealthy-daemon message plus captured musterd output — with a teardown error
@@ -736,7 +733,7 @@ export class ScratchDaemon {
     }
   }
 
-  /** Tail of this run's captured stdout+stderr (plan usage-model-bar E7/INV-4: grepped
+  /** Tail of this run's captured stdout+stderr (grepped
    * for the fake usage token to prove it never appears in a log line). */
   get log(): string {
     return this.output;
@@ -757,11 +754,11 @@ export class ScratchDaemon {
       this.tmuxSocket,
       "-browse-root",
       this.browseRoot,
-      // Plan usage-model-bar REQ-13/INV-4: unconditional on every scratch daemon so no
+      // Unconditional on every scratch daemon so no
       // E2E run — this file or any other — can ever fall through to the real Keychain.
       "-usage-token-file",
       this.usageTokenPath,
-      // Plan issue-capture REQ-17: all three issue-capture flags are unconditional on
+      // All three issue-capture flags are unconditional on
       // every scratch daemon — same discipline as `-usage-token-file` above — so no run
       // can reach the real GitHub API host or execute `gh`.
       "-issue-api-url",
@@ -770,42 +767,42 @@ export class ScratchDaemon {
       this.issueTokenPath,
       "-issue-repo",
       ISSUE_REPO_FIXTURE,
-      // Plan new-ui-design-colors REQ-18/INV-5: unconditional on every scratch daemon —
+      // Unconditional on every scratch daemon —
       // same discipline as `-usage-token-file` above — so no E2E run can ever read the
       // real Claude Code global config file, regardless of whether a given test cares
       // about the theme feature.
       "-claude-config-file",
       this.claudeConfigPath,
-      // Plan resume-and-dangerously-allow REQ-6: unconditional on every scratch daemon —
+      // Unconditional on every scratch daemon —
       // same discipline as `-claude-config-file` above — so no E2E run can ever read the
       // real developer's `~/.claude/projects` transcripts.
       "-claude-projects-dir",
       this.claudeProjectsDir,
-      // Plan auto-update: unconditional on every scratch daemon (Implementation Notes >
+      // Unconditional on every scratch daemon (Implementation Notes >
       // E2E harness) — `""` by default, which the daemon treats as "construct no update
       // manager at all" (never the real github.com/Zalaras/muster host, and never the
       // daemon's own default). A test that wants real checking/apply passes a
       // `FakeReleaseServer` base URL instead.
       "-update-base-url",
       this.updateBaseURL,
-      // Plan tmux-installation REQ-10: defence in depth over REQ-6's terminal condition
+      // Defence in depth over the terminal condition
       // (stdio "ignore" below already makes fd 0 /dev/null, which is not a terminal) — no
       // scratch daemon this harness spawns may ever auto-open a real browser.
       "-open=false",
     ];
-    // Plan embed-dashboard REQ-7: the embedded-serving fixture omits -web-dist
-    // ENTIRELY (not an empty-string flag — R7) so the daemon falls through to its
+    // The embedded-serving fixture omits -web-dist
+    // ENTIRELY (not an empty-string flag) so the daemon falls through to its
     // go:embed default; every other run keeps passing the disk override exactly as
     // before.
     if (!this.serveEmbedded) {
       args.push("-web-dist", webDist);
     }
-    // Plan m4-reconcile REQ-3: omit the flag entirely to exercise the daemon's own
+    // Omit the flag entirely to exercise the daemon's own
     // default (`ask`) rather than hardcoding the string here.
     if (this.onExit !== undefined) {
       args.push("-on-exit", this.onExit);
     }
-    // Plan usage-model-bar REQ-13: both test seams are opt-in per run.
+    // Both test seams are opt-in per run.
     if (this.usagePoll !== undefined) {
       args.push("-usage-poll", this.usagePoll);
     }
@@ -815,12 +812,12 @@ export class ScratchDaemon {
     if (this.repoPoll !== undefined) {
       args.push("-repo-poll", this.repoPoll);
     }
-    // Plan new-ui-design-colors REQ-18: opt-in per run, mirroring -usage-poll — omit to
+    // Opt-in per run, mirroring -usage-poll — omit to
     // leave the daemon's own 10s default.
     if (this.claudeThemePoll !== undefined) {
       args.push("-claude-theme-poll", this.claudeThemePoll);
     }
-    // Plan auto-update: both opt-in per run, mirroring -usage-poll/-claude-theme-poll —
+    // Both opt-in per run, mirroring -usage-poll/-claude-theme-poll —
     // omit to leave the daemon's own defaults (24h interval, embedded production key —
     // the latter irrelevant whenever -update-base-url is empty, since no manager is
     // constructed at all).
@@ -830,9 +827,9 @@ export class ScratchDaemon {
     if (this.updatePublicKeyFile !== undefined) {
       args.push("-update-public-key-file", this.updatePublicKeyFile);
     }
-    // Plan version-claude-interface REQ-13: the shared stub file's bytes never change
+    // The shared stub file's bytes never change
     // (ensureSharedStubClaude keys it by content hash), so the two `--version` knobs
-    // travel as environment variables set only on THIS run's spawn. Plan auto-update adds
+    // travel as environment variables set only on THIS run's spawn. Auto-update adds
     // `extraEnv` (e.g. HOMEBREW_PREFIX) to the same override, merged in first so the
     // stub-version keys always win on a collision (they shouldn't collide in practice —
     // different features, different keys). Every other scratch daemon spawns with no
@@ -841,7 +838,7 @@ export class ScratchDaemon {
   }
 
   /**
-   * The spawn environment. Plan terminal-fixes-cleanup (e2e-specs validate-mode repair):
+   * The spawn environment (e2e-specs validate-mode repair):
    * `npx` unconditionally injects `EDITOR=vi` into a child process's environment when the
    * invoking shell has none set — confirmed with `npx -y node -e
    * "console.log(process.env.EDITOR)"` printing `vi` in a shell where a direct `node -e`
@@ -881,16 +878,16 @@ export class ScratchDaemon {
     const env = this.buildEnv();
     const spawnedAt = Date.now();
     const proc = spawn(this.serveEmbedded ? this.embeddedBinPath : this.resolvedMusterdBin, args, {
-      // Plan embed-dashboard REQ-7: the embedded fixture runs from the scratch data dir
+      // The embedded fixture runs from the scratch data dir
       // itself (an OS tmpdir containing no web/ or internal/ tree) rather than the repo
       // root every other run inherits as its cwd — proving the binary doesn't need a
       // checkout nearby to find its dashboard.
       cwd: this.serveEmbedded ? this.dataDir : undefined,
       // stdin "ignore" (= /dev/null) is never a *terminal* (it is a character device,
       // it just isn't a tty), so every scratch daemon this harness spawns is a non-TTY
-      // process by construction — REQ-3's "ask behaves as leave under non-TTY stdin"
+      // process by construction — the "ask behaves as leave under non-TTY stdin"
       // path, not the interactive prompt (which E2E cannot drive: the daemon-side
-      // `-on-exit=ask` TTY-prompt path is D21/a Go test's job).
+      // `-on-exit=ask` TTY-prompt path is a Go test's job).
       stdio: ["ignore", "pipe", "pipe"],
       env,
     });
@@ -928,13 +925,13 @@ export class ScratchDaemon {
     return `${this.baseURL}/ingest/${this.ingestToken}/${kind}`;
   }
 
-  /** Sends SIGTERM (REQ-20's graceful path) and waits for exit, escalating after 5s. */
+  /** Sends SIGTERM (the graceful path) and waits for exit, escalating after 5s. */
   async kill(): Promise<void> {
     const proc = this.proc;
     this.proc = null;
     if (!proc || proc.exitCode !== null) return;
     await new Promise<void>((resolveExit) => {
-      // Plan tmux-installation REQ-15: this escalation firing means the daemon did not
+      // This escalation firing means the daemon did not
       // shut down gracefully within 5s of SIGTERM — surface it instead of silently
       // force-killing, so a regression (e.g. back into the -on-exit=ask prompt this plan
       // fixed) is visible in the suite's own output rather than masked.
@@ -952,7 +949,7 @@ export class ScratchDaemon {
     });
   }
 
-  /** Kills then respawns on the SAME port and data dir (E12 — tokens/db must survive). */
+  /** Kills then respawns on the SAME port and data dir (tokens/db must survive). */
   async restart(): Promise<void> {
     await this.kill();
     this.paneIdMemo.clear();
@@ -960,9 +957,9 @@ export class ScratchDaemon {
   }
 
   /**
-   * Plan new-ui-design-colors REQ-18: overwrites the scratch `-claude-config-file`
-   * mid-test — the fixture behind E9/E10's "Claude Code's theme changes while polling"
-   * scenarios and edge case 4's torn-write retry. The poller's own ticker (or its
+   * Overwrites the scratch `-claude-config-file`
+   * mid-test — the fixture behind the "Claude Code's theme changes while polling"
+   * scenarios and the torn-write retry. The poller's own ticker (or its
    * immediate on-Start tick, for a write before the daemon starts) picks up the new
    * content; this method only performs the write and deliberately does not wait for any
    * resulting broadcast or DOM change — synchronizing on that is the caller's job.
@@ -972,12 +969,12 @@ export class ScratchDaemon {
   }
 
   /**
-   * Plan resume-and-dangerously-allow REQ-6: writes one fixture Claude Code transcript
+   * Writes one fixture Claude Code transcript
    * (`<encoded-dir>/<claudeSessionId>.jsonl`) into this run's scratch `claudeProjectsDir`,
    * for `GET /api/past-sessions` to read. The folder name is `directory`'s resolved
    * (symlinks followed) path with every character outside `[A-Za-z0-9-]` replaced by `-`
    * (kb:fact/transcript-dir-encoding) — the long-name-plus-hash case is daemon-unit-tested
-   * (D4) and not reproduced here. Line shapes are the session-naming lines
+   * (not reproduced here). Line shapes are the session-naming lines
    * kb:fact/transcript-session-lines measured — `type`, `sessionId` and the field each
    * type names; every line also carries `cwd` (kb:fact/transcript-dir-encoding's "every
    * user, assistant and attachment line carries the real cwd"), which is the only field
@@ -1059,7 +1056,7 @@ export class ScratchDaemon {
 
   /**
    * Removes one fixture transcript written by `writeTranscript()` — edge case 7's "a
-   * transcript deleted between list and POST" fixture (D10/E8): the row was listed
+   * transcript deleted between list and POST" fixture: the row was listed
    * successfully, then the file vanishes before the resume POST runs. `force: true`
    * mirrors `teardown()`'s own tolerance of an already-gone path.
    */
@@ -1086,13 +1083,13 @@ export class ScratchDaemon {
     await rm(this.dataDir, { recursive: true, force: true });
   }
 
-  /** Kills one tmux window by its recorded `tmuxTarget` (E9/E12's explicit-death control). */
+  /** Kills one tmux window by its recorded `tmuxTarget` (the explicit-death control). */
   async killTmuxWindow(tmuxTarget: string): Promise<void> {
     await execFileAsync("tmux", ["-S", this.tmuxSocket, "kill-window", "-t", tmuxTarget]);
   }
 
   /**
-   * Plan m4-reconcile REQ-2's oracle: every tmux session name live on this run's socket
+   * Oracle: every tmux session name live on this run's socket
    * (`tmux ls -F '#{session_name}'`), used to assert reconcile never adopts a row for a
    * `muster-*` pane it doesn't already know, and to confirm `-on-exit=kill`/End actually
    * removed a named session. Returns `[]` if the tmux server on this socket hasn't
@@ -1117,7 +1114,7 @@ export class ScratchDaemon {
   }
 
   /**
-   * Plan m4-reconcile REQ-2's "unknown panes are reported, never adopted" fixture: creates
+   * Fixture for "unknown panes are reported, never adopted": creates
    * a tmux session on this run's socket that the daemon never launched — the exact shape
    * reconcile must log-and-skip. Named by the caller so tests can use a `muster-<n>` name
    * with no corresponding row.
@@ -1127,7 +1124,7 @@ export class ScratchDaemon {
   }
 
   /**
-   * Plan m4-reconcile E7's resume-argv oracle: `#{pane_start_command}` reports the shell
+   * Resume-argv oracle: `#{pane_start_command}` reports the shell
    * command line tmux actually started the pane with, so a resumed session's pane can be
    * proven to carry `--resume <claudeSessionId>` without ever launching a real `claude`
    * (the harness's stub binary receives the same argv either way). Thin wrapper over
@@ -1138,7 +1135,7 @@ export class ScratchDaemon {
   }
 
   /**
-   * Plan general-cleanup REQ-12: the real `%<n>` pane id tmux assigned a launched
+   * The real `%<n>` pane id tmux assigned a launched
    * session's window (`tmux list-panes -F '#{pane_id}'`), for the envelope's `tmuxPane`
    * field — corroboration (`kb:adr/ingest-envelope-pane-must-corroborate`) checks this
    * against the session's stored pane, so a fixture's hardcoded default can no longer
@@ -1174,12 +1171,12 @@ export class ScratchDaemon {
   }
 
   /**
-   * Plan plain-terminal-session INV-1's environment oracle: `tmux show-environment -t
+   * Environment oracle: `tmux show-environment -t
    * <target> <NAME>` reports a pane/session's tmux-level environment — never a state
    * source (CLAUDE.md hard rule still applies: this reads what the daemon already set at
    * spawn time, it never drives anything). Returns the variable's value when present
    * (`NAME=value` on stdout), or `null` when the variable is absent entirely OR was
-   * explicitly unset (tmux prints `-NAME` for that case) — D3/E7's assertion only ever
+   * explicitly unset (tmux prints `-NAME` for that case) — the assertion only ever
    * needs "is MUSTER_SESSION set at all", so both absent shapes collapse to the same
    * `null`. Also returns `null` if the target itself doesn't exist, rather than throwing,
    * mirroring `tmuxPaneExists`'s "missing is a valid answer, not an error" convention.
@@ -1203,7 +1200,7 @@ export class ScratchDaemon {
   }
 
   /**
-   * Tmux geometry oracle for E4/INV-3 (plan m2-terminal): `display-message -p` evaluates
+   * Tmux geometry oracle: `display-message -p` evaluates
    * a tmux format string against `target` (a window or session, e.g. `#{window_width}` /
    * `#{window_height}`) and returns the trimmed result — never a state source (CLAUDE.md
    * hard rule: capture/attach are display + oracle only), used purely to observe geometry
@@ -1223,7 +1220,7 @@ export class ScratchDaemon {
   }
 
   /**
-   * Daemon-side oracle for INV-2 (review m2-terminal Minor 7): sums `#{session_attached}`
+   * Daemon-side oracle: sums `#{session_attached}`
    * (each Muster session is its own tmux session under structural decision 1, so this is
    * an attach-client count per session, 0 or 1 under the one-live-client law) across every
    * tmux session on this run's socket. A browser-only `page.on('websocket')` count can't
@@ -1257,7 +1254,7 @@ export async function startScratchDaemon(opts: ScratchDaemonOptions = {}): Promi
 }
 
 /**
- * Plan version-claude-interface REQ-13: reads REQ-1's own record
+ * Reads the observed-versions record
  * (`internal/claudecode/observed_versions.txt`) directly off the repo checkout — never
  * through a running daemon, since a daemon reads its own embedded copy — and returns its
  * floor/ceiling the same way `Floor()`/`Verified()` derive them in
@@ -1302,7 +1299,7 @@ export async function observedVersionRange(): Promise<{ floor: string; verified:
   return { floor: sorted[0] as string, verified: sorted[sorted.length - 1] as string };
 }
 
-/** Plan auto-update: per-version build cache — a warm relink is ~1-2s, and every test in
+/** Per-version build cache — a warm relink is ~1-2s, and every test in
  * `update.spec.ts` that wants the "old" or "new" fixture binary asks for the same two
  * version strings repeatedly across the file. Keyed by the exact version string passed to
  * `buildVersionedMusterd`; a failed build evicts its own cache entry so a transient
@@ -1313,7 +1310,7 @@ const versionedMusterdCache = new Map<string, Promise<string>>();
  * Builds a real `musterd` binary stamped with an exact release-shaped version string via
  * `-ldflags "-X main.version=<v>"` — the same mechanism the Makefile's own `build` target
  * uses, but pointed at an OS tmpdir rather than the repo's `bin/` (which every other
- * spec's daemon reads unmodified). This is the fixture that makes REQ-8's dev-vs-release
+ * spec's daemon reads unmodified). This is the fixture that makes the dev-vs-release
  * classification, and the whole download/verify/apply pipeline, exercisable against a
  * genuinely different "old" and "new" binary rather than two copies of the same one.
  * `bin/musterd` itself stays `git describe`-stamped (a `dev` build, Implementation Notes >
@@ -1343,7 +1340,7 @@ export async function buildVersionedMusterd(version: string): Promise<string> {
 }
 
 /**
- * Plan auto-update REQ-21: copies `src` (0755) to `<dir>/musterd`, staging it as an
+ * Copies `src` (0755) to `<dir>/musterd`, staging it as an
  * "installer"-classified binary — writable, no `.git` ancestor below `$HOME` — for tests
  * that don't care which specific classification they get. `dir` defaults to a fresh
  * `mkdtemp` OUTSIDE the repo (never inside the checkout, which itself has a `.git`

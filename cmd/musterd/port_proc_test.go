@@ -1,8 +1,8 @@
 package main
 
 // These tests drive a real musterd-under-test subprocess (built once by onexit_test.go's
-// TestMain) for the port behaviours that live in run()'s wiring and the real fd 0: D4, D8,
-// D9, D10, D11, D12, D13 and D14. The pure rules are in port_test.go.
+// TestMain) for the port behaviours that live in run()'s wiring and the real fd 0.
+// The pure rules are in port_test.go.
 
 import (
 	"bytes"
@@ -104,9 +104,9 @@ func exitCode(t *testing.T, cmd *exec.Cmd) int {
 	}
 }
 
-// TestPortProc_YesSavesAndTheNextStartBindsTheSavedPort covers V1 (the exact prompt),
-// D4 (the flag's port is the bound one), D14 (a saved port is read back by the next start
-// in the same data dir) and D3 (that start binds it without prompting).
+// TestPortProc_YesSavesAndTheNextStartBindsTheSavedPort covers the exact prompt,
+// that the flag's port is the bound one, that a saved port is read back by the next start
+// in the same data dir, and that the start binds it without prompting.
 func TestPortProc_YesSavesAndTheNextStartBindsTheSavedPort(t *testing.T) {
 	port := freePort(t)
 	args := portDaemonArgs(t, "", port)
@@ -136,7 +136,7 @@ func TestPortProc_YesSavesAndTheNextStartBindsTheSavedPort(t *testing.T) {
 	assert.NotContains(t, nextStderr.String(), promptTextPrefix, "a saved port is not offered again")
 }
 
-// TestPortProc_DeclineSavesNothingAndIngestIsServedWhilePromptWaits covers D12 and D11: an
+// TestPortProc_DeclineSavesNothingAndIngestIsServedWhilePromptWaits: an
 // ingest POST is answered 200 while the prompt is still unanswered, and a later "n" leaves
 // nothing saved.
 func TestPortProc_DeclineSavesNothingAndIngestIsServedWhilePromptWaits(t *testing.T) {
@@ -165,7 +165,7 @@ func TestPortProc_DeclineSavesNothingAndIngestIsServedWhilePromptWaits(t *testin
 	}, 400*time.Millisecond, 20*time.Millisecond, "D11: an n saves nothing")
 }
 
-// TestPortProc_NeverPrompts covers D5, D7, D8 and D9 against the real fd 0: each row has
+// TestPortProc_NeverPrompts checks against the real fd 0: each row has
 // "y" already waiting on stdin, so a prompt that wrongly appeared would also save.
 func TestPortProc_NeverPrompts(t *testing.T) {
 	tests := []struct {
@@ -227,7 +227,7 @@ func TestPortProc_NeverPrompts(t *testing.T) {
 	}
 }
 
-// TestPortProc_BusyPortExitsNamingThePortAndTheFlag covers D10 and REQ-8: no fallback
+// TestPortProc_BusyPortExitsNamingThePortAndTheFlag: no fallback
 // port, nothing saved, non-zero exit.
 func TestPortProc_BusyPortExitsNamingThePortAndTheFlag(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -247,7 +247,7 @@ func TestPortProc_BusyPortExitsNamingThePortAndTheFlag(t *testing.T) {
 	assert.True(t, os.IsNotExist(statErr), "REQ-8: nothing is saved")
 }
 
-// TestPortProc_CorruptSavedPort covers D13: without -port it is fatal and names the
+// TestPortProc_CorruptSavedPort: without -port it is fatal and names the
 // remedy; with -port it starts, so the remedy works.
 func TestPortProc_CorruptSavedPort(t *testing.T) {
 	t.Run("no flag exits naming -port default", func(t *testing.T) {

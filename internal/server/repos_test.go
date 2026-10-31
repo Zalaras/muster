@@ -44,7 +44,7 @@ func TestHandleListRepos_EmptyStoreReturnsEmptyArray(t *testing.T) {
 	assert.Empty(t, out)
 }
 
-// TestHandleListRepos_IncludesLaunchDefaultsAndOrdering covers REQ-5/D20's additive
+// TestHandleListRepos_IncludesLaunchDefaultsAndOrdering covers the additive
 // fields and the MRU ordering, exercised through the real HTTP handler.
 func TestHandleListRepos_IncludesLaunchDefaultsAndOrdering(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -77,7 +77,7 @@ func TestHandleListRepos_IncludesLaunchDefaultsAndOrdering(t *testing.T) {
 	assert.Nil(t, byPath["/tmp/a"].Branch, "a non-git repo's branch must be null")
 }
 
-// TestHandleListRepos_BranchIsReadAtRequestTimeNotCached covers D20: two requests
+// TestHandleListRepos_BranchIsReadAtRequestTimeNotCached: two requests
 // separated by a real branch change on disk must reflect the new branch, proving the
 // handler reads git state fresh on every call rather than trusting a stored value.
 func TestHandleListRepos_BranchIsReadAtRequestTimeNotCached(t *testing.T) {

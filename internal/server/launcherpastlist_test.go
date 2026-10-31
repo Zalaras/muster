@@ -95,7 +95,7 @@ func TestHandleListPastSessions_NonexistentDirectoryIs404(t *testing.T) {
 	assert.Equal(t, "not_found", decodeErrorCode(t, rec))
 }
 
-// TestHandleListPastSessions_UnreadableProjectsDirYieldsEmptyList covers D8 at the
+// TestHandleListPastSessions_UnreadableProjectsDirYieldsEmptyList checks at the
 // handler: a projects "directory" that is actually a file fails open to an empty, 200
 // list rather than refusing the request — claudecode.PastSessions itself never returns
 // an error for an unreadable root (its own doc comment), so the handler's Warn-log
@@ -115,7 +115,7 @@ func TestHandleListPastSessions_UnreadableProjectsDirYieldsEmptyList(t *testing.
 	assert.False(t, out.Truncated)
 }
 
-// TestHandleListPastSessions_OrdersNewestFirstAndMarksOpenSessionID covers D16: three
+// TestHandleListPastSessions_OrdersNewestFirstAndMarksOpenSessionID: three
 // fixture sessions come back newest lastActiveAt first, and only the one
 // aliveClaudeSessionLookup reports open carries a non-nil openSessionId.
 func TestHandleListPastSessions_OrdersNewestFirstAndMarksOpenSessionID(t *testing.T) {

@@ -35,11 +35,11 @@ describe("isPresetModel", () => {
   });
 });
 
-// W1: INV-1 (Launch disabled iff the selected model's latest verdict is unrecognized) and
-// INV-2 (#model-error visible iff INV-1 holds, text is that verdict's message), across every
+// Launch is disabled iff the selected model's latest verdict is unrecognized,
+// and #model-error is visible iff Launch is disabled, with that verdict's message, across every
 // row of selection (each preset, custom with text, custom empty) x verdict (none,
 // recognized, unchecked, unrecognized) — including the "verdict for the unselected preset"
-// rows that prove REQ-7/REQ-8 are mutually exclusive on one radio.
+// rows that prove the two rules are mutually exclusive on one radio.
 describe("deriveModelRowState — INV-1/INV-2 table (W1)", () => {
   const presetSelection = (model: string): ModelSelection => ({ selected: model, isCustom: false });
   const customSelection = (text: string): ModelSelection => ({ selected: text, isCustom: true });

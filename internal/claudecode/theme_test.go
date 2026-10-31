@@ -11,7 +11,7 @@ import (
 
 // writeThemeFixture writes content to a fresh file inside t.TempDir() and returns its
 // path — every path in this file comes from t.TempDir(), never the real config file
-// (INV-5, D4): ReadThemeFamily is the only exported seam these tests use.
+// ReadThemeFamily is the only exported seam these tests use.
 func writeThemeFixture(t *testing.T, content string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "claude-config.json")
@@ -19,7 +19,7 @@ func writeThemeFixture(t *testing.T, content string) string {
 	return path
 }
 
-// TestReadThemeFamily_UnknownCases covers D5: a missing file, an unreadable path, a
+// TestReadThemeFamily_UnknownCases: a missing file, an unreadable path, a
 // non-JSON body and a non-string "theme" value must all map to ThemeUnknown.
 func TestReadThemeFamily_UnknownCases(t *testing.T) {
 	tests := []struct {
@@ -70,7 +70,7 @@ func TestReadThemeFamily_UnknownCases(t *testing.T) {
 	}
 }
 
-// TestReadThemeFamily_KeyAbsentIsDark covers D6: valid JSON with no "theme" key at all
+// TestReadThemeFamily_KeyAbsentIsDark: valid JSON with no "theme" key at all
 // (Claude Code's own default) maps to ThemeDark, distinguishable from ThemeUnknown.
 func TestReadThemeFamily_KeyAbsentIsDark(t *testing.T) {
 	tests := []struct {
@@ -88,7 +88,7 @@ func TestReadThemeFamily_KeyAbsentIsDark(t *testing.T) {
 	}
 }
 
-// TestReadThemeFamily_PrefixMapping covers D7: every value in the binary's own enum
+// TestReadThemeFamily_PrefixMapping: every value in the binary's own enum
 // prefix-maps to its family, and an unrecognised value maps to ThemeUnknown.
 func TestReadThemeFamily_PrefixMapping(t *testing.T) {
 	tests := []struct {
@@ -111,7 +111,7 @@ func TestReadThemeFamily_PrefixMapping(t *testing.T) {
 	}
 }
 
-// TestReadThemeFamily_IgnoresEveryOtherTopLevelKey covers D8: a fixture with several
+// TestReadThemeFamily_IgnoresEveryOtherTopLevelKey: a fixture with several
 // other top-level keys, including nested objects and arrays, still decodes the "theme"
 // key correctly — proving claudeConfig's single-field decode struct structurally
 // ignores everything else rather than erroring on the extra shape.
@@ -128,7 +128,7 @@ func TestReadThemeFamily_IgnoresEveryOtherTopLevelKey(t *testing.T) {
 	assert.Equal(t, ThemeDark, ReadThemeFamily(path))
 }
 
-// TestReadThemeFamily_NeverWritesThePath is a direct check on INV-6/R1 at the function
+// TestReadThemeFamily_NeverWritesThePath is a direct check at the function
 // level: a read must never modify the file's bytes or mtime, regardless of the value
 // found.
 func TestReadThemeFamily_NeverWritesThePath(t *testing.T) {

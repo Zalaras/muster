@@ -77,7 +77,7 @@ func (r *titleRig) get() *Session {
 	return sess
 }
 
-// TestApplyStatus_TitleOverrideDelivery covers REQ-7/REQ-8 through Manager.ApplyStatus and
+// TestApplyStatus_TitleOverrideDelivery checks through Manager.ApplyStatus and
 // edge cases 1, 13, 14 and 15: before delivery a reported Claude name never touches the
 // override; after delivery (a send, a resume's --name, or Claude's name matching it) a
 // reported name that differs from both the override and the name Claude held just before

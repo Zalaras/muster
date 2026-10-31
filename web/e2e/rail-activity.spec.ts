@@ -10,8 +10,8 @@ import {
 } from "./helpers/session";
 import { openSettingsDialog, settingsCloseButton } from "./helpers/theme";
 
-// Plan rail-card-improvements — REQ-12 through REQ-14 (the turn-aware activity line and
-// its `railActivity` pref), the journeys where a turn's hooks or a prefs round-trip drive
+// The turn-aware activity line and
+// its `railActivity` pref: the journeys where a turn's hooks or a prefs round-trip drive
 // the line. The display properties — the Settings fieldset, Both mode's per-side show/hide
 // and the failed-turn last-reply rule for a given snapshot — are render tests in
 // web/render/rail.spec.ts (plans/_audit/relevel/rail.md). Fixture plan header:

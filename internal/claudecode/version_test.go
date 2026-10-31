@@ -43,7 +43,7 @@ func TestVersionRE(t *testing.T) {
 // writeVersionLeakStub writes a real executable that prints the pinned --version output
 // and then exits successfully while a *descendant* it forked keeps the inherited stdout
 // pipe open for a long time. This is the exact shape that hung musterd's startup before
-// its first log line at e0319f8 (REQ-2): the direct child (the one exec.CommandContext
+// its first log line at e0319f8: the direct child (the one exec.CommandContext
 // tracks) exits promptly, so a stub that merely slept *before* exiting would only prove
 // the ordinary context-deadline/kill path, not this bug — os/exec's Wait blocks on the
 // stdout pipe reaching EOF, and that requires every fd holder to close it, including a
@@ -60,13 +60,13 @@ func writeVersionLeakStub(t *testing.T) string {
 	return path
 }
 
-// TestInstalledVersion_DescendantHoldingStdoutDoesNotHangStartup covers D2/REQ-2 and Edge
+// TestInstalledVersion_DescendantHoldingStdoutDoesNotHangStartup covers Edge
 // Cases 1-2: a claude binary that exits 0 promptly but leaves a descendant holding stdout
 // must not stall InstalledVersion past the WaitDelay bound, since this runs on musterd's
 // startup path before any log line. Its oracle is require.ErrorIs(err, exec.ErrWaitDelay)
 // — which can only hold if WaitDelay actually fired — not a wall-clock elapsed assertion
-// (general-cleanup REQ-2: a wall-clock bound is exactly the flaky-under-load shape this
-// plan exists to remove). The call still runs in a goroutine behind the test's own select,
+// (a wall-clock bound is exactly the flaky-under-load shape this
+// cleanup exists to remove). The call still runs in a goroutine behind the test's own select,
 // bounded at 45s — comfortably under the stub's 60s sleep — whose only job is to fail with
 // a diagnostic instead of hanging the whole `go test` run if WaitDelay is ever reverted or
 // removed; it proves nothing on its own, ErrWaitDelay is what proves the fix held.
@@ -89,7 +89,7 @@ func TestInstalledVersion_DescendantHoldingStdoutDoesNotHangStartup(t *testing.T
 		// reports as an error even though the direct process itself exited 0 — so the
 		// version is unavailable this time, but the call still returned promptly
 		// rather than hanging (the happy-path parse is covered by the existing
-		// subprocess-free TestVersionRE table, D1/Edge Case 3).
+		// subprocess-free TestVersionRE table, Edge Case 3).
 		require.Error(t, res.err)
 		require.ErrorIs(t, res.err, exec.ErrWaitDelay)
 		assert.Empty(t, res.version)
@@ -99,7 +99,7 @@ func TestInstalledVersion_DescendantHoldingStdoutDoesNotHangStartup(t *testing.T
 }
 
 // ---------------------------------------------------------------------------------------
-// ParseObservedVersions / RangeOf / Floor / Verified (REQ-1, D6, D7, INV-6)
+// ParseObservedVersions / RangeOf / Floor / Verified
 
 func TestParseObservedVersions_ValidRowsCommentsAndBlankLines(t *testing.T) {
 	r := strings.NewReader(strings.Join([]string{
@@ -193,7 +193,7 @@ func TestRangeOf_ComparesNumericallyNotLexically(t *testing.T) {
 	assert.Equal(t, "2.1.267", verified)
 }
 
-// TestFloorAndVerified_MatchEmbeddedRecord covers D6/INV-6 against the real, embedded
+// TestFloorAndVerified_MatchEmbeddedRecord checks against the real, embedded
 // observed_versions.txt. The floor is a literal because it never moves — `versions bump`
 // only ever appends a version above the ceiling — but the ceiling is recomputed here from
 // the rows rather than restated, so extending the range stays a one-file edit: restating it
@@ -251,7 +251,7 @@ func TestObservedVersions_EmbeddedFileParsesWithoutPanicking(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------------------
-// FormatRange (D27)
+// FormatRange
 
 func TestFormatRange(t *testing.T) {
 	tests := []struct {
@@ -270,7 +270,7 @@ func TestFormatRange(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------------------
-// ClassifyAgainst / Classify (D8) — synthetic rows so the table is independent of
+// ClassifyAgainst / Classify — synthetic rows so the table is independent of
 // whatever the embedded record happens to contain.
 
 func TestClassifyAgainst(t *testing.T) {
@@ -396,8 +396,8 @@ func TestVersionChecker_InstalledVersion(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------------------
-// CheckVersion (D9): INV-1 (Installed nil iff Status unknown) and INV-2 (Floor/Verified
-// always populated, Floor <= Verified). CheckVersion itself has no run seam (only
+// CheckVersion: Installed is nil iff Status is unknown, and Floor/Verified are
+// always populated with Floor <= Verified. CheckVersion itself has no run seam (only
 // InstalledVersion, above, does) — TestVersionChecker_InstalledVersion already proves the
 // exec-to-version-or-error mapping, and TestClassifyAgainst/TestClassify_UsesEmbeddedRecord
 // already prove the classification math, so the one case here (a nonexistent path, which
@@ -409,13 +409,11 @@ func TestVersionChecker_InstalledVersion(t *testing.T) {
 
 func assertVersionReportInvariants(t *testing.T, report VersionReport) {
 	t.Helper()
-	// INV-1
 	if report.Status == StatusUnknown {
 		assert.Nil(t, report.Installed, "Installed must be nil when Status is unknown")
 	} else {
 		require.NotNil(t, report.Installed, "Installed must be non-nil when Status is %q", report.Status)
 	}
-	// INV-2
 	assert.NotEmpty(t, report.Floor, "Floor must always be populated")
 	assert.NotEmpty(t, report.Verified, "Verified must always be populated")
 	assert.Equal(t, Floor(), report.Floor)
