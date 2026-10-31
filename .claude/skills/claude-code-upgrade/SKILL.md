@@ -1,6 +1,6 @@
 ---
 name: claude-code-upgrade
-description: "Drives the Claude Code version ritual: runs make canary against the installed binary, then records a green run as a verified version and commits it. Routes a red run to the red ritual instead of improvising a fix."
+description: "Drives the Claude Code version ritual: runs make canary against the installed binary, then records a green run as a verified version, commits it and pushes it. Routes a red run to the red ritual instead of improvising a fix."
 argument-hint: "[stable | latest | <version>]"
 allowed-tools: Bash, Read, Edit, Grep
 ---
@@ -120,6 +120,17 @@ git commit -m "fix(versions): record Claude Code <version> as verified by make c
 a shipped change and cuts a patch release — which is what makes the drift warning stop for
 anyone already on that version.
 
+Then push — the developer has authorised this standing, so don't ask — but only when every one
+of these held: the canary was green with no `--- FAIL` in the log, `make check` passed, nothing
+was left unstaged, and the commit succeeded. Any doubt (a rerun flake, a check you fixed by hand,
+a surprise file) means stop and report instead of pushing.
+
+```sh
+git push origin main   # pushes every unpushed commit on main and cuts the patch release
+```
+
+If the push is rejected (origin moved on), stop and report — never force, never rebase unasked.
+
 **Green, and the installed version was already inside the range.** `bump` printed that
 nothing needed recording and edited nothing. There is nothing to commit. Say so in one line.
 
@@ -144,5 +155,6 @@ changes them, through `/plan-work`.
 
 Close with, in this order: installed version and how it got there (already installed, or
 updated on request); the canary verdict; what the range is now; the files committed and the
-commit subject; and an explicit line stating that no fact record was edited. If nothing needed
+commit subject; whether it was pushed (and the commit origin/main now points at), or why not;
+and an explicit line stating that no fact record was edited. If nothing needed
 doing, say so in one line.
