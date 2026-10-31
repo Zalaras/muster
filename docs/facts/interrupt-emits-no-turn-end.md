@@ -8,7 +8,7 @@ features: [lifecycle]
 tags: [claude-code-format, state-machine]
 files: [internal/session/machine.go, internal/claudecode/interpret.go]
 tests: []
-refs: [test/rig/captures/capture-8.jsonl, kb:fact/notification-types-observed, kb:fact/stopfailure-replaces-stop, kb:fact/hook-delivery-best-effort]
+refs: [kb:fact/notification-types-observed, kb:fact/stopfailure-replaces-stop, kb:fact/hook-delivery-best-effort]
 verified: 2.1.280..canary
 guard: TestInterruptEmitsNoTurnEnd
 ---
@@ -37,3 +37,5 @@ each, plus 1 control turn. The replay used a temporary test, not committed. Guar
 2026-09-23 by `TestInterruptEmitsNoTurnEnd` (canary run G), for the mid-tool case: Esc 3 s into a
 `sleep 30` Bash call, then 70 s with no hook at all (2 of 2 runs). The mid-stream case stays a
 probe question.
+
+Raw probe capture (local only, not in git): `capture-8.jsonl`.

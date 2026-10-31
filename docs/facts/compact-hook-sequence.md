@@ -8,7 +8,7 @@ features: [lifecycle]
 tags: [claude-code-format, state-machine]
 files: [internal/claudecode/interpret.go, internal/session/machine.go]
 tests: []
-refs: [test/rig/captures/capture-3-state-2026-10-12.jsonl, test/rig/captures/capture-3-state-2026-10-12b.jsonl, kb:fact/local-command-orphan-idle-prompt, "#65", "#66"]
+refs: [kb:fact/local-command-orphan-idle-prompt, "#65", "#66"]
 verified: 2.1.296..canary
 guard: TestCompactHookSequence
 ---
@@ -45,3 +45,6 @@ live event log held 2 `PreCompact` the same day. Auto-compaction (`trigger:"auto
 was not measured.
 
 Guarded since 2026-10-12 by `TestCompactHookSequence` (canary run O).
+
+Raw probe captures (local only, not in git): `capture-3-state-2026-10-12.jsonl`,
+`capture-3-state-2026-10-12b.jsonl`.

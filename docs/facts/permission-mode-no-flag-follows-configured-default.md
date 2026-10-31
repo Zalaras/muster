@@ -8,7 +8,7 @@ features: [launch]
 tags: [claude-code-format]
 files: [internal/claudecode/launch.go]
 tests: [TestLaunchFlags]
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/permission-mode-flag-on-wire, plan:new-session-improvement]
+refs: [kb:fact/permission-mode-flag-on-wire, plan:new-session-improvement]
 verified: 2.1.280..2.1.280
 guard: TestLaunchFlags
 ---
@@ -25,3 +25,5 @@ manual. Its other claims were not re-tested.
 Evidence: interface probe 2026-09-23, instance 3. There were 3 no-flag interactive sessions
 (footer showed auto, 2 carried a `UserPromptSubmit` reporting `"auto"`) and 1 session each with
 `default` and `manual`, all through the fail-proxy.
+
+Raw probe capture (local only, not in git): `capture-3.jsonl`.

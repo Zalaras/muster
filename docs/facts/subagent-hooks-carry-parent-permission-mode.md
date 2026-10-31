@@ -8,7 +8,7 @@ features: [lifecycle]
 tags: [claude-code-format]
 files: [internal/session/machine.go]
 tests: []
-refs: [test/rig/captures/capture-3-state-2026-10-12.jsonl, kb:fact/subagent-declared-mode-on-hooks, kb:fact/subagent-hooks-carry-agent-id, kb:fact/plan-mode-hook-sequence, "#70"]
+refs: [kb:fact/subagent-declared-mode-on-hooks, kb:fact/subagent-hooks-carry-agent-id, kb:fact/plan-mode-hook-sequence, "#70"]
 verified: 2.1.296..2.1.296
 guard: none
 ---
@@ -30,3 +30,5 @@ then `permission_prompt`, then a subagent-marked `PostToolBatch`, then that agen
 
 Evidence: interface probe 2026-10-12, instance 3, sessions `23d8f5` (plan mode, Explore
 subagent, approval) and `f7c88c` (background permission declined).
+
+Raw probe capture (local only, not in git): `capture-3-state-2026-10-12.jsonl`.

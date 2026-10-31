@@ -8,7 +8,7 @@ features: [lifecycle]
 tags: [claude-code-format, state-machine]
 files: [internal/session/machine.go]
 tests: []
-refs: [test/rig/captures/capture-9.jsonl, kb:fact/background-completion-new-prompt-id, kb:fact/background-tasks-field, "#64"]
+refs: [kb:fact/background-completion-new-prompt-id, kb:fact/background-tasks-field, "#64"]
 verified: 2.1.285..2.1.285
 guard: none
 ---
@@ -27,3 +27,5 @@ between, and the turn carried on (1 of 1).
 subagent as `running`, so only `Stop`'s list is current.
 
 Evidence: interface probe 2026-09-30, instance 9, 1 interactive haiku session.
+
+Raw probe capture (local only, not in git): `capture-9.jsonl`.

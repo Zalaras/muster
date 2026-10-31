@@ -8,7 +8,7 @@ features: [lifecycle]
 tags: [claude-code-format]
 files: [internal/session/machine.go]
 tests: []
-refs: [test/rig/captures/capture-3-state-2026-10-12.jsonl]
+refs: []
 verified: 2.1.296..2.1.296
 guard: none
 ---
@@ -20,3 +20,5 @@ When the queued message is pulled back out by Esc, its own transcript `promptId`
 nothing but one `SubagentStop` (1 of 1). No `UserPromptSubmit` or `Stop` carried it.
 
 Evidence: interface probe 2026-10-12, instance 3, session `f7c88c`.
+
+Raw probe capture (local only, not in git): `capture-3-state-2026-10-12.jsonl`.

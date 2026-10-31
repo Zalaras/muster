@@ -8,7 +8,7 @@ features: [ingest, lifecycle]
 tags: [claude-code-format]
 files: []
 tests: [TestCwdFollowsShellCd]
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/cwd-changed-hook, kb:fact/enter-worktree-moves-project-dir]
+refs: [kb:fact/cwd-changed-hook, kb:fact/enter-worktree-moves-project-dir]
 verified: 2.1.286..canary
 guard: TestCwdFollowsShellCd
 ---
@@ -35,3 +35,5 @@ Evidence: probe instance 3, 2026-10-01, 2 interactive sessions (`50447df0`, `8b5
 `cd`s, 2 outside-project resets, 1 `/add-dir` `cd` into a repo on branch `otherbranch`.
 
 The guard is canary run N: `!cd sub`, then `!cd /` against a failing API, at zero tokens. It asserts the in-project move and the reset. The `/add-dir` case is not guarded.
+
+Raw probe capture (local only, not in git): `capture-3.jsonl`.

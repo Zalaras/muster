@@ -8,7 +8,7 @@ features: [ingest, usage]
 tags: [claude-code-format]
 files: [internal/claudecode/status.go]
 tests: []
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/status-line-effort-key, kb:fact/model-switch-hooks, kb:fact/effort-levels-per-model, kb:fact/effort-default-saved-per-model]
+refs: [kb:fact/status-line-effort-key, kb:fact/model-switch-hooks, kb:fact/effort-levels-per-model, kb:fact/effort-default-saved-per-model]
 verified: 2.1.300..2.1.300
 guard: none
 ---
@@ -32,3 +32,5 @@ Haiku 4.5), with Tab toggling ultracode and `s` applying the level to this sessi
 So effort is known only from the status line: a missed post leaves it stale until the next.
 
 Evidence: probe instance 3, 2026-10-15, session `be474ab5`; 2.1.300.
+
+Raw probe capture (local only, not in git): `capture-3.jsonl`.

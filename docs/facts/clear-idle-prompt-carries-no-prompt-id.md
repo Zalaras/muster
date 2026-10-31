@@ -8,7 +8,7 @@ features: [lifecycle]
 tags: [claude-code-format, state-machine]
 files: [internal/claudecode/interpret.go, internal/session/machine.go]
 tests: []
-refs: [test/rig/captures/capture-9.jsonl, kb:fact/notification-types-observed, kb:fact/clear-mints-new-session-id, "#57"]
+refs: [kb:fact/notification-types-observed, kb:fact/clear-mints-new-session-id, "#57"]
 verified: 2.1.285..2.1.285
 guard: none
 ---
@@ -27,3 +27,5 @@ moves a freshly cleared session to `needs_input` with reason `idle` — issue #5
 
 Evidence: interface probe 2026-09-30, instance 9, 1 interactive haiku session, all 31 hook
 events of the 2.1.285 binary registered as command hooks.
+
+Raw probe capture (local only, not in git): `capture-9.jsonl`.

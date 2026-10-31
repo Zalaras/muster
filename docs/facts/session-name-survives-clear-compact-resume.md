@@ -8,7 +8,7 @@ features: [rename, lifecycle]
 tags: [claude-code-format]
 files: []
 tests: []
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/name-flag-reaches-title, kb:fact/clear-mints-new-session-id, kb:fact/resume-keeps-session-identity]
+refs: [kb:fact/name-flag-reaches-title, kb:fact/clear-mints-new-session-id, kb:fact/resume-keeps-session-identity]
 verified: 2.1.289..2.1.289
 guard: none
 ---

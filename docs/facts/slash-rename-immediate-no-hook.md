@@ -8,7 +8,7 @@ features: [rename]
 tags: [claude-code-format]
 files: []
 tests: []
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/status-session-name-source, kb:fact/transcript-session-lines, kb:fact/refresh-interval-seconds]
+refs: [kb:fact/status-session-name-source, kb:fact/transcript-session-lines, kb:fact/refresh-interval-seconds]
 verified: 2.1.289..2.1.289
 guard: none
 ---

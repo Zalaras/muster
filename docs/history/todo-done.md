@@ -2520,6 +2520,55 @@ that the dashboard shows.
   under `## Issues` and is moved by hand. Filed 2026-10-15 by the developer during the triage
   rework.
 
+- [x] **`make check` fails in a fresh clone or worktree** ✅ done 2026-10-31 (a plan and a commit; fact records name their capture files in the body, not `refs:`; `/interface-probe` says the same; a fresh clone's `kb check` went from 53 problems to 0) — `check-kb` reports `refs` entries for
+  `test/rig/captures/*.jsonl` that match no file; it passes only in the developer's checkout. From `plans/maintainability-cleanup/`.
+
+- [x] **Pipeline gate fixes** ✅ done 2026-10-31 (a plan and a commit; the wave-2 gate runs `make web-lint` whenever `web/` changed) — one tooling plan (releases nothing), both in
+  `.claude/skills/orchestrate/scripts/`:
+  - [x] **Run `make web-lint` in the wave-2 gate** — `gates.sh`'s wave cases hard-code
+    build/lint/test/web-build/web-test/e2e, and Biome reaches a wave only when a plan authors
+    `make web-lint` in its ```` ```checks ```` block. `terminal-fixes-cleanup` authored none, so a
+    format error passed every wave gate and was caught only by hand (`bbad9cf`). Add `web-lint`
+    to the wave-2 case so no plan can forget it. From `plans/terminal-fixes-cleanup/`.
+
+- [x] **The E2E sweep takes about nine minutes and is most of the gate's time** ✅ done 2026-10-31 (a plan and a commit; closed by the developer: the re-levelling cut it to 647 tests in 5.8 min (2026-10-26), enough for now) — 1,001 tests
+  ran in 8.7 min at 4 workers (2026-10-19; 715 in 5.9 min on 2026-10-06). The median test is
+  1.34 s, which is the harness floor for a daemon, a browser page and one or two launches, so
+  the 743 tests under 2 s are 42% of the time and are nearly all floor; the 73 tests over 5 s
+  (window sweeps, restart flows, timer waits) are another 32%. The sweep should take a fraction
+  of that without dropping coverage. Levers with their measured returns, largest first: move
+  floor-bound files to Vitest, more workers (needs an ADR and soaks), pre-start the tmux server
+  in the fixture, coarser sweep steps; sharing daemons returns the least. Since 2026-10-19 the
+  gates run the sweep scoped to a plan's specs per cycle and the whole suite once at Final
+  Validation (kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion), so it runs less
+  often; this entry is about how long one run takes.
+  Measurements: `plans/_audit/test-audit-2026-10-19.md`; the earlier ones in
+  `plans/_audit/test-audit-2026-10-06.md` § "Where the time goes".
+
+- [x] **Two E2E specs fail on a release-tag commit** ✅ done 2026-10-31 (a plan and a commit; `make e2e` and `make e2e-soak` stamp `bin/musterd` `<describe>-e2e`; both specs green on a tagged scratch commit (29 passed)) — `shell.spec.ts:47` and
+  `update.spec.ts:449` fail whenever HEAD is exactly a release tag (e.g. `main` right after a
+  release). Each passes alone on an ordinary commit. From `plans/maintainability-cleanup/`.
+
+- [x] **Four E2E specs go red when a second Playwright suite shares the machine** ✅ done 2026-10-31 (a plan and a commit; two of the four are the release-tag specs (fixed), one is the `embedded.spec.ts` entry (closed) and the `rail-cards.spec.ts` test was removed 2026-10-14; the gate lock still holds) —
+  `shell.spec.ts:47`, `update.spec.ts:456`, `rail-cards.spec.ts:226`, `embedded.spec.ts:76`
+  failed with another suite alive in a second worktree, and passed alone every time
+  (`docs/history/design/test-strategy.md`, 2026-09-26). The gate lock now keeps a second suite
+  out; these four are the ones to look at if the lock ever has to go.
+
+- [x] **`embedded.spec.ts:76` may be macOS holding a freshly copied musterd** ✅ done 2026-10-31 (a plan and a commit; closed unreproduced: 60 of 60 green under `make e2e-soak N=15`; a fresh copy's first exec measured 1.0–1.2 s against the 10 s wait) — the embedded
+  fixture copies a new `musterd` for every start and waits 10 s for `/healthz`; it went red alone,
+  under the gate lock, with empty output (2026-10-15). A daemon start should pass whatever the
+  binary's age. From `plans/claude-version-watch/`.
+
+- [x] **Rule on the E2E re-levelling's borderline tests** ✅ done 2026-10-31 (a plan and a commit; ruled by the developer: every shape stays as it is, the two deleted tests are not restored; rulings in `plans/_audit/test-audit-2026-10-20-relevel.md`) — the 2026-10-20 re-levelling left
+  about 34 tests in E2E that could arguably be render tests. It also deleted two "with the
+  daemon down" E2E tests after porting them to the render tier. Rule on each of the seven
+  shapes in `plans/_audit/test-audit-2026-10-20-relevel.md` § Borderline. The per-batch
+  sections under `plans/_audit/relevel/` give both readings of every test. Expected: each
+  shape is either moved, kept as a journey with the reason recorded, or unblocked by the
+  harness capability it names. The two deleted tests are restored from 2018bab6 if the ruling
+  is that the connection-level failure is the claim. From `plans/_audit/`.
+
 ## Bugs
 
 - [x] **5h gauge showing 100% after reset** ([#105](https://github.com/Zalaras/muster/issues/105)) ✅ done 2026-10-26 (plan `usage-bar-consistency`) — The

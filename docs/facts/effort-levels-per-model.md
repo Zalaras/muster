@@ -8,7 +8,7 @@ features: [launch]
 tags: [claude-code-format]
 files: [internal/claudecode/launch.go, internal/claudecode/status.go]
 tests: []
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/status-line-effort-key, kb:fact/effort-changes-mid-session, kb:fact/effort-flag-values]
+refs: [kb:fact/status-line-effort-key, kb:fact/effort-changes-mid-session, kb:fact/effort-flag-values]
 verified: 2.1.300..2.1.300
 guard: none
 ---
@@ -36,5 +36,6 @@ first post, with no prompt sent and no saved effort:
   every source, flag included.
 - No hook payload carries effort: 64 `SessionStart` payloads across these launches had none.
 
-Evidence: probe instance 3, 2026-10-15, 63 tagged sessions (`--name p_<model>_<effort>`), one
-status-line post read per session; Claude Code 2.1.300 per every payload's `version`.
+Evidence: probe capture `capture-3.jsonl`, 2026-10-15, 63 tagged sessions
+(`--name p_<model>_<effort>`), one status-line post read per session; Claude Code 2.1.300 per
+every payload's `version`.

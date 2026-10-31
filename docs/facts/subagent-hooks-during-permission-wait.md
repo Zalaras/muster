@@ -8,7 +8,7 @@ features: [lifecycle]
 tags: [claude-code-format, state-machine]
 files: [internal/session/machine.go, internal/claudecode/interpret.go]
 tests: []
-refs: [test/rig/captures/capture-8.jsonl, kb:fact/subagent-hooks-carry-agent-id, kb:fact/notification-types-observed]
+refs: [kb:fact/subagent-hooks-carry-agent-id, kb:fact/notification-types-observed]
 verified: 2.1.280..2.1.280
 guard: none
 ---
@@ -33,3 +33,5 @@ prompt clears `Attention` exactly as main-agent activity does.
 
 Evidence: interface probe 2026-09-23, instance 8. 1 interactive haiku session, 3 turns. The
 replay used a temporary test, not committed.
+
+Raw probe capture (local only, not in git): `capture-8.jsonl`.

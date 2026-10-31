@@ -8,7 +8,7 @@ features: [lifecycle]
 tags: [claude-code-format, state-machine]
 files: [internal/claudecode/interpret.go, internal/session/machine.go]
 tests: []
-refs: [test/rig/captures/capture-3-state-2026-10-12c.jsonl, kb:fact/stopfailure-replaces-stop, kb:fact/subagent-hooks-carry-agent-id, "#86"]
+refs: [kb:fact/stopfailure-replaces-stop, kb:fact/subagent-hooks-carry-agent-id, "#86"]
 verified: 2.1.296..2.1.296
 guard: none
 ---
@@ -27,3 +27,5 @@ its input box.
 Evidence: interface probe 2026-10-12, instance 3, session `c60b4b`, through
 `bin/probe-failproxy` (pass-through, then `-status 500`). A plain turn makes no API call after its
 `Stop` (session `506299`: the startup call and the turn's only).
+
+Raw probe capture (local only, not in git): `capture-3-state-2026-10-12c.jsonl`.

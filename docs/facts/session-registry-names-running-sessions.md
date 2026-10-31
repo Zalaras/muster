@@ -8,7 +8,7 @@ features: [rename, launch]
 tags: [claude-code-format]
 files: []
 tests: []
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/no-running-session-signal]
+refs: [kb:fact/no-running-session-signal]
 verified: 2.1.289..2.1.289
 guard: none
 ---
@@ -30,3 +30,5 @@ The sibling `<pid>.<hash>.key` file was not opened.
 
 Evidence: probe sessions s1–s7, 2026-10-05; the developer's own registry file was read for its
 keys only.
+
+Raw probe capture (local only, not in git): `capture-3.jsonl`.

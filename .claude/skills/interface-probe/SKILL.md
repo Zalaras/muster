@@ -182,7 +182,8 @@ md5 -q ~/.claude/settings.json           # matches your baseline
 Per CLAUDE.md doc upkeep, before the session ends:
 
 - New wire-format fact → a record in `docs/facts/` with `verified:` the version the payloads
-  report, `refs:` the capture path with its count ("n of m sessions"), and `guard:` the canary or
+  report, the capture file named in its body with its count ("n of m sessions") — never in
+  `refs:`, which `make check` resolves and captures are gitignored — and `guard:` the canary or
   unit test that pins it (`none` is allowed; offer the backlog line and let the developer file it —
   kb:adr/process-backlog-entries-are-the-users-to-file). A fact proved wrong
   gets its ceiling pinned and a new record linked by `refs`, never a rewrite.

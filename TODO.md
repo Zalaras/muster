@@ -225,17 +225,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
 
 ## Tooling and docs
 
-- [ ] **`make check` fails in a fresh clone or worktree** — `check-kb` reports `refs` entries for
-  `test/rig/captures/*.jsonl` that match no file; it passes only in the developer's checkout. From `plans/maintainability-cleanup/`.
-
-- [ ] **Pipeline gate fixes** — one tooling plan (releases nothing), both in
-  `.claude/skills/orchestrate/scripts/`:
-  - [ ] **Run `make web-lint` in the wave-2 gate** — `gates.sh`'s wave cases hard-code
-    build/lint/test/web-build/web-test/e2e, and Biome reaches a wave only when a plan authors
-    `make web-lint` in its ```` ```checks ```` block. `terminal-fixes-cleanup` authored none, so a
-    format error passed every wave gate and was caught only by hand (`bbad9cf`). Add `web-lint`
-    to the wave-2 case so no plan can forget it. From `plans/terminal-fixes-cleanup/`.
-
 - [ ] **Revisit every doc size budget** — filed by the developer 2026-10-21 after `session-notes`. Runs keep
   trimming text to fit a budget (feature specs at 800 words, hand-written `CLAUDE.md` prose at 400,
   diagram bodies at 300, record summaries at 160 characters, role packs at 30,000) and may be
@@ -243,44 +232,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   and kept, raised or replaced so that fitting it never deletes a true, useful sentence.
   Already over one: `docs/features/connection/spec.md` is 837 words after `custom-port`, so its next
   change needs a split-or-raise decision first. From `plans/custom-port/`.
-
-- [ ] **The E2E sweep takes about nine minutes and is most of the gate's time** — 1,001 tests
-  ran in 8.7 min at 4 workers (2026-10-19; 715 in 5.9 min on 2026-10-06). The median test is
-  1.34 s, which is the harness floor for a daemon, a browser page and one or two launches, so
-  the 743 tests under 2 s are 42% of the time and are nearly all floor; the 73 tests over 5 s
-  (window sweeps, restart flows, timer waits) are another 32%. The sweep should take a fraction
-  of that without dropping coverage. Levers with their measured returns, largest first: move
-  floor-bound files to Vitest, more workers (needs an ADR and soaks), pre-start the tmux server
-  in the fixture, coarser sweep steps; sharing daemons returns the least. Since 2026-10-19 the
-  gates run the sweep scoped to a plan's specs per cycle and the whole suite once at Final
-  Validation (kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion), so it runs less
-  often; this entry is about how long one run takes.
-  Measurements: `plans/_audit/test-audit-2026-10-19.md`; the earlier ones in
-  `plans/_audit/test-audit-2026-10-06.md` § "Where the time goes".
-
-- [ ] **Two E2E specs fail on a release-tag commit** — `shell.spec.ts:47` and
-  `update.spec.ts:449` fail whenever HEAD is exactly a release tag (e.g. `main` right after a
-  release). Each passes alone on an ordinary commit. From `plans/maintainability-cleanup/`.
-
-- [ ] **Four E2E specs go red when a second Playwright suite shares the machine** —
-  `shell.spec.ts:47`, `update.spec.ts:456`, `rail-cards.spec.ts:226`, `embedded.spec.ts:76`
-  failed with another suite alive in a second worktree, and passed alone every time
-  (`docs/history/design/test-strategy.md`, 2026-09-26). The gate lock now keeps a second suite
-  out; these four are the ones to look at if the lock ever has to go.
-
-- [ ] **`embedded.spec.ts:76` may be macOS holding a freshly copied musterd** — the embedded
-  fixture copies a new `musterd` for every start and waits 10 s for `/healthz`; it went red alone,
-  under the gate lock, with empty output (2026-10-15). A daemon start should pass whatever the
-  binary's age. From `plans/claude-version-watch/`.
-
-- [ ] **Rule on the E2E re-levelling's borderline tests** — the 2026-10-20 re-levelling left
-  about 34 tests in E2E that could arguably be render tests. It also deleted two "with the
-  daemon down" E2E tests after porting them to the render tier. Rule on each of the seven
-  shapes in `plans/_audit/test-audit-2026-10-20-relevel.md` § Borderline. The per-batch
-  sections under `plans/_audit/relevel/` give both readings of every test. Expected: each
-  shape is either moved, kept as a journey with the reason recorded, or unblocked by the
-  harness capability it names. The two deleted tests are restored from 2018bab6 if the ruling
-  is that the connection-level failure is the claim. From `plans/_audit/`.
 
 - [ ] **Code cites external docs** — Go and TS comments (and test names) carry `kb:` citations
   to records under `docs/`; code should carry no citations to external docs. Reverses

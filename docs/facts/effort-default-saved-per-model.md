@@ -8,7 +8,7 @@ features: [launch]
 tags: [claude-code-format, security]
 files: [internal/claudecode/launch.go]
 tests: []
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/slash-model-effort-write-user-settings, kb:fact/effort-levels-per-model]
+refs: [kb:fact/slash-model-effort-write-user-settings, kb:fact/effort-levels-per-model]
 verified: 2.1.300..2.1.300
 guard: none
 ---
@@ -29,3 +29,5 @@ not at a fixed default; only an explicit flag is deterministic.
 
 Evidence: probe instance 3, 2026-10-15, sessions `388105f6`, `a23e8f6e`, `64c4307b`, `49c7e636`;
 2.1.300. The settings content was never read; only `md5 -q` was compared.
+
+Raw probe capture (local only, not in git): `capture-3.jsonl`.

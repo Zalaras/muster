@@ -8,7 +8,7 @@ features: [usage]
 tags: [claude-code-format]
 files: []
 tests: []
-refs: [test/rig/captures/capture-3-state-2026-10-12.jsonl, test/rig/captures/capture-3-state-2026-10-12c.jsonl, kb:fact/prompt-cache-status-shape]
+refs: [kb:fact/prompt-cache-status-shape]
 verified: 2.1.296..2.1.296
 guard: none
 ---
@@ -26,3 +26,6 @@ twice, with the same `message.id`, so count by unique id.
 
 Evidence: Haiku sessions 23d8f590 and c283d44d from the 2026-10-12 state probes, re-read
 2026-10-13 against the status-line captures.
+
+Raw probe captures (local only, not in git): `capture-3-state-2026-10-12.jsonl`,
+`capture-3-state-2026-10-12c.jsonl`.

@@ -8,7 +8,7 @@ features: [lifecycle]
 tags: [claude-code-format, state-machine]
 files: [internal/claudecode/interpret.go, internal/session/machine.go]
 tests: []
-refs: [test/rig/captures/capture-3-state-2026-10-12.jsonl, kb:fact/notification-types-observed, kb:fact/compact-hook-sequence, "#72"]
+refs: [kb:fact/notification-types-observed, kb:fact/compact-hook-sequence, "#72"]
 verified: 2.1.296..canary
 guard: TestLocalCommandOrphanIdlePrompt
 ---
@@ -29,3 +29,5 @@ The developer's live event log for the same day held 2 such `idle_prompt`s, in s
 produced those two is not known.
 
 Guarded since 2026-10-12 by `TestLocalCommandOrphanIdlePrompt` (canary run O).
+
+Raw probe capture (local only, not in git): `capture-3-state-2026-10-12.jsonl`.

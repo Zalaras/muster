@@ -8,7 +8,7 @@ features: [lifecycle, ingest]
 tags: [claude-code-format]
 files: [internal/claudecode/settings.go, internal/claudecode/interpret.go]
 tests: []
-refs: [test/rig/captures/capture-8.jsonl, kb:fact/hook-payload-fields]
+refs: [kb:fact/hook-payload-fields]
 verified: 2.1.280..canary
 guard: TestFailedToolEmitsNoPostToolUse
 ---
@@ -32,3 +32,5 @@ Evidence: interface probe 2026-09-23, instance 8. 1 headless and 1 interactive h
 Guarded since 2026-09-23 by `TestFailedToolEmitsNoPostToolUse` (canary run H), for the half the
 production settings can see: a failed `Read` emits `PreToolUse` and no `PostToolUse`. The
 `PostToolUseFailure` payload and the validation-rejected call stay probe-measured.
+
+Raw probe capture (local only, not in git): `capture-8.jsonl`.

@@ -396,7 +396,7 @@ if [[ -n "$WAVE" ]]; then
     1) (( DAEMON_TOUCHED )) && { run_one build "go build ./..."; run_one lint-src "lint_src"; run_one render-fixtures "make check-render-fixtures"; }
        (( WEB_TOUCHED ))    && { run_one web-build-src "web_build_src"; run_one features-inventory "features_inventory"; } ;;
     2) (( DAEMON_TOUCHED )) && { run_one test "make test"; run_one lint "make lint"; run_one render-fixtures "make check-render-fixtures"; }
-       (( WEB_TOUCHED ))    && { run_one web-test "make web-test"; run_one web-build "make web-build"; run_one render-test "make render-test"; } ;;   # render-test holds the lock shared, as this wave does
+       (( WEB_TOUCHED ))    && { run_one web-test "make web-test"; run_one web-build "make web-build"; run_one render-test "make render-test"; run_one web-lint "make web-lint"; } ;;   # render-test holds the lock shared, as this wave does; web-lint whether or not the plan authored it
     3) ;;   # the scoped e2e gate, below, after `--touch` has widened the header it reads
   esac
   run_one features "go tool kb scope --plan $PLAN --touch"   # a fix wave that moved code into another feature widens **Touches** itself

@@ -8,7 +8,7 @@ features: [usage]
 tags: [claude-code-format]
 files: []
 tests: []
-refs: [test/rig/captures/capture-2.jsonl, kb:fact/prompt-cache-5m-keepalive, kb:fact/haiku-main-cache-ttl-5m-on-2-1-299]
+refs: [kb:fact/prompt-cache-5m-keepalive, kb:fact/haiku-main-cache-ttl-5m-on-2-1-299]
 verified: 2.1.300..2.1.300
 guard: none
 ---

@@ -8,7 +8,7 @@ features: [rename, ingest]
 tags: [claude-code-format]
 files: [internal/claudecode/promptreply.go, internal/claudecode/settings.go]
 tests: []
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/hook-output-sets-session-title, kb:fact/status-session-name-source, kb:fact/session-registry-names-running-sessions, plan:rename-claude-session]
+refs: [kb:fact/hook-output-sets-session-title, kb:fact/status-session-name-source, kb:fact/session-registry-names-running-sessions, plan:rename-claude-session]
 verified: 2.1.300..2.1.300
 guard: none
 ---

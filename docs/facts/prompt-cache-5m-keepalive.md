@@ -8,7 +8,7 @@ features: [usage]
 tags: [claude-code-format]
 files: []
 tests: []
-refs: [test/rig/captures/capture-2.jsonl, kb:fact/prompt-cache-status-shape, kb:fact/haiku-main-cache-ttl-5m-on-2-1-299, kb:fact/prompt-cache-outage-goes-cold-after-ttl, "#92"]
+refs: [kb:fact/prompt-cache-status-shape, kb:fact/haiku-main-cache-ttl-5m-on-2-1-299, kb:fact/prompt-cache-outage-goes-cold-after-ttl, "#92"]
 verified: 2.1.300..2.1.300
 guard: TestPromptCacheIdleFollowsRegime
 ---

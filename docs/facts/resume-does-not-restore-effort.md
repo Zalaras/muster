@@ -8,7 +8,7 @@ features: [past-sessions, actions]
 tags: [claude-code-format]
 files: [internal/claudecode/launchtranscripts.go]
 tests: []
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/resume-restores-model-and-mode-except-plan, kb:fact/effort-default-saved-per-model]
+refs: [kb:fact/resume-restores-model-and-mode-except-plan, kb:fact/effort-default-saved-per-model]
 verified: 2.1.300..2.1.300
 guard: none
 ---
@@ -24,3 +24,5 @@ back from the transcript.
   line type records it; a session with no completed turn has no effort recorded.
 
 Evidence: probe instance 3, 2026-10-15, session `be474ab5` (two resumes); 2.1.300.
+
+Raw probe capture (local only, not in git): `capture-3.jsonl`.

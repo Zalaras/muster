@@ -8,7 +8,7 @@ features: [usage]
 tags: [claude-code-format]
 files: []
 tests: []
-refs: [test/rig/captures/capture-5.jsonl, kb:fact/prompt-cache-status-shape, kb:fact/main-cache-ttl-selected-per-model-off-binary, kb:fact/prompt-cache-5m-keepalive]
+refs: [kb:fact/prompt-cache-status-shape, kb:fact/main-cache-ttl-selected-per-model-off-binary, kb:fact/prompt-cache-5m-keepalive]
 verified: 2.1.308..canary
 guard: TestPromptCacheIdleFollowsRegime
 ---

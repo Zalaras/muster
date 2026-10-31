@@ -8,7 +8,7 @@ features: [rename, launch]
 tags: [claude-code-format]
 files: []
 tests: []
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/slash-rename-immediate-no-hook, kb:fact/session-registry-names-running-sessions]
+refs: [kb:fact/slash-rename-immediate-no-hook, kb:fact/session-registry-names-running-sessions]
 verified: 2.1.289..2.1.289
 guard: none
 ---

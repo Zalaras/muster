@@ -8,7 +8,7 @@ features: [lifecycle, ingest]
 tags: [claude-code-format]
 files: [internal/claudecode/interpret.go, internal/session/machine.go]
 tests: [TestInterpret_StopFailure]
-refs: [test/rig/captures/capture-8.jsonl, kb:fact/stopfailure-error-taxonomy, kb:fact/unknown-model-fails-first-turn]
+refs: [kb:fact/stopfailure-error-taxonomy, kb:fact/unknown-model-fails-first-turn]
 verified: 2.1.280..canary
 guard: TestStopFailureErrorByStatus
 ---
@@ -42,3 +42,5 @@ Evidence: interface probe 2026-09-23, instance 8. 18 headless fail-proxy session
 capped headless session, 1 interactive 429. Guarded since 2026-09-23 by
 `TestStopFailureErrorByStatus` (canary run I, zero tokens): 429, 500, 529, 404, 401 and the three
 400 messages. 408, 413, 502, 503, the 403 rows and `max_output_tokens` stay probe-measured.
+
+Raw probe capture (local only, not in git): `capture-8.jsonl`.

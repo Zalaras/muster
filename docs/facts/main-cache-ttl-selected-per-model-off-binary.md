@@ -8,7 +8,7 @@ features: [usage, canary]
 tags: [claude-code-format]
 files: []
 tests: []
-refs: [test/rig/captures/capture-5.jsonl, kb:fact/haiku-main-cache-ttl-5m-on-2-1-299, kb:fact/prompt-cache-5m-keepalive, kb:fact/prompt-cache-1h-no-keepalive-warm-flips-at-expiry, kb:fact/custom-base-url-selects-1h-cache, kb:fact/subagent-cache-ttl-5m]
+refs: [kb:fact/haiku-main-cache-ttl-5m-on-2-1-299, kb:fact/prompt-cache-5m-keepalive, kb:fact/prompt-cache-1h-no-keepalive-warm-flips-at-expiry, kb:fact/custom-base-url-selects-1h-cache, kb:fact/subagent-cache-ttl-5m]
 verified: 2.1.296..2.1.308
 guard: none
 ---

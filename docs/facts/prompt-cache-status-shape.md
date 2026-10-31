@@ -8,7 +8,7 @@ features: [usage]
 tags: [claude-code-format]
 files: []
 tests: []
-refs: [test/rig/captures/capture-3.jsonl, test/rig/captures/capture-9.jsonl, test/rig/captures/capture-6.jsonl, kb:fact/status-line-keys, kb:fact/subagent-cache-ttl-5m, "#84"]
+refs: [kb:fact/status-line-keys, kb:fact/subagent-cache-ttl-5m, "#84"]
 verified: 2.1.259..2.1.296
 guard: TestPromptCacheExpiryIsStopPlusTTL
 ---
@@ -47,3 +47,6 @@ sends no posts that could carry a flip anyway (kb:fact/refresh-interval-seconds)
 
 Evidence: existing probe captures re-read 2026-10-13, no new tokens spent; versions 2.1.259,
 2.1.270, 2.1.280–2.1.296.
+
+Raw probe captures (local only, not in git): `capture-3.jsonl`, `capture-9.jsonl`,
+`capture-6.jsonl`.

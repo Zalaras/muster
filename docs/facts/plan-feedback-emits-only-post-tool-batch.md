@@ -8,7 +8,7 @@ features: [lifecycle, ingest]
 tags: [claude-code-format, state-machine]
 files: [internal/claudecode/interpret.go, internal/claudecode/settings.go]
 tests: []
-refs: [test/rig/captures/capture-9.jsonl, kb:fact/plan-mode-hook-sequence, kb:fact/tool-failure-hook-events, "#32"]
+refs: [kb:fact/plan-mode-hook-sequence, kb:fact/tool-failure-hook-events, "#32"]
 verified: 2.1.285..2.1.285
 guard: none
 ---
@@ -26,3 +26,5 @@ Consequence for Muster: `PostToolBatch` is not registered, so after feedback the
 `needs_input` until the next tool call — for a long-thinking model, the whole replan (#32).
 
 Evidence: interface probe 2026-09-30, instance 9, 1 interactive haiku session in plan mode.
+
+Raw probe capture (local only, not in git): `capture-9.jsonl`.

@@ -8,7 +8,7 @@ features: [lifecycle]
 tags: [claude-code-format, state-machine]
 files: [internal/claudecode/interpret.go, internal/session/machine.go]
 tests: []
-refs: [test/rig/captures/capture-3-state-2026-10-12b.jsonl, kb:fact/notification-types-observed, kb:fact/local-command-orphan-idle-prompt]
+refs: [kb:fact/notification-types-observed, kb:fact/local-command-orphan-idle-prompt]
 verified: 2.1.296..2.1.296
 guard: none
 ---
@@ -23,3 +23,5 @@ put back in the input box after an Esc (kb:fact/interrupt-before-output-leaves-n
 the interrupted compaction).
 
 Evidence: interface probe 2026-10-12, instance 3, session `716b0a`.
+
+Raw probe capture (local only, not in git): `capture-3-state-2026-10-12b.jsonl`.

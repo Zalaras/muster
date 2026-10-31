@@ -8,7 +8,7 @@ features: [ingest]
 tags: [claude-code-format]
 files: []
 tests: [TestAddedDirsInStatusLine, TestInstalledBinaryCarriesInterfaceStrings]
-refs: [test/rig/captures/capture-0.jsonl, kb:fact/status-line-keys, kb:fact/cwd-changed-hook, "#93", "#101"]
+refs: [kb:fact/status-line-keys, kb:fact/cwd-changed-hook, "#93", "#101"]
 verified: 2.1.301..canary
 guard: TestAddedDirsInStatusLine
 ---
@@ -42,6 +42,6 @@ or from settings at startup or on resume, and it does not re-fire after `/clear`
 alone misses directories the status line shows. The transcript has only the `/add-dir` echo
 as user text.
 
-Evidence: probe instance 0, 2026-10-16. Session `1289b2cc` ran one `/add-dir` per option
-(2 `DirectoryAdded` per transport), then `/clear` (`008f26d7`) and `--resume`. Session
+Evidence: probe capture `capture-0.jsonl`, 2026-10-16. Session `1289b2cc` ran one `/add-dir`
+per option (2 `DirectoryAdded` per transport), then `/clear` (`008f26d7`) and `--resume`. Session
 `a4c781cc`, launched with `--add-dir`, fired none.

@@ -8,7 +8,7 @@ features: [rename, ingest]
 tags: [claude-code-format]
 files: []
 tests: []
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/hook-await-per-event, kb:fact/slash-rename-immediate-no-hook]
+refs: [kb:fact/hook-await-per-event, kb:fact/slash-rename-immediate-no-hook]
 verified: 2.1.289..2.1.289
 guard: none
 ---

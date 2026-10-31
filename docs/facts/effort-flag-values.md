@@ -8,7 +8,7 @@ features: [launch]
 tags: [claude-code-format]
 files: [internal/claudecode/launch.go]
 tests: [TestInstalledBinaryCarriesInterfaceStrings]
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/effort-levels-per-model]
+refs: [kb:fact/effort-levels-per-model]
 verified: 2.1.300..2.1.300
 guard: TestInstalledBinaryCarriesInterfaceStrings
 ---
@@ -27,3 +27,5 @@ command offers more (`auto`, `ultracode [on|off]`); the flag treats them differe
 
 Evidence: probe instance 3, 2026-10-15; stderr from `--bare --no-session-persistence -p ""` runs
 (zero tokens) and tagged interactive sessions; 2.1.300.
+
+Raw probe capture (local only, not in git): `capture-3.jsonl`.

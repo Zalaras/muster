@@ -8,7 +8,7 @@ features: [lifecycle]
 tags: [claude-code-format, state-machine]
 files: [internal/claudecode/interpret.go, internal/session/machine.go]
 tests: []
-refs: [test/rig/captures/capture-3-state-2026-10-12c.jsonl, kb:fact/subagent-hooks-carry-parent-permission-mode, kb:fact/permission-mode-presence-split, "#70"]
+refs: [kb:fact/subagent-hooks-carry-parent-permission-mode, kb:fact/permission-mode-presence-split, "#70"]
 verified: 2.1.296..2.1.296
 guard: none
 ---
@@ -31,3 +31,5 @@ reads `working` instead of `planning` with no plan approved.
 
 Evidence: interface probe 2026-10-12, instance 3, session `c283d4`. The other built-in agents'
 definitions were read from the same bundle.
+
+Raw probe capture (local only, not in git): `capture-3-state-2026-10-12c.jsonl`.

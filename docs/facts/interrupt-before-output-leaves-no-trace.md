@@ -8,7 +8,7 @@ features: [lifecycle]
 tags: [claude-code-format, state-machine]
 files: [internal/claudecode/interpret_transcript.go, internal/session/interrupt.go]
 tests: []
-refs: [test/rig/captures/capture-3-state-2026-10-12.jsonl, kb:fact/interrupt-recorded-in-transcript, kb:fact/interrupt-emits-no-turn-end, "#78"]
+refs: [kb:fact/interrupt-recorded-in-transcript, kb:fact/interrupt-emits-no-turn-end, "#78"]
 verified: 2.1.296..canary
 guard: TestInterruptBeforeOutputLeavesNoTrace
 ---
@@ -43,3 +43,5 @@ real API), `d51ae8` (Esc during retries) and `3e7d2c` (retries left to run out),
 through `bin/probe-failproxy -status 500`.
 
 Guarded since 2026-10-12 by `TestInterruptBeforeOutputLeavesNoTrace` (canary run P).
+
+Raw probe capture (local only, not in git): `capture-3-state-2026-10-12.jsonl`.

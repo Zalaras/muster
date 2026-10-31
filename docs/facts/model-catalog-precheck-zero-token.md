@@ -8,7 +8,7 @@ features: [launch]
 tags: [claude-code-format]
 files: [internal/claudecode/modelcheck.go]
 tests: [TestModelCatalogPrecheck, TestInstalledBinaryCarriesInterfaceStrings, TestStderrSaysUnrecognised]
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/fable-model-alias, plan:new-session-improvement, kb:fact/unknown-model-warning-names-assumed-window]
+refs: [kb:fact/fable-model-alias, plan:new-session-improvement, kb:fact/unknown-model-warning-names-assumed-window]
 verified: 2.1.274..2.1.296
 guard: none
 ---
@@ -33,3 +33,5 @@ Evidence: interface probe 2026-09-23, instance 3. There were 12 unauthenticated 
 and one `zephyr` run on each of 2.1.274, 2.1.278 and 2.1.280. There were 3 authenticated
 empty-prompt runs through the fail-proxy. There were 4 `--bare` runs, which added 0 capture
 lines.
+
+Raw probe capture (local only, not in git): `capture-3.jsonl`.

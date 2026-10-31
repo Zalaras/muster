@@ -8,7 +8,7 @@ features: [lifecycle, ingest]
 tags: [claude-code-format]
 files: []
 tests: [TestBangCommandFiresNoPromptSubmit]
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/hook-payload-fields]
+refs: [kb:fact/hook-payload-fields]
 verified: 2.1.286..canary
 guard: TestBangCommandFiresNoPromptSubmit
 ---
@@ -25,3 +25,5 @@ Evidence: probe instance 3, 2026-10-01, sessions `50447df0` (3 `!` commands, 1
 `UserPromptSubmit`, 4 `Stop`) and `8b5e8581` (2 `!` commands, 3 `UserPromptSubmit`, 5 `Stop`).
 
 The guard is canary run N, where every API call fails, so the turn there ends in `StopFailure`. It asserts only that no `UserPromptSubmit` or tool hook fires.
+
+Raw probe capture (local only, not in git): `capture-3.jsonl`.

@@ -8,7 +8,7 @@ features: [usage]
 tags: [claude-code-format]
 files: []
 tests: []
-refs: [test/rig/captures/capture-4.jsonl, kb:fact/prompt-cache-status-shape, kb:fact/subagent-cache-ttl-5m, "#84"]
+refs: [kb:fact/prompt-cache-status-shape, kb:fact/subagent-cache-ttl-5m, "#84"]
 verified: 2.1.299..2.1.300
 guard: none
 ---

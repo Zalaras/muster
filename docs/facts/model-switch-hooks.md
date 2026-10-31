@@ -8,7 +8,7 @@ features: [ingest, lifecycle, usage]
 tags: [claude-code-format]
 files: [internal/claudecode/status.go, internal/claudecode/interpret.go]
 tests: [TestInstalledBinaryCarriesInterfaceStrings]
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/status-model-is-object, kb:fact/sessionstart-model-optional-string]
+refs: [kb:fact/status-model-is-object, kb:fact/sessionstart-model-optional-string]
 verified: 2.1.286..canary
 guard: TestInstalledBinaryCarriesInterfaceStrings
 ---
@@ -38,3 +38,5 @@ Evidence: probe instance 3, 2026-10-01, sessions `c80dcde6` (haiku→sonnet) and
 (haiku→sonnet→haiku).
 
 The guard checks only that both events and `requested_model` are still in the bundle. A live check would need `/model`, which writes the user settings (kb:fact/slash-model-effort-write-user-settings).
+
+Raw probe capture (local only, not in git): `capture-3.jsonl`.

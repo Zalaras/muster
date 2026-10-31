@@ -80,9 +80,12 @@ e2e-lint: ## Mechanical checks on web/e2e (fixtures only from helpers/fixtures.t
 # gates pass the plan's scope every cycle and run the bare suite once at Final Validation
 # (kb:adr/process-e2e-gates-scoped-full-sweep-once-at-completion).
 SPECS ?=
+# The suite's bin/musterd must be a dev build (update.spec, shell.spec): on a commit that is exactly
+# a release tag `git describe` prints a bare release version, so the suffix keeps it dev-shaped.
+E2E_VERSION := $(VERSION)-e2e
 .PHONY: e2e
 e2e: $(GATELOCK) ## Playwright E2E suite under the exclusive gate lock (builds first; runs e2e-lint via npm run e2e; SPECS='e2e/a.spec.ts e2e/b.spec.ts' narrows it to those files)
-	$(GATELOCK) run --exclusive -- $(MAKE) web-build build e2e-run SPECS='$(SPECS)'
+	$(GATELOCK) run --exclusive -- $(MAKE) web-build build e2e-run SPECS='$(SPECS)' VERSION='$(E2E_VERSION)'
 
 .PHONY: e2e-run
 e2e-run: ## The Playwright sweep alone, no build (make e2e runs this under the lock; globalSetup no-ops the nested lock; honours SPECS)
@@ -96,7 +99,7 @@ N ?= 10
 .PHONY: e2e-soak
 e2e-soak: $(GATELOCK) ## Repeat one spec file N times in parallel to prove a flake fix (SPEC=<file>.spec.ts, N=10, GREP=<title> narrows to matching tests)
 	@test -n "$(SPEC)" || { echo "usage: make e2e-soak SPEC=<file>.spec.ts [N=10] [GREP='<title>']"; exit 2; }
-	$(GATELOCK) run --exclusive -- $(MAKE) web-build build e2e-soak-run SPEC=$(SPEC) N=$(N) GREP='$(GREP)'
+	$(GATELOCK) run --exclusive -- $(MAKE) web-build build e2e-soak-run SPEC=$(SPEC) N=$(N) GREP='$(GREP)' VERSION='$(E2E_VERSION)'
 
 .PHONY: e2e-soak-run
 e2e-soak-run: ## The soak alone, no build (make e2e-soak runs this under the lock)

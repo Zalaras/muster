@@ -8,7 +8,7 @@ features: [lifecycle]
 tags: [claude-code-format, state-machine]
 files: [internal/claudecode/interpret.go, internal/session/machine.go]
 tests: []
-refs: [test/rig/captures/capture-9.jsonl, kb:fact/interrupt-emits-no-turn-end, kb:fact/transcript-session-lines, "#59"]
+refs: [kb:fact/interrupt-emits-no-turn-end, kb:fact/transcript-session-lines, "#59"]
 verified: 2.1.285..2.1.285
 guard: none
 ---
@@ -31,3 +31,5 @@ The status line keeps posting after an interrupt, and now carries `prompt_id`, b
 it marks the interrupt.
 
 Evidence: interface probe 2026-09-30, instance 9, 1 interactive haiku session.
+
+Raw probe capture (local only, not in git): `capture-9.jsonl`.

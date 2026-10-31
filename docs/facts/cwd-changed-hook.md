@@ -8,7 +8,7 @@ features: [ingest]
 tags: [claude-code-format]
 files: []
 tests: [TestInstalledBinaryCarriesInterfaceStrings]
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/cwd-follows-claude-mid-session]
+refs: [kb:fact/cwd-follows-claude-mid-session]
 verified: 2.1.286..canary
 guard: TestInstalledBinaryCarriesInterfaceStrings
 ---
@@ -50,3 +50,5 @@ Evidence: probe instance 3, 2026-10-01, sessions `8b5e8581` and `f0f21860`: 3 `C
 transport.
 
 The guard checks only that the event and its two fields are still in the bundle. Production registers no `CwdChanged` hook, so no canary run can observe it.
+
+Raw probe capture (local only, not in git): `capture-3.jsonl`.

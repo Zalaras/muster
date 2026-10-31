@@ -8,7 +8,7 @@ features: [usage]
 tags: [claude-code-format]
 files: [internal/claudecode/status.go]
 tests: [TestStatusLineFields, TestInstalledBinaryCarriesInterfaceStrings]
-refs: [test/rig/captures/capture-3.jsonl, kb:fact/status-line-keys, kb:fact/model-switch-hooks]
+refs: [kb:fact/status-line-keys, kb:fact/model-switch-hooks]
 verified: 2.1.286..canary
 guard: TestStatusLineFields
 ---
@@ -34,3 +34,5 @@ means "this model has no effort setting", not "unknown".
 Evidence: probe instance 3, 2026-10-01, sessions `50447df0`, `c80dcde6`, `8b5e8581`, `f0f21860`; Sonnet posts 15 of 15 carry the key.
 
 The guard asserts the absent half live: no Haiku post in any canary run carries `effort`. The present half and the builder literal `effort:{level:` are presence-checked by `TestInstalledBinaryCarriesInterfaceStrings`. Effort-capable models are outside the Haiku-only rule.
+
+Raw probe capture (local only, not in git): `capture-3.jsonl`.

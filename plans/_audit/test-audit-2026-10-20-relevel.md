@@ -193,3 +193,22 @@ Each batch's section lists its borderline tests with both readings. The recurrin
    data, never hand-written, but a frame from another scenario.
 7. **Vitest**: no batch found pure logic still tested only in E2E; every candidate matcher,
    parser and formatter already had unit coverage.
+
+## Rulings — the developer, 2026-10-31
+
+1. **View or pref switch inside the test** — stay journeys: the switch's round trip through the
+   daemon is part of the claim.
+2. **Property plus the PUT/DELETE that follows** — stay journeys: the action reaching the daemon
+   is the claim.
+3. **Property proven after a hook changes state** — stay journeys: the hook moving state is
+   daemon behaviour.
+4. **Harness capabilities that would move more** — not built now; the E2E speed work is closed
+   for the time being. Revisit only if sweep time becomes a cost again.
+5. **The two deleted "with the daemon down" tests** — not restored: a 404 and a dead daemon take
+   the same `{ok:false}` branch, launch's two `route.abort()` journeys hold the connection-level
+   failure, and the render tier holds the display.
+6. **Patterns to confirm** — both accepted: a pinned page clock, and a frame recorded for
+   another scenario (daemon-generated data, never hand-written).
+7. **Vitest** — nothing to move.
+
+Net: no test moves.

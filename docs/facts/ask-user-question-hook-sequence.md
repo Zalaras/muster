@@ -8,7 +8,7 @@ features: [lifecycle]
 tags: [claude-code-format, state-machine]
 files: [internal/claudecode/interpret.go]
 tests: []
-refs: [test/rig/captures/capture-9.jsonl, kb:fact/notification-types-observed, "#40"]
+refs: [kb:fact/notification-types-observed, "#40"]
 verified: 2.1.285..2.1.285
 guard: none
 ---
@@ -22,3 +22,5 @@ submitted. A session that leaves `needs_input` part-way through answering is bei
 something else — a background subagent's hooks (kb:fact/subagent-hooks-during-permission-wait).
 
 Evidence: interface probe 2026-09-30, instance 9, 1 interactive haiku session.
+
+Raw probe capture (local only, not in git): `capture-9.jsonl`.
