@@ -216,6 +216,13 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Filed 2026-10-23 from musterd 0.25.3 / Claude Code 2.1.293, focus view, session idle.
   Labels: enhancement, sessions, documents, ux.
 
+- [ ] **Performance and energy consumption** ([#114](https://github.com/Zalaras/muster/issues/114)) — The
+  author wants the daemon's performance and energy consumption reviewed, noting some usage comes
+  from Claude and the browser, which are outside the project's control. Expected: The daemon and
+  related components should have a minimal performance and energy footprint.
+  Filed 2026-10-30.
+  Labels: chore, process, perf.
+
 ## Tooling and docs
 
 - [ ] **`make check` fails in a fresh clone or worktree** — `check-kb` reports `refs` entries for
