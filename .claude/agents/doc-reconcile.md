@@ -68,7 +68,7 @@ review has already approved, so you are the last reader.
 
 Edit `docs/features/<name>/spec.md` bodies and `docs/protocol.md` so they describe the world as it is
 now. Apply the delta's deletions — they are not optional, they are what keeps a spec inside its
-800-word budget (`kb.yaml` budgets), and `check-kb` hard-fails past it. A delta you cannot fit
+1000-word budget (`kb.yaml` budgets), and `check-kb` hard-fails past it. A delta you cannot fit
 even after its deletions is a feature-splitting decision, not an editorial call: the verdict is
 `blocked`.
 

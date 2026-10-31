@@ -295,7 +295,7 @@ author it here when there is not.
 
 Per feature: the sentences that **become true**, and the sentences that **stop being true**. Write
 each as an assertion about the target file, not an instruction, so it can be re-verified rather than
-merely re-run. The deletions half is required — a spec body is capped at 800 words and
+merely re-run. The deletions half is required — a spec body is capped at 1000 words and
 `check-kb` hard-fails past it, so a delta that only adds will eventually break the build at the very
 end of a run.
 

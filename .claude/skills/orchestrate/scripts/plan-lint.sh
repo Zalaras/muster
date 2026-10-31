@@ -213,7 +213,7 @@ if [[ -n "$paths$named$others" ]]; then
   fi
 fi
 
-# 13. Doc Delta arithmetic: a spec body is capped at 800 words (check-kb). groups' rail delta needed
+# 13. Doc Delta arithmetic: a spec body is capped at 1000 words (check-kb). groups' rail delta needed
 #     ~320 words against a spec at 792 - 100 freed, found by doc-reconcile after review approved; the
 #     split into a `groups` feature was a developer decision two hours before the run could complete.
 python3 - "$P" <<'PY' || true
@@ -238,10 +238,10 @@ if m:
         body = spec.read_text().split("---", 2)[-1]
         body = re.sub(r"```mermaid.*?```", "", body, flags=re.S)  # check-kb excludes mermaid source; a 947-word NOTE on a 797-word body cost launch-inflight-guard five minutes
         words = len(body.split()) + adds.get(f, 0) - cuts.get(f, 0)
-        if words > 800:
-            print(f"NOTE  Doc Delta: {f} spec would reach ~{words} words (cap 800) — cut more under 'stops being true' or split a feature before approval")
-        elif words > 700:  # docs-search-bar planned ~800 and stayed silent; fix waves' doc-delta lines added ~50 more and doc-reconcile blocked
-            print(f"NOTE  Doc Delta: {f} spec would reach ~{words} of 800 words — fix waves add claims; cut or split a feature before approval")
+        if words > 1000:
+            print(f"NOTE  Doc Delta: {f} spec would reach ~{words} words (cap 1000) — cut more under 'stops being true' or split a feature before approval")
+        elif words > 900:  # docs-search-bar planned ~800 against the then 800 cap and stayed silent; fix waves' doc-delta lines added ~50 more and doc-reconcile blocked
+            print(f"NOTE  Doc Delta: {f} spec would reach ~{words} of 1000 words — fix waves add claims; cut or split a feature before approval")
 PY
 
 # 14. Warn, never fail: Affected Files is an impact read, so a backticked call or signature there pins

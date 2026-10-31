@@ -52,7 +52,7 @@ tags: [auth, state-machine, envelope, tmux, store, security, testing, pipeline, 
 # Word and line budgets check enforces as hard failures (the module documents each default).
 budgets:
   body_words: 300
-  spec_words: 800
+  spec_words: 1000
   runbook_words: 600
   summary_chars: 160
   root_claude_lines: 150

@@ -225,22 +225,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
 
 ## Tooling and docs
 
-- [ ] **Revisit every doc size budget** — filed by the developer 2026-10-21 after `session-notes`. Runs keep
-  trimming text to fit a budget (feature specs at 800 words, hand-written `CLAUDE.md` prose at 400,
-  diagram bodies at 300, record summaries at 160 characters, role packs at 30,000) and may be
-  cutting information that was useful. Each budget should be checked against what it now forces out,
-  and kept, raised or replaced so that fitting it never deletes a true, useful sentence.
-  Already over one: `docs/features/connection/spec.md` is 837 words after `custom-port`, so its next
-  change needs a split-or-raise decision first. From `plans/custom-port/`.
-
-- [ ] **Code cites external docs** — Go and TS comments (and test names) carry `kb:` citations
-  to records under `docs/`; code should carry no citations to external docs. Reverses
-  `docs/conventions.md` § Comments, which asks for them — change it there first. From
-  `plans/settings-update-failures/`.
-
-- [ ] **Plan IDs remain in test-file comments** — about 370 lines; production code is clean.
-  From `plans/maintainability-cleanup/`.
-
 ## v1 Release
 
 The release itself: the Homebrew tap, then cutting v1.0.0 — last, once every section above is

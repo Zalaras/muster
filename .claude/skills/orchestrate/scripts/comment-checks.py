@@ -6,14 +6,15 @@ limited to the paths the role owns:
 
   daemon-impl   cmd/ internal/, not *_test.go      plan IDs, review labels, dead references
   web-impl      web/src/, not *.test.ts            plan IDs, review labels, dead references
-  daemon-tests  *_test.go under cmd/ internal/     review labels, dead references
-  web-tests     web/src/**/*.test.ts               review labels, dead references
-  render-tests  web/render/                        review labels, dead references
-  e2e-specs     web/e2e/                           review labels, dead references
+  daemon-tests  *_test.go under cmd/ internal/     plan IDs, review labels, dead references
+  web-tests     web/src/**/*.test.ts               plan IDs, review labels, dead references
+  render-tests  web/render/                        plan IDs, review labels, dead references
+  e2e-specs     web/e2e/                           plan IDs, review labels, dead references
   --gates       both impl roles' paths             plan IDs, review labels (the gates' check-kb runs kb refs --all itself)
 
-- **Plan IDs** (`REQ-4`, `INV-2`, `D8`, `W6`, `E5`) inside a production comment point into a
-  plans/ directory a reader outside the branch can't follow. Test titles keep them by convention.
+- **Plan IDs** (`REQ-4`, `INV-2`, `D8`, `W6`, `E5`) inside a comment, production or test, point
+  into a plans/ directory a reader outside the branch can't follow. Test titles keep them: review
+  maps each criterion to its test by the id in the title.
 - **Review labels** (`Fix Attempt 1`, `browser Minor 1`, `review cycle 2`, soak runs) narrate how
   the branch got here, which `docs/conventions.md` § Comments rules out everywhere.
 - **Dead references**: `go tool kb refs` over the role's changed files.
@@ -31,10 +32,10 @@ import pathlib, re, subprocess, sys
 ROLES = {
     "daemon-impl":  (("cmd/", "internal/"), lambda p: not p.endswith("_test.go"), True),
     "web-impl":     (("web/src/",), lambda p: not p.endswith(".test.ts"), True),
-    "daemon-tests": (("cmd/", "internal/"), lambda p: p.endswith("_test.go"), False),
-    "web-tests":    (("web/src/",), lambda p: p.endswith(".test.ts"), False),
-    "render-tests": (("web/render/",), lambda p: True, False),
-    "e2e-specs":    (("web/e2e/",), lambda p: True, False),
+    "daemon-tests": (("cmd/", "internal/"), lambda p: p.endswith("_test.go"), True),
+    "web-tests":    (("web/src/",), lambda p: p.endswith(".test.ts"), True),
+    "render-tests": (("web/render/",), lambda p: True, True),
+    "e2e-specs":    (("web/e2e/",), lambda p: True, True),
 }
 CODE = (".go", ".ts", ".css", ".js", ".mjs", ".html")
 PLAN_ID = re.compile(r"\b(?:REQ|INV)-\d+\b|\b[DWRE]\d{1,2}\b")

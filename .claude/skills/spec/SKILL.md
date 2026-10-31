@@ -129,7 +129,7 @@ section stages what this work does to it, per feature §0 named:
 - **Stops being true** — the sentences that must come out.
 
 Draft both halves from what the developer has told you and ask them to confirm. The deletions half is
-required: a spec body is capped at 800 words and `check-kb` hard-fails past it, so additions
+required: a spec body is capped at 1000 words and `check-kb` hard-fails past it, so additions
 without removals eventually break the build — and a spec that only grows stops being a description
 and becomes a changelog, which is what makes it useless.
 

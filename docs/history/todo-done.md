@@ -2569,6 +2569,22 @@ that the dashboard shows.
   harness capability it names. The two deleted tests are restored from 2018bab6 if the ruling
   is that the connection-level failure is the claim. From `plans/_audit/`.
 
+- [x] **Revisit every doc size budget** ✅ done 2026-10-31 (a plan and a commit; the developer raised the feature-spec budget to 1000 words in `kb.yaml`, the one budget forcing cuts; the others stay as they were) — filed by the developer 2026-10-21 after `session-notes`. Runs keep
+  trimming text to fit a budget (feature specs at 800 words, hand-written `CLAUDE.md` prose at 400,
+  diagram bodies at 300, record summaries at 160 characters, role packs at 30,000) and may be
+  cutting information that was useful. Each budget should be checked against what it now forces out,
+  and kept, raised or replaced so that fitting it never deletes a true, useful sentence.
+  Already over one: `docs/features/connection/spec.md` is 837 words after `custom-port`, so its next
+  change needs a split-or-raise decision first. From `plans/custom-port/`.
+
+- [x] **Code cites external docs** ✅ done 2026-10-31 (a plan and a commit; dropped by the developer: `kb:` citations stay, as `docs/conventions.md` § Comments asks) — Go and TS comments (and test names) carry `kb:` citations
+  to records under `docs/`; code should carry no citations to external docs. Reverses
+  `docs/conventions.md` § Comments, which asks for them — change it there first. From
+  `plans/settings-update-failures/`.
+
+- [x] **Plan IDs remain in test-file comments** ✅ done 2026-10-31 (a plan and a commit; ~2,650 comment lines across 340 test files reworded, code tokens unchanged; test titles keep their IDs; the per-agent comment check now flags plan IDs in test files) — about 370 lines; production code is clean.
+  From `plans/maintainability-cleanup/`.
+
 ## Bugs
 
 - [x] **5h gauge showing 100% after reset** ([#105](https://github.com/Zalaras/muster/issues/105)) ✅ done 2026-10-26 (plan `usage-bar-consistency`) — The
