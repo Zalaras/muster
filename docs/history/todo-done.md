@@ -2654,6 +2654,16 @@ that the dashboard shows.
   Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.293, focus view, session idle.
   Labels: bug, rail, ux.
 
+- [x] **Sessions survive only one daemon start after their tmux server is gone** ✅ done 2026-11-03 (plan `sweep-2026-11-03-1`, via `/fix`) — filed by the
+  developer 2026-09-22 during `rail-card-improvements` planning. After a computer restart, or a
+  crash that also took the tmux server, sessions come back once as ended, resumable cards, and
+  the next restart of musterd clears the whole rail. A crash must not clear sessions. #47 below
+  is the same defect; #39 in Post v1 is the same seam.
+
+- [x] **I lost my session from yesterday (I think)** ([#47](https://github.com/Zalaras/muster/issues/47)) ✅ done 2026-11-03 (plan `sweep-2026-11-03-1`, via `/fix`) — three sessions left open were
+  gone after stopping musterd and killing tmux. They should come back on restart as resumable
+  rows, even though Claude itself has quit.
+
 ## Tweaks
 
 - [x] **Add mark unread right click option** ([#103](https://github.com/Zalaras/muster/issues/103)) ✅ done 2026-10-26 (plan `remove-unread-right-click-1`, via `/fix`) — There

@@ -112,16 +112,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
 
 ## Bugs
 
-- [ ] **Sessions survive only one daemon start after their tmux server is gone** — filed by the
-  developer 2026-09-22 during `rail-card-improvements` planning. After a computer restart, or a
-  crash that also took the tmux server, sessions come back once as ended, resumable cards, and
-  the next restart of musterd clears the whole rail. A crash must not clear sessions. #47 below
-  is the same defect; #39 in Post v1 is the same seam.
-
-- [ ] **I lost my session from yesterday (I think)** ([#47](https://github.com/Zalaras/muster/issues/47)) — three sessions left open were
-  gone after stopping musterd and killing tmux. They should come back on restart as resumable
-  rows, even though Claude itself has quit.
-
 - [ ] **Long background tasks note the session as IDLE** ([#96](https://github.com/Zalaras/muster/issues/96)) — A
   session running a long background task is shown as IDLE on the dashboard, and the author asks
   whether this is intended or whether it should show WORKING. Expected: A session with a long
