@@ -65,9 +65,8 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 		case sess.ClaudeSessionID != claudeSessionID:
 			// Monotonic rebind guard (kb:anchor/ingest.envelope, decided 2026-08-28):
 			// byClaude never deletes an old claude id on rebind — only a full session
-			// removal does that, via removeFromMemory (DeleteSession, Reconcile's
-			// sweep, Remove), and Apply would already have failed the m.sessions
-			// lookup above in that case, never reaching this branch. So if the
+			// removal does that, via removeFromMemory (DeleteSession, Remove), and Apply would already
+			// have failed the m.sessions lookup above in that case, never reaching this branch. So if the
 			// incoming id already maps to *this* musterSessionID, this session bound
 			// it once before and has since moved on to sess.ClaudeSessionID. That
 			// makes the event a reordered straggler, not a forward rebind: route and

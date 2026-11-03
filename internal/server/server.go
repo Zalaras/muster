@@ -313,9 +313,8 @@ func (s *Server) ShellCount(ctx context.Context) (int, error) {
 // poll's own 5s ticker is not otherwise paused during that window. A pane that dies right
 // then would otherwise race its own liveness tick against the fresh process's next-startup
 // Reconcile — the still-shutting-down process marking+persisting alive:false before the
-// row is ever handed to Reconcile makes Reconcile sweep it instead of keeping it ended
-// (kb:adr/lifecycle-reconcile-converges-with-the-socket only keeps a row that was still
-// alive:true at Reconcile time). Deliberately narrower than Shutdown, which also closes
+// row is ever handed to Reconcile leaves Reconcile no alive row to mark ended, so the
+// row's endedAt is the dying process's stamp rather than the fresh start's. Deliberately narrower than Shutdown, which also closes
 // WS/terminal connections and stops every other feature that EndAllSessions/KillAllShells
 // still need; Shutdown stops the poll again itself (idempotent) for callers, such as the
 // auto-update restart path, that go straight to it without this earlier call.

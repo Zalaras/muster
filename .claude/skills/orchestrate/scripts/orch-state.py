@@ -270,7 +270,7 @@ def unmarked_authoring_rows(plan_dir):
             on = line.strip() == "## Tests"
             continue
         if on and line.startswith("|") and not re.match(r"^\|[\s:|-]+\|$", line) and "Test Name" not in line:
-            if "ran-green-at-authoring" not in line and "collection-only" not in line:
+            if not any(m in line for m in ("ran-green-at-authoring", "collection-only", "ran-green at validate")):
                 rows.append(line[:90])
     return rows
 
@@ -352,7 +352,7 @@ def main():
             if a.next == "completed" and (why := gates_green(a.plan)):
                 sys.exit(f"{why} — the pipeline is not completed")
             if a.arg == "e2e-specs" and (rows := unmarked_authoring_rows(path.parent)):
-                sys.exit("test-specs.md Tests rows marked neither ran-green-at-authoring nor collection-only "
+                sys.exit("test-specs.md Tests rows marked neither ran-green-at-authoring, collection-only nor ran-green at validate "
                          "— send e2e-specs back:\n  " + "\n  ".join(rows))
             if a.arg not in s["completed_steps"]:
                 s["completed_steps"].append(a.arg)

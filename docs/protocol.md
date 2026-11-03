@@ -1264,7 +1264,7 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
   "note": null,                     // string | null, required key — the developer's note, as last saved via kb:anchor/sessions.note;
                                     //   null = no note (never an empty or whitespace-only string). Muster-owned, display-only: never read
                                     //   or written by the state machine, the status path, ingest, rebinds (/clear), resume, reconcile or
-                                    //   liveness; deleted with the row by Remove or by the start-up sweep of an already-ended row. Never in an issue snapshot (kb:anchor/issue.captures).
+                                    //   liveness; deleted with the row by Remove only. Never in an issue snapshot (kb:anchor/issue.captures).
   "state": "working",                // "started"|"planning"|"working"|"needs_input"|"failed"|"idle"
   "stateSince": "2026-08-20T09:15:00Z",
   "alive": true,                     // liveness is ORTHOGONAL to state (kb:anchor/state.liveness); false = pane gone, card greys out, offers resume
@@ -1509,9 +1509,8 @@ full object built at send time. Neither half hydrates across a daemon restart. T
 { "type": "sessionRemoved", "id": 7 }   // sent once per DELETE /api/sessions/{id} (kb:anchor/sessions.remove)
 ```
 
-A client that has never seen `id` ignores it. Startup sweeps (`kb:anchor/state.liveness`) send nothing — swept
-rows are simply absent from the first `snapshot`. Dead sessions otherwise stay visible
-(sorted last, offering Resume/Remove) until removed or swept.
+A client that has never seen `id` ignores it. Dead sessions stay visible
+(sorted last, offering Resume/Remove) until removed.
 
 <!-- kb:anchor ws.doc-changed -->
 ### `docChanged`
@@ -1883,7 +1882,8 @@ session keeps its last `state`, greys out, sorts last, and offers Resume/Remove.
 **Reconcile at daemon start** runs synchronously, before `/ws` or `GET /api/state` can
 answer. It takes **one** `tmux list-sessions` snapshot and decides ownership by name — a row owns
 `muster-<id>` — rather than trusting the stored `alive` flag or `tmuxTarget`
-(kb:adr/lifecycle-reconcile-converges-with-the-socket):
+(kb:adr/lifecycle-reconcile-converges-with-the-socket,
+kb:adr/lifecycle-ended-rows-kept-until-remove):
 
 - `muster-<id>` **live on the socket** → the row owns it. `tmuxTarget` and `tmuxPane` are
   re-derived from tmux and persisted if they changed, and the row is `alive:true` — whatever the
@@ -1891,11 +1891,9 @@ answer. It takes **one** `tmux list-sessions` snapshot and decides ownership by 
   id went stale, and a row wrongly marked ended (a kill that failed, or a crash between a
   resume's spawn and its persist). **A row is never deleted while its pane is alive.**
 - `muster-<id>` absent, `alive=1` (died while the daemon was down, or a reboot) → `alive:false`,
-  `endedAt` = the startup time (the true death time is unknown and not guessed). Kept, so the
-  resume chance survives; swept on the *following* startup.
-- `muster-<id>` absent, `alive=0` (ended in an earlier daemon lifetime — the user had their
-  resume chance) → the row is **deleted** (count logged). Nothing is broadcast; it is absent
-  from the first `snapshot`.
+  `endedAt` = the startup time (the true death time is unknown and not guessed). Kept, resumable.
+- `muster-<id>` absent, `alive=0` (ended in an earlier daemon lifetime) → kept exactly as it is,
+  `endedAt` unchanged. A start deletes no row (kb:adr/lifecycle-ended-rows-kept-until-remove).
 
 A row-level failure is logged and reconcile continues, so one failing write cannot skip the shell
 sweep below for a whole daemon lifetime.
@@ -1913,7 +1911,7 @@ restart. `musterd -on-exit=ask|leave|kill` (default `ask`): with a TTY on stdin 
 live session, `ask` prompts once ("N live sessions on tmux socket X — kill them? [y/N]",
 10 s timeout → No); without a TTY `ask` behaves as `leave`. `kill` (or a `y`) takes a
 final snapshot, kills each live session's tmux session and sets its row `alive=0` before
-exit — so the next startup sweeps it.
+exit — so the next startup shows it ended and resumable.
 
 ## History
 

@@ -10,7 +10,7 @@ go: [internal/server/actions*.go]
 web: [web/src/features/actions*.ts, web/src/features/batchplan*.ts, web/src/render/confirm.ts, web/src/render/dead*.ts, web/src/render/actionerror*.ts, web/render/actions.spec.ts, web/render/helpers/actions.ts]
 e2e: [web/e2e/actions.spec.ts]
 protocol: [sessions.end, sessions.resume, sessions.remove, sessions.pane, ws.session-removed, sessions.end-many, sessions.remove-many]
-refs: [kb:adr/actions-bulk-stop-remove-are-daemon-batches, kb:adr/rail-card-menu-offers-remove-and-marks-whatever-the-state, kb:adr/focus-header-holds-switch-and-session-menu, kb:adr/actions-pane-snapshot-display-only, kb:adr/actions-remove-allowed-on-live-session, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/theme-danger-tokens-not-rose, kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-pending-hold-persisted, kb:fact/resume-keeps-session-identity]
+refs: [kb:adr/actions-bulk-stop-remove-are-daemon-batches, kb:adr/rail-card-menu-offers-remove-and-marks-whatever-the-state, kb:adr/focus-header-holds-switch-and-session-menu, kb:adr/actions-pane-snapshot-display-only, kb:adr/actions-remove-allowed-on-live-session, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-ended-rows-kept-until-remove, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/theme-danger-tokens-not-rose, kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-pending-hold-persisted, kb:fact/resume-keeps-session-identity]
 ---
 Three actions apply to a session: Stop, Resume and Remove. They are reached from the card
 menu (rail, strip, and the Focus header's Session actions `⋯`), from tile footers, and from the dead
@@ -52,9 +52,8 @@ cap, and a Resume control. The screen comes from `kb:anchor/sessions.pane`: the 
 captures every live pane on each liveness tick and immediately before Stop, persists the text
 only when it changes, and serves the last capture. It is display only and never a state
 source (kb:adr/actions-pane-snapshot-display-only). The dashboard fetches it once per dead
-session and caches the result. Dead sessions ended in an earlier daemon lifetime are swept
-at the next start (kb:adr/lifecycle-ended-rows-swept-next-start), so a Resume chance is one
-daemon lifetime long.
+session and caches the result. A dead session stays resumable until it is removed
+(kb:adr/lifecycle-ended-rows-kept-until-remove).
 
 **Batches.** Stop and Remove also apply to a rail selection, from the select bar or the menu of a selected card, and Stop to a group's members through
 its header's Stop all…, by `kb:anchor/sessions.end-many` and `kb:anchor/sessions.remove-many`: daemon

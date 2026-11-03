@@ -1,0 +1,273 @@
+{
+  "plan": "sweep-2026-11-03-1",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-11-03T14:39:55Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 9,
+        "keep": 8,
+        "drop": 1
+      },
+      "keeps": [
+        {
+          "key": "internal/server/server.go:9edbf821010e08df",
+          "path": "internal/server/server.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (s *Server) StopLivenessPoll(ctx context.Context) {",
+            "line": 309
+          },
+          "lines": [
+            "// StopLivenessPoll stops the session manager's background liveness poll and the repo poll",
+            "// that reads the same rows, and waits for them to exit, without touching any other feature.",
+            "// Call this first, before any other shutdown step (ShellCount's tmux round trip, the on-exit prompt, EndAllSessions/KillAllShells):",
+            "// those steps run for up to several seconds after the shutdown signal arrives, and the",
+            "// poll's own 5s ticker is not otherwise paused during that window. A pane that dies right",
+            "// then would otherwise race its own liveness tick against the fresh process's next-startup",
+            "// Reconcile — the still-shutting-down process marking+persisting alive:false before the",
+            "// row is ever handed to Reconcile leaves Reconcile no alive row to mark ended, so the",
+            "// row's endedAt is the dying process's stamp rather than the fresh start's. Deliberately narrower than Shutdown, which also closes",
+            "// WS/terminal connections and stops every other feature that EndAllSessions/KillAllShells",
+            "// still need; Shutdown stops the poll again itself (idempotent) for callers, such as the",
+            "// auto-update restart path, that go straight to it without this earlier call."
+          ],
+          "reason": "Edited on main; still true: `StopLivenessPoll` stops `s.manager` and `s.repoRefresh` only, as the doc says."
+        },
+        {
+          "key": "internal/session/apply.go:19b821ea78d83298",
+          "path": "internal/session/apply.go",
+          "anchor": {
+            "kind": "above",
+            "text": "if owner, known := m.byClaude[claudeSessionID]; !known || owner != musterSessionID {",
+            "line": 66
+          },
+          "lines": [
+            "// Monotonic rebind guard (kb:anchor/ingest.envelope, decided 2026-08-28):",
+            "// byClaude never deletes an old claude id on rebind — only a full session",
+            "// removal does that, via removeFromMemory (DeleteSession, Remove), and Apply would already",
+            "// have failed the m.sessions lookup above in that case, never reaching this branch. So if the",
+            "// incoming id already maps to *this* musterSessionID, this session bound",
+            "// it once before and has since moved on to sess.ClaudeSessionID. That",
+            "// makes the event a reordered straggler, not a forward rebind: route and",
+            "// apply it below (applyInput), but do not reset state/context/compactions",
+            "// and do not move the binding backwards."
+          ],
+          "reason": "Edited on main; still true: `if owner, known := m.byClaude[claudeSessionID]; !known || owner != musterSessionID {` is the monotonic rebind guard it describes."
+        },
+        {
+          "key": "internal/session/manager.go:a7294598e66719d9",
+          "path": "internal/session/manager.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) removeSessionRecord(ctx context.Context, id int64, announced bool) error {",
+            "line": 459
+          },
+          "lines": [
+            "// removeSessionRecord is the one removal path DeleteSession's launch rollback and Remove",
+            "// share. It first draws id's write-ticket the same way every setter",
+            "// does and waits its turn, so a write already queued for id finishes (persisted, or rolled",
+            "// back) before the row is deleted, and any write queued *behind* this call finds the",
+            "// session already gone at its own turn and declines to persist or broadcast",
+            "// (persistWholeRowLocked's doc) — removal is sequenced through the same turnstile a write is,",
+            "// not a side channel next to it.",
+            "//",
+            "// announced controls the store/memory order, because the two removal callers need",
+            "// opposite answers to \"what must be true if the store delete fails\":",
+            "//   - announced=true (Remove): the row's session was already broadcast as a sessionUpsert",
+            "//     at least once, so a live client believes it exists. The store delete must succeed",
+            "//     *before* memory drops — a failed delete leaves the row exactly as it was, in both",
+            "//     places, rather than vanishing from memory while the DB (and every other client)",
+            "//     still has it.",
+            "//   - announced=false (DeleteSession's launch rollback): no client has ever seen a",
+            "//     sessionUpsert for this row — DeleteSession runs before RecordLaunch's first",
+            "//     broadcast. A failed delete here must still drop memory, or a session",
+            "//     nobody was ever told about becomes visible in the next List()/snapshot purely",
+            "//     because a DB error happened to land — visible-because-delete-failed is exactly what",
+            "//     announced=true is protecting against, and here there is nothing to protect: the",
+            "//     failure is logged instead.",
+            "//",
+            "// OnRemoved only fires for announced removals — a launch rollback is failure housekeeping",
+            "// no client ever saw a row for."
+          ],
+          "reason": "Edited on main; still true: `removeSessionRecord` draws a write turn and handles announced true or false as described."
+        },
+        {
+          "key": "internal/session/reconcile.go:629b0173ebc8aa41",
+          "path": "internal/session/reconcile.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {",
+            "line": 21
+          },
+          "lines": [
+            "// Reconcile runs once at daemon startup, synchronously, before the first snapshot is",
+            "// served (kb:anchor/state.liveness, kb:adr/lifecycle-reconcile-before-first-snapshot).",
+            "// Call after LoadAll and before Start. Classification runs from **one** ListSessions",
+            "// snapshot, by tmux name ownership, never from the stored alive/target alone",
+            "// (kb:adr/lifecycle-reconcile-converges-with-the-socket):",
+            "//   - \"muster-\u003cid\u003e\" present on the socket → the row owns it: re-derive",
+            "//     tmux_target/tmux_pane from tmux, keep alive:=true, persist+broadcast only on an",
+            "//     actual change (reviveOwnedSession). This is what stops a live pane from ever being",
+            "//     deleted, whatever the stored alive said.",
+            "//   - \"muster-\u003cid\u003e\" absent, row alive=true → marked ended and kept.",
+            "//   - \"muster-\u003cid\u003e\" absent, row alive=false → left exactly as stored, endedAt unchanged:",
+            "//     Reconcile deletes no row, so an ended row stays a resumable card until Remove",
+            "//     (kb:adr/lifecycle-ended-rows-kept-until-remove).",
+            "//   - \"muster-\u003cn\u003e\" with no matching row → reported in UnknownSessions and warn-logged;",
+            "//     never adopted, never killed (kb:adr/lifecycle-reconcile-before-first-snapshot) —",
+            "//     its id still raises the watermark so it can never be handed to a new row.",
+            "//   - \"muster-\u003cn\u003e-shell\" → killed unconditionally, whatever its \u003cn\u003e; never adopted or",
+            "//     reported unknown; its id also raises the watermark.",
+            "//",
+            "// PaneChecker/PaneSnapshotter/TmuxSessions are all required at construction (NewManager",
+            "// panics otherwise), so ownership classification is the only classification path — a",
+            "// ListSessions call that itself fails is a different case and must NOT read as \"every",
+            "// not-alive row's pane is confirmed gone\": Reconcile instead acts on nothing this cycle",
+            "// and leaves every row untouched, and the next successful poll reconciles once the",
+            "// socket is reachable again.",
+            "//",
+            "// A markEnded failure during the act phase is logged and does not stop the rest — in",
+            "// particular the shell kill, which runs before the act phase, always happens regardless."
+          ],
+          "reason": "Edited on main; still true: `Reconcile` classifies from one ListSessions snapshot and only calls markEnded, deleting no row."
+        },
+        {
+          "key": "internal/session/reconcile.go:373d838fcdaefb7c",
+          "path": "internal/session/reconcile.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) classifySessionsByOwnership(ctx context.Context, names []string, report *ReconcileReport) (toEnd []int64) {",
+            "line": 55
+          },
+          "lines": [
+            "// classifySessionsByOwnership classifies ownership from one ListSessions snapshot.",
+            "// Every known row present in it is revived/repaired in place (KeptAlive);",
+            "// every known row absent from it that is still alive is returned in toEnd for",
+            "// actOnReconcile; an absent row already ended is skipped. Unknown muster-\u003cn\u003e names are reported+logged and",
+            "// muster-\u003cn\u003e-shell names are killed unconditionally — both raise the id watermark."
+          ],
+          "reason": "Edited on main; still true: `classifySessionsByOwnership` revives present rows and returns only alive absent rows in toEnd."
+        },
+        {
+          "key": "internal/session/reconcile.go:d0f3f12819b4467f",
+          "path": "internal/session/reconcile.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) reviveOwnedSession(ctx context.Context, id int64, tmuxName string) {",
+            "line": 199
+          },
+          "lines": [
+            "// reviveOwnedSession is the repair step for a row whose muster-\u003cid\u003e tmux session is",
+            "// present on the socket (kb:adr/lifecycle-reconcile-converges-with-the-socket): it is",
+            "// kept alive (reviving an alive=false row rather than leaving it ended) and has its",
+            "// tmux_target/tmux_pane re-derived from tmux and persisted+broadcast only if either",
+            "// actually changed. A resolve failure (tmux raced the ListSessions snapshot, or",
+            "// ResolveSessionTarget isn't supported) is warn-logged and leaves the stored target as-is",
+            "// rather than blocking the alive revival."
+          ],
+          "reason": "Edited on main; still true: `reviveOwnedSession` sets Alive true and re-derives target/pane as the doc says."
+        },
+        {
+          "key": "internal/store/session.go:5d74e44c70df180c",
+          "path": "internal/store/session.go",
+          "anchor": {
+            "kind": "above",
+            "text": "const sessionIDWatermarkKey = \"session.id_watermark\"",
+            "line": 12
+          },
+          "lines": [
+            "// sessionIDWatermarkKey is the kv-table key that persists the highest session id ever",
+            "// allocated, so a later delete (rollback, Remove) can never let that id",
+            "// come back — the id doubles as the tmux session name and the ingest bearer credential",
+            "// MUSTER_SESSION, so reuse is a correctness bug",
+            "// (kb:adr/lifecycle-session-ids-monotonic-never-reused)."
+          ],
+          "reason": "Edited on main; still true: `sessionIDWatermarkKey` persists the highest allocated id."
+        },
+        {
+          "key": "internal/store/session.go:cc9d7cdf0ed1d0cb",
+          "path": "internal/store/session.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (s *Store) InsertSession(ctx context.Context, p InsertSessionParams) (SessionRow, error) {",
+            "line": 177
+          },
+          "lines": [
+            "// InsertSession allocates the new row's id as",
+            "// max(COALESCE(MAX(id) from session, 0), the persisted watermark, p.MinID) + 1, inserted",
+            "// with that id explicit, and persists the new watermark — all in one transaction",
+            "// (kb:adr/lifecycle-session-ids-monotonic-never-reused). This is what makes an id",
+            "// un-reissuable: SQLite's ROWID (no AUTOINCREMENT on this table) would otherwise reuse",
+            "// max(rowid)+1 the moment the highest row is deleted (launch rollback, Remove), and that id doubles as both the tmux session name and the ingest",
+            "// bearer credential MUSTER_SESSION=\u003cid\u003e."
+          ],
+          "reason": "Edited on main; still true: `InsertSession` computes id from max id, watermark and MinID plus one in one transaction."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/session/reconcile.go:7ff605740ce2446d",
+          "path": "internal/session/reconcile.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) actOnReconcile(ctx context.Context, report *ReconcileReport, toEnd []int64) {",
+            "line": 45
+          },
+          "lines": [
+            "// actOnReconcile is Reconcile's act phase: mark every toEnd id ended. A single id's",
+            "// failure is logged and does not stop the rest."
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-11-03T16:50:51Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 1,
+        "keep": 1,
+        "drop": 0
+      },
+      "keeps": [
+        {
+          "key": "cmd/musterd/onexit.go:62ceb1c17c0bfb3b",
+          "path": "cmd/musterd/onexit.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func shutdownGracefully(f *cliFlags, srv *server.Server, httpServer *http.Server, in *lineInput, stderr io.Writer, log zerolog.Logger) {",
+            "line": 22
+          },
+          "lines": [
+            "// shutdownGracefully resolves the -on-exit policy and then tears the daemon down.",
+            "//",
+            "// The periodic liveness poll is stopped first, before anything else here: every step",
+            "// below (the ShellCount round trip, the on-exit prompt, EndAllSessions/KillAllShells) runs",
+            "// for up to several seconds after the shutdown signal arrives, and until the poll is",
+            "// stopped its own ticker keeps firing on its own schedule regardless. A pane that dies",
+            "// right at this moment must not have this — already dying — process's own next tick",
+            "// mark+persist it ended before the fresh process's own startup Reconcile gets to see (and",
+            "// keep) the row, which would otherwise stamp the row's endedAt before the restart's own",
+            "// Reconcile does (kb:adr/lifecycle-ended-rows-kept-until-remove). Verified closed",
+            "// both with a Manager-level probe (a slow fake PaneChecker held a tick in flight across",
+            "// Stop) and by hand against a real daemon (kill-window then immediate SIGTERM, 15/15",
+            "// clean). Stopping the poll here is a few milliseconds in the common case (it only waits",
+            "// out an in-flight tick), well inside shutdownTimeout's own budget for the rest of",
+            "// teardown. This closes only the periodic-poll path to the symptom, not every path: a",
+            "// live terminal's PTY-EOF liveness nudge (internal/server/terminal.go's pumpPTYToSocket)",
+            "// can mark the same row ended just as fast, entirely independently of this poll.",
+            "//",
+            "// The policy is resolved (and, for \"ask\", possibly prompted) before the shutdown timeout",
+            "// budget starts — the ask prompt has its own 10s timeout (onExitPromptTimeout), separate",
+            "// from shutdownTimeout's budget for the rest of teardown. With zero live sessions and zero",
+            "// shells neither branch prints anything."
+          ],
+          "reason": "Edited on `main`; still true: `srv.StopLivenessPoll(stopPollCtx)` runs first, before ShellCount, resolveOnExit and EndAllSessions/KillAllShells, as the comment says."
+        }
+      ],
+      "drops": null
+    }
+  ]
+}

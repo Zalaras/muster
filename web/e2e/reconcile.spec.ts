@@ -9,6 +9,7 @@ import {
   sessionCard,
   stateBadge,
 } from "./helpers/session";
+import { cardMenuItem, openCardMenu } from "./helpers/rail-menu";
 import { terminalRegion } from "./helpers/terminal";
 
 // Reconcile on start, unknown panes reported, never
@@ -20,7 +21,7 @@ import { terminalRegion } from "./helpers/terminal";
 // `-on-exit`, so it alone uses `startDaemon({ onExit: "kill" })` rather than wrapping a
 // single test in a describe just to carry `daemonOptions`.
 
-test("a session whose pane died while the daemon was down reconciles to ended and kept, then a later restart sweeps it for good (E2, INV-1, INV-3)", async ({
+test("a session whose pane died while the daemon was down reconciles to ended and kept, and stays kept until removed (E2, INV-1, INV-3)", async ({
   page,
   request,
   daemon,
@@ -112,7 +113,7 @@ test("a live session survives the default ask-on-exit policy under this harness'
   }
 });
 
-test("stopping the daemon with -on-exit=kill kills the tmux session and the next startup sweeps the row (E4)", async ({
+test("stopping the daemon with -on-exit=kill kills the tmux session and the next startup brings the row back ended and resumable (E4)", async ({
   page,
   request,
   startDaemon,
@@ -130,19 +131,26 @@ test("stopping the daemon with -on-exit=kill kills the tmux session and the next
 
     // restart() = SIGTERM then respawn on the same port/data dir/-on-exit. Under
     // -on-exit=kill, the shutdown path itself kills the pane and sets
-    // alive:false/endedAt BEFORE exit — so the row is already alive=0 when THIS
-    // restart's own reconcile runs, and reconcile deletes alive=0 rows immediately (no
-    // "kept one more lifecycle" grace, unlike the pane-died-while-down case).
+    // alive:false/endedAt BEFORE exit — so the row is already ended when THIS
+    // restart's own reconcile runs, and reconcile keeps it
+    // (kb:adr/lifecycle-ended-rows-kept-until-remove).
     await daemon.restart();
 
     expect(await daemon.tmuxPaneExists(session.tmuxTarget)).toBe(false);
     expect(await daemon.tmuxSessions()).not.toContain(session.tmuxTarget);
 
     const state = await getState(page, daemon);
-    expect(state.sessions.some((s) => s.id === session.id)).toBe(false);
+    const found = findSession(state, session.id);
+    expect(found.alive).toBe(false);
+    expect(found.endedAt).not.toBeNull();
 
     await page.reload();
-    await expect(sessionCard(page, "kill-e4")).toHaveCount(0);
+    const endedCard = sessionCard(page, "kill-e4");
+    await expect(endedCard).toHaveCount(1);
+    await expect(endedCard).toHaveClass(/ended/);
+    await expect(endedCard.getByText(/^ended /)).toBeVisible();
+    await openCardMenu(page, endedCard);
+    await expect(cardMenuItem(page, "Resume")).toBeEnabled();
   } finally {
     await cleanup();
   }

@@ -25,8 +25,8 @@ The note is a field on the session row, carried whole on the Session object as `
 `kb:anchor/sessions.note`, which replaces the whole text. Empty or whitespace-only text is no note;
 any other text is kept exactly as written. No hook, status post,
 transcript scan, `/clear` rebind, resume, reconcile or liveness change touches it. An ended session
-keeps its note, readable and editable, until Remove or the next daemon start. A restart keeps the note of every row reconcile keeps; the start-up sweep of an already-ended row deletes its note with the row
-(kb:adr/lifecycle-reconcile-converges-with-the-socket), as Remove does. When two windows save the same note, the last write wins.
+keeps its note, readable and editable, until Remove. A restart keeps every row and its note; only Remove deletes a note, with its row
+(kb:adr/lifecycle-ended-rows-kept-until-remove). When two windows save the same note, the last write wins.
 
 ## The header glyph and the panel
 

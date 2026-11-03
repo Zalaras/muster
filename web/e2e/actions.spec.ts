@@ -700,10 +700,9 @@ test("the card menu's Resume and Remove… and the cap's Resume are disabled whi
     await expect(cap.getByRole("button", { name: "Resume" })).toBeEnabled();
 
     // Force-close the routed WebSocket rather than killing/restarting the daemon
-    // process: the reconcile sweep deletes any row already `alive:false` on the
-    // very next startup ("rows already alive=0 ... are deleted"),
-    // which would remove this exact session out from under the test and is not what
-    // this test is checking. Closing the client-side route fires the page's own
+    // process: a restart would re-run reconcile and the daemon would come back, which
+    // is not what this test is checking (an ended row itself survives a restart,
+    // kb:adr/lifecycle-ended-rows-kept-until-remove). Closing the client-side route fires the page's own
     // WebSocket `close` event the same way a real outage would, without touching the
     // daemon or its store — `page.context().setOffline` was tried first and does not
     // reliably close an already-open Chromium WebSocket, only new connection attempts.

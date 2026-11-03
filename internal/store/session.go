@@ -10,7 +10,7 @@ import (
 )
 
 // sessionIDWatermarkKey is the kv-table key that persists the highest session id ever
-// allocated, so a later delete (rollback, Remove, reconcile's sweep) can never let that id
+// allocated, so a later delete (rollback, Remove) can never let that id
 // come back — the id doubles as the tmux session name and the ingest bearer credential
 // MUSTER_SESSION, so reuse is a correctness bug
 // (kb:adr/lifecycle-session-ids-monotonic-never-reused).
@@ -184,8 +184,7 @@ type InsertSessionParams struct {
 // with that id explicit, and persists the new watermark — all in one transaction
 // (kb:adr/lifecycle-session-ids-monotonic-never-reused). This is what makes an id
 // un-reissuable: SQLite's ROWID (no AUTOINCREMENT on this table) would otherwise reuse
-// max(rowid)+1 the moment the highest row is deleted (launch rollback, Remove,
-// reconcile's sweep), and that id doubles as both the tmux session name and the ingest
+// max(rowid)+1 the moment the highest row is deleted (launch rollback, Remove), and that id doubles as both the tmux session name and the ingest
 // bearer credential MUSTER_SESSION=<id>.
 func (s *Store) InsertSession(ctx context.Context, p InsertSessionParams) (SessionRow, error) {
 	now := encodeTime(time.Now())

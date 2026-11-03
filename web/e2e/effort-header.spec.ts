@@ -187,8 +187,8 @@ test("effort survives Stop, a /clear rebind and a daemon restart: a dead session
   await expect(headerModel(page)).toHaveText("Opus 4.5 (xhigh)");
   expect((await wireEffort(page, daemon, s.session.id)).effort).toEqual({ level: "xhigh" });
 
-  // A restart while the pane lives: an already-ended row is swept at the next start
-  // (kb:adr/lifecycle-ended-rows-swept-next-start), a live one is kept with its stored effort.
+  // A restart while the pane lives: the row is kept with its stored effort
+  // (kb:adr/lifecycle-ended-rows-kept-until-remove).
   await daemon.restart();
   await expect
     .poll(async () => (await wireEffort(page, daemon, s.session.id)).effort)

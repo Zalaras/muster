@@ -7,7 +7,7 @@ summary: On start, rows already ended are deleted and live rows whose pane is go
 features: [lifecycle, actions]
 tags: [store, tmux, user-decision]
 files: [internal/session/manager.go, internal/store/session.go]
-tests: [TestReconcile_DeletesEndedRowsMarksDeadPanesEndedLeavesLivePanesByteIdentical, web/e2e/reconcile.spec.ts]
+tests: [TestReconcile_KeepsEndedRowsMarksDeadPanesEndedLeavesLivePanesByteIdentical, web/e2e/reconcile.spec.ts]
 refs: [docs/history/spec-changelog.md, plan:m4-reconcile, kb:anchor/state.liveness, kb:anchor/sessions.resume]
 supersedes: []
 ---

@@ -216,9 +216,8 @@ func TestManager_MarkSeen(t *testing.T) {
 
 // TestReconcile_LeavesUnreadAndLastPromptUntouchedAcrossRowClasses: neither
 // field is ever read or written by Reconcile, for a row it keeps alive (pane still
-// exists) and for a row it marks ended (pane gone) — the two row classes Reconcile still
-// holds a row for afterward (the third, sweep, deletes the row entirely, so "untouched"
-// does not apply to it).
+// exists) and for a row it marks ended (pane gone) — the two row classes Reconcile
+// acts on; an already-ended row is skipped outright.
 func TestReconcile_LeavesUnreadAndLastPromptUntouchedAcrossRowClasses(t *testing.T) {
 	st := openTestStore(t)
 	ctx := context.Background()

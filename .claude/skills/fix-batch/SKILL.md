@@ -156,7 +156,7 @@ whose fix is a flake, spawn `e2e-specs` in VALIDATE MODE after green.
 2. The comment pass, exactly as `/orchestrate` Step 6 item 1: `go run ./tools/commentpass strip
    <sweep>-<n> --out $TMPDIR/comment-pass-<sweep>-<n>-c1`, `comment-judge` if candidates > 0,
    `apply`.
-3. Gates, backgrounded (`timeout: 3600000`, stdout to a file: a cold run outlasts the foreground
+3. Gates, backgrounded (`timeout: 7200000`: a lock wait plus `-race` beside another batch outlasted 1 h; stdout to a file: a cold run outlasts the foreground
    cap; exit 75 is a busy lock, rerun, never poll; the loop's `GATES_LOCK_WAIT` outwaits a sweep):
    ```bash
    GATES_LOG_DIR=$TMPDIR/gates-<sweep>-<n>-c1 .claude/skills/orchestrate/scripts/gates.sh <sweep>-<n>

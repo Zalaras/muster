@@ -329,33 +329,6 @@ func TestDeleteSession_StoreFailureStillDropsMemory(t *testing.T) {
 	}
 }
 
-// TestReconcile_SweptRowStoreFailureStillDropsMemory is
-// TestDeleteSession_StoreFailureStillDropsMemory's sibling for Reconcile's own
-// announced=false removal path (the sweep): a not-alive row absent from the tmux listing
-// must still disappear from memory even when the store delete fails.
-func TestReconcile_SweptRowStoreFailureStillDropsMemory(t *testing.T) {
-	st := openTestStore(t)
-	killer := newFakeTmuxSessions() // no muster-<id> sessions at all: absent from tmux
-	mgr := newTestManager(t, st, nil, nil, withTmuxSessions(killer))
-	dir := t.TempDir()
-	sess := createLaunchedSession(t, mgr, st, dir)
-
-	// A not-alive row absent from tmux is exactly Reconcile's sweep condition
-	// (classifySessionsByOwnership) — markEnded needs the store open to persist this.
-	_, err := mgr.markEnded(context.Background(), sess.ID)
-	require.NoError(t, err)
-
-	require.NoError(t, st.Close())
-
-	report := mgr.Reconcile(context.Background())
-	assert.Equal(t, 0, report.Swept, "the failed delete is logged and does not count as a successful sweep")
-
-	assert.False(t, mgr.Exists(sess.ID), "a swept row must never stay visible after a failed delete")
-	for _, s := range mgr.List() {
-		assert.NotEqual(t, sess.ID, s.ID, "the swept row must not appear in List()")
-	}
-}
-
 // --- persist/broadcast ordering: wholeRowPersist's live-read-and-broadcast, both inside
 // finishWrite's own persist closure, must keep memory, the DB and every broadcast agreeing
 // for any mix of success/failure/removal queued on the same id ---

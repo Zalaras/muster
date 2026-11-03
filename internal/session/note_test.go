@@ -276,10 +276,7 @@ func noteSourceStates() []noteSourceState {
 type noteInput struct {
 	name   string
 	okErrs []error
-	// sweepsDead marks reconcile-with-nothing-on-the-socket: an already-dead row is deleted,
-	// and its note goes with it.
-	sweepsDead bool
-	run        func(r *effortRig, id int64) error
+	run    func(r *effortRig, id int64) error
 }
 
 func noteInputs() []noteInput {
@@ -360,7 +357,7 @@ func noteDaemonInputs() []noteInput {
 			r.mgr.Reconcile(r.ctx)
 			return nil
 		}},
-		{name: "reconcile with the socket empty", sweepsDead: true, run: func(r *effortRig, _ int64) error {
+		{name: "reconcile with the socket empty", run: func(r *effortRig, _ int64) error {
 			r.tmux.sessions = nil
 			r.mgr.Reconcile(r.ctx)
 			return nil
@@ -419,14 +416,6 @@ func TestNote_INV1_EveryInputFromEveryState(t *testing.T) {
 				}
 				require.NoError(t, err)
 
-				if in.sweepsDead && !start.wantAlive {
-					_, ok := r.mgr.Get(id)
-					assert.False(t, ok, "an already-dead row is swept, its note with it")
-					assert.Equal(t, "text:"+bystander, noteOf(r.get(other)), "the bystander's note")
-					assert.Equal(t, "text:"+bystander, noteOf(r.reloaded(other)), "the bystander's note in the store")
-					return
-				}
-
 				assert.Equal(t, "text:"+target, noteOf(r.get(id)), "the target's note")
 				assert.Equal(t, "text:"+bystander, noteOf(r.get(other)), "the bystander's note")
 				assert.Equal(t, "text:"+target, noteOf(r.reloaded(id)), "the target's note in the store")
@@ -454,9 +443,6 @@ func TestNote_INV1_ASessionWithNoNoteGainsNoneFromAnyInput(t *testing.T) {
 				}
 				require.NoError(t, err)
 
-				if in.sweepsDead && !start.wantAlive {
-					return
-				}
 				assert.Nil(t, r.get(id).Note)
 				assert.Nil(t, r.reloaded(id).Note)
 			})

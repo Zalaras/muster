@@ -882,10 +882,10 @@ func TestEnd_StillMarksEndedAfterStop(t *testing.T) {
 // internal/server/server.go:291) and the HTTP shutdown that follows it
 // (cmd/musterd/onexit.go:96). Before this fix that hint wrote alive=false straight to the
 // row; a daemon restarting with the row paneless and alive=false would have the next
-// boot's Reconcile sweep it immediately (reconcile.go's absent+alive=false branch),
-// losing Resume. After the fix the row stays alive=true through the whole window, so the
-// next boot's Reconcile instead takes the absent+alive=true branch: marked ended and
-// kept, one more life before it is finally swept.
+// boot's Reconcile find it already ended and, with Resume available, indistinguishable from
+// a row ended by the developer. After the fix the row stays alive=true through the whole
+// window, so the next boot's Reconcile takes the absent+alive=true branch: marked ended
+// and kept, resumable.
 func TestApply_SessionEndAfterStopKeepsResumeChance(t *testing.T) {
 	st := openTestStore(t)
 	ctx := context.Background()
@@ -928,13 +928,12 @@ func TestApply_SessionEndAfterStopKeepsResumeChance(t *testing.T) {
 
 	// One daemon lifetime later: the pane is still gone (default fake TmuxSessions lists
 	// no sessions), so Reconcile must take the absent+alive=true branch (marked ended,
-	// kept for a resume chance) rather than sweeping a row that never should have been
+	// kept for a resume chance) rather than finding a row that never should have been
 	// persisted alive=false in the first place.
 	mgr2 := newTestManager(t, st, pc, nil)
 	require.NoError(t, mgr2.LoadAll(ctx))
 	report := mgr2.Reconcile(ctx)
-	assert.Equal(t, 1, report.MarkedEnded, "the row gets one more life: marked ended, not swept")
-	assert.Equal(t, 0, report.Swept)
+	assert.Equal(t, ReconcileReport{MarkedEnded: 1}, report, "the row is marked ended and kept")
 }
 
 func (f *fakePaneChecker) callCount() int {
@@ -1245,12 +1244,13 @@ func TestRowToSession_ModelDisplayNameFallsBackToIDForPreM3Rows(t *testing.T) {
 	assert.Equal(t, "sonnet", got.Model.DisplayName)
 }
 
-// TestReconcile_DeletesEndedRowsMarksDeadPanesEndedLeavesLivePanesByteIdentical covers
+// TestReconcile_KeepsEndedRowsMarksDeadPanesEndedLeavesLivePanesByteIdentical covers
 // A fresh Manager over a store seeded (by an earlier "daemon lifetime") with an
 // already-ended row, an alive row whose pane is now gone, and an alive row whose pane
-// still exists — Reconcile must delete the first, mark the second ended (alive:false,
-// endedAt set) and keep it, and leave the third byte-identical to its pre-reconcile state.
-func TestReconcile_DeletesEndedRowsMarksDeadPanesEndedLeavesLivePanesByteIdentical(t *testing.T) {
+// still exists — Reconcile must keep the first exactly as stored, mark the second ended
+// (alive:false, endedAt set) and keep it, and leave the third byte-identical to its
+// pre-reconcile state.
+func TestReconcile_KeepsEndedRowsMarksDeadPanesEndedLeavesLivePanesByteIdentical(t *testing.T) {
 	st := openTestStore(t)
 	ctx := context.Background()
 	dir := t.TempDir()
@@ -1267,7 +1267,8 @@ func TestReconcile_DeletesEndedRowsMarksDeadPanesEndedLeavesLivePanesByteIdentic
 	endedRow, err := st.GetSession(ctx, endedSess.ID)
 	require.NoError(t, err)
 	endedRow.Alive = false
-	endedAt := time.Now().UTC().Add(-time.Hour)
+	// The store encodes whole seconds, so seed at that precision to compare exactly.
+	endedAt := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
 	endedRow.EndedAt = &endedAt
 	require.NoError(t, st.UpdateSession(ctx, endedRow))
 
@@ -1283,6 +1284,8 @@ func TestReconcile_DeletesEndedRowsMarksDeadPanesEndedLeavesLivePanesByteIdentic
 
 	livePaneBefore, err := st.GetSession(ctx, livePaneSess.ID)
 	require.NoError(t, err)
+	endedBefore, err := st.GetSession(ctx, endedSess.ID)
+	require.NoError(t, err)
 
 	// "Fresh daemon lifetime": reload from the store with a fake TmuxSessions listing
 	// only the live-pane session's real muster-<id> name — ownership classification goes
@@ -1296,12 +1299,17 @@ func TestReconcile_DeletesEndedRowsMarksDeadPanesEndedLeavesLivePanesByteIdentic
 
 	report := mgr.Reconcile(ctx)
 
-	assert.Equal(t, ReconcileReport{KeptAlive: 1, MarkedEnded: 1, Swept: 1}, report)
+	assert.Equal(t, ReconcileReport{KeptAlive: 1, MarkedEnded: 1}, report)
 
-	// The already-ended row is gone from both memory and the store.
-	assert.False(t, mgr.Exists(endedSess.ID))
-	_, err = st.GetSession(ctx, endedSess.ID)
-	require.Error(t, err)
+	// The already-ended row is kept exactly as stored, in memory and in the store.
+	keptEnded, ok := mgr.Get(endedSess.ID)
+	require.True(t, ok, "an already-ended row absent from the socket is kept")
+	assert.False(t, keptEnded.Alive)
+	require.NotNil(t, keptEnded.EndedAt)
+	assert.True(t, endedAt.Equal(*keptEnded.EndedAt), "endedAt is the stored value, not the start time")
+	endedAfter, err := st.GetSession(ctx, endedSess.ID)
+	require.NoError(t, err)
+	assert.Equal(t, endedBefore, endedAfter, "an already-ended row must be left byte-identical by Reconcile")
 
 	// The dead-pane row is marked ended and kept (the resume chance is not lost).
 	got, ok := mgr.Get(deadPaneSess.ID)
@@ -1317,6 +1325,125 @@ func TestReconcile_DeletesEndedRowsMarksDeadPanesEndedLeavesLivePanesByteIdentic
 	livePaneAfter, err := st.GetSession(ctx, livePaneSess.ID)
 	require.NoError(t, err)
 	assert.Equal(t, livePaneBefore, livePaneAfter, "a row whose pane still exists must be left byte-identical by Reconcile")
+}
+
+// reconcileNextStart is one more daemon lifetime over st: a fresh Manager on an empty
+// socket, LoadAll, Reconcile.
+func reconcileNextStart(t *testing.T, st *store.Store) (*Manager, ReconcileReport) {
+	t.Helper()
+	ctx := context.Background()
+	mgr := newTestManager(t, st, nil, nil)
+	require.NoError(t, mgr.LoadAll(ctx))
+	return mgr, mgr.Reconcile(ctx)
+}
+
+// requireKeptEnded asserts an ended row survived a start exactly as stored: present in
+// List(), alive=false, endedAt equal to wantEndedAt, in memory and in the store.
+func requireKeptEnded(t *testing.T, mgr *Manager, st *store.Store, id int64, wantEndedAt time.Time) {
+	t.Helper()
+	require.True(t, mgr.Exists(id), "an ended row absent from the socket must be kept")
+	inList := false
+	for _, s := range mgr.List() {
+		inList = inList || s.ID == id
+	}
+	assert.True(t, inList, "the kept row is in List()")
+	got, ok := mgr.Get(id)
+	require.True(t, ok)
+	assert.False(t, got.Alive)
+	require.NotNil(t, got.EndedAt)
+	// The store keeps whole seconds; a row marked ended this lifetime still carries
+	// sub-second precision in memory, so memory is compared at the store's granularity.
+	assert.True(t, wantEndedAt.Truncate(time.Second).Equal(got.EndedAt.Truncate(time.Second)), "endedAt in memory is the stored value: want %v got %v", wantEndedAt, *got.EndedAt)
+	row, err := st.GetSession(context.Background(), id)
+	require.NoError(t, err, "the kept row is still in the store")
+	assert.False(t, row.Alive)
+	require.NotNil(t, row.EndedAt)
+	assert.True(t, wantEndedAt.Equal(*row.EndedAt), "endedAt in the store is the stored value")
+}
+
+// TestReconcile_ARowWhosePaneDiedWhileDownSurvivesEverySubsequentStartAsEnded: a row
+// marked ended at the first start after its pane died is kept, not re-stamped, at every
+// later start with the socket still empty. A bystander already ended before the first
+// start rides along, so a start touching only one of them would show.
+func TestReconcile_ARowWhosePaneDiedWhileDownSurvivesEverySubsequentStartAsEnded(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+
+	seed := newTestManager(t, st, nil, nil)
+	sess, err := seed.CreateSession(ctx, params)
+	require.NoError(t, err)
+	_, err = seed.RecordLaunch(ctx, sess.ID, tmux.SessionName(sess.ID)+":@1", "%1")
+	require.NoError(t, err)
+	bystander, err := seed.CreateSession(ctx, params)
+	require.NoError(t, err)
+	_, err = seed.RecordLaunch(ctx, bystander.ID, tmux.SessionName(bystander.ID)+":@1", "%1")
+	require.NoError(t, err)
+	bystanderRow, err := st.GetSession(ctx, bystander.ID)
+	require.NoError(t, err)
+	bystanderEnded := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
+	bystanderRow.Alive = false
+	bystanderRow.EndedAt = &bystanderEnded
+	require.NoError(t, st.UpdateSession(ctx, bystanderRow))
+
+	mgr2, report2 := reconcileNextStart(t, st)
+	assert.Equal(t, ReconcileReport{MarkedEnded: 1}, report2, "lifetime 2: the pane died while down, so the row is marked ended")
+	row2, err := st.GetSession(ctx, sess.ID)
+	require.NoError(t, err)
+	require.NotNil(t, row2.EndedAt)
+	endedAt := *row2.EndedAt
+	requireKeptEnded(t, mgr2, st, sess.ID, endedAt)
+	requireKeptEnded(t, mgr2, st, bystander.ID, bystanderEnded)
+
+	for lifetime := 3; lifetime <= 5; lifetime++ {
+		mgr, report := reconcileNextStart(t, st)
+		assert.Equal(t, ReconcileReport{}, report, "lifetime %d: a start deletes and marks nothing", lifetime)
+		requireKeptEnded(t, mgr, st, sess.ID, endedAt)
+		requireKeptEnded(t, mgr, st, bystander.ID, bystanderEnded)
+	}
+}
+
+// TestReconcile_ARowEndedBeforeShutdownComesBackEndedAtTheNextStart: EndAll is the
+// -on-exit kill write. Every row it ends (alive=false, endedAt set) must come back at
+// the next start, and the one after, as an ended row with that same endedAt.
+func TestReconcile_ARowEndedBeforeShutdownComesBackEndedAtTheNextStart(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+
+	killer := newFakeTmuxSessions()
+	seed := newTestManager(t, st, nil, nil, withTmuxSessions(killer))
+	var ids []int64
+	for range 2 {
+		sess, err := seed.CreateSession(ctx, params)
+		require.NoError(t, err)
+		_, err = seed.RecordLaunch(ctx, sess.ID, tmux.SessionName(sess.ID)+":@1", "%1")
+		require.NoError(t, err)
+		killer.sessions = append(killer.sessions, tmux.SessionName(sess.ID))
+		ids = append(ids, sess.ID)
+	}
+
+	require.Equal(t, 2, seed.EndAll(ctx))
+	endedAts := map[int64]time.Time{}
+	for _, id := range ids {
+		row, err := st.GetSession(ctx, id)
+		require.NoError(t, err)
+		require.False(t, row.Alive, "EndAll wrote alive=0")
+		require.NotNil(t, row.EndedAt)
+		endedAts[id] = *row.EndedAt
+	}
+
+	for lifetime := 2; lifetime <= 3; lifetime++ {
+		mgr, report := reconcileNextStart(t, st)
+		assert.Equal(t, ReconcileReport{}, report, "lifetime %d: nothing to delete or mark", lifetime)
+		for _, id := range ids {
+			requireKeptEnded(t, mgr, st, id, endedAts[id])
+		}
+	}
 }
 
 // TestReconcile_ReportsUnknownMusterSessionsWithoutCreatingRows: a
@@ -1406,7 +1533,7 @@ func TestReconcile_ReportsAndLogsAMusterPrefixedNameMatchingNeitherShapeAsUnknow
 // all, it must act on nothing — never mark an alive row ended, never delete a not-alive
 // one. Reconcile's own fallback on a ListSessions error is the trap: it warn-logs and
 // falls through to classifySessions, the older function, whose `if !r.alive {
-// toSweep = append(...); continue }` sweeps every not-alive row completely
+// toSweep = append(...); continue }` deleted every not-alive row completely
 // unconditionally — no pane check, no tmux call, nothing — which is the original bug this
 // whole plan exists to close, now reachable again through the fallback path. The alive
 // row survives today already (classifySessions's own alive branch does consult

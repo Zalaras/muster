@@ -27,8 +27,8 @@ const onExitPromptTimeout = 10 * time.Second
 // stopped its own ticker keeps firing on its own schedule regardless. A pane that dies
 // right at this moment must not have this — already dying — process's own next tick
 // mark+persist it ended before the fresh process's own startup Reconcile gets to see (and
-// keep) the row, which would otherwise race a restart's Reconcile into sweeping a row it
-// should have kept (kb:adr/lifecycle-reconcile-converges-with-the-socket). Verified closed
+// keep) the row, which would otherwise stamp the row's endedAt before the restart's own
+// Reconcile does (kb:adr/lifecycle-ended-rows-kept-until-remove). Verified closed
 // both with a Manager-level probe (a slow fake PaneChecker held a tick in flight across
 // Stop) and by hand against a real daemon (kill-window then immediate SIGTERM, 15/15
 // clean). Stopping the poll here is a few milliseconds in the common case (it only waits

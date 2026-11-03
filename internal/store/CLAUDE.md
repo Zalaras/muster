@@ -14,17 +14,17 @@
 
 **Gotchas**:
 - Times are RFC3339 UTC text, nanosecond precision for receipt stamps; parse on read, never compare as strings.
-- Ended rows are swept on the next start; live rows whose pane is gone are kept as ended (kb:adr/lifecycle-ended-rows-swept-next-start).
+- A start deletes no row: ended rows stay until Remove; live rows whose pane is gone are marked ended and kept (kb:adr/lifecycle-ended-rows-kept-until-remove).
 - "The file is now private" is proven with `ls -l` on all three files, not the diff.
 - Don't test SQLite's own constraint enforcement.
 
 <!-- kb:trailer -->
-<!-- kb:hash 578457c9a3d9f9a3 -->
+<!-- kb:hash eec5d94a7be486e6 -->
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
 - **groups** — Rail groups: sections, header summary and popover, select mode, filter, group create, rename, ungroup and delete, persistence. → `docs/features/groups/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 18 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 19 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

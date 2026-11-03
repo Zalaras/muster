@@ -1,0 +1,5 @@
+{"status": "completed",
+ "subject": "fix(lifecycle): keep ended sessions across every daemon start until removed (closes #47)",
+ "closes": [47],
+ "error": null,
+ "question": null}

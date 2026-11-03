@@ -1,7 +1,7 @@
 ---
 id: lifecycle-reconcile-converges-with-the-socket
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-14
 summary: Reconcile decides row ownership from tmux list-sessions, repairs tmux_target from tmux, and never deletes a row whose pane is alive.
 features: [lifecycle, actions]

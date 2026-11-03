@@ -12,7 +12,6 @@ import (
 type ReconcileReport struct {
 	KeptAlive       int
 	MarkedEnded     int
-	Swept           int
 	UnknownSessions []string // muster-<n> tmux sessions on the socket with no row
 	// ShellsKilled counts "muster-<n>-shell" tmux sessions killed unconditionally
 	// (kb:anchor/state.liveness) — never adopted, and never listed in UnknownSessions.
@@ -28,10 +27,10 @@ type ReconcileReport struct {
 //     tmux_target/tmux_pane from tmux, keep alive:=true, persist+broadcast only on an
 //     actual change (reviveOwnedSession). This is what stops a live pane from ever being
 //     deleted, whatever the stored alive said.
-//   - "muster-<id>" absent, row alive=true → marked ended and kept (the resume chance
-//     is not lost; the *following* startup's absent case sweeps it).
-//   - "muster-<id>" absent, row alive=false → swept (deleted; already had its resume
-//     chance in an earlier daemon lifetime).
+//   - "muster-<id>" absent, row alive=true → marked ended and kept.
+//   - "muster-<id>" absent, row alive=false → left exactly as stored, endedAt unchanged:
+//     Reconcile deletes no row, so an ended row stays a resumable card until Remove
+//     (kb:adr/lifecycle-ended-rows-kept-until-remove).
 //   - "muster-<n>" with no matching row → reported in UnknownSessions and warn-logged;
 //     never adopted, never killed (kb:adr/lifecycle-reconcile-before-first-snapshot) —
 //     its id still raises the watermark so it can never be handed to a new row.
@@ -45,9 +44,8 @@ type ReconcileReport struct {
 // and leaves every row untouched, and the next successful poll reconciles once the
 // socket is reachable again.
 //
-// A markEnded/DeleteSession failure during the act phase is logged and does not stop the
-// rest — in particular the shell sweep, which runs before the act phase, always happens
-// regardless.
+// A markEnded failure during the act phase is logged and does not stop the rest — in
+// particular the shell kill, which runs before the act phase, always happens regardless.
 func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	var report ReconcileReport
 
@@ -58,8 +56,8 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 		return report
 	}
 
-	toEnd, toSweep := m.classifySessionsByOwnership(ctx, names, &report)
-	m.actOnReconcile(ctx, &report, toEnd, toSweep)
+	toEnd := m.classifySessionsByOwnership(ctx, names, &report)
+	m.actOnReconcile(ctx, &report, toEnd)
 	m.logReconcile(report)
 	return report
 }
@@ -68,15 +66,11 @@ func (m *Manager) logReconcile(report ReconcileReport) {
 	m.log.Info().
 		Int("kept_alive", report.KeptAlive).
 		Int("marked_ended", report.MarkedEnded).
-		Int("swept", report.Swept).
 		Int("shells_killed", report.ShellsKilled).
 		Msg("reconciled sessions")
 }
 
-// actOnReconcile is Reconcile's act phase, shared by every classification path: mark
-// every toEnd id ended, then delete every toSweep id. A single id's failure is logged and
-// does not stop the rest.
-func (m *Manager) actOnReconcile(ctx context.Context, report *ReconcileReport, toEnd, toSweep []int64) {
+func (m *Manager) actOnReconcile(ctx context.Context, report *ReconcileReport, toEnd []int64) {
 	for _, id := range toEnd {
 		if _, err := m.markEnded(ctx, id); err != nil {
 			m.log.Error().Err(err).Int64("session_id", id).Msg("reconcile: marking session ended failed")
@@ -84,24 +78,14 @@ func (m *Manager) actOnReconcile(ctx context.Context, report *ReconcileReport, t
 		}
 		report.MarkedEnded++
 	}
-	for _, id := range toSweep {
-		// announced=false: no client has seen any session yet this boot (Reconcile runs
-		// before the first snapshot is served), so a failed delete must still drop the row
-		// from memory rather than leave it to be served as if it had been.
-		if err := m.removeSessionRecord(ctx, id, false); err != nil {
-			m.log.Error().Err(err).Int64("session_id", id).Msg("reconcile: sweeping session failed")
-			continue
-		}
-		report.Swept++
-	}
 }
 
 // classifySessionsByOwnership classifies ownership from one ListSessions snapshot.
 // Every known row present in it is revived/repaired in place (KeptAlive);
-// every known row absent from it follows the old alive-based rule exactly (returned via
-// toEnd/toSweep for actOnReconcile). Unknown muster-<n> names are reported+logged and
+// every known row absent from it that is still alive is returned in toEnd for
+// actOnReconcile; an absent row already ended is skipped. Unknown muster-<n> names are reported+logged and
 // muster-<n>-shell names are killed unconditionally — both raise the id watermark.
-func (m *Manager) classifySessionsByOwnership(ctx context.Context, names []string, report *ReconcileReport) (toEnd, toSweep []int64) {
+func (m *Manager) classifySessionsByOwnership(ctx context.Context, names []string, report *ReconcileReport) (toEnd []int64) {
 	rows := collectSessions(m,
 		func(*Session) bool { return true },
 		func(s *Session) sessionRef { return sessionRef{id: s.ID, alive: s.Alive} },
@@ -122,13 +106,11 @@ func (m *Manager) classifySessionsByOwnership(ctx context.Context, names []strin
 		}
 		if r.alive {
 			toEnd = append(toEnd, r.id)
-		} else {
-			toSweep = append(toSweep, r.id)
 		}
 	}
 
 	m.reportAndSweepUnknown(ctx, classified, report)
-	return toEnd, toSweep
+	return toEnd
 }
 
 // classifiedTmuxNames is classifyTmuxNames' pure result: names split into the live
@@ -249,7 +231,7 @@ func (m *Manager) RepairOwnedSession(ctx context.Context, id int64) (*Session, e
 
 // reviveOwnedSession is the repair step for a row whose muster-<id> tmux session is
 // present on the socket (kb:adr/lifecycle-reconcile-converges-with-the-socket): it is
-// kept alive (reviving an alive=false row rather than leaving it swept) and has its
+// kept alive (reviving an alive=false row rather than leaving it ended) and has its
 // tmux_target/tmux_pane re-derived from tmux and persisted+broadcast only if either
 // actually changed. A resolve failure (tmux raced the ListSessions snapshot, or
 // ResolveSessionTarget isn't supported) is warn-logged and leaves the stored target as-is

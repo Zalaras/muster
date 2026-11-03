@@ -1,7 +1,7 @@
 ---
 id: notes-ended-row-sweep-takes-its-note
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-21
 summary: A note lives and dies with its session row, so the start-up sweep of an already-ended row deletes its note; a restart keeps the note of every row it keeps.
 features: [notes, lifecycle]

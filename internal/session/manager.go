@@ -456,8 +456,8 @@ func (m *Manager) dropSessionFromMemory(id int64) {
 	m.locks.Forget(id)
 }
 
-// removeSessionRecord is the one removal path DeleteSession's launch rollback, Remove and
-// Reconcile's sweep all share. It first draws id's write-ticket the same way every setter
+// removeSessionRecord is the one removal path DeleteSession's launch rollback and Remove
+// share. It first draws id's write-ticket the same way every setter
 // does and waits its turn, so a write already queued for id finishes (persisted, or rolled
 // back) before the row is deleted, and any write queued *behind* this call finds the
 // session already gone at its own turn and declines to persist or broadcast
@@ -471,18 +471,16 @@ func (m *Manager) dropSessionFromMemory(id int64) {
 //     *before* memory drops — a failed delete leaves the row exactly as it was, in both
 //     places, rather than vanishing from memory while the DB (and every other client)
 //     still has it.
-//   - announced=false (DeleteSession's launch rollback, Reconcile's startup sweep): no
-//     client has ever seen a sessionUpsert for this row — DeleteSession runs before
-//     RecordLaunch's first broadcast, and Reconcile runs before the daemon serves its
-//     first snapshot at all. A failed delete here must still drop memory, or a session
+//   - announced=false (DeleteSession's launch rollback): no client has ever seen a
+//     sessionUpsert for this row — DeleteSession runs before RecordLaunch's first
+//     broadcast. A failed delete here must still drop memory, or a session
 //     nobody was ever told about becomes visible in the next List()/snapshot purely
 //     because a DB error happened to land — visible-because-delete-failed is exactly what
 //     announced=true is protecting against, and here there is nothing to protect: the
 //     failure is logged instead.
 //
-// OnRemoved only fires for announced removals — Reconcile's sweep and a launch rollback
-// are startup/failure housekeeping no client ever saw a row for
-// (kb:anchor/ws.session-removed: "Startup sweeps send nothing").
+// OnRemoved only fires for announced removals — a launch rollback is failure housekeeping
+// no client ever saw a row for.
 func (m *Manager) removeSessionRecord(ctx context.Context, id int64, announced bool) error {
 	m.mu.Lock()
 	wait, done := m.nextWriteTurnLocked(id)
