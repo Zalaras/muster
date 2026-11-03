@@ -223,6 +223,13 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Filed 2026-10-30.
   Labels: chore, process, perf.
 
+- [ ] **Adjust right click menu order** ([#115](https://github.com/Zalaras/muster/issues/115)) — In
+  the right click menu, the Move To entry, including its No group option, sits above other items
+  instead of at the bottom. Expected: The Move To entry, including the No group option, should
+  appear at the bottom of the right click menu.
+  Filed 2026-11-02 from musterd 0.27.2 / Claude Code 2.1.293, focus view, session working.
+  Labels: enhancement, rail, ux.
+
 ## Tooling and docs
 
 ## v1 Release
