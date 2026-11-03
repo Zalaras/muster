@@ -1,0 +1,137 @@
+{
+ "sweep": "sweep-2026-11-03",
+ "created_at": "2026-11-03T12:24:10Z",
+ "selector": "\"Sessions survive only one daemon start after their tmux server is gone\" #47 #110 #113 #115 \"Focus lands nowhere after a keyboard Dismiss of the effort warning\" --batch-size 6 --parallel 1 (e3 #110 dropped at the stop)",
+ "parallel": 1,
+ "entries": [
+  {
+   "id": "e1",
+   "title": "Sessions survive only one daemon start after their tmux server is gone",
+   "issue": null,
+   "section": "Bugs",
+   "work_type": "daemon",
+   "features": [
+    "lifecycle"
+   ],
+   "files": [
+    "internal/session/reconcile.go",
+    "internal/session/manager.go",
+    "internal/session/manager_test.go",
+    "internal/session/manager_writeturnstile_interleave_test.go",
+    "web/e2e/reconcile.spec.ts",
+    "docs/adr/",
+    "docs/protocol.md",
+    "docs/features/lifecycle/spec.md"
+   ],
+   "route": "fix",
+   "research": "plans/sweep-2026-11-03/research/e1.md",
+   "batch": 1
+  },
+  {
+   "id": "e2",
+   "title": "I lost my session from yesterday (I think)",
+   "issue": 47,
+   "section": "Bugs",
+   "work_type": "daemon",
+   "features": [
+    "lifecycle"
+   ],
+   "files": [
+    "internal/session/reconcile.go",
+    "internal/session/manager.go",
+    "internal/session/manager_test.go",
+    "internal/session/manager_writeturnstile_interleave_test.go",
+    "internal/session/note_test.go",
+    "web/e2e/reconcile.spec.ts",
+    "web/e2e/actions.spec.ts",
+    "docs/adr/",
+    "docs/protocol.md",
+    "docs/features/lifecycle/spec.md"
+   ],
+   "route": "fix",
+   "research": "plans/sweep-2026-11-03/research/e2.md",
+   "batch": 1
+  },
+  {
+   "id": "e4",
+   "title": "Focus lands nowhere after a keyboard Dismiss of the effort warning",
+   "issue": null,
+   "section": "Bugs",
+   "work_type": "web",
+   "features": [
+    "focus"
+   ],
+   "files": [
+    "web/src/features/focus.ts",
+    "web/e2e/effort-header.spec.ts",
+    "docs/features/focus/spec.md"
+   ],
+   "route": "fix",
+   "research": "plans/sweep-2026-11-03/research/e4.md",
+   "batch": 2
+  },
+  {
+   "id": "e5",
+   "title": "Group arrow for minimise and maximise is too small to see",
+   "issue": 113,
+   "section": "Bugs",
+   "work_type": "web",
+   "features": [
+    "rail",
+    "groups"
+   ],
+   "files": [
+    "web/src/style.css",
+    "web/render/groups.spec.ts",
+    "web/render/helpers/style.ts",
+    "docs/design/design-system.md"
+   ],
+   "route": "fix",
+   "research": "plans/sweep-2026-11-03/research/e5.md",
+   "batch": 2
+  },
+  {
+   "id": "e6",
+   "title": "Adjust right click menu order",
+   "issue": 115,
+   "section": "Tweaks",
+   "work_type": "web",
+   "features": [
+    "rail",
+    "actions",
+    "groups"
+   ],
+   "files": [
+    "web/src/features/railmenu.ts",
+    "web/src/features/railmenuitems.ts",
+    "web/src/features/railmenuitems.test.ts",
+    "web/render/rail.spec.ts",
+    "web/e2e/rail-menu.spec.ts",
+    "docs/adr/",
+    "docs/features/rail/spec.md"
+   ],
+   "route": "fix",
+   "research": "plans/sweep-2026-11-03/research/e6.md",
+   "batch": 2
+  }
+ ],
+ "batches": [
+  {
+   "n": 1,
+   "entries": [
+    "e1",
+    "e2"
+   ],
+   "work_type": "daemon"
+  },
+  {
+   "n": 2,
+   "entries": [
+    "e4",
+    "e5",
+    "e6"
+   ],
+   "work_type": "web"
+  }
+ ]
+}

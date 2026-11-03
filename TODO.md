@@ -136,6 +136,10 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   waiting on subagents should keep showing its planning status rather than dropping to idle.
   Filed 2026-10-21 from musterd 0.25.1 / Claude Code 2.1.306, focus view, session idle.
   Labels: bug, lifecycle.
+  Researched 2026-11-03 and held out of a `/fix` sweep: nothing here is specific to plan mode — it is
+  the same question as #96, and today's behaviour is the accepted
+  kb:adr/lifecycle-background-tasks-count-not-state, so a change goes through `/spec` together with
+  #96. Research: `plans/sweep-2026-11-03/research/e3.md`.
 
 - [ ] **Focus lands nowhere after a keyboard Dismiss of the effort warning** — pressing Dismiss
   on the Focus header's effort-mismatch strip with the keyboard hides the strip and leaves focus
