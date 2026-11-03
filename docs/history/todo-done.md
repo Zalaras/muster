@@ -2664,6 +2664,16 @@ that the dashboard shows.
   gone after stopping musterd and killing tmux. They should come back on restart as resumable
   rows, even though Claude itself has quit.
 
+- [x] **Focus lands nowhere after a keyboard Dismiss of the effort warning** ✅ done 2026-11-03 (plan `sweep-2026-11-03-2`, via `/fix`) — pressing Dismiss
+  on the Focus header's effort-mismatch strip with the keyboard hides the strip and leaves focus
+  on the page itself. Focus should land somewhere sensible in the header. From `plans/effort/`.
+
+- [x] **Group arrow for minimise and maximise is too small to see** ([#113](https://github.com/Zalaras/muster/issues/113)) ✅ done 2026-11-03 (plan `sweep-2026-11-03-2`, via `/fix`) — The
+  group arrow used to minimise and maximise a group is too small to see. Expected: The group arrow
+  should be large enough to see clearly and use to minimise or maximise a group.
+  Filed 2026-10-26 from musterd 0.26.0 / Claude Code 2.1.293, focus view, session started.
+  Labels: bug, rail, ux.
+
 ## Tweaks
 
 - [x] **Add mark unread right click option** ([#103](https://github.com/Zalaras/muster/issues/103)) ✅ done 2026-10-26 (plan `remove-unread-right-click-1`, via `/fix`) — There
@@ -2683,3 +2693,10 @@ that the dashboard shows.
   2026-10-26: "remove the Stop and Remove buttons from the top right in the focus header". Expected:
   the header's top right holds no Stop, Resume or Remove button; a single always-visible ⋯ opens the
   same menu as right-clicking the session's rail card.
+
+- [x] **Adjust right click menu order** ([#115](https://github.com/Zalaras/muster/issues/115)) ✅ done 2026-11-03 (plan `sweep-2026-11-03-2`, via `/fix`) — In
+  the right click menu, the Move To entry, including its No group option, sits above other items
+  instead of at the bottom. Expected: The Move To entry, including the No group option, should
+  appear at the bottom of the right click menu.
+  Filed 2026-11-02 from musterd 0.27.2 / Claude Code 2.1.293, focus view, session working.
+  Labels: enhancement, rail, ux.

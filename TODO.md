@@ -131,10 +131,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   kb:adr/lifecycle-background-tasks-count-not-state, so a change goes through `/spec` together with
   #96. Research: `plans/sweep-2026-11-03/research/e3.md`.
 
-- [ ] **Focus lands nowhere after a keyboard Dismiss of the effort warning** — pressing Dismiss
-  on the Focus header's effort-mismatch strip with the keyboard hides the strip and leaves focus
-  on the page itself. Focus should land somewhere sensible in the header. From `plans/effort/`.
-
 - [ ] **Review how menus behave while the daemon is down** — an open card right-click menu
   closes at each reconnect attempt (about 2 s, 4 s and 8 s) while musterd is unreachable; the
   other menus, popovers and dialogs may do the same. Decide how each should behave while the
@@ -152,12 +148,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   `added_dirs` key, a relative entry, and a wrongly typed list; today a wrongly typed list empties
   the session's list. Expected: each shape measured with `/interface-probe` and recorded as a fact,
   and the list behaves as measured. From `plans/see-added-dirs/`.
-
-- [ ] **Group arrow for minimise and maximise is too small to see** ([#113](https://github.com/Zalaras/muster/issues/113)) — The
-  group arrow used to minimise and maximise a group is too small to see. Expected: The group arrow
-  should be large enough to see clearly and use to minimise or maximise a group.
-  Filed 2026-10-26 from musterd 0.26.0 / Claude Code 2.1.293, focus view, session started.
-  Labels: bug, rail, ux.
 
 ## Tweaks
 
@@ -216,13 +206,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   related components should have a minimal performance and energy footprint.
   Filed 2026-10-30.
   Labels: chore, process, perf.
-
-- [ ] **Adjust right click menu order** ([#115](https://github.com/Zalaras/muster/issues/115)) — In
-  the right click menu, the Move To entry, including its No group option, sits above other items
-  instead of at the bottom. Expected: The Move To entry, including the No group option, should
-  appear at the bottom of the right click menu.
-  Filed 2026-11-02 from musterd 0.27.2 / Claude Code 2.1.293, focus view, session working.
-  Labels: enhancement, rail, ux.
 
 ## Tooling and docs
 
