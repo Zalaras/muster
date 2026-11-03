@@ -1,0 +1,56 @@
+{
+  "sweep": "sweep-2026-11-03",
+  "parallel": 1,
+  "started_at": "2026-11-03T12:24:14Z",
+  "updated_at": "2026-11-03T20:24:30Z",
+  "batches": [
+    {
+      "n": 1,
+      "name": "sweep-2026-11-03-1",
+      "entries": [
+        "e1",
+        "e2"
+      ],
+      "work_type": "daemon",
+      "status": "landed",
+      "worktree": "/Users/damian/Documents/code/Projects/muster-sweep-2026-11-03-1",
+      "branch": "plan/sweep-2026-11-03-1",
+      "pid": 55584,
+      "log": "plans/sweep-2026-11-03/batch-1.log",
+      "started_at": "2026-11-03T12:24:39Z",
+      "finished_at": "2026-11-03T17:08:38Z",
+      "subject": "fix(lifecycle): keep ended sessions across every daemon start until removed (closes #47)",
+      "closes": [
+        47
+      ],
+      "landed_sha": "3d1bfd6a",
+      "error": null,
+      "question": null
+    },
+    {
+      "n": 2,
+      "name": "sweep-2026-11-03-2",
+      "entries": [
+        "e4",
+        "e5",
+        "e6"
+      ],
+      "work_type": "web",
+      "status": "landed",
+      "worktree": "/Users/damian/Documents/code/Projects/muster-sweep-2026-11-03-2",
+      "branch": "plan/sweep-2026-11-03-2",
+      "pid": null,
+      "log": "plans/sweep-2026-11-03/batch-2.log",
+      "started_at": "2026-11-03T17:09:47Z",
+      "finished_at": "2026-11-03T19:46:31Z",
+      "subject": "fix(rail): card menu read toggle and order, larger group caret, Dismiss keeps focus (closes #113, closes #115)",
+      "closes": [
+        113,
+        115
+      ],
+      "landed_sha": "50404d4e",
+      "error": null,
+      "question": null
+    }
+  ]
+}
