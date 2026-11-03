@@ -49,10 +49,11 @@ export function initRailMenu(app: App, deps: RailMenuDeps): RailMenuHandle {
   const connected = (): boolean => app.state.connection === "connected";
 
   function cardEntries(session: Session, items: CardMenuItems): MenuEntry[] {
+    const run = (action: SessionAction): void => deps.actions.dispatch(action, session.id);
     return [
-      ...actionEntries(items.actions, (action) => deps.actions.dispatch(action, session.id)),
+      ...actionEntries(items.marks, run),
       { kind: "separator" },
-      ...deps.groups.moveToEntries([session], items.moveDisabled),
+      ...actionEntries(items.actions, run),
       { kind: "separator" },
       {
         kind: "item",
@@ -61,7 +62,7 @@ export function initRailMenu(app: App, deps: RailMenuDeps): RailMenuHandle {
         onSelect: () => deps.actions.dispatch("pin", session.id),
       },
       { kind: "separator" },
-      ...actionEntries(items.marks, (action) => deps.actions.dispatch(action, session.id)),
+      ...deps.groups.moveToEntries([session], items.moveDisabled),
     ];
   }
 
@@ -92,11 +93,11 @@ export function initRailMenu(app: App, deps: RailMenuDeps): RailMenuHandle {
     menu.open(
       opener,
       [
+        ...actionEntries(items.marks, many),
+        { kind: "separator" },
         ...actionEntries(items.actions, many),
         { kind: "separator" },
         ...deps.groups.moveToEntries(sessions, items.moveDisabled),
-        { kind: "separator" },
-        ...actionEntries(items.marks, many),
       ],
       { at, label: items.label },
     );

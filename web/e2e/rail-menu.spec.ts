@@ -297,8 +297,9 @@ test("with the daemon down the card menu still opens, every item disabled and cl
       await expect(cardMenuItem(page, "Stop…")).toBeEnabled();
       await expect(cardMenuItem(page, "No group")).toBeEnabled();
       await expect(cardMenuItem(page, "Pin")).toBeEnabled();
-      await expect(cardMenuItem(page, "Mark as read")).toBeEnabled();
+      // One read toggle, named for the session's state: this one has had no turn, so it is read.
       await expect(cardMenuItem(page, "Mark as unread")).toBeEnabled();
+      await expect(cardMenuItem(page, "Mark as read")).toHaveCount(0);
     } finally {
       await cleanup();
     }
@@ -382,7 +383,7 @@ test("Shift+F10 and the ContextMenu key open the focused card's menu with its fi
     await expect(card).toBeFocused();
     await page.keyboard.press("Shift+F10");
     await expect(cardMenu(page)).toBeVisible();
-    await expect(cardMenuItem(page, "Stop…")).toBeFocused();
+    await expect(cardMenuItem(page, "Mark as unread")).toBeFocused();
     // Opened at the card for the keyboard: beside the card, not at some pointer position.
     const cardBox = await card.boundingBox();
     const menuBox = await cardMenu(page).boundingBox();
@@ -397,10 +398,10 @@ test("Shift+F10 and the ContextMenu key open the focused card's menu with its fi
     await expect(card).toBeFocused();
     await page.keyboard.press("ContextMenu");
     await expect(cardMenu(page)).toBeVisible();
-    await expect(cardMenuItem(page, "Stop…")).toBeFocused();
+    await expect(cardMenuItem(page, "Mark as unread")).toBeFocused();
 
-    // Stop…, Remove…, review, docs: three arrows to docs, Enter to choose.
-    for (const next of ["Remove…", "review", "docs"]) {
+    // The read toggle, Stop…, Remove…, Pin, review, docs: five arrows to docs, Enter to choose.
+    for (const next of ["Stop…", "Remove…", "Pin", "review", "docs"]) {
       await page.keyboard.press("ArrowDown");
       await expect(cardMenuItem(page, next)).toBeFocused();
     }
@@ -411,9 +412,9 @@ test("Shift+F10 and the ContextMenu key open the focused card's menu with its fi
 
     await card.focus();
     await page.keyboard.press("Shift+F10");
-    await expect(cardMenuItem(page, "Stop…")).toBeFocused();
-    // Stop…, Remove…, review, docs, New group…, No group: five arrows.
-    for (const next of ["Remove…", "review", "docs", "New group…", "No group"]) {
+    await expect(cardMenuItem(page, "Mark as unread")).toBeFocused();
+    // The read toggle, Stop…, Remove…, Pin, review, docs, New group…, No group: seven arrows.
+    for (const next of ["Stop…", "Remove…", "Pin", "review", "docs", "New group…", "No group"]) {
       await page.keyboard.press("ArrowDown");
       await expect(cardMenuItem(page, next)).toBeFocused();
     }
@@ -451,34 +452,25 @@ test("right-clicking a selected card in Select mode applies the menu's action to
     await openCardMenu(page, railCard(page, "menu-e18-c"));
     await expect(cardMenu(page)).toHaveAccessibleName("Actions for menu-e18-c");
     expect(await menuItemLabels(page)).toEqual([
+      "Mark as unread",
       "Stop…",
       "Remove…",
+      "Pin",
       "review",
       "New group…",
       "No group",
-      "Pin",
-      "Mark as read",
-      "Mark as unread",
     ]);
     await page.keyboard.press("Escape");
     await expect(selectBarCount(page)).toHaveText("2 selected");
     await expect(cardCheckbox(page, "menu-e18-c")).not.toBeChecked();
 
     // A selected card: the menu is the selection's, named by its count, with no Pin or Resume;
-    // Remove… is offered over two live sessions, and the mark entries sit after Move to.
+    // Remove… is offered over two live sessions, the one read toggle leads and Move to is last.
     await openCardMenu(page, railCard(page, "menu-e18-a"));
     await expect.soft(cardMenu(page)).toHaveAccessibleName("Actions for 2 sessions");
     expect
       .soft(await menuItemLabels(page))
-      .toEqual([
-        "Stop…",
-        "Remove…",
-        "review",
-        "New group…",
-        "No group",
-        "Mark as read",
-        "Mark as unread",
-      ]);
+      .toEqual(["Mark as unread", "Stop…", "Remove…", "review", "New group…", "No group"]);
     await cardMenuItem(page, "No group").click();
     await expect.poll(async () => (await stateSession(page, daemon, a.id)).groupId).toBeNull();
     await expect.poll(async () => (await stateSession(page, daemon, b.id)).groupId).toBeNull();
@@ -607,6 +599,9 @@ test("Mark as unread on an idle read card marks it unread, and Mark as read clea
     const net = trackMutationBodies(page);
 
     await openCardMenu(page, cardA);
+    // A read session is offered the one toggle, first, and not its opposite.
+    expect((await menuItemLabels(page))[0]).toBe("Mark as unread");
+    await expect(cardMenuItem(page, "Mark as read")).toHaveCount(0);
     await cardMenuItem(page, "Mark as unread").click();
     await expect(cardMenu(page)).toHaveCount(0);
     await expect(cardA).toHaveAttribute("data-unread", "true");
@@ -621,6 +616,9 @@ test("Mark as unread on an idle read card marks it unread, and Mark as read clea
     await expect(cardA).toHaveAttribute("data-unread", "true");
 
     await openCardMenu(page, cardA);
+    // The same item now reads for the unread state: one toggle, still first.
+    expect((await menuItemLabels(page))[0]).toBe("Mark as read");
+    await expect(cardMenuItem(page, "Mark as unread")).toHaveCount(0);
     await cardMenuItem(page, "Mark as read").click();
     await expect(cardMenu(page)).toHaveCount(0);
     await expect(cardA).not.toHaveAttribute("data-unread", "true");
@@ -684,6 +682,9 @@ test("Mark as read and Mark as unread from a selected card's menu send one reque
 
     await openCardMenu(page, railCard(page, "mark-sel-b"));
     await expect(cardMenu(page)).toHaveAccessibleName("Actions for 2 sessions");
+    // Both selected sessions are unread: the one toggle leads and reads Mark as read.
+    expect((await menuItemLabels(page))[0]).toBe("Mark as read");
+    await expect(cardMenuItem(page, "Mark as unread")).toHaveCount(0);
     await cardMenuItem(page, "Mark as read").click();
     await expect.poll(async () => unreadOf(b.id)).toBe(false);
     await expect.poll(async () => unreadOf(c.id)).toBe(false);
@@ -702,6 +703,9 @@ test("Mark as read and Mark as unread from a selected card's menu send one reque
     await expect(railCard(page, "mark-sel-d")).toHaveAttribute("data-unread", "true");
 
     await openCardMenu(page, railCard(page, "mark-sel-c"));
+    // Both are now read: the same toggle reads Mark as unread.
+    expect((await menuItemLabels(page))[0]).toBe("Mark as unread");
+    await expect(cardMenuItem(page, "Mark as read")).toHaveCount(0);
     await cardMenuItem(page, "Mark as unread").click();
     await expect.poll(async () => unreadOf(b.id)).toBe(true);
     await expect.poll(async () => unreadOf(c.id)).toBe(true);
@@ -723,6 +727,56 @@ test("Mark as read and Mark as unread from a selected card's menu send one reque
   }
 });
 
+test("a selection mixing an unread and a read session offers Mark as read, and choosing it sends one request per selected session (REQ-5, #103)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  const { sessions, cleanup } = await launchTitled(page, daemon, ["mark-mix-a", "mark-mix-b"]);
+  try {
+    const [a, b] = sessions;
+    if (!a || !b) throw new Error("expected 2 sessions");
+    await expect(terminalRegion(page, "mark-mix-a")).toContainText("MUSTER-STUB-READY", {
+      timeout: 15_000,
+    });
+    await driveToState(request, daemon, a, "claude-mark-mix-a", "idle");
+    await driveToState(request, daemon, b, "claude-mark-mix-b", "idle");
+    const unreadOf = async (id: number) => findSession(await getState(page, daemon), id).unread;
+    // A is watched (read); B closed its turn unwatched (unread).
+    await expect.poll(async () => unreadOf(b.id)).toBe(true);
+    expect(await unreadOf(a.id)).toBe(false);
+
+    await selectToggle(page).click();
+    await cardCheckbox(page, "mark-mix-a").check();
+    await cardCheckbox(page, "mark-mix-b").check();
+    await expect(selectBarCount(page)).toHaveText("2 selected");
+    const net = trackMutationBodies(page);
+
+    await openCardMenu(page, railCard(page, "mark-mix-a"));
+    await expect(cardMenu(page)).toHaveAccessibleName("Actions for 2 sessions");
+    expect((await menuItemLabels(page))[0]).toBe("Mark as read");
+    await expect(cardMenuItem(page, "Mark as unread")).toHaveCount(0);
+    await cardMenuItem(page, "Mark as read").click();
+    await expect.poll(async () => unreadOf(b.id)).toBe(false);
+    expect(await unreadOf(a.id)).toBe(false);
+    expect(
+      net
+        .requests()
+        .filter((r) => r.path.endsWith("/unread"))
+        .sort((x, y) => x.path.localeCompare(y.path)),
+    ).toEqual(
+      [a, b].map((s) => ({
+        method: "PUT",
+        path: `/api/sessions/${s.id}/unread`,
+        body: { unread: false },
+      })),
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
 test("Remove… from a live card's menu opens the remove confirm that ends the session first: cancelling sends nothing, confirming removes only that session and its pane (REQ-3, #104)", async ({
   page,
   request,
@@ -738,7 +792,11 @@ test("Remove… from a live card's menu opens the remove confirm that ends the s
     const net = trackMutations(page);
 
     await openCardMenu(page, railCard(page, "menu-live-a"));
-    expect((await menuItemLabels(page)).slice(0, 2)).toEqual(["Stop…", "Remove…"]);
+    expect((await menuItemLabels(page)).slice(0, 3)).toEqual([
+      "Mark as unread",
+      "Stop…",
+      "Remove…",
+    ]);
     await cardMenuItem(page, "Remove…").click();
     const dialog = page.getByRole("dialog", { name: "Remove session?" });
     await expect(dialog).toBeVisible();

@@ -1,7 +1,7 @@
 ---
 id: rail-card-menu-offers-remove-and-marks-whatever-the-state
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-26
 summary: The card and selection menus offer Remove… on live sessions too and always offer Mark as read and Mark as unread.
 features: [rail, actions, groups]

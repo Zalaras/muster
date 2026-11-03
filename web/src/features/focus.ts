@@ -49,6 +49,7 @@ export interface FocusDeps {
     get(id: number, kind: SurfaceKind): TerminalSurface | undefined;
     select(id: number, kind: SurfaceKind, findDeadRefs: () => DeadSurfaceRefs | null): void;
     activityFor(id: number): ShellActivityIndicator;
+    focusSelected(id: number): void;
   };
   /** Tiles' promote — Focus's own shortcut-driven `nth`/`neediest` promote instead of
    * focusing when the current view is Tiles (`bringForward`'s shared tail). Tiles is
@@ -254,7 +255,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     renderSizenote(sizenoteEl, surface.geometry);
   }
 
-  function renderView(frame: RenderFrame): void {
+  function renderFrame(frame: RenderFrame): void {
     const { sessions, now, connected } = frame;
     const hasSessions = sessions.length > 0;
     renderFocusMain({ emptyEl: mainEmptyEl }, hasSessions);
@@ -312,6 +313,21 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     }
 
     mountTerminalSurface(session, surfaceState);
+  }
+
+  function focusIsLost(): boolean {
+    const active = document.activeElement;
+    return (
+      active === null || active === document.body || mainheadElements.effortStrip.contains(active)
+    );
+  }
+
+  function renderView(frame: RenderFrame): void {
+    const stripHadFocus = mainheadElements.effortStrip.contains(document.activeElement);
+    renderFrame(frame);
+    if (!stripHadFocus || !mainheadElements.effortStrip.hidden) return;
+    if (app.state.focusedId !== null) deps.getSurfaces().focusSelected(app.state.focusedId);
+    if (focusIsLost()) moreBtn.focus();
   }
 
   return {

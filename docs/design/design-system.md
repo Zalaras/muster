@@ -237,7 +237,8 @@ it opens the shared hover tip with the note rendered read-only and cut off under
 strip card is the same component and carries it too.
 
 **Section header** (`.ghead`, plan `groups`; reference `mockups/groups/a-sections-select-mode.html`) —
-sticky over its section's cards: caret button, a select-mode checkbox, the name (mono
+sticky over its section's cards: caret button (20×20, a CSS-drawn triangle about 9×6 px pointing
+down when expanded and right when collapsed, `--fg-muted`, `--fg` on header hover), a select-mode checkbox, the name (mono
 `--fs-2xs`, uppercased by CSS, `--fg-muted`; Ungrouped's in `--fg-dim`), the summary and `⋯`. The summary is the member count then
 one item per state present in attention order — needs input, failed, started, planning, working,
 idle, ended — a 7px dot in that state's token (`--amber`, `--rose`, `--violet`, `--teal`,

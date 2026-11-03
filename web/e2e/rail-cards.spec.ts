@@ -318,10 +318,11 @@ test("stopping from the card menu ends only that session, and its card's menu th
     await expect(cardA.getByRole("button", { name: /^(Stop|End|Resume|Remove)/ })).toHaveCount(0);
     await cardA.click({ button: "right" });
     const menuItems = page.getByRole("menu").getByRole("menuitem");
-    await expect(menuItems.nth(0)).toHaveText("Resume");
-    await expect(menuItems.nth(1)).toHaveText("Remove…");
-    await expect(menuItems.nth(0)).toBeEnabled();
+    await expect(menuItems.nth(0)).toHaveText("Mark as unread");
+    await expect(menuItems.nth(1)).toHaveText("Resume");
+    await expect(menuItems.nth(2)).toHaveText("Remove…");
     await expect(menuItems.nth(1)).toBeEnabled();
+    await expect(menuItems.nth(2)).toBeEnabled();
     await expect(page.getByRole("menuitem", { name: "Stop…", exact: true })).toHaveCount(0);
     await page.keyboard.press("Escape");
 

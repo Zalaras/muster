@@ -59,3 +59,45 @@ export async function lineGeometry(line: Locator): Promise<{
     };
   });
 }
+
+/**
+ * The size of what an element actually draws: screenshot it and take the bounding box of the
+ * pixels that differ from its ground (the top-left pixel). A glyph's font box and a CSS box
+ * both overstate the ink, so a requirement on how big a mark looks is asserted on this.
+ */
+export async function inkBox(loc: Locator): Promise<{ width: number; height: number }> {
+  const png = await loc.screenshot({ animations: "disabled" });
+  return await loc.page().evaluate(async (b64) => {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const bmp = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
+    const canvas = document.createElement("canvas");
+    canvas.width = bmp.width;
+    canvas.height = bmp.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("no 2d context");
+    ctx.drawImage(bmp, 0, 0);
+    const { data, width, height } = ctx.getImageData(0, 0, bmp.width, bmp.height);
+    const px = (k: number): number => data[k] ?? 0;
+    const ground = [px(0), px(1), px(2)] as const;
+    let minX = width;
+    let minY = height;
+    let maxX = -1;
+    let maxY = -1;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const i = (y * width + x) * 4;
+        const diff =
+          Math.abs(px(i) - ground[0]) +
+          Math.abs(px(i + 1) - ground[1]) +
+          Math.abs(px(i + 2) - ground[2]);
+        if (diff > 60) {
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+      }
+    }
+    return maxX < 0 ? { width: 0, height: 0 } : { width: maxX - minX + 1, height: maxY - minY + 1 };
+  }, png.toString("base64"));
+}

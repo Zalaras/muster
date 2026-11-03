@@ -4033,20 +4033,28 @@ fieldset.seg legend {
 .ghead .disc {
   appearance: none;
   flex: none;
-  width: 16px;
-  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--fg-dim);
-  font-size: 10px;
-  line-height: 1;
+  color: var(--fg-muted);
   cursor: pointer;
 }
 
+.ghead:hover .disc {
+  color: var(--fg);
+}
+
 .ghead .disc::before {
-  content: "▾";
-  display: inline-block;
+  content: "";
+  width: 9px;
+  height: 6px;
+  background: currentColor;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
   transition: transform 120ms ease;
 }
 
@@ -4054,7 +4062,8 @@ fieldset.seg legend {
   transform: rotate(-90deg);
 }
 
-.ghead .disc:disabled {
+.ghead .disc:disabled,
+.ghead:hover .disc:disabled {
   color: var(--disabled-fg);
   cursor: default;
 }

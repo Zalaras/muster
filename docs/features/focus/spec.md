@@ -56,7 +56,7 @@ real geometry.
 
 A session launched at a level it did not come up at shows a warning strip under the mainhead, in the
 warning tokens, naming the requested and actual level, and tints the effort the same; Dismiss clears both
-for that session only, and until then the warning survives reloads, other windows and daemon restarts
+for that session only (a Dismiss that hides the strip while it holds focus returns focus to the selected terminal, or to the header's Session actions `⋯` when none shows), and until then the warning survives reloads, other windows and daemon restarts
 (kb:adr/focus-effort-mismatch-warning-persisted-per-session).
 
 The focused session defaults to the top of the rail's visible order (else its first card) when nothing is

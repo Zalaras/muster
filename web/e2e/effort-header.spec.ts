@@ -21,10 +21,11 @@ import {
   effortArg,
 } from "./helpers/effort";
 import { expect, type Page, settleFor, test } from "./helpers/fixtures";
-import { focusedNode, tagNode } from "./helpers/focus-header";
+import { focusedNode, headerMore, tagNode } from "./helpers/focus-header";
 import { envelopedSessionStart } from "./helpers/payloads";
 import { resumeFromCardMenu } from "./helpers/rail-menu";
 import { envelopeOpts, findSession, getState, sessionCard } from "./helpers/session";
+import { mainheadSurfaceButton } from "./helpers/shell";
 import { activeElementInsideTerminal, terminalRegion } from "./helpers/terminal";
 
 // Effort, the header half: the bracketed effort after the model, the launch-mismatch warning
@@ -347,6 +348,49 @@ test("Dismiss is reachable and activates from the keyboard (REQ-9)", async ({
 
   await expect(effortStrip(page)).toHaveCount(0);
   await expect(headerEff(page)).not.toHaveClass(/\bwarn\b/);
+});
+
+test("a keyboard Dismiss puts focus in the session's terminal (REQ-1, E4)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  await warnedSession(page, request, daemon, "effort-dismiss-focus-term");
+  await expect(terminalRegion(page, "effort-dismiss-focus-term")).toContainText(
+    "MUSTER-STUB-READY",
+  );
+
+  // Setup, not evidence: focus on the button. The key press is the activation.
+  await stripDismiss(page).focus();
+  await expect(stripDismiss(page)).toBeFocused();
+
+  await page.keyboard.press("Enter");
+
+  await expect(effortStrip(page)).toHaveCount(0);
+  await expect
+    .poll(() => activeElementInsideTerminal(page, "effort-dismiss-focus-term"))
+    .toBe(true);
+});
+
+test("a keyboard Dismiss with Docs selected puts focus on the header's Session actions ⋯, never on the page (REQ-1, E4)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  await warnedSession(page, request, daemon, "effort-dismiss-focus-docs");
+  await mainheadSurfaceButton(page, "docs").click();
+  await expect(mainheadSurfaceButton(page, "docs")).toHaveAttribute("aria-pressed", "true");
+
+  // Setup, not evidence: focus on the button. The key press is the activation.
+  await stripDismiss(page).focus();
+  await expect(stripDismiss(page)).toBeFocused();
+
+  await page.keyboard.press("Enter");
+
+  await expect(effortStrip(page)).toHaveCount(0);
+  await expect(headerMore(page)).toBeFocused();
 });
 
 test("the header's effort node survives render ticks and a repeat post of the same level, still reading its bracket and tint (REQ-6, REQ-8)", async ({

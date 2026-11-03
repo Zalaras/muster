@@ -546,7 +546,11 @@ test("Removing a live session ends it first, warns in the dialog copy, and moves
     // and the Focus header holds none.
     await expect(cardA.getByRole("button", { name: "Remove" })).toHaveCount(0);
     await openCardMenu(page, cardA);
-    expect((await menuItemLabels(page)).slice(0, 2)).toEqual(["Stop…", "Remove…"]);
+    expect((await menuItemLabels(page)).slice(0, 3)).toEqual([
+      "Mark as unread",
+      "Stop…",
+      "Remove…",
+    ]);
     await cardMenuItem(page, "Remove…").click();
     const dialog = page.getByRole("dialog", { name: "Remove session?" });
     await expect(dialog).toBeVisible();

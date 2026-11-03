@@ -69,7 +69,7 @@ import {
   test,
 } from "./helpers/harness";
 import { newTab, openLaunchDialog, resumeTab } from "./helpers/shortcuts";
-import { tokenColor } from "./helpers/style";
+import { inkBox, tokenColor } from "./helpers/style";
 
 // --- the rail's own controls, as web/e2e/helpers/railorder.ts and picker.ts locate them ---
 
@@ -1247,4 +1247,50 @@ test("the New group… name field keeps focus, its node and what was typed acros
   await expect(groupNameField(dialog)).toHaveValue("q");
   await expect(groupSelect(dialog)).toBeVisible();
   expect(await selectedOptionLabel(groupSelect(dialog))).toBe("New group…");
+});
+
+test("a section header's caret is drawn large enough to see, collapsed and expanded (R1, #113, REQ-2)", async ({
+  page,
+  dashboard,
+}) => {
+  const fixture = await dashboard.open("groups-titled-collapsed");
+  const alpha = groupNamed(fixture, "Alpha");
+  const bravo = groupNamed(fixture, "Bravo");
+  expect(alpha.collapsed).toBe(true);
+  expect(bravo.collapsed).toBe(false);
+  await page.mouse.move(0, 0);
+
+  const collapsed = groupCaret(groupHead(page, alpha.id));
+  const expanded = groupCaret(groupHead(page, bravo.id));
+  for (const caret of [collapsed, expanded]) {
+    const box = await caret.boundingBox();
+    if (!box) throw new Error("the caret has no layout box");
+    expect(box.width).toBeGreaterThanOrEqual(20);
+    expect(box.height).toBeGreaterThanOrEqual(20);
+  }
+
+  const right = await inkBox(collapsed);
+  expect(Math.max(right.width, right.height)).toBeGreaterThanOrEqual(8);
+  expect(Math.min(right.width, right.height)).toBeGreaterThanOrEqual(5);
+  expect(right.height).toBeGreaterThan(right.width);
+
+  const down = await inkBox(expanded);
+  expect(Math.max(down.width, down.height)).toBeGreaterThanOrEqual(8);
+  expect(Math.min(down.width, down.height)).toBeGreaterThanOrEqual(5);
+  expect(down.width).toBeGreaterThan(down.height);
+});
+
+test("a section header's caret is muted at rest and full foreground while its header is hovered (R1, #113, REQ-2)", async ({
+  page,
+  dashboard,
+}) => {
+  const fixture = await dashboard.open("groups-titled-collapsed");
+  const alpha = groupNamed(fixture, "Alpha");
+  const head = groupHead(page, alpha.id);
+  const caret = groupCaret(head);
+  await page.mouse.move(0, 0);
+  await expect(caret).toHaveCSS("color", await tokenColor(page, "--fg-muted"));
+
+  await head.hover();
+  await expect(caret).toHaveCSS("color", await tokenColor(page, "--fg"));
 });

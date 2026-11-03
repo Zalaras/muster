@@ -52,15 +52,16 @@ function menuEntry(label: CardAction): Omit<CardMenuAction, "disabled"> {
   return { label: MENU_TEXT[label], action: ACTION_BY_LABEL[label], danger: label === "Remove" };
 }
 
-function markEntries(disabled: boolean): CardMenuAction[] {
-  return [
-    { label: CARD_MENU_LABELS.markRead, action: "markRead", danger: false, disabled },
-    { label: CARD_MENU_LABELS.markUnread, action: "markUnread", danger: false, disabled },
-  ];
+function readToggle(unread: boolean, disabled: boolean): CardMenuAction[] {
+  return unread
+    ? [{ label: CARD_MENU_LABELS.markRead, action: "markRead", danger: false, disabled }]
+    : [{ label: CARD_MENU_LABELS.markUnread, action: "markUnread", danger: false, disabled }];
 }
 
+type UnreadFlag = Partial<Pick<Session, "unread">>;
+
 export function cardMenuItems(
-  session: Pick<Session, "alive" | "claudeSessionId" | "pinned">,
+  session: Pick<Session, "alive" | "claudeSessionId" | "pinned"> & UnreadFlag,
   state: CardMenuState,
 ): CardMenuItems {
   const disabled = !state.connected || state.busy;
@@ -75,7 +76,7 @@ export function cardMenuItems(
   return {
     actions,
     pin: { label: session.pinned ? CARD_MENU_LABELS.unpin : CARD_MENU_LABELS.pin, disabled },
-    marks: markEntries(disabled),
+    marks: readToggle(session.unread === true, disabled),
     moveDisabled: disabled,
   };
 }
@@ -88,7 +89,7 @@ export interface SelectionMenuItems {
 }
 
 export function selectionMenuItems(
-  sessions: readonly Pick<Session, "alive">[],
+  sessions: readonly (Pick<Session, "alive"> & UnreadFlag)[],
   state: CardMenuState,
 ): SelectionMenuItems {
   const disabled = !state.connected || state.busy;
@@ -102,7 +103,10 @@ export function selectionMenuItems(
   return {
     label: `Actions for ${sessionsPhrase(sessions.length)}`,
     actions,
-    marks: markEntries(disabled),
+    marks: readToggle(
+      sessions.some((s) => s.unread === true),
+      disabled,
+    ),
     moveDisabled: disabled,
   };
 }

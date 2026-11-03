@@ -266,7 +266,7 @@ test("Opt+Cmd+1 selects the pinned card in Attention mode, ahead of the neediest
 
 // ═══ web/e2e/rail-menu.spec.ts — rail card menu (#56) ═══
 
-test("right-clicking a live rail card opens a menu at the pointer with Stop…, Remove…, each group in rail order, New group…, No group, Pin and the two Mark entries, and no Resume, and the browser's own menu is cancelled (REQ-1, REQ-2, E1; REQ-2, REQ-3 of remove-unread-right-click-1)", async ({
+test("right-clicking a live rail card opens a menu at the pointer with the read toggle, Stop…, Remove…, Pin, then each group in rail order, New group…, No group, and no Resume, and the browser's own menu is cancelled (REQ-1, REQ-2, E1; REQ-2, REQ-3 of remove-unread-right-click-1)", async ({
   page,
   dashboard,
 }) => {
@@ -281,15 +281,16 @@ test("right-clicking a live rail card opens a menu at the pointer with Stop…, 
   if (!cardBox) throw new Error("the card has no layout box");
   const menu = await openCardMenu(page, card, { x: 24, y: 12 });
 
+  // One read toggle, then Stop…/Remove…, Pin, and Move to last; the fixture session is read.
+  expect(titled(fixture, "alpha-one").unread).toBe(false);
   expect(await menuItemLabels(page)).toEqual([
+    "Mark as unread",
     "Stop…",
     "Remove…",
+    "Pin",
     ...names,
     "New group…",
     "No group",
-    "Pin",
-    "Mark as read",
-    "Mark as unread",
   ]);
   await expect(cardMenuItem(page, "Resume")).toHaveCount(0);
   await expect(cardMenuItem(page, "Remove…")).toBeEnabled();
@@ -325,14 +326,13 @@ test("right-clicking an ended resumable rail card offers Resume, Remove…, the 
 
   await openCardMenu(page, railCard(page, "menu-plain"));
   expect(await menuItemLabels(page)).toEqual([
+    "Mark as unread",
     "Resume",
     "Remove…",
+    "Pin",
     "review",
     "New group…",
     "No group",
-    "Pin",
-    "Mark as read",
-    "Mark as unread",
   ]);
   await expect(cardMenuItem(page, "Stop…")).toHaveCount(0);
   await expect(cardMenuItem(page, "Resume")).toBeEnabled();
@@ -345,10 +345,12 @@ test("right-clicking an ended resumable rail card offers Resume, Remove…, the 
 
   await openCardMenu(page, railCard(page, "menu-pinned"));
   const pinnedLabels = await menuItemLabels(page);
-  // Unpin sits where Pin does, ahead of the Mark as read/unread entries.
+  // Unpin sits where Pin does, ahead of the Move to groups.
   expect(pinnedLabels).toContain("Unpin");
   expect(pinnedLabels).not.toContain("Pin");
-  expect(pinnedLabels.indexOf("Unpin")).toBeLessThan(pinnedLabels.indexOf("Mark as read"));
+  expect(pinnedLabels.indexOf("Unpin")).toBeLessThan(pinnedLabels.indexOf("review"));
+  expect(pinnedLabels).toContain("Mark as unread");
+  expect(pinnedLabels).not.toContain("Mark as read");
   await expect(cardMenuItem(page, "Stop…")).toHaveCount(0);
 });
 
@@ -368,7 +370,7 @@ test("an ended session with no Claude session id has no Resume item at all, not 
   await expect(cardMenuItem(page, "Resume")).toHaveCount(0);
   await expect(cardMenu(page).getByRole("menuitem", { name: /^Resume/ })).toHaveCount(0);
   await expect(cardMenuItem(page, "Remove…")).toBeEnabled();
-  expect((await menuItemLabels(page))[0]).toBe("Remove…");
+  expect((await menuItemLabels(page)).slice(0, 2)).toEqual(["Mark as unread", "Remove…"]);
   await page.keyboard.press("Escape");
 
   // The bound twin does offer it, so the absence above is the binding and nothing else.
@@ -532,8 +534,9 @@ test("the card keeps its node and focus through opening and closing its menu fro
   expect(await cardTagged()).toBe(true);
 
   await page.keyboard.press("Shift+F10");
-  await expect(cardMenuItem(page, "Stop…")).toBeFocused();
-  await cardMenuItem(page, "Stop…").evaluate((el) => {
+  // The read toggle leads the menu; the fixture session is read, so it offers "Mark as unread".
+  await expect(cardMenuItem(page, "Mark as unread")).toBeFocused();
+  await cardMenuItem(page, "Mark as unread").evaluate((el) => {
     Reflect.set(el, "__e2eNode", "item");
   });
   const itemTagged = () =>
@@ -644,6 +647,8 @@ test("an ended card's Remove… menu item keeps focus and node identity across a
   await expect(card).toBeFocused();
   await page.keyboard.press("Shift+F10");
   await expect(page.getByRole("menu")).toBeVisible();
+  // Toggle, Resume, then Remove…: the menu opens on the toggle, so two steps reach Remove….
+  await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await expect(removeItem).toBeFocused();
   await removeItem.evaluate((el) => {
@@ -666,6 +671,7 @@ test("an ended card's Remove… menu item keeps focus and node identity across a
   await card.focus();
   await expect(card).toBeFocused();
   await page.keyboard.press("ContextMenu");
+  await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await expect(removeItem).toBeFocused();
   await page.keyboard.press("Space");
