@@ -38,7 +38,10 @@ import time
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 POLL_SECONDS = 30
 LOCK_WAIT = "45m"          # a queued batch waits for another's Playwright sweep, never times out on it
-BG_WAIT_CEILING_MS = "3600000"  # print mode's idle wait on background subagents; its 10 min default kills reviewers
+# Print mode's idle wait on background subagents, set only in each batch's environment. Its 10 min
+# default kills reviewers; it matches /fix-batch's 2 h gate timeout, because a reviewer queued behind
+# another batch's Playwright lock outlasted 1 h.
+BG_WAIT_CEILING_MS = "7200000"
 ALLOWED_TOOLS = "Bash,Read,Edit,Write,Glob,Grep,Agent,ToolSearch,SendMessage,TaskStop,WebFetch"
 
 
@@ -321,6 +324,16 @@ def run_loop(sweep, parallel):
         state["parallel"] = parallel
     procs = {}
     save_state(sweep, state)
+    # Idle sleep freezes every batch. caffeinate -w exits with this process, even on a crash;
+    # the terminate below ends it as soon as the loop is done.
+    awake = subprocess.Popen(["caffeinate", "-i", "-w", str(os.getpid())])
+    try:
+        return _loop(sweep, spec, state, procs)
+    finally:
+        awake.terminate()
+
+
+def _loop(sweep, spec, state, procs):
     stop = {"now": False}
     signal.signal(signal.SIGTERM, lambda *_: stop.update(now=True))
     while True:
