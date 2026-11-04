@@ -148,3 +148,47 @@ func TestTranscriptSessionLines(t *testing.T) {
 	}
 	assert.False(t, got.LastActiveAt.IsZero())
 }
+
+// TestRunningSessionReportsItsVersion guards kb:fact/running-session-version-sources, the
+// source the Claude-restart notice counts versions from: the status line carries the running
+// binary's version before any prompt, on a fresh start and on a resume, and no hook payload
+// carries one. The fact's other half — a running session keeps its starting binary's version
+// after the install moves — needs two installed versions, which one canary binary cannot give.
+func TestRunningSessionReportsItsVersion(t *testing.T) {
+	f := harness(t)
+
+	t.Run("a fresh start posts its version before any prompt", func(t *testing.T) {
+		submit := f.firstHook(sessionInteract, "UserPromptSubmit")
+		require.NotNil(t, submit, "run D submitted no prompt")
+		var pre []capture
+		for _, c := range f.statusPostsFor(sessionInteract, f.preClearClaudeID()) {
+			if c.at.Before(submit.at) {
+				pre = append(pre, c)
+			}
+		}
+		require.NotEmpty(t, pre, "no status-line post arrived between SessionStart and the first prompt")
+		for _, c := range pre {
+			assert.Equal(t, f.installed, c.payload["version"], "pre-prompt status-line version != claude --version")
+		}
+	})
+
+	t.Run("a resume posts its version before any prompt", func(t *testing.T) {
+		run := f.resumeBare
+		require.NoError(t, run.err)
+		require.NotNil(t, run.firstStatus, "run M submits no prompt, so its first status post is pre-prompt")
+		assert.Equal(t, f.installed, run.firstStatus.payload["version"], "resumed session's status-line version != claude --version")
+	})
+
+	t.Run("no hook payload carries a version", func(t *testing.T) {
+		hooks := 0
+		for _, c := range f.all() {
+			if c.kind != claudecode.KindHook || c.payload == nil {
+				continue
+			}
+			hooks++
+			_, has := c.payload["version"]
+			assert.Falsef(t, has, "%s payload now carries version; the status line is no longer the only source", c.ev.Type)
+		}
+		assert.NotZero(t, hooks, "no hook payload captured")
+	})
+}

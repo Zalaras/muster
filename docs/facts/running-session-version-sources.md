@@ -10,7 +10,7 @@ files: []
 tests: []
 refs: [kb:fact/status-version-matches-installed, kb:fact/session-registry-names-running-sessions, kb:fact/command-hooks-inherit-pane-env]
 verified: 2.1.317..2.1.317
-guard: none
+guard: TestRunningSessionReportsItsVersion
 ---
 The version a running interactive session executes is the version of the binary it started
 from. Launched through a `claude` symlink pointing at 2.1.317, then the symlink repointed to
@@ -33,6 +33,9 @@ Where it is not: no hook payload carries a version (`SessionStart` keys: `cwd`,
 `hook_event_name`, `model`, `scratchpad_dir`, `session_id`, `source`, `transcript_path`);
 HTTP hooks send `User-Agent: axios/1.15.2`, not a Claude version; `claude agents --json` rows are
 `{cwd, kind, name, pid, sessionId, startedAt, status}`.
+
+The guard covers the single-binary half: the pre-prompt status-line `version` on a fresh start
+and a resume, and no hook carrying one. The binary swap needs two installed versions.
 
 Evidence (the 2.1.318 side is not yet canary-verified, so `verified` stops at 2.1.317): probe instance 3, 2026-11-04, sessions `7f223f32` (startup on 2.1.317, resume on
 2.1.318) and `fb0117f0` (startup on 2.1.318), launched through a private symlink in the
