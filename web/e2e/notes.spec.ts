@@ -29,14 +29,26 @@ import {
   closeNoteButton,
   dragPointer,
   emptyNoteLine,
+  expectWindowReady,
+  moveAndResizePanel,
   noteEditor,
   noteGlyph,
   noteOnWire,
   notePanel,
   noteStatus,
+  noteWindows,
+  openInWindowButton,
+  openNoteWindow,
+  panelBoxDiff,
   popInButton,
   popOutButton,
+  popOutFromGlyph,
   putNoteViaApi,
+  windowEditor,
+  windowEmptyLine,
+  windowRemovedNotice,
+  windowRendered,
+  windowStatus,
 } from "./helpers/notes";
 import { envelopedSessionStart, rawUserPromptSubmit } from "./helpers/payloads";
 import { removeFromCardMenu } from "./helpers/rail-menu";
@@ -220,7 +232,7 @@ test("typing and reloading at once keeps every character after the reload (E4, R
   await expect(notePanel(page)).toContainText(text);
 });
 
-test("with the panel popped out, typing and then focusing another session saves the text to the first session, and the panel shows the second session's note (E5, REQ-9, REQ-15, INV-4)", async ({
+test("with the panel popped out for A, typing and then focusing B saves the text to A and shows no panel for B, and focusing A again shows A's panel with the text (E8, REQ-1, REQ-9, REQ-15, INV-1, INV-3)", async ({
   page,
   request,
   daemon,
@@ -248,11 +260,15 @@ test("with the panel popped out, typing and then focusing another session saves 
     .toBe("typed for A");
   expect(await noteOnWire(page, daemon, b.session.id)).toBe("the note of B");
 
-  await expect(notePanel(page)).toBeVisible();
+  await expect(notePanel(page)).toHaveCount(0);
+  await expect(noteEditor(page)).toHaveCount(0);
+
+  await sessionCard(page, "note-e5-a").click();
+  await expect(mainheadHeading(page)).toContainText("note-e5-a");
   await expect(popInButton(page)).toBeVisible();
-  await expect(notePanel(page)).toContainText("the note of B");
-  await expect(notePanel(page)).toContainText(/Note\s*·\s*note-e5-b/);
-  await expect(notePanel(page)).not.toContainText("typed for A");
+  await expect(notePanel(page)).toContainText(/Note\s*·\s*note-e5-a/);
+  await expect(notePanel(page)).toContainText("typed for A");
+  await expect(notePanel(page)).not.toContainText("the note of B");
 });
 
 test("focusing another session closes an anchored panel (REQ-15)", async ({
@@ -524,7 +540,7 @@ test("with the panel popped out and the terminal focused, Escape reaches the ter
   await expect(popOutButton(page)).toHaveCount(0);
 });
 
-test("removing a session whose note panel is popped out shows the next focused session's note, and the removed note is gone from the state (E11, edge case 9)", async ({
+test("removing a session whose note panel is popped out shows no panel for the next focused session, which is not popped out, and the removed note is gone from the state (E11, REQ-1, edge case 9)", async ({
   page,
   request,
   daemon,
@@ -543,8 +559,11 @@ test("removing a session whose note panel is popped out shows the next focused s
   await expect(sessionCard(page, "note-e11-a")).toHaveCount(0, { timeout: 15_000 });
 
   await expect(mainheadHeading(page)).toContainText("note-e11-b");
-  await expect(notePanel(page)).toBeVisible();
-  await expect(popInButton(page)).toBeVisible();
+  await expect(notePanel(page)).toHaveCount(0);
+
+  await noteGlyph(page).click();
+  await expect(popOutButton(page)).toBeVisible();
+  await expect(popInButton(page)).toHaveCount(0);
   await expect(notePanel(page)).toContainText("note of the survivor");
   await expect(notePanel(page)).not.toContainText("note of the removed");
 
@@ -677,7 +696,7 @@ test("click-away and the glyph leave a popped-out panel open, Pop in returns it 
   await popInButton(page).click();
   await expect(popOutButton(page)).toBeVisible();
   await expect(popInButton(page)).toHaveCount(0);
-  await expect(closeNoteButton(page)).toHaveCount(0);
+  await expect(closeNoteButton(page)).toBeVisible();
 
   await popOutButton(page).click();
   await expect(popInButton(page)).toBeVisible();
@@ -856,4 +875,571 @@ test("with browser storage blocked, removing a session with another present take
   expect(state.sessions.find((s) => s.id === a.session.id)).toBeUndefined();
   expect(state.sessions.find((s) => s.id === b.session.id)?.note).toBe("note of the survivor");
   expect(pageErrors).toEqual([]);
+});
+
+// Plan popped-out-note-enhance: per-session pop-out and the note window.
+
+/** Clicks a masthead view button and waits for it to read pressed. */
+async function switchView(page: Page, view: "Focus" | "Tiles"): Promise<void> {
+  await page.getByRole("button", { name: view }).click();
+  await expect(page.getByRole("button", { name: view })).toHaveAttribute("aria-pressed", "true");
+}
+
+/** Focuses a session by its rail card and waits for the Focus header to name it. */
+async function focusCard(page: Page, title: string): Promise<void> {
+  await sessionCard(page, title).click();
+  await expect(mainheadHeading(page)).toContainText(title);
+}
+
+/** Everything this tab's session storage holds, serialized, as the only oracle for "remembered". */
+async function sessionStorageDump(page: Page): Promise<string> {
+  return await page.evaluate(() =>
+    JSON.stringify(Object.fromEntries(Object.entries(sessionStorage))),
+  );
+}
+
+test("a session popped out at a moved rectangle reloads popped out there when focused, and a session never popped out shows no panel (E1, REQ-1, REQ-2, REQ-3, INV-1)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  await launchNoted(page, request, daemon, "note-pe1-a", "note of A");
+  await launchNoted(page, request, daemon, "note-pe1-b", "note of B");
+
+  await focusCard(page, "note-pe1-a");
+  await popOutFromGlyph(page);
+  const rect = await moveAndResizePanel(page, -120, 40);
+
+  await focusCard(page, "note-pe1-b");
+  await expect(notePanel(page)).toHaveCount(0);
+  await focusCard(page, "note-pe1-a");
+  await expect.poll(() => panelBoxDiff(page, rect)).toBe("same");
+
+  await page.reload();
+  await focusCard(page, "note-pe1-b");
+  await expect(notePanel(page)).toHaveCount(0);
+  await focusCard(page, "note-pe1-a");
+  await expect(popInButton(page)).toBeVisible();
+  await expect(notePanel(page)).toContainText("note of A");
+  await expect.poll(() => panelBoxDiff(page, rect)).toBe("same");
+});
+
+test("a place stored by the single-panel version is ignored: after a reload every session is anchored (REQ-3, edge case 1)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  // Setup, not evidence: the value today's version writes under its one key, planted before the
+  // dashboard's scripts run on every load of this tab.
+  await page.addInitScript(() => {
+    try {
+      sessionStorage.setItem(
+        "muster.note-panel",
+        JSON.stringify({ popped: true, rect: { x: 120, y: 120, width: 400, height: 320 } }),
+      );
+    } catch {
+      // storage unavailable: nothing to plant
+    }
+  });
+  await page.goto(daemon.dashboardUrl);
+  await launchNoted(page, request, daemon, "note-pe3old-a", "note of A");
+  await launchNoted(page, request, daemon, "note-pe3old-b", "note of B");
+
+  await page.reload();
+  await focusCard(page, "note-pe3old-a");
+  await expect(notePanel(page)).toHaveCount(0);
+  await focusCard(page, "note-pe3old-b");
+  await expect(notePanel(page)).toHaveCount(0);
+  await noteGlyph(page).click();
+  await expect(popOutButton(page)).toBeVisible();
+  await expect(popInButton(page)).toHaveCount(0);
+});
+
+test("removing a popped-out session leaves another popped-out session's panel unchanged and forgets the removed session's place, and removing the focused popped-out session shows no panel for the next one (E2, REQ-1, REQ-4, INV-1)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  await launchNoted(page, request, daemon, "note-pe2-a", "note of A");
+  await launchNoted(page, request, daemon, "note-pe2-b", "note of B");
+  await launchNoted(page, request, daemon, "note-pe2-c", "note of C");
+
+  await focusCard(page, "note-pe2-a");
+  await popOutFromGlyph(page);
+  const rectA = await moveAndResizePanel(page, -120, 40);
+  await focusCard(page, "note-pe2-b");
+  await popOutFromGlyph(page);
+  const rectB = await moveAndResizePanel(page, -60, 90, [-95, -70]);
+
+  // B's width and height together are the marker for B's rectangle in the tab's memory: A was
+  // resized differently, so both numbers appearing means B's rectangle is stored.
+  const bMarks = [String(Math.floor(rectB.width)), String(Math.floor(rectB.height))];
+  const remembersB = async () => {
+    const dump = await sessionStorageDump(page);
+    return bMarks.every((mark) => dump.includes(mark));
+  };
+  await expect.poll(remembersB, { message: "B's rectangle is in the tab's memory" }).toBe(true);
+
+  await focusCard(page, "note-pe2-a");
+  await expect.poll(() => panelBoxDiff(page, rectA)).toBe("same");
+
+  await removeFromCardMenu(page, sessionCard(page, "note-pe2-b"));
+  await expect(sessionCard(page, "note-pe2-b")).toHaveCount(0, { timeout: 15_000 });
+  await expect(mainheadHeading(page)).toContainText("note-pe2-a");
+  await expect(popInButton(page)).toBeVisible();
+  await expect(notePanel(page)).toContainText("note of A");
+  await expect.poll(() => panelBoxDiff(page, rectA)).toBe("same");
+  await expect
+    .poll(remembersB, { message: "B's rectangle left the tab's memory with B" })
+    .toBe(false);
+
+  await removeFromCardMenu(page, sessionCard(page, "note-pe2-a"));
+  await expect(sessionCard(page, "note-pe2-a")).toHaveCount(0, { timeout: 15_000 });
+  await expect(mainheadHeading(page)).toContainText("note-pe2-c");
+  await expect(notePanel(page)).toHaveCount(0);
+});
+
+test("Open note in window opens a popup on the session's note and closes the panel, a second press opens no second page, and another session's window makes two (E3, REQ-4, REQ-8, INV-5)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  const a = await launchNoted(page, request, daemon, "note-pe3-a", "note of A");
+  const b = await launchNoted(page, request, daemon, "note-pe3-b", "note of B");
+  const context = page.context();
+
+  await focusCard(page, "note-pe3-a");
+  await noteGlyph(page).click();
+  await expect(notePanel(page)).toContainText("note of A");
+  const winA = await openNoteWindow(page);
+  expect(winA.url()).toContain(`/note.html?session=${a.session.id}`);
+  await expectWindowReady(winA, "note-pe3-a");
+  await expect(windowRendered(winA)).toContainText("note of A");
+  await expect(notePanel(page)).toHaveCount(0);
+
+  // The same session again from a newly opened panel: no second page.
+  let opened = 0;
+  context.on("page", () => {
+    opened += 1;
+  });
+  await noteGlyph(page).click();
+  await expect(popOutButton(page)).toBeVisible();
+  await openInWindowButton(page).click();
+  await expect(notePanel(page)).toHaveCount(0);
+  // A stays-unchanged hold: a second window would open within this time.
+  await settleFor(page, 1_000);
+  expect(opened).toBe(0);
+  expect(noteWindows(context)).toHaveLength(1);
+
+  await focusCard(page, "note-pe3-b");
+  await noteGlyph(page).click();
+  const winB = await openNoteWindow(page);
+  expect(winB.url()).toContain(`/note.html?session=${b.session.id}`);
+  await expectWindowReady(winB, "note-pe3-b");
+  await expect(windowRendered(winB)).toContainText("note of B");
+  expect(noteWindows(context)).toHaveLength(2);
+  await expect(windowRendered(winA)).toContainText("note of A");
+  await expect(winA.locator("body")).not.toContainText("note of B");
+});
+
+test("Open note in window from a popped-out panel closes it and takes only that session out of the popped-out set, and its next pop-out returns to its rectangle (REQ-4, REQ-8, INV-1)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  await launchNoted(page, request, daemon, "note-pe4w-a", "note of A");
+  await launchNoted(page, request, daemon, "note-pe4w-b", "note of B");
+
+  await focusCard(page, "note-pe4w-a");
+  await popOutFromGlyph(page);
+  const rectA = await moveAndResizePanel(page, -120, 40);
+  await focusCard(page, "note-pe4w-b");
+  await popOutFromGlyph(page);
+  const rectB = await moveAndResizePanel(page, -60, 90);
+
+  await focusCard(page, "note-pe4w-a");
+  await expect.poll(() => panelBoxDiff(page, rectA)).toBe("same");
+  const win = await openNoteWindow(page);
+  await expectWindowReady(win, "note-pe4w-a");
+  await expect(notePanel(page)).toHaveCount(0);
+
+  await focusCard(page, "note-pe4w-b");
+  await expect(popInButton(page)).toBeVisible();
+  await expect.poll(() => panelBoxDiff(page, rectB)).toBe("same");
+  await focusCard(page, "note-pe4w-a");
+  await expect(notePanel(page)).toHaveCount(0);
+
+  await popOutFromGlyph(page);
+  await expect.poll(() => panelBoxDiff(page, rectA)).toBe("same");
+});
+
+test("stopping a popped-out session leaves it popped out at its rectangle when focused, and another session still shows none (E4, REQ-4, INV-1)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  const a = await launchNoted(page, request, daemon, "note-pe4-a", "note of A");
+  await launchNoted(page, request, daemon, "note-pe4-b", "note of B");
+
+  await focusCard(page, "note-pe4-a");
+  await popOutFromGlyph(page);
+  const rect = await moveAndResizePanel(page, -120, 40);
+
+  const end = await page.request.post(`${daemon.baseURL}/api/sessions/${a.session.id}/end`);
+  expect(end.status()).toBe(200);
+  await expect(page.locator("#dead-surface .endcap")).toBeVisible({ timeout: 15_000 });
+  await expect(popInButton(page)).toBeVisible();
+  await expect(notePanel(page)).toContainText("note of A");
+  await expect.poll(() => panelBoxDiff(page, rect)).toBe("same");
+
+  await focusCard(page, "note-pe4-b");
+  await expect(notePanel(page)).toHaveCount(0);
+  await focusCard(page, "note-pe4-a");
+  await expect(popInButton(page)).toBeVisible();
+  await expect.poll(() => panelBoxDiff(page, rect)).toBe("same");
+});
+
+test("text typed in A's note window reaches A while the dashboard focuses B and then Tiles, and an edit saved from the dashboard panel shows in A's window while it is not editing (E5, REQ-9, REQ-10, REQ-14, INV-3)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  const a = await launchNoted(page, request, daemon, "note-pe5-a");
+  const b = await launchNoted(page, request, daemon, "note-pe5-b", "note of B");
+
+  await focusCard(page, "note-pe5-a");
+  await noteGlyph(page).click();
+  const win = await openNoteWindow(page);
+  await expectWindowReady(win, "note-pe5-a");
+  await windowEmptyLine(win).click();
+  await expect(windowEditor(win)).toBeFocused();
+  await win.keyboard.type("typed in A's window");
+
+  await focusCard(page, "note-pe5-b");
+  await expect
+    .poll(() => noteOnWire(page, daemon, a.session.id), {
+      message: "the window's text went to the session it was typed for",
+    })
+    .toBe("typed in A's window");
+  expect(await noteOnWire(page, daemon, b.session.id)).toBe("note of B");
+
+  await switchView(page, "Tiles");
+  await settleFor(page, 1_400);
+  expect(win.isClosed()).toBe(false);
+  await expect(windowEditor(win)).toHaveValue("typed in A's window");
+  await expectWindowReady(win, "note-pe5-a");
+
+  await win.keyboard.press("Escape");
+  await expect(windowEditor(win)).toHaveCount(0);
+  await expect(windowRendered(win)).toContainText("typed in A's window");
+  expect(win.isClosed()).toBe(false);
+
+  await switchView(page, "Focus");
+  await focusCard(page, "note-pe5-a");
+  await noteGlyph(page).click();
+  await notePanel(page).getByText("typed in A's window").click();
+  await expect(noteEditor(page)).toBeFocused();
+  await replaceText(page, "edited from the dashboard");
+  await page.keyboard.press("Escape");
+  await expect.poll(() => noteOnWire(page, daemon, a.session.id)).toBe("edited from the dashboard");
+  await expect(windowRendered(win)).toContainText("edited from the dashboard");
+  await expect(windowEditor(win)).toHaveCount(0);
+});
+
+test("with musterd stopped, text typed in a note window shows the unsaved status and is on the daemon after musterd restarts with no further input (E6, REQ-11)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  const { session } = await launchNoted(page, request, daemon, "note-pe6a");
+  await noteGlyph(page).click();
+  const win = await openNoteWindow(page);
+  await expectWindowReady(win, "note-pe6a");
+  await windowEmptyLine(win).click();
+  await expect(windowEditor(win)).toBeFocused();
+
+  await daemon.kill();
+  await expect(page.getByRole("alert")).toHaveText(/musterd unreachable/i, { timeout: 15_000 });
+  // Before anything is typed the window itself already says the daemon is gone.
+  await expect(windowStatus(win)).toHaveText("musterd unreachable");
+  await win.keyboard.type("typed in the window while musterd is down");
+  await expect(windowStatus(win)).toHaveText("unsaved, musterd unreachable");
+  await expect(windowEditor(win)).toHaveValue("typed in the window while musterd is down");
+
+  await daemon.restart();
+  await expect(page.getByRole("alert")).toBeHidden({ timeout: 15_000 });
+  await expect
+    .poll(() => noteOnWire(page, daemon, session.id), {
+      message: "the kept text was sent again on reconnect with no action",
+    })
+    .toBe("typed in the window while musterd is down");
+  await expect(windowStatus(win)).toHaveText("");
+});
+
+test("text a note window could not save survives a reload of that window and reaches the daemon on reconnect (E6, REQ-11, network failure)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  const { session } = await launchNoted(page, request, daemon, "note-pe6b");
+  await noteGlyph(page).click();
+  const win = await openNoteWindow(page);
+  await expectWindowReady(win, "note-pe6b");
+
+  // The page itself is served by musterd, so a reload cannot happen while it is stopped; an
+  // aborted save is the same connection-level failure the window sees, with the page still loadable.
+  const abortSaves: Parameters<Page["route"]>[1] = async (route) => {
+    if (route.request().method() === "PUT") await route.abort();
+    else await route.continue();
+  };
+  await page.context().route(/\/api\/sessions\/\d+\/note$/, abortSaves);
+  // A note flushes a pending save with a keepalive PUT when the page hides, and context.route does
+  // not intercept a request issued during unload. A network that is down fails that one too, so
+  // the window's fetch rejects keepalive PUTs (a connection-level failure, not an error status)
+  // on this load (evaluate) and on every later one (init script) until the test lifts it.
+  const failKeepalivePuts = () => {
+    const realFetch = window.fetch.bind(window);
+    const flag = window as unknown as { __failKeepalivePuts: boolean };
+    flag.__failKeepalivePuts = true;
+    window.fetch = (input, init) => {
+      if (flag.__failKeepalivePuts && init?.keepalive === true && init.method === "PUT") {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
+      return realFetch(input, init);
+    };
+  };
+  await win.evaluate(failKeepalivePuts);
+  await win.addInitScript(failKeepalivePuts);
+
+  await windowEmptyLine(win).click();
+  await expect(windowEditor(win)).toBeFocused();
+  await win.keyboard.type("kept across the window's reload");
+  await expect(windowStatus(win)).toHaveText("unsaved, musterd unreachable");
+  expect(await noteOnWire(page, daemon, session.id)).toBeNull();
+
+  await win.reload();
+  await win.waitForLoadState();
+  await expect(win.locator("body")).toContainText(/Note\s*·\s*note-pe6b/);
+  await expect(windowStatus(win)).toHaveText("unsaved, musterd unreachable");
+  expect(await noteOnWire(page, daemon, session.id)).toBeNull();
+
+  await page.context().unroute(/\/api\/sessions\/\d+\/note$/, abortSaves);
+  await win.evaluate(() => {
+    (window as unknown as { __failKeepalivePuts: boolean }).__failKeepalivePuts = false;
+  });
+  await daemon.restart();
+  await expect
+    .poll(() => noteOnWire(page, daemon, session.id), {
+      message: "the text kept across the reload was sent on reconnect with no further input",
+    })
+    .toBe("kept across the window's reload");
+  // The dashboard tab also re-sends pending drafts from shared localStorage, so the daemon having
+  // the text does not show the window's half: its own status clears only when its re-send lands.
+  await expect(windowStatus(win)).toHaveText("");
+});
+
+test("the dashboard panel's unsaved status clears when the note window re-sends and acknowledges the shared draft first (E6, REQ-11, network failure)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  const { session } = await launchNoted(page, request, daemon, "note-pe6c");
+  await noteGlyph(page).click();
+  const win = await openNoteWindow(page);
+  await expectWindowReady(win, "note-pe6c");
+  // Opening the window closed the panel; the dashboard shows the same session's panel again.
+  await noteGlyph(page).click();
+  await expect(notePanel(page)).toBeVisible();
+  await expect(noteStatus(page)).toHaveText("");
+
+  // Both tabs have a connection-level failure on the note save (each page's own route), while
+  // the daemon itself stays up. Only the window types: the dashboard tab holds the text only
+  // as the draft both tabs share in localStorage.
+  const abortSaves: Parameters<Page["route"]>[1] = async (route) => {
+    if (route.request().method() === "PUT") await route.abort();
+    else await route.continue();
+  };
+  const noteRoute = /\/api\/sessions\/\d+\/note$/;
+  await page.route(noteRoute, abortSaves);
+  await win.route(noteRoute, abortSaves);
+  await windowEmptyLine(win).click();
+  await expect(windowEditor(win)).toBeFocused();
+  await win.keyboard.type("typed in the window, re-sent by the window first");
+  await expect(windowStatus(win)).toHaveText("unsaved, musterd unreachable");
+
+  // The daemon restarting makes both tabs reconnect: each re-sends the shared draft on its
+  // snapshot, and the dashboard's re-send fails, so its panel now reports the draft as unsaved.
+  await daemon.restart();
+  await expect(page.getByRole("alert")).toBeHidden({ timeout: 15_000 });
+  await expect(noteStatus(page)).toHaveText("unsaved, musterd unreachable");
+  expect(await noteOnWire(page, daemon, session.id)).toBeNull();
+
+  // Only the window's network comes back; the window reloads, re-sends the draft and the daemon
+  // acknowledges it. The dashboard tab never re-sends again (it is still failing), yet the draft
+  // it reported as unsaved is on the daemon, so its status must clear.
+  await win.unroute(noteRoute, abortSaves);
+  await win.reload();
+  await win.waitForLoadState();
+  await expect(win.locator("body")).toContainText(/Note\s*·\s*note-pe6c/);
+  await expect
+    .poll(() => noteOnWire(page, daemon, session.id), {
+      message: "the note window re-sent the shared draft and musterd has it",
+    })
+    .toBe("typed in the window, re-sent by the window first");
+  await expect(windowStatus(win)).toHaveText("");
+  await expect(noteStatus(page)).toHaveText("");
+});
+
+test("a note window stays editable after its session is stopped, and after Remove reads that the session has been removed with no editable note, while another session's window is unaffected (E7, REQ-12)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  const a = await launchNoted(page, request, daemon, "note-pe7-a", "note of A");
+  await launchNoted(page, request, daemon, "note-pe7-b", "note of B");
+
+  await focusCard(page, "note-pe7-a");
+  await noteGlyph(page).click();
+  const winA = await openNoteWindow(page);
+  await expectWindowReady(winA, "note-pe7-a");
+  await focusCard(page, "note-pe7-b");
+  await noteGlyph(page).click();
+  const winB = await openNoteWindow(page);
+  await expectWindowReady(winB, "note-pe7-b");
+
+  await focusCard(page, "note-pe7-a");
+  const end = await page.request.post(`${daemon.baseURL}/api/sessions/${a.session.id}/end`);
+  expect(end.status()).toBe(200);
+  await expect(page.locator("#dead-surface .endcap")).toBeVisible({ timeout: 15_000 });
+
+  await windowRendered(winA).getByText("note of A").click();
+  await expect(windowEditor(winA)).toBeFocused();
+  await replaceText(winA, "edited after the stop");
+  await winA.keyboard.press("Escape");
+  await expect(windowRendered(winA)).toContainText("edited after the stop");
+  await expect
+    .poll(() => noteOnWire(page, daemon, a.session.id), {
+      message: "an ended session's note saved from its window",
+    })
+    .toBe("edited after the stop");
+
+  await removeFromCardMenu(page, sessionCard(page, "note-pe7-a"));
+  await expect(sessionCard(page, "note-pe7-a")).toHaveCount(0, { timeout: 15_000 });
+  await expect(windowRemovedNotice(winA)).toBeVisible();
+  await expect(windowEditor(winA)).toHaveCount(0);
+  await expect(windowRendered(winA)).toHaveCount(0);
+  expect(winA.isClosed()).toBe(false);
+
+  await expect(windowRemovedNotice(winB)).toHaveCount(0);
+  await windowRendered(winB).getByText("note of B").click();
+  await expect(windowEditor(winB)).toBeFocused();
+  await winB.keyboard.press("Escape");
+  await expect(windowRendered(winB)).toContainText("note of B");
+});
+
+test("Close on the anchored panel saves the typed text at once, closes it and returns focus to the terminal (REQ-6)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  const { session } = await launchNoted(page, request, daemon, "note-pe6c");
+  await expect(terminalRegion(page, "note-pe6c")).toContainText("MUSTER-STUB-READY", {
+    timeout: 15_000,
+  });
+  await openAndEdit(page);
+  await page.keyboard.type("saved by closing");
+
+  await closeNoteButton(page).click();
+  await expect(notePanel(page)).toHaveCount(0);
+  // 700 ms, not the 15 s default: autosave lands about a second after the last keystroke, so a
+  // save that only the debounce makes would not be there yet. Close must flush it.
+  await expect
+    .poll(() => noteOnWire(page, daemon, session.id), {
+      timeout: 700,
+      message: "Close saved the text at once",
+    })
+    .toBe("saved by closing");
+  await expect.poll(() => activeElementInsideTerminal(page, "note-pe6c")).toBe(true);
+});
+
+test("Close and Open in window work from the keyboard on the anchored panel and keep focus across a tick before they act (REQ-6, REQ-7, REQ-8)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  await page.goto(daemon.dashboardUrl);
+  await launchNoted(page, request, daemon, "note-pe7k", "keyboard controls");
+  await expect(terminalRegion(page, "note-pe7k")).toContainText("MUSTER-STUB-READY", {
+    timeout: 15_000,
+  });
+
+  await noteGlyph(page).click();
+  await tagNode(closeNoteButton(page), "note-close");
+  await closeNoteButton(page).focus();
+  expect(await focusedNode(page)).toEqual({ tag: "BUTTON", node: "note-close" });
+  // A stays-unchanged hold: the render tick itself is under test.
+  await settleFor(page, 1_400);
+  expect(await focusedNode(page)).toEqual({ tag: "BUTTON", node: "note-close" });
+  await page.keyboard.press("Enter");
+  await expect(notePanel(page)).toHaveCount(0);
+  await expect.poll(() => activeElementInsideTerminal(page, "note-pe7k")).toBe(true);
+
+  await noteGlyph(page).click();
+  await tagNode(openInWindowButton(page), "note-window");
+  await openInWindowButton(page).focus();
+  expect(await focusedNode(page)).toEqual({ tag: "BUTTON", node: "note-window" });
+  await settleFor(page, 1_400);
+  expect(await focusedNode(page)).toEqual({ tag: "BUTTON", node: "note-window" });
+  const [win] = await Promise.all([page.waitForEvent("popup"), page.keyboard.press("Enter")]);
+  await win.waitForLoadState();
+  await expectWindowReady(win, "note-pe7k");
+  await expect(notePanel(page)).toHaveCount(0);
+});
+
+test("with browser storage blocked, popping out, placing, Close and Open in window all work and raise no page error (REQ-13, edge case 15)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  const context = page.context();
+  const errors: string[] = [];
+  context.on("weberror", (err) => errors.push(err.error().message));
+  await context.addInitScript(() => {
+    for (const name of ["localStorage", "sessionStorage"]) {
+      Object.defineProperty(window, name, {
+        configurable: true,
+        get() {
+          throw new DOMException("storage is blocked", "SecurityError");
+        },
+      });
+    }
+  });
+  await page.goto(daemon.dashboardUrl);
+  await launchNoted(page, request, daemon, "note-pe13", "note kept in memory");
+  await expect(mainheadHeading(page)).toContainText("note-pe13");
+
+  await popOutFromGlyph(page);
+  const placed = await moveAndResizePanel(page, -120, 40);
+  await expect.poll(() => panelBoxDiff(page, placed)).toBe("same");
+  await closeNoteButton(page).click();
+  await expect(notePanel(page)).toHaveCount(0);
+
+  await noteGlyph(page).click();
+  await expect(popOutButton(page)).toBeVisible();
+  const win = await openNoteWindow(page);
+  await expectWindowReady(win, "note-pe13");
+  await expect(windowRendered(win)).toContainText("note kept in memory");
+  await expect(notePanel(page)).toHaveCount(0);
+  expect(errors).toEqual([]);
 });

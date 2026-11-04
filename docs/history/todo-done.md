@@ -2700,3 +2700,11 @@ that the dashboard shows.
   appear at the bottom of the right click menu.
   Filed 2026-11-02 from musterd 0.27.2 / Claude Code 2.1.293, focus view, session working.
   Labels: enhancement, rail, ux.
+
+- [x] **Popped out note should stay just on the session** ([#112](https://github.com/Zalaras/muster/issues/112)) ✅ done 2026-11-04 (plan `popped-out-note-enhance`, via `/orchestrate`; approved review cycle 3) — After
+  switching sessions, the popped out note stays visible in the newly selected session instead of
+  belonging only to the session it was popped out from. Expected: A popped out note should be tied
+  to its own session and only show on that session, and the pop out should be movable anywhere in
+  the window.
+  Filed 2026-10-23 from musterd 0.25.3 / Claude Code 2.1.293, focus view, session idle.
+  Labels: enhancement, sessions, documents, ux.

@@ -54,7 +54,11 @@ export function createNoteSaver(deps: NoteSaverDeps): NoteSaver {
 
   async function pump(id: number, options: SendOptions): Promise<void> {
     const text = deps.drafts.get(id);
-    if (text === undefined || inflight.has(id)) return;
+    if (text === undefined) {
+      setFailed(id, false);
+      return;
+    }
+    if (inflight.has(id)) return;
     inflight.add(id);
     const outcome = await deps.send(id, text, options);
     inflight.delete(id);
@@ -69,6 +73,13 @@ export function createNoteSaver(deps: NoteSaverDeps): NoteSaver {
       return;
     }
     if (deps.drafts.get(id) !== undefined) await pump(id, PLAIN);
+  }
+
+  function stillFailed(id: number): boolean {
+    if (!failedIds.has(id)) return false;
+    if (deps.drafts.get(id) !== undefined) return true;
+    failedIds.delete(id);
+    return false;
   }
 
   function edit(id: number, text: string): void {
@@ -104,6 +115,6 @@ export function createNoteSaver(deps: NoteSaverDeps): NoteSaver {
     flushAll,
     resend: (id) => flush(id),
     forget,
-    failed: (id) => failedIds.has(id),
+    failed: stillFailed,
   };
 }

@@ -4,7 +4,7 @@
 // carries no dead-surface API of its own — `features/focus.ts` and `features/tiles.ts`
 // each hand `surfaces.select` their own `deadSurfaceRefsFor` lookup directly, since each
 // is the only one that knows what a dead surface looks like in its own view.
-import type { App } from "../app";
+import { type App, applyRemoved } from "../app";
 import {
   endSession,
   endSessions,
@@ -145,9 +145,7 @@ export function initActions(app: App): ActionsHandle {
   app.onRender((frame) => updateDeadPaneTracking(frame.sessions));
 
   function handleRemoved(id: number): void {
-    app.store.remove(id);
-    app.emit("sessionRemoved", id);
-    app.render();
+    applyRemoved(app, id);
   }
   app.on("sessionRemoved", (removedId) => {
     deadPaneCache.delete(removedId);

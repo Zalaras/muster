@@ -45,6 +45,11 @@ export function defaultRect(slot: Size): Rect {
   );
 }
 
+export function defaultPlacement(slot: Rect, viewport: Size): Rect {
+  const inset = defaultRect({ width: slot.width, height: slot.height });
+  return clampRect({ ...inset, x: slot.x + inset.x, y: slot.y + inset.y }, viewport);
+}
+
 export function dragRect(rect: Rect, dx: number, dy: number, slot: Size): Rect {
   return clampRect({ ...rect, x: rect.x + dx, y: rect.y + dy }, slot);
 }

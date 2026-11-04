@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Note</title>
+    <!-- Same no-wrong-theme-first-frame script as index.html — deliberately duplicated, not
+         imported; see index.html's copy for why. -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem("muster.theme-hint");
+          if (!raw) return;
+          var hint = JSON.parse(raw);
+          if (hint && typeof hint.theme === "string") document.documentElement.dataset.theme = hint.theme;
+          if (hint && typeof hint.family === "string") document.documentElement.dataset.claudeFamily = hint.family;
+        } catch (e) {
+          // swallowed — see comment above.
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="note-host" class="note-host"></div>
+    <script type="module" src="/src/note.ts"></script>
+  </body>
+</html>

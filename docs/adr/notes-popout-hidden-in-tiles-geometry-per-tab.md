@@ -1,7 +1,7 @@
 ---
 id: notes-popout-hidden-in-tiles-geometry-per-tab
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-21
 summary: The popped-out note panel hides in Tiles and returns in Focus; its form, position and size persist per browser tab in session storage.
 features: [notes]

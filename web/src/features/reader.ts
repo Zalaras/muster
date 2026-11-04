@@ -15,6 +15,7 @@ import type { DocChanged } from "../protocol/messages";
 import type { Session } from "../protocol/session";
 import { changedText } from "../reader/freshness";
 import { renderMarkdown, type OutlineEntry } from "../reader/markdown";
+import { parseSessionParam } from "../reader/query";
 import {
   forget,
   isDirty,
@@ -79,8 +80,7 @@ export interface StandaloneTarget {
  * to show. */
 export function parseStandaloneQuery(search: string): StandaloneTarget | null {
   const params = new URLSearchParams(search);
-  const rawSession = params.get("session");
-  const sessionId = rawSession !== null && /^\d+$/.test(rawSession) ? Number(rawSession) : null;
+  const sessionId = parseSessionParam(params);
   if (sessionId === null) return null;
   return { sessionId, path: params.get("path") };
 }

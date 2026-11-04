@@ -1,4 +1,3 @@
-import { putNote } from "../api/sessions";
 import type { App, RenderFrame } from "../app";
 import { requireElement } from "../dom";
 import type { Session } from "../protocol/session";
@@ -9,40 +8,40 @@ import {
   type Gesture,
   type GestureKind,
   renderNotePanel,
-  setEditing,
-  setNoteBody,
-  type PanelForm,
 } from "../render/notespanel";
 import { displayTitle } from "../sessions/card";
-import { safeLocalStorage, safeSessionStorage } from "../storage";
-import { createDraftStore } from "./notesdrafts";
+import { safeSessionStorage } from "../storage";
+import { createNoteEditor, createNoteSaving } from "./notesedit";
 import {
   clampRect,
-  defaultRect,
+  defaultPlacement,
   dragRect,
   type Rect,
   resizeRect,
   type Size,
 } from "./notesgeometry";
-import { loadPanelMemory, type PanelMemory, savePanelMemory } from "./notespanelstate";
-import { createNoteSaver, outcomeOf, type SaveOutcome, type SendOptions } from "./notessave";
-import { adoptIncoming, unsavedStatus } from "./notesview";
+import {
+  isPopped,
+  loadPlaces,
+  type NotePlaces,
+  rectOf,
+  savePlaces,
+  withoutAbsent,
+  withoutPlace,
+  withPlace,
+} from "./notespanelstate";
+import { unsavedStatus } from "./notesview";
+import { createNoteWindows } from "./noteswindows";
 
-type Form = "closed" | PanelForm;
-
-const KEEPALIVE_LIMIT_BYTES = 60_000;
-
-function isBlank(text: string): boolean {
-  return text.trim() === "";
-}
+type DockedForm = "anchored" | "popped";
+type Form = "closed" | DockedForm;
 
 function visible(el: HTMLElement): boolean {
   return !el.hidden && el.getClientRects().length > 0;
 }
 
-async function sendNote(id: number, text: string, options: SendOptions): Promise<SaveOutcome> {
-  const small = new TextEncoder().encode(text).length <= KEEPALIVE_LIMIT_BYTES;
-  return outcomeOf(await putNote(id, text, { keepalive: options.keepalive && small }));
+function viewportSize(): Size {
+  return { width: window.innerWidth, height: window.innerHeight };
 }
 
 export interface NotesDeps {
@@ -56,31 +55,26 @@ export function initNotes(app: App, deps: NotesDeps): void {
   const effortStripEl = requireElement<HTMLElement>("#effort-strip");
   const sizenoteEl = requireElement<HTMLElement>("#sizenote");
   const sessionStore = safeSessionStorage();
-  const drafts = createDraftStore(safeLocalStorage());
-  const saver = createNoteSaver({
-    drafts,
-    send: sendNote,
-    setTimer: (run, ms) => setTimeout(run, ms),
-    clearTimer: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
-    onChange: () => app.render(),
-  });
+  const saving = createNoteSaving(app);
+  const windows = createNoteWindows((url, name, features) => window.open(url, name, features));
 
   let form: Form = "closed";
-  let editing = false;
-  let shownId: number | null = null;
-  let displayed = "";
-  let lastIncoming: string | null = null;
-  let renderedText: string | null = null;
-  let memory: PanelMemory = loadPanelMemory(sessionStore);
-  let restorePending = memory.popped;
+  let places: NotePlaces = loadPlaces(sessionStore);
+  let liveGesture: Gesture | null = null;
 
   function sessionOf(id: number | null): Session | undefined {
     return id === null ? undefined : app.store.get(id);
   }
 
-  function persist(next: PanelMemory): void {
-    memory = next;
-    savePanelMemory(sessionStore, memory);
+  function setForm(next: Form): void {
+    form = next;
+    if (next !== "popped") liveGesture = null;
+  }
+
+  function remember(next: NotePlaces): void {
+    if (next === places) return;
+    places = next;
+    savePlaces(sessionStore, places);
   }
 
   function slotBounds(): Rect | null {
@@ -95,66 +89,62 @@ export function initNotes(app: App, deps: NotesDeps): void {
     return { x: main.left, y: top, width: main.width, height: Math.max(0, bottom - top) };
   }
 
-  function slotSize(bounds: Rect): Size {
-    return { width: bounds.width, height: bounds.height };
-  }
-
-  function effectiveRect(bounds: Rect): Rect {
-    const size = slotSize(bounds);
-    return clampRect(memory.rect ?? defaultRect(size), size);
+  function effectiveRect(id: number): Rect {
+    const viewport = viewportSize();
+    const slot = slotBounds() ?? { x: 0, y: 0, ...viewport };
+    return clampRect(rectOf(places, id) ?? defaultPlacement(slot, viewport), viewport);
   }
 
   const handlers = {
+    onEdit: () => editor.startEdit(),
+    onInput: (text: string) => editor.typed(text),
+    onEscape: () => leaveOrClose(),
+    onPointerDown: (target: EventTarget | null) => editor.pointerDown(target),
+  };
+  const controls = {
     onPopOut: () => popOut(),
     onPopIn: () => popIn(),
+    onOpenWindow: () => openInWindow(),
     onClose: () => closeByUser(),
-    onEdit: () => startEdit(),
-    onInput: (text: string) => typed(text),
-    onEscape: () => leaveOrClose(),
-    onPointerDown: (target: EventTarget | null) => {
-      if (editing && target !== refs.editor) endEdit();
-    },
     beginGesture: (kind: GestureKind): Gesture => beginGesture(kind),
   };
-  const refs = buildNotePanel(handlers);
+  const refs = buildNotePanel(handlers, controls);
+  const editor = createNoteEditor({
+    refs,
+    ...saving,
+    sessionOf: (id) => sessionOf(id),
+    relayout: () => {
+      if (form === "anchored") layoutAnchored();
+    },
+  });
 
-  function layoutPopped(): void {
-    const bounds = slotBounds();
-    refs.root.hidden = bounds === null;
-    if (bounds === null) return;
-    const rect = effectiveRect(bounds);
+  function layoutPopped(id: number): void {
+    const rect = effectiveRect(id);
     const style = refs.root.style;
-    style.left = `${bounds.x + rect.x}px`;
-    style.top = `${bounds.y + rect.y}px`;
+    style.left = `${rect.x}px`;
+    style.top = `${rect.y}px`;
     style.width = `${rect.width}px`;
     style.height = `${rect.height}px`;
   }
 
   function layoutAnchored(): void {
-    refs.root.hidden = false;
     refs.root.style.width = "";
     refs.root.style.height = "";
     placeAnchored(refs.root, glyph);
   }
 
-  function applyBody(): void {
-    if (editing) return;
-    const text = isBlank(displayed) ? "" : displayed;
-    if (renderedText === text) return;
-    setNoteBody(refs, text);
-    renderedText = text;
-  }
-
   function applyView(): void {
-    const session = sessionOf(shownId);
-    if (form === "closed" || session === undefined || shownId === null) return;
+    const id = editor.shownId();
+    const session = sessionOf(id);
+    if (form === "closed" || session === undefined || id === null) return;
     renderNotePanel(refs, {
       title: displayTitle(session),
-      status: unsavedStatus(saver.failed(shownId)),
+      status: unsavedStatus(saving.saver.failed(id)),
+      statusKind: "warn",
       form,
     });
-    applyBody();
-    if (form === "popped") layoutPopped();
+    editor.refresh(session);
+    if (form === "popped") layoutPopped(id);
     else layoutAnchored();
   }
 
@@ -168,14 +158,6 @@ export function initNotes(app: App, deps: NotesDeps): void {
     if (glyph.className !== className) glyph.className = className;
   }
 
-  function bind(id: number): void {
-    const session = sessionOf(id);
-    shownId = id;
-    displayed = drafts.get(id) ?? session?.note ?? "";
-    lastIncoming = session?.note ?? null;
-    renderedText = null;
-  }
-
   function onOutsidePointerDown(event: PointerEvent): void {
     const target = event.target;
     if (!(target instanceof Node)) return;
@@ -183,12 +165,9 @@ export function initNotes(app: App, deps: NotesDeps): void {
     close(false);
   }
 
-  function open(next: PanelForm, id: number, focus: boolean): void {
-    restorePending = false;
-    bind(id);
-    form = next;
-    editing = false;
-    setEditing(refs, false, "");
+  function open(next: DockedForm, id: number, focus: boolean): void {
+    editor.show(id);
+    setForm(next);
     if (!refs.root.isConnected) document.body.append(refs.root);
     if (next === "anchored") document.addEventListener("pointerdown", onOutsidePointerDown, true);
     applyView();
@@ -198,16 +177,12 @@ export function initNotes(app: App, deps: NotesDeps): void {
 
   function close(returnFocus: boolean): void {
     if (form === "closed") return;
-    const closedId = shownId;
-    if (shownId !== null) flushShown(shownId);
+    const closedId = editor.shownId();
     const hadFocus = refs.root.contains(document.activeElement);
+    editor.release();
     document.removeEventListener("pointerdown", onOutsidePointerDown, true);
-    editing = false;
-    setEditing(refs, false, "");
     refs.root.remove();
-    form = "closed";
-    shownId = null;
-    renderedText = null;
+    setForm("closed");
     syncGlyph();
     if (returnFocus && closedId !== null) deps.surfaces.focusSelected(closedId);
     const unfocused = document.activeElement === null || document.activeElement === document.body;
@@ -215,116 +190,93 @@ export function initNotes(app: App, deps: NotesDeps): void {
   }
 
   function closeByUser(): void {
-    if (memory.popped) persist({ ...memory, popped: false });
+    const id = editor.shownId();
+    if (form === "popped" && id !== null) remember(withPlace(places, id, { popped: false }));
     close(true);
   }
 
-  function flushShown(id: number): void {
-    if (sessionOf(id) === undefined) saver.forget(id);
-    else saver.flush(id);
+  function openInWindow(): void {
+    const id = editor.shownId();
+    if (id === null || !windows.openOrFocus(id)) return;
+    closeByUser();
   }
 
   function popOut(): void {
-    if (form !== "anchored") return;
+    const id = editor.shownId();
+    if (form !== "anchored" || id === null) return;
     document.removeEventListener("pointerdown", onOutsidePointerDown, true);
-    form = "popped";
-    persist({ ...memory, popped: true });
+    setForm("popped");
+    remember(withPlace(places, id, { popped: true }));
     applyView();
     syncGlyph();
     refs.popIn.focus({ preventScroll: true });
   }
 
   function popIn(): void {
-    if (form !== "popped") return;
-    form = "anchored";
-    persist({ ...memory, popped: false });
+    const id = editor.shownId();
+    if (form !== "popped" || id === null) return;
+    setForm("anchored");
+    remember(withPlace(places, id, { popped: false }));
     document.addEventListener("pointerdown", onOutsidePointerDown, true);
     applyView();
     syncGlyph();
     refs.popOut.focus({ preventScroll: true });
   }
 
-  function startEdit(): void {
-    if (form === "closed" || editing) return;
-    editing = true;
-    setEditing(refs, true, displayed);
-    refs.editor.focus({ preventScroll: true });
-    refs.editor.setSelectionRange(displayed.length, displayed.length);
-    if (form === "anchored") layoutAnchored();
-  }
-
-  function endEdit(): void {
-    if (!editing) return;
-    const hadFocus = document.activeElement === refs.editor;
-    displayed = refs.editor.value;
-    editing = false;
-    setEditing(refs, false, "");
-    applyBody();
-    if (shownId !== null) flushShown(shownId);
-    if (hadFocus) refs.view.focus({ preventScroll: true });
-    if (form === "anchored") layoutAnchored();
-  }
-
-  function typed(text: string): void {
-    if (shownId === null) return;
-    displayed = text;
-    saver.edit(shownId, text);
-  }
-
   function leaveOrClose(): void {
-    if (editing) endEdit();
+    if (editor.editing()) editor.endEdit();
     else closeByUser();
   }
 
   function beginGesture(kind: GestureKind): Gesture {
-    const bounds = slotBounds();
-    if (bounds === null) return { update: () => {}, end: () => {} };
-    const size = slotSize(bounds);
-    const base = effectiveRect(bounds);
-    let latest = base;
-    return {
+    const id = editor.shownId();
+    if (form !== "popped" || id === null) return { update: () => {}, end: () => {} };
+    const viewport = viewportSize();
+    const base = effectiveRect(id);
+    const gesture: Gesture = {
       update(dx, dy) {
-        latest =
-          kind === "move" ? dragRect(base, dx, dy, size) : resizeRect(base, kind, dx, dy, size);
-        memory = { ...memory, rect: latest };
-        layoutPopped();
+        if (liveGesture !== gesture) return;
+        const latest =
+          kind === "move"
+            ? dragRect(base, dx, dy, viewport)
+            : resizeRect(base, kind, dx, dy, viewport);
+        places = withPlace(places, id, { popped: true, rect: latest });
+        layoutPopped(id);
       },
       end() {
-        persist({ popped: true, rect: latest });
+        if (liveGesture !== gesture) return;
+        liveGesture = null;
+        savePlaces(sessionStore, places);
       },
     };
+    liveGesture = gesture;
+    return gesture;
   }
 
   glyph.addEventListener("click", () => {
     const id = app.state.focusedId;
     if (sessionOf(id) === undefined || id === null) return;
     if (form === "popped") {
-      if (editing) refs.editor.focus({ preventScroll: true });
+      if (editor.editing()) refs.editor.focus({ preventScroll: true });
       else refs.view.focus({ preventScroll: true });
     } else if (form === "anchored") closeByUser();
     else open("anchored", id, true);
   });
 
   app.on("focusChanged", (id) => {
-    if (form === "closed") return;
-    if (shownId !== null && id !== shownId) {
-      flushShown(shownId);
-      editing = false;
-      setEditing(refs, false, "");
-    }
-    if (form === "anchored") {
-      if (id !== shownId) close(false);
-      return;
-    }
-    if (id !== null && id !== shownId) bind(id);
+    if (form !== "closed" && id !== editor.shownId()) close(false);
   });
 
-  app.on("sessionRemoved", (id) => saver.forget(id));
+  app.on("sessionRemoved", (id) => {
+    saving.saver.forget(id);
+    remember(withoutPlace(places, id));
+  });
 
   app.on("snapshot", () => {
-    for (const id of drafts.pending().keys()) {
-      if (sessionOf(id) === undefined) drafts.drop(id);
-      else saver.resend(id);
+    remember(withoutAbsent(places, new Set(app.store.values().map((s) => s.id))));
+    for (const id of saving.drafts.pending().keys()) {
+      if (sessionOf(id) === undefined) saving.drafts.drop(id);
+      else saving.saver.resend(id);
     }
   });
 
@@ -332,43 +284,32 @@ export function initNotes(app: App, deps: NotesDeps): void {
     if (form !== "closed") rerenderNoteDiagrams(refs.view);
   });
 
-  window.addEventListener("pagehide", () => saver.flushAll({ keepalive: true }));
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") saver.flushAll({ keepalive: true });
-  });
-
-  function syncIncoming(session: Session): void {
-    if (session.note === lastIncoming) return;
-    displayed = adoptIncoming(displayed, session.note ?? "", editing);
-    lastIncoming = session.note;
+  function showsFor(session: Session | undefined): session is Session {
+    return session !== undefined && app.state.view === "focus";
   }
 
-  function restoreIfPending(session: Session | undefined): void {
-    if (!restorePending || form !== "closed" || session === undefined) return;
-    if (app.state.view !== "focus") return;
-    restorePending = false;
-    if (memory.popped) open("popped", session.id, false);
+  function stillWanted(session: Session | undefined): boolean {
+    if (!showsFor(session) || session.id !== editor.shownId()) return false;
+    return form === "anchored" || isPopped(places, session.id);
   }
 
   function renderPhase(frame: RenderFrame): void {
     const session = frame.sessions.find((s) => s.id === app.state.focusedId);
-    restoreIfPending(session);
-    if (form !== "closed") {
-      if (session === undefined) close(false);
-      else if (app.state.view !== "focus" && form === "anchored") close(false);
-      else if (session.id !== shownId) bind(session.id);
-    }
-    if (form !== "closed" && session !== undefined) {
-      syncIncoming(session);
-      applyView();
-    }
+    if (form !== "closed" && !stillWanted(session)) close(false);
+    if (form === "closed" && showsFor(session) && isPopped(places, session.id))
+      open("popped", session.id, false);
+    else if (form !== "closed") applyView();
     syncGlyph();
   }
 
   app.onRender(renderPhase);
 
-  const slotWatch = new ResizeObserver(() => {
-    if (form === "popped") layoutPopped();
-  });
+  function relayoutPopped(): void {
+    const id = editor.shownId();
+    if (form === "popped" && id !== null) layoutPopped(id);
+  }
+
+  const slotWatch = new ResizeObserver(relayoutPopped);
   for (const el of [mainEl, mainheadEl, effortStripEl, sizenoteEl]) slotWatch.observe(el);
+  window.addEventListener("resize", relayoutPopped);
 }

@@ -402,3 +402,48 @@ describe("a storage that refuses writes", () => {
     expect(r.calls.map((c) => c.text)).toEqual(["x", "x"]);
   });
 });
+
+describe("the unsaved status follows the shared draft across hosts", () => {
+  const KEY = "muster.note-draft.1";
+
+  async function failedOverSharedDraft() {
+    const storage = memoryStorage();
+    const other = createDraftStore(storage);
+    other.set(1, "x");
+    const r = rig(storage);
+    r.saver.flush(1);
+    await r.calls[0]!.resolve("unreachable");
+    expect(r.saver.failed(1)).toBe(true);
+    return { storage, other, r };
+  }
+
+  it("clears when another host acknowledges the draft, with no resend, and an edit does not revive it", async () => {
+    const { other, r } = await failedOverSharedDraft();
+    other.drop(1);
+    expect(r.saver.failed(1)).toBe(false);
+    expect(r.calls).toHaveLength(1);
+    r.saver.edit(1, "y");
+    expect(r.saver.failed(1)).toBe(false);
+  });
+
+  it("a resend after the other host dropped the key clears the flag and announces it once", async () => {
+    const { other, r } = await failedOverSharedDraft();
+    r.onChange.mockClear();
+    other.drop(1);
+    r.saver.resend(1);
+    await flushMicrotasks();
+    expect(r.saver.failed(1)).toBe(false);
+    expect(r.onChange).toHaveBeenCalledTimes(1);
+    expect(r.calls).toHaveLength(1);
+  });
+
+  it("stays failed while this host's own typed text is kept, though the storage key is gone", async () => {
+    const storage = memoryStorage();
+    const r = rig(storage);
+    r.saver.edit(1, "x");
+    r.saver.flush(1);
+    await r.calls[0]!.resolve("unreachable");
+    delete storage.data[KEY];
+    expect(r.saver.failed(1)).toBe(true);
+  });
+});

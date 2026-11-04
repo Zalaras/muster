@@ -1,0 +1,7 @@
+# Decision: banner-above-popped-panel
+
+**Outcome**: A — Banner above the panel: give `#banner` (and, for consistency, the masthead's connection readout) a z-index above 45. The outage message then always shows over a panel the developer has placed there.
+**Reached by**: consensus (advocate-b conceded in turn 2)
+**Decisive argument**: advocate-a, turn 2: "A — a usability loss in a narrow band, recoverable by keyboard, explained by what covers it; B — an honesty-rule failure across the whole top-left band, unexplained. Both last the outage. §6 ranks honesty as correctness (`design-system.md:392`); I find nothing ranking a 32px strip's usability above it." Under B the panel can hide the words `musterd unreachable`, which this plan's own ADR says the dashboard panel relies on; at the measured placement (top 0) A costs the header nothing.
+**Dissent to honour**: For panel tops of roughly 12–78px the banner covers part of the panel's header (its drag handle and controls) for the whole outage, wholly only in a ≈2px band. Escape from inside the panel and the glyph still close it, its rectangle is kept, and the header returns with the first `hello`. Implementation: `#banner` needs a positioning context (`position: relative`) for its z-index to take effect, and a render test should pin the order.
+**Landed in**: plans/popped-out-note-enhance/plan.md (REQ-5 *Amended*), docs/adr/notes-banner-above-popped-panel.md, docs/design/design-system.md § Note panel

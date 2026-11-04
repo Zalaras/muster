@@ -1,7 +1,6 @@
-import { requireElement } from "../dom";
 import { renderEmptyNote, renderNoteInto } from "./notes";
 
-export type PanelForm = "anchored" | "popped";
+export type PanelForm = "anchored" | "popped" | "window";
 
 export type Edge = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
@@ -13,42 +12,52 @@ export interface Gesture {
 }
 
 export interface NotePanelHandlers {
-  onPopOut(): void;
-  onPopIn(): void;
-  onClose(): void;
   onEdit(): void;
   onInput(text: string): void;
   onEscape(): void;
   onPointerDown(target: EventTarget | null): void;
+}
+
+export interface NotePanelControls {
+  onPopOut(): void;
+  onPopIn(): void;
+  onOpenWindow(): void;
+  onClose(): void;
   beginGesture(kind: GestureKind): Gesture;
 }
 
 export interface NotePanelRefs {
   root: HTMLElement;
+  head: HTMLElement;
   who: HTMLElement;
   status: HTMLElement;
   popOut: HTMLButtonElement;
   popIn: HTMLButtonElement;
+  openWindow: HTMLButtonElement;
   close: HTMLButtonElement;
+  body: HTMLElement;
   view: HTMLElement;
   editor: HTMLTextAreaElement;
 }
 
+export type StatusKind = "warn" | "info";
+
 export interface NotePanelView {
   title: string;
   status: string;
+  statusKind: StatusKind;
   form: PanelForm;
 }
 
 const EDGES: readonly Edge[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 
-function control(label: string, glyph: string, act: string): HTMLButtonElement {
+function control(label: string, glyph: string, act: string, title: string): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "ctl";
   button.dataset["act"] = act;
   button.setAttribute("aria-label", label);
-  button.title = label.replace(/ note$/, "");
+  button.title = title;
   button.textContent = glyph;
   return button;
 }
@@ -59,6 +68,7 @@ function buildHeader(): {
   status: HTMLElement;
   popOut: HTMLButtonElement;
   popIn: HTMLButtonElement;
+  openWindow: HTMLButtonElement;
   close: HTMLButtonElement;
 } {
   const head = document.createElement("div");
@@ -71,11 +81,12 @@ function buildHeader(): {
   const status = document.createElement("span");
   status.className = "st";
   status.setAttribute("role", "status");
-  const popOut = control("Pop out note", "⧉", "popout");
-  const popIn = control("Pop in note", "⧠", "popin");
-  const close = control("Close note", "×", "close");
-  head.append(label, who, status, popOut, popIn, close);
-  return { head, who, status, popOut, popIn, close };
+  const popOut = control("Pop out note", "⧉", "popout", "Pop out");
+  const popIn = control("Pop in note", "⧠", "popin", "Pop in");
+  const openWindow = control("Open note in window", "↗", "openwindow", "Open in window");
+  const close = control("Close note", "×", "close", "Close");
+  head.append(label, who, status, popOut, popIn, openWindow, close);
+  return { head, who, status, popOut, popIn, openWindow, close };
 }
 
 function buildView(): HTMLElement {
@@ -97,13 +108,15 @@ function buildEditor(): HTMLTextAreaElement {
 function wireGesture(
   surface: HTMLElement,
   kind: GestureKind,
-  handlers: NotePanelHandlers,
+  controls: Pick<NotePanelControls, "beginGesture">,
   ignore: (target: EventTarget | null) => boolean,
 ): void {
+  let abandon: (() => void) | null = null;
   surface.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 || ignore(event.target)) return;
     event.preventDefault();
-    const gesture = handlers.beginGesture(kind);
+    abandon?.();
+    const gesture = controls.beginGesture(kind);
     const startX = event.clientX;
     const startY = event.clientY;
     surface.setPointerCapture(event.pointerId);
@@ -113,11 +126,13 @@ function wireGesture(
       surface.removeEventListener("pointermove", move);
       surface.removeEventListener("pointerup", finish);
       surface.removeEventListener("pointercancel", finish);
+      abandon = null;
       gesture.end();
     };
     surface.addEventListener("pointermove", move);
     surface.addEventListener("pointerup", finish);
     surface.addEventListener("pointercancel", finish);
+    abandon = finish;
   });
 }
 
@@ -125,10 +140,18 @@ function isInsideButton(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest("button") !== null;
 }
 
-function wireControls(refs: NotePanelRefs, handlers: NotePanelHandlers): void {
-  refs.popOut.addEventListener("click", handlers.onPopOut);
-  refs.popIn.addEventListener("click", handlers.onPopIn);
-  refs.close.addEventListener("click", handlers.onClose);
+function wireControls(refs: NotePanelRefs, controls: NotePanelControls): void {
+  refs.popOut.addEventListener("click", controls.onPopOut);
+  refs.popIn.addEventListener("click", controls.onPopIn);
+  refs.openWindow.addEventListener("click", controls.onOpenWindow);
+  refs.close.addEventListener("click", controls.onClose);
+  wireGesture(refs.head, "move", controls, isInsideButton);
+  for (const edge of EDGES) {
+    const handle = document.createElement("div");
+    handle.className = `rz ${edge}`;
+    refs.root.append(handle);
+    wireGesture(handle, edge, controls, () => false);
+  }
 }
 
 function wireBody(refs: NotePanelRefs, handlers: NotePanelHandlers): void {
@@ -155,7 +178,10 @@ function wireRoot(refs: NotePanelRefs, handlers: NotePanelHandlers): void {
   refs.root.addEventListener("pointerdown", (event) => handlers.onPointerDown(event.target));
 }
 
-export function buildNotePanel(handlers: NotePanelHandlers): NotePanelRefs {
+export function buildNotePanel(
+  handlers: NotePanelHandlers,
+  controls?: NotePanelControls,
+): NotePanelRefs {
   const root = document.createElement("div");
   root.className = "npanel anchored";
   root.setAttribute("role", "dialog");
@@ -167,32 +193,28 @@ export function buildNotePanel(handlers: NotePanelHandlers): NotePanelRefs {
   const view = buildView();
   body.append(view);
   root.append(header.head, body);
-  for (const edge of EDGES) {
-    const handle = document.createElement("div");
-    handle.className = `rz ${edge}`;
-    root.append(handle);
-    wireGesture(handle, edge, handlers, () => false);
-  }
-  const refs: NotePanelRefs = { root, ...header, view, editor: buildEditor() };
-  wireGesture(header.head, "move", handlers, isInsideButton);
-  wireControls(refs, handlers);
+  const refs: NotePanelRefs = { root, ...header, body, view, editor: buildEditor() };
+  if (controls) wireControls(refs, controls);
   wireBody(refs, handlers);
   wireRoot(refs, handlers);
   return refs;
 }
 
 export function renderNotePanel(refs: NotePanelRefs, view: NotePanelView): void {
-  const who = `· ${view.title}`;
+  const who = view.title === "" ? "" : `· ${view.title}`;
   if (refs.who.textContent !== who) refs.who.textContent = who;
   if (refs.status.textContent !== view.status) {
     refs.status.textContent = view.status;
     refs.status.title = view.status;
   }
-  const className = view.form === "popped" ? "npanel popped" : "npanel anchored";
+  if (refs.status.dataset["kind"] !== view.statusKind)
+    refs.status.dataset["kind"] = view.statusKind;
+  const className = `npanel ${view.form}`;
   if (refs.root.className !== className) refs.root.className = className;
   refs.popOut.hidden = view.form !== "anchored";
   refs.popIn.hidden = view.form !== "popped";
-  refs.close.hidden = view.form !== "popped";
+  refs.openWindow.hidden = view.form === "window";
+  refs.close.hidden = view.form === "window";
 }
 
 export function setNoteBody(refs: NotePanelRefs, text: string): void {
@@ -200,13 +222,21 @@ export function setNoteBody(refs: NotePanelRefs, text: string): void {
   else renderNoteInto(refs.view, text);
 }
 
+export function showRemovedNotice(refs: NotePanelRefs, text: string): void {
+  const notice = document.createElement("div");
+  notice.className = "removed";
+  notice.setAttribute("role", "status");
+  notice.textContent = text;
+  refs.editor.remove();
+  refs.body.replaceChildren(notice);
+}
+
 export function setEditing(refs: NotePanelRefs, editing: boolean, text: string): void {
-  const host = requireElement<HTMLElement>(".nbody", refs.root);
   refs.view.hidden = editing;
   if (!editing) {
     refs.editor.remove();
     return;
   }
   refs.editor.value = text;
-  host.append(refs.editor);
+  refs.body.append(refs.editor);
 }

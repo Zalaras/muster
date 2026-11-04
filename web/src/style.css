@@ -358,6 +358,7 @@ body {
 
 #connection-status {
   position: relative;
+  z-index: 46;
   display: inline-block;
   width: 14px;
   height: 14px;
@@ -506,6 +507,8 @@ body {
   font-size: var(--fs-md);
   padding: 8px 16px;
   flex: none;
+  position: relative;
+  z-index: 46;
 }
 
 .banner[hidden] {
@@ -4773,7 +4776,7 @@ body[data-rail-density="compact"] .r2 .mk {
 
 .npanel {
   position: fixed;
-  z-index: 55;
+  z-index: 45;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--edge);
@@ -4843,6 +4846,14 @@ body[data-rail-density="compact"] .r2 .mk {
   vertical-align: 1px;
 }
 
+.npanel .ph .st[data-kind="info"] {
+  color: var(--fg-dim);
+}
+
+.npanel .ph .st[data-kind="info"]::before {
+  content: none;
+}
+
 .npanel .ph .ctl {
   flex: none;
   width: 20px;
@@ -4868,6 +4879,27 @@ body[data-rail-density="compact"] .r2 .mk {
 
 .npanel.popped .ph {
   cursor: grab;
+}
+
+.note-host {
+  display: flex;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.npanel.window {
+  position: static;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.npanel .removed {
+  padding: 14px 12px;
+  color: var(--fg-dim);
+  font-style: italic;
 }
 
 .npanel .nbody {

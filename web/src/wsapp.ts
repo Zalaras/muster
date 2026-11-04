@@ -1,4 +1,4 @@
-import type { App } from "./app";
+import { type App, applyRemoved } from "./app";
 import type { ClaudeCodeInfo } from "./protocol/hello";
 import type { WsClientHandlers } from "./ws";
 import type { ActionsHandle } from "./features/actions";
@@ -67,6 +67,10 @@ function updateWsHandlers(app: App): Pick<WsClientHandlers, "onUpdate" | "onHell
 
 export function popoutWsHandlers(app: App, connection: WsAppConnection): WsClientHandlers {
   return { ...coreWsHandlers(app, connection), ...updateWsHandlers(app) };
+}
+
+export function noteWindowWsHandlers(app: App, connection: WsAppConnection): WsClientHandlers {
+  return { ...popoutWsHandlers(app, connection), onSessionRemoved: (id) => applyRemoved(app, id) };
 }
 
 /** The dashboard's full handler set: `coreWsHandlers` plus the messages only `main.ts`'s

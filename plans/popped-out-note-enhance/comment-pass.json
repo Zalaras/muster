@@ -1,0 +1,44 @@
+{
+  "plan": "popped-out-note-enhance",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-11-04T14:25:11Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 2,
+        "keep": 0,
+        "drop": 2
+      },
+      "keeps": null,
+      "drops": [
+        {
+          "key": "web/src/app.ts:fad38224a29a23a9",
+          "path": "web/src/app.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function applyRemoved(app: App, id: number): void {",
+            "line": 161
+          },
+          "lines": [
+            "/** Strips a removed session from the store, fans out `sessionRemoved` to every feature's own",
+            "* cleanup, then renders — shared by the dashboard's DELETE/WS paths and the note window's WS. */"
+          ]
+        },
+        {
+          "key": "web/src/wsapp.ts:35eaf57a25cbcb4b",
+          "path": "web/src/wsapp.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function noteWindowWsHandlers(app: App, connection: WsAppConnection): WsClientHandlers {",
+            "line": 72
+          },
+          "lines": [
+            "/** The note window's set: the pop-out's plus `sessionRemoved`, which its page reads to show",
+            "* the removed notice. */"
+          ]
+        }
+      ]
+    }
+  ]
+}

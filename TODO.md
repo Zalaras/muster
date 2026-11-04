@@ -192,14 +192,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
 - [ ] **Decide the owner of the ingest route and `MUSTER_SESSION`** — both are Muster names,
   declared today in `internal/claudecode`. A refactor. From `plans/maintainability-cleanup/`.
 
-- [ ] **Popped out note should stay just on the session** ([#112](https://github.com/Zalaras/muster/issues/112)) — After
-  switching sessions, the popped out note stays visible in the newly selected session instead of
-  belonging only to the session it was popped out from. Expected: A popped out note should be tied
-  to its own session and only show on that session, and the pop out should be movable anywhere in
-  the window.
-  Filed 2026-10-23 from musterd 0.25.3 / Claude Code 2.1.293, focus view, session idle.
-  Labels: enhancement, sessions, documents, ux.
-
 - [ ] **Performance and energy consumption** ([#114](https://github.com/Zalaras/muster/issues/114)) — The
   author wants the daemon's performance and energy consumption reviewed, noting some usage comes
   from Claude and the browser, which are outside the project's control. Expected: The daemon and
@@ -208,6 +200,15 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Labels: chore, process, perf.
 
 ## Tooling and docs
+
+- [ ] **Render tests that hold the banner up by closing `/ws` may flake** — the banner/readout-over-panel
+  render tests in `web/render/notes-places.spec.ts` cycle the socket every ~500 ms, so a hit test
+  that lands in the gap could fail. Green in every gate run so far. From
+  `plans/popped-out-note-enhance/`.
+
+- [ ] **`web/src/reader/CLAUDE.md` does not name `query.ts`** — the shared `?session=` parse lives in
+  `web/src/reader/query.ts`, which the reader directory brief omits (it is at its word budget). From
+  `plans/popped-out-note-enhance/`.
 
 ## v1 Release
 

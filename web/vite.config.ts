@@ -44,6 +44,7 @@ export default defineConfig({
       input: {
         index: fileURLToPath(new URL("./index.html", import.meta.url)),
         doc: fileURLToPath(new URL("./doc.html", import.meta.url)),
+        note: fileURLToPath(new URL("./note.html", import.meta.url)),
       },
     },
   },

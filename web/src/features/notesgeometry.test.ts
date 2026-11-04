@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Edge } from "../render/notespanel";
 import {
   clampRect,
+  defaultPlacement,
   defaultRect,
   dragRect,
   MIN_HEIGHT,
@@ -162,6 +163,32 @@ describe("resizeRect", () => {
 
   it("a zero delta changes nothing", () => {
     expect(resizeRect(start, "se", 0, 0, SLOT)).toEqual(start);
+  });
+});
+
+describe("defaultPlacement", () => {
+  const VIEWPORT: Size = { width: 1200, height: 800 };
+
+  it("places relative to the slot, inside the window", () => {
+    const slot: Rect = { x: 100, y: 50, width: 800, height: 600 };
+    const base = defaultRect({ width: slot.width, height: slot.height });
+    const rect = defaultPlacement(slot, VIEWPORT);
+    expect(rect).toEqual({ ...base, x: slot.x + base.x, y: slot.y + base.y });
+    expect(inside(rect, VIEWPORT)).toBe(true);
+  });
+
+  it.each<[string, Rect, Size]>([
+    ["slot past the right edge", { x: 1100, y: 0, width: 800, height: 600 }, VIEWPORT],
+    ["slot past the bottom edge", { x: 0, y: 700, width: 800, height: 600 }, VIEWPORT],
+    ["tiny window", { x: 0, y: 0, width: 800, height: 600 }, { width: 300, height: 200 }],
+  ])("clamps %s into the window, never below the minimum", (_label, slot, viewport) => {
+    const rect = defaultPlacement(slot, viewport);
+    expect(rect.width).toBeGreaterThanOrEqual(MIN_WIDTH);
+    expect(rect.height).toBeGreaterThanOrEqual(MIN_HEIGHT);
+    expect(rect.x).toBeGreaterThanOrEqual(0);
+    expect(rect.y).toBeGreaterThanOrEqual(0);
+    expect(rect.x + rect.width).toBeLessThanOrEqual(Math.max(viewport.width, MIN_WIDTH));
+    expect(rect.y + rect.height).toBeLessThanOrEqual(Math.max(viewport.height, MIN_HEIGHT));
   });
 });
 

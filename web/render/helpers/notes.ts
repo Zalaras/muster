@@ -79,6 +79,22 @@ export async function mainSlot(page: Page): Promise<Box> {
   });
 }
 
+/** The browser window's visible box in viewport coordinates: where a popped panel must stay. */
+export function viewportBox(page: Page): Box {
+  const size = page.viewportSize();
+  if (!size) throw new Error("viewportBox: the page has no viewport");
+  return { x: 0, y: 0, width: size.width, height: size.height };
+}
+
+/** The Open in window control, in either panel form. */
+export function openNoteInWindow(page: Page): Locator {
+  return notePanel(page).getByRole("button", { name: "Open note in window" });
+}
+
+export function closeNote(page: Page): Locator {
+  return notePanel(page).getByRole("button", { name: "Close note" });
+}
+
 const EPS = 0.75;
 
 /** A description of how `inner` leaves `outer`, or null when it lies inside it. */

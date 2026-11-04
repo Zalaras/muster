@@ -2,25 +2,25 @@
 id: web-components
 type: diagram
 status: active
-date: 2026-10-14
+date: 2026-11-04
 kind: component
-summary: The dashboard's modules by directory — two Vite entries over one app seam, features above render, derivation below, protocol at the bottom.
+summary: The dashboard's modules by directory — three Vite entries over one app seam, features above render, derivation below, protocol at the bottom.
 features: []
 tags: [ux]
-files: [web/src/**, web/vite.config.ts, web/index.html, web/doc.html]
+files: [web/src/**, web/vite.config.ts, web/index.html, web/doc.html, web/note.html]
 tests: []
-refs: [kb:diagram/containers, kb:adr/process-composition-roots-registration-only, kb:adr/reader-popout-is-a-second-page, kb:adr/connection-commands-http-ws-push-only, plans/_audit/diagrams-from-code.md]
+refs: [kb:diagram/containers, kb:adr/process-composition-roots-registration-only, kb:adr/reader-popout-is-a-second-page, kb:adr/notes-own-window-is-a-third-page, kb:adr/connection-commands-http-ws-push-only, plans/_audit/diagrams-from-code.md]
 ---
 Drawn from the `import` statements at directory granularity: `features/`, `render/`,
 `sessions/`, `terminal/`, `reader/`, `protocol/` and `api/` are one node each, the root
 modules are their own. `protocol/` and `api/` are split per concept/endpoint family, with
 no barrel (`docs/conventions.md`).
 
-Two Vite entries (`web/vite.config.ts`), each a composition root that only wires
+Three Vite entries (`web/vite.config.ts`), each a composition root that only wires
 (kb:adr/process-composition-roots-registration-only): `main.ts` for the dashboard,
 `doc.ts` for the pop-out reader, which is a second page rather than a route
-(kb:adr/reader-popout-is-a-second-page). Both register `wsapp.ts`'s mapping (the pop-out's set
-adds the update relays), and no feature imports another: the mutual
+(kb:adr/reader-popout-is-a-second-page), `note.ts` for a session's note window
+(kb:adr/notes-own-window-is-a-third-page). All register `wsapp.ts`'s mapping, and no feature imports another: the mutual
 needs of actions, tiles, focus and surfaces are resolved through thunks in `main.ts`. The
 graph is acyclic but no longer a single line down: `render/`, `terminal/`, `reader/` and
 `api/` all sit below `features/`, and `render/`/`terminal/`/`features/` each reach `api/`
@@ -36,10 +36,9 @@ the daemon, matching kb:adr/connection-commands-http-ws-push-only: `api/` holds 
 constructed outside `ws.ts`, per live terminal. `localStorage` is reached through one seam,
 `storage.ts`'s `readJson`/`writeJson`, by reader memory, the first-paint theme hint and
 unsaved note drafts, never session state; `sessionStorage` by the update restart handoff
-(kb:adr/update-restart-reloads-dashboard) and the note panel's per-tab geometry. `protocol/` is imported by every layer for wire types,
+(kb:adr/update-restart-reloads-dashboard) and the note panel's per-tab, per-session places. `protocol/` is imported by every layer for wire types,
 so those seven wires sit on its box rather than drawn. `dragmime.ts` is the other root-level
-leaf: the drag-reorder MIME marker `render/dragreorder.ts` sets and `terminal/pane.ts`
-checks, owned by neither.
+leaf, owned by neither render nor terminal.
 
 ```mermaid
 C4Component
@@ -48,9 +47,10 @@ C4Component
     Container_Boundary(dashboard, "Dashboard") {
         Boundary(ctl, "Entries and controllers") {
             Component(main, "main.ts", "entry", "Dashboard composition root: inits 21 controllers, owns render order")
-            Component(features, "features/", "45 modules", "20 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload), 1 stateless handle (effort: the strip's dismiss call, wired by focus), 6 sub-controllers handed their elements by their owner (launch: launchresume, launchgroup; groups: groupsselect, groupsdialogs; reader: readerfind, readerscroll), plus 18 DOM-free helpers each owned by one controller")
+            Component(features, "features/", "48 modules", "20 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload), 1 stateless handle (effort: the strip's dismiss call, wired by focus), 6 sub-controllers handed their elements by their owner (launch: launchresume, launchgroup; groups: groupsselect, groupsdialogs; reader: readerfind, readerscroll), plus 18 DOM-free helpers each owned by one controller, and three notes modules beside notes.ts: notesedit (editing and saving, shared with the note window), noteswindows (window handles, query parse), notespage (the note window's controller)")
             Component(doc, "doc.ts", "entry", "Pop-out reader composition root")
-            Component(wsapp, "wsapp.ts", "mapping", "The WS-to-app mapping both entries register, then layer their own handlers on top of")
+            Component(note, "note.ts", "entry", "Note window composition root")
+            Component(wsapp, "wsapp.ts", "mapping", "The WS-to-app mapping every entry registers, then layer their own handlers on top of")
         }
         Boundary(rnd, "Render and seam") {
             Component(render, "render/", "45 modules", "DOM only — view-model in, DOM out; one menu builder serves every menu")
@@ -62,7 +62,7 @@ C4Component
             Component(api, "api/", "11 modules", "The only fetch to musterd, one file per endpoint family, no barrel; ApiResult, never throws")
             Component(terminal, "terminal/", "8 modules", "xterm.js surfaces, the per-terminal socket to musterd, shell key translation, drop wiring and the shell activity reducer")
             Component(dom, "dom.ts", "helpers", "Element lookup")
-            Component(reader, "reader/", "11 modules", "Markdown render, nav tree, per-session memory, find matching")
+            Component(reader, "reader/", "12 modules", "Markdown render, nav tree, per-session memory, find matching, the ?session= parse")
             Component(sessions, "sessions/", "17 modules", "Pure derivation — view-models, sort, rail sections, tile math, formatters, a path basename")
             Component(theme, "theme.ts", "registry", "Theme choice; first-paint hint")
             Component(shortcuts, "shortcuts.ts", "pure", "Keyboard chord table")
@@ -81,13 +81,17 @@ C4Component
     Rel(doc, wsapp, "registers")
     Rel(doc, dom, "mounts host")
     Rel(doc, app, "creates")
+    Rel(note, features, "notes page, connection, theme, update")
+    Rel(note, ws, "constructs")
+    Rel(note, wsapp, "registers")
+    Rel(note, app, "creates")
     Rel(wsapp, app, "store/state writes")
     Rel(wsapp, ws, "handlers")
 
     Rel(features, render, "DOM writers")
     Rel(features, api, "commands")
     Rel(features, terminal, "surfaces")
-    Rel(features, reader, "markdown, tree")
+    Rel(features, reader, "markdown, tree, query")
     Rel(features, sessions, "derivation")
     Rel(features, app, "state, events")
     Rel(features, dom, "lookup")

@@ -330,13 +330,23 @@ narrow panel the title gives way first, then the status shortens with an ellipsi
 hover `title`, so the controls always stay inside the box
 (kb:adr/theme-warn-tokens-not-amber). The body shows the note rendered as the docs reader renders
 markdown (frontmatter and mermaid included); one click edits the raw text in a standard **Form
-field** textarea, saved automatically. Two forms: **anchored** under the glyph, closed by a click
-away, the glyph or Escape from inside it; and **popped out**, a free-floating panel over the main slot,
-dragged by its header and resized from 4px edge and 10px corner handles inside its box, that stays
-open while the terminal has focus and hides in Tiles
-(kb:adr/notes-popout-hidden-in-tiles-geometry-per-tab). It opens at 360×300, inset 24px from the
-slot's top right, and never shrinks below 260×150. The anchored header carries the pop-out control;
-the popped-out one carries Pop in, then Close.
+field** textarea, saved automatically. Three forms: **anchored** under the glyph, closed by a click
+away, the glyph, its Close control or Escape from inside it; **popped out**, a free-floating panel
+that stays open while the terminal has focus, dragged by its header and resized from 4px edge and
+10px corner handles inside its box, anywhere inside the browser window (over the rail, the masthead
+and the Focus header too) and kept inside it through a window resize, never below 260×150; and the
+**note window** (`note.html?session=<id>`, a popup), the note alone filling the window under a
+`Note · <title>` header with the status and none of the controls. Popping out is per session: only
+the focused session's panel shows, at that session's own rectangle, and the panel hides in Tiles
+(kb:adr/notes-popout-per-session-anywhere-in-window). A first pop-out opens at 360×300, inset 24px
+from the main slot's top right, clamped into the window. Each header carries three controls: Pop out,
+Open in window, Close when anchored; Pop in, Open in window, Close when popped out. Before its first
+`hello` the note window's status reads `connecting…` in `--fg-dim`, not `--warn`; once its session
+is removed the body is replaced by `This session has been removed.` While its socket is reconnecting the
+note window's status reads `musterd unreachable` in `--warn` (kb:adr/notes-own-window-is-a-third-page).
+The popped panel draws below menus and hover popovers, and below the daemon-down banner and the
+masthead's connection readout, which stay readable over any placement
+(kb:adr/notes-banner-above-popped-panel).
 
 **Menu** (`render/menu.ts`, plan `groups`; kb:adr/web-menu-component-single-builder) — a
 `role="menu"` panel of `role="menuitem"` buttons anchored below its opener, or opened at the

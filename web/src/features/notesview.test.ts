@@ -1,5 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { adoptIncoming, UNSAVED_TEXT, unsavedStatus } from "./notesview";
+import type { ConnectionStatus } from "../app";
+import { CONNECTING_WORD } from "./connectionhealth";
+import {
+  adoptIncoming,
+  UNREACHABLE_TEXT,
+  UNSAVED_TEXT,
+  unsavedStatus,
+  windowStatus,
+} from "./notesview";
+
+describe("windowStatus", () => {
+  it.each<[string, ConnectionStatus, boolean, string, string]>([
+    ["failed save beats connected", "connected", true, UNSAVED_TEXT, "warn"],
+    ["failed save beats reconnecting", "reconnecting", true, UNSAVED_TEXT, "warn"],
+    ["failed save beats connecting", "connecting", true, UNSAVED_TEXT, "warn"],
+    ["reconnecting reads musterd unreachable", "reconnecting", false, UNREACHABLE_TEXT, "warn"],
+    ["before first hello reads connecting", "connecting", false, CONNECTING_WORD, "info"],
+    ["connected and saved is empty", "connected", false, "", "warn"],
+  ])("%s", (_label, connection, failed, text, kind) => {
+    expect(windowStatus(connection, failed)).toEqual({ text, kind });
+  });
+
+  it("uses the agreed words", () => {
+    expect(UNREACHABLE_TEXT).toBe("musterd unreachable");
+    expect(CONNECTING_WORD).toBe("connecting…");
+  });
+});
 
 describe("adoptIncoming", () => {
   it.each([

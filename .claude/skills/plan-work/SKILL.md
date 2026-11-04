@@ -184,7 +184,7 @@ Define the user-facing behavior clearly enough that the web agent can work witho
 - Which views/screens are added or modified
 - The DOM structure E2E tests and the design system rely on (`<template>` elements — no framework)
 - User interaction flows
-- **The three mandatory states for every view**: no data yet (render "unknown", never an empty gauge — `kb:adr/usage-unknown-renders-word-not-track`), data, and daemon-down
+- **The three mandatory states for every view**: no data yet ("unknown", no empty gauge — `kb:adr/usage-unknown-renders-word-not-track`), data, daemon-down shown in-view
 
 **Design system**: `docs/design/design-system.md` and `docs/design/ux-flows.md` are binding; cite the sections and the mockup that govern every surface this plan touches.
 

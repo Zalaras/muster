@@ -1,6 +1,8 @@
 import type { ConnectionStatus } from "../app";
 import type { ConnectionHealthDescription } from "../render/masthead";
 
+export const CONNECTING_WORD = "connecting…";
+
 const CONNECTED: ConnectionHealthDescription = {
   health: "ok",
   word: "connected",
@@ -8,7 +10,7 @@ const CONNECTED: ConnectionHealthDescription = {
 };
 const CONNECTING: ConnectionHealthDescription = {
   health: "pending",
-  word: "connecting…",
+  word: CONNECTING_WORD,
   title: "Connecting to musterd…",
 };
 const UPDATING: ConnectionHealthDescription = {

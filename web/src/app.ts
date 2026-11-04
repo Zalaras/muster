@@ -157,3 +157,9 @@ export function createApp(): App {
 
   return { store, state, on, emit, onRender, render, focus };
 }
+
+export function applyRemoved(app: App, id: number): void {
+  app.store.remove(id);
+  app.emit("sessionRemoved", id);
+  app.render();
+}

@@ -10,17 +10,18 @@ import { expect, loadFixture, type Page, settleFor, test } from "./helpers/harne
 import {
   boxOf,
   escapes,
-  mainSlot,
   noteBody,
   noteEditor,
   noteGlyph,
   notePanel,
   noteStatus,
   noteTip,
+  openNoteInWindow,
   popInNote,
   popOutNote,
   shownMarker,
   tokenColor,
+  viewportBox,
 } from "./helpers/notes";
 import {
   activeElementInsideTerminal,
@@ -296,7 +297,7 @@ test("the anchored panel on the long note keeps its whole box inside the viewpor
   }
 });
 
-test("a popped-out panel stays inside the main slot after a drag past each edge, a resize past each edge and corner and a window resize to 800x600 (R7, REQ-13, REQ-14)", async ({
+test("a popped-out panel stays inside the window after a drag past each edge, a resize past each edge and corner and a window resize to 800x600 (R4, REQ-5)", async ({
   page,
   dashboard,
 }) => {
@@ -309,8 +310,8 @@ test("a popped-out panel stays inside the main slot after a drag past each edge,
 
   const inside = async (what: string) => {
     await expect
-      .poll(async () => escapes(await boxOf(notePanel(page)), await mainSlot(page)), {
-        message: `${what} leaves the panel inside the slot`,
+      .poll(async () => escapes(await boxOf(notePanel(page)), viewportBox(page)), {
+        message: `${what} leaves the panel inside the window`,
       })
       .toBeNull();
   };
@@ -336,7 +337,7 @@ test("a popped-out panel stays inside the main slot after a drag past each edge,
     await drag(from, { x: from.x + dx, y: from.y + dy });
     await inside(`a drag past the ${name} edge`);
     // The drag really moved the panel: it ends flush against the edge it was dragged past.
-    const [box, slot] = [await boxOf(notePanel(page)), await mainSlot(page)];
+    const [box, slot] = [await boxOf(notePanel(page)), viewportBox(page)];
     if (dx < 0) expect(box.x).toBeCloseTo(slot.x, 0);
     if (dx > 0) expect(box.x + box.width).toBeCloseTo(slot.x + slot.width, 0);
     if (dy < 0) expect(box.y).toBeCloseTo(slot.y, 0);
@@ -363,6 +364,13 @@ test("a popped-out panel stays inside the main slot after a drag past each edge,
   await page.setViewportSize({ width: 800, height: 600 });
   await inside("a window resize to 800x600");
   await expect(notePanel(page)).toBeVisible();
+
+  // The shrink step: at 400x300 the panel stays inside and never goes below 260x150.
+  await page.setViewportSize({ width: 400, height: 300 });
+  await inside("a window resize to 400x300");
+  const small = await boxOf(notePanel(page));
+  expect(small.width).toBeGreaterThanOrEqual(260 - 0.75);
+  expect(small.height).toBeGreaterThanOrEqual(150 - 0.75);
 });
 
 test("a note save that fails to reach musterd shows `unsaved, musterd unreachable` in --warn and a later successful save clears it (R8, REQ-11)", async ({
@@ -427,18 +435,19 @@ async function popFailedSaveAtMinimum(page: Page): Promise<void> {
     .toEqual([260, 150]);
 }
 
-test("at the 260x150 minimum pinned to the slot's right edge with the unsaved status showing, Pop in and Close lie inside the panel and the status shortens with an ellipsis before the header overflows (R7, R8, REQ-11, REQ-13)", async ({
+test("at the 260x150 minimum pinned to the window's right edge with the unsaved status showing, Pop in, Open note in window and Close lie inside the panel and the status shortens with an ellipsis before the header overflows (R7, REQ-7, REQ-11)", async ({
   page,
   dashboard,
 }) => {
   await dashboard.open("notes");
   await popFailedSaveAtMinimum(page);
 
-  const [panel, slot] = [await boxOf(notePanel(page)), await mainSlot(page)];
+  const [panel, slot] = [await boxOf(notePanel(page)), viewportBox(page)];
   expect(panel.x + panel.width).toBeCloseTo(slot.x + slot.width, 0);
   expect(escapes(panel, slot)).toBeNull();
   for (const control of [
     popInNote(page),
+    openNoteInWindow(page),
     notePanel(page).getByRole("button", { name: "Close note" }),
   ]) {
     await expect(control).toBeVisible();
@@ -467,7 +476,7 @@ test("at the 260x150 minimum pinned to the slot's right edge with the unsaved st
   await expect(noteStatus(page)).toHaveCSS("color", await tokenColor(page, "--warn"));
 });
 
-test("after a window resize the popped panel is back inside the slot within two animation frames, not a render tick later (R7, REQ-14)", async ({
+test("after a window resize the popped panel is back inside the window within two animation frames, not a render tick later (R4, REQ-5)", async ({
   page,
   dashboard,
 }) => {
@@ -492,7 +501,7 @@ test("after a window resize the popped panel is back inside the slot within two 
         ),
     );
     expect(
-      escapes(await boxOf(notePanel(page)), await mainSlot(page)),
+      escapes(await boxOf(notePanel(page)), viewportBox(page)),
       `at ${width}x${height}`,
     ).toBeNull();
   }
