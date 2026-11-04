@@ -210,6 +210,15 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   `web/src/reader/query.ts`, which the reader directory brief omits (it is at its word budget). From
   `plans/popped-out-note-enhance/`.
 
+- [ ] **Revisit plan size** — the 600-word plans finish in one review cycle and under an hour; the
+  3,000–6,000-word ones take three cycles and 4–14 h (orchestration-state.json across every run,
+  measured 2026-11-04). Splitting is often hard and means more parallel runs to get the same
+  work done; the developer wants to discuss it another time, not now.
+
+- [ ] **Revisit the kb pack budget** — reviewer packs run at 2–2.5× the 30,000-word budget
+  (`review-work` on restart-latest-claude: 74,822 words) and the budget only warns. Whether to
+  make it bite or cut what a reviewer pack carries is for a later discussion (2026-11-04).
+
 ## v1 Release
 
 The release itself: the Homebrew tap, then cutting v1.0.0 — last, once every section above is
