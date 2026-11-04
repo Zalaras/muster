@@ -419,11 +419,18 @@ fi
 if (( RUN_BASELINE )); then
   echo "== baseline gates (plan $PLAN)"
   run_one build "go build ./..."
-  run_one test  "make test-race"           # the race detector is a real failure; ~161 s (2026-09-26), so only the baseline pays for it
-  # A green race run is a superset of `make test`, so an authored check naming the plain
-  # command dedupes to this PASS instead of running the suite a second time.
-  [[ "$(seen_status "make test-race")" == PASS ]] && SEEN="$SEEN
+  # The race detector is a real failure but ~2x the plain suite's CPU: it tipped a two-run machine
+  # into a 10-minute timeout (restart-latest-claude, 2026-11-04) and in six weeks of cycle gates
+  # never caught a race a tester had not. So Final Validation (--full-e2e / --no-e2e) pays for it
+  # once per run; a cycle gate runs the plain suite. A green race run is a superset of `make test`,
+  # so an authored check naming the plain command dedupes to this PASS instead of a second run.
+  if [[ -z "$WAVE" ]] && { (( ! RUN_E2E )) || [[ "$E2E_MODE" == full ]]; }; then
+    run_one test "make test-race"
+    [[ "$(seen_status "make test-race")" == PASS ]] && SEEN="$SEEN
 PASS	make test"
+  else
+    run_one test "make test"
+  fi
   run_one lint  "make lint"
   run_one web-build "make web-build"
   run_one web-test  "make web-test"

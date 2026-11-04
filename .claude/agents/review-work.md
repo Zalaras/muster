@@ -240,7 +240,7 @@ E2E tests: pass/fail/skipped (<count>, scoped to <n> files | full) · Daemon tes
 
 | ID | Command | Result |
 |----|---------|--------|
-| D1 | `make test` | pass (deduped to test-race) |
+| D1 | `make test` | pass (deduped to the gates' test line) |
 | DOC | doc upkeep + Doc Delta vs what shipped | pass |
 
 ## Reviewer-Verified Criteria

@@ -68,7 +68,7 @@ a `[note]` beginning "outside the delta:", never a tagged issue.
    fine; one without is a Minor; one that a newcomer would read as a different codebase is a Major.
 3. **Is shared state guarded, and named as such?** Anything written from more than one goroutine
    or render pass: is the guard named where the state is declared, is every writer under it, and
-   did `make test-race` (the gates' `test` line) cover the path — or is there a concrete
+   did `make test` (the gates' `test` line; the race detector runs at Final Validation) cover the path — or is there a concrete
    interleaving it would not see? State the interleaving; "might race" is not a finding. A
    demonstrated interleaving on unguarded state is Critical.
 4. **Is a layer crossed?** Protocol types imported into `web/src/render/`; logic beyond a one-line

@@ -27,7 +27,7 @@ test: $(GATELOCK) ## Run unit tests (uncached — every gate must be a fresh run
 	$(GATELOCK) run --shared -- go test -count=1 $(PKG)
 
 .PHONY: test-race
-test-race: $(GATELOCK) ## Unit tests under the race detector (~161 s vs ~94 s plain, measured 2026-09-26) — the gates run this; testers run the fast one
+test-race: $(GATELOCK) ## Unit tests under the race detector (~161 s vs ~94 s plain, measured 2026-09-26) — Final Validation runs this once per run; cycle gates and testers run the fast one
 	$(GATELOCK) run --shared -- go test -race -count=1 $(PKG)
 
 .PHONY: lint
