@@ -11,6 +11,10 @@
 //	bin/gatelock hold (--exclusive|--shared) [--wait <dur>]
 //	bin/gatelock status
 //
+// MUSTER_GATELOCK_WAIT (a Go duration) replaces the 240 s default wait for `run` and `hold`;
+// an explicit --wait beats it. So `MUSTER_GATELOCK_WAIT=9m make e2e` queues behind a sibling
+// worktree's sweep instead of exiting 75 after four minutes.
+//
 // `run` execs cmd as a child with the lock held and exits with its code. `hold` prints
 // `acquired` once it has the lock, then blocks until stdin closes — a Node parent that
 // ends (or is SIGKILLed) closes the pipe and so releases the lock. `status` prints `free`
@@ -46,6 +50,8 @@ const (
 )
 
 const defaultWait = 240 * time.Second // one full sweep, measured 202 s on 2026-09-26
+
+const waitEnv = "MUSTER_GATELOCK_WAIT"
 
 const usage = "usage: gatelock run (--exclusive|--shared) [--wait <dur>] -- <cmd> [args…] | hold (--exclusive|--shared) [--wait <dur>] | status"
 
@@ -98,8 +104,16 @@ type opts struct {
 
 // parseOpts hand-parses the flags (tools never use the flag package — tools/CLAUDE.md
 // exemplar): exactly one mode flag, an optional --wait, and for run a `--` separator.
+// The wait starts from $MUSTER_GATELOCK_WAIT when set, else defaultWait.
 func parseOpts(args []string) (opts, error) {
 	o := opts{wait: defaultWait}
+	if v := os.Getenv(waitEnv); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d < 0 {
+			return o, fmt.Errorf("%s=%q is not a duration (want e.g. 9m or 0)", waitEnv, v)
+		}
+		o.wait = d
+	}
 	modes := 0
 	for i := 0; i < len(args); i++ {
 		a := args[i]

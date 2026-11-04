@@ -23,6 +23,7 @@ func lockFile(t *testing.T) string {
 	p := filepath.Join(t.TempDir(), "gates.lock")
 	t.Setenv(fileEnv, p)
 	t.Setenv(envVar, "")
+	t.Setenv(waitEnv, "")
 	return p
 }
 
@@ -283,3 +284,23 @@ func TestReadHoldersDropsDeadPidsAndJunk(t *testing.T) {
 }
 
 func itoa(i int) string { return strconv.Itoa(i) }
+
+func TestWaitEnvSetsTheDefaultAndFlagBeatsIt(t *testing.T) {
+	path := lockFile(t)
+	hold(t, path, modeExclusive)
+
+	t.Setenv(waitEnv, "0")
+	code, _, stderr := runTool(t, nil, "run", "--exclusive", "--", "true")
+	assert.Equal(t, exitBusy, code)
+	assert.Contains(t, stderr, "busy after 0s", "MUSTER_GATELOCK_WAIT must replace the 240 s default")
+
+	t.Setenv(waitEnv, "1h")
+	code, _, stderr = runTool(t, nil, "run", "--exclusive", "--wait", "0", "--", "true")
+	assert.Equal(t, exitBusy, code)
+	assert.Contains(t, stderr, "busy after 0s", "an explicit --wait must beat the variable")
+
+	t.Setenv(waitEnv, "soon")
+	code, _, stderr = runTool(t, nil, "run", "--exclusive", "--", "true")
+	assert.Equal(t, exitUsage, code)
+	assert.Contains(t, stderr, "MUSTER_GATELOCK_WAIT")
+}
