@@ -39,15 +39,15 @@ Then read the **actual source files** listed in the implementation logs to revie
 
 ### 0. Delta Re-review — decide the cycle's scope first
 
-Applies **only** when the orchestrator's prompt says the previous cycle's only open agent-tagged
-issues were Minors. Read the previous merged review (`plans/<plan-name>/review.cycle<N-1>.md`)
-and verify each Minor — from any of the three parts — against `git diff <review_commits[N-1]>..HEAD`
-(`python3 .claude/skills/orchestrate/scripts/orch-state.py <plan-name> show` has `review_commits`):
-the fix is present, does what the Minor asked, and changes nothing beyond what it needed. Skip the
-§3–§6 re-read **unless** the diff touches non-test files under `web/src/`, `internal/` or `cmd/`
-beyond a Minor's stated scope — then review that area normally. §1, §2 and the verdict still apply.
-Record every prior Minor in the `## Delta` table, naming its part ("browser Minor 2"). A missing or
-wrong fix is re-listed under `### Minor`.
+Applies on every cycle after the first (the orchestrator's prompt names the previous review and
+`review_commits[N-1]`; kb:adr/process-minors-verified-not-re-reviewed). The change under review is
+`git diff <review_commits[N-1]>..HEAD`, not the branch. Verify each Critical and Major of your own
+previous part against it: the fix is present, does what the issue asked, and changes nothing beyond
+what it needed — record each in the `## Delta` table; a missing or wrong fix is re-listed at its
+severity. §1 and §2 run in full; §3–§6 apply to the files that diff touches. Prior Minors are the
+orchestrator's to check, not yours. Something wrong outside the diff is a Critical if it is one,
+otherwise a `[note]` beginning "outside the delta:" — the orchestrator carries it to the proposed
+backlog; it never opens a cycle.
 
 ### 1. Read the Gate Run
 
@@ -256,9 +256,9 @@ E2E tests: pass/fail/skipped (<count>, scoped to <n> files | full) · Daemon tes
 
 ## Delta (delta re-review only)
 
-| Prior Minor | Fix commit | Verified how |
+| Prior issue | Fix commit | Verified how |
 |-------------|------------|--------------|
-| cycle 1 browser Minor 1 `[web-impl]` <one-line quote> | `abc1234` | diff read; opacity now 1 at rest |
+| cycle 1 code Major 1 `[web-impl]` <one-line quote> | `abc1234` | diff read; opacity now 1 at rest |
 
 ## Issues
 

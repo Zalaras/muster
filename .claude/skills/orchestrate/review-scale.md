@@ -16,8 +16,9 @@ implementing agent's — never write, build or run one.
   Tag it to the agent that owns the file so it rides a fix wave. A Major nobody in the pipeline can fix
   (doc upkeep, a plan defect) is tagged `[orchestrator]`.
 - **Minor** — a real, small change you want made: naming, a cosmetic defect. Tag it with the owning agent. The
-  orchestrator routes it in that agent's wave, and the cycle after a Minors-only wave is a delta
-  re-review. A Minor costs a fix wave and a re-review, so keep the line to Note sharp.
+  orchestrator routes it in that agent's wave and verifies the fix against the diff itself; a
+  Minor never blocks approval and never causes a re-review
+  (kb:adr/process-minors-verified-not-re-reviewed). It still costs a wave, so keep the line to Note sharp.
 - **Note** — an observation with no change requested. Tag it `[note]`, never with an agent tag — an
   agent tag is a request for work. List notes under their own `### Notes` heading. Code comments are
   not reviewed: no issue or note asks for, judges or cites one — the comment pass owns them
@@ -43,14 +44,14 @@ implementing agent's — never write, build or run one.
 
 ## Verdicts
 
-- **approved** — no Critical, and no issue of any severity tagged to a pipeline agent. `[orchestrator]`
+- **approved** — no Critical, and no Major tagged to a pipeline agent. Minors, `[orchestrator]`
   items, decision items and `[note]`s may stand and must be listed: they never block approval, though
-  decision items block completion until settled.
-- **needs-changes** — any Critical, any agent-tagged Major **or Minor**, a red gate line, or a
+  decision items block completion until settled and Minors until the orchestrator's Minor check passes.
+- **needs-changes** — any Critical, any agent-tagged Major, a red gate line, or a
   missing must-have requirement.
 - **blocked** — review-browser only: its rig cannot start on this tree.
 
 The merged verdict is computed, never edited: `blocked` if any part is blocked or unusable, else
-`needs-changes` if a gate failed, a part said so or any part carries an agent-tagged issue, else
-`approved`. Issue
+`needs-changes` if a gate failed, a part said so or any part carries an agent-tagged Critical or
+Major, else `approved`. Issue
 numbering restarts in each part file, so cross-reference by part ("browser Major 1").

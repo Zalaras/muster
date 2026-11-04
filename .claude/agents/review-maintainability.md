@@ -28,14 +28,16 @@ theirs, one `[note]` naming the part is enough; do not file it.
 On a normal cycle the change is
 `git diff main...HEAD -- cmd internal web/src ':!*_test.go' ':!*.test.ts'`.
 
-**Delta re-review** applies only when the spawn prompt says the previous cycle's only open
-agent-tagged issues were Minors. Read that cycle's part
-(`plans/<plan-name>/review.maintainability.cycle<N-1>.md`) and verify each of its Minors against
-`git diff <review_commits[N-1]>..HEAD` (from `python3
+**Delta re-review** applies on every cycle after the first; you are spawned only when your
+previous part carried a Critical or an agent-tagged Major
+(kb:adr/process-minors-verified-not-re-reviewed). Read that part
+(`plans/<plan-name>/review.maintainability.cycle<N-1>.md`) and verify each of its Criticals and
+Majors against `git diff <review_commits[N-1]>..HEAD` (from `python3
 .claude/skills/orchestrate/scripts/orch-state.py <plan-name> show`): the fix is present and does
-what the Minor asked. Then ask the per-file questions below of the non-test files that diff
-touches, not the whole branch. Record each prior Minor in a `## Delta` table (prior Minor, fix
-commit, verified how).
+what the issue asked. Then ask the per-file questions below of the non-test files that diff
+touches, not the whole branch. Record each prior item in a `## Delta` table (prior issue, fix
+commit, verified how). Prior Minors are the orchestrator's to check. A finding outside the diff is
+a `[note]` beginning "outside the delta:", never a tagged issue.
 
 ## What You Read — and What You Do Not
 
@@ -135,5 +137,5 @@ the merged `review.md` (parallel commits would race on the index).
 
 Cross-reference by part ("maintainability Major 1"); numbering restarts per reviewer file.
 
-**Verdict.** `review-scale.md`'s rules: any agent-tagged issue at any severity means
-`needs-changes`. A delta cycle's verdict rules are the same.
+**Verdict.** `review-scale.md`'s rules: a Critical or an agent-tagged Major means
+`needs-changes`; Minors are listed and never block. A delta cycle's verdict rules are the same.

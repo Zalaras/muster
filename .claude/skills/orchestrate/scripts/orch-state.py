@@ -127,13 +127,15 @@ def part_verdict(text):
     m = VERDICT_LINE.search(text)
     return m.group(1).strip().lower() if m else "unusable"
 
-def has_agent_tagged_issue(text):
-    """True iff a numbered issue under a Critical/Major/Minor heading carries a pipeline-agent tag.
-    A [note] or an [orchestrator] item never blocks; Notes sit under their own heading."""
+def has_blocking_issue(text):
+    """True iff a numbered issue under a Critical or Major heading carries a pipeline-agent tag.
+    A Minor never blocks: it rides its agent's wave and the orchestrator verifies the diff
+    (kb:adr/process-minors-verified-not-re-reviewed). A [note] or an [orchestrator] item never
+    blocks; Notes sit under their own heading."""
     blocking = False
     for line in text.splitlines():
         if line.startswith("### "):
-            blocking = line[4:].strip().split()[0] in ("Critical", "Major", "Minor")
+            blocking = line[4:].strip().split()[0] in ("Critical", "Major")
         elif line.startswith("## "):
             blocking = False
         elif blocking and AGENT_TAG.match(line):
@@ -196,8 +198,8 @@ def scope_warnings(plan_dir, parts):
 def merge_review(plan_dir, plan, cycle, gates_failed):
     """Write review.md from whichever parts exist. The verdict is computed, not opined: blocked if
     any part is blocked or unusable; else needs-changes if a gate failed, a part said so, or any
-    part carries an agent-tagged issue at any severity (the Verdict Rules every reviewer already
-    states); else approved. Each part's own verdict line is demoted to **Part verdict** so the file
+    part carries an agent-tagged Critical or Major (the Verdict Rules every reviewer already
+    states — a Minor never blocks); else approved. Each part's own verdict line is demoted to **Part verdict** so the file
     holds exactly one **Verdict**: line — approved() and /land are substring tests over the whole
     file and would otherwise pass a needs-changes review whose browser part said approved."""
     parts, skipped = [], []
@@ -211,7 +213,7 @@ def merge_review(plan_dir, plan, cycle, gates_failed):
         text = f.read_text()
         v = part_verdict(text)
         verdicts.append((key, v))
-        blocking = blocking or has_agent_tagged_issue(text)
+        blocking = blocking or has_blocking_issue(text)
         bodies.append(f"\n## {heading}\n\n" + VERDICT_LINE.sub(lambda m: f"**Part verdict**: {m.group(1)}", text.strip()) + "\n")
     if any(v in ("blocked", "unusable") for _, v in verdicts):
         verdict = "blocked"

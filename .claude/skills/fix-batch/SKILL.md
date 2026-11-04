@@ -180,7 +180,8 @@ git add plans/<sweep>-<n>/review*.md && git commit -m "review(<sweep>-<n>): cycl
 python3 $S <sweep>-<n> reviewed "$(git rev-parse HEAD)"
 ```
 
-`needs-changes`: fix waves as `/orchestrate` Step 6 — the tagged agent in FIX MODE with the issues
+`approved` with agent-tagged Minors: the Minor wave and check as `/orchestrate` Step 6, never a
+re-review. `needs-changes`: fix waves as `/orchestrate` Step 6 — the tagged agent in FIX MODE with the issues
 quoted verbatim and `(review cycle <c>)` as its commit suffix; gates again; then `archive
 review.md`, `archive review.<part>.md` per part, `retry review`; a delta re-review; merge and
 commit as `cycle <c>`. Budget: three cycles. An `[orchestrator:decision]` item goes to the

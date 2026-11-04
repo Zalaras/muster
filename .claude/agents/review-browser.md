@@ -78,6 +78,13 @@ A cell the plan makes impossible is `N/A — <why>`. A cell you could not measur
 with the reason, never a silent absence — the orchestrator reads the matrix to know what was
 looked at.
 
+**Delta re-review.** On cycle 2+ you are spawned only when your previous part carried a
+Critical or an agent-tagged Major (kb:adr/process-minors-verified-not-re-reviewed). Re-measure
+those, record each in a `## Delta` table (prior issue, fix commit, verified how), then only the
+matrix cells whose surface `git diff <review_commits[N-1]>..HEAD` touches. Prior Minors are the
+orchestrator's. A defect on an untouched surface is a `[note]` beginning "outside the delta:"
+unless Critical.
+
 ## Honesty and Terminal Rules (each violation Critical)
 
 Design-system §6: an empty/0% track drawn for unknown data instead of the word *unknown*; a bare
