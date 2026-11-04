@@ -4,8 +4,13 @@ import { describeConnectionHealth } from "./connectionhealth";
 import { isRestorableControl, shouldRestoreFocus } from "./connectionrestore";
 import { describeClaudeVersion } from "./connectionversion";
 import { DAEMON_ABSENCE_CLAUSE, renderBanner, renderBannerContent } from "../render/banner";
-import { renderClaudeVersion, renderConnectionStatus } from "../render/masthead";
+import {
+  type ClaudeVersionDescription,
+  renderClaudeVersion,
+  renderConnectionStatus,
+} from "../render/masthead";
 import type { ClaudeCodeInfo } from "../protocol/hello";
+import type { Session } from "../protocol/session";
 
 const DAEMON_DOWN_TEXT = `musterd unreachable — ${DAEMON_ABSENCE_CLAUSE}`;
 
@@ -25,6 +30,8 @@ export interface ConnectionDeps {
    * (kb:adr/update-restart-reloads-dashboard) — checked first thing there, so it is a
    * no-op for that hello. */
   reloading(): boolean;
+  restartNoticeLabel(sessions: readonly Session[]): string | null;
+  toggleRestartPanel(): void;
 }
 
 export interface ConnectionHandle {
@@ -84,9 +91,37 @@ export function initConnection(app: App, deps: ConnectionDeps): ConnectionHandle
   const shellEl = requireElement<HTMLElement>("#app");
   const mismatchEl = requireElement<HTMLElement>("#protocol-mismatch");
 
-  // No hello has arrived yet — same "unknown, not empty" honesty rule as any other
-  // no-data-yet readout (design-system §6).
-  renderClaudeVersion(claudeVersionEl, describeClaudeVersion(null));
+  let claudeCode: ClaudeCodeInfo | null = null;
+  let lastReadoutKey: string | null = null;
+
+  function describeReadout(
+    sessions: readonly Session[],
+    connected: boolean,
+  ): ClaudeVersionDescription {
+    const base = describeClaudeVersion(claudeCode);
+    const label = deps.restartNoticeLabel(sessions);
+    if (label === null) return base;
+    return {
+      ...base,
+      text: label,
+      notice: { onActivate: deps.toggleRestartPanel, disabled: !connected },
+    };
+  }
+
+  function drawReadout(sessions: readonly Session[], connected: boolean): void {
+    const description = describeReadout(sessions, connected);
+    const key = JSON.stringify([
+      description.text,
+      description.warning,
+      description.hint ?? null,
+      description.notice?.disabled ?? null,
+    ]);
+    if (key === lastReadoutKey) return;
+    lastReadoutKey = key;
+    renderClaudeVersion(claudeVersionEl, description);
+  }
+
+  drawReadout([], false);
 
   // The one control the socket dropped focus off of, remembered by node identity
   // across the disconnect->reconnect pair of renders — never per-site.
@@ -142,6 +177,7 @@ export function initConnection(app: App, deps: ConnectionDeps): ConnectionHandle
   // changes. `onChange`'s own unconditional `app.render()` call above still covers every
   // status change through this same phase.
   app.onRender((frame) => {
+    drawReadout(frame.sessions, frame.connected);
     const override = deps.restartBanner(frame.now, frame.connection);
     renderConnectionStatus(
       connectionStatusEl,
@@ -162,12 +198,16 @@ export function initConnection(app: App, deps: ConnectionDeps): ConnectionHandle
   });
 
   return {
-    connected(claudeCode) {
+    connected(info) {
+      claudeCode = info;
+      if (info !== null) app.emit("claudeCode", info);
       state.connected();
-      renderClaudeVersion(claudeVersionEl, describeClaudeVersion(claudeCode));
+      drawReadout(app.store.values(), true);
     },
-    claudeCodeChanged(claudeCode) {
-      renderClaudeVersion(claudeVersionEl, describeClaudeVersion(claudeCode));
+    claudeCodeChanged(info) {
+      claudeCode = info;
+      app.emit("claudeCode", info);
+      drawReadout(app.store.values(), app.state.connection === "connected");
     },
     disconnected() {
       state.disconnected();

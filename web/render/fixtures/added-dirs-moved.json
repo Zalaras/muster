@@ -61,6 +61,10 @@
           }
         },
         "claudeSessionId": "cs-added",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -97,6 +101,7 @@
           "isWorktree": false,
           "name": "repo"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "ad-two",

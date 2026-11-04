@@ -11,8 +11,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/Zalaras/muster/internal/store"
 )
 
 // newStaticTestServer builds a bare Server with a configurable WebDist, independent of
@@ -22,7 +20,7 @@ import (
 func newStaticTestServer(t *testing.T, webDist string) *Server {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st, err := store.Open(context.Background(), dbPath, zerolog.Nop())
+	st, err := openCopiedStore(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 

@@ -37,6 +37,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-activity-failed",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -74,6 +75,7 @@
           "isWorktree": false,
           "name": "activity-failed"
         },
+        "restartPending": false,
         "state": "failed",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "activity-failed",

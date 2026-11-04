@@ -501,7 +501,10 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 	// now-alive row and be refused.
 	unlock := l.manager.LockSession(id)
 	defer unlock()
+	return l.ResumeLocked(ctx, id)
+}
 
+func (l *sessionLauncher) ResumeLocked(ctx context.Context, id int64) (*session.Session, *launchError) {
 	sess, ok := l.manager.Get(id)
 	if !ok {
 		return nil, notFound()

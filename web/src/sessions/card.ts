@@ -410,12 +410,16 @@ export function unreadLabel(title: string, unread: boolean): string {
   return unread ? `${title}, unread` : title;
 }
 
+export function backgroundTaskCount(n: number): string {
+  return n === 1 ? "1 background task" : `${n} background tasks`;
+}
+
 /** The card's bottom line for background work the latest Stop reported running — null when
  * there is none or the session is dead (a dead session's count is last-known, not live). */
 export function backgroundLine(session: Session): string | null {
   const n = session.backgroundTasks;
   if (!session.alive || n <= 0) return null;
-  return n === 1 ? "1 background task" : `${n} background tasks`;
+  return backgroundTaskCount(n);
 }
 
 export function cardTimerText(session: Session, now: Date): string {

@@ -14,7 +14,6 @@ import (
 
 	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/claudecode/claudecodetest"
-	"github.com/Zalaras/muster/internal/store"
 	"github.com/Zalaras/muster/internal/usage"
 )
 
@@ -57,7 +56,7 @@ func newMeasuredForms(t *testing.T) *measuredForms {
 	t.Helper()
 	m := &measuredForms{t: t}
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st, err := store.Open(context.Background(), dbPath, zerolog.Nop())
+	st, err := openCopiedStore(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 	m.db, err = sql.Open("sqlite", dbPath)

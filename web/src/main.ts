@@ -37,6 +37,7 @@ import { initLaunch } from "./features/launch";
 import { initSettings } from "./features/settings";
 import { initShortcuts } from "./features/shortcuts";
 import { initConnection } from "./features/connection";
+import { initRestart } from "./features/restart";
 import { installDropGuard } from "./render/dropguard";
 import { WsClient, wsUrl } from "./ws";
 import { dashboardWsHandlers } from "./wsapp";
@@ -90,17 +91,23 @@ initRail(app, { actions, surfaces, groups, railMenu });
 //     inherently split across two controllers by shared state (views.ts).
 // 11. notes    — the note panel, after the focus phase has settled the focused session
 //     and the mainhead has laid out the glyph the anchored panel sits under (initNotes)
-// 12. connection — banner text/visibility, time-based as well as status-driven
-//     (initConnection, registered further down once `updateRestart` exists to supply it)
+// 12. restart  — the Claude version readout's panel: closes when the notice or the daemon
+//     goes away, else repaints in place (initRestart)
+// 13. connection — the version readout (its restart-notice button included), then banner
+//     text/visibility, time-based as well as status-driven (initConnection, registered
+//     further down once `updateRestart` and `restart` exist to supply it)
 const views = initViews(app, { focus, tiles });
 initNotes(app, { surfaces });
 initTheme(app);
 const launch = initLaunch(app, { focus, surfaces });
 initSettings(app);
 initShortcuts(app, { views, focus, actions, launch, groups });
+const restart = initRestart(app, { actions });
 const connection = initConnection(app, {
   restartBanner: updateRestart.bannerOverride,
   reloading: updateRestart.reloading,
+  restartNoticeLabel: restart.noticeLabel,
+  toggleRestartPanel: restart.togglePanel,
 });
 
 // A document-level foreign-drag/drop guard, installed once at

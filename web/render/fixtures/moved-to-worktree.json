@@ -44,6 +44,7 @@
           }
         },
         "claudeSessionId": "cs-epsilon",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -78,6 +79,7 @@
           "isWorktree": false,
           "name": "epsilon"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": null,

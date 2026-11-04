@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseBatchResult } from "./batch";
+import { parseBatchResult, parseRestartResult } from "./batch";
 
 describe("parseBatchResult (kb:anchor/sessions.end-many, kb:anchor/sessions.remove-many)", () => {
   it("parses the three outcome lists", () => {
@@ -41,5 +41,40 @@ describe("parseBatchResult (kb:anchor/sessions.end-many, kb:anchor/sessions.remo
     ["one bad id among good ones", { done: [], skipped: [], failed: [1, null, 3] }],
   ])("rejects a report with %s", (_label, value) => {
     expect(parseBatchResult(value)).toBeNull();
+  });
+});
+
+describe("parseRestartResult (kb:anchor/sessions.restart-many)", () => {
+  it("parses the four outcome lists", () => {
+    expect(parseRestartResult({ done: [4], queued: [9], skipped: [12], failed: [2] })).toEqual({
+      done: [4],
+      queued: [9],
+      skipped: [12],
+      failed: [2],
+    });
+  });
+
+  it("parses a report where nothing happened: four empty lists", () => {
+    expect(parseRestartResult({ done: [], queued: [], skipped: [], failed: [] })).toEqual({
+      done: [],
+      queued: [],
+      skipped: [],
+      failed: [],
+    });
+  });
+
+  it.each([null, undefined, "x", 3, []])("rejects the non-object %p", (value) => {
+    expect(parseRestartResult(value)).toBeNull();
+  });
+
+  it.each([
+    ["queued missing (an end/remove report)", { done: [], skipped: [], failed: [] }],
+    ["queued null", { done: [], queued: null, skipped: [], failed: [] }],
+    ["a string queued id", { done: [], queued: ["9"], skipped: [], failed: [] }],
+    ["a fractional queued id", { done: [], queued: [1.5], skipped: [], failed: [] }],
+    ["done missing", { queued: [], skipped: [], failed: [] }],
+    ["failed a bad id", { done: [], queued: [], skipped: [], failed: [null] }],
+  ])("rejects a report with %s", (_label, value) => {
+    expect(parseRestartResult(value)).toBeNull();
   });
 });

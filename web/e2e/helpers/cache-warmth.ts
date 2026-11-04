@@ -91,11 +91,12 @@ export async function postStatus(
   cache: PromptCacheOpts | null,
 ): Promise<void> {
   const body = envelopedStatusLineFull(claudeId, await envelopeOpts(session, daemon));
-  if (cache !== null) {
-    const payload = body.payload as Record<string, unknown>;
-    payload.version = cache.ttl === "5m" ? "2.1.299" : "2.1.296";
-    payload.prompt_cache = promptCacheBlock(cache);
-  }
+  const payload = body.payload as Record<string, unknown>;
+  // One process reports one version for its whole life (kb:fact/running-session-version-sources),
+  // and the daemon broadcasts a change of it as a session upsert: every post a session receives
+  // carries the version its ttl was measured on, with or without the cache block.
+  payload.version = cache?.ttl === "5m" ? "2.1.299" : "2.1.296";
+  if (cache !== null) payload.prompt_cache = promptCacheBlock(cache);
   await request.post(daemon.ingestURL("status"), { data: body });
   await request.post(daemon.ingestURL("status"), { data: body });
 }

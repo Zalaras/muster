@@ -306,27 +306,83 @@ export interface ClaudeVersionDescription {
   text: string;
   warning: string | null;
   hint?: string | null;
+  notice?: ClaudeNoticeDescription;
 }
 
-/** Rebuilds `#claude-version`'s children with `replaceChildren` (no innerHTML). No
- * warning -> a lone text node. A warning -> a trailing-space text node
- * (`"claude <installed> "`) followed by the `role="img"` glyph, so `textContent` reads
- * `claude 2.0.0 ⚠` — `aria-label` and `title` both carry the same warning sentence, so the
- * glyph's accessible name and its native tooltip always match. No button, link or other
- * control lives inside the readout — the glyph and its hover text are the whole
- * interface, `kb:adr/connection-installed-claude-classified-never-refused`. */
-export function renderClaudeVersion(el: HTMLElement, description: ClaudeVersionDescription): void {
-  const { text, warning, hint } = description;
-  el.title = hint ?? "";
-  if (warning === null) {
-    el.replaceChildren(document.createTextNode(text));
-    return;
-  }
+export interface ClaudeNoticeDescription {
+  onActivate: () => void;
+  disabled: boolean;
+}
+
+const NOTICE_LABEL = "Claude Code update";
+
+function buildNoticeButton(onActivate: () => void): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "claude-notice";
+  button.setAttribute("aria-label", NOTICE_LABEL);
+  const dot = document.createElement("span");
+  dot.className = "update-dot";
+  dot.setAttribute("aria-hidden", "true");
+  button.append(document.createTextNode(""), dot);
+  button.addEventListener("click", () => onActivate());
+  return button;
+}
+
+function buildWarningGlyph(warning: string): HTMLElement {
   const glyph = document.createElement("span");
   glyph.className = "version-warn";
   glyph.setAttribute("role", "img");
   glyph.setAttribute("aria-label", warning);
   glyph.title = warning;
   glyph.textContent = "⚠";
-  el.replaceChildren(document.createTextNode(`${text} `), glyph);
+  return glyph;
+}
+
+/** The notice shape: `<button>` then, with a warning, the glyph. Everything is written in place —
+ * a rebuild would drop the focus a keyboard user holds on the button — so the button is built
+ * once and survives text, disabled and warning changes. */
+function renderNotice(
+  el: HTMLElement,
+  text: string,
+  warning: string | null,
+  notice: ClaudeNoticeDescription,
+): void {
+  const first = el.firstElementChild;
+  const built = first instanceof HTMLButtonElement && first.classList.contains("claude-notice");
+  const button = built ? first : buildNoticeButton(notice.onActivate);
+  if (!built) el.replaceChildren(button);
+  const label = button.firstChild;
+  if (label && label.textContent !== text) label.textContent = text;
+  button.disabled = notice.disabled;
+  const glyph = button.nextElementSibling;
+  if (warning === null) {
+    glyph?.remove();
+  } else if (glyph instanceof HTMLElement) {
+    glyph.setAttribute("aria-label", warning);
+    glyph.title = warning;
+  } else {
+    el.append(buildWarningGlyph(warning));
+  }
+}
+
+/** Rebuilds `#claude-version`'s children with `replaceChildren` (no innerHTML). No
+ * warning -> a lone text node. A warning -> a trailing-space text node
+ * (`"claude <installed> "`) followed by the `role="img"` glyph, so `textContent` reads
+ * `claude 2.0.0 ⚠` — `aria-label` and `title` both carry the same warning sentence, so the
+ * glyph's accessible name and its native tooltip always match
+ * (`kb:adr/connection-installed-claude-classified-never-refused`). With `notice` the readout is
+ * instead one `<button>` (the restart notice) followed by the glyph, updated in place. */
+export function renderClaudeVersion(el: HTMLElement, description: ClaudeVersionDescription): void {
+  const { text, warning, hint, notice } = description;
+  el.title = hint ?? "";
+  if (notice !== undefined) {
+    renderNotice(el, text, warning, notice);
+    return;
+  }
+  if (warning === null) {
+    el.replaceChildren(document.createTextNode(text));
+    return;
+  }
+  el.replaceChildren(document.createTextNode(`${text} `), buildWarningGlyph(warning));
 }

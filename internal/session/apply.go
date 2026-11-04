@@ -154,42 +154,21 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	}
 	prev := sess.Clone()
 
-	// Captured before applyStatusUpdate mutates sess, so the wire-visible delta can be
-	// judged independently of the persist-worthy delta applyStatusUpdate itself
-	// reports: Model/Context are always replaced wholesale on a real change (never
-	// mutated in place, per applyStatusUpdate's own doc comment), so a pointer
-	// inequality after is exactly "this field changed"; DisplayTitle() folds in
-	// TitleOverride so a Claude-name-only change while an override is set compares equal.
-	beforeDisplay := sess.DisplayTitle()
-	beforeModel := sess.Model
-	beforeContext := sess.Context
-	beforeCache := sess.Cache
-	beforeEffort := sess.Effort
-	beforeWarning := sess.EffortWarning
-	beforeDir := sess.ClaudeDir
-	beforeAdded := sess.AddedDirs
-
-	prevTitle := sess.Title
 	changed := applyStatusUpdate(sess, update)
-	cleared := update.Title != nil && sess.observeClaudeTitle(prevTitle)
+	changed = m.settleClaudeBehindLocked(sess) || changed
+	cleared := update.Title != nil && sess.observeClaudeTitle(prev.Title)
 	if !changed && !cleared {
 		snapshot := sess.Clone()
 		m.mu.Unlock()
 		return snapshot, nil
 	}
 	post := sess.Clone()
-	// A status post that only refreshed Claude's name while an override is set persists
-	// the row (Title changed, above — applyStatusUpdate reported it) but must not
-	// broadcast — the wire object (DisplayTitle()/model/context) is unchanged, and
-	// kb:anchor/ws.session's no-no-op-upserts rule stands
-	// (kb:adr/rename-muster-owned-title-override-wins).
-	addedChanged := !addedDirsEqual(beforeAdded, sess.AddedDirs)
-	broadcast := !stringPtrEqual(beforeDisplay, sess.DisplayTitle()) || beforeModel != sess.Model || beforeContext != sess.Context || beforeCache != sess.Cache ||
-		beforeEffort != sess.Effort || beforeWarning != sess.EffortWarning || addedChanged
+	broadcast := statusWireChanged(prev, sess)
+	addedChanged := !addedDirsEqual(prev.AddedDirs, sess.AddedDirs)
 
 	// A ClaudeDir-only change persists without broadcasting for the same reason: the wire
 	// object stays as it was until the repo poll derives claudeLocation from it.
-	dirChanged := sess.ClaudeDir != beforeDir
+	dirChanged := sess.ClaudeDir != prev.ClaudeDir
 
 	snapshot, err := m.persistWholeRowLocked(ctx, musterSessionID, sess, prev, post, broadcast)
 	if err != nil {

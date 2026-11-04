@@ -37,6 +37,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-alpha",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -71,6 +72,7 @@
           "isWorktree": false,
           "name": "alpha"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "Alpha",
@@ -86,6 +88,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-beta",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -120,6 +123,7 @@
           "isWorktree": false,
           "name": "beta"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": null,
@@ -138,6 +142,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-gamma",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -168,6 +173,7 @@
         "plan": null,
         "railPos": 2,
         "repo": null,
+        "restartPending": false,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:04:00Z",
         "title": null,

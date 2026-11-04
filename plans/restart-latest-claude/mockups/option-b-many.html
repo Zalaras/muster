@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>restart-latest-claude — option B with many sessions</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+/* NEW — the version readout as a control (option B) */
+.vanc { position: relative; display: inline-flex; }
+.vbtn { position: relative; font: inherit; color: var(--fg); background: transparent; border: 0; padding: 0; cursor: pointer; text-align: right; min-width: calc(17ch + 4px); font-variant-numeric: tabular-nums; }
+.vbtn .arrow { color: var(--fg-dim); }
+.vbtn::after { content: ""; position: absolute; top: -3px; right: -7px; width: 6px; height: 6px; border-radius: 50%; background: var(--fg-muted); }
+/* NEW — the panel under it */
+.vpop { position: absolute; z-index: 5; top: calc(100% + 10px); right: -24px; width: 380px; background: var(--bg-raised); border: 1px solid var(--edge); box-shadow: 0 8px 24px var(--scrim); white-space: normal; font-family: var(--mono); font-size: var(--fs-sm); color: var(--fg-muted); text-align: left; }
+.vpop .ph { padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: var(--fs-2xs); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg); }
+.vpop p { margin: 0; padding: 10px 12px 4px; line-height: 1.6; }
+.vpop p.small { font-size: var(--fs-xs); color: var(--fg-dim); padding-top: 6px; }
+.vpop .foot { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 12px; border-top: 1px solid var(--line); margin-top: 6px; }
+.counts { margin: 0; padding: 4px 12px; list-style: none; }
+.counts li { display: flex; padding: 2px 0; color: var(--fg); }
+.counts li span { margin-left: auto; color: var(--fg-dim); font-variant-numeric: tabular-nums; }
+/* NEW — grouped, scrolling session list (shared by the panel and the dialog) */
+.rhead { margin: 0; padding: 10px 12px 2px; font-size: var(--fs-2xs); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-dim); }
+.scroll { max-height: 236px; overflow-y: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.rlist { margin: 0; padding: 2px 12px 4px; list-style: none; }
+.rlist li { display: flex; gap: 10px; padding: 2px 0; color: var(--fg); }
+.rlist li .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.rlist li .why { margin-left: auto; flex: none; color: var(--fg-dim); font-size: var(--fs-xs); }
+/* NEW — B3's reason rows */
+details.reason { padding: 0 12px; }
+details.reason summary { display: flex; padding: 3px 0; color: var(--fg); cursor: pointer; list-style: none; }
+details.reason summary::before { content: "▸"; width: 14px; color: var(--fg-dim); }
+details.reason[open] summary::before { content: "▾"; }
+details.reason summary span { margin-left: auto; color: var(--fg-dim); }
+details.reason .rlist { padding-left: 26px; }
+.modal.restart { width: 520px; }
+.modal.restart .scroll { max-height: 280px; }
+.frame.p1 { margin-bottom: 230px; } .frame.p2 { margin-bottom: 470px; } .frame.p3 { margin-bottom: 380px; }
+.pair { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+.pair > div { flex: 1 1 0; min-width: 0; }
+</style>
+</head>
+<body>
+<h1>Option B with many sessions</h1>
+<p class="lead">
+The version readout is the control: <code>claude 2.1.317→318</code> with a dot, in the readout's fixed width. These are three
+ways its panel can cope with 14 live sessions. Each is shown <b>all idle</b>, <b>all busy</b>, <b>mixed</b> and <b>queued</b>
+(after confirming, while 5 wait their turn; there is no Cancel). "Idle" means idle with no background tasks, or failed: the
+sessions that restart at once. The readout label always shows the <b>oldest</b> version a live session runs, so 2.1.316 wins over
+2.1.317. While sessions are queued it reads <code>claude ↻5 queued</code>. Once nothing is behind, it goes back to
+<code>claude 2.1.318</code> with no dot.
+</p>
+<nav><a href="#b1">B1 · counts, then a dialog</a><a href="#b2">B2 · the panel is the confirm</a><a href="#b3">B3 · grouped by reason</a></nav>
+<div id="out"></div>
+
+<script>
+const IDLE = [
+  ["notes-panel", "idle · 2.1.317"], ["usage-bar", "failed · 2.1.316"], ["search-picker", "idle · plan mode → default"],
+  ["groups-refactor", "idle · 2.1.317"], ["cache-hover", "idle · 2.1.317"], ["launch-dialog-fixes", "idle · 2.1.317"],
+  ["tiles-per-group", "idle · 2.1.317"], ["resizable-panels", "idle · 2.1.316"], ["triage-review", "idle · 2.1.317"],
+];
+const BUSY = [
+  ["flaky-e2e-hunt", "working", "Working"], ["TODO", "idle · 2 background tasks", "Background tasks"],
+  ["dependency-bumps", "waiting on you", "Waiting on you"], ["perf-review", "working", "Working"],
+  ["plan-mode-flow", "planning", "Planning"],
+];
+const ALLBUSY = BUSY.concat([["archive", "working", "Working"], ["code-diff", "idle · 1 background task", "Background tasks"],
+  ["permissions-ui", "waiting on you", "Waiting on you"], ["worktree-manager", "planning", "Planning"],
+  ["agent-cli", "working", "Working"], ["remote-access", "working", "Working"], ["homebrew-tap", "idle · 3 background tasks", "Background tasks"],
+  ["summary-cards", "working", "Working"], ["claude-location", "planning", "Planning"]]);
+const ALLIDLE = IDLE.concat([["rename-session", "idle · 2.1.317"], ["shell-pane", "idle · 2.1.317"], ["custom-port", "idle · 2.1.317"],
+  ["see-added-dirs", "idle · 2.1.317"], ["docs-search", "idle · 2.1.317"]]);
+const SC = {
+  idle: { now: ALLIDLE, busy: [] },
+  busy: { now: [], busy: ALLBUSY },
+  mixed: { now: IDLE, busy: BUSY },
+};
+const list = (rows) => `<ul class="rlist">${rows.map(([n, w]) => `<li><span class="n">${n}</span><span class="why">${w}</span></li>`).join("")}</ul>`;
+const btnLabel = (a, b) => a && b ? `Restart ${a}, queue ${b}` : a ? `Restart ${a}` : `Queue ${b}`;
+const oldest = "2.1.316";
+
+function masthead(readout) {
+  return `<header class="masthead">
+    <div class="brand"><h1>Muster</h1></div>
+    <div class="view-switcher"><button class="seg-btn" aria-pressed="true">Focus</button><button class="seg-btn">Tiles</button></div>
+    <button class="btn">New session</button>
+    <div class="masthead-right">
+      <span class="usage-readout">5h <span class="num">31%</span><span class="bar"><i style="width:31%"></i></span></span>
+      <span class="usage-readout">7d <span class="num">58%</span><span class="bar"><i style="width:58%"></i></span></span>
+      <button class="btn sm">↻</button><button class="btn">Issue</button><button class="btn">Settings</button>
+      ${readout}<span class="health"></span>
+    </div></header>`;
+}
+const vbtn = (queued, pop) => `<span class="vanc"><button class="vbtn">${queued ? `claude <span class="arrow">↻</span>${queued} queued` : `claude ${oldest}<span class="arrow">→</span>318`}</button>${pop ? `<div class="vpop">${pop}</div>` : ""}</span>`;
+const intro = (n) => `<p>Claude Code <b>2.1.318</b> is installed. <b>${n}</b> live sessions run an older version and pick it up only when restarted.</p>`;
+const queuedPop = `<div class="ph">Claude Code 2.1.318</div><p>9 sessions restarted. <b>5</b> restart when each is idle with no background tasks:</p><div class="rhead">Restart when free · 5</div><div class="scroll">${list(BUSY)}</div><p class="small">Nothing to do here; the readout clears when the last one restarts.</p>`;
+
+/* B1 — counts in the panel, lists in the dialog */
+function b1Pop(s) {
+  const { now, busy } = SC[s];
+  return `<div class="ph">Claude Code 2.1.318</div>${intro(now.length + busy.length)}
+    <ul class="counts">${now.length ? `<li>Restart now<span>${now.length}</span></li>` : ""}${busy.length ? `<li>Restart when free<span>${busy.length}</span></li>` : ""}</ul>
+    <div class="foot"><button class="btn">Ignore</button><button class="btn key">Restart…</button></div>`;
+}
+function b1Dialog(s) {
+  const { now, busy } = SC[s];
+  return `<div class="modal restart"><h2>Restart sessions on Claude Code 2.1.318</h2>
+    <p>${now.length + busy.length} live sessions run an older Claude Code. Each is stopped and resumed in place: same conversation, title, group and effort.</p>
+    <div class="scroll" style="margin-top:10px">${now.length ? `<div class="rhead">Restart now · ${now.length}</div>${list(now)}` : ""}${busy.length ? `<div class="rhead">Restart when free · ${busy.length}</div>${list(busy)}` : ""}</div>
+    ${busy.length ? `<p style="font-size:var(--fs-xs)">Queued sessions restart as soon as each is idle with no background tasks.</p>` : ""}
+    <div class="modal-foot"><button class="btn">Cancel</button><button class="btn key">${btnLabel(now.length, busy.length)}</button></div></div>`;
+}
+/* B2 — the panel is the confirm */
+function b2Pop(s) {
+  const { now, busy } = SC[s];
+  return `<div class="ph">Claude Code 2.1.318</div>${intro(now.length + busy.length)}
+    <div class="scroll" style="margin-top:6px">${now.length ? `<div class="rhead">Restart now · ${now.length}</div>${list(now)}` : ""}${busy.length ? `<div class="rhead">Restart when free · ${busy.length}</div>${list(busy)}` : ""}</div>
+    <p class="small">Each is resumed in place. ${busy.length ? "Queued ones restart once idle with no background tasks. " : ""}Plan mode comes back as default.</p>
+    <div class="foot"><button class="btn">Ignore</button><button class="btn key">${btnLabel(now.length, busy.length)}</button></div>`;
+}
+/* B3 — the busy ones folded by reason */
+function b3Pop(s) {
+  const { now, busy } = SC[s];
+  const reasons = {};
+  for (const r of busy) (reasons[r[2]] ||= []).push(r);
+  const rows = Object.entries(reasons).map(([k, v], i) => `<details class="reason"${i === 0 ? " open" : ""}><summary>${k}<span>${v.length}</span></summary>${list(v)}</details>`).join("");
+  return `<div class="ph">Claude Code 2.1.318</div>${intro(now.length + busy.length)}
+    <div class="scroll" style="margin-top:6px">${now.length ? `<details class="reason"><summary>Restart now<span>${now.length}</span></summary>${list(now)}</details>` : ""}${busy.length ? `<div class="rhead">Restart when free · ${busy.length}</div>${rows}` : ""}</div>
+    <p class="small">Each is resumed in place. ${busy.length ? "Queued ones restart once idle with no background tasks. " : ""}Plan mode comes back as default.</p>
+    <div class="foot"><button class="btn">Ignore</button><button class="btn key">${btnLabel(now.length, busy.length)}</button></div>`;
+}
+
+const LAB = { idle: "14 sessions, all idle", busy: "14 sessions, all busy", mixed: "14 sessions: 9 idle, 5 busy" };
+let h = "";
+h += `<h2 class="opt" id="b1">B1 · Counts in the panel, the lists in the dialog</h2><p class="cap">The panel stays small: one sentence and two counts. <b>Restart…</b> opens the confirm dialog, where both lists sit in one scrolling box (280px, about 12 rows). <b>Pro:</b> the panel never grows, and the dialog is the same one any count uses. <b>Con:</b> three clicks (readout, Restart…, confirm).</p>`;
+for (const s of ["idle", "busy", "mixed"]) {
+  h += `<div class="label">${LAB[s]}</div><div class="pair"><div><div class="frame p1">${masthead(vbtn(0, b1Pop(s)))}<div class="below"></div></div></div><div class="scrim">${b1Dialog(s)}</div></div>`;
+}
+h += `<div class="label">queued: 5 left</div><div class="frame p2">${masthead(vbtn(5, queuedPop))}<div class="below"></div></div>`;
+
+h += `<h2 class="opt" id="b2">B2 · The panel is the confirm</h2><p class="cap">No dialog: the panel lists every session in one scrolling box (236px, about 10 rows), grouped Restart now / Restart when free, and its button acts straight away. <b>Pro:</b> two clicks, and everything you need is in the panel. <b>Con:</b> a tall panel hanging off the masthead, and an action that kills processes with no separate dialog. Stop and Remove both have one.</p>`;
+for (const s of ["idle", "busy", "mixed"]) h += `<div class="label">${LAB[s]}</div><div class="frame p2">${masthead(vbtn(0, b2Pop(s)))}<div class="below"></div></div>`;
+h += `<div class="label">queued: 5 left</div><div class="frame p2">${masthead(vbtn(5, queuedPop))}<div class="below"></div></div>`;
+
+h += `<h2 class="opt" id="b3">B3 · The panel is the confirm, busy sessions folded by reason</h2><p class="cap">Like B2, but each list is folded: Restart now is one closed row with its count, and the busy sessions sit under one row per reason (Working, Planning, Waiting on you, Background tasks), the first one open. <b>Pro:</b> 14 sessions read as five lines, and you see <i>why</i> things wait at a glance. <b>Con:</b> finding one particular session takes an extra click, and it is the most UI to build.</p>`;
+for (const s of ["idle", "busy", "mixed"]) h += `<div class="label">${LAB[s]}</div><div class="frame p3">${masthead(vbtn(0, b3Pop(s)))}<div class="below"></div></div>`;
+h += `<div class="label">queued: 5 left</div><div class="frame p2">${masthead(vbtn(5, queuedPop))}<div class="below"></div></div>`;
+document.getElementById("out").innerHTML = h;
+</script>
+</body>
+</html>

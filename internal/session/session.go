@@ -215,6 +215,12 @@ type Session struct {
 	// fresh slice, never mutated in place.
 	AddedDirs []Location
 
+	ClaudeVersion  string
+	ClaudeBehind   bool
+	RestartPending bool
+
+	restartHeld bool
+
 	// repoEpoch counts this session's deaths (markEnded, under Manager.mu; the only writer),
 	// so a repo-poll reading taken while it was alive (RepoTarget.Epoch) is recognisable as
 	// older than the death, however soon a resume made the session alive again. Never

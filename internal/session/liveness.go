@@ -55,8 +55,8 @@ func (m *Manager) Snapshot(id int64) (text string, at time.Time, ok bool) {
 
 // captureAndStoreSnapshot runs capture-pane for an alive session (via captureCtx) and, on
 // success, persists the result via storeSnapshot (via persistCtx) — the shared body
-// checkOneLiveness's periodic capture and endLocked's final pre-kill capture both need. The
-// two contexts are kept separate because endLocked bounds only the tmux call to
+// checkOneLiveness's periodic capture and EndLocked's final pre-kill capture both need. The
+// two contexts are kept separate because EndLocked bounds only the tmux call to
 // endRemoveTmuxTimeout while keeping the outer request ctx for the DB write;
 // checkOneLiveness passes the same ctx for both. A capture error (a transient tmux
 // failure) is not a pane-missing signal — the previous snapshot is kept and liveness
@@ -255,6 +255,7 @@ func (m *Manager) markEnded(ctx context.Context, id int64) (*Session, error) {
 	// the next launch or resume clears it.
 	sess.ClaudeLocation = nil
 	sess.clearAddedDirs()
+	sess.clearClaudeVersion()
 	// A repo-poll reading in flight predates this death: SetRepoState must drop it, or a
 	// checkout made after the card shows ended would reach the dead card.
 	sess.repoEpoch++

@@ -37,6 +37,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": null,
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -71,6 +72,7 @@
           "isWorktree": false,
           "name": "rota"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "effort-no-post",
@@ -86,6 +88,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-effort-bound",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -120,6 +123,7 @@
           "isWorktree": false,
           "name": "rota"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "effort-bound",
@@ -135,6 +139,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-effort-dead",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -169,6 +174,7 @@
           "isWorktree": false,
           "name": "rota"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "effort-dead-never",
@@ -184,6 +190,10 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-effort-clamped",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -224,6 +234,7 @@
           "isWorktree": false,
           "name": "rota"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:04:00Z",
         "title": "effort-clamped",
@@ -239,6 +250,10 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-effort-none",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -279,6 +294,7 @@
           "isWorktree": false,
           "name": "rota"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "effort-none",
@@ -294,6 +310,10 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-effort-crowd",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -334,6 +354,7 @@
           "isWorktree": false,
           "name": "rota"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:06:00Z",
         "title": "effort-width-with-a-rather-long-title-to-crowd-the-header",

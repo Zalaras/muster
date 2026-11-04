@@ -37,6 +37,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-notes-plain",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -71,6 +72,7 @@
           "isWorktree": false,
           "name": "notes-plain"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "notes-plain",
@@ -86,6 +88,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-notes-short",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -120,6 +123,7 @@
           "isWorktree": false,
           "name": "notes-short"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "notes-short",
@@ -135,6 +139,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-notes-long",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -169,6 +174,7 @@
           "isWorktree": false,
           "name": "notes-long"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "notes-long",
@@ -184,6 +190,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-notes-ended",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -218,6 +225,7 @@
           "isWorktree": false,
           "name": "notes-ended"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "notes-ended",

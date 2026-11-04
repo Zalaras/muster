@@ -37,6 +37,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": null,
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -71,6 +72,7 @@
           "isWorktree": false,
           "name": "wrap-repo"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "a very long session title that should need more than one line to display in full at the rail's fixed column width",
@@ -86,6 +88,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-density-clamp-e1",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -120,6 +123,7 @@
           "isWorktree": false,
           "name": "density-clamp-e1"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "density-clamp-e1",
@@ -135,6 +139,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-density-ramp-short",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -169,6 +174,7 @@
           "isWorktree": false,
           "name": "density-ramp-short"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:04:00Z",
         "title": "density-ramp-short",
@@ -184,6 +190,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-density-ramp-long",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -218,6 +225,7 @@
           "isWorktree": false,
           "name": "density-ramp-long"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:06:00Z",
         "title": "density-ramp-long",
@@ -233,6 +241,10 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-density-e3-known",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -269,6 +281,7 @@
           "isWorktree": false,
           "name": "density-e3-known"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:07:00Z",
         "title": "density-e3-known",
@@ -284,6 +297,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": null,
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -318,6 +332,7 @@
           "isWorktree": false,
           "name": "density-e6-unknown"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "density-e6-unknown",

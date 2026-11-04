@@ -29,6 +29,7 @@ func (m *Manager) RecordLaunch(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	sess.TmuxPane = tmuxPane
 	sess.clearClaudeLocation()
 	sess.clearAddedDirs()
+	sess.clearClaudeVersion()
 	post := sess.Clone()
 
 	snapshot, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true)
@@ -47,16 +48,16 @@ func (m *Manager) RecordLaunch(ctx context.Context, id int64, tmuxTarget, tmuxPa
 //
 // id's per-session lock is held for the whole check-then-act
 // (kb:adr/actions-serialized-per-session), so two concurrent Ends can never both pass the
-// alive gate. endLocked is split out because Remove also needs to run this same body
+// alive gate. EndLocked is split out because Remove also needs to run this same body
 // while already holding the lock itself (End's own LockSession call would otherwise
 // deadlock against Remove's).
 func (m *Manager) End(ctx context.Context, id int64) (*Session, error) {
 	unlock := m.LockSession(id)
 	defer unlock()
-	return m.endLocked(ctx, id)
+	return m.EndLocked(ctx, id)
 }
 
-func (m *Manager) endLocked(ctx context.Context, id int64) (*Session, error) {
+func (m *Manager) EndLocked(ctx context.Context, id int64) (*Session, error) {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
 	if !ok {
@@ -94,12 +95,32 @@ func (m *Manager) endLocked(ctx context.Context, id int64) (*Session, error) {
 	return snapshot, nil
 }
 
-// BatchResult is what EndMany and RemoveMany did, by session id (kb:anchor/sessions.end-many,
+// BatchResult is what a batch did, by session id (kb:anchor/sessions.end-many,
 // kb:adr/actions-bulk-stop-remove-are-daemon-batches). Skipped names a session that was
-// unknown at its turn or, for End, no longer alive; Failed one whose kill genuinely failed,
-// which a Remove leaves in place.
+// unknown at its turn or, for End, no longer alive; Failed one whose operation genuinely
+// failed, which a Remove leaves in place. Queued is filled only by a restart batch, for a
+// session marked to restart when it is free.
 type BatchResult struct {
-	Done, Skipped, Failed []int64
+	Done, Queued, Skipped, Failed []int64
+}
+
+type BatchOutcome int
+
+const (
+	BatchDone BatchOutcome = iota
+	BatchQueued
+	BatchSkipped
+)
+
+func (r *BatchResult) file(id int64, outcome BatchOutcome) {
+	switch outcome {
+	case BatchQueued:
+		r.Queued = append(r.Queued, id)
+	case BatchSkipped:
+		r.Skipped = append(r.Skipped, id)
+	default:
+		r.Done = append(r.Done, id)
+	}
 }
 
 // EndMany runs End over ids in listed order, each under its own per-session lock, and
@@ -107,7 +128,7 @@ type BatchResult struct {
 // A repeated id is ErrInvalidOrder and nothing runs.
 func (m *Manager) EndMany(ctx context.Context, ids []int64) (BatchResult, error) {
 	return m.runBatch(ids, "ending", func(id int64) error {
-		_, err := m.endLocked(ctx, id)
+		_, err := m.EndLocked(ctx, id)
 		return err
 	})
 }
@@ -122,24 +143,31 @@ func (m *Manager) RemoveMany(ctx context.Context, ids []int64) (BatchResult, err
 	})
 }
 
-// runBatch is EndMany's and RemoveMany's shared loop: op runs with id's lock held, and its
-// error decides the outcome — the two unknown/not-alive sentinels skip, anything else fails.
-// It refuses a list naming an id twice (ErrInvalidOrder) before running anything, the rule
-// the batch endpoints' handlers leave to this package as the rail-order ones do.
 func (m *Manager) runBatch(ids []int64, what string, op func(id int64) error) (BatchResult, error) {
+	return m.RunBatch(ids, what, func(id int64) (BatchOutcome, error) { return BatchDone, op(id) })
+}
+
+// RunBatch is the one loop behind every list-of-sessions action (End, Remove, Restart): op
+// runs with id's lock held, an op error of ErrUnknownSession or ErrSessionNotAlive skips the
+// id, any other error fails it, and a nil error files it under the outcome op returned. It
+// refuses a list naming an id twice (ErrInvalidOrder) before running anything, the rule
+// the batch endpoints' handlers leave to this package as the rail-order ones do.
+func (m *Manager) RunBatch(ids []int64, what string, op func(id int64) (BatchOutcome, error)) (BatchResult, error) {
 	var result BatchResult
 	if hasRepeat(ids) {
 		return result, ErrInvalidOrder
 	}
 	for _, id := range ids {
-		err := func() error {
+		var outcome BatchOutcome
+		err := func() (err error) {
 			unlock := m.LockSession(id)
 			defer unlock()
-			return op(id)
+			outcome, err = op(id)
+			return err
 		}()
 		switch {
 		case err == nil:
-			result.Done = append(result.Done, id)
+			result.file(id, outcome)
 		case errors.Is(err, ErrUnknownSession), errors.Is(err, ErrSessionNotAlive):
 			result.Skipped = append(result.Skipped, id)
 		default:
@@ -238,7 +266,7 @@ func (m *Manager) ShellCount(ctx context.Context) (int, error) {
 //
 // id's per-session lock is held for the whole check-then-act
 // (kb:adr/actions-serialized-per-session), so a Remove can never race a concurrent
-// End/Resume for the same id. It calls endLocked directly (not End) — End would try to
+// End/Resume for the same id. It calls EndLocked directly (not End) — End would try to
 // reacquire the same lock and deadlock.
 func (m *Manager) Remove(ctx context.Context, id int64) error {
 	unlock := m.LockSession(id)
@@ -257,7 +285,7 @@ func (m *Manager) removeLocked(ctx context.Context, id int64) error {
 	m.mu.Unlock()
 
 	if alive {
-		if _, err := m.endLocked(ctx, id); err != nil {
+		if _, err := m.EndLocked(ctx, id); err != nil {
 			return fmt.Errorf("removing session %d: %w", id, err)
 		}
 	} else {
@@ -302,6 +330,7 @@ func (m *Manager) RecordResume(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	sess.effortRequested = ""
 	sess.clearClaudeLocation()
 	sess.clearAddedDirs()
+	sess.clearClaudeVersion()
 	post := sess.Clone()
 
 	// A persist failure rolls every field this call touched back — a half-resumed session

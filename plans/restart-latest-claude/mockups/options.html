@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>restart-latest-claude — where the new-version notice goes</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+/* NEW — Option A: a bordered notice chip in masthead-right, before the readout */
+.rnotice { display: inline-flex; align-items: center; border: 1px solid var(--line-control); font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-muted); }
+.rnotice .msg { padding: 4px 9px; display: inline-flex; align-items: center; gap: 6px; }
+.rnotice .msg::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--fg-muted); }
+.rnotice button { font: inherit; background: transparent; border: 0; border-left: 1px solid var(--line-control); color: var(--fg); padding: 4px 9px; cursor: pointer; }
+.rnotice button.x { color: var(--fg-dim); padding: 4px 7px; }
+.rnotice button:hover { background: var(--bg-hover); }
+.rnotice button:disabled { color: var(--disabled-fg); cursor: default; background: transparent; }
+
+/* NEW — Option B: the Claude version readout becomes the control, with a popover */
+.vbtn { position: relative; font: inherit; color: var(--fg); background: transparent; border: 0; padding: 0; cursor: pointer; text-align: right; min-width: calc(17ch + 4px); font-variant-numeric: tabular-nums; }
+.vbtn .arrow { color: var(--fg-dim); }
+.vbtn::after { content: ""; position: absolute; top: -3px; right: -7px; width: 6px; height: 6px; border-radius: 50%; background: var(--fg-muted); }
+.vbtn:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
+.vbtn:disabled { color: var(--disabled-fg); cursor: default; text-decoration: none; }
+.vanc { position: relative; display: inline-flex; }
+.vpop { position: absolute; z-index: 5; top: calc(100% + 10px); right: -24px; width: 340px; background: var(--bg-raised); border: 1px solid var(--edge); box-shadow: 0 8px 24px var(--scrim); white-space: normal; font-family: var(--mono); font-size: var(--fs-sm); color: var(--fg-muted); }
+.vpop .ph { padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: var(--fs-2xs); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg); }
+.vpop p { margin: 0; padding: 10px 12px 4px; line-height: 1.6; }
+.vpop .foot { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 12px; }
+.frame.popopen { margin-bottom: 170px; }
+
+/* NEW — Option C: a neutral banner under the masthead */
+.banner.neutral.rb { display: flex; align-items: center; gap: 10px; padding: 6px 16px; font-size: var(--fs-sm); }
+.banner.neutral.rb .grow { margin-right: auto; }
+.banner.neutral.rb b { color: var(--fg); font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Restart onto the new Claude Code: where the notice goes</h1>
+<p class="lead">
+Each option is shown in five states: <b>available</b> (2.1.318 is installed and 5 live sessions still run 2.1.317),
+<b>queued</b> (after confirming, 3 restarted and 2 wait for their turn to finish), <b>ignored or nothing outdated</b>
+(the masthead as today), <b>daemon down</b>, and a <b>1512px</b> masthead (a 14" MacBook). Every option opens the same confirm
+dialog (<code>dialog.html</code>). <b>Ignore</b> lasts for this browser tab (session storage): a reload in the same tab
+stays quiet, a new tab shows it again, and a newer installed version shows it again everywhere. Neutral tokens only,
+like the Settings update dot: an available version is not a session state, so no amber, rose or violet.
+</p>
+<nav><a href="#a">A · notice chip</a><a href="#b">B · the version readout</a><a href="#c">C · banner</a></nav>
+<div id="out"></div>
+
+<script>
+function masthead(right, { narrow = false, down = false } = {}) {
+  const w = narrow ? 'style="width:1512px"' : "";
+  return `<header class="masthead" ${w}>
+    <div class="brand"><h1>Muster</h1></div>
+    <div class="view-switcher"><button class="seg-btn" aria-pressed="true">Focus</button><button class="seg-btn" aria-pressed="false">Tiles</button></div>
+    <button class="btn"${down ? " disabled" : ""}>New session</button>
+    <div class="masthead-right">
+      <span class="usage-readout">5h <span class="num">31%</span><span class="bar"><i style="width:31%"></i></span><span class="resets">2h10m</span></span>
+      <span class="usage-readout">7d <span class="num">58%</span><span class="bar"><i style="width:58%"></i></span><span class="resets">3d</span></span>
+      <span class="usage-readout">Opus <span class="num">22%</span><span class="bar"><i style="width:22%"></i></span></span>
+      <button class="btn sm"${down ? " disabled" : ""}>↻</button>
+      <button class="btn"${down ? " disabled" : ""}>Issue</button>
+      <button class="btn"${down ? " disabled" : ""}>Settings</button>
+      ${right}
+      <span class="health${down ? " down" : ""}"></span>
+    </div>
+  </header>`;
+}
+const DOWN_BANNER = `<div class="banner">musterd is unreachable — reconnecting…</div>`;
+const plain = `<span class="claude-version">claude 2.1.318</span>`;
+
+/* A */
+function chipA(state) {
+  if (state === "none") return plain;
+  const dis = state === "down" ? " disabled" : "";
+  const msg = state === "queued" ? "2 restart when free" : "claude 2.1.318 · 5 behind";
+  const act = state === "queued" ? `<button${dis}>Cancel</button>` : `<button${dis}>Restart…</button>`;
+  return `<span class="rnotice" role="group" aria-label="Claude Code update"><span class="msg">${msg}</span>${act}<button class="x"${dis} aria-label="Ignore" title="Ignore until a newer version">✕</button></span>${plain}`;
+}
+/* B */
+function chipB(state, open) {
+  if (state === "none") return plain;
+  const dis = state === "down" ? " disabled" : "";
+  const label = state === "queued" ? `claude <span class="arrow">↻</span>2 queued` : `claude 2.1.317<span class="arrow">→</span>318`;
+  const body = state === "queued"
+    ? `<p>3 sessions restarted on 2.1.318. 2 restart when their turn finishes: <b>flaky-e2e-hunt</b> (working), <b>TODO</b> (2 background tasks).</p><div class="foot"><button class="btn">Cancel queued</button></div>`
+    : `<p>Claude Code <b>2.1.318</b> is installed. 5 live sessions still run 2.1.317 and pick it up only when restarted.</p><div class="foot"><button class="btn">Ignore</button><button class="btn key">Restart…</button></div>`;
+  return `<span class="vanc"><button class="vbtn"${dis} aria-expanded="${open}">${label}</button>${open ? `<div class="vpop"><div class="ph">Claude Code update</div>${body}</div>` : ""}</span>`;
+}
+/* C */
+function bannerC(state) {
+  if (state === "none" || state === "down") return "";
+  if (state === "queued") return `<div class="banner neutral rb"><span class="grow">3 sessions restarted on Claude Code <b>2.1.318</b>. 2 restart when their turn finishes: flaky-e2e-hunt, TODO.</span><button class="btn">Cancel queued</button><button class="btn sm" aria-label="Ignore">✕</button></div>`;
+  return `<div class="banner neutral rb"><span class="grow">Claude Code <b>2.1.318</b> is installed. 5 live sessions still run 2.1.317.</span><button class="btn">Ignore</button><button class="btn key">Restart…</button></div>`;
+}
+
+const STATES = [["available", "available"], ["queued", "after confirming: 2 queued"], ["none", "ignored, or nothing outdated (today's masthead)"], ["down", "daemon down"]];
+const opts = [
+  ["a", "A · A notice chip beside the version readout",
+   "My original proposal. A bordered chip sits just left of the readout: a neutral dot, <code>claude 2.1.318 · 5 behind</code>, <b>Restart…</b> and a ✕ that ignores it. The readout itself is unchanged. <b>Pro:</b> visible without hovering, and Restart is one click. <b>Con:</b> it adds about 34ch to a masthead that already shrinks its bars at 1840px."],
+  ["b", "B · The version readout is the control",
+   "The readout becomes a button reading <code>claude 2.1.317→318</code> (the running version, then the installed one) with the Settings-style 6px dot. Clicking it opens a small panel with the sentence, <b>Ignore</b> and <b>Restart…</b>. It stays inside the readout's fixed 17ch width, so nothing in the masthead moves (kb:adr/connection-claude-version-readout-short-unknown-fixed-width). <b>Pro:</b> costs no width and sits where you already look for the version. <b>Con:</b> two clicks to restart, and the dot is easy to miss. When 5 sessions run different old versions it shows the oldest."],
+  ["c", "C · A neutral banner under the masthead",
+   "A full-width strip in the neutral banner style the post-update confirmation already uses: one sentence, <b>Ignore</b> and <b>Restart…</b> on the right. Hidden while the daemon is down (the red banner owns that row). <b>Pro:</b> the most obvious, room for a full sentence, and the masthead is untouched. <b>Con:</b> it costs one row of terminal height for as long as it shows, and a banner reads louder than an available update deserves."],
+];
+
+let html = "";
+for (const [id, title, cap] of opts) {
+  html += `<h2 class="opt" id="${id}">${title}</h2><p class="cap">${cap}</p>`;
+  for (const [s, lab] of STATES) {
+    html += `<div class="label">${lab}</div>`;
+    const down = s === "down";
+    if (id === "a") html += `<div class="frame">${masthead(chipA(s), { down })}${down ? DOWN_BANNER : ""}<div class="below"></div></div>`;
+    if (id === "b") html += `<div class="frame">${masthead(chipB(s, false), { down })}${down ? DOWN_BANNER : ""}<div class="below"></div></div>`;
+    if (id === "c") html += `<div class="frame">${masthead(plain, { down })}${down ? DOWN_BANNER : bannerC(s)}<div class="below"></div></div>`;
+  }
+  if (id === "b") {
+    html += `<div class="label">panel open — available</div><div class="frame popopen">${masthead(chipB("available", true))}<div class="below"></div></div>`;
+    html += `<div class="label">panel open — queued</div><div class="frame popopen">${masthead(chipB("queued", true))}<div class="below"></div></div>`;
+  }
+  html += `<div class="label">1512px masthead, available</div><div style="overflow-x:auto"><div class="frame" style="width:1514px">`;
+  if (id === "a") html += masthead(chipA("available"), { narrow: true });
+  if (id === "b") html += masthead(chipB("available", false), { narrow: true });
+  if (id === "c") html += masthead(plain, { narrow: true }) + bannerC("available");
+  html += `<div class="below"></div></div></div>`;
+}
+document.getElementById("out").innerHTML = html;
+</script>
+</body>
+</html>

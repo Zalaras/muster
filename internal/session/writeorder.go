@@ -222,6 +222,10 @@ func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Sess
 		if addedDirsEqual(cur.AddedDirs, post.AddedDirs) {
 			cur.AddedDirs = last.AddedDirs
 		}
+		restoreIfUnchanged(&cur.ClaudeVersion, post.ClaudeVersion, last.ClaudeVersion)
+		restoreIfUnchanged(&cur.ClaudeBehind, post.ClaudeBehind, last.ClaudeBehind)
+		restoreIfUnchanged(&cur.RestartPending, post.RestartPending, last.RestartPending)
+		restoreIfUnchanged(&cur.restartHeld, post.restartHeld, last.restartHeld)
 		restoreIfUnchanged(&cur.ClaudeSessionID, post.ClaudeSessionID, last.ClaudeSessionID)
 		restoreIfUnchanged(&cur.Title, post.Title, last.Title)
 		restoreIfUnchanged(&cur.State, post.State, last.State)
@@ -283,6 +287,7 @@ func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Sess
 // the DB row already avoids. CheckSessionFieldCoverage below is what keeps them honest.
 var restoredSessionFields = []string{
 	"TmuxTarget", "TmuxPane", "Branch", "IsWorktree", "ClaudeDir", "ClaudeLocation", "AddedDirs", "repoEpoch",
+	"ClaudeVersion", "ClaudeBehind", "RestartPending", "restartHeld",
 	"ClaudeSessionID", "Title", "State", "StateSince",
 	"PermissionMode", "PermissionModeSource", "Model", "Context", "Cache", "Effort", "EffortWarning", "effortRequested", "Compactions",
 	"Attention", "Failure", "LastActivity", "Alive", "EndedAt", "LastSnapshot",

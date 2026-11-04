@@ -62,6 +62,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-hover-unk-a",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -96,6 +97,7 @@
           "isWorktree": false,
           "name": "hover-unk-a"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "hover-unk-a",
@@ -111,6 +113,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-hover-unk-b",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -145,6 +148,7 @@
           "isWorktree": false,
           "name": "hover-unk-b"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "hover-unk-b",
@@ -160,6 +164,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-hover-unk-c",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -197,6 +202,7 @@
           "isWorktree": false,
           "name": "hover-unk-c"
         },
+        "restartPending": false,
         "state": "failed",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "hover-unk-c",
@@ -215,6 +221,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-hover-cld-a",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -251,6 +261,7 @@
           "isWorktree": false,
           "name": "hover-cld-a"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:07:00Z",
         "title": "hover-cld-a",
@@ -272,6 +283,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-hover-cld-b",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -308,6 +323,7 @@
           "isWorktree": false,
           "name": "hover-cld-b"
         },
+        "restartPending": false,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "hover-cld-b",
@@ -323,6 +339,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-pop-working",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -357,6 +374,7 @@
           "isWorktree": false,
           "name": "pop-working"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:11:00Z",
         "title": "pop-working",
@@ -372,6 +390,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-pop-started",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -406,6 +425,7 @@
           "isWorktree": false,
           "name": "pop-started"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:12:00Z",
         "title": "pop-started",
@@ -424,6 +444,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-hover-wrm-a",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -460,6 +484,7 @@
           "isWorktree": false,
           "name": "hover-wrm-a"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:15:00Z",
         "title": "hover-wrm-a",
@@ -478,6 +503,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-hover-wrm-b",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -517,6 +546,7 @@
           "isWorktree": false,
           "name": "hover-wrm-b"
         },
+        "restartPending": false,
         "state": "failed",
         "stateSince": "2026-01-01T00:18:00Z",
         "title": "hover-wrm-b",
@@ -535,6 +565,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-pop-warm",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -571,6 +605,7 @@
           "isWorktree": false,
           "name": "pop-warm"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:21:00Z",
         "title": "pop-warm",
@@ -589,6 +624,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-pop-cooling",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -625,6 +664,7 @@
           "isWorktree": false,
           "name": "pop-cooling"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:24:00Z",
         "title": "pop-cooling",

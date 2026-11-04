@@ -55,6 +55,13 @@ type sessionWire struct {
 	BackgroundTasks int                       `json:"backgroundTasks"`
 	Effort          *sessionWireEffort        `json:"effort"`
 	EffortWarning   *sessionWireEffortWarning `json:"effortWarning"`
+	ClaudeVersion   *sessionWireClaudeVersion `json:"claudeVersion"`
+	RestartPending  bool                      `json:"restartPending"`
+}
+
+type sessionWireClaudeVersion struct {
+	Running string `json:"running"`
+	Behind  bool   `json:"behind"`
 }
 
 type sessionWireEffort struct {
@@ -172,6 +179,10 @@ func toWireSession(s *session.Session) sessionWire {
 		BackgroundTasks: s.BackgroundTasks,
 		EndedAt:         wireTimePtr(s.EndedAt),
 		AddedDirs:       toWireAddedDirs(s.AddedDirs),
+		RestartPending:  s.RestartPending,
+	}
+	if s.ClaudeVersion != "" {
+		w.ClaudeVersion = &sessionWireClaudeVersion{Running: s.ClaudeVersion, Behind: s.ClaudeBehind}
 	}
 
 	if s.Attention != nil {
@@ -241,6 +252,17 @@ type batchWire struct {
 
 func toWireBatch(r session.BatchResult) batchWire {
 	return batchWire{Done: nonNil(r.Done), Skipped: nonNil(r.Skipped), Failed: nonNil(r.Failed)}
+}
+
+// restartBatchWire is the restart endpoint's report (kb:anchor/sessions.restart-many): the
+// batch shape plus the queued list.
+type restartBatchWire struct {
+	batchWire
+	Queued []int64 `json:"queued"`
+}
+
+func toWireRestartBatch(r session.BatchResult) restartBatchWire {
+	return restartBatchWire{batchWire: toWireBatch(r), Queued: nonNil(r.Queued)}
 }
 
 func nonNil(ids []int64) []int64 {

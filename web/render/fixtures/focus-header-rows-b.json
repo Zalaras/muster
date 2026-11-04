@@ -51,6 +51,7 @@
           }
         },
         "claudeSessionId": "cs-row-a",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -85,6 +86,7 @@
           "isWorktree": false,
           "name": "economic-game-theory-simulation-lab"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "rework shift-swap approval for the weekend rosterinx",
@@ -107,6 +109,10 @@
           }
         },
         "claudeSessionId": "cs-row-b",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -143,6 +149,7 @@
           "isWorktree": false,
           "name": "economic-game-theory-simulation-lab"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "rework shift-swap approval for the weekend rosterinx",
@@ -158,6 +165,10 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-row-c",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -194,6 +205,7 @@
           "isWorktree": false,
           "name": "economic-game-theory-simulation-lab"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:04:00Z",
         "title": "rework shift-swap approval for the weekend rosterinx",
@@ -209,6 +221,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-row-d",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -243,6 +256,7 @@
           "isWorktree": false,
           "name": "abc123"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:06:00Z",
         "title": "Game Play",
@@ -258,6 +272,10 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-row-e",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -294,6 +312,7 @@
           "isWorktree": false,
           "name": "abc123"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any heax",
@@ -316,6 +335,7 @@
           }
         },
         "claudeSessionId": "cs-row-f",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -350,6 +370,7 @@
           "isWorktree": false,
           "name": "long-folder-name-for-wrapping-long-folder-name-for-wrapping-"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:10:00Z",
         "title": "Game Play",

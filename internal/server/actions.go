@@ -140,12 +140,12 @@ func decodeBatchRequest(w http.ResponseWriter, r *http.Request) ([]int64, bool) 
 }
 
 // writeBatchError maps the manager's refusal of a batch list to its response.
-func (f *actionsFeature) writeBatchError(w http.ResponseWriter, err error) {
+func writeBatchError(w http.ResponseWriter, log zerolog.Logger, err error) {
 	if errors.Is(err, session.ErrInvalidOrder) {
 		writeInvalidRequest(w, msgBatchIDs)
 		return
 	}
-	f.log.Error().Err(err).Msg("running a session batch failed")
+	log.Error().Err(err).Msg("running a session batch failed")
 	writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
 }
 
@@ -159,7 +159,7 @@ func (f *actionsFeature) handleEndSessions(w http.ResponseWriter, r *http.Reques
 
 	result, err := f.manager.EndMany(context.WithoutCancel(r.Context()), ids)
 	if err != nil {
-		f.writeBatchError(w, err)
+		writeBatchError(w, f.log, err)
 		return
 	}
 	for _, id := range result.Done {
@@ -179,7 +179,7 @@ func (f *actionsFeature) handleRemoveSessions(w http.ResponseWriter, r *http.Req
 	ctx := context.WithoutCancel(r.Context())
 	result, err := f.manager.RemoveMany(ctx, ids)
 	if err != nil {
-		f.writeBatchError(w, err)
+		writeBatchError(w, f.log, err)
 		return
 	}
 	for _, id := range result.Done {

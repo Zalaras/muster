@@ -37,6 +37,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-unknown-started",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -71,6 +72,7 @@
           "isWorktree": false,
           "name": "unknown-started"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "unknown-started",
@@ -86,6 +88,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-unknown-planning",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -120,6 +123,7 @@
           "isWorktree": false,
           "name": "unknown-planning"
         },
+        "restartPending": false,
         "state": "planning",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "unknown-planning",
@@ -135,6 +139,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-unknown-working",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -169,6 +174,7 @@
           "isWorktree": false,
           "name": "unknown-working"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:04:00Z",
         "title": "unknown-working",
@@ -187,6 +193,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-unknown-needs",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -221,6 +228,7 @@
           "isWorktree": false,
           "name": "unknown-needs"
         },
+        "restartPending": false,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "unknown-needs",
@@ -236,6 +244,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-unknown-failed",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -273,6 +282,7 @@
           "isWorktree": false,
           "name": "unknown-failed"
         },
+        "restartPending": false,
         "state": "failed",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "unknown-failed",
@@ -288,6 +298,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-unknown-idle",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -322,6 +333,7 @@
           "isWorktree": false,
           "name": "unknown-idle"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:10:00Z",
         "title": "unknown-idle",
@@ -337,6 +349,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-unknown-ended",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -371,6 +384,7 @@
           "isWorktree": false,
           "name": "unknown-ended"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:13:00Z",
         "title": "unknown-ended",
@@ -389,6 +403,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-known-started",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -425,6 +443,7 @@
           "isWorktree": false,
           "name": "known-started"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:15:00Z",
         "title": "known-started",
@@ -443,6 +462,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-known-planning",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -479,6 +502,7 @@
           "isWorktree": false,
           "name": "known-planning"
         },
+        "restartPending": false,
         "state": "planning",
         "stateSince": "2026-01-01T00:18:00Z",
         "title": "known-planning",
@@ -497,6 +521,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-known-working",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -533,6 +561,7 @@
           "isWorktree": false,
           "name": "known-working"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:21:00Z",
         "title": "known-working",
@@ -554,6 +583,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-known-needs",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -590,6 +623,7 @@
           "isWorktree": false,
           "name": "known-needs"
         },
+        "restartPending": false,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:22:00Z",
         "title": "known-needs",
@@ -608,6 +642,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-known-failed",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -647,6 +685,7 @@
           "isWorktree": false,
           "name": "known-failed"
         },
+        "restartPending": false,
         "state": "failed",
         "stateSince": "2026-01-01T00:27:00Z",
         "title": "known-failed",
@@ -665,6 +704,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-known-idle",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -701,6 +744,7 @@
           "isWorktree": false,
           "name": "known-idle"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:30:00Z",
         "title": "known-idle",
@@ -719,6 +763,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-known-ended",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -755,6 +803,7 @@
           "isWorktree": false,
           "name": "known-ended"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:34:00Z",
         "title": "known-ended",
@@ -773,6 +822,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-fade-cold",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -809,6 +862,7 @@
           "isWorktree": false,
           "name": "fade-cold"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:36:00Z",
         "title": "fade-cold",
@@ -827,6 +881,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-bound-short",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -863,6 +921,7 @@
           "isWorktree": false,
           "name": "bound-short"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:39:00Z",
         "title": "bound-short",
@@ -881,6 +940,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-bound-hour",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -917,6 +980,7 @@
           "isWorktree": false,
           "name": "bound-hour"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:42:00Z",
         "title": "bound-hour",

@@ -47,6 +47,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-hidden-one",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -81,6 +82,7 @@
           "isWorktree": false,
           "name": "hidden-one"
         },
+        "restartPending": false,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "hidden-one",
@@ -96,6 +98,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": null,
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -130,6 +133,7 @@
           "isWorktree": false,
           "name": "loose-one"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "loose-one",
@@ -145,6 +149,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": null,
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -179,6 +184,7 @@
           "isWorktree": false,
           "name": "loose-two"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "loose-two",

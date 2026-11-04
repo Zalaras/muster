@@ -1,6 +1,11 @@
 // Actions on an existing session: end, resume, remove, pin, rename, reorder, the ephemeral
 // shell and its pane snapshot.
-import { parseBatchResult, type BatchResult } from "../protocol/batch";
+import {
+  parseBatchResult,
+  parseRestartResult,
+  type BatchResult,
+  type RestartResult,
+} from "../protocol/batch";
 import { parseSession, type Session } from "../protocol/session";
 import { isRecord } from "../protocol/decode";
 import { requestEmpty, requestJson, type ApiResult, type RequestOptions } from "./http";
@@ -145,4 +150,8 @@ export async function endSessions(ids: readonly number[]): Promise<ApiResult<Bat
  * session is stopped first. Same report shape as `endSessions`; a `failed` row is kept. */
 export async function removeSessions(ids: readonly number[]): Promise<ApiResult<BatchResult>> {
   return requestJson("POST", "/api/sessions/remove", parseBatchResult, { ids });
+}
+
+export async function restartSessions(ids: readonly number[]): Promise<ApiResult<RestartResult>> {
+  return requestJson("POST", "/api/sessions/restart", parseRestartResult, { ids });
 }

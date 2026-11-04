@@ -50,6 +50,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": null,
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -84,6 +85,7 @@
           "isWorktree": false,
           "name": "alpha-one"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "alpha-one",
@@ -99,6 +101,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": null,
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -133,6 +136,7 @@
           "isWorktree": false,
           "name": "alpha-two"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "alpha-two",
@@ -148,6 +152,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": null,
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -182,6 +187,7 @@
           "isWorktree": false,
           "name": "bravo-one"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "bravo-one",
@@ -197,6 +203,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": null,
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -231,6 +238,7 @@
           "isWorktree": false,
           "name": "loose-one"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "loose-one",

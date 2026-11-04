@@ -40,6 +40,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-strip-warm-0",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -76,6 +80,7 @@
           "isWorktree": false,
           "name": "strip-warm-0"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "strip-warm-0",
@@ -94,6 +99,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-strip-warm-1",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -130,6 +139,7 @@
           "isWorktree": false,
           "name": "strip-warm-1"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "strip-warm-1",
@@ -148,6 +158,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-strip-warm-2",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -184,6 +198,7 @@
           "isWorktree": false,
           "name": "strip-warm-2"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "strip-warm-2",
@@ -202,6 +217,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-strip-warm-3",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -238,6 +257,7 @@
           "isWorktree": false,
           "name": "strip-warm-3"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:11:00Z",
         "title": "strip-warm-3",
@@ -256,6 +276,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-strip-warm-4",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -292,6 +316,7 @@
           "isWorktree": false,
           "name": "strip-warm-4"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:14:00Z",
         "title": "strip-warm-4",

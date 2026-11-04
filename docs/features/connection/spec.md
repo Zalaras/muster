@@ -70,9 +70,15 @@ against the verified range: unknown as the words "claude unknown" with the hover
 Claude Code version check failed or hasn't completed yet", verified plainly, below and above
 with a warning glyph and hover text; the daemon serves identically in all four
 (kb:adr/connection-installed-claude-classified-never-refused, kb:spec/canary). The readout
-keeps one width whatever it shows (the widest realistic version plus its glyph), right-aligned,
-so the masthead controls beside it do not move when it changes live
+keeps one 18ch width whatever it shows (the notice label `claude 2.1.316→318`), right-aligned,
+so the masthead controls beside it do not move when it changes live; in the notice shape the
+version-warning glyph sits outside the box, clear of the Settings control
 (kb:adr/connection-claude-version-readout-short-unknown-fixed-width).
+When a live session runs an older Claude Code than the installed one, the readout becomes a
+button with a neutral dot (`claude <oldest>→<installed patch>` when major.minor match, e.g.
+`claude 2.1.316→318`, else `claude →<installed>`; `claude ↻N queued` while restarts wait),
+opening a panel with Ignore and Restart… (kb:spec/actions); Ignore lasts for the tab and the
+installed version (kb:adr/restart-notice-is-the-claude-version-readout).
 The readout updates live: the daemon checks the version in the background once it is serving,
 re-checks whenever the `claude` binary file changes (a stat every 30 s; `claude --version` runs
 once per new identity, bounded at 30 s) and pushes each new result in a `claudeCode` message

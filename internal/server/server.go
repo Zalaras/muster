@@ -124,6 +124,7 @@ type Server struct {
 	locate        *locateFeature
 	reader        *readerFeature
 	repoRefresh   *repoRefreshFeature
+	restart       *restartFeature
 }
 
 // New builds a Server and wires its routes. Nothing here starts a goroutine; call Start
@@ -196,6 +197,8 @@ func New(cfg Config) *Server {
 		// repoRefresh is assigned below, before Start can run any ingest worker that
 		// calls this.
 		OnRepoPollNeeded: func() { s.repoRefresh.nudge() },
+		// restart is assigned below, before Start can run any ingest worker that calls this.
+		OnRestartDue: func(id int64) { s.restart.enqueue(id) },
 	})
 	// models is the one model-catalog verdict cache (kb:adr/launch-model-check-cached-per-binary-identity):
 	// registered for GET /api/models and handed into newSessionLauncher below so Launch's
@@ -210,6 +213,7 @@ func New(cfg Config) *Server {
 	s.reader = register(s, newReaderFeature(s.manager, s.hub, cfg.Logger))
 	s.launch = register(s, newLaunchFeature(launcher))
 	actions := register(s, newActionsFeature(s.manager, launcher, shells, terminals, s.reader, cfg.Logger))
+	s.restart = register(s, newRestartFeature(s.manager, launcher, terminals, cfg.Logger))
 	register(s, newRailFeature(s.manager, cfg.Logger))
 	register(s, newRenameFeature(s.manager, cfg.Logger))
 	register(s, newNoteFeature(s.manager, cfg.Logger))
@@ -221,7 +225,7 @@ func New(cfg Config) *Server {
 	register(s, newBrowseFeature(cfg.Launch.BrowseRoot, cfg.Logger))
 	register(s, newReposFeature(cfg.Store, cfg.Logger))
 	register(s, newPastSessionsFeature(cfg.Launch.ProjectsDir, s.manager, cfg.Logger))
-	claudeVersion := newClaudeVersionFeature(cfg.ClaudeVersion, defaultClaudeBin(cfg.Launch.ClaudeBin), s.hub, cfg.Logger)
+	claudeVersion := newClaudeVersionFeature(cfg.ClaudeVersion, defaultClaudeBin(cfg.Launch.ClaudeBin), s.hub, s.restart.installedKnown, cfg.Logger)
 	s.claudeVersion = claudeVersion
 	s.issue = register(s, newIssueFeature(cfg.Issue, httpClient, s.manager, cfg.Store, cfg.DaemonVersion, claudeVersion.Current, cfg.Logger))
 

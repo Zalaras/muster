@@ -11,6 +11,7 @@ import {
   putSessionsGroup,
   removeSession,
   removeSessions,
+  restartSessions,
   resumeSession,
   setSessionUnread,
 } from "./sessions";
@@ -47,6 +48,8 @@ const validSession: Session = {
   groupId: null,
   effort: null,
   effortWarning: null,
+  claudeVersion: null,
+  restartPending: false,
   note: null,
   cache: null,
 };
@@ -646,5 +649,45 @@ describe("sessions — putNote (PUT /api/sessions/{id}/note, kb:anchor/sessions.
       ok: false,
       error: { code: "network_error", message: "Could not reach musterd." },
     });
+  });
+});
+
+describe("sessions — restartSessions (POST /api/sessions/restart)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts the ids as one request and decodes the four-list report", async () => {
+    const report = { done: [4], queued: [9], skipped: [12], failed: [] };
+    fetchMock.mockResolvedValue(fakeResponse(true, report));
+    expect(await restartSessions([4, 9, 12])).toEqual({ ok: true, value: report });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/sessions/restart",
+      jsonCall("POST", { ids: [4, 9, 12] }),
+    );
+  });
+
+  it("decodes a 400 invalid_request (an empty or duplicated id list)", async () => {
+    const error = {
+      code: "invalid_request",
+      message: "ids must be a non-empty list of session ids without duplicates",
+    };
+    fetchMock.mockResolvedValue(fakeResponse(false, { error }));
+    expect(await restartSessions([])).toEqual({ ok: false, error });
+  });
+
+  it("falls back to a generic error when the 200 body has no queued list", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { done: [1], skipped: [], failed: [] }));
+    const result = await restartSessions([1]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
   });
 });

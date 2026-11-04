@@ -37,6 +37,10 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-theta",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 122000,
@@ -73,6 +77,7 @@
           "isWorktree": false,
           "name": "theta"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "gauge-hot",

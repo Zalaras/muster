@@ -37,6 +37,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-reader-large-a",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -67,6 +68,7 @@
         "plan": null,
         "railPos": 0,
         "repo": null,
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "reader-large-a",
@@ -82,6 +84,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-reader-large-b",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -112,6 +115,7 @@
         "plan": null,
         "railPos": 1,
         "repo": null,
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "reader-large-b",

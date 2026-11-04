@@ -589,6 +589,43 @@ End first when alive, the idempotent kill otherwise, the row deleted, the shell 
 `failed`: a genuine kill failure — the row is kept. Sessions outside `ids` are never touched.
 Route note: literal `remove` beats `{id}`. Errors: `400 invalid_request`, as `kb:anchor/sessions.end-many`.
 
+<!-- kb:anchor sessions.restart-many -->
+### `POST /api/sessions/restart`
+
+**Auth**: UI cookie (401 `unauthorized`). Restarts live sessions onto the installed Claude Code: a
+restart is the `kb:anchor/sessions.end` Stop path followed by the `kb:anchor/sessions.resume` Resume
+path on the same row, under the session's lock.
+**Request:** `{ "ids": [4, 9, 12] }` — a non-empty integer array, no duplicates: the sessions the
+dashboard's restart dialog listed.
+**Response 200:**
+
+```jsonc
+{ "done": [4], "queued": [9], "skipped": [12], "failed": [] }   // session ids by outcome; always 200 whatever the mix
+```
+
+A session is **free** when `state == "idle"` with `backgroundTasks == 0`, or `state == "failed"`.
+Each id is processed in listed order under its own per-session lock
+(kb:adr/actions-serialized-per-session):
+
+- `skipped` — at its turn: unknown, not alive, `claudeVersion` null, not `claudeVersion.behind`, or
+  `claudeSessionId` null.
+- `queued` — behind and not free: `restartPending` becomes true (one `sessionUpsert`), or was already
+  true (no upsert).
+- `done` — behind and free: restarted. The Stop path runs exactly as `kb:anchor/sessions.end` (final
+  pane snapshot, kill, terminal sockets close `4001 pane_ended`, `alive:false` upsert), then the
+  Resume path exactly as `kb:anchor/sessions.resume` (argv with the latched permission mode and
+  effort, same row and `muster-<id>`, `alive:true` upsert with `claudeVersion: null`).
+- `failed` — the Stop half failed (the session stays alive, untouched), or the Resume half failed
+  (the session is left ended and resumable by hand). Neither leaves `restartPending` set.
+
+A queued session is restarted by the daemon, through the same Stop-then-Resume path, at the first
+moment it is free — any state-machine transition or `backgroundTasks` change that makes it so —
+and, after a daemon restart, on the daemon's first installed-version result if it is free and still behind then; until that result the reloaded mark is held off the wire and does not fire (kb:adr/restart-pending-marks-held-until-installed-known). A restart the queue runs
+is reported only by its upserts and the daemon log (a failure at warn). Sessions outside `ids` are
+never touched. Route note: literal `restart` beats `{id}`. Errors: `400 invalid_request`, as
+`kb:anchor/sessions.end-many`:
+`{"error": {"code": "invalid_request", "message": "ids must be a non-empty list of session ids without duplicates"}}`.
+
 <!-- kb:anchor groups.create -->
 ### `POST /api/groups`
 
@@ -1364,6 +1401,21 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
                                     //   rename and pin. Changed only by kb:anchor/sessions.group, kb:anchor/sessions.order
                                     //   with groupId, kb:anchor/groups.create and kb:anchor/groups.delete, and a launch
                                     //   naming a group (kb:anchor/sessions.create).
+  "claudeVersion": { "running": "2.1.317",   // string — the leading major.minor.patch of the status line's version, as last posted
+                     "behind": true },        // boolean — true iff alive AND claudeCode.installed is non-null AND running < installed (semver)
+                                    //   object | null, required key. null = no status post carrying a parseable version since the
+                                    //   row's last launch or resume. INV: !alive ⇒ claudeVersion == null.
+                                    //   Set by a routed status post carrying a parseable version (a post without one changes nothing);
+                                    //   cleared by launch, resume and every death; kept by /clear and by a daemon restart while alive.
+                                    //   `behind` is recomputed when running or claudeCode.installed changes; a claudeCode change
+                                    //   (kb:anchor/ws.claude-code) broadcasts one sessionUpsert per session whose `behind` flipped,
+                                    //   none for the rest. Display-only — never read by the state machine.
+  "restartPending": false,          // boolean, required — a restart was confirmed for this session while it was busy and has not
+                                    //   run yet (kb:anchor/sessions.restart-many). INV: restartPending ⇒ alive && claudeVersion != null
+                                    //   && claudeVersion.behind. Cleared by the restart it waits for (success or failure), by every
+                                    //   death, by Remove, and in the same upsert that turns `behind` false. Kept by /clear; across a
+                                    //   daemon restart it is held daemon-side and reads false until the first installed-version result
+                                    //   re-derives it — still behind → true again, otherwise cleared. Never read by the state machine.
   "plan": { "path": "/Users/bob/.claude/plans/say-hi-golden-finch.md",  // absolute, as the transcript resolved it
             "exists": true }        // false = the path is known but no file is there (plan mode entered,
                                     //   nothing written yet; or the file was since deleted).

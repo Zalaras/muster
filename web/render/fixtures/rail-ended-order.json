@@ -37,6 +37,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-sort-live",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -71,6 +72,7 @@
           "isWorktree": false,
           "name": "sort-live"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "sort-live",
@@ -86,6 +88,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-sort-ended-first",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -120,6 +123,7 @@
           "isWorktree": false,
           "name": "sort-ended-first"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "sort-ended-first",
@@ -135,6 +139,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-sort-ended-second",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -169,6 +174,7 @@
           "isWorktree": false,
           "name": "sort-ended-second"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "sort-ended-second",

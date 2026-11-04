@@ -14,8 +14,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/Zalaras/muster/internal/store"
 )
 
 // recordingPaneConn is a paneConn whose Close records that it happened — this test's
@@ -136,7 +134,7 @@ func TestTerminalRegistry_TakeoverAfterCloseAllClosesNewConnWithShutdownCode(t *
 // conn still unclosed; attachAndPump's own errRegistryClosed branch is what has to give it
 // the shutdown close frame.
 func TestAttachAndPump_RegistryAlreadyClosedGetsShutdownCloseFrame(t *testing.T) {
-	st, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "muster.db"), zerolog.Nop())
+	st, err := openCopiedStore(context.Background(), filepath.Join(t.TempDir(), "muster.db"), zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 	mgr := newSessionTestManager(t, st)

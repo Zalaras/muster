@@ -24,14 +24,15 @@ func TestNew_RegistersLifecycleFeaturesInStartOrder(t *testing.T) {
 		}
 	}
 
-	require.Len(t, lifecycles, 7, "exactly seven features implement lifecycle: ingest, usage, theme, shellActivity, update, repoRefresh, claudeVersion")
-	assert.Same(t, srv.ingest, lifecycles[0], "REQ-11: ingest must start first")
-	assert.Same(t, srv.usage, lifecycles[1], "REQ-11: usage poller must start second")
-	assert.Same(t, srv.theme, lifecycles[2], "REQ-11: theme poller must start third")
-	assert.Same(t, srv.shellActivity, lifecycles[3], "REQ-11: shell activity poller must start fourth")
-	assert.Same(t, srv.update, lifecycles[4], "REQ-11: updates must start fifth")
-	assert.Same(t, srv.repoRefresh, lifecycles[5], "the repo poll registers after the manager it reads exists")
-	assert.Same(t, srv.claudeVersion, lifecycles[6], "the version watch registers last, after the issue feature that reads its Current")
+	require.Len(t, lifecycles, 8, "exactly eight features implement lifecycle: restart, ingest, usage, theme, shellActivity, update, repoRefresh, claudeVersion")
+	assert.Same(t, srv.restart, lifecycles[0], "the restart queue registers right after actions, before any poller")
+	assert.Same(t, srv.ingest, lifecycles[1], "REQ-11: ingest must start before the pollers")
+	assert.Same(t, srv.usage, lifecycles[2], "REQ-11: usage poller must start after ingest")
+	assert.Same(t, srv.theme, lifecycles[3], "REQ-11: theme poller must start after usage")
+	assert.Same(t, srv.shellActivity, lifecycles[4], "REQ-11: shell activity poller must start after theme")
+	assert.Same(t, srv.update, lifecycles[5], "REQ-11: updates must start after the shell activity poller")
+	assert.Same(t, srv.repoRefresh, lifecycles[6], "the repo poll registers after the manager it reads exists")
+	assert.Same(t, srv.claudeVersion, lifecycles[7], "the version watch registers last, after the issue feature that reads its Current")
 }
 
 // TestNew_ZeroValueLaunchConfigDefaultsClaudeBin checks for LaunchConfig: a Config

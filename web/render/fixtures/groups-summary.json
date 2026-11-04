@@ -59,6 +59,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-e8-need",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -93,6 +94,7 @@
           "isWorktree": false,
           "name": "e8-need"
         },
+        "restartPending": false,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "e8-need",
@@ -108,6 +110,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-e8-fail",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -145,6 +148,7 @@
           "isWorktree": false,
           "name": "e8-fail"
         },
+        "restartPending": false,
         "state": "failed",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "e8-fail",
@@ -160,6 +164,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-e8-new",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -194,6 +199,7 @@
           "isWorktree": false,
           "name": "e8-new"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:04:00Z",
         "title": "e8-new",
@@ -209,6 +215,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-e8-work1",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -243,6 +250,7 @@
           "isWorktree": false,
           "name": "e8-work1"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:06:00Z",
         "title": "e8-work1",
@@ -258,6 +266,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-e8-work2",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -292,6 +301,7 @@
           "isWorktree": false,
           "name": "e8-work2"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "e8-work2",
@@ -307,6 +317,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-e8-idle",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -341,6 +352,7 @@
           "isWorktree": false,
           "name": "e8-idle"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:10:00Z",
         "title": "e8-idle",
@@ -356,6 +368,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-e8-dead",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -390,6 +403,7 @@
           "isWorktree": false,
           "name": "e8-dead"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:11:00Z",
         "title": "e8-dead",
@@ -408,6 +422,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-e9-need",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -442,6 +457,7 @@
           "isWorktree": false,
           "name": "e9-need"
         },
+        "restartPending": false,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:13:00Z",
         "title": "e9-need",
@@ -457,6 +473,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-e9-work",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -491,6 +508,7 @@
           "isWorktree": false,
           "name": "e9-work"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:16:00Z",
         "title": "e9-work",
@@ -506,6 +524,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-e9-new",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -540,6 +559,7 @@
           "isWorktree": false,
           "name": "e9-new"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:17:00Z",
         "title": "e9-new",

@@ -50,6 +50,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-head-anchor",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -84,6 +85,7 @@
           "isWorktree": false,
           "name": "head-anchor"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "head-anchor",
@@ -102,6 +104,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-head-n1",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -136,6 +139,7 @@
           "isWorktree": false,
           "name": "head-n1"
         },
+        "restartPending": false,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "head-n1",
@@ -154,6 +158,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-head-i2",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -190,6 +198,7 @@
           "isWorktree": false,
           "name": "head-i2"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:06:00Z",
         "title": "head-i2",
@@ -208,6 +217,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-head-i1",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -244,6 +257,7 @@
           "isWorktree": false,
           "name": "head-i1"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "head-i1",
@@ -262,6 +276,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-head-w1",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -298,6 +316,7 @@
           "isWorktree": false,
           "name": "head-w1"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:11:00Z",
         "title": "head-w1",
@@ -316,6 +335,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-head-e1",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -352,6 +375,7 @@
           "isWorktree": false,
           "name": "head-e1"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:15:00Z",
         "title": "head-e1",
@@ -370,6 +394,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-head-solo",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -406,6 +434,7 @@
           "isWorktree": false,
           "name": "head-solo"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:18:00Z",
         "title": "head-solo",

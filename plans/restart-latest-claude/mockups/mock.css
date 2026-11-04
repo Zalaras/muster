@@ -1,0 +1,88 @@
+/* Shared chrome for the restart-latest-claude (#88) mockups. Tokens, the masthead, buttons, the
+ * neutral banner and the confirm dialog are transcribed from web/src/style.css (instrument theme);
+ * every rule an option adds is marked NEW. */
+:root {
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --disp: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fs-root: 15px;
+  --fs-2xs: 0.68rem;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.82rem;
+  --fs-md: 0.89rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.07rem;
+  --fs-xl: 1.14rem;
+  --bg: #12141c;
+  --bg-raised: #171a24;
+  --bg-hover: #1c2029;
+  --well: #0d0f16;
+  --line: #282d3b;
+  --line-control: #343a4a;
+  --edge: #6a7286;
+  --fg: #e8e6e1;
+  --fg-muted: #b2b6c3;
+  --fg-dim: #a6abbc;
+  --amber: #f2a33c;
+  --amber-fg: #12141c;
+  --rose: #e77f7f;
+  --violet: #9e91f1;
+  --teal: #56c5d0;
+  --idle: #989db1;
+  --scrim: rgba(8, 9, 13, 0.72);
+  --health-ok: #7bc47f;
+  --health-down: #ee6a32;
+  --banner-bg: #3a1e1e;
+  --banner-line: #5a2c2c;
+  --banner-fg: #f3b7b7;
+  --disabled-fg: #5a6070;
+  --disabled-line: #2c3140;
+}
+* { box-sizing: border-box; }
+html { font-size: var(--fs-root); }
+body { margin: 0; padding: 24px 32px 80px; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: var(--fs-base); -webkit-font-smoothing: antialiased; }
+
+/* page furniture (mock-only) */
+h1 { font-family: var(--disp); font-size: 1.5rem; margin: 0 0 8px; }
+h2.opt { font-family: var(--disp); font-size: 1.2rem; margin: 40px 0 4px; padding-top: 12px; border-top: 1px solid var(--line); }
+p.lead, p.cap { max-width: 980px; color: var(--fg-muted); line-height: 1.55; font-size: var(--fs-md); }
+.label { font-family: var(--mono); font-size: var(--fs-2xs); letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-dim); margin: 18px 0 6px; }
+nav a { color: var(--teal); margin-right: 16px; font-family: var(--mono); font-size: var(--fs-sm); }
+code { font-family: var(--mono); font-size: 0.92em; }
+.frame { border: 1px solid var(--line); background: var(--bg); position: relative; }
+.frame .below { height: 70px; background: var(--well); }
+
+/* masthead — transcribed */
+.masthead { display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: var(--bg-raised); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.masthead > * { flex: none; }
+.masthead > .masthead-right { flex: 0 1 auto; min-width: 0; }
+.brand h1 { font-family: var(--disp); font-size: var(--fs-xl); font-weight: 800; letter-spacing: -0.02em; margin: 0; }
+.view-switcher { display: flex; }
+.seg-btn { font-family: var(--mono); font-size: var(--fs-xs); padding: 4px 13px; background: transparent; border: 1px solid var(--line-control); border-right-width: 0; color: var(--fg-dim); }
+.seg-btn:last-child { border-right-width: 1px; }
+.seg-btn[aria-pressed="true"] { color: var(--fg); background: var(--bg-hover); }
+.masthead-right { display: flex; align-items: center; gap: 8px; margin-left: auto; font-family: var(--mono); font-size: var(--fs-sm); color: var(--fg-muted); }
+.masthead-right > * { flex: none; }
+.usage-readout { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.bar { width: 40px; height: 5px; background: var(--line); position: relative; overflow: hidden; }
+.bar i { position: absolute; inset: 0 auto 0 0; background: var(--teal); }
+.claude-version { display: inline-block; min-width: calc(17ch + 4px); text-align: right; font-variant-numeric: tabular-nums; }
+.health { position: relative; display: inline-block; width: 14px; height: 14px; }
+.health::before { content: ""; position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: var(--health-ok); }
+.health.down::before { background: var(--health-down); }
+.btn { font-family: var(--mono); font-size: var(--fs-xs); padding: 5px 11px; background: transparent; border: 1px solid var(--line-control); color: var(--fg-muted); cursor: pointer; }
+.btn:hover:not(:disabled) { color: var(--fg); border-color: var(--fg-muted); }
+.btn:disabled { color: var(--disabled-fg); border-color: var(--disabled-line); cursor: default; }
+.btn.sm { padding: 3px 7px; }
+.btn.key { color: var(--amber-fg); background: var(--amber); border-color: var(--amber); font-weight: 600; }
+
+/* banners — transcribed */
+.banner { width: 100%; background: var(--banner-bg); border-bottom: 1px solid var(--banner-line); color: var(--banner-fg); font-family: var(--mono); font-size: var(--fs-md); padding: 8px 16px; }
+.banner.neutral { background: var(--bg-raised); border-bottom: 1px solid var(--line-control); color: var(--fg-muted); }
+
+/* confirm dialog — transcribed (drawn inline, not as a real <dialog>) */
+.modal { width: 440px; background: var(--bg-raised); color: var(--fg); border: 1px solid var(--line-control); font-family: var(--sans); box-shadow: 0 8px 24px var(--scrim); }
+.modal h2 { margin: 0; padding: 13px 16px; border-bottom: 1px solid var(--line); font-family: var(--disp); font-weight: 700; font-size: var(--fs-lg); letter-spacing: -0.015em; }
+.modal p { margin: 0; padding: 14px 16px 4px; font-family: var(--mono); font-size: var(--fs-sm); line-height: 1.65; color: var(--fg-muted); }
+.modal-foot { display: flex; gap: 8px; padding: 12px 16px; align-items: center; justify-content: flex-end; }
+.scrim { background: var(--scrim); padding: 40px; display: flex; justify-content: center; border: 1px solid var(--line); }

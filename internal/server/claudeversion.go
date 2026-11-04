@@ -62,22 +62,26 @@ type claudeVersionFeature struct {
 	broadcast func(ClaudeCodeInfo)
 	log       zerolog.Logger
 
+	onInstalled func(ctx context.Context, installed *string)
+
 	mu      sync.RWMutex
 	current ClaudeCodeInfo
 
-	// seen and haveSeen belong to the loop goroutine alone.
-	seen       claudecode.BinaryIdentity
-	haveSeen   bool
-	unresolved bool
+	// seen, haveSeen, unresolved and toldInstalled belong to the loop goroutine alone.
+	seen          claudecode.BinaryIdentity
+	haveSeen      bool
+	unresolved    bool
+	toldInstalled bool
 
 	bg bgLoop
 }
 
-func newClaudeVersionFeature(cfg ClaudeVersionConfig, bin string, hub *wsHub, log zerolog.Logger) *claudeVersionFeature {
+func newClaudeVersionFeature(cfg ClaudeVersionConfig, bin string, hub *wsHub, onInstalled func(ctx context.Context, installed *string), log zerolog.Logger) *claudeVersionFeature {
 	return &claudeVersionFeature{
-		interval: cfg.Poll,
-		identify: func() (claudecode.BinaryIdentity, error) { return claudecode.ResolveBinaryIdentity(bin) },
-		check:    func(ctx context.Context) claudecode.VersionReport { return claudecode.CheckVersion(ctx, bin) },
+		interval:    cfg.Poll,
+		onInstalled: onInstalled,
+		identify:    func() (claudecode.BinaryIdentity, error) { return claudecode.ResolveBinaryIdentity(bin) },
+		check:       func(ctx context.Context) claudecode.VersionReport { return claudecode.CheckVersion(ctx, bin) },
 		broadcast: func(info ClaudeCodeInfo) {
 			hub.broadcast(claudeCodeMessage{Type: "claudeCode", ClaudeCode: claudeCodeWire(info)})
 		},
@@ -117,6 +121,9 @@ func (f *claudeVersionFeature) tick(ctx context.Context) {
 			f.unresolved = true
 			logUnresolvedClaudeCode(f.log, f.Current(), err)
 		}
+		if !f.toldInstalled {
+			f.tellInstalled(ctx, f.Current().Installed)
+		}
 		return
 	}
 	f.unresolved = false
@@ -142,6 +149,16 @@ func (f *claudeVersionFeature) tick(ctx context.Context) {
 	f.mu.Unlock()
 	if changed {
 		f.broadcast(info)
+	}
+	if changed || !f.toldInstalled {
+		f.tellInstalled(ctx, info.Installed)
+	}
+}
+
+func (f *claudeVersionFeature) tellInstalled(ctx context.Context, installed *string) {
+	f.toldInstalled = true
+	if f.onInstalled != nil {
+		f.onInstalled(ctx, installed)
 	}
 }
 

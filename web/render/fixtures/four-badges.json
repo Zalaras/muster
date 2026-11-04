@@ -40,6 +40,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-badge-needs-input",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -74,6 +75,7 @@
           "isWorktree": false,
           "name": "badge-needs-input"
         },
+        "restartPending": false,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "badge-needs-input",
@@ -89,6 +91,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-badge-failed",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -126,6 +129,7 @@
           "isWorktree": false,
           "name": "badge-failed"
         },
+        "restartPending": false,
         "state": "failed",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "badge-failed",
@@ -141,6 +145,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-badge-planning",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -175,6 +180,7 @@
           "isWorktree": false,
           "name": "badge-planning"
         },
+        "restartPending": false,
         "state": "planning",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "badge-planning",
@@ -190,6 +196,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-badge-working",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -224,6 +231,7 @@
           "isWorktree": false,
           "name": "badge-working"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:07:00Z",
         "title": "badge-working",

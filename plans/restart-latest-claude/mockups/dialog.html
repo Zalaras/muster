@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>restart-latest-claude — the confirm dialog</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+/* NEW — the restart confirm: two lists in the confirm dialog */
+.modal.restart { width: 520px; }
+.rlist { margin: 0; padding: 4px 16px 6px; list-style: none; font-family: var(--mono); font-size: var(--fs-sm); }
+.rlist li { display: flex; gap: 10px; padding: 3px 0; color: var(--fg); }
+.rlist li .why { margin-left: auto; color: var(--fg-dim); font-size: var(--fs-xs); }
+.rhead { margin: 0; padding: 12px 16px 2px; font-family: var(--mono); font-size: var(--fs-2xs); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-dim); }
+.modal p.small { font-size: var(--fs-xs); padding-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Restart onto the new Claude Code: the confirm dialog</h1>
+<p class="lead">
+One dialog for every notice option. It lists what happens to each live session that runs an older version. A session
+restarts <b>now</b> only when it is idle with no background tasks, or failed. Every other one is <b>queued</b> and restarts
+the moment it next becomes idle with no background tasks, with the reason shown: working, planning, waiting on you, or
+idle with background tasks. Stopped sessions are not listed; they pick up the new version on their next Resume. A
+session in plan mode is called out because a resume brings it back in default mode (kb:fact/resume-restores-model-and-mode-except-plan).
+Each restart keeps the session's row, title, group, rail position, conversation and effort.
+</p>
+
+<div class="label">mixed: 3 now, 2 queued, one in plan mode</div>
+<div class="scrim">
+  <div class="modal restart" role="dialog" aria-label="Restart sessions on Claude Code 2.1.318">
+    <h2>Restart sessions on Claude Code 2.1.318</h2>
+    <p>5 live sessions run an older Claude Code. Each one is stopped and resumed in place: the same conversation, title, group and effort.</p>
+    <div class="rhead">Restart now · 3</div>
+    <ul class="rlist">
+      <li>notes-panel <span class="why">idle · 2.1.317</span></li>
+      <li>usage-bar <span class="why">failed · 2.1.316</span></li>
+      <li>search-picker <span class="why">idle · plan mode → default</span></li>
+    </ul>
+    <div class="rhead">Restart when free · 2</div>
+    <ul class="rlist">
+      <li>flaky-e2e-hunt <span class="why">working</span></li>
+      <li>TODO <span class="why">idle · 2 background tasks</span></li>
+    </ul>
+    <p class="small">Queued sessions restart as soon as each is idle with no background tasks. You can cancel the queue from the notice. A session in plan mode comes back in default mode.</p>
+    <div class="modal-foot"><button class="btn">Cancel</button><button class="btn key">Restart 3, queue 2</button></div>
+  </div>
+</div>
+
+<div class="label">everything idle: 2 now</div>
+<div class="scrim">
+  <div class="modal restart" role="dialog" aria-label="Restart sessions on Claude Code 2.1.318">
+    <h2>Restart sessions on Claude Code 2.1.318</h2>
+    <p>2 live sessions run an older Claude Code. Each one is stopped and resumed in place: the same conversation, title, group and effort.</p>
+    <div class="rhead">Restart now · 2</div>
+    <ul class="rlist">
+      <li>notes-panel <span class="why">idle · 2.1.317</span></li>
+      <li>usage-bar <span class="why">idle · 2.1.317</span></li>
+    </ul>
+    <div class="modal-foot"><button class="btn">Cancel</button><button class="btn key">Restart 2</button></div>
+  </div>
+</div>
+
+<div class="label">everything busy: 0 now, 2 queued</div>
+<div class="scrim">
+  <div class="modal restart" role="dialog" aria-label="Restart sessions on Claude Code 2.1.318">
+    <h2>Restart sessions on Claude Code 2.1.318</h2>
+    <p>2 live sessions run an older Claude Code. None can restart right now without cutting off its turn.</p>
+    <div class="rhead">Restart when free · 2</div>
+    <ul class="rlist">
+      <li>flaky-e2e-hunt <span class="why">waiting on you</span></li>
+      <li>refactor-groups <span class="why">planning</span></li>
+    </ul>
+    <p class="small">Queued sessions restart as soon as each is idle with no background tasks. You can cancel the queue from the notice.</p>
+    <div class="modal-foot"><button class="btn">Cancel</button><button class="btn key">Queue 2</button></div>
+  </div>
+</div>
+</body>
+</html>

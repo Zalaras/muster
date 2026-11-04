@@ -3,16 +3,16 @@ id: actions
 type: spec
 status: active
 date: 2026-09-12
-summary: Stop, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs.
+summary: Stop, Resume, Remove and Restart a session, the pane snapshot for dead sessions, confirm dialogs.
 features: [actions]
 tags: [ux]
-go: [internal/server/actions*.go]
-web: [web/src/features/actions*.ts, web/src/features/batchplan*.ts, web/src/render/confirm.ts, web/src/render/dead*.ts, web/src/render/actionerror*.ts, web/render/actions.spec.ts, web/render/helpers/actions.ts]
-e2e: [web/e2e/actions.spec.ts]
-protocol: [sessions.end, sessions.resume, sessions.remove, sessions.pane, ws.session-removed, sessions.end-many, sessions.remove-many]
+go: [internal/server/actions*.go, internal/server/restart*.go, internal/session/restart*.go]
+web: [web/src/features/actions*.ts, web/src/features/batchplan*.ts, web/src/render/confirm.ts, web/src/render/dead*.ts, web/src/render/actionerror*.ts, web/src/features/restart*.ts, web/src/render/restart*.ts, web/render/actions.spec.ts, web/render/helpers/actions.ts, web/render/restart.spec.ts, web/render/helpers/restart.ts]
+e2e: [web/e2e/actions.spec.ts, web/e2e/claude-restart.spec.ts, web/e2e/helpers/claude-restart.ts]
+protocol: [sessions.end, sessions.resume, sessions.remove, sessions.pane, ws.session-removed, sessions.end-many, sessions.remove-many, sessions.restart-many]
 refs: [kb:adr/actions-bulk-stop-remove-are-daemon-batches, kb:adr/rail-card-menu-read-toggle-first-move-to-last, kb:adr/focus-header-holds-switch-and-session-menu, kb:adr/actions-pane-snapshot-display-only, kb:adr/actions-remove-allowed-on-live-session, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-ended-rows-kept-until-remove, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/theme-danger-tokens-not-rose, kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-pending-hold-persisted, kb:fact/resume-keeps-session-identity]
 ---
-Three actions apply to a session: Stop, Resume and Remove. They are reached from the card
+Four actions apply to a session: Stop, Resume, Remove and Restart. They are reached from the card
 menu (rail, strip, and the Focus header's Session actions `⋯`), from tile footers, and from the dead
 surface's Resume; no card renders an action button. The menu opens at the pointer on a right-click,
 just under the card from the keyboard, or just under the header `⋯` when opened from it, and is named `Actions for <title>`, or `Actions for N sessions` on a selected card in Select mode (kb:adr/rail-card-menu-read-toggle-first-move-to-last). Stop and
@@ -61,5 +61,7 @@ batches that run each id under its own lock and report done, skipped and failed,
 loop (kb:adr/actions-bulk-stop-remove-are-daemon-batches). Each batch confirms with its count; a bulk
 Remove of live sessions says it stops them first; a partial result shows in the action-error line. That line clears a `Could not reach musterd.` message at the next hello and keeps any other message until the next action replaces or clears it.
 Deleting a group can stop and remove its members the same way (kb:spec/groups).
+
+**Restart** (`kb:anchor/sessions.restart-many`) applies to live sessions whose Claude Code is older than the installed one, and only as one batch from the masthead readout (kb:spec/connection); there is no per-session restart and no cancel. A free session (idle with no background tasks, or failed) is stopped and resumed in place at once; a busy one is queued, and the daemon restarts it the moment it is free. The queue survives a daemon restart and is cleared by death, Remove or the session no longer being behind. After a daemon restart a reloaded pending mark is held daemon-side, off the wire and unfired, until the daemon's first installed-version result: still behind, the mark returns and a free session restarts then; no longer behind, installed unknown or the binary unresolvable, it is cleared (kb:adr/restart-pending-marks-held-until-installed-known).
 
 Session-focusing shortcuts are inert while a confirm dialog is open. There is no undo for Remove.

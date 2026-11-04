@@ -34,6 +34,8 @@ const validSession = {
   groupId: null,
   effort: { level: "high" },
   effortWarning: null,
+  claudeVersion: null,
+  restartPending: false,
   note: null,
   cache: { expiresAt: "2026-08-22T01:00:00Z", ttlSeconds: 3600 },
 };
@@ -72,6 +74,8 @@ const freshLaunchSession = {
   groupId: null,
   effort: { level: "high" },
   effortWarning: null,
+  claudeVersion: null,
+  restartPending: false,
   note: null,
   cache: null,
 };
@@ -644,5 +648,47 @@ describe("parseSession — cache (prompt-cache warmth)", () => {
     ["a string", "warm"],
   ])("rejects a malformed cache: %s", (_name, bad) => {
     expect(parseSession({ ...validSession, cache: bad })).toBeNull();
+  });
+});
+
+// kb:anchor/ws.session `claudeVersion` / `restartPending`: both required on every wire Session.
+// `claudeVersion: null` is the measured "no status post since the last launch or resume" state
+// and decodes (a view treats it as unknown, never as behind).
+describe("parseSession — claudeVersion / restartPending (plan restart-latest-claude)", () => {
+  it.each([
+    ["no status post yet", null, false],
+    ["current", { running: "2.1.318", behind: false }, false],
+    ["behind", { running: "2.1.316", behind: true }, false],
+    ["behind and pending", { running: "2.1.316", behind: true }, true],
+  ])("decodes %s and keeps it", (_label, claudeVersion, restartPending) => {
+    const session = { ...validSession, claudeVersion, restartPending };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it.each([
+    ["a bare string", "2.1.316"],
+    ["an array", ["2.1.316", true]],
+    ["a missing running", { behind: true }],
+    ["an empty running", { running: "", behind: true }],
+    ["a numeric running", { running: 2, behind: true }],
+    ["a missing behind", { running: "2.1.316" }],
+    ["a string behind", { running: "2.1.316", behind: "true" }],
+    ["undefined", undefined],
+  ])("rejects a claudeVersion that is %s", (_label, claudeVersion) => {
+    expect(parseSession({ ...validSession, claudeVersion })).toBeNull();
+  });
+
+  it.each([
+    ["a string", "true"],
+    ["a number", 1],
+    ["null", null],
+    ["undefined", undefined],
+  ])("rejects a restartPending that is %s", (_label, restartPending) => {
+    expect(parseSession({ ...validSession, restartPending })).toBeNull();
+  });
+
+  it.each(["claudeVersion", "restartPending"])("rejects a session missing %s entirely", (key) => {
+    const { [key]: _omitted, ...rest } = validSession as Record<string, unknown>;
+    expect(parseSession(rest)).toBeNull();
   });
 });

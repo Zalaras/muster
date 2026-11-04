@@ -37,6 +37,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-reader",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -67,6 +68,7 @@
         "plan": null,
         "railPos": 0,
         "repo": null,
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "reader",

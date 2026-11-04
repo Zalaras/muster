@@ -12,8 +12,6 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
-
-	"github.com/Zalaras/muster/internal/store"
 )
 
 // fakeTmux is the paneSpawner and attachFunc source test double for
@@ -296,7 +294,7 @@ func (c *fakePaneConn) Close() error {
 func newFakeTmuxTestServer(t *testing.T) (*testServer, *fakeTmux) {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st, err := store.Open(context.Background(), dbPath, zerolog.Nop())
+	st, err := openCopiedStore(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 

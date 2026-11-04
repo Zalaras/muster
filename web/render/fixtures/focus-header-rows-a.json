@@ -44,6 +44,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-row-a",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -78,6 +79,7 @@
           "isWorktree": false,
           "name": "economic-game-theory-simulation-lab"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "Game Play",
@@ -100,6 +102,7 @@
           }
         },
         "claudeSessionId": "cs-row-b",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -134,6 +137,7 @@
           "isWorktree": false,
           "name": "economic-game-theory-simulation-lab"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "Game Play",
@@ -149,6 +153,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-row-c",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -183,6 +188,7 @@
           "isWorktree": false,
           "name": "economic-game-theory-simulation-lab"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "rework shift-swap approval for the weekend rosterinx",
@@ -198,6 +204,10 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-row-d",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -234,6 +244,7 @@
           "isWorktree": false,
           "name": "economic-game-theory-simulation-lab"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:04:00Z",
         "title": "a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any heax",
@@ -249,6 +260,10 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-row-e",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -285,6 +300,7 @@
           "isWorktree": false,
           "name": "economic-game-theory-simulation-lab"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:06:00Z",
         "title": "a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any heax",
@@ -300,6 +316,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-row-f",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -334,6 +351,7 @@
           "isWorktree": false,
           "name": "economic-game-theory-simulation-lab"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:07:00Z",
         "title": "Game Play",
@@ -349,6 +367,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-row-g",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -383,6 +402,7 @@
           "isWorktree": false,
           "name": "economic-game-theory-simulation-lab"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "approve weekend shift swaps x",
@@ -398,6 +418,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-row-h",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -432,6 +453,7 @@
           "isWorktree": false,
           "name": "economic-game-theory-simulation-lab"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:09:00Z",
         "title": "Game Play",
@@ -447,6 +469,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-row-i",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -481,6 +504,7 @@
           "isWorktree": false,
           "name": "economic-game-theory-simulation-lab"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:11:00Z",
         "title": "approve weekend shift swaps x",
@@ -496,6 +520,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-row-j",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -530,6 +555,7 @@
           "isWorktree": false,
           "name": "economic-game-theory-simulation-lab"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:13:00Z",
         "title": "rework shift-swap approval for the weekend rosterinx",
@@ -545,6 +571,10 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-row-k",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -581,6 +611,7 @@
           "isWorktree": false,
           "name": "economic-game-theory-simulation-lab"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:15:00Z",
         "title": "a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any heax",
@@ -603,6 +634,10 @@
           }
         },
         "claudeSessionId": "cs-row-l",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -639,6 +674,7 @@
           "isWorktree": false,
           "name": "long-folder-name-for-wrapping-long-folder-name-for-wrapping-"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:18:00Z",
         "title": "a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any heax",
@@ -654,6 +690,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-row-m",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -688,6 +725,7 @@
           "isWorktree": false,
           "name": "long-folder-name-for-wrapping-long-folder-name-for-wrapping-"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:19:00Z",
         "title": "rework shift-swap approval for the weekend rosterinx",
@@ -703,6 +741,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-row-n",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -737,6 +776,7 @@
           "isWorktree": false,
           "name": "abc123"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:21:00Z",
         "title": "Game Play",

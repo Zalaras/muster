@@ -351,9 +351,160 @@ body {
 }
 
 .claude-version {
+  position: relative;
   display: inline-block;
-  min-width: calc(17ch + 4px);
+  min-width: calc(18ch + 4px);
   text-align: right;
+}
+
+/* With the restart notice the warning glyph hangs in the gap left of the box instead of widening
+ * it, so the box keeps one width in every state (kb:adr/connection-claude-version-readout-short-
+ * unknown-fixed-width). */
+.claude-notice ~ .version-warn {
+  position: absolute;
+  top: 0;
+  right: 100%;
+  margin: 0;
+  font-size: 0.9em;
+}
+
+/* The restart notice: the readout as a button in the same fixed box, carrying the neutral
+ * update dot (design-system §3/§5: no state colour, the notice is not a session state). */
+.claude-notice {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.claude-notice:focus-visible {
+  outline: 1px solid var(--fg-muted);
+  outline-offset: 2px;
+}
+
+.claude-notice:disabled {
+  color: var(--disabled-fg);
+  cursor: default;
+}
+
+.claude-notice .update-dot {
+  top: -3px;
+  right: -7px;
+}
+
+.restart-panel {
+  position: fixed;
+  z-index: 50;
+  width: 380px;
+  max-width: calc(100vw - 16px);
+  background: var(--bg-raised);
+  border: 1px solid var(--line-control);
+  box-shadow: 0 8px 24px var(--scrim);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  white-space: normal;
+}
+
+.restart-panel:focus {
+  outline: none;
+}
+
+.restart-panel .ph {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg);
+}
+
+.restart-panel p {
+  margin: 0;
+  padding: 10px 12px 4px;
+  line-height: 1.6;
+}
+
+.restart-panel .counts {
+  margin: 0;
+  padding: 4px 12px;
+  list-style: none;
+}
+
+.restart-panel .counts li {
+  display: flex;
+  padding: 2px 0;
+  color: var(--fg);
+}
+
+.restart-panel .counts .n {
+  margin-left: auto;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.restart-panel .foot {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+  margin-top: 6px;
+}
+
+.restart-panel .rhead,
+.modal.restart summary {
+  color: var(--fg-dim);
+}
+
+.restart-panel .rhead {
+  padding: 10px 12px 2px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.restart-panel .rlist,
+.modal.restart .rlist {
+  margin: 0;
+  padding: 2px 12px 8px;
+  list-style: none;
+}
+
+.restart-panel .rlist li,
+.modal.restart .rlist li {
+  display: flex;
+  gap: 10px;
+  padding: 2px 0;
+  color: var(--fg);
+}
+
+.restart-panel .rlist .n,
+.modal.restart .rlist .n {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.restart-panel .rlist .why,
+.modal.restart .rlist .why {
+  margin-left: auto;
+  flex: none;
+  color: var(--fg-dim);
+  font-size: var(--fs-xs);
+}
+
+.restart-panel[hidden],
+.restart-panel [hidden],
+.modal.restart [hidden] {
+  display: none;
 }
 
 #connection-status {
@@ -3038,6 +3189,44 @@ dialog.confirm p {
   font-size: var(--fs-sm);
   line-height: 1.65;
   color: var(--fg-muted);
+}
+
+/* The restart confirm: the mockup's 520px, and one scrolling box over two collapsible sections. */
+dialog.confirm.restart {
+  width: 520px;
+}
+
+.modal.restart .rscroll {
+  max-height: 280px;
+  margin-top: 10px;
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+}
+
+.modal.restart details {
+  padding: 0 16px;
+}
+
+.modal.restart summary {
+  padding: 4px 0;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.modal.restart .rlist {
+  padding-left: 14px;
+  padding-right: 0;
+}
+
+.modal.restart p.restart-note {
+  padding-top: 10px;
+  font-size: var(--fs-xs);
 }
 
 /* ── diagram modal — one per reader root, modelled on the

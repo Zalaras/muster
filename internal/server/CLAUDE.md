@@ -1,6 +1,6 @@
 # internal/server — HTTP/WS handlers, one feature type per file
 
-**Owns**: cookie-authed UI endpoints, `/ws` fanout, the ingest routes and the wire mapping from domain types to protocol JSON; `groups.go` holds the rail-group endpoints, the sessions-to-group move and the `groups` snapshot key and message; the `/api/sessions` routes are split by feature — `launchcreate.go` (create), `actions.go` (end, resume, remove, their batches, pane), `rail.go` (pin, unread, order), `rename.go` (title), `effort.go` (effort-warning dismiss), `note.go` (note). Composition root is `server.go`: `New` builds each feature with `register(s, newXFeature(...))` and `routes()` mounts them; logic never lands there. **Features**: actions, connection, drop, ingest, issue, launch, lifecycle, notes, rail, reader, rename, settings, surfaces, theme, update, usage, views.
+**Owns**: cookie-authed UI endpoints, `/ws` fanout, the ingest routes and the wire mapping from domain types to protocol JSON; `groups.go` holds the rail-group endpoints, the sessions-to-group move and the `groups` snapshot key and message; the `/api/sessions` routes are split by feature — `launchcreate.go` (create), `actions.go` (end, resume, remove, their batches, pane), `rail.go` (pin, unread, order), `rename.go` (title), `effort.go` (effort-warning dismiss), `note.go` (note), `restart.go` (restart batch and queue). Composition root is `server.go`: `New` builds each feature with `register(s, newXFeature(...))` and `routes()` mounts them; logic never lands there. **Features**: actions, connection, drop, ingest, issue, launch, lifecycle, notes, rail, reader, rename, settings, surfaces, theme, update, usage, views.
 
 **Invariants** (violations are review-Critical):
 - A handler is a method on its feature type, mounted via `mount(mux, guard)`, never on `*Server` (kb:adr/process-composition-roots-registration-only) — except `/healthz`, `GET /auth`, `GET /api/state` and `GET /ws`: they predate any feature (auth) or need every registered feature's `contribute` (`currentSnapshot`), which only the root can loop, so they stay core routes in `routes()`.
@@ -19,8 +19,8 @@
 - A fixture reshaped to stay green changes the wire (kb:lesson/stale-fixture-reshaped-the-wire).
 
 <!-- kb:trailer -->
-<!-- kb:hash 6a03cb5c7a80e4f9 -->
-- **actions** — Stop, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
+<!-- kb:hash b32017c87bff5158 -->
+- **actions** — Stop, Resume, Remove and Restart a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **card-location** — The card's launch directory, its branch kept fresh by the repo poll, where Claude works when elsewhere, the directories added to it, and the bind's model name. → `docs/features/card-location/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
@@ -40,5 +40,5 @@
 - **theme** — Muster theme preference and the Claude theme family poll. → `docs/features/theme/INDEX.md`
 - **update** — Release check, minisign-verified apply, in-place restart with sessions re-adopted. → `docs/features/update/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 84 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 86 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

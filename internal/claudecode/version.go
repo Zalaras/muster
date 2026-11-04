@@ -136,6 +136,20 @@ func parseSemver(v string) (semver, bool) {
 	return semver{major, minor, patch}, true
 }
 
+func LeadingVersion(v string) (string, bool) {
+	p, ok := parseSemver(v)
+	if !ok {
+		return "", false
+	}
+	return fmt.Sprintf("%d.%d.%d", p.major, p.minor, p.patch), true
+}
+
+func OlderVersion(running, installed string) bool {
+	r, rok := parseSemver(running)
+	i, iok := parseSemver(installed)
+	return rok && iok && compareSemver(r, i) < 0
+}
+
 // compareSemver returns -1, 0 or 1 as a is less than, equal to, or greater than b.
 func compareSemver(a, b semver) int {
 	switch {

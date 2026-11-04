@@ -66,7 +66,7 @@ const (
 	sessionEndRecheckFor   = 3 * time.Second
 )
 
-// endRemoveTmuxTimeout bounds every tmux invocation endLocked/removeLocked/
+// endRemoveTmuxTimeout bounds every tmux invocation EndLocked/removeLocked/
 // RepairOwnedSession make: all three run under a per-session-id lock acquired by
 // End/Remove/Resume (kb:adr/actions-serialized-per-session), so a wedged tmux there no
 // longer just hangs one request — it wedges every later End/Resume/Remove for that same
@@ -100,6 +100,8 @@ type Config struct {
 
 	OnRepoPollNeeded func()
 
+	OnRestartDue func(id int64)
+
 	// InterruptChecker reports whether the transcript at path records an interrupt of
 	// promptID. Injected so this package never reads transcript bytes
 	// (kb:adr/lifecycle-interrupt-read-from-transcript); nil disables the interrupt sweep.
@@ -124,10 +126,17 @@ type Manager struct {
 	onRemoved        func(id int64)
 	onGroups         func([]Group, UngroupedLayout)
 	onRepoPollNeeded func()
+	onRestartDue     func(id int64)
 	interval         time.Duration
 	watcher          Watcher
 	// interruptChecker is Config.InterruptChecker, read only by sweepInterrupts.
 	interruptChecker InterruptChecker
+
+	// installedClaude is the installed Claude Code version, "" while unknown, and
+	// installedChecked whether SetInstalledClaude has run at all; both guarded by mu.
+	// Written only by SetInstalledClaude; read by settleClaudeBehindLocked.
+	installedClaude  string
+	installedChecked bool
 
 	// mu guards sessions, byClaude, writeChain and nextRailPos below: every map's own
 	// entries, and every field of a *Session sessions holds — a *Session is mutable only
@@ -286,6 +295,7 @@ func NewManager(cfg Config) *Manager {
 		onRemoved:        cfg.OnRemoved,
 		onGroups:         cfg.OnGroups,
 		onRepoPollNeeded: cfg.OnRepoPollNeeded,
+		onRestartDue:     cfg.OnRestartDue,
 		interval:         interval,
 		watcher:          cfg.Watcher,
 		interruptChecker: cfg.InterruptChecker,
@@ -311,6 +321,8 @@ func (m *Manager) LoadAll(ctx context.Context) error {
 	defer m.mu.Unlock()
 	for _, row := range rows {
 		sess := rowToSession(row)
+		sess.restartHeld, sess.RestartPending = sess.RestartPending, false
+		m.settleClaudeBehindLocked(sess)
 		m.sessions[sess.ID] = sess
 		if sess.ClaudeSessionID != "" {
 			m.byClaude[sess.ClaudeSessionID] = sess.ID
@@ -626,5 +638,8 @@ func (m *Manager) nudgeRepoPoll(changed bool) {
 func (m *Manager) broadcast(s *Session) {
 	if m.onUpsert != nil {
 		m.onUpsert(s)
+	}
+	if m.onRestartDue != nil && restartDue(s) {
+		m.onRestartDue(s.ID)
 	}
 }

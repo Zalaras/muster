@@ -60,10 +60,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   merge into settings with an atomic write, never an LLM editing settings
   (kb:adr/nongoal-permissions-ui-basic-user-level-only).
 
-- [ ] **Need a way to restart all claude session with latest Claude version** ([#88](https://github.com/Zalaras/muster/issues/88)) —
-  after Claude Code updates, the developer wants to restart every session onto the new version
-  with each one resumed where it was, and also to restart just one session or just one group.
-
 - [ ] **Code diff viewing** — view a session's code diff directly in the dashboard. Revisits
   `kb:adr/nongoal-diff-review-placeholder-button` (today's placeholder just opens the worktree
   in an editor, an acknowledged hack); would need a superseding ADR before being planned.

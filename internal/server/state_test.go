@@ -13,8 +13,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/Zalaras/muster/internal/store"
 )
 
 func TestBuildSnapshot_M0Shape(t *testing.T) {
@@ -97,7 +95,7 @@ func TestCurrentSnapshot_UsesThemePollerCurrentFamilyWhenPollingEnabled(t *testi
 	require.NoError(t, os.WriteFile(configPath, []byte(`{"theme":"light"}`), 0o600))
 
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st, err := store.Open(context.Background(), dbPath, zerolog.Nop())
+	st, err := openCopiedStore(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 

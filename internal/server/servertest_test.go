@@ -86,7 +86,7 @@ func decodeErrorCode(t *testing.T, rec *httptest.ResponseRecorder) string {
 
 func openLauncherTestStore(t *testing.T) *store.Store {
 	t.Helper()
-	st, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "muster.db"), zerolog.Nop())
+	st, err := openCopiedStore(context.Background(), filepath.Join(t.TempDir(), "muster.db"), zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 	return st

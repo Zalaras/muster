@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Zalaras/muster/internal/claudecode"
-	"github.com/Zalaras/muster/internal/store"
 )
 
 // themeReaderSequence is a themeReader that returns one family per call, from a fixed
@@ -246,7 +245,7 @@ func TestServer_ClaudeThemePollZeroConstructsNoPoller(t *testing.T) {
 // assertion needs a counterpart for.
 func TestServer_ClaudeThemePollPositiveConstructsAPoller(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st, err := store.Open(context.Background(), dbPath, zerolog.Nop())
+	st, err := openCopiedStore(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 

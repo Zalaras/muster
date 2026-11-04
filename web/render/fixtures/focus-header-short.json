@@ -37,6 +37,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-fit-unmoved",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -71,6 +72,7 @@
           "isWorktree": false,
           "name": "muster-app"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "rework shift-swap approval for the weekend rostering rule changes",
@@ -93,6 +95,7 @@
           }
         },
         "claudeSessionId": "cs-fit-moved",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -127,6 +130,7 @@
           "isWorktree": false,
           "name": "muster-app"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "rework shift-swap approval for the weekend rostering rule changes",
@@ -142,6 +146,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-fit-ended",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -176,6 +181,7 @@
           "isWorktree": false,
           "name": "muster-app"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "rework shift-swap approval for the weekend rostering rule changes",

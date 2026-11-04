@@ -14,8 +14,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/Zalaras/muster/internal/store"
 )
 
 // putPrefsRequest issues PUT /api/prefs with the UI cookie attached (mirrors
@@ -264,7 +262,7 @@ func TestHandlePutPrefs_TwoAcceptedPutsProduceTwoBroadcasts(t *testing.T) {
 func restartAndReloadPrefs(t *testing.T, body string) PrefsInfo {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st1, err := store.Open(context.Background(), dbPath, zerolog.Nop())
+	st1, err := openCopiedStore(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 
 	srv1 := New(Config{
@@ -275,7 +273,7 @@ func restartAndReloadPrefs(t *testing.T, body string) PrefsInfo {
 	require.Equal(t, http.StatusNoContent, rec.Code)
 	require.NoError(t, st1.Close())
 
-	st2, err := store.Open(context.Background(), dbPath, zerolog.Nop())
+	st2, err := openCopiedStore(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st2.Close() })
 	srv2 := New(Config{

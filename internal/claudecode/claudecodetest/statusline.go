@@ -68,6 +68,7 @@ type StatusLineFullOpts struct {
 	EffortLevel      string
 	CurrentDir       string
 	AddedDirs        []string
+	Version          string
 }
 
 type PromptCacheOpts struct {
@@ -119,6 +120,9 @@ func statusLineFullPayload(sessionID string, opts StatusLineFullOpts) map[string
 	}
 
 	payload := statusLineBase(sessionID)
+	if opts.Version != "" {
+		payload["version"] = opts.Version
+	}
 	if opts.CurrentDir != "" || opts.AddedDirs != nil {
 		dir := orDefault(opts.CurrentDir, defaultCWD)
 		added := make([]any, 0, len(opts.AddedDirs))

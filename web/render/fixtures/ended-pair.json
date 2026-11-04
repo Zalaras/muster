@@ -37,6 +37,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-ended-old",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -71,6 +72,7 @@
           "isWorktree": false,
           "name": "ended-old"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "ended-old",
@@ -86,6 +88,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-ended-new",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -120,6 +123,7 @@
           "isWorktree": false,
           "name": "ended-new"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "ended-new",

@@ -494,7 +494,7 @@ func TestHandleCreateSession_OrphanedTmuxSessionDoesNotBlockLaunch(t *testing.T)
 	require.NoError(t, err)
 
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st, err := store.Open(context.Background(), dbPath, zerolog.Nop())
+	st, err := openCopiedStore(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 	logBuf := &syncBuffer{}

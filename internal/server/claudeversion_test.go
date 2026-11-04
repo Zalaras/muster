@@ -123,11 +123,18 @@ func (r *versionRig) broadcastsSoFar() []ClaudeCodeInfo {
 // for the rig's.
 func newVersionFeature(t *testing.T, poll time.Duration, logs *bytes.Buffer) (*claudeVersionFeature, *versionRig) {
 	t.Helper()
+	return newVersionFeatureTold(t, poll, logs, nil)
+}
+
+// newVersionFeatureTold is newVersionFeature with the callback that is told each changed
+// installed result, as server.go wires the restart feature's installedKnown.
+func newVersionFeatureTold(t *testing.T, poll time.Duration, logs *bytes.Buffer, onInstalled func(context.Context, *string)) (*claudeVersionFeature, *versionRig) {
+	t.Helper()
 	log := zerolog.Nop()
 	if logs != nil {
 		log = zerolog.New(logs)
 	}
-	f := newClaudeVersionFeature(ClaudeVersionConfig{Poll: poll}, "claude-never-run", newWSHub(log), log)
+	f := newClaudeVersionFeature(ClaudeVersionConfig{Poll: poll}, "claude-never-run", newWSHub(log), onInstalled, log)
 	rig := &versionRig{}
 	f.identify, f.check, f.broadcast = rig.identify, rig.check, rig.broadcast
 	return f, rig
@@ -544,7 +551,7 @@ func versionStub(t *testing.T, output string) string {
 func watchVersionOf(t *testing.T, bin string, logs *bytes.Buffer) *claudeVersionFeature {
 	t.Helper()
 	log := zerolog.New(logs)
-	f := newClaudeVersionFeature(ClaudeVersionConfig{Poll: time.Hour}, bin, newWSHub(log), log)
+	f := newClaudeVersionFeature(ClaudeVersionConfig{Poll: time.Hour}, bin, newWSHub(log), nil, log)
 	f.tick(context.Background())
 	return f
 }

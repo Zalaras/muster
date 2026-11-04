@@ -40,6 +40,10 @@
         },
         "claudeLocation": null,
         "claudeSessionId": "cs-zeta",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 75000,
@@ -76,6 +80,7 @@
           "isWorktree": false,
           "name": "zeta"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": null,

@@ -1,6 +1,7 @@
 package session
 
 import (
+	"slices"
 	"time"
 
 	"github.com/Zalaras/muster/internal/claudecode"
@@ -49,23 +50,22 @@ func applyStatusUpdate(sess *Session, update claudecode.StatusUpdate) bool {
 		}
 	}
 
-	if adoptCache(sess, update.Cache) {
-		changed = true
+	adopted := []bool{
+		adoptCache(sess, update.Cache),
+		adoptClaudeDir(sess, update.Cwd),
+		adoptEffort(sess, update.Effort),
+		adoptAddedDirs(sess, update.AddedDirs),
+		adoptClaudeVersion(sess, update.Version),
 	}
+	return changed || slices.Contains(adopted, true)
+}
 
-	if adoptClaudeDir(sess, update.Cwd) {
-		changed = true
-	}
-
-	if adoptEffort(sess, update.Effort) {
-		changed = true
-	}
-
-	if adoptAddedDirs(sess, update.AddedDirs) {
-		changed = true
-	}
-
-	return changed
+func statusWireChanged(prev, sess *Session) bool {
+	return !stringPtrEqual(prev.DisplayTitle(), sess.DisplayTitle()) ||
+		prev.Model != sess.Model || prev.Context != sess.Context || prev.Cache != sess.Cache ||
+		prev.Effort != sess.Effort || prev.EffortWarning != sess.EffortWarning ||
+		!addedDirsEqual(prev.AddedDirs, sess.AddedDirs) ||
+		prev.ClaudeVersion != sess.ClaudeVersion || prev.ClaudeBehind != sess.ClaudeBehind
 }
 
 func adoptCache(sess *Session, reading *claudecode.StatusCache) bool {

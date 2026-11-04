@@ -1,12 +1,17 @@
 package server
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/rs/zerolog"
+
+	"github.com/Zalaras/muster/internal/store"
 )
 
 // stubClaudeScript stands in for `claude` for this package's one really-spawning test:
@@ -24,6 +29,11 @@ const stubClaudeScript = "#!/bin/sh\n" +
 // sharedStubClaude is stubClaudeScript on disk, from cachedStub.
 var sharedStubClaude string
 
+// migratedTemplate is a closed, fully migrated database file that openCopiedStore copies, so a
+// test pays one file copy instead of replaying every migration (about 400 ms each under -race,
+// measured 2026-11-04 on a store open alone).
+var migratedTemplate string
+
 func TestMain(m *testing.M) {
 	os.Exit(runTestMain(m))
 }
@@ -37,7 +47,40 @@ func runTestMain(m *testing.M) int {
 		return 1
 	}
 
+	dir, err := os.MkdirTemp("", "muster-server-template-")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "server test setup: template database directory:", err)
+		return 1
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+	migratedTemplate = filepath.Join(dir, "muster.db")
+	tmpl, err := store.Open(context.Background(), migratedTemplate, zerolog.Nop())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "server test setup: migrating the template database:", err)
+		return 1
+	}
+	if err := tmpl.Close(); err != nil {
+		fmt.Fprintln(os.Stderr, "server test setup: closing the template database:", err)
+		return 1
+	}
+
 	return m.Run()
+}
+
+// openCopiedStore is store.Open for a test: a path with no database yet starts as a copy of the
+// migrated template (mode 0600, as store.Open leaves it), a path that has one is opened as is,
+// so a test that reopens its database sees what it wrote.
+func openCopiedStore(ctx context.Context, path string, log zerolog.Logger) (*store.Store, error) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		body, err := os.ReadFile(migratedTemplate)
+		if err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(path, body, 0o600); err != nil {
+			return nil, err
+		}
+	}
+	return store.Open(ctx, path, log)
 }
 
 // cachedStub returns the path of an executable script holding body, at a path keyed by the

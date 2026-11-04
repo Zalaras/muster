@@ -1,6 +1,6 @@
 # web/src/render — pure DOM builders, no state
 
-**Owns**: the DOM half of every view: rail cards, tiles and strip, mainhead, masthead, dead surface, confirm dialogs, inline rename editor, drag wiring, drop guard, the reader, its diagram pass (`diagrams.ts`, `mermaid.ts`, `diagramdialog.ts`) and find bar (`readerfind.ts`), and the rail's group sections, menus, hover popovers, selection bar and dialogs (`railsections.ts`, `menu.ts`, `grouppopover.ts`, `cardtip.ts`, `hovertip.ts`, `selectbar.ts`, `groupdialogs.ts`) and the session note (`notes.ts`, `notespanel.ts`), with `anchored.ts` placing those overlays and `options.ts` filling a select's options). No cross-call state here (render-state rule below); session/reader derivation lives in `sessions/`/`reader/`, wiring in `features/`. A DOM-free decision only one controller calls lives in `features/`, not here — a builder takes the computed value, never the raw data (docs/conventions.md § Composition roots). **Features**: actions, connection, drop, focus, launch, notes, rail, reader, rename, tiles, update, usage.
+**Owns**: the DOM half of every view: rail cards, tiles and strip, mainhead, masthead, dead surface, confirm dialogs, rename editor, drag wiring, drop guard, the reader, its diagram pass (`diagrams.ts`, `mermaid.ts`, `diagramdialog.ts`) and find bar (`readerfind.ts`), and the rail's group sections, menus, hover popovers, selection bar and dialogs (`railsections.ts`, `menu.ts`, `grouppopover.ts`, `cardtip.ts`, `hovertip.ts`, `selectbar.ts`, `groupdialogs.ts`), the session note (`notes.ts`, `notespanel.ts`), restart (`restartpanel.ts`, `restartdialog.ts`), with `anchored.ts` placing those overlays and `options.ts` a select's options). No cross-call state here (render-state rule below); session/reader derivation lives in `sessions/`/`reader/`, wiring in `features/`. A DOM-free decision only one controller calls lives in `features/`, not here — a builder takes the computed value, never the raw data (docs/conventions.md § Composition roots). **Features**: actions, connection, drop, focus, launch, notes, rail, reader, rename, tiles, update, usage.
 
 **Render-state rule**: a builder holds only its own instance's state — never state keyed across calls by an external id; that belongs to the caller, which holds refs built once (`masthead.ts`'s model-week `<select>`, not a module-level `Map`).
 
@@ -23,8 +23,8 @@
 - `diagramdialog.ts`'s backdrop-close is `event.target === dialogEl` (a `::backdrop` isn't a node), so its children must fill the box.
 
 <!-- kb:trailer -->
-<!-- kb:hash d5ef09e4d04ac340 -->
-- **actions** — Stop, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
+<!-- kb:hash 71e6736788eba126 -->
+- **actions** — Stop, Resume, Remove and Restart a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`

@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Zalaras/muster/internal/session"
-	"github.com/Zalaras/muster/internal/store"
 	"github.com/Zalaras/muster/internal/tmux"
 )
 
@@ -95,7 +94,7 @@ func (f *fakeScroller) setScrollErr(err error) {
 func newFakeTmuxTestServerWithScroll(t *testing.T) (*testServer, *fakeTmux, *fakeScroller) {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st, err := store.Open(context.Background(), dbPath, zerolog.Nop())
+	st, err := openCopiedStore(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 

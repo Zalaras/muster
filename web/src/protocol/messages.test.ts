@@ -71,6 +71,8 @@ const validSession = {
   groupId: null,
   effort: { level: "high" },
   effortWarning: null,
+  claudeVersion: null,
+  restartPending: false,
   note: null,
   cache: { expiresAt: "2026-08-22T01:00:00Z", ttlSeconds: 3600 },
 };
@@ -109,6 +111,8 @@ const freshLaunchSession = {
   groupId: null,
   effort: null,
   effortWarning: null,
+  claudeVersion: null,
+  restartPending: false,
   note: null,
   cache: null,
 };

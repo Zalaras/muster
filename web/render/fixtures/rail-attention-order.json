@@ -37,6 +37,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-order5-ri",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -71,6 +72,7 @@
           "isWorktree": false,
           "name": "order5-ri"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "order5-ri",
@@ -86,6 +88,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-order5-w",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -120,6 +123,7 @@
           "isWorktree": false,
           "name": "order5-w"
         },
+        "restartPending": false,
         "state": "working",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "order5-w",
@@ -135,6 +139,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-order5-pl",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -169,6 +174,7 @@
           "isWorktree": false,
           "name": "order5-pl"
         },
+        "restartPending": false,
         "state": "planning",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "order5-pl",
@@ -184,6 +190,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-order5-st",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -218,6 +225,7 @@
           "isWorktree": false,
           "name": "order5-st"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:06:00Z",
         "title": "order5-st",
@@ -233,6 +241,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-order5-ui",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -267,6 +276,7 @@
           "isWorktree": false,
           "name": "order5-ui"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "order5-ui",
@@ -282,6 +292,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-order5-f",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -319,6 +330,7 @@
           "isWorktree": false,
           "name": "order5-f"
         },
+        "restartPending": false,
         "state": "failed",
         "stateSince": "2026-01-01T00:10:00Z",
         "title": "order5-f",
@@ -337,6 +349,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-order5-ni",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -371,6 +384,7 @@
           "isWorktree": false,
           "name": "order5-ni"
         },
+        "restartPending": false,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:11:00Z",
         "title": "order5-ni",

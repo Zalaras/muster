@@ -37,6 +37,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-rail-a",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -71,6 +72,7 @@
           "isWorktree": false,
           "name": "rail-a"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "rail-a",
@@ -86,6 +88,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-rail-b",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -120,6 +123,7 @@
           "isWorktree": false,
           "name": "rail-b"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "rail-b",
@@ -138,6 +142,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-rail-c",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -172,6 +177,7 @@
           "isWorktree": false,
           "name": "rail-c"
         },
+        "restartPending": false,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:04:00Z",
         "title": "rail-c",

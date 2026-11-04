@@ -12,8 +12,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/Zalaras/muster/internal/store"
 )
 
 func getBrowseRequest(t *testing.T, srv *testServer, query string) *httptest.ResponseRecorder {
@@ -145,7 +143,7 @@ func newBrowseRootTestServer(t *testing.T) (*testServer, string) {
 	t.Helper()
 	root := t.TempDir()
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st, err := store.Open(context.Background(), dbPath, zerolog.Nop())
+	st, err := openCopiedStore(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 	logBuf := &syncBuffer{}

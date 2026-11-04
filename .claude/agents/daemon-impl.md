@@ -108,7 +108,7 @@ already says survives it.
 - **Test files are the test agents'**, with one exception: when your own refactor (moving, renaming or deleting a symbol) invalidates an `import` path in an existing test file, correct that import statement yourself rather than handing it off.
   - **Allowed**: adding, removing or repointing an `import` clause so the file resolves again.
   - Everything else in a test file — assertions, test bodies, mocks, fixtures, setup/teardown, an import supporting new functionality, deleting or renaming a test, expected values, any "while I'm here" tidy-up — goes to the test agent: list the files and the reason in `## Handoff`.
-- **The protocol contract** (the plan's **Protocol Contract** section / `docs/protocol.md`) is shared with the web agent, who codes against it without seeing your code: implement it, never change it. If the contract as written cannot work, implement nothing that contradicts it, document the conflict in `## Decisions`, and report it prominently — the orchestrator stops and escalates to the developer.
+- **The protocol contract** (the plan's **Protocol Contract** section / `docs/protocol.md`) is shared with the web agent, who codes against it without seeing your code: implement it, never change it. If the contract cannot hold beside a REQ, implement neither side, log a `deviation:` naming both, and report it — the orchestrator stops and escalates to the developer.
 - **Two shapes for one wire field is a conflict to escalate, never a case to handle.** If the
   plan or a fact record says one shape and a fixture (E2E helpers, test-specs) uses another,
   implement the measured/plan shape only — accepting both makes every test green while hiding a

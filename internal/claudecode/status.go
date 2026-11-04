@@ -21,8 +21,9 @@ type statusPayload struct {
 		CurrentDir string    `json:"current_dir"`
 		AddedDirs  *[]string `json:"added_dirs"`
 	} `json:"workspace"`
-	Cwd    string        `json:"cwd"`
-	Effort *statusEffort `json:"effort"`
+	Cwd     string        `json:"cwd"`
+	Effort  *statusEffort `json:"effort"`
+	Version *string       `json:"version"`
 }
 
 type statusEffort struct {
@@ -124,6 +125,7 @@ type StatusUpdate struct {
 	Cwd       *string
 	Effort    *StatusEffort
 	AddedDirs *[]string
+	Version   *string
 }
 
 // InterpretStatus derives the neutral StatusUpdate for one status-line payload. It is a
@@ -161,6 +163,12 @@ func InterpretStatus(payload []byte) StatusUpdate {
 
 	if p.Workspace != nil {
 		out.AddedDirs = p.Workspace.AddedDirs
+	}
+
+	if p.Version != nil {
+		if running, ok := LeadingVersion(*p.Version); ok {
+			out.Version = &running
+		}
 	}
 
 	out.Cache = interpretPromptCache(p.PromptCache)

@@ -44,6 +44,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-menu-live",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -78,6 +79,7 @@
           "isWorktree": false,
           "name": "menu-live"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "menu-live",
@@ -93,6 +95,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-menu-plain",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -127,6 +130,7 @@
           "isWorktree": false,
           "name": "menu-plain"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "menu-plain",
@@ -142,6 +146,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-menu-pinned",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -176,6 +181,7 @@
           "isWorktree": false,
           "name": "menu-pinned"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "menu-pinned",
@@ -191,6 +197,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-menu-group",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -225,6 +232,7 @@
           "isWorktree": false,
           "name": "menu-group"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "menu-group",
@@ -240,6 +248,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": null,
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -274,6 +283,7 @@
           "isWorktree": false,
           "name": "menu-unbound"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:07:00Z",
         "title": "menu-unbound",

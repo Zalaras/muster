@@ -2708,3 +2708,10 @@ that the dashboard shows.
   the window.
   Filed 2026-10-23 from musterd 0.25.3 / Claude Code 2.1.293, focus view, session idle.
   Labels: enhancement, sessions, documents, ux.
+
+## Features
+
+- [x] **Need a way to restart all claude session with latest Claude version** ([#88](https://github.com/Zalaras/muster/issues/88)) ✅ done 2026-11-04 (plan `restart-latest-claude`, via `/orchestrate`; approved review cycle 2) —
+  after Claude Code updates, the developer wants to restart every session onto the new version
+  with each one resumed where it was, and also to restart just one session or just one group.
+  Restart-all only: per-session and per-group restart were dropped by the developer at planning (2026-11-04).

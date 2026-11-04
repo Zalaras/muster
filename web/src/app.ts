@@ -3,6 +3,7 @@
 // phases, and render() itself. Pure enough to unit-test (no DOM) — every feature module
 // builds on top of this rather than main.ts wiring them together directly.
 import { emptyGroupsFields, type Group, type UngroupedLayout } from "./protocol/groups";
+import type { ClaudeCodeInfo } from "./protocol/hello";
 import type { DocChanged, Snapshot } from "./protocol/messages";
 import {
   type Density,
@@ -63,6 +64,7 @@ export interface AppEvents {
   claudeTheme: (family: ClaudeFamily) => void;
   usage: (usage: Usage) => void;
   update: (update: UpdateInfo) => void;
+  claudeCode: (claudeCode: ClaudeCodeInfo) => void;
   // WS hello, matched or protocol-mismatched — fires before the mismatch gate, so
   // features/updaterestart.ts can reload instead of showing it
   // (kb:adr/update-restart-reloads-dashboard). Dashboard-only (wsapp.ts's

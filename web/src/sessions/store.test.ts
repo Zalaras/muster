@@ -33,6 +33,8 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     groupId: null,
     effort: null,
     effortWarning: null,
+    claudeVersion: null,
+    restartPending: false,
     note: null,
     cache: null,
     ...overrides,

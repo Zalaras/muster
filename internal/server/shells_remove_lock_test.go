@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Zalaras/muster/internal/store"
 	"github.com/Zalaras/muster/internal/tmux"
 	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 )
@@ -86,7 +85,7 @@ func TestHandleCreateShell_BlocksConcurrentRemoveUntilEnsureCompletes(t *testing
 	t.Setenv("SHELL", "/bin/sh") // interactiveShellArgv() reads $SHELL; keeps the spawned shell fast/deterministic
 
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st, err := store.Open(context.Background(), dbPath, zerolog.Nop())
+	st, err := openCopiedStore(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 

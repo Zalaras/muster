@@ -37,6 +37,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-tile-1",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -71,6 +72,7 @@
           "isWorktree": false,
           "name": "tile-1"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "tile-1",
@@ -86,6 +88,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-tile-2",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -120,6 +123,7 @@
           "isWorktree": false,
           "name": "tile-2"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "tile-2",
@@ -135,6 +139,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-tile-3",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -169,6 +174,7 @@
           "isWorktree": false,
           "name": "tile-3"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "tile-3",
@@ -184,6 +190,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-tile-4",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -218,6 +225,7 @@
           "isWorktree": false,
           "name": "tile-4"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:07:00Z",
         "title": "tile-4",
@@ -233,6 +241,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-tile-5",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -267,6 +276,7 @@
           "isWorktree": false,
           "name": "tile-5"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:09:00Z",
         "title": "tile-5",
@@ -282,6 +292,7 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-tile-6",
+        "claudeVersion": null,
         "context": {
           "compactions": 0,
           "totalInputTokens": null,
@@ -316,6 +327,7 @@
           "isWorktree": false,
           "name": "tile-6"
         },
+        "restartPending": false,
         "state": "idle",
         "stateSince": "2026-01-01T00:12:00Z",
         "title": "tile-6",

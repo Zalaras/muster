@@ -152,6 +152,9 @@ func TestBatch_ARepeatedIDIsRefusedBeforeAnythingRuns(t *testing.T) {
 	batches := map[string]func(r *groupsRig, ids []int64) (BatchResult, error){
 		"EndMany":    func(r *groupsRig, ids []int64) (BatchResult, error) { return r.mgr.EndMany(r.ctx, ids) },
 		"RemoveMany": func(r *groupsRig, ids []int64) (BatchResult, error) { return r.mgr.RemoveMany(r.ctx, ids) },
+		"RunBatch (the restart's op)": func(r *groupsRig, ids []int64) (BatchResult, error) {
+			return r.mgr.RunBatch(ids, "restarting", func(int64) (BatchOutcome, error) { return BatchQueued, nil })
+		},
 	}
 	for batchName, run := range batches {
 		for listName, list := range lists {

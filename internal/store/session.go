@@ -128,6 +128,9 @@ type SessionRow struct {
 
 	AddedDirs []string
 
+	ClaudeVersion  *string
+	RestartPending bool
+
 	// GroupID (kb:spec/rail) is the rail group the session belongs to, nil = the Ungrouped
 	// section. Display-only, never read by the state machine or the status path.
 	GroupID *int64
@@ -343,7 +346,8 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 			added_dirs = ?, group_id = ?, cache_expires_at = ?, cache_ttl_seconds = ?, cache_requests = ?,
 			cache_reported_expires_at = ?,
 			effort_known = ?, effort_level = ?, effort_requested = ?,
-			effort_warning_requested = ?, effort_warning_actual = ?, effort_warning_model = ?
+			effort_warning_requested = ?, effort_warning_actual = ?, effort_warning_model = ?,
+			claude_version = ?, restart_pending = ?
 		WHERE id = ?
 	`,
 		row.TmuxTarget, row.TmuxPane, row.ClaudeSessionID, row.Directory, row.Branch,
@@ -358,6 +362,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		addedDirs, row.GroupID, cacheExpiresAt, row.CacheTTLSeconds, row.CacheRequests, cacheReportedExpiresAt,
 		boolToInt(row.EffortKnown), row.EffortLevel, row.EffortRequested,
 		row.EffortWarningRequested, row.EffortWarningActual, row.EffortWarningModel,
+		row.ClaudeVersion, boolToInt(row.RestartPending),
 		row.ID,
 	)
 	if err != nil {
@@ -377,7 +382,8 @@ const sessionColumns = `
 	pending_resume_claude_session_id, background_tasks, attention_agent, claude_dir, added_dirs, group_id,
 	cache_expires_at, cache_ttl_seconds, cache_requests, cache_reported_expires_at,
 	effort_known, effort_level, effort_requested,
-	effort_warning_requested, effort_warning_actual, effort_warning_model
+	effort_warning_requested, effort_warning_actual, effort_warning_model,
+	claude_version, restart_pending
 `
 
 func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
@@ -478,6 +484,7 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 		cacheExpiresAt               *string
 		cacheReportedExpiresAt       *string
 		addedDirs                    *string
+		restartPending               int
 	)
 	if err := row.Scan(
 		&r.ID, &r.TmuxTarget, &r.TmuxPane, &r.ClaudeSessionID, &r.RepoID, &r.Directory, &r.Branch, &isWorktree,
@@ -491,6 +498,7 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 		&cacheExpiresAt, &r.CacheTTLSeconds, &r.CacheRequests, &cacheReportedExpiresAt,
 		&effortKnown, &r.EffortLevel, &r.EffortRequested,
 		&r.EffortWarningRequested, &r.EffortWarningActual, &r.EffortWarningModel,
+		&r.ClaudeVersion, &restartPending,
 	); err != nil {
 		return SessionRow{}, err
 	}
@@ -501,6 +509,7 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 	r.Pinned = pinned != 0
 	r.PlanExists = planExists != 0
 	r.Unread = unread != 0
+	r.RestartPending = restartPending != 0
 	r.AddedDirs = s.decodeAddedDirs(r.ID, addedDirs)
 	r.StateSince = s.decodeRowTime("session", r.ID, "state_since", stateSince)
 	r.CreatedAt = s.decodeRowTime("session", r.ID, "created_at", createdAt)

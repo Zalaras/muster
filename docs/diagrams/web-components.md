@@ -46,14 +46,14 @@ C4Component
 
     Container_Boundary(dashboard, "Dashboard") {
         Boundary(ctl, "Entries and controllers") {
-            Component(main, "main.ts", "entry", "Dashboard composition root: inits 21 controllers, owns render order")
-            Component(features, "features/", "48 modules", "20 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload), 1 stateless handle (effort: the strip's dismiss call, wired by focus), 6 sub-controllers handed their elements by their owner (launch: launchresume, launchgroup; groups: groupsselect, groupsdialogs; reader: readerfind, readerscroll), plus 18 DOM-free helpers each owned by one controller, and three notes modules beside notes.ts: notesedit (editing and saving, shared with the note window), noteswindows (window handles, query parse), notespage (the note window's controller)")
+            Component(main, "main.ts", "entry", "Dashboard composition root: inits 22 controllers, owns render order")
+            Component(features, "features/", "51 modules", "21 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload; restart is the Claude-restart panel and dialog), 1 stateless handle (effort: the strip's dismiss call, wired by focus), 6 sub-controllers handed their elements by their owner (launch: launchresume, launchgroup; groups: groupsselect, groupsdialogs; reader: readerfind, readerscroll), plus 20 DOM-free helpers each owned by one controller, and three notes modules beside notes.ts: notesedit (editing and saving, shared with the note window), noteswindows (window handles, query parse), notespage (the note window's controller)")
             Component(doc, "doc.ts", "entry", "Pop-out reader composition root")
             Component(note, "note.ts", "entry", "Note window composition root")
             Component(wsapp, "wsapp.ts", "mapping", "The WS-to-app mapping every entry registers, then layer their own handlers on top of")
         }
         Boundary(rnd, "Render and seam") {
-            Component(render, "render/", "45 modules", "DOM only — view-model in, DOM out; one menu builder serves every menu")
+            Component(render, "render/", "47 modules", "DOM only — view-model in, DOM out; one menu builder serves every menu")
             Component(app, "app.ts", "seam", "Session store, shared state (incl. ConnectionStatus), typed event bus, render phases")
         }
         Boundary(leaves, "Leaves") {
@@ -110,7 +110,7 @@ C4Component
     Rel(reader, app, "connection state")
     Rel(reader, storage, "per-session memory")
     Rel(theme, storage, "first-paint hint")
-    Rel(features, storage, "restart handoff, note drafts, panel memory")
+    Rel(features, storage, "restart handoff, note drafts, panel memory, Claude-restart Ignore")
     Rel(app, sessions, "SessionStore")
     Rel(app, terminal, "SurfaceKind type")
 

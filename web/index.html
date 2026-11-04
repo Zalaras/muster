@@ -253,6 +253,36 @@
       </form>
     </dialog>
 
+    <div id="restart-panel" class="restart-panel" role="group" aria-labelledby="restart-panel-head" tabindex="-1" hidden>
+      <div id="restart-panel-head" class="ph"></div>
+      <div id="restart-panel-behind" hidden>
+        <p id="restart-panel-intro"></p>
+        <ul id="restart-counts" class="counts">
+          <li id="restart-count-now"><span>Restart now</span><span id="restart-count-now-value" class="n"></span></li>
+          <li id="restart-count-free"><span>Restart when free</span><span id="restart-count-free-value" class="n"></span></li>
+        </ul>
+        <div class="foot">
+          <button type="button" id="restart-ignore-button" class="btn">Ignore</button>
+          <button type="button" id="restart-open-button" class="btn key">Restart…</button>
+        </div>
+      </div>
+      <div id="restart-panel-queued" hidden>
+        <div id="restart-queued-heading" class="rhead"></div>
+        <ul id="restart-queued-list" class="rlist"></ul>
+      </div>
+    </div>
+
+    <dialog id="restart-dialog" class="modal confirm restart" aria-labelledby="restart-dialog-title" aria-describedby="restart-dialog-intro">
+      <h2 id="restart-dialog-title"></h2>
+      <p id="restart-dialog-intro"></p>
+      <div id="restart-dialog-list" class="rscroll"></div>
+      <p id="restart-dialog-note" class="restart-note" hidden>Queued sessions restart as soon as each is idle with no background tasks.</p>
+      <div class="modal-foot">
+        <button type="button" id="restart-cancel-button" class="btn" autofocus>Cancel</button>
+        <button type="button" id="restart-confirm-button" class="btn key"></button>
+      </div>
+    </dialog>
+
     <dialog id="end-dialog" class="modal confirm" aria-labelledby="end-dialog-title" aria-describedby="end-dialog-body">
       <h2 id="end-dialog-title">Stop session?</h2>
       <p id="end-dialog-body"></p>

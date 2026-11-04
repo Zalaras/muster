@@ -1,0 +1,1327 @@
+{
+  "plan": "restart-latest-claude",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-11-04T16:24:49Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 81,
+        "keep": 15,
+        "drop": 66
+      },
+      "keeps": [
+        {
+          "key": "internal/server/claudeversion.go:e3496edcb513a240",
+          "path": "internal/server/claudeversion.go",
+          "anchor": {
+            "kind": "above",
+            "text": "seen claudecode.BinaryIdentity",
+            "line": 70
+          },
+          "lines": [
+            "// seen, haveSeen, unresolved and toldInstalled belong to the loop goroutine alone."
+          ],
+          "reason": "Without it a reader would read `f.unresolved` or `f.toldInstalled` from another goroutine such as `Current()`; that is an unlocked data race against the writes in `tick`."
+        },
+        {
+          "key": "internal/server/restart.go:88441dfb16fcd719",
+          "path": "internal/server/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type restartFeature struct {",
+            "line": 15
+          },
+          "lines": [
+            "// restartFeature restarts live sessions onto the installed Claude Code: the batch endpoint",
+            "// (kb:anchor/sessions.restart-many) and the queue that restarts a confirmed busy session the",
+            "// moment it is free. A restart is the Stop path then the Resume path on one row under one",
+            "// per-session lock; the two halves are the manager's EndLocked and the launcher's ResumeLocked."
+          ],
+          "reason": "Orchestrator override: the route comment's kb:anchor/sessions.restart-many citation is required by internal/server/CLAUDE.md."
+        },
+        {
+          "key": "internal/server/restart.go:c341d32b05b623eb",
+          "path": "internal/server/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "mu sync.Mutex",
+            "line": 21
+          },
+          "lines": [
+            "// queued and wake carry session ids from enqueue (any goroutine: the manager's upsert",
+            "// callback, Start's sweep) to run, the one consumer. queued is guarded by mu; wake has",
+            "// capacity 1 so a signal is never lost and never blocks a producer."
+          ],
+          "reason": "Orchestrator override: docs/conventions.md Design section, shared state names its writers and its guard at its declaration."
+        },
+        {
+          "key": "internal/server/server.go:624b9c7f3435b26d",
+          "path": "internal/server/server.go",
+          "anchor": {
+            "kind": "above",
+            "text": "OnRestartDue: func(id int64) { s.restart.enqueue(id) },",
+            "line": 200
+          },
+          "lines": [
+            "// restart is assigned below, before Start can run any ingest worker that calls this."
+          ],
+          "reason": "Without it a reader would move `s.restart = register(s, newRestartFeature(...))` after Start or drop it; that makes `OnRestartDue: func(id int64) { s.restart.enqueue(id) }` hit a nil feature."
+        },
+        {
+          "key": "internal/session/actions.go:99cd6fe38c4950dc",
+          "path": "internal/session/actions.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) End(ctx context.Context, id int64) (*Session, error) {",
+            "line": 42
+          },
+          "lines": [
+            "// End kills a live session's tmux session (kb:anchor/sessions.end): a final pane",
+            "// snapshot is captured, then the tmux session is killed, then the existing liveness",
+            "// nudge path (checkOneLiveness/markEnded) observes the now-missing pane and does the",
+            "// alive:=false persist + broadcast — the same single code path every other death goes",
+            "// through (kb:adr/lifecycle-liveness-from-pane-existence). Returns ErrUnknownSession",
+            "// (404) or ErrSessionNotAlive (409 not_alive, already ended).",
+            "//",
+            "// id's per-session lock is held for the whole check-then-act",
+            "// (kb:adr/actions-serialized-per-session), so two concurrent Ends can never both pass the",
+            "// alive gate. EndLocked is split out because Remove also needs to run this same body",
+            "// while already holding the lock itself (End's own LockSession call would otherwise",
+            "// deadlock against Remove's)."
+          ],
+          "reason": "Edited on `main`; still true: `EndLocked` is split out of `End` and `removeLocked` calls `EndLocked` directly while holding the lock."
+        },
+        {
+          "key": "internal/session/actions.go:4605be1bd639ee9c",
+          "path": "internal/session/actions.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) Remove(ctx context.Context, id int64) error {",
+            "line": 222
+          },
+          "lines": [
+            "// Remove deletes id's row (kb:anchor/sessions.remove,",
+            "// kb:adr/actions-remove-allowed-on-live-session): if alive, the End path runs first; a",
+            "// failing kill (End's own error) leaves the row untouched and propagates — never a",
+            "// deleted row with a running pane. On success the in-memory entry and the row are both",
+            "// gone and OnRemoved fires (the sessionRemoved broadcast).",
+            "//",
+            "// id's per-session lock is held for the whole check-then-act",
+            "// (kb:adr/actions-serialized-per-session), so a Remove can never race a concurrent",
+            "// End/Resume for the same id. It calls EndLocked directly (not End) — End would try to",
+            "// reacquire the same lock and deadlock."
+          ],
+          "reason": "Edited on `main`; still true: `removeLocked` calls `m.EndLocked(ctx, id)` directly rather than `End`, as the comment says."
+        },
+        {
+          "key": "internal/session/liveness.go:740458d9f7298cf9",
+          "path": "internal/session/liveness.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) captureAndStoreSnapshot(captureCtx, persistCtx context.Context, id int64, target string) {",
+            "line": 56
+          },
+          "lines": [
+            "// captureAndStoreSnapshot runs capture-pane for an alive session (via captureCtx) and, on",
+            "// success, persists the result via storeSnapshot (via persistCtx) — the shared body",
+            "// checkOneLiveness's periodic capture and EndLocked's final pre-kill capture both need. The",
+            "// two contexts are kept separate because EndLocked bounds only the tmux call to",
+            "// endRemoveTmuxTimeout while keeping the outer request ctx for the DB write;",
+            "// checkOneLiveness passes the same ctx for both. A capture error (a transient tmux",
+            "// failure) is not a pane-missing signal — the previous snapshot is kept and liveness",
+            "// is never touched."
+          ],
+          "reason": "Edited on `main`; still true: `captureAndStoreSnapshot(captureCtx, persistCtx, ...)` takes the two contexts it describes and `EndLocked` calls it with a bounded snapCtx."
+        },
+        {
+          "key": "internal/session/manager.go:0522f14517c2c36c",
+          "path": "internal/session/manager.go",
+          "anchor": {
+            "kind": "above",
+            "text": "const endRemoveTmuxTimeout = 5 * time.Second",
+            "line": 69
+          },
+          "lines": [
+            "// endRemoveTmuxTimeout bounds every tmux invocation EndLocked/removeLocked/",
+            "// RepairOwnedSession make: all three run under a per-session-id lock acquired by",
+            "// End/Remove/Resume (kb:adr/actions-serialized-per-session), so a wedged tmux there no",
+            "// longer just hangs one request — it wedges every later End/Resume/Remove for that same",
+            "// id, permanently. Mirrors shellTmuxTimeout's value (internal/server/shells.go)."
+          ],
+          "reason": "Edited on `main`; still true: `const endRemoveTmuxTimeout = 5 * time.Second` bounds the tmux calls `EndLocked`/`removeLocked`/`RepairOwnedSession` make."
+        },
+        {
+          "key": "internal/session/manager.go:e0e873cf962653c7",
+          "path": "internal/session/manager.go",
+          "anchor": {
+            "kind": "above",
+            "text": "installedClaude string",
+            "line": 130
+          },
+          "lines": [
+            "// installedClaude is the installed Claude Code version, \"\" while unknown, and",
+            "// installedChecked whether SetInstalledClaude has run at all; both guarded by mu.",
+            "// Written only by SetInstalledClaude; read by settleClaudeBehindLocked."
+          ],
+          "reason": "Orchestrator override: docs/conventions.md Design section, shared state names its writers and its guard at its declaration."
+        },
+        {
+          "key": "internal/session/restart.go:3eec655c6e36ea4c",
+          "path": "internal/session/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func adoptClaudeVersion(sess *Session, reported *string) bool {",
+            "line": 35
+          },
+          "lines": [
+            "// adoptClaudeVersion records the version a routed status post reported, reporting whether",
+            "// it changed. A dead session never adopts one, so a straggler post cannot refill what a",
+            "// death emptied. The caller holds Manager.mu and follows with settleClaudeBehindLocked."
+          ],
+          "reason": "Without it a reader would drop the `!sess.Alive` test in `adoptClaudeVersion` as redundant; that lets a straggler status post refill a version a death emptied."
+        },
+        {
+          "key": "internal/session/restart.go:b3fb981ed9af8cfb",
+          "path": "internal/session/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) settleClaudeBehindLocked(sess *Session) bool {",
+            "line": 43
+          },
+          "lines": [
+            "// settleClaudeBehindLocked recomputes ClaudeBehind from the session's running version and",
+            "// the installed one, dropping a pending restart in the same step when the session is no",
+            "// longer behind. Until the first SetInstalledClaude nothing is known about the installed",
+            "// version, so a persisted pending mark survives a daemon start. Reports whether ClaudeBehind",
+            "// or RestartPending changed. The caller holds m.mu."
+          ],
+          "reason": "Without it a reader would remove the `if !m.installedChecked { return false }` guard; that clears persisted RestartPending marks at daemon start before the installed version is known."
+        },
+        {
+          "key": "web/src/main.ts:8fa64d7ddb11d5d8",
+          "path": "web/src/main.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "const views = initViews(app, { focus, tiles });",
+            "line": 76
+          },
+          "lines": [
+            "// Render phase order (behaviour-bearing — see each phase's own controller for why its",
+            "// position matters):",
+            "//  1. actions  — dead-pane tracking (registered inside initActions)",
+            "//  2. usage    — gauges/model week/model readout (initUsage)",
+            "//  3. update   — Updates section + Settings badge (initUpdate)",
+            "//  4. issue    — Issue button disabled state (initIssue)",
+            "//  5. tiles    — membership: tilesLive tracks density (initTiles)",
+            "//  6. focus    — default focusedId (initFocus)",
+            "//  7. surfaces — open/close diff over (id, kind) keys (initSurfaces)",
+            "//  8. reader   — mount/dispose diff over docs-selected sessions (initReader)",
+            "//  9. rail     — the groups chrome (filter row, Select, selection bar), the sections and",
+            "//     their cards, count, sort select (initRail, which calls `groups.renderChrome` first;",
+            "//     initGroups registers no phase of its own — it is constructed before focus, which reads it)",
+            "// 10. views    — switcher, density control, view containers' hidden, then focus (view) in",
+            "//     Focus, else tiles (view) in Tiles — registered inside initViews, since that phase is",
+            "//     inherently split across two controllers by shared state (views.ts).",
+            "// 11. notes    — the note panel, after the focus phase has settled the focused session",
+            "//     and the mainhead has laid out the glyph the anchored panel sits under (initNotes)",
+            "// 12. restart  — the Claude version readout's panel: closes when the notice or the daemon",
+            "//     goes away, else repaints in place (initRestart)",
+            "// 13. connection — the version readout (its restart-notice button included), then banner",
+            "//     text/visibility, time-based as well as status-driven (initConnection, registered",
+            "//     further down once `updateRestart` and `restart` exist to supply it)"
+          ],
+          "reason": "Edited on `main`; still true: `const restart = initRestart(app, { actions })` precedes `initConnection`, matching the listed phase order and its registration note."
+        },
+        {
+          "key": "web/src/protocol/batch.ts:4899b667ffc13af0",
+          "path": "web/src/protocol/batch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import { asInteger, isRecord, parseListOf } from \"./decode\";",
+            "line": 1
+          },
+          "lines": [
+            "// Wire type and parser for a batch's report (kb:anchor/sessions.end-many,",
+            "// kb:anchor/sessions.remove-many, kb:anchor/sessions.restart-many, and the `sessions` member of kb:anchor/groups.delete's",
+            "// response) — one of the protocol/ concept modules. Each id is processed under its own lock, so a",
+            "// batch is never all-or-nothing: the report says which ids landed where."
+          ],
+          "reason": "Edited on `main`; still true: `parseBatchResult` parses the done/skipped/failed report that `RestartResult` extends."
+        },
+        {
+          "key": "web/src/render/masthead.ts:ef6e0092c2300f95",
+          "path": "web/src/render/masthead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function renderNotice(",
+            "line": 342
+          },
+          "lines": [
+            "/** The notice shape: `\u003cbutton\u003e` then, with a warning, the glyph. Everything is written in place —",
+            "* a rebuild would drop the focus a keyboard user holds on the button — so the button is built",
+            "* once and survives text, disabled and warning changes. */"
+          ],
+          "reason": "Without it a reader would simplify `renderNotice` to rebuild the button each render with `el.replaceChildren`; that drops the keyboard focus held on the button."
+        },
+        {
+          "key": "web/src/render/masthead.ts:fe57dc359753889a",
+          "path": "web/src/render/masthead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function renderClaudeVersion(el: HTMLElement, description: ClaudeVersionDescription): void {",
+            "line": 366
+          },
+          "lines": [
+            "/** Rebuilds `#claude-version`'s children with `replaceChildren` (no innerHTML). No",
+            "* warning -\u003e a lone text node. A warning -\u003e a trailing-space text node",
+            "* (`\"claude \u003cinstalled\u003e \"`) followed by the `role=\"img\"` glyph, so `textContent` reads",
+            "* `claude 2.0.0 ⚠` — `aria-label` and `title` both carry the same warning sentence, so the",
+            "* glyph's accessible name and its native tooltip always match",
+            "* (`kb:adr/connection-installed-claude-classified-never-refused`). With `notice` the readout is",
+            "* instead one `\u003cbutton\u003e` (the restart notice) followed by the glyph, updated in place. */"
+          ],
+          "reason": "Edited on `main`; still true: `renderClaudeVersion` uses `replaceChildren`, and with `notice` goes through `renderNotice` (button then glyph) as the comment says."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/claudecode/status.go:eb1209f47ab3b76e",
+          "path": "internal/claudecode/status.go",
+          "anchor": {
+            "kind": "above",
+            "text": "Version *string",
+            "line": 128
+          },
+          "lines": [
+            "// Version is the leading major.minor.patch of the Claude Code the posting process",
+            "// runs; nil when the payload carries none or an unparseable one."
+          ]
+        },
+        {
+          "key": "internal/claudecode/version.go:837c515e65828096",
+          "path": "internal/claudecode/version.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func LeadingVersion(v string) (string, bool) {",
+            "line": 139
+          },
+          "lines": [
+            "// LeadingVersion returns the leading major.minor.patch of v, ok false when v has none."
+          ]
+        },
+        {
+          "key": "internal/claudecode/version.go:37c363897f708a5d",
+          "path": "internal/claudecode/version.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func OlderVersion(running, installed string) bool {",
+            "line": 147
+          },
+          "lines": [
+            "// OlderVersion reports whether running is strictly older than installed by semver; false",
+            "// when either has no leading major.minor.patch."
+          ]
+        },
+        {
+          "key": "internal/server/claudeversion.go:4e43783bbdddf4f5",
+          "path": "internal/server/claudeversion.go",
+          "anchor": {
+            "kind": "above",
+            "text": "onInstalled func(ctx context.Context, installed *string)",
+            "line": 65
+          },
+          "lines": [
+            "// onInstalled, set once by followInstalled before Start, is told the installed version",
+            "// after every change of the held result and once on the first tick whatever it finds;",
+            "// nil for a feature nobody follows."
+          ]
+        },
+        {
+          "key": "internal/server/launcher.go:7161b8bc7ba73713",
+          "path": "internal/server/launcher.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (l *sessionLauncher) ResumeLocked(ctx context.Context, id int64) (*session.Session, *launchError) {",
+            "line": 507
+          },
+          "lines": [
+            "// ResumeLocked is Resume's body for a caller already holding id's per-session lock, as a",
+            "// restart does across its Stop and Resume halves."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_restart.go:158e393ffe79ee3f",
+          "path": "internal/server/renderfix_scenarios_restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func init() {",
+            "line": 14
+          },
+          "lines": [
+            "// The restart-onto-the-latest-Claude scenarios (web/render/connection.spec.ts): the",
+            "// masthead notice, its panel and its confirm dialog over every kind of behind session, the",
+            "// queued-only notice, and the same state the render test then takes the daemon down on."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_restart.go:c9ac87a726a771c8",
+          "path": "internal/server/renderfix_scenarios_restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *renderRig) holdInstalledClaude(ctx context.Context, installed string) {",
+            "line": 25
+          },
+          "lines": [
+            "// holdInstalledClaude sets the daemon's held Claude Code verdict and tells the session",
+            "// manager, the two things the version watch does on a changed result."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_restart.go:e665e2c250b1152e",
+          "path": "internal/server/renderfix_scenarios_restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *renderRig) reportVersion(ctx context.Context, s renderSession, name, version string) error {",
+            "line": 33
+          },
+          "lines": [
+            "// reportVersion posts one status line for s whose process runs version."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_restart.go:8a14f106797e8fe6",
+          "path": "internal/server/renderfix_scenarios_restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *renderRig) restartSessions(ctx context.Context) (planning renderSession, err error) {",
+            "line": 40
+          },
+          "lines": [
+            "// restartSessions holds one live session per kind of restart candidate, in the order the",
+            "// scenario's dialog lists them: idle, failed, working, idle with two background tasks, needs",
+            "// input and planning, each on its own old version, and one on the installed version."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_restart.go:ecc624ae0264ad2a",
+          "path": "internal/server/renderfix_scenarios_restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func driveClaudeRestart(ctx context.Context, r *renderRig) error {",
+            "line": 116
+          },
+          "lines": [
+            "// driveClaudeRestart holds seven live sessions beside one ended one under an installed",
+            "// 2.1.318: five behind and unconfirmed (two free, three busy), one behind whose restart was",
+            "// already confirmed through the real endpoint, and one current."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_restart.go:6d1c44dc40d36cc7",
+          "path": "internal/server/renderfix_scenarios_restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func driveClaudeRestartQueued(ctx context.Context, r *renderRig) error {",
+            "line": 129
+          },
+          "lines": [
+            "// driveClaudeRestartQueued holds two working sessions on 2.1.317 under an installed 2.1.318,",
+            "// both confirmed, so only the queued notice remains."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_restart.go:f50b7e9527c3cbb4",
+          "path": "internal/server/renderfix_scenarios_restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func driveClaudeRestartMany(ctx context.Context, r *renderRig) error {",
+            "line": 145
+          },
+          "lines": [
+            "// driveClaudeRestartMany holds fourteen live sessions on 2.1.317 under an installed 2.1.318,",
+            "// seven idle and seven working, so both of the dialog's sections have rows and the list box",
+            "// outgrows its 280 px."
+          ]
+        },
+        {
+          "key": "internal/server/restart.go:2c1cd215a4b48e1a",
+          "path": "internal/server/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *restartFeature) Start() {",
+            "line": 36
+          },
+          "lines": [
+            "// Start sweeps the sessions whose queued restart became possible while the daemon was down —",
+            "// Server.Start runs reconcile before any feature starts — then runs the queue."
+          ]
+        },
+        {
+          "key": "internal/server/restart.go:2bf2305c55b0a718",
+          "path": "internal/server/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *restartFeature) fire(ctx context.Context, id int64) {",
+            "line": 83
+          },
+          "lines": [
+            "// fire restarts a queued session if, under its lock, it is still restart-pending and free: an",
+            "// earlier restart, a death, Remove or a state change since it was queued all make it a no-op."
+          ]
+        },
+        {
+          "key": "internal/server/restart.go:5365bd5d0f140f40",
+          "path": "internal/server/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *restartFeature) restartLocked(ctx context.Context, id int64) error {",
+            "line": 94
+          },
+          "lines": [
+            "// restartLocked is Stop then Resume for id, the caller holding its per-session lock. A failed",
+            "// Stop leaves the session alive and untouched with its pending mark cleared; a failed Resume",
+            "// leaves it ended and resumable, its mark already cleared by the death."
+          ]
+        },
+        {
+          "key": "internal/server/restart.go:8da902cf9a942487",
+          "path": "internal/server/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *restartFeature) restartOne(ctx context.Context, id int64) restartOutcome {",
+            "line": 151
+          },
+          "lines": [
+            "// restartOne classifies id and acts on it under its own per-session lock."
+          ]
+        },
+        {
+          "key": "internal/server/sessionwire.go:0dc7269cb3ec0d7b",
+          "path": "internal/server/sessionwire.go",
+          "anchor": {
+            "kind": "above",
+            "text": "ClaudeVersion *sessionWireClaudeVersion `json:\"claudeVersion\"`",
+            "line": 58
+          },
+          "lines": [
+            "// ClaudeVersion and RestartPending (kb:anchor/ws.session): the Claude Code version the",
+            "// session's process reported and whether it is older than the installed one, null until a",
+            "// status post reports one; and a confirmed restart waiting for the session to be free.",
+            "// Required keys on every Session object."
+          ]
+        },
+        {
+          "key": "internal/session/manager.go:c12f80b0e89d891c",
+          "path": "internal/session/manager.go",
+          "anchor": {
+            "kind": "above",
+            "text": "OnRestartDue func(id int64)",
+            "line": 98
+          },
+          "lines": [
+            "// OnRestartDue is called, outside mu, with the id of every upsert that shows a",
+            "// restart-pending session free (restartDue); may be nil. It must not block."
+          ]
+        },
+        {
+          "key": "internal/session/restart.go:ac9bd666cad4b090",
+          "path": "internal/session/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "var ErrNotBehind = errors.New(\"session not behind\")",
+            "line": 11
+          },
+          "lines": [
+            "// ErrNotBehind is SetRestartPending's refusal to mark a session that is dead or not behind."
+          ]
+        },
+        {
+          "key": "internal/session/restart.go:764edebc1b8079a6",
+          "path": "internal/session/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type RestartClass int",
+            "line": 13
+          },
+          "lines": [
+            "// RestartClass is what a restart batch does with one listed session."
+          ]
+        },
+        {
+          "key": "internal/session/restart.go:d47bcf1afd6d8b43",
+          "path": "internal/session/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (s *Session) restartFree() bool {",
+            "line": 21
+          },
+          "lines": [
+            "// restartFree is the rule for \"free\": idle with no background tasks, or failed."
+          ]
+        },
+        {
+          "key": "internal/session/restart.go:95d41119afedd4f8",
+          "path": "internal/session/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func restartDue(s *Session) bool {",
+            "line": 25
+          },
+          "lines": [
+            "// restartDue reports a session whose queued restart can run: pending, alive and free."
+          ]
+        },
+        {
+          "key": "internal/session/restart.go:8c3aa28b5fc88b4d",
+          "path": "internal/session/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) SetInstalledClaude(ctx context.Context, installed *string) {",
+            "line": 58
+          },
+          "lines": [
+            "// SetInstalledClaude records the installed Claude Code version (nil = unknown) and",
+            "// broadcasts one sessionUpsert for each session whose ClaudeBehind or RestartPending",
+            "// changed, none for the rest."
+          ]
+        },
+        {
+          "key": "internal/session/restart.go:175c074c3782e455",
+          "path": "internal/session/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) ClassifyRestart(id int64) RestartClass {",
+            "line": 91
+          },
+          "lines": [
+            "// ClassifyRestart reads what a restart batch does with id now: skip a session that is",
+            "// unknown, dead, without a reported version, not behind or without a bound Claude session;",
+            "// restart a behind free one at once; queue a behind busy one."
+          ]
+        },
+        {
+          "key": "internal/session/restart.go:f91bb4c582dea51f",
+          "path": "internal/session/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) SetRestartPending(ctx context.Context, id int64, pending bool) (bool, error) {",
+            "line": 105
+          },
+          "lines": [
+            "// SetRestartPending marks or unmarks id's queued restart, persisting and broadcasting one",
+            "// upsert only when the mark changed. Marking a session that is dead or not behind is",
+            "// ErrNotBehind. Callers hold id's per-session lock."
+          ]
+        },
+        {
+          "key": "internal/session/restart.go:96463790b4e73b37",
+          "path": "internal/session/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) RestartDue() []int64 {",
+            "line": 129
+          },
+          "lines": [
+            "// RestartDue lists the sessions whose queued restart can run now — the sweep a daemon",
+            "// start makes once reconcile has finished."
+          ]
+        },
+        {
+          "key": "internal/session/restart.go:0f3b81859fb43d16",
+          "path": "internal/session/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) IsRestartDue(id int64) bool {",
+            "line": 141
+          },
+          "lines": [
+            "// IsRestartDue reports whether id's queued restart can run now, the check a queued restart",
+            "// repeats under the session's lock before it runs."
+          ]
+        },
+        {
+          "key": "internal/session/session.go:65010721aa616dea",
+          "path": "internal/session/session.go",
+          "anchor": {
+            "kind": "above",
+            "text": "ClaudeVersion string",
+            "line": 218
+          },
+          "lines": [
+            "// ClaudeVersion is the Claude Code version the session's process last reported on the",
+            "// status line, \"\" = none since the last launch or resume and on every dead session.",
+            "// ClaudeBehind is derived from it and the installed version (Manager.installedClaude):",
+            "// alive, both known, running older. RestartPending is a confirmed restart waiting for the",
+            "// session to be free: it implies Alive and ClaudeBehind, and is persisted. All three are",
+            "// display-only, never read by the state machine. Written under Manager.mu by adoptClaudeVersion",
+            "// (ApplyStatus), settleClaudeBehindLocked (ApplyStatus, SetInstalledClaude), SetRestartPending",
+            "// and LoadAll, and cleared by markEnded, RecordLaunch and RecordResume."
+          ]
+        },
+        {
+          "key": "internal/session/status.go:14ec5a4310aea876",
+          "path": "internal/session/status.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func statusWireChanged(prev, sess *Session) bool {",
+            "line": 63
+          },
+          "lines": [
+            "// statusWireChanged reports whether a routed status post changed anything the wire object",
+            "// carries, comparing sess after it with prev, the clone taken before: Model, Context, Cache,",
+            "// Effort and EffortWarning are always replaced wholesale on a real change (never mutated in",
+            "// place, applyStatusUpdate's own doc), so a pointer inequality is exactly \"this field",
+            "// changed\"; DisplayTitle() folds in TitleOverride, so a Claude-name-only change while an",
+            "// override is set compares equal and does not broadcast",
+            "// (kb:adr/rename-muster-owned-title-override-wins, kb:anchor/ws.session's no-no-op-upserts rule).",
+            "// A ClaudeDir-only change is not wire-visible: the repo poll derives claudeLocation from it."
+          ]
+        },
+        {
+          "key": "internal/store/session.go:c5c1584a422e80a7",
+          "path": "internal/store/session.go",
+          "anchor": {
+            "kind": "above",
+            "text": "ClaudeVersion *string",
+            "line": 131
+          },
+          "lines": [
+            "// ClaudeVersion is the Claude Code version the session's status line last reported,",
+            "// NULL = none since the last launch or resume; RestartPending is a confirmed restart",
+            "// waiting for the session to be free."
+          ]
+        },
+        {
+          "key": "web/src/api/sessions.ts:5ee8409fe1aebebc",
+          "path": "web/src/api/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export async function restartSessions(ids: readonly number[]): Promise\u003cApiResult\u003cRestartResult\u003e\u003e {",
+            "line": 155
+          },
+          "lines": [
+            "/** `POST /api/sessions/restart` (kb:anchor/sessions.restart-many): restart onto the installed",
+            "* Claude Code. A free, behind session is stopped and resumed in place at once (`done`); a busy",
+            "* one is marked restart-pending (`queued`) and restarted by the daemon when it is free. `200`",
+            "* whatever the mix; a `skipped` id was unknown, not alive, not behind or unbound at its turn. */"
+          ]
+        },
+        {
+          "key": "web/src/app.ts:a8ff9f44cabe5de9",
+          "path": "web/src/app.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "claudeCode: (claudeCode: ClaudeCodeInfo) =\u003e void;",
+            "line": 67
+          },
+          "lines": [
+            "// WS hello and every `claudeCode` push (kb:anchor/ws.claude-code), emitted by",
+            "// features/connection.ts, which owns the readout — features/restart.ts reads the installed",
+            "// version from it."
+          ]
+        },
+        {
+          "key": "web/src/features/connection.ts:1fcd7f3d2ccb2013",
+          "path": "web/src/features/connection.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "restartNoticeLabel(sessions: readonly Session[]): string | null;",
+            "line": 33
+          },
+          "lines": [
+            "/** features/restart.ts: the readout's text while the restart notice shows, else `null`. The",
+            "* readout stays this module's to write; the notice only changes what it says and makes it a",
+            "* button. */"
+          ]
+        },
+        {
+          "key": "web/src/features/connection.ts:262b8efddec906ae",
+          "path": "web/src/features/connection.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "toggleRestartPanel(): void;",
+            "line": 34
+          },
+          "lines": [
+            "/** The notice button's click — features/restart.ts opens or closes its panel. */"
+          ]
+        },
+        {
+          "key": "web/src/features/connection.ts:757daa604ed60e45",
+          "path": "web/src/features/connection.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "let claudeCode: ClaudeCodeInfo | null = null;",
+            "line": 94
+          },
+          "lines": [
+            "// `null` until the first hello: the readout reads \"unknown, not empty\" (design-system §6)."
+          ]
+        },
+        {
+          "key": "web/src/features/connection.ts:97a62413cbeddfc8",
+          "path": "web/src/features/connection.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "let lastReadoutKey: string | null = null;",
+            "line": 95
+          },
+          "lines": [
+            "// What the readout was last drawn from: the render tick redraws it for the restart notice, and",
+            "// an unchanged description is never written."
+          ]
+        },
+        {
+          "key": "web/src/features/restart.ts:6dd2461f8679503a",
+          "path": "web/src/features/restart.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { App } from \"../app\";",
+            "line": 1
+          },
+          "lines": [
+            "// Restart onto the installed Claude Code (kb:anchor/sessions.restart-many): the panel under the",
+            "// masthead's Claude version readout, Ignore, the confirm dialog and the POST. `connection.ts`",
+            "// owns the readout itself and receives this module's label and toggle through its structurally",
+            "// typed `ConnectionDeps` — the one contact point, like `updaterestart.ts`'s banner override.",
+            "// The installed version arrives as the `claudeCode` app event; Ignore lives in session storage,",
+            "// per tab and per installed version (kb:adr/restart-notice-is-the-claude-version-readout)."
+          ]
+        },
+        {
+          "key": "web/src/features/restart.ts:cc804b9206ccde02",
+          "path": "web/src/features/restart.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "noticeLabel(sessions: readonly Session[]): string | null;",
+            "line": 24
+          },
+          "lines": [
+            "/** The readout's text while a notice shows, else `null`. */"
+          ]
+        },
+        {
+          "key": "web/src/features/restart.ts:7b2b0ab0bde7e8ba",
+          "path": "web/src/features/restart.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "togglePanel(): void;",
+            "line": 25
+          },
+          "lines": [
+            "/** The readout button's click. */"
+          ]
+        },
+        {
+          "key": "web/src/features/restartnotice.ts:441dd8b1309dc2bb",
+          "path": "web/src/features/restartnotice.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { Session } from \"../protocol/session\";",
+            "line": 1
+          },
+          "lines": [
+            "// The Claude Code restart notice, DOM-free: which sessions it counts, the masthead readout's label,",
+            "// the panel's text, and the per-tab Ignore (session storage, keyed by the installed version —",
+            "// kb:adr/restart-notice-is-the-claude-version-readout). One controller, features/restart.ts, calls",
+            "// it; features/connection.ts only receives the label."
+          ]
+        },
+        {
+          "key": "web/src/features/restartnotice.ts:67f15fc5fd1faa2e",
+          "path": "web/src/features/restartnotice.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "behind: readonly Session[];",
+            "line": 11
+          },
+          "lines": [
+            "/** Alive, behind and not pending, unless Ignore hides them: the sessions Restart… offers. */"
+          ]
+        },
+        {
+          "key": "web/src/features/restartnotice.ts:3ce7d98cea5781a7",
+          "path": "web/src/features/restartnotice.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "pending: readonly Session[];",
+            "line": 12
+          },
+          "lines": [
+            "/** Alive with a confirmed restart waiting for them to be free. */"
+          ]
+        },
+        {
+          "key": "web/src/features/restartnotice.ts:c1b27caa74f2c39b",
+          "path": "web/src/features/restartnotice.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function compareVersions(a: string, b: string): number {",
+            "line": 24
+          },
+          "lines": [
+            "/** Negative when `a` is the older version; an unparseable one sorts last. */"
+          ]
+        },
+        {
+          "key": "web/src/features/restartnotice.ts:36773e2390331a20",
+          "path": "web/src/features/restartnotice.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function behindLabel(oldest: string, installed: string): string {",
+            "line": 31
+          },
+          "lines": [
+            "/** `claude \u003coldest\u003e→\u003cpatch\u003e` when the oldest behind version shares major.minor with the",
+            "* installed one, else `claude →\u003cinstalled\u003e`. */"
+          ]
+        },
+        {
+          "key": "web/src/features/restartnotice.ts:2b14aed54919a6ce",
+          "path": "web/src/features/restartnotice.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function deriveRestartNotice(",
+            "line": 45
+          },
+          "lines": [
+            "/** The notice over `sessions`, or `null` when none shows: the installed version is unknown, or no",
+            "* session is behind (and not ignored) or pending. Pending sessions show whatever Ignore says. */"
+          ]
+        },
+        {
+          "key": "web/src/features/restartnotice.ts:767a5b78fccaf063",
+          "path": "web/src/features/restartnotice.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function readIgnoredInstalled(storage: Pick\u003cStorageLike, \"getItem\"\u003e): string | null {",
+            "line": 87
+          },
+          "lines": [
+            "/** The installed version Ignore was last pressed for in this tab, or `null` (nothing stored, a",
+            "* foreign shape, or a storage that throws). */"
+          ]
+        },
+        {
+          "key": "web/src/features/restartplan.ts:727b65bcafc6dc98",
+          "path": "web/src/features/restartplan.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { Session } from \"../protocol/session\";",
+            "line": 1
+          },
+          "lines": [
+            "// Which live sessions a Claude Code restart offers, which of them restart at once and which wait",
+            "// until they are free, and the words for each: DOM-free, so the rule is pinned by a unit test and",
+            "// read in one place by the restart panel and dialog (kb:adr/restart-busy-sessions-queued-until-free).",
+            "// The daemon decides at confirm; this only predicts the two lists as of the moment they are built."
+          ]
+        },
+        {
+          "key": "web/src/features/restartplan.ts:2b7becc739a657a8",
+          "path": "web/src/features/restartplan.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export type RestartCandidate = Pick\u003c",
+            "line": 6
+          },
+          "lines": [
+            "/** The fields the plan reads; a `Session` satisfies it. */"
+          ]
+        },
+        {
+          "key": "web/src/features/restartplan.ts:e7fed1669d63a107",
+          "path": "web/src/features/restartplan.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "ids: number[];",
+            "line": 14
+          },
+          "lines": [
+            "/** Every id the confirm posts: `now` then `whenFree`. */"
+          ]
+        },
+        {
+          "key": "web/src/features/restartplan.ts:6107ee701db82b43",
+          "path": "web/src/features/restartplan.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function isFree(session: Pick\u003cSession, \"state\" | \"backgroundTasks\"\u003e): boolean {",
+            "line": 18
+          },
+          "lines": [
+            "/** Idle with no background tasks, or failed: the sessions that restart at once. */"
+          ]
+        },
+        {
+          "key": "web/src/features/restartplan.ts:cbe63d450820ebed",
+          "path": "web/src/features/restartplan.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function isOfferedRestart(session: RestartCandidate): boolean {",
+            "line": 22
+          },
+          "lines": [
+            "/** Alive, older than the installed Claude Code, and not already waiting for a restart. */"
+          ]
+        },
+        {
+          "key": "web/src/features/restartplan.ts:44b66fbbc5935dea",
+          "path": "web/src/features/restartplan.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function restartReason(session: Pick\u003cSession, \"state\" | \"backgroundTasks\"\u003e): string {",
+            "line": 39
+          },
+          "lines": [
+            "/** Why a session restarts at once or waits. */"
+          ]
+        },
+        {
+          "key": "web/src/features/restartplan.ts:0fcfa787969d1849",
+          "path": "web/src/features/restartplan.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function restartConfirmLabel(now: number, queued: number): string {",
+            "line": 50
+          },
+          "lines": [
+            "/** `Restart N, queue M`, `Restart N` or `Queue M` (the confirm's label states the mix). */"
+          ]
+        },
+        {
+          "key": "web/src/features/restartplan.ts:69d714065c775003",
+          "path": "web/src/features/restartplan.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function sessionsRunOlder(count: number): string {",
+            "line": 55
+          },
+          "lines": [
+            "/** `1 live session runs` / `N live sessions run`. */"
+          ]
+        },
+        {
+          "key": "web/src/features/restartplan.ts:1854c0e6f2e9d499",
+          "path": "web/src/features/restartplan.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function buildDialogModel(plan: RestartPlan, installed: string): RestartDialogModel {",
+            "line": 59
+          },
+          "lines": [
+            "/** The dialog's text for `plan` on `installed`. */"
+          ]
+        },
+        {
+          "key": "web/src/features/restartplan.ts:4837054f5afa30b9",
+          "path": "web/src/features/restartplan.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function buildRestartPlan(sessions: readonly RestartCandidate[]): RestartPlan | null {",
+            "line": 69
+          },
+          "lines": [
+            "/** The dialog's two lists over `sessions`, or `null` when none is offered. */"
+          ]
+        },
+        {
+          "key": "web/src/protocol/batch.ts:be4173aaa6aac4e9",
+          "path": "web/src/protocol/batch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface RestartResult extends BatchResult {",
+            "line": 18
+          },
+          "lines": [
+            "/** The report of `POST /api/sessions/restart` (kb:anchor/sessions.restart-many): a batch's",
+            "* `done`/`skipped`/`failed` plus the ids marked restart-pending instead of restarted. */"
+          ]
+        },
+        {
+          "key": "web/src/protocol/session.ts:6ba39cd12f6aeab7",
+          "path": "web/src/protocol/session.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface SessionClaudeVersion {",
+            "line": 130
+          },
+          "lines": [
+            "// kb:anchor/ws.session `claudeVersion`: the Claude Code version a live session's status line",
+            "// last reported, and whether it is older than the installed one. `null` on the Session until",
+            "// a status post carried a parseable version since the last launch or resume."
+          ]
+        },
+        {
+          "key": "web/src/protocol/session.ts:8e91725888f9d883",
+          "path": "web/src/protocol/session.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "restartPending: boolean;",
+            "line": 208
+          },
+          "lines": [
+            "// kb:anchor/ws.session: a restart onto the installed Claude Code was confirmed while the",
+            "// session was busy and has not run yet (kb:anchor/sessions.restart-many)."
+          ]
+        },
+        {
+          "key": "web/src/render/masthead.ts:65f1cb1f3c5c7d38",
+          "path": "web/src/render/masthead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "notice?: ClaudeNoticeDescription;",
+            "line": 309
+          },
+          "lines": [
+            "/** Present while the restart notice shows: the readout is then a button. `onActivate` is bound",
+            "* once, when the button is built, so the caller passes the same function every render. */"
+          ]
+        },
+        {
+          "key": "web/src/render/restartdialog.ts:14e4b2ba04be5e8b",
+          "path": "web/src/render/restartdialog.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import { buildRestartRow, type RestartRow } from \"./restartpanel\";",
+            "line": 1
+          },
+          "lines": [
+            "// The restart confirm dialog's content (`#restart-dialog`, index.html): the head, the sentence,",
+            "// the two collapsible sections and the confirm's label. DOM only, written once per open from the",
+            "// model `features/restartplan.ts`'s `buildDialogModel` produces — the dialog is modal and its",
+            "// rows are as of opening, so the 1s render tick never touches it."
+          ]
+        },
+        {
+          "key": "web/src/render/restartdialog.ts:f1f4da78ba1214e2",
+          "path": "web/src/render/restartdialog.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function renderRestartDialog(els: RestartDialogElements, model: RestartDialogModel): void {",
+            "line": 33
+          },
+          "lines": [
+            "/** Fills the dialog for `model`; the caller opens it. */"
+          ]
+        },
+        {
+          "key": "web/src/render/restartpanel.ts:71db6beab9649c8c",
+          "path": "web/src/render/restartpanel.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "/** One session in a restart list: its display title and why it restarts at once or waits. */",
+            "line": 0
+          },
+          "lines": [
+            "// The panel under the masthead's Claude version readout (`#restart-panel`, index.html): the head,",
+            "// the two counts with Ignore and Restart…, and the queued list. DOM only, written in place on",
+            "// every render tick — the panel's nodes are static markup, a count row or section is hidden",
+            "// rather than rebuilt, and only the queued list's rows are rebuilt, and only when their content",
+            "// changes, so a focused button never loses focus to the tick. `features/restartnotice.ts`'s",
+            "// `buildPanelModel` is the one producer of `RestartPanelModel` and supplies every string."
+          ]
+        },
+        {
+          "key": "web/src/render/restartpanel.ts:35e0a0a5e5bb0a06",
+          "path": "web/src/render/restartpanel.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface RestartRow {",
+            "line": 1
+          },
+          "lines": [
+            "/** One session in a restart list: its display title and why it restarts at once or waits. */"
+          ]
+        },
+        {
+          "key": "web/src/render/restartpanel.ts:98aa85ac82654001",
+          "path": "web/src/render/restartpanel.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function renderCounts(els: RestartPanelElements, now: number, whenFree: number): void {",
+            "line": 44
+          },
+          "lines": [
+            "/** A count of 0 is omitted from the list, not hidden; the rows are static nodes held in `els`, so",
+            "* the list is only touched when which of them belong in it changes. */"
+          ]
+        },
+        {
+          "key": "web/src/render/restartpanel.ts:8d1b71f192ebabfd",
+          "path": "web/src/render/restartpanel.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function renderRestartPanel(els: RestartPanelElements, model: RestartPanelModel): void {",
+            "line": 62
+          },
+          "lines": [
+            "/** Applies one model. If the controls the keyboard was on go away (the behind part hides), focus",
+            "* moves to the panel itself rather than falling to the page. */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-11-04T20:04:18Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 10,
+        "keep": 4,
+        "drop": 6
+      },
+      "keeps": [
+        {
+          "key": "internal/server/restart.go:ad5b423584d63696",
+          "path": "internal/server/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "mu sync.Mutex",
+            "line": 25
+          },
+          "lines": [
+            "// queued and wake carry session ids from enqueue (any goroutine: the manager's upsert",
+            "// callback, installedKnown's sweep) to run, the one consumer. queued is guarded by mu;",
+            "// wake has capacity 1 so a signal is never lost and never blocks a producer."
+          ],
+          "reason": "Orchestrator override: docs/conventions.md Design section, shared state names its writers and its guard at its declaration; kept in cycle 1, rewritten for installedKnown."
+        },
+        {
+          "key": "internal/server/sessionwire.go:26095e780b408c06",
+          "path": "internal/server/sessionwire.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type restartBatchWire struct {",
+            "line": 257
+          },
+          "lines": [
+            "// restartBatchWire is the restart endpoint's report (kb:anchor/sessions.restart-many): the",
+            "// batch shape plus the queued list."
+          ],
+          "reason": "Orchestrator override: wire shapes cite their protocol anchor (kb:anchor/sessions.restart-many), as every sibling type in this file does."
+        },
+        {
+          "key": "internal/session/actions.go:09c19d7a68ff669c",
+          "path": "internal/session/actions.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type BatchResult struct {",
+            "line": 98
+          },
+          "lines": [
+            "// BatchResult is what a batch did, by session id (kb:anchor/sessions.end-many,",
+            "// kb:adr/actions-bulk-stop-remove-are-daemon-batches). Skipped names a session that was",
+            "// unknown at its turn or, for End, no longer alive; Failed one whose operation genuinely",
+            "// failed, which a Remove leaves in place. Queued is filled only by a restart batch, for a",
+            "// session marked to restart when it is free."
+          ],
+          "reason": "Orchestrator override: rewrite of the BatchResult doc that exists on main (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added)."
+        },
+        {
+          "key": "internal/session/actions.go:6290c6ab85d4eef9",
+          "path": "internal/session/actions.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) RunBatch(ids []int64, what string, op func(id int64) (BatchOutcome, error)) (BatchResult, error) {",
+            "line": 145
+          },
+          "lines": [
+            "// RunBatch is the one loop behind every list-of-sessions action (End, Remove, Restart): op",
+            "// runs with id's lock held, an op error of ErrUnknownSession or ErrSessionNotAlive skips the",
+            "// id, any other error fails it, and a nil error files it under the outcome op returned. It",
+            "// refuses a list naming an id twice (ErrInvalidOrder) before running anything, the rule",
+            "// the batch endpoints' handlers leave to this package as the rail-order ones do."
+          ],
+          "reason": "Orchestrator override: the runBatch doc on main moved here with RunBatch; it carries the repeated-id rule that decodeBatchRequest's comment in internal/server/actions.go points to (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added)."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/server/restart.go:1072c9dc7bb4ad13",
+          "path": "internal/server/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *restartFeature) installedKnown(ctx context.Context, installed *string) {",
+            "line": 48
+          },
+          "lines": [
+            "// installedKnown takes each installed-version result from the claude version watch. The",
+            "// first one releases the pending marks held since the daemon started (Manager.SetInstalledClaude",
+            "// re-derives them), and the sweep then queues every free session still marked, so a restart",
+            "// never fires against an unknown installed version."
+          ]
+        },
+        {
+          "key": "internal/session/actions.go:4761c50a0a79eb5b",
+          "path": "internal/session/actions.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type BatchOutcome int",
+            "line": 102
+          },
+          "lines": [
+            "// BatchOutcome is what a batch operation that returned no error did to its session."
+          ]
+        },
+        {
+          "key": "internal/session/actions.go:224f691b73a186bf",
+          "path": "internal/session/actions.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) runBatch(ids []int64, what string, op func(id int64) error) (BatchResult, error) {",
+            "line": 141
+          },
+          "lines": [
+            "// runBatch is EndMany's and RemoveMany's adapter onto RunBatch: an op with no error is Done."
+          ]
+        },
+        {
+          "key": "internal/session/restart.go:c24de7ebe2009694",
+          "path": "internal/session/restart.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) settleClaudeBehindLocked(sess *Session) bool {",
+            "line": 47
+          },
+          "lines": [
+            "// settleClaudeBehindLocked recomputes ClaudeBehind from the session's running version and",
+            "// the installed one, dropping a pending restart in the same step when the session is no",
+            "// longer behind. Until the first SetInstalledClaude nothing is known about the installed",
+            "// version, so nothing is behind and a mark reloaded at daemon start stays held, off the",
+            "// wire; the first result turns a held mark into a pending one for a session still behind",
+            "// and drops it otherwise. Reports whether anything persisted changed. The caller holds m.mu."
+          ]
+        },
+        {
+          "key": "internal/session/session.go:50fa010dff02d9e9",
+          "path": "internal/session/session.go",
+          "anchor": {
+            "kind": "above",
+            "text": "restartHeld bool",
+            "line": 222
+          },
+          "lines": [
+            "// restartHeld is a pending mark reloaded from the store that no installed-version result",
+            "// has yet confirmed: off the wire, never due, written back as restart_pending so a crash",
+            "// keeps it. Set by LoadAll, resolved by settleClaudeBehindLocked, cleared with the version;",
+            "// all under Manager.mu."
+          ]
+        },
+        {
+          "key": "web/src/sessions/card.ts:e99c4b14c1ae4fcc",
+          "path": "web/src/sessions/card.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function backgroundTaskCount(n: number): string {",
+            "line": 413
+          },
+          "lines": [
+            "/** The count phrase for background tasks — the one owner of its singular and plural wording. */"
+          ]
+        }
+      ]
+    }
+  ]
+}

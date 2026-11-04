@@ -35,6 +35,8 @@ export function makeSession(overrides: Partial<Session> & { id: number }): Sessi
     groupId: null,
     effort: null,
     effortWarning: null,
+    claudeVersion: null,
+    restartPending: false,
     note: null,
     cache: null,
     ...overrides,

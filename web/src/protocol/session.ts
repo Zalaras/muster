@@ -127,6 +127,11 @@ export interface SessionPlan {
   exists: boolean;
 }
 
+export interface SessionClaudeVersion {
+  running: string;
+  behind: boolean;
+}
+
 // Full shape per kb:anchor/ws.session; parseSession below validates every field rather
 // than trusting the daemon.
 export interface Session {
@@ -199,6 +204,8 @@ export interface Session {
   groupId: number | null;
   effort: SessionEffort | null;
   effortWarning: EffortWarning | null;
+  claudeVersion: SessionClaudeVersion | null;
+  restartPending: boolean;
 }
 
 function isSessionState(value: unknown): value is SessionState {
@@ -309,6 +316,15 @@ function parseEffortWarning(value: unknown): EffortWarning | null {
   return { requested, actual, model };
 }
 
+function parseSessionClaudeVersion(value: unknown): SessionClaudeVersion | null {
+  if (!isRecord(value)) return null;
+  const running = value["running"];
+  const behind = value["behind"];
+  if (typeof running !== "string" || running === "") return null;
+  if (typeof behind !== "boolean") return null;
+  return { running, behind };
+}
+
 function parseSessionPlan(value: unknown): SessionPlan | null {
   if (!isRecord(value)) return null;
   const path = value["path"];
@@ -362,6 +378,8 @@ export function parseSession(value: unknown): Session | null {
   const groupId = value["groupId"];
   const rawEffort = value["effort"];
   const rawEffortWarning = value["effortWarning"];
+  const rawClaudeVersion = value["claudeVersion"];
+  const restartPending = value["restartPending"];
 
   if (typeof id !== "number") return null;
   if (!isNullableString(title)) return null;
@@ -429,6 +447,10 @@ export function parseSession(value: unknown): Session | null {
   const effortWarning = parseNullable(rawEffortWarning, parseEffortWarning);
   if (effortWarning === undefined) return null;
 
+  const claudeVersion = parseNullable(rawClaudeVersion, parseSessionClaudeVersion);
+  if (claudeVersion === undefined) return null;
+  if (typeof restartPending !== "boolean") return null;
+
   return {
     id,
     title,
@@ -462,5 +484,7 @@ export function parseSession(value: unknown): Session | null {
     groupId: parsedGroupId,
     effort,
     effortWarning,
+    claudeVersion,
+    restartPending,
   };
 }

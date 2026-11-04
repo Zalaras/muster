@@ -50,6 +50,10 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-plain",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -86,6 +90,7 @@
           "isWorktree": false,
           "name": "repo"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "ad-plain-3",

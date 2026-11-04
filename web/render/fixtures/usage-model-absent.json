@@ -37,6 +37,10 @@
         "cache": null,
         "claudeLocation": null,
         "claudeSessionId": "cs-iota",
+        "claudeVersion": {
+          "behind": false,
+          "running": "2.1.233"
+        },
         "context": {
           "compactions": 0,
           "totalInputTokens": 84000,
@@ -73,6 +77,7 @@
           "isWorktree": false,
           "name": "iota"
         },
+        "restartPending": false,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "model-week",
