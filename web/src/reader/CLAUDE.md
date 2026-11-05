@@ -6,8 +6,9 @@ a file's raw text into a table/raw-fallback shape (`frontmatter.ts`), heading-id
 (`slug.ts`), the nav tree (`tree.ts`), the freshness cue's text (`freshness.ts`), the
 browser-side "last open file / which writes are acknowledged / expanded folders and nav
 folds" memory (`memory.ts`),
-the loading-cue status text (`paths.ts`, built on `basename` from `sessions/paths.ts` — that
-one function lives below `reader/` so the directory graph stays acyclic), mermaid
+the loading-cue status text (`paths.ts`, on `sessions/paths.ts`'s `basename`, kept below
+`reader/` for acyclic imports), status-line text and `docChanged` classification
+(`notice.ts`), the `?session=` parse shared with `features/noteswindows.ts` (`query.ts`), mermaid
 fence/theme/error-text/id helpers (`mermaid.ts`) and the diagram modal's zoom/pan
 arithmetic (`zoom.ts`) and the find bar's literal matcher and match stepping (`find.ts`). `render/reader.ts`
 draws the results; `render/mermaid.ts` and `render/diagrams.ts` are the DOM half of the

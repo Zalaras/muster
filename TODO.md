@@ -197,15 +197,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
 
 ## Tooling and docs
 
-- [ ] **Render tests that hold the banner up by closing `/ws` may flake** — the banner/readout-over-panel
-  render tests in `web/render/notes-places.spec.ts` cycle the socket every ~500 ms, so a hit test
-  that lands in the gap could fail. Green in every gate run so far. From
-  `plans/popped-out-note-enhance/`.
-
-- [ ] **`web/src/reader/CLAUDE.md` does not name `query.ts`** — the shared `?session=` parse lives in
-  `web/src/reader/query.ts`, which the reader directory brief omits (it is at its word budget). From
-  `plans/popped-out-note-enhance/`.
-
 - [ ] **Revisit plan size** — the 600-word plans finish in one review cycle and under an hour; the
   3,000–6,000-word ones take three cycles and 4–14 h (orchestration-state.json across every run,
   measured 2026-11-04). Splitting is often hard and means more parallel runs to get the same

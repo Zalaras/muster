@@ -2585,6 +2585,15 @@ that the dashboard shows.
 - [x] **Plan IDs remain in test-file comments** ✅ done 2026-10-31 (a plan and a commit; ~2,650 comment lines across 340 test files reworded, code tokens unchanged; test titles keep their IDs; the per-agent comment check now flags plan IDs in test files) — about 370 lines; production code is clean.
   From `plans/maintainability-cleanup/`.
 
+- [x] **Render tests that hold the banner up by closing `/ws` may flake** ✅ closed 2026-11-05 (no change: measured, not a flake; the developer's call). The gap is real but no hit test can see it. Every `hello` resets the reconnect backoff, so the faked socket reopens every 500 ms (8 sockets in 4 s), and a MutationObserver saw `#banner` hide 7 times in 4 s, about 6 ms each. But 1,500 one-shot `elementFromPoint` probes, the same check as `hitIn`, hit the banner every time, including under 12 CPU hogs (load average 224) with Chrome throttled 6×. The three daemon-down tests (`notes-places.spec.ts` banner and readout, `notes-window.spec.ts` R13) passed 150/150 at 8 workers and 150/150 at 12 workers under that load. The hide seems to happen while the faked `hello` and close are handled back to back, so Playwright never gets a turn in between. The entry came from a cycle-3 review note, and no failure was ever observed. If these tests do flake, the fix is to send `hello` on the first socket only and let later ones close silently: zero banner changes, measured — the banner/readout-over-panel
+  render tests in `web/render/notes-places.spec.ts` cycle the socket every ~500 ms, so a hit test
+  that lands in the gap could fail. Green in every gate run so far. From
+  `plans/popped-out-note-enhance/`.
+
+- [x] **`web/src/reader/CLAUDE.md` does not name `query.ts`** ✅ done 2026-11-05 (a plan and a commit; the brief names `query.ts` and also `notice.ts`, which it omitted too; shortened the `paths.ts` aside to stay at 399 words) — the shared `?session=` parse lives in
+  `web/src/reader/query.ts`, which the reader directory brief omits (it is at its word budget). From
+  `plans/popped-out-note-enhance/`.
+
 ## Bugs
 
 - [x] **5h gauge showing 100% after reset** ([#105](https://github.com/Zalaras/muster/issues/105)) ✅ done 2026-10-26 (plan `usage-bar-consistency`) — The
