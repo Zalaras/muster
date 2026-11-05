@@ -253,9 +253,14 @@ done || true
 # 15. Warn, never fail: every **Features** name packs its full record set into every agent, about
 #     11,000 words each on a shared file's co-owner (groups: fourteen features, 60k-word packs). A
 #     feature whose files the plan edits without changing its behaviour belongs under **Touches**.
+#     The review pack reads a touched feature in full too (restart-latest-claude: eleven, 86k words).
 nfeat=$(scope_names Features | wc -w | tr -d ' ')
 if (( nfeat > 5 )); then
   echo "NOTE  **Features** names $nfeat features — a feature whose behaviour this plan leaves alone belongs under **Touches** (spec and contract only)"
+fi
+ntouch=$(scope_names Touches | wc -w | tr -d ' ')
+if (( ntouch > 5 )); then
+  echo "NOTE  **Touches** names $ntouch features — each packs in full into the review pack; name only the owners of files this plan edits"
 fi
 
 # 17. An R* criterion is a render test against a generated fixture, so the plan must say which

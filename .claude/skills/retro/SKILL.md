@@ -145,7 +145,8 @@ Report, in this order, each item numbered:
    breakdown, so `wc -w` runs ~40 words high and the section that grew is read off the
    `kb: sections` line rather than derived); a pack over the `pack_words` budget `kb.yaml` sets (30,000)
    warns exactly like an agent file over its threshold (it is read on top of one) and names the record class that grew (`kb ls --role <r>`, by `date`); a
-   lesson no plan has cited in the last five runs is a *retire* proposal.
+   lesson whose point a script now enforces is a *retire* proposal (method as in § 2) — never
+   one merely uncited, since packs deliver lessons without a citation.
 
 The previous audit is `plans/_audit/skills-agents-audit.md`; write the new one
 beside it as `plans/_audit/audit-<date>.md` only if the developer asks for a file.
