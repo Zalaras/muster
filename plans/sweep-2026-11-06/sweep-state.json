@@ -1,0 +1,52 @@
+{
+  "sweep": "sweep-2026-11-06",
+  "parallel": 1,
+  "started_at": "2026-11-06T14:55:20Z",
+  "updated_at": "2026-11-06T17:04:31Z",
+  "batches": [
+    {
+      "n": 1,
+      "name": "sweep-2026-11-06-1",
+      "entries": [
+        "e1"
+      ],
+      "work_type": "web",
+      "status": "landed",
+      "worktree": "/Users/damian/Documents/code/Projects/muster-sweep-2026-11-06-1",
+      "branch": "plan/sweep-2026-11-06-1",
+      "pid": 66403,
+      "log": "plans/sweep-2026-11-06/batch-1.log",
+      "started_at": "2026-11-06T14:55:47Z",
+      "finished_at": "2026-11-06T15:49:18Z",
+      "subject": "fix(notes): popped note covers the connection dot while musterd is up (closes #116)",
+      "closes": [
+        116
+      ],
+      "landed_sha": "b9bf1531",
+      "error": null,
+      "question": null
+    },
+    {
+      "n": 2,
+      "name": "sweep-2026-11-06-2",
+      "entries": [
+        "e2"
+      ],
+      "work_type": "daemon",
+      "status": "landed",
+      "worktree": "/Users/damian/Documents/code/Projects/muster-sweep-2026-11-06-2",
+      "branch": "plan/sweep-2026-11-06-2",
+      "pid": 34485,
+      "log": "plans/sweep-2026-11-06/batch-2.log",
+      "started_at": "2026-11-06T15:49:48Z",
+      "finished_at": "2026-11-06T17:04:19Z",
+      "subject": "fix(connection): ask to save the -port value before serving starts (closes #120)",
+      "closes": [
+        120
+      ],
+      "landed_sha": "41520356",
+      "error": null,
+      "question": null
+    }
+  ]
+}
