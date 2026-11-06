@@ -107,13 +107,11 @@ type opts struct {
 // The wait starts from $MUSTER_GATELOCK_WAIT when set, else defaultWait.
 func parseOpts(args []string) (opts, error) {
 	o := opts{wait: defaultWait}
-	if v := os.Getenv(waitEnv); v != "" {
-		d, err := time.ParseDuration(v)
-		if err != nil || d < 0 {
-			return o, fmt.Errorf("%s=%q is not a duration (want e.g. 9m or 0)", waitEnv, v)
-		}
-		o.wait = d
+	w, err := envWait()
+	if err != nil {
+		return o, err
 	}
+	o.wait = w
 	modes := 0
 	for i := 0; i < len(args); i++ {
 		a := args[i]
@@ -150,6 +148,19 @@ func parseOpts(args []string) (opts, error) {
 		return o, errors.New("exactly one of --exclusive or --shared is required")
 	}
 	return o, nil
+}
+
+// envWait is $MUSTER_GATELOCK_WAIT when set, else defaultWait.
+func envWait() (time.Duration, error) {
+	v := os.Getenv(waitEnv)
+	if v == "" {
+		return defaultWait, nil
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil || d < 0 {
+		return 0, fmt.Errorf("%s=%q is not a duration (want e.g. 9m or 0)", waitEnv, v)
+	}
+	return d, nil
 }
 
 // take resolves re-entrancy, then acquires. covered means an ancestor already holds it

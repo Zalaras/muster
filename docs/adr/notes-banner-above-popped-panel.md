@@ -1,7 +1,7 @@
 ---
 id: notes-banner-above-popped-panel
 type: decision
-status: accepted
+status: superseded
 date: 2026-11-04
 summary: The daemon-down banner and the masthead's connection readout draw above a popped-out note panel, so a placed panel never hides the outage.
 features: [notes]

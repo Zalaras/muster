@@ -536,3 +536,26 @@ test("a drag in progress across Pop in leaves the session popped in: nothing sho
   await expect(popInNote(page)).toBeVisible();
   near(await settledBox(page), before);
 });
+
+test("a popped panel placed over the masthead's connection readout while musterd is connected is the hit target there (#116)", async ({
+  page,
+  dashboard,
+}) => {
+  await dashboard.open("notes");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const readout = await boxOf(page.locator("#connection-status"));
+  await popOut(page, LONG);
+  const box = await boxOf(notePanel(page));
+  await dragPanel(page, readout.x - 40 - box.x, -box.y);
+  await settledBox(page);
+  await expect(page.locator("#connection-status")).toHaveAttribute("data-health", "ok");
+  const r = await boxOf(page.locator("#connection-status"));
+  const panel = await boxOf(notePanel(page));
+  expect(r.x >= panel.x && r.x + r.width <= panel.x + panel.width, "readout under panel").toBe(
+    true,
+  );
+  expect(r.y >= panel.y && r.y + r.height <= panel.y + panel.height, "readout under panel").toBe(
+    true,
+  );
+  expect(await hitIn(page, r.x + r.width / 2, r.y + r.height / 2, ".npanel")).toBe(true);
+});

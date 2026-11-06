@@ -509,11 +509,14 @@ body {
 
 #connection-status {
   position: relative;
-  z-index: 46;
   display: inline-block;
   width: 14px;
   height: 14px;
   cursor: default;
+}
+
+#connection-status[data-health="down"] {
+  z-index: 46;
 }
 
 #connection-status::before {

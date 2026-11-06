@@ -10,7 +10,7 @@ go: [internal/server/note*.go, internal/session/note*.go]
 web: [web/src/features/notes*.ts, web/src/render/notes*.ts, web/src/note.ts, web/note.html, web/render/notes*.spec.ts, web/render/helpers/notes*.ts]
 e2e: [web/e2e/notes*.spec.ts, web/e2e/helpers/notes*.ts]
 protocol: [sessions.note]
-refs: [kb:adr/notes-banner-above-popped-panel, kb:adr/notes-window-says-musterd-unreachable-while-reconnecting, kb:adr/notes-unsaved-text-kept-in-browser-until-acknowledged, kb:adr/rename-muster-owned-title-override-wins, kb:adr/issue-payload-allowlist-never-dump, kb:adr/rail-timer-tinted-wherever-cache-warmth-known, kb:adr/theme-warn-tokens-not-amber]
+refs: [kb:adr/notes-readout-above-popped-panel-only-while-down, kb:adr/notes-window-says-musterd-unreachable-while-reconnecting, kb:adr/notes-unsaved-text-kept-in-browser-until-acknowledged, kb:adr/rename-muster-owned-title-override-wins, kb:adr/issue-payload-allowlist-never-dump, kb:adr/rail-timer-tinted-wherever-cache-warmth-known, kb:adr/theme-warn-tokens-not-amber]
 ---
 A session carries one note: the developer's own text about what they are doing and what to ask
 next, separate from the title and the rail's activity line. It is Muster-owned, like the title override
@@ -60,8 +60,9 @@ terminal keeps the keyboard while it is open. It drags by its header and resizes
 corner down to a size that still shows its controls and a few lines, anywhere inside the browser
 window, over the rail, the masthead and the Focus header included, and stays inside it through a
 window resize. It draws below menus and hover popovers, so a menu opened over it stays clickable,
-and below the daemon-down banner and the masthead's connection readout, so a placed panel never
-hides an outage (kb:adr/notes-banner-above-popped-panel). When focus moves to another session its
+and below the daemon-down banner, and below the masthead's connection readout only while it shows
+the outage; connected or connecting, the panel draws above the readout
+(kb:adr/notes-readout-above-popped-panel-only-while-down). When focus moves to another session its
 panel gives way to that session's own. It is hidden in Tiles and returns to the same place in
 Focus. Which sessions are popped out, and each one's rectangle, is remembered per browser tab across
 reloads; popping in or closing keeps the rectangle, an ended session keeps its place, and Remove

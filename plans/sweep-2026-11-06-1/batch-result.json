@@ -1,0 +1,9 @@
+{
+ "status": "completed",
+ "subject": "fix(notes): popped note covers the connection dot while musterd is up (closes #116)",
+ "closes": [
+  116
+ ],
+ "error": null,
+ "question": null
+}

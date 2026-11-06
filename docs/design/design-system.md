@@ -344,9 +344,10 @@ Open in window, Close when anchored; Pop in, Open in window, Close when popped o
 `hello` the note window's status reads `connecting…` in `--fg-dim`, not `--warn`; once its session
 is removed the body is replaced by `This session has been removed.` While its socket is reconnecting the
 note window's status reads `musterd unreachable` in `--warn` (kb:adr/notes-own-window-is-a-third-page).
-The popped panel draws below menus and hover popovers, and below the daemon-down banner and the
-masthead's connection readout, which stay readable over any placement
-(kb:adr/notes-banner-above-popped-panel).
+The popped panel draws below menus and hover popovers, and below the daemon-down banner, which stays
+readable over any placement; it draws below the masthead's connection readout only while that
+readout shows the outage, and above it otherwise
+(kb:adr/notes-readout-above-popped-panel-only-while-down).
 
 **Menu** (`render/menu.ts`, plan `groups`; kb:adr/web-menu-component-single-builder) — a
 `role="menu"` panel of `role="menuitem"` buttons anchored below its opener, or opened at the

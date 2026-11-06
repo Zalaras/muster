@@ -1,0 +1,53 @@
+{
+  "plan_name": "sweep-2026-11-06-1",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "render-tests": 0,
+    "e2e-validate": 0,
+    "review": 0,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [],
+  "step_started_at": {
+    "review": "2026-11-06T15:15:37Z",
+    "doc-reconcile": "2026-11-06T15:19:19Z"
+  },
+  "step_finished_at": {},
+  "step_attempts": {
+    "review": [
+      {
+        "start": "2026-11-06T15:15:37Z",
+        "finish": null
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-11-06T15:19:19Z",
+        "finish": null
+      }
+    ]
+  },
+  "started_at": "2026-11-06T14:56:41Z",
+  "updated_at": "2026-11-06T15:28:41Z",
+  "review_parts": {
+    "1": [
+      "code",
+      "browser"
+    ]
+  },
+  "review_verdicts": {
+    "1": "approved"
+  },
+  "review_commits": {
+    "1": "7a30ca88f1e997aeaa800e972ca47d49024861e6"
+  },
+  "closes_issues": [
+    116
+  ]
+}
