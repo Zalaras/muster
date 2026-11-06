@@ -153,14 +153,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   the session's list. Expected: each shape measured with `/interface-probe` and recorded as a fact,
   and the list behaves as measured. From `plans/see-added-dirs/`.
 
-- [ ] **Port not saving** ([#120](https://github.com/Zalaras/muster/issues/120)) — After setting the
-  port to 8766 twice, a plain start still tries port 8765 and fails because the address is already
-  in use; the save-port prompt appears but the choice does not persist. Expected: A port the author
-  chose and saved should be used on later starts without needing the port flag.
-  Reported error: "listen tcp 127.0.0.1:8765: bind: address already in use".
-  Filed 2026-11-06 from musterd 0.29.0 / Claude Code 2.1.317, focus view, session idle.
-  Labels: bug, settings.
-
 ## Tweaks
 
 - [ ] **Should select mode be disabled after an action?** ([#98](https://github.com/Zalaras/muster/issues/98)) — After

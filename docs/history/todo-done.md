@@ -2690,6 +2690,14 @@ that the dashboard shows.
   Filed 2026-11-04 from musterd 0.28.0 / Claude Code 2.1.318, focus view, session idle.
   Labels: bug, masthead, documents, ux.
 
+- [x] **Port not saving** ([#120](https://github.com/Zalaras/muster/issues/120)) ✅ done 2026-11-06 (plan `sweep-2026-11-06-2`, via `/fix`) — After setting the
+  port to 8766 twice, a plain start still tries port 8765 and fails because the address is already
+  in use; the save-port prompt appears but the choice does not persist. Expected: A port the author
+  chose and saved should be used on later starts without needing the port flag.
+  Reported error: "listen tcp 127.0.0.1:8765: bind: address already in use".
+  Filed 2026-11-06 from musterd 0.29.0 / Claude Code 2.1.317, focus view, session idle.
+  Labels: bug, settings.
+
 ## Tweaks
 
 - [x] **Add mark unread right click option** ([#103](https://github.com/Zalaras/muster/issues/103)) ✅ done 2026-10-26 (plan `remove-unread-right-click-1`, via `/fix`) — There
