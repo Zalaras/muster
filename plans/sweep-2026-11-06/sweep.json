@@ -1,0 +1,36 @@
+{
+ "sweep": "sweep-2026-11-06",
+ "created_at": "2026-11-06T14:55:10Z",
+ "selector": "#116 #120 #118 #119 (e3 #118 dropped and closed at the stop; e4 #119 not-small-track: protocol, answers recorded for planning)",
+ "parallel": 1,
+ "entries": [
+  {
+   "id": "e1",
+   "title": "The daemon connection icon in the UI is above the popped out note",
+   "issue": 116,
+   "section": "Bugs",
+   "work_type": "web",
+   "features": ["notes", "connection"],
+   "files": ["web/src/style.css", "web/render/notes-places.spec.ts", "docs/adr/", "docs/features/notes/spec.md", "docs/design/design-system.md"],
+   "route": "fix",
+   "research": "plans/sweep-2026-11-06/research/e1.md",
+   "batch": 1
+  },
+  {
+   "id": "e2",
+   "title": "Port not saving",
+   "issue": 120,
+   "section": "Bugs",
+   "work_type": "daemon",
+   "features": ["connection"],
+   "files": ["cmd/musterd/main.go", "cmd/musterd/port.go", "cmd/musterd/stdin.go", "cmd/musterd/port_proc_test.go", "docs/adr/", "docs/features/connection/spec.md"],
+   "route": "fix",
+   "research": "plans/sweep-2026-11-06/research/e2.md",
+   "batch": 2
+  }
+ ],
+ "batches": [
+  {"n": 1, "entries": ["e1"], "work_type": "web"},
+  {"n": 2, "entries": ["e2"], "work_type": "daemon"}
+ ]
+}

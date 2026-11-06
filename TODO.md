@@ -225,13 +225,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Filed 2026-11-04 from musterd 0.28.0 / Claude Code 2.1.318, focus view, session idle.
   Labels: enhancement, process.
 
-- [ ] **If a session just started then we can upgrade that too** ([#118](https://github.com/Zalaras/muster/issues/118)) — When
-  a newer Claude Code version is available for restarting sessions, a session that has just started
-  is not offered the upgrade. Expected: A session in the started state should be treated like an
-  idle one and be eligible for restart onto the newer Claude Code version.
-  Filed 2026-11-05 from musterd 0.29.0 / Claude Code 2.1.318, focus view, session started.
-  Labels: enhancement, sessions, lifecycle.
-
 - [ ] **Add restart option to right click menu** ([#119](https://github.com/Zalaras/muster/issues/119)) — There
   is no restart option in the right click menu, even though a restart mechanism onto the latest
   Claude Code version already exists. Expected: The right click menu should offer a restart action
