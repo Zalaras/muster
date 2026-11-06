@@ -276,6 +276,14 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		return err
 	}
 
+	input := newLineInput(stdin, isTerminal(stdin))
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	if offerSavePortUnlessSignalled(ctx, sigCh, f, input, restarted, serving, stderr, log) {
+		_ = serving.listener.Close()
+		return nil
+	}
+
 	srv := server.New(buildServerConfig(f, st, log, serving, install, reclassify, exePath, updatePublicKey))
 	srv.Start()
 
@@ -295,11 +303,6 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	// never logs dashboardURL itself. A restarted daemon skips this too — stdin is still
 	// the original TTY, so without the check a restart would pop a second browser tab.
 	maybeOpenDashboard(ctx, f, stdin, restarted, serving.dashboardURL, log)
-	input := newLineInput(stdin, isTerminal(stdin))
-	stopSavePrompt := maybeOfferSavePort(ctx, f, input, restarted, serving, stderr, log)
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 	select {
 	case sig := <-sigCh:
@@ -320,7 +323,6 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		return &errRestart{exe: exePath}
 	}
 
-	stopSavePrompt()
 	shutdownGracefully(f, srv, httpServer, input, stderr, log)
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -414,6 +415,8 @@ func TestOfferSavePort_AFailedSaveIsLoggedNotFatal(t *testing.T) {
 // TestMaybeOfferSavePort_Guards covers the serving flag, stdin having to be a
 // terminal and a restarted daemon, at the one function that applies them, with a
 // pty for the terminal and "y" already typed so a prompt that wrongly appears would save.
+// The call blocks while a prompt waits, so a prompting row returns once the typed y is consumed.
+// The call blocks while a prompt waits, so each row returns only once the typed y is consumed.
 func TestMaybeOfferSavePort_Guards(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -450,47 +453,41 @@ func TestMaybeOfferSavePort_Guards(t *testing.T) {
 			stderr := &syncBuf{}
 			serving := &servingEnv{offerSavePort: tc.offer, port: 18765}
 
-			stop := maybeOfferSavePort(context.Background(), &cliFlags{dataDir: dataDir}, newLineInput(stdin, isTerminal(stdin)), tc.restarted, serving, stderr, zerolog.Nop())
-			t.Cleanup(stop)
+			callWithin(t, "maybeOfferSavePort", func() {
+				maybeOfferSavePort(context.Background(), &cliFlags{dataDir: dataDir}, newLineInput(stdin, isTerminal(stdin)), tc.restarted, serving, stderr, zerolog.Nop())
+			})
 
+			raw, readErr := os.ReadFile(savedPortPath(dataDir))
 			if tc.wantPrompt {
-				assert.Eventually(t, func() bool {
-					return strings.Contains(stderr.String(), "Save port 18765 for future starts? [y/N] ")
-				}, portTestWait, portTestTick)
-				assert.Eventually(t, func() bool {
-					raw, err := os.ReadFile(savedPortPath(dataDir))
-					return err == nil && string(raw) == "18765\n"
-				}, portTestWait, portTestTick, "the typed y is saved")
+				assert.Contains(t, stderr.String(), "Save port 18765 for future starts? [y/N] ")
+				require.NoError(t, readErr, "the typed y is saved")
+				assert.Equal(t, "18765\n", string(raw))
 				return
 			}
-			assert.Never(t, func() bool {
-				_, err := os.Stat(savedPortPath(dataDir))
-				return stderr.String() != "" || err == nil
-			}, portTestQuiet, portTestTick, "no prompt and nothing saved")
+			assert.Empty(t, stderr.String(), "no prompt")
+			assert.True(t, os.IsNotExist(readErr), "nothing saved")
 		})
 	}
 }
 
-// TestSavePromptThenKillPrompt_OneTerminalOneReader covers the shutdown interaction
-// between the two prompts that share terminal stdin (correctness review cycle 1, Major
-// 1): the save prompt is stopped as shutdown begins (stopSavePrompt in run), and the line
-// typed at the -on-exit prompt must answer that prompt alone. Each row is the same pty
-// and the same *lineInput run builds, driven in run's order.
+// TestSavePromptThenKillPrompt_OneTerminalOneReader covers the interaction between the
+// two prompts that share terminal stdin: the save
+// prompt is answered before serving starts, and the line typed at the -on-exit prompt at
+// shutdown must answer that prompt alone. Each row is the same pty and the same
+// *lineInput run builds, driven in run's order; the blocking save prompt cannot be
+// unanswered while serving, so every row answers it first.
 func TestSavePromptThenKillPrompt_OneTerminalOneReader(t *testing.T) {
 	tests := []struct {
 		name        string
-		saveAnswer  string // typed before shutdown; empty leaves the save prompt unanswered
+		saveAnswer  string
 		killAnswer  string
 		wantDecided onExitDecision
 		wantSaved   bool
 	}{
-		{name: "unanswered save prompt, y kills and saves nothing", killAnswer: "y\n", wantDecided: onExitKill},
-		{name: "unanswered save prompt, yes kills and saves nothing", killAnswer: "yes\n", wantDecided: onExitKill},
-		{name: "unanswered save prompt, n leaves and saves nothing", killAnswer: "n\n", wantDecided: onExitLeave},
-		{name: "unanswered save prompt, empty line leaves and saves nothing", killAnswer: "\n", wantDecided: onExitLeave},
 		{name: "save y typed first saves, its own line never answers the kill prompt", saveAnswer: "y\n", killAnswer: "n\n", wantDecided: onExitLeave, wantSaved: true},
 		{name: "save n typed first saves nothing, kill y kills", saveAnswer: "n\n", killAnswer: "y\n", wantDecided: onExitKill},
 		{name: "save y then kill y saves and kills", saveAnswer: "y\n", killAnswer: "y\n", wantDecided: onExitKill, wantSaved: true},
+		{name: "save empty line saves nothing, kill yes kills", saveAnswer: "\n", killAnswer: "yes\n", wantDecided: onExitKill},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -499,27 +496,20 @@ func TestSavePromptThenKillPrompt_OneTerminalOneReader(t *testing.T) {
 			in := newLineInput(tty, true)
 			stderr := &syncBuf{}
 			serving := &servingEnv{offerSavePort: true, port: 18765}
-			stop := maybeOfferSavePort(context.Background(), &cliFlags{dataDir: dataDir}, in, false, serving, stderr, zerolog.Nop())
-			t.Cleanup(stop)
-			require.Eventually(t, func() bool {
-				return strings.Contains(stderr.String(), "Save port 18765 for future starts? [y/N] ")
-			}, portTestWait, portTestTick)
-
-			if tc.saveAnswer != "" {
-				_, err := ptmx.WriteString(tc.saveAnswer)
-				require.NoError(t, err)
-				require.Eventually(t, func() bool {
-					return pendingRead(in) == nil
-				}, portTestWait, portTestTick, "the save prompt took its own answer")
-			}
-			stop() // run's stopSavePrompt: Ctrl-C arrived, shutdown starts
+			_, err := ptmx.WriteString(tc.saveAnswer)
+			require.NoError(t, err)
+			callWithin(t, "maybeOfferSavePort", func() {
+				maybeOfferSavePort(context.Background(), &cliFlags{dataDir: dataDir}, in, false, serving, stderr, zerolog.Nop())
+			})
+			assert.Contains(t, stderr.String(), "Save port 18765 for future starts? [y/N] ")
+			assert.Nil(t, pendingRead(in), "no goroutine is left reading stdin once the save prompt returns")
 
 			decided := make(chan onExitDecision, 1)
 			go func() { decided <- askKillPrompt(in, stderr, 1, 1, "muster") }()
 			require.Eventually(t, func() bool {
 				return strings.Contains(stderr.String(), "kill them? [y/N] ")
 			}, portTestWait, portTestTick)
-			_, err := ptmx.WriteString(tc.killAnswer)
+			_, err = ptmx.WriteString(tc.killAnswer)
 			require.NoError(t, err)
 
 			select {
@@ -539,48 +529,147 @@ func TestSavePromptThenKillPrompt_OneTerminalOneReader(t *testing.T) {
 	}
 }
 
-// TestMaybeOfferSavePort_StopEndsAnUnansweredPrompt covers the stop func: it returns
-// promptly with the prompt unanswered, ends the line the prompt left open, and saves
-// nothing.
-func TestMaybeOfferSavePort_StopEndsAnUnansweredPrompt(t *testing.T) {
+// callWithin runs fn, failing the test if it does not return in portTestWait: a blocking
+// prompt that never ends would otherwise hang the whole package run.
+func callWithin(t *testing.T, name string, fn func()) {
+	t.Helper()
+	done := make(chan struct{})
+	go func() { defer close(done); fn() }()
+	select {
+	case <-done:
+	case <-time.After(portTestWait):
+		require.Fail(t, name+" blocked")
+	}
+}
+
+// TestMaybeOfferSavePort_CancelledContextEndsAnUnansweredPrompt covers cancellation of the
+// blocking call: with the prompt shown and unanswered, cancelling its context returns the
+// call promptly, ends the line the prompt left open, and saves nothing.
+func TestMaybeOfferSavePort_CancelledContextEndsAnUnansweredPrompt(t *testing.T) {
 	dataDir := t.TempDir()
 	_, tty := newPTYPair(t)
 	stderr := &syncBuf{}
+	ctx, cancel := context.WithCancel(context.Background())
 	serving := &servingEnv{offerSavePort: true, port: 18765}
-	stop := maybeOfferSavePort(context.Background(), &cliFlags{dataDir: dataDir}, newLineInput(tty, true), false, serving, stderr, zerolog.Nop())
+	returned := make(chan struct{})
+	go func() {
+		defer close(returned)
+		maybeOfferSavePort(ctx, &cliFlags{dataDir: dataDir}, newLineInput(tty, true), false, serving, stderr, zerolog.Nop())
+	}()
 	require.Eventually(t, func() bool {
 		return strings.Contains(stderr.String(), "[y/N] ")
 	}, portTestWait, portTestTick)
+	select {
+	case <-returned:
+		require.Fail(t, "the call returned with the prompt unanswered and its context live")
+	case <-time.After(portTestQuiet):
+	}
 
-	stopped := make(chan struct{})
-	go func() { stop(); close(stopped) }()
+	cancel()
 
 	select {
-	case <-stopped:
+	case <-returned:
 	case <-time.After(portTestWait):
-		require.Fail(t, "stop blocked on the unanswered read")
+		require.Fail(t, "the call stayed blocked on the unanswered read after its context ended")
 	}
 	assert.True(t, strings.HasSuffix(stderr.String(), "[y/N] \n"), "the prompt line is ended, not left dangling: %q", stderr.String())
 	_, statErr := os.Stat(savedPortPath(dataDir))
 	assert.True(t, os.IsNotExist(statErr))
 }
 
-// TestMaybeOfferSavePort_ParentContextEndsThePrompt covers the SIGTERM/serve-error paths:
-// no kill prompt reads, so the prompt must end with run's context rather than outlive it.
-func TestMaybeOfferSavePort_ParentContextEndsThePrompt(t *testing.T) {
-	_, tty := newPTYPair(t)
-	stderr := &syncBuf{}
-	ctx, cancel := context.WithCancel(context.Background())
-	serving := &servingEnv{offerSavePort: true, port: 18765}
-	stop := maybeOfferSavePort(ctx, &cliFlags{dataDir: t.TempDir()}, newLineInput(tty, true), false, serving, stderr, zerolog.Nop())
-	require.Eventually(t, func() bool {
-		return strings.Contains(stderr.String(), "[y/N] ")
-	}, portTestWait, portTestTick)
+// TestOfferSavePortUnlessSignalled covers the signal join at the unit level: a signal
+// at the waiting prompt cancels it (newline, nothing saved, reported as signalled, the
+// shutting-down line carrying the signal name); an answered prompt, a prompt that is never
+// offered and a cancelled parent context all report not-signalled and leave the signal
+// channel unread for run's select.
+func TestOfferSavePortUnlessSignalled(t *testing.T) {
+	tests := []struct {
+		name         string
+		offer        bool
+		restarted    bool
+		typed        string // typed before the call; empty leaves a prompt unanswered
+		signal       os.Signal
+		cancelParent bool
+		wantSig      bool
+		wantPrompt   bool
+		wantSaved    bool
+	}{
+		{name: "SIGINT at the waiting prompt", offer: true, signal: os.Interrupt, wantSig: true, wantPrompt: true},
+		{name: "SIGTERM at the waiting prompt", offer: true, signal: syscall.SIGTERM, wantSig: true, wantPrompt: true},
+		{name: "y answers before any signal and saves", offer: true, typed: "y\n", wantPrompt: true, wantSaved: true},
+		{name: "n answers before any signal and saves nothing", offer: true, typed: "n\n", wantPrompt: true},
+		{name: "restarted daemon is never prompted and never signalled", offer: true, restarted: true},
+		{name: "not offered is never prompted", offer: false},
+		{name: "parent context ends the prompt without a signal", offer: true, cancelParent: true, wantPrompt: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dataDir := t.TempDir()
+			ptmx, tty := newPTYPair(t)
+			in := newLineInput(tty, true)
+			stderr := &syncBuf{}
+			var logs bytes.Buffer
+			serving := &servingEnv{offerSavePort: tc.offer, port: 18765}
+			sigCh := make(chan os.Signal, 1)
+			ctx, cancelParent := context.WithCancel(context.Background())
+			defer cancelParent()
+			if tc.typed != "" {
+				_, err := ptmx.WriteString(tc.typed)
+				require.NoError(t, err)
+			}
 
-	cancel()
+			result := make(chan bool, 1)
+			go func() {
+				result <- offerSavePortUnlessSignalled(ctx, sigCh, &cliFlags{dataDir: dataDir}, in, tc.restarted, serving, stderr, zerolog.New(&logs))
+			}()
+			if tc.wantPrompt && tc.typed == "" {
+				require.Eventually(t, func() bool {
+					return strings.Contains(stderr.String(), "Save port 18765 for future starts? [y/N] ")
+				}, portTestWait, portTestTick)
+				select {
+				case <-result:
+					require.Fail(t, "returned with the prompt unanswered and no signal")
+				case <-time.After(portTestQuiet):
+				}
+			}
+			switch {
+			case tc.signal != nil:
+				sigCh <- tc.signal
+			case tc.cancelParent:
+				cancelParent()
+			}
 
-	assert.Eventually(t, func() bool {
-		return strings.HasSuffix(stderr.String(), "[y/N] \n")
-	}, portTestWait, portTestTick, "the goroutine ended with its parent context")
-	stop()
+			var signalled bool
+			select {
+			case signalled = <-result:
+			case <-time.After(portTestWait):
+				require.Fail(t, "offerSavePortUnlessSignalled blocked")
+			}
+
+			assert.Equal(t, tc.wantSig, signalled)
+			if tc.wantPrompt {
+				assert.Contains(t, stderr.String(), "Save port 18765 for future starts? [y/N] ")
+			} else {
+				assert.Empty(t, stderr.String(), "no prompt")
+			}
+			if tc.wantSig {
+				assert.True(t, strings.HasSuffix(stderr.String(), "[y/N] \n"), "a newline ends the prompt line: %q", stderr.String())
+				assert.Contains(t, logs.String(), "shutting down")
+				assert.Contains(t, logs.String(), tc.signal.String(), "the log names the signal")
+			} else {
+				assert.NotContains(t, logs.String(), "shutting down")
+				assert.Empty(t, sigCh, "no signal consumed")
+			}
+			raw, readErr := os.ReadFile(savedPortPath(dataDir))
+			if tc.wantSaved {
+				require.NoError(t, readErr)
+				assert.Equal(t, "18765\n", string(raw))
+			} else {
+				assert.True(t, os.IsNotExist(readErr), "nothing saved")
+			}
+			if tc.typed != "" {
+				assert.Nil(t, pendingRead(in), "the answered prompt left no reader on stdin")
+			}
+		})
+	}
 }

@@ -107,19 +107,29 @@ func savePort(dataDir string, port int) error {
 	return nil
 }
 
-func maybeOfferSavePort(ctx context.Context, f *cliFlags, in *lineInput, restarted bool, serving *servingEnv, stderr io.Writer, log zerolog.Logger) (stop func()) {
+func maybeOfferSavePort(ctx context.Context, f *cliFlags, in *lineInput, restarted bool, serving *servingEnv, stderr io.Writer, log zerolog.Logger) {
 	if !serving.offerSavePort || restarted || !in.tty {
-		return func() {}
+		return
 	}
+	offerSavePort(ctx, in, stderr, f.dataDir, serving.port, log)
+}
+
+func offerSavePortUnlessSignalled(ctx context.Context, sigCh <-chan os.Signal, f *cliFlags, in *lineInput, restarted bool, serving *servingEnv, stderr io.Writer, log zerolog.Logger) (signalled bool) {
 	promptCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		offerSavePort(promptCtx, in, stderr, f.dataDir, serving.port, log)
+		maybeOfferSavePort(promptCtx, f, in, restarted, serving, stderr, log)
 	}()
-	return func() {
+	select {
+	case <-done:
+		return false
+	case sig := <-sigCh:
 		cancel()
 		<-done
+		log.Info().Str("signal", sig.String()).Msg("shutting down")
+		return true
 	}
 }
 

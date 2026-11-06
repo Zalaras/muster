@@ -1,7 +1,7 @@
 ---
 id: connection-port-saved-per-profile-on-prompt
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-23
 summary: A flag-given port is saved per data dir only after a terminal y/N prompt (default No); flag beats saved beats 8765; a busy port fails with no fallback.
 features: [connection]

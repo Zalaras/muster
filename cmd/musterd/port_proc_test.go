@@ -136,10 +136,11 @@ func TestPortProc_YesSavesAndTheNextStartBindsTheSavedPort(t *testing.T) {
 	assert.NotContains(t, nextStderr.String(), promptTextPrefix, "a saved port is not offered again")
 }
 
-// TestPortProc_DeclineSavesNothingAndIngestIsServedWhilePromptWaits: an
-// ingest POST is answered 200 while the prompt is still unanswered, and a later "n" leaves
-// nothing saved.
-func TestPortProc_DeclineSavesNothingAndIngestIsServedWhilePromptWaits(t *testing.T) {
+// TestPortProc_DeclineSavesNothingAndServingStartsOnlyAfterThePromptIsAnswered: the
+// listener is bound while the save prompt waits but nothing serves on it — an ingest POST
+// goes unanswered — and a later "n" saves nothing, then startup continues and the same
+// POST is answered 200 and the startup line is logged.
+func TestPortProc_DeclineSavesNothingAndServingStartsOnlyAfterThePromptIsAnswered(t *testing.T) {
 	port := freePort(t)
 	args := portDaemonArgs(t, "", port)
 	dataDir := dataDirOf(t, args)
@@ -151,18 +152,98 @@ func TestPortProc_DeclineSavesNothingAndIngestIsServedWhilePromptWaits(t *testin
 		return strings.Contains(stderr.String(), promptTextPrefix+port)
 	}, tokensFileWriteBound, 20*time.Millisecond, "stderr: %s", stderr)
 
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Post("http://127.0.0.1:"+port+"/ingest/"+tf.IngestToken+"/hook", "application/json", bytes.NewReader([]byte(`{"session_id":"port-prompt"}`)))
-	require.NoError(t, err, "D12: the daemon serves while the prompt waits")
-	_ = resp.Body.Close()
-	assert.Equal(t, http.StatusOK, resp.StatusCode, "D12")
+	ingestURL := "http://127.0.0.1:" + port + "/ingest/" + tf.IngestToken + "/hook"
+	post := func(timeout time.Duration) (*http.Response, error) {
+		client := &http.Client{Timeout: timeout}
+		return client.Post(ingestURL, "application/json", bytes.NewReader([]byte(`{"session_id":"port-prompt"}`)))
+	}
+	resp, err := post(500 * time.Millisecond)
+	if err == nil {
+		_ = resp.Body.Close()
+	}
+	require.Error(t, err, "REQ-1: nothing serves while the prompt waits; stderr: %s", stderr)
+	assert.NotContains(t, stderr.String(), "musterd starting", "REQ-1: the startup line waits for the answer")
 
 	_, err = ptmx.WriteString("n\n")
 	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		r, postErr := post(time.Second)
+		if postErr != nil {
+			return false
+		}
+		_ = r.Body.Close()
+		return r.StatusCode == http.StatusOK
+	}, tokensFileWriteBound, 50*time.Millisecond, "REQ-2: serving starts once the prompt is answered; stderr: %s", stderr)
+	assert.Contains(t, stderr.String(), "musterd starting", "REQ-2: the startup line follows the answer")
 	assert.Never(t, func() bool {
 		_, statErr := os.Stat(savedPortPath(dataDir))
 		return statErr == nil
 	}, 400*time.Millisecond, 20*time.Millisecond, "D11: an n saves nothing")
+}
+
+// TestPortProc_SavePromptIsAskedBeforeServingAndStaysTheLastLine: the prompt is the last
+// thing on stderr while it waits — no startup line, no async warning from the background
+// checks (the usage poll against an unreachable URL warns once serving starts) — and a
+// "y" saves the port, after which startup continues.
+func TestPortProc_SavePromptIsAskedBeforeServingAndStaysTheLastLine(t *testing.T) {
+	port := freePort(t)
+	args := append(portDaemonArgs(t, "", port), "-usage-poll", "100ms", "-usage-api-url", "http://127.0.0.1:1")
+	dataDir := dataDirOf(t, args)
+	ptmx, tty := newPTYPair(t)
+	_, stderr := spawnPortDaemon(t, args, tty)
+	prompt := "Save port " + port + " for future starts? [y/N] "
+
+	waitForTokensFile(t, dataDir)
+	require.Eventually(t, func() bool {
+		return strings.Contains(stderr.String(), promptTextPrefix+port)
+	}, tokensFileWriteBound, 20*time.Millisecond, "stderr: %s", stderr)
+
+	assert.Never(t, func() bool {
+		out := stderr.String()
+		return !strings.HasSuffix(out, prompt) || strings.Contains(out, "musterd starting")
+	}, 1500*time.Millisecond, 20*time.Millisecond, "REQ-1: the prompt stays the last line and no startup line precedes it; stderr: %s", stderr)
+	_, statErr := os.Stat(savedPortPath(dataDir))
+	assert.True(t, os.IsNotExist(statErr), "nothing is saved before the answer")
+
+	_, err := ptmx.WriteString("y\n")
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		raw, readErr := os.ReadFile(savedPortPath(dataDir))
+		return readErr == nil && string(raw) == port+"\n"
+	}, tokensFileWriteBound, 20*time.Millisecond, "REQ-2: y saves; stderr: %s", stderr)
+	require.Eventually(t, func() bool {
+		return strings.Contains(stderr.String(), "musterd starting")
+	}, tokensFileWriteBound, 20*time.Millisecond, "REQ-2: startup continues after the answer; stderr: %s", stderr)
+	out := stderr.String()
+	assert.Less(t, strings.Index(out, prompt), strings.Index(out, "musterd starting"), "REQ-1: the startup line comes after the prompt")
+}
+
+// TestPortProc_InterruptAtSavePromptSavesNothingAndExitsZero: a signal while the prompt
+// waits saves nothing, ends the prompt line with a newline, and exits 0 without serving.
+func TestPortProc_InterruptAtSavePromptSavesNothingAndExitsZero(t *testing.T) {
+	for _, sig := range []os.Signal{syscall.SIGINT, syscall.SIGTERM} {
+		t.Run(sig.String(), func(t *testing.T) {
+			port := freePort(t)
+			args := portDaemonArgs(t, "", port)
+			dataDir := dataDirOf(t, args)
+			_, tty := newPTYPair(t)
+			cmd, stderr := spawnPortDaemon(t, args, tty)
+			prompt := "Save port " + port + " for future starts? [y/N] "
+			waitForTokensFile(t, dataDir)
+			require.Eventually(t, func() bool {
+				return strings.Contains(stderr.String(), prompt)
+			}, tokensFileWriteBound, 20*time.Millisecond, "stderr: %s", stderr)
+
+			require.NoError(t, cmd.Process.Signal(sig))
+			code := exitCode(t, cmd)
+
+			assert.Equal(t, 0, code, "REQ-3: a clean exit; stderr: %s", stderr)
+			assert.Contains(t, stderr.String(), prompt+"\n", "REQ-3: a newline follows the prompt")
+			assert.NotContains(t, stderr.String(), "musterd starting", "REQ-3: nothing was served")
+			_, statErr := os.Stat(savedPortPath(dataDir))
+			assert.True(t, os.IsNotExist(statErr), "REQ-3: nothing is saved")
+		})
+	}
 }
 
 // TestPortProc_NeverPrompts checks against the real fd 0: each row has
@@ -276,78 +357,47 @@ func TestPortProc_CorruptSavedPort(t *testing.T) {
 	})
 }
 
-// TestPortProc_ShutdownAskPromptAnswerNeverReachesTheSavePrompt covers correctness review
-// cycle 1's Major 1/2 at the real fd 0: a daemon on a pty whose save prompt is still
-// unanswered is interrupted with a live session and its shell on the socket under
-// "-on-exit ask", and the line typed at the kill prompt answers that prompt alone — "y"
-// kills both tmux sessions and leaves no <data-dir>/port, "n" leaves both and saves
-// nothing. Before the fix the save prompt's blocked read took the line: the port was
-// saved and the kill prompt timed out into leave.
+// TestPortProc_ShutdownAskPromptAnswerNeverReachesTheSavePrompt: with the save prompt
+// answered "y", the line typed at the "-on-exit ask" kill prompt answers that prompt alone —
+// "y" kills the session and its shell and the port stays saved. No goroutine is left reading
+// fd 0 for the save prompt's answer.
 func TestPortProc_ShutdownAskPromptAnswerNeverReachesTheSavePrompt(t *testing.T) {
-	tests := []struct {
-		name       string
-		saveAnswer string // typed before the interrupt; empty leaves the save prompt unanswered
-		killAnswer string
-		wantKilled bool
-		wantSaved  bool
-	}{
-		{name: "unanswered save prompt, y kills and saves nothing", killAnswer: "y\n", wantKilled: true},
-		{name: "unanswered save prompt, n leaves and saves nothing", killAnswer: "n\n"},
-		{name: "save answered y first, then y kills and the port stays saved", saveAnswer: "y\n", killAnswer: "y\n", wantKilled: true, wantSaved: true},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			port := freePort(t)
-			args := append(portDaemonArgs(t, "", port), "-on-exit", "ask")
-			dataDir := dataDirOf(t, args)
-			ptmx, tty := newPTYPair(t)
-			cmd, stderr := spawnPortDaemon(t, args, tty)
-			tf := waitForTokensFile(t, dataDir)
-			d := &spawnedDaemon{cmd: cmd, dataDir: dataDir, tmuxSocket: flagValue(t, args, "-tmux-socket"), baseURL: "http://127.0.0.1:" + boundPort(t, tf), uiToken: tf.UIToken, stderr: stderr}
-			require.Eventually(t, func() bool {
-				return strings.Contains(stderr.String(), "Save port "+port+" for future starts? [y/N] ")
-			}, tokensFileWriteBound, 20*time.Millisecond, "stderr: %s", stderr)
+	port := freePort(t)
+	args := append(portDaemonArgs(t, "", port), "-on-exit", "ask")
+	dataDir := dataDirOf(t, args)
+	ptmx, tty := newPTYPair(t)
+	cmd, stderr := spawnPortDaemon(t, args, tty)
+	tf := waitForTokensFile(t, dataDir)
+	d := &spawnedDaemon{cmd: cmd, dataDir: dataDir, tmuxSocket: flagValue(t, args, "-tmux-socket"), baseURL: "http://127.0.0.1:" + boundPort(t, tf), uiToken: tf.UIToken, stderr: stderr}
+	require.Eventually(t, func() bool {
+		return strings.Contains(stderr.String(), "Save port "+port+" for future starts? [y/N] ")
+	}, tokensFileWriteBound, 20*time.Millisecond, "stderr: %s", stderr)
+	_, err := ptmx.WriteString("y\n")
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		raw, readErr := os.ReadFile(savedPortPath(dataDir))
+		return readErr == nil && string(raw) == port+"\n"
+	}, tokensFileWriteBound, 20*time.Millisecond, "stderr: %s", stderr)
 
-			id := d.launchSession(t, t.TempDir())
-			d.waitForLiveTmuxSession(t)
-			d.spawnShell(t, id)
-			d.waitForTmuxSessionCount(t, 2) // the session and its shell coexist on the socket
+	id := d.launchSession(t, t.TempDir())
+	d.waitForLiveTmuxSession(t)
+	d.spawnShell(t, id)
+	d.waitForTmuxSessionCount(t, 2) // the session and its shell coexist on the socket
 
-			if tc.saveAnswer != "" {
-				_, err := ptmx.WriteString(tc.saveAnswer)
-				require.NoError(t, err)
-				require.Eventually(t, func() bool {
-					_, statErr := os.Stat(savedPortPath(dataDir))
-					return statErr == nil
-				}, tokensFileWriteBound, 20*time.Millisecond, "stderr: %s", stderr)
-			}
+	require.NoError(t, cmd.Process.Signal(syscall.SIGINT))
+	require.Eventually(t, func() bool {
+		return strings.Contains(stderr.String(), "kill them? [y/N] ")
+	}, tokensFileWriteBound, 20*time.Millisecond, "stderr: %s", stderr)
+	assert.Contains(t, stderr.String(), "1 live sessions and 1 shells on tmux socket "+d.tmuxSocket)
+	_, err = ptmx.WriteString("y\n")
+	require.NoError(t, err)
 
-			require.NoError(t, cmd.Process.Signal(syscall.SIGINT))
-			require.Eventually(t, func() bool {
-				return strings.Contains(stderr.String(), "kill them? [y/N] ")
-			}, tokensFileWriteBound, 20*time.Millisecond, "stderr: %s", stderr)
-			assert.Contains(t, stderr.String(), "1 live sessions and 1 shells on tmux socket "+d.tmuxSocket)
-			_, err := ptmx.WriteString(tc.killAnswer)
-			require.NoError(t, err)
+	code := exitCode(t, cmd)
 
-			code := exitCode(t, cmd)
-
-			assert.Equal(t, 0, code, "stderr: %s", stderr)
-			if tc.wantKilled {
-				assert.Empty(t, tmuxSessionNames(d.tmuxSocket), "the answer at the kill prompt kills the session and its shell; stderr: %s", stderr)
-				assert.Contains(t, stderr.String(), "ended live sessions on shutdown")
-			} else {
-				assert.Len(t, tmuxSessionNames(d.tmuxSocket), 2, "n leaves both running; stderr: %s", stderr)
-				assert.Contains(t, stderr.String(), "leaving live sessions running")
-			}
-			raw, readErr := os.ReadFile(savedPortPath(dataDir))
-			if tc.wantSaved {
-				require.NoError(t, readErr)
-				assert.Equal(t, port+"\n", string(raw))
-				return
-			}
-			assert.True(t, os.IsNotExist(readErr), "an answer at the kill prompt never saves the port; stderr: %s", stderr)
-			assert.NotContains(t, stderr.String(), "port saved for future starts")
-		})
-	}
+	assert.Equal(t, 0, code, "stderr: %s", stderr)
+	assert.Empty(t, tmuxSessionNames(d.tmuxSocket), "the answer at the kill prompt kills the session and its shell; stderr: %s", stderr)
+	assert.Contains(t, stderr.String(), "ended live sessions on shutdown")
+	raw, readErr := os.ReadFile(savedPortPath(dataDir))
+	require.NoError(t, readErr)
+	assert.Equal(t, port+"\n", string(raw), "the save answered y stays saved")
 }
