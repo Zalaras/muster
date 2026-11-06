@@ -27,4 +27,4 @@ Proposals only; nothing here is filed in `TODO.md`. `/land` puts each to the dev
 
 1. Render tests that hold the banner up by closing `/ws` may flake — filed: TODO.md § Tooling and docs, "Render tests that hold the banner up by closing `/ws` may flake"
 2. `web/src/reader/CLAUDE.md` does not name `query.ts` — filed: TODO.md § Tooling and docs, "`web/src/reader/CLAUDE.md` does not name `query.ts`"
-3. E3 "within two seconds" note save missed its budget under heavy load — deferred
+3. E3 "within two seconds" note save missed its budget under heavy load — not doing (the developer, 2026-11-06, at /land --sweep sweep-2026-11-06)
