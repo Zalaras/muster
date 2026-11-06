@@ -153,13 +153,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   the session's list. Expected: each shape measured with `/interface-probe` and recorded as a fact,
   and the list behaves as measured. From `plans/see-added-dirs/`.
 
-- [ ] **The daemon connection icon in the UI is above the popped out note** ([#116](https://github.com/Zalaras/muster/issues/116)) — The
-  daemon connection icon in the dashboard is drawn above the popped out note, overlapping it.
-  Expected: The popped out note should appear above the daemon connection icon, which should not
-  cover it.
-  Filed 2026-11-04 from musterd 0.28.0 / Claude Code 2.1.318, focus view, session idle.
-  Labels: bug, masthead, documents, ux.
-
 - [ ] **Port not saving** ([#120](https://github.com/Zalaras/muster/issues/120)) — After setting the
   port to 8766 twice, a plain start still tries port 8765 and fails because the address is already
   in use; the save-port prompt appears but the choice does not persist. Expected: A port the author

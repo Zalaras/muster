@@ -2683,6 +2683,13 @@ that the dashboard shows.
   Filed 2026-10-26 from musterd 0.26.0 / Claude Code 2.1.293, focus view, session started.
   Labels: bug, rail, ux.
 
+- [x] **The daemon connection icon in the UI is above the popped out note** ([#116](https://github.com/Zalaras/muster/issues/116)) ✅ done 2026-11-06 (plan `sweep-2026-11-06-1`, via `/fix`) — The
+  daemon connection icon in the dashboard is drawn above the popped out note, overlapping it.
+  Expected: The popped out note should appear above the daemon connection icon, which should not
+  cover it.
+  Filed 2026-11-04 from musterd 0.28.0 / Claude Code 2.1.318, focus view, session idle.
+  Labels: bug, masthead, documents, ux.
+
 ## Tweaks
 
 - [x] **Add mark unread right click option** ([#103](https://github.com/Zalaras/muster/issues/103)) ✅ done 2026-10-26 (plan `remove-unread-right-click-1`, via `/fix`) — There
