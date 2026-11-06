@@ -145,6 +145,21 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   the session's list. Expected: each shape measured with `/interface-probe` and recorded as a fact,
   and the list behaves as measured. From `plans/see-added-dirs/`.
 
+- [ ] **The daemon connection icon in the UI is above the popped out note** ([#116](https://github.com/Zalaras/muster/issues/116)) — The
+  daemon connection icon in the dashboard is drawn above the popped out note, overlapping it.
+  Expected: The popped out note should appear above the daemon connection icon, which should not
+  cover it.
+  Filed 2026-11-04 from musterd 0.28.0 / Claude Code 2.1.318, focus view, session idle.
+  Labels: bug, masthead, documents, ux.
+
+- [ ] **Port not saving** ([#120](https://github.com/Zalaras/muster/issues/120)) — After setting the
+  port to 8766 twice, a plain start still tries port 8765 and fails because the address is already
+  in use; the save-port prompt appears but the choice does not persist. Expected: A port the author
+  chose and saved should be used on later starts without needing the port flag.
+  Reported error: "listen tcp 127.0.0.1:8765: bind: address already in use".
+  Filed 2026-11-06 from musterd 0.29.0 / Claude Code 2.1.317, focus view, session idle.
+  Labels: bug, settings.
+
 ## Tweaks
 
 - [ ] **Should select mode be disabled after an action?** ([#98](https://github.com/Zalaras/muster/issues/98)) — After
@@ -194,6 +209,35 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   related components should have a minimal performance and energy footprint.
   Filed 2026-10-30.
   Labels: chore, process, perf.
+
+- [ ] **Revisit what is collect for an issue** ([#117](https://github.com/Zalaras/muster/issues/117)) — The
+  report asks to revisit what information is collected for an issue and to look into logging issues
+  without using the gh CLI. Expected: Issue logging should collect the right information and work
+  without depending on the gh CLI.
+  Filed 2026-11-04 from musterd 0.28.0 / Claude Code 2.1.318, focus view, session idle.
+  Labels: enhancement, process.
+
+- [ ] **If a session just started then we can upgrade that too** ([#118](https://github.com/Zalaras/muster/issues/118)) — When
+  a newer Claude Code version is available for restarting sessions, a session that has just started
+  is not offered the upgrade. Expected: A session in the started state should be treated like an
+  idle one and be eligible for restart onto the newer Claude Code version.
+  Filed 2026-11-05 from musterd 0.29.0 / Claude Code 2.1.318, focus view, session started.
+  Labels: enhancement, sessions, lifecycle.
+
+- [ ] **Add restart option to right click menu** ([#119](https://github.com/Zalaras/muster/issues/119)) — There
+  is no restart option in the right click menu, even though a restart mechanism onto the latest
+  Claude Code version already exists. Expected: The right click menu should offer a restart action
+  so a session can be restarted manually for other reasons, such as reloading an MCP.
+  Filed 2026-11-06 from musterd 0.29.0 / Claude Code 2.1.293, focus view, session started.
+  Labels: enhancement, rail, lifecycle, ux, claude-code.
+
+- [ ] **Find a way to get claude tmp files** ([#121](https://github.com/Zalaras/muster/issues/121)) — Claude
+  often writes markdown files into a temporary Claude directory whose path appears to include the
+  session id, and the author cannot see them in the file explorer. Expected: The dashboard should
+  provide a way to find and view the files Claude writes to its temporary session directory in the
+  file explorer.
+  Filed 2026-11-06 from musterd 0.29.0 / Claude Code 2.1.319, focus view, session idle.
+  Labels: enhancement, documents, claude-code.
 
 ## Tooling and docs
 
