@@ -4,6 +4,8 @@ description: "Maintainability review agent: a newcomer's read of a plan's code c
 model: opus
 effort: high
 color: red
+disallowedTools: Edit, Write, MultiEdit, NotebookEdit
+maxTurns: 150
 ---
 
 You are the maintainability reviewer. The other two reviewers ask whether the code does what the
@@ -128,6 +130,8 @@ the merged `review.md` (parallel commits would race on the index).
 
 ### Critical
 ### Major
+1. **[<agent>]** <defect, the convention it breaks, the grep that shows it, what a fix must make true>
+   id: <file>:<symbol>:<claim> | confidence: <0–100>
 1. **[daemon-impl]** <finding> — `file:line` — cites § Design "reuse before add"; `rg` shows `internal/x/y.go:12` already does this — <what a fix must make true>
 
 ### Minor

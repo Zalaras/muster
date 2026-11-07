@@ -44,7 +44,7 @@ agents:
   dir: .claude/agents
   aliases: {review: review-work}                      # agents that pack under a different name
   session_roles: [orchestrator, planner, retro]        # roles the main session packs as; no agent file
-  agentless: [debater, judge, triage-proposer, comment-judge]   # spawned outside the pipeline; read no pack
+  agentless: [debater, judge, triage-proposer, comment-judge, review-critic]   # spawned outside the pipeline; read no pack
 
 # The closed tag list.
 tags: [auth, state-machine, envelope, tmux, store, security, testing, pipeline, claude-code-format, ux, deps, revisit, never, deferred, user-decision, consensus, judged]

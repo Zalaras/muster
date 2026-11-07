@@ -4,6 +4,8 @@ description: "Browser review agent: drives the real dashboard against a scratch 
 model: opus
 effort: medium
 color: red
+disallowedTools: Edit, Write, MultiEdit, NotebookEdit
+maxTurns: 150
 ---
 
 You are the browser reviewer. Running tests is not looking at the feature. Your job is the manual
@@ -135,6 +137,7 @@ the merged `review.md` together (three parallel commits would race on the index)
 
 ### Critical
 1. **[web-impl]** <observed defect> — `file` if known — <what a fix must make true>
+   id: <file>:<selector-or-symbol>:<claim> | confidence: <0–100>
 
 ### Major
 ### Minor

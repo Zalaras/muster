@@ -4,6 +4,8 @@ description: "Tie-breaker for a two-agent decision debate run by the /decide ski
 model: opus
 effort: high
 color: purple
+disallowedTools: Edit, Write, MultiEdit, NotebookEdit
+maxTurns: 60
 ---
 
 You are the judge for a decision debate that ended without consensus. You did not watch it

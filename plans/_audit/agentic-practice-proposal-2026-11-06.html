@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pipeline comparison</title><style>:root{--bg:#f7f7f5;--ink:#1d1d1b;--mute:#6b6b66;--line:#b9b9b3;--cur:#5b5b55;--curbg:#ecece9;--keep:#2f6f4f;--keepbg:#e3f1e9;--new:#2b5fa8;--newbg:#e3ecf9;--mech:#8a5a1e;--mechbg:#f7ecda;--loop:#b23b3b}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--ink:#ecece8;--mute:#a6a6a0;--line:#4a4a46;--cur:#b5b5ae;--curbg:#262625;--keep:#7fcfa3;--keepbg:#173427;--new:#8fb4f0;--newbg:#182a4a;--mech:#e0b36f;--mechbg:#3b2b12;--loop:#f08c8c}}
-:root[data-theme="dark"]{--bg:#161615;--ink:#ecece8;--mute:#a6a6a0;--line:#4a4a46;--cur:#b5b5ae;--curbg:#262625;--keep:#7fcfa3;--keepbg:#173427;--new:#8fb4f0;--newbg:#182a4a;--mech:#e0b36f;--mechbg:#3b2b12;--loop:#f08c8c}
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pipeline comparison</title><style>:root{--bg:#f7f7f5;--ink:#1d1d1b;--mute:#6b6b66;--line:#b9b9b3;--cur:#5b5b55;--curbg:#ecece9;--keep:#2f6f4f;--keepbg:#e3f1e9;--new:#2b5fa8;--newbg:#e3ecf9;--mech:#8a5a1e;--mechbg:#f7ecda;--loop:#b23b3b;--done:#1f6f3f;--donebg:#cfead9;--partbg:#e9f4ec}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--ink:#ecece8;--mute:#a6a6a0;--line:#4a4a46;--cur:#b5b5ae;--curbg:#262625;--keep:#7fcfa3;--keepbg:#173427;--new:#8fb4f0;--newbg:#182a4a;--mech:#e0b36f;--mechbg:#3b2b12;--loop:#f08c8c;--done:#8fe0b0;--donebg:#1c4a30;--partbg:#17331f}}
+:root[data-theme="dark"]{--bg:#161615;--ink:#ecece8;--mute:#a6a6a0;--line:#4a4a46;--cur:#b5b5ae;--curbg:#262625;--keep:#7fcfa3;--keepbg:#173427;--new:#8fb4f0;--newbg:#182a4a;--mech:#e0b36f;--mechbg:#3b2b12;--loop:#f08c8c;--done:#8fe0b0;--donebg:#1c4a30;--partbg:#17331f}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;padding:16px}
 main{max-width:1500px;margin:0 auto}
 h1{font-size:20px;margin:0 0 2px} p.sub{margin:0 0 10px;color:var(--mute);font-size:13.5px}
@@ -13,6 +13,8 @@ svg{width:100%;height:auto;display:block}
 .n.keep rect{fill:var(--keepbg);stroke:var(--keep)}
 .n.new rect{fill:var(--newbg);stroke:var(--new)}
 .n.mech rect,.n.mech polygon{fill:var(--mechbg);stroke:var(--mech)}
+.n.done rect,.n.done polygon{fill:var(--donebg);stroke:var(--done);stroke-width:2.5}
+.n.part rect,.n.part polygon{fill:var(--partbg);stroke:var(--done);stroke-width:2.5;stroke-dasharray:7 4}
 .t{font-size:13.5px;font-weight:650;text-anchor:middle;fill:var(--ink)}
 .s{font-size:11px;text-anchor:middle;fill:var(--mute)}
 .lane{font-size:14px;font-weight:700;letter-spacing:.08em;text-anchor:middle;fill:var(--mute)}
@@ -23,8 +25,8 @@ path.loop{fill:none;stroke:var(--loop);stroke-width:1.8;marker-end:url(#ahl)}
 path.dash{stroke-dasharray:6 5}
 .lbl{font-size:11.5px;fill:var(--loop)}</style></head><body><main>
 <h1>Pipeline today vs proposed</h1>
-<p class="sub">Hover a box for the detail. Left: as it runs now. Right: the proposal; green boxes are unchanged.</p>
-<div class="legend"><span><i style="border-color:var(--cur);background:var(--curbg)"></i>current</span><span><i style="border-color:var(--keep);background:var(--keepbg)"></i>kept</span><span><i style="border-color:var(--new);background:var(--newbg)"></i>changed / new</span><span><i style="border-color:var(--mech);background:var(--mechbg)"></i>mechanical, no model (hexagon = gate)</span><span><i style="border-color:var(--loop);border-style:dashed"></i>bounded loop</span></div>
+<p class="sub">Hover a box for the detail. Left: as it ran before 2026-11-07. Right: the proposal; pale green = unchanged, solid green = landed in the Tier 1 commit of 2026-11-07, dashed green = partly. Tier 2 (runner, tiers, builders' own tests) will be applied in place and observed, not run in parallel.</p>
+<div class="legend"><span><i style="border-color:var(--cur);background:var(--curbg)"></i>current</span><span><i style="border-color:var(--keep);background:var(--keepbg)"></i>kept</span><span><i style="border-color:var(--new);background:var(--newbg)"></i>changed / new</span><span><i style="border-color:var(--mech);background:var(--mechbg)"></i>mechanical, no model (hexagon = gate)</span><span><i style="border-color:var(--loop);border-style:dashed"></i>bounded loop</span><span><i style="border-color:var(--done);background:var(--donebg);border-width:3px"></i>done (commit of 2026-11-07)</span><span><i style="border-color:var(--done);background:var(--partbg);border-style:dashed;border-width:3px"></i>partly done</span></div>
 <svg viewBox="0 0 1480 1134" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Current pipeline beside the proposed pipeline">
 <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--line)"/></marker>
 <marker id="ahl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--loop)"/></marker></defs>
@@ -197,11 +199,11 @@ path.dash{stroke-dasharray:6 5}
 <path class="a nohead" d="M1158.5,264 L1158.5,278.0"/>
 <path class="a nohead" d="M901.5,278.0 L1158.5,278.0"/>
 <path class="a" d="M1030.0,278.0 L1030.0,292"/>
-<g class="n mech">
+<g class="n part">
 <title>Seconds, zero tokens: new tests proven red on the pre-change tree; affected-package Go tests; Playwright --only-changed; PostToolUse format hook; wire fixtures validated against a generated schema.</title>
 <polygon points="842.0,292 1218.0,292 1230.0,315.0 1218.0,338 842.0,338 830.0,315.0"/>
-<text x="1030.0" y="312.0" class="t">Mechanical checks</text>
-<text x="1030.0" y="327.0" class="s">red-on-main · affected tests · only-changed · format · schema</text>
+<text x="1030.0" y="312.0" class="t">Mechanical checks ✓ partly</text>
+<text x="1030.0" y="327.0" class="s">affected tests + format hook done · red-on-main, schema pending</text>
 </g>
 <path class="a" d="M1030.0,338 L1030.0,366"/>
 <g class="n keep">
@@ -221,33 +223,33 @@ path.dash{stroke-dasharray:6 5}
 <path class="a" d="M858.6666666666666,500.0 L858.6666666666666,514"/>
 <path class="a" d="M1030.0,500.0 L1030.0,514"/>
 <path class="a" d="M1201.3333333333335,500.0 L1201.3333333333335,514"/>
-<g class="n new">
+<g class="n done">
 <title>Read-only, bounded, fed an index not a pack.</title>
 <rect x="780.0" y="514" width="157.33333333333334" height="46" rx="9"/>
-<text x="858.6666666666666" y="534.0" class="t">Correctness</text>
-<text x="858.6666666666666" y="549.0" class="s">always</text>
+<text x="858.6666666666666" y="534.0" class="t">Correctness ✓</text>
+<text x="858.6666666666666" y="549.0" class="s">always · read-only · ids + confidence</text>
 </g>
-<g class="n new">
+<g class="n done">
 <title>Plan withheld; runs on cycle 1 and when a module, type or seam changed.</title>
 <rect x="951.3333333333334" y="514" width="157.33333333333334" height="46" rx="9"/>
-<text x="1030.0" y="534.0" class="t">Maintainability</text>
-<text x="1030.0" y="549.0" class="s">cycle 1 / shape change</text>
+<text x="1030.0" y="534.0" class="t">Maintainability ✓</text>
+<text x="1030.0" y="549.0" class="s">cycle 1 / shape change · read-only</text>
 </g>
-<g class="n new">
+<g class="n done">
 <title>Measurement lens on surface/protocol tiers with web changes.</title>
 <rect x="1122.6666666666667" y="514" width="157.33333333333334" height="46" rx="9"/>
-<text x="1201.3333333333335" y="534.0" class="t">Browser</text>
-<text x="1201.3333333333335" y="549.0" class="s">UI tiers</text>
+<text x="1201.3333333333335" y="534.0" class="t">Browser ✓</text>
+<text x="1201.3333333333335" y="549.0" class="s">web plans · read-only</text>
 </g>
 <path class="a nohead" d="M858.6666666666666,560 L858.6666666666666,574.0"/>
 <path class="a nohead" d="M1030.0,560 L1030.0,574.0"/>
 <path class="a nohead" d="M1201.3333333333335,560 L1201.3333333333335,574.0"/>
 <path class="a nohead" d="M858.6666666666666,574.0 L1201.3333333333335,574.0"/>
 <path class="a" d="M1030.0,574.0 L1030.0,588"/>
-<g class="n new">
+<g class="n done">
 <title>Critic sees only the diff + findings and may only delete; every finding has confidence 0–100 and a fingerprint; below threshold → proposed-backlog, never a wave.</title>
 <rect x="840.0" y="588" width="380" height="46" rx="9"/>
-<text x="1030.0" y="608.0" class="t">Filter &amp; score</text>
+<text x="1030.0" y="608.0" class="t">Filter &amp; score ✓</text>
 <text x="1030.0" y="623.0" class="s">Sonnet critic · confidence · fingerprints</text>
 </g>
 <path class="a" d="M1030.0,634 L1030.0,662"/>
@@ -269,7 +271,7 @@ path.dash{stroke-dasharray:6 5}
 <title>Same sweep plus Stryker incremental (web) and scoped gremlins (logic packages) as warnings.</title>
 <polygon points="877.0,810 1183.0,810 1195.0,833.0 1183.0,856 877.0,856 865.0,833.0"/>
 <text x="1030.0" y="830.0" class="t">Final validation</text>
-<text x="1030.0" y="845.0" class="s">full e2e · race · mutation warnings</text>
+<text x="1030.0" y="845.0" class="s">full e2e · race (mutation warnings pending)</text>
 </g>
 <path class="a" d="M1030.0,856 L1030.0,884"/>
 <g class="n keep">
@@ -284,9 +286,9 @@ path.dash{stroke-dasharray:6 5}
 <text x="596" y="544.0" class="lbl">re-review by all three,</text>
 <text x="596" y="558.0" class="lbl">≤ 3 cycles then ask</text>
 <path class="loop dash" d="M1195.0,685.0 L1318,685.0 L1318,241.0 L1286.0,241.0"/>
-<text x="1326" y="449.0" class="lbl">fix → checks →</text>
-<text x="1326" y="463.0" class="lbl">delta re-review (1 lens);</text>
-<text x="1326" y="477.0" class="lbl">cycle 3: fresh implementer</text>
+<text x="1326" y="449.0" class="lbl">✓ fix → checks →</text>
+<text x="1326" y="463.0" class="lbl">✓ delta re-review by id;</text>
+<text x="1326" y="477.0" class="lbl">✓ cycle 3: implementer on Opus</text>
 <text x="740.0" y="1038" class="lane small">CROSS-CUTTING — how rules are enforced · what context is loaded · what each step costs</text>
 <g class="n cur">
 <title>Rules live in 14 agent files and CLAUDE.md; one SubagentStop hook that fails open; 2 of 14 agents restrict tools.</title>
@@ -306,22 +308,22 @@ path.dash{stroke-dasharray:6 5}
 <text x="484.0" y="1080.0" class="t">Cost</text>
 <text x="484.0" y="1095.0" class="s">Sonnet/Opus · 5 min cache</text>
 </g>
-<g class="n mech">
+<g class="n done">
 <title>PreToolUse denies stash/config/push and cross-ownership writes; exit-2 hooks block finishing without a valid verdict; disallowedTools + maxTurns on every agent.</title>
 <rect x="760.0" y="1056" width="172.0" height="54" rx="9"/>
-<text x="846.0" y="1080.0" class="t">Enforcement</text>
+<text x="846.0" y="1080.0" class="t">Enforcement ✓</text>
 <text x="846.0" y="1095.0" class="s">hooks + tool limits</text>
 </g>
-<g class="n mech">
+<g class="n part">
 <title>Inline what matches touched files, index the rest, fit to budget; retro findings routed to hook / fact / episode; /doctor prompt-audit.</title>
 <rect x="944.0" y="1056" width="172.0" height="54" rx="9"/>
-<text x="1030.0" y="1080.0" class="t">Knowledge</text>
-<text x="1030.0" y="1095.0" class="s">index + JIT reads</text>
+<text x="1030.0" y="1080.0" class="t">Knowledge ✓ partly</text>
+<text x="1030.0" y="1095.0" class="s">retro sink done · pack index needs the kb module</text>
 </g>
-<g class="n mech">
+<g class="n done">
 <title>Effort per role; subagent cache 1 h; staggered spawns; usage recorded per step. No model pinning for exploration and no weekly threshold (developer rulings).</title>
 <rect x="1128.0" y="1056" width="172.0" height="54" rx="9"/>
-<text x="1214.0" y="1080.0" class="t">Cost</text>
-<text x="1214.0" y="1095.0" class="s">effort per role · 1 h cache</text>
+<text x="1214.0" y="1080.0" class="t">Cost ✓</text>
+<text x="1214.0" y="1095.0" class="s">effort per role · 1 h cache · usage/step</text>
 </g>
 </svg></main></body></html>

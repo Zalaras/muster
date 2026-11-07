@@ -175,6 +175,7 @@ them in one message with `/orchestrate` Step 6 item 3's prompt (`This is review 
 GATES_LOG_DIR: … (<F> failed lines). Write your part file only; do not commit`). Then:
 
 ```bash
+# after the parts: the critic (orchestrate Step 6 item 3a), then
 python3 $S <sweep>-<n> merge-review --gates-failed <F>
 git add plans/<sweep>-<n>/review*.md && git commit -m "review(<sweep>-<n>): cycle 1"
 python3 $S <sweep>-<n> reviewed "$(git rev-parse HEAD)"

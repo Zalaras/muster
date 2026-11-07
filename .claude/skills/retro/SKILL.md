@@ -47,12 +47,17 @@ that governs the incident, and read the whole section it sits in. Root `CLAUDE.m
 every session and every subagent, so a line there is the most expensive line in the repo — it
 must earn it. Then exactly one of:
 
-| Finding | Proposal |
+| Finding | Proposal — exactly one sink (kb:adr/process-retro-sink-rule) |
 |---|---|
 | A rule exists and was followed; the cost was the pipeline working | No finding. Say so in one line if it looks like one. |
-| A rule exists and was **broken** | **Never add a sentence.** First count its edits: `git log --oneline -S'<a distinctive phrase of the rule>' -- <file>`. One commit → sharpen it in place, no more words than before. Two or more → rewording has already failed twice; the only proposals allowed are mechanical — a `plan-lint.sh` / `gates.sh` / `kb refs` / `orch-state.py` check, a verdict field the orchestrator must read — or dropping the sentence. |
-| No rule exists | A **lesson record**, not a sentence: `docs/lessons/<slug>.md` with `roles:` (the agents that pay next time), `refs: [plan:<name>, <evidence file>]`, and one sentence of lesson — `kb pack` delivers it to those roles. An agent file changes only for a **rule** (a must/never a gate or the reviewer enforces), in the file the actor reads: agent → its `agents/*.md`; orchestrator → `orchestrate/SKILL.md`; plan shape → `plan-work`; a fact any session in one directory needs → that directory's `CLAUDE.md`, hand-written part. |
+| The incident is a zero-exception rule, followed or broken | **A check, never a sentence**: a PreToolUse/PostToolUse/SubagentStop hook (`.claude/hooks/`, with a case in its test), a `plan-lint.sh` / `gates.sh` / `kb check` / `e2e-lint.sh` / `orch-state.py` rule, or a verdict field the orchestrator must read. Then **delete** the prose the check replaces wherever its reader runs after the check; keep the one line an author-agent reads before acting. |
+| The incident is a measured Claude Code behaviour | A **fact record** with `verified:` and a `guard:` test, via `/interface-probe`; no prose. |
+| The incident is a judgement the next run should remember, and no check can carry it | An **episode**: `docs/lessons/<slug>.md` with `roles: [retro]` — kept for `kb find` and `/retro --audit`, loaded by no pack. |
+| A sentence would change behaviour and nothing above fits | Prose **only after a control/treatment probe**: two fresh Haiku runs of the same trivial task, with and without the sentence, outputs pasted in the retro; a sentence that changes nothing is not added. The sentence goes in the file the actor reads (agent → its `agents/*.md`; orchestrator → `orchestrate/SKILL.md`; plan shape → `plan-work`; a directory fact → that directory's `CLAUDE.md`), with its net word delta. |
 | One-off, environmental, or developer preference | No proposal. List it under *Not proposing*. |
+
+A lesson that once carried roles and is now covered by a check moves to `roles: [retro]` in the same
+retro; the pack it leaves is the saving.
 
 **Every proposal states its net word delta** for the file it edits (`wc -w` before → after).
 A lesson record has no delta to state; it counts toward the pack-size table in § 5 instead.

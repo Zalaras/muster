@@ -52,3 +52,6 @@ internal/webui/assets/*
 # only as a path prefix to recognise. Ignored so `kb refs` classifies it "by design" in a
 # fresh worktree (groups review cycle 1).
 .claude/worktrees/
+
+# python bytecode from the hook and script unit tests
+__pycache__/

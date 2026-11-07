@@ -24,6 +24,34 @@ implementing agent's — never write, build or run one.
   not reviewed: no issue or note asks for, judges or cites one — the comment pass owns them
   (kb:adr/process-review-never-reviews-comments).
 
+## Identity and confidence — every issue carries both
+
+Directly under an issue's first line, indented three spaces, one line:
+
+```
+   id: <file>:<symbol-or-anchor>:<two-to-four-word-claim> | confidence: <0–100>
+```
+
+The **id** is the finding's fingerprint: the file it lives in, the symbol (function, type, CSS
+selector, spec title) it is about, and the claim in a few words — `internal/server/restart.go:restartNow:second batch runner`.
+A later cycle names prior findings by id, so spell the same defect the same way. **Confidence** is
+how sure you are the defect is real *as stated*, not how serious it is: 90+ you reproduced or
+measured it and pasted the evidence; 70–89 you read the code path end to end; 40–69 you infer it
+from a pattern or a name; below 40 a hunch. `merge-review` enforces the thresholds: a Major
+under 80 or a Minor under 60 is moved, text intact, to `## Below threshold` and reaches the
+developer as a backlog proposal; it never routes to a wave. A Critical has no threshold — a
+Critical you are unsure of is a Major with your real confidence. A `[note]` needs no line.
+
+**Struck findings.** After the parts are written the orchestrator spawns `review-critic`, which
+sees only the diff and your findings and may strike one the diff directly contradicts, quoting the
+hunk. `merge-review` drops struck ids before computing the verdict and lists them under
+`## Struck by critic`. Nothing is added by that step; a judgement call is never struck.
+
+**Contesting a finding.** A fix-wave agent may answer a finding with `counter:` (the finding is
+wrong as stated) or `refute:` (it is right but the fix would do harm) only by naming the concrete
+harm or pasting the measurement that contradicts it; otherwise it fixes. The orchestrator carries
+contested ids and their evidence into the next cycle's prompt; the reviewer rules on them by id.
+
 ## Tags
 
 - `[daemon-impl]` / `[web-impl]` / `[daemon-tests]` / `[web-tests]` / `[render-tests]` / `[e2e-specs]` — that agent
@@ -53,5 +81,5 @@ implementing agent's — never write, build or run one.
 
 The merged verdict is computed, never edited: `blocked` if any part is blocked or unusable, else
 `needs-changes` if a gate failed, a part said so or any part carries an agent-tagged Critical or
-Major, else `approved`. Issue
+Major that survives the critic's strikes and the confidence thresholds, else `approved`. Issue
 numbering restarts in each part file, so cross-reference by part ("browser Major 1").

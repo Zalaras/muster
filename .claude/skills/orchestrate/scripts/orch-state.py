@@ -54,37 +54,59 @@ def print_timings(s):
     since the previous finish (started_at for the first), marked `~` because that fallback is
     wrong for parallel steps. Total is run start → last finish, not the column sum (parallel
     steps overlap). Prints a Markdown table the summary can paste."""
-    rows = []   # (finish_ts, step, label, start_ts or None)
+    rows = []   # (finish_ts, step, label, start_ts or None, Δusage or None)
     attempts = s.get("step_attempts") or {}
     for step, lst in attempts.items():
         for i, at in enumerate(lst):
             if not at.get("finish"):
                 continue
             label = step if i == 0 else f"{step} (attempt {i + 1})"
-            rows.append((at["finish"], step, label, at.get("start")))
+            du = None
+            if at.get("usage_start") is not None and at.get("usage_finish") is not None:
+                du = at["usage_finish"] - at["usage_start"]
+            rows.append((at["finish"], step, label, at.get("start"), du))
     if not rows:
         stamps = s.get("step_finished_at") or {}
         starts = s.get("step_started_at") or {}
-        rows = [(ts, step, step, starts.get(step)) for step, ts in stamps.items()]
+        rows = [(ts, step, step, starts.get(step), None) for step, ts in stamps.items()]
     if not rows:
         print("no finish stamps (state predates timings, or no step is done yet)"); return
     rows.sort(key=lambda r: r[0])
     prev = parse(s["started_at"])
     fallback = False
-    print("| Step | Started (UTC) | Finished (UTC) | Wall-clock | Retries |")
-    print("|---|---|---|---|---|")
-    for ts, step, label, start in rows:
+    print("| Step | Started (UTC) | Finished (UTC) | Wall-clock | Δweekly % | Retries |")
+    print("|---|---|---|---|---|---|")
+    dsum = 0.0; any_du = False
+    for ts, step, label, start, du in rows:
         t = parse(ts)
         if start:
             dur = fmt(t - parse(start)); started = start[11:16]
         else:
             dur = "~" + fmt(t - prev); started = "—"; fallback = True
         prev = t
-        print(f"| {label} | {started} | {ts[11:16]} | {dur} | {s['retry_counts'].get(step, 0)} |")
+        dcol = f"{du:+.0f}" if du is not None else "—"
+        if du is not None: dsum += du; any_du = True
+        print(f"| {label} | {started} | {ts[11:16]} | {dur} | {dcol} | {s['retry_counts'].get(step, 0)} |")
     total = parse(rows[-1][0]) - parse(s["started_at"])
-    print(f"| **run** | {s['started_at'][11:16]} | {rows[-1][0][11:16]} | **{fmt(total)}** | |")
+    print(f"| **run** | {s['started_at'][11:16]} | {rows[-1][0][11:16]} | **{fmt(total)}** | {('**%+.0f**' % dsum) if any_du else '—'} | |")
     if fallback:
         print("\n`~` = no start stamp; gap since the previous finish (unreliable for parallel steps).")
+
+DB = os.environ.get("MUSTER_DB") or os.path.expanduser("~/Library/Application Support/Muster/muster.db")
+
+def usage_pct():
+    """The latest seven-day usage percentage the daemon ingested, or None. Read-only through the
+    sqlite3 CLI so the main session needs no token; absent daemon or table means None, never an
+    error — the column is a cost figure, not a gate."""
+    if not os.path.exists(DB):
+        return None
+    try:
+        r = subprocess.run(["sqlite3", "-readonly", DB, "select seven_day_pct from usage_sample order by at desc limit 1"],
+                           capture_output=True, text=True, timeout=5)
+        v = r.stdout.strip()
+        return float(v) if r.returncode == 0 and v else None
+    except Exception:
+        return None
 
 def close_attempt(s, step):
     """Stamp step_finished_at[step] and close the step's open attempt (or record a finish-only
@@ -101,6 +123,9 @@ def close_attempt(s, step):
         lst[-1]["finish"] = ts
     elif not lst:
         lst.append({"start": None, "finish": ts})
+    u = usage_pct()
+    if u is not None and lst:
+        lst[-1]["usage_finish"] = u
 
 def stamp_plan_status(plan_dir, value):
     """Set plan.md's **Status** line. The orchestrator used to do this by hand at pre-flight
@@ -141,6 +166,61 @@ def has_blocking_issue(text):
         elif blocking and AGENT_TAG.match(line):
             return True
     return False
+
+ID_LINE = re.compile(r"^\s{2,}id:\s*(?P<id>[^|]+?)\s*\|\s*confidence:\s*(?P<conf>\d{1,3})\s*$")
+THRESHOLD = {"Major": 80, "Minor": 60}   # review-scale.md § Identity and confidence; a Critical has none
+
+def critic_strikes(plan_dir):
+    """Ids the critic struck (review.critic.md, the `## Struck` table's first column), or empty."""
+    f = plan_dir / "review.critic.md"
+    if not f.exists():
+        return set()
+    ids, in_table = set(), False
+    for line in f.read_text().splitlines():
+        if line.startswith("## "):
+            in_table = line.strip() == "## Struck"; continue
+        if in_table and line.startswith("|") and not line.startswith("|---") and "| id |" not in line.replace(" ", " "):
+            cell = line.split("|")[1].strip().strip("`")
+            if cell and cell.lower() != "id":
+                ids.add(cell)
+    return ids
+
+def filter_part(text, strikes):
+    """Apply the critic's strikes and the confidence thresholds to one part. Returns the rewritten
+    body and two lists of (severity, first line): struck and below-threshold. An issue is a
+    numbered line under a Critical/Major/Minor heading plus its indented continuation lines;
+    the id line is read from them. An issue without an id line is kept as written (an old-format
+    part costs nothing); one without a confidence is kept too."""
+    out, struck, below = [], [], []
+    sev = None; block = []
+    def flush():
+        nonlocal block
+        if not block:
+            return
+        first = block[0]; m = next((ID_LINE.match(l) for l in block[1:] if ID_LINE.match(l)), None)
+        fid = m.group("id").strip() if m else None
+        conf = int(m.group("conf")) if m else None
+        if fid and fid in strikes:
+            struck.append((sev, first.strip()))
+        elif sev in THRESHOLD and conf is not None and conf < THRESHOLD[sev] and AGENT_TAG.match(first):
+            below.append((sev, first.strip()))
+        else:
+            out.extend(block)
+        block = []
+    for line in text.splitlines():
+        if line.startswith("### "):
+            flush(); sev = line[4:].strip().split()[0]; out.append(line); continue
+        if line.startswith("## "):
+            flush(); sev = None; out.append(line); continue
+        if sev in ("Critical", "Major", "Minor"):
+            if re.match(r"^\d+\. ", line):
+                flush(); block = [line]; continue
+            if block and (line.startswith("  ") or line.strip() == ""):
+                block.append(line); continue
+            flush()
+        out.append(line)
+    flush()
+    return "\n".join(out), struck, below
 
 def scope_warnings(plan_dir, parts):
     """WARN lines for agent-tagged issues naming a source path owned by a feature outside the plan's
@@ -208,13 +288,22 @@ def merge_review(plan_dir, plan, cycle, gates_failed):
         (parts if f.exists() else skipped).append((key, heading, f))
     if not any(k == "code" for k, _, _ in parts):
         sys.exit("merge-review needs plans/<plan>/review.code.md — the correctness reviewer's part is never optional")
-    verdicts, blocking, bodies = [], False, []
+    strikes = critic_strikes(plan_dir)
+    verdicts, blocking, bodies, struck_all, below_all = [], False, [], [], []
     for key, heading, f in parts:
         text = f.read_text()
         v = part_verdict(text)
         verdicts.append((key, v))
+        text, struck, below = filter_part(text, strikes)
+        struck_all += [(key, sv, ln) for sv, ln in struck]
+        below_all += [(key, sv, ln) for sv, ln in below]
         blocking = blocking or has_blocking_issue(text)
         bodies.append(f"\n## {heading}\n\n" + VERDICT_LINE.sub(lambda m: f"**Part verdict**: {m.group(1)}", text.strip()) + "\n")
+    if struck_all:
+        bodies.append("\n## Struck by critic\n\n" + "".join(f"- {k} {sv}: {ln}\n" for k, sv, ln in struck_all))
+    if below_all:
+        bodies.append("\n## Below threshold\n\n_Confidence under review-scale.md's bar; not routed. The orchestrator carries each to proposed-backlog.md._\n\n"
+                      + "".join(f"- {k} {sv}: {ln}\n" for k, sv, ln in below_all))
     if any(v in ("blocked", "unusable") for _, v in verdicts):
         verdict = "blocked"
     elif gates_failed > 0 or blocking or any(v == "needs-changes" for _, v in verdicts):
@@ -228,7 +317,8 @@ def merge_review(plan_dir, plan, cycle, gates_failed):
               + "**Part verdicts**: " + ", ".join(f"{k} {v}" for k, v in verdicts) + "\n"
               "\n_Merged by orch-state.py merge-review; the verdict is computed from the parts and the gate run, never edited by hand._\n")
     (plan_dir / "review.md").write_text(header + "".join(bodies))
-    print(f"merged {len(parts)} part(s) -> review.md: **Verdict**: {verdict}")
+    print(f"merged {len(parts)} part(s) -> review.md: **Verdict**: {verdict}"
+          + (f"; struck {len(struck_all)}" if struck_all else "") + (f"; below threshold {len(below_all)}" if below_all else ""))
     for w in scope_warnings(plan_dir, parts):
         print(w)
     return verdict, [k for k, _ in verdicts]
@@ -343,7 +433,11 @@ def main():
         if a.cmd == "start":
             ts = now()
             s.setdefault("step_started_at", {})[a.arg] = ts
-            s.setdefault("step_attempts", {}).setdefault(a.arg, []).append({"start": ts, "finish": None})
+            att = {"start": ts, "finish": None}
+            u = usage_pct()
+            if u is not None:
+                att["usage_start"] = u
+            s.setdefault("step_attempts", {}).setdefault(a.arg, []).append(att)
         elif a.cmd == "finish":
             close_attempt(s, a.arg)
         elif a.cmd == "done":

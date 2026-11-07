@@ -6,7 +6,7 @@ date: 2026-09-24
 summary: A run gating units with a hand-picked command list left out check-kb, so two web splits landed with moved files unregistered in the feature registry.
 features: []
 tags: [pipeline]
-roles: [orchestrator]
+roles: [retro]
 files: [.claude/skills/orchestrate/scripts/gates.sh]
 tests: []
 refs: [plan:maintainability-cleanup, plans/maintainability-cleanup/findings.md]
@@ -16,3 +16,5 @@ refs: [plan:maintainability-cleanup, plans/maintainability-cleanup/findings.md]
 **Cost.** Two commits on the branch failed `make check`, and one fix-up commit re-registered the moved files.
 
 **What changed.** A run outside `/orchestrate` gates each unit with the pipeline's own gate script, or at least includes `make check-kb` and `make refs` whenever files move. It never uses an ad-hoc list.
+
+**Episode.** No pack carries this any more: `gates.sh` runs `make check-kb` in every wave and baseline, and the pre-commit hook refuses a commit under `docs/` or `.claude/` while it fails (kb:adr/process-retro-sink-rule).

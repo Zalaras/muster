@@ -42,6 +42,7 @@ LOCK_WAIT = "45m"          # a queued batch waits for another's Playwright sweep
 # default kills reviewers; it matches /fix-batch's 2 h gate timeout, because a reviewer queued behind
 # another batch's Playwright lock outlasted 1 h.
 BG_WAIT_CEILING_MS = "7200000"
+USAGE_LIMIT_WAIT_MS = "7200000"   # a batch waits up to 2 h for a weekly/5h reset, then fails with the reason
 ALLOWED_TOOLS = "Bash,Read,Edit,Write,Glob,Grep,Agent,ToolSearch,SendMessage,TaskStop,WebFetch"
 
 
@@ -143,6 +144,10 @@ def child_env():
            if not k.startswith("CLAUDE") and k != "MUSTER_SESSION"}
     env["GATES_LOCK_WAIT"] = LOCK_WAIT
     env["CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"] = BG_WAIT_CEILING_MS
+    # Unattended: wait out a 429/529 or a usage-limit reset that is near; give up on one that is
+    # far (kb:adr/process-cost-knobs-cache-effort-usage-column).
+    env["CLAUDE_CODE_RETRY_WATCHDOG"] = "1"
+    env["CLAUDE_CODE_RETRY_WATCHDOG_MAX_USAGE_LIMIT_WAIT_MS"] = USAGE_LIMIT_WAIT_MS
     return env
 
 

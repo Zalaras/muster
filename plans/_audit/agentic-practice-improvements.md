@@ -27,12 +27,12 @@ their order, and each pick becomes its own plan and commit.
 
 | Item | Tier | Status |
 |---|---|---|
-| R1 Hard rules into hooks; reviewers read-only | 1 | proposed |
-| R2 Review: one generator, filter critic, confidence, fingerprints, escalation | 1 | proposed |
-| R3 kb pack as index + just-in-time reads; budget that bites | 1 | proposed |
-| R4 Lesson sink rule for retros | 1 | proposed |
-| R5 Cache and effort knobs; cost column | 1 | proposed |
-| R6 Faster cycle gates | 1 | proposed |
+| R1 Hard rules into hooks; reviewers read-only | 1 | done 2026-11-07 (Tier 1 commit) |
+| R2 Review: three lenses kept, filter critic, confidence, fingerprints, escalation | 1 | done 2026-11-07 (Tier 1 commit) |
+| R3 kb pack as index + just-in-time reads; budget that bites | 1 | blocked: the packer lives in the kb module (separate repo); `/doctor prompt-audit` must be run interactively (a headless run burns its turns, measured 2026-11-07) |
+| R4 Lesson sink rule for retros | 1 | done 2026-11-07 (Tier 1 commit; two lessons moved to episodes) |
+| R5 Cache and effort knobs; cost column | 1 | done 2026-11-07 (Tier 1 commit; spawn stagger not mechanisable) |
+| R6 Faster cycle gates | 1 | done 2026-11-07 (Tier 1 commit; Playwright --only-changed rejected, see ADR) |
 | R7 Script the orchestrator | 2 | proposed |
 | R8 Scale process to risk; epics of small plans | 2 | proposed |
 | R9 Reviewer regression suite with plugin eval | 2 | proposed |
@@ -43,6 +43,9 @@ their order, and each pick becomes its own plan and commit.
 | R14 Per-agent step and context budgets | 3 | proposed |
 | R15 Local code graph without model indexing — trial against a probe set | 3 | proposed |
 | M1–M5 Facts to re-measure | — | proposed |
+
+Developer's ruling (2026-11-07): Tier 2 is applied **in place** and observed on the next runs with
+the timings and Δweekly columns as the measure; it is not run in parallel with the old pipeline.
 
 Update the Status column as items land (`done <date> <sha>`, `rejected <date>: <reason>`), the
 same way `TODO.md` entries are ticked.
@@ -271,7 +274,7 @@ question is "Would the system catch this automatically next time?"
 **Proposed solution.**
 1. In `.claude/skills/retro/SKILL.md` § 2, replace the proposal table with a sink rule: a finding
    becomes exactly one of (a) a hook, lint, `kb check` rule or gate line; (b) a fact record with a
-   `guard` test (measured behaviour); (c) an episode — a lesson record with `roles: []`, so no pack
+   `guard` test (measured behaviour); (c) an episode — a lesson record with `roles: [retro]`, so no pack
    carries it; (d) prose, only when a control/treatment probe shows the sentence changes behaviour
    (two fresh Haiku agents, same trivial task, with and without the line; paste both outputs).
 2. A `kb check` rule (in the module, configured in `kb.yaml`): a lesson whose body names a guard

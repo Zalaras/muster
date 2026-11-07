@@ -169,7 +169,19 @@ render-test-run: ## The render tests alone, no build (make render-test runs this
 	cd web && npm run render-test
 
 .PHONY: check
-check: lint test web-lint web-test contrast e2e-lint render-lint check-versions check-render-fixtures check-kb ## Lint + test + web-lint + web-test + contrast + e2e-lint + render-lint + check-versions + check-render-fixtures + check-kb (which covers refs)
+check: lint test web-lint web-test contrast e2e-lint render-lint check-versions check-render-fixtures check-kb hooks-test ## Lint + test + web-lint + web-test + contrast + e2e-lint + render-lint + check-versions + check-render-fixtures + check-kb (which covers refs) + hooks-test
+
+# The members of check that share no port, socket or lock run together under -j; test and
+# check-render-fixtures follow (test holds the shared gate lock; renderfix drives the server
+# in process). Same verdict as check, shorter wall-clock (kb:adr/process-cycle-gates-affected-only).
+.PHONY: check-fast
+check-fast: ## check with its independent members in parallel (make -j), then test and check-render-fixtures
+	$(MAKE) -j4 lint web-lint web-test contrast e2e-lint render-lint check-versions check-kb hooks-test
+	$(MAKE) test check-render-fixtures
+
+.PHONY: hooks-test
+hooks-test: ## Unit tests for the Claude Code hooks (PreToolUse guard) and orch-state.py review filtering
+	python3 .claude/hooks/pretool_guard_test.py && python3 .claude/skills/orchestrate/scripts/orch_state_test.py
 
 # Pipeline worktrees (kb:adr/process-session-enters-worktree-in-place): every /orchestrate run
 # lives in ../<repo>-<plan> on plan/<plan>, created here before the session starts; the primary

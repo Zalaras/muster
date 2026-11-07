@@ -86,7 +86,9 @@ Spawn each step as a subagent using the Agent tool with the step's own `subagent
 | Review — maintainability | `review-maintainability` |
 | Doc reconcile | `doc-reconcile` |
 
-Each subagent already carries its full instructions (its agent definition is its system prompt), so the spawn prompt is the task, the mode, the plan name and the project root — **never pasted file contents** (the agent reads from disk) and never an explicit `model` (each definition pins its own model).
+Each subagent already carries its full instructions (its agent definition is its system prompt), so the spawn prompt is the task, the mode, the plan name and the project root — **never pasted file contents** (the agent reads from disk) and never an explicit `model` (each definition pins its own model) — with one exception: a cycle-3 fix
+wave spawns the implementation agent with `model: opus`, a fresh and stronger implementer instead of
+another round by the same one (kb:adr/process-review-critic-confidence-fingerprints).
 
 ### Verdicts and budgets
 
@@ -287,17 +289,30 @@ result.
    ```
    Those archives must exist before the re-spawn — Review Retry Logic step 5 creates them; check
    before spawning.
-4. **Merge and commit.** When every spawned reviewer has reported:
+3a. **The critic, then merge.** When every spawned reviewer has reported, spawn
+   `subagent_type: "review-critic"` with:
+   ```
+   Execute the critic pass for plan: <plan-name>
+   Project root: <project-root>
+   This is review cycle <N>. Diff range: <main...HEAD on cycle 1, else review_commits[N-1]..HEAD>.
+   Write plans/<plan-name>/review.critic.md only; do not commit.
+   ```
+   It may only strike a finding the diff contradicts (review-scale.md § Identity and confidence).
+   `merge-review` reads its `## Struck` ids and applies the confidence thresholds; a missing or
+   unparseable critic file strikes nothing. Commit `review.critic.md` with the parts.
+4. **Merge and commit.** When the critic has reported:
    ```bash
    python3 $S <plan> merge-review --gates-failed <F>      # writes review.md; prints the verdict and any `WARN scope:` line — touch or promote that feature (Fix Wave Ordering § Rules) before wave 1
-   git add plans/<plan>/review.md plans/<plan>/review.code.md [plans/<plan>/review.browser.md] [plans/<plan>/review.maintainability.md]
+   git add plans/<plan>/review.md plans/<plan>/review.code.md [plans/<plan>/review.browser.md] [plans/<plan>/review.maintainability.md] [plans/<plan>/review.critic.md]
    git commit -- <those paths> -m "review(<plan>): cycle <N> — <verdict>"    # plus the harness trailers
    python3 $S <plan> reviewed "$(git rev-parse HEAD)"     # review_commits[N], for the next cycle's skip rules
    python3 $S <plan> finish review
    ```
    The verdict is computed (review-scale.md § Verdicts), never edited. Read it from `review.md`'s
    header and act by the table. Issue numbering restarts in each part; when you quote an issue
-   anywhere, name its part ("browser Major 1").
+   anywhere, name its part and its id ("browser Major 1, `web/src/render/x.ts:place:clamps nothing`").
+   `## Below threshold` items are yours: each goes to `proposed-backlog.md` verbatim, never to a wave;
+   `## Struck by critic` items are listed in the completion summary and nothing else.
 
 **Approved with open decision items is conditional.** `[orchestrator:decision]` and
 `[orchestrator:user-decision]` items never block approval but do block completion: settle each per
@@ -342,8 +357,10 @@ goes back to its agent once; still unsatisfied, to `proposed-backlog.md` with th
    line scoped as always — and that run is the cycle's validation; a red line becomes the merged
    header's `**Gates**: N failed` and a Critical for the same fix wave.
 5. `python3 $S <plan> archive review.md`, then `archive review.<part>.md` for each part file that
-   exists (`code`, `browser`, `maintainability`), then `retry review` — **once per cycle**, not once
-   per wave — then Step 6 from item 1.
+   exists (`code`, `browser`, `maintainability`, `critic`), then `retry review` — **once per cycle**, not once
+   per wave — then Step 6 from item 1. On the third cycle's fix wave, spawn each tagged impl agent
+   with `model: opus` (Agent Invocation): a fresh, stronger implementer is the escalation the
+   developer chose instead of a hard cycle cap.
 
 ### Review Cycle Exhaustion
 
@@ -393,8 +410,9 @@ Two concrete ways a flat fan-out goes wrong: an impl agent moves or renames a sy
 
 Every fix-wave prompt carries:
 
-1. **Every issue tagged for that agent, quoted verbatim** from review.md with its part name and its
-   `file:line` exactly as the review gives them — not paraphrased, summarized or selected — followed by:
+1. **Every issue tagged for that agent, quoted verbatim** from review.md with its part name, its id
+   line and its `file:line` exactly as the review gives them — not paraphrased, summarized or selected —
+   plus any `counter:`/`refute:` the previous wave recorded against those ids, followed by:
    ```
    Read plans/<plan-name>/review.md for the complete issue descriptions.
    The issues tagged [<agent-tag>] are yours to fix. Fix ALL of them.

@@ -23,6 +23,10 @@ own files, your `plans/<plan-name>/` log included:
 - Leave files you did not change alone, including another agent's uncommitted ones — name them in
   your log instead. Pushing and committing on `main` are the developer's (`/land`).
 
+Two PreToolUse hooks refuse the moves above and the writes outside your role's file kinds
+(`.claude/hooks/pretool-guard.py`); the reason a refusal prints is the rule, not a prompt to find
+another spelling.
+
 ## Evidence
 
 Claims need evidence. When you deviate from the plan, abandon an approach, reverse a change or
@@ -43,6 +47,13 @@ Write no comments: the comment pass strips every comment a branch adds to produc
 judge decides what returns (kb:adr/process-comment-pass-owns-code-comments). A path, `make` target
 or `musterd` flag any comment cites must exist — `go tool kb refs`, inside `make check-kb`,
 fails the gate otherwise.
+
+## Contesting a review finding
+
+In a fix wave you may answer a finding with `counter: <id> — <why it is wrong as stated>` or
+`refute: <id> — <the harm the fix would do>` in your log's `## Fix Attempt`, only with the
+measurement or concrete harm beside it (review-scale.md § Identity and confidence); otherwise you
+fix it. An unsupported counter is a Handoff defect.
 
 ## Verdicts
 

@@ -4,6 +4,8 @@ description: "Advocate in a two-agent decision debate run by the /decide skill. 
 model: opus
 effort: high
 color: yellow
+disallowedTools: Edit, Write, MultiEdit, NotebookEdit
+maxTurns: 60
 ---
 
 You are one of two advocates in an honest debate that settles a product or design decision

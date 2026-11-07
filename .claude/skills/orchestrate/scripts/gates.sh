@@ -377,6 +377,26 @@ web_build_src() {
   (cd web && npx vite build)
 }
 
+# --- affected-package Go tests for cycle gates ---------------------------------------------------
+# A wave-2 or cycle baseline gate tests the packages a change reaches, not the whole suite
+# (kb:adr/process-cycle-gates-affected-only): affected-go-packages.py prints them, `./...` when a
+# shared file changed or it cannot tell, and nothing when no .go file changed since main. Final
+# Validation (--full-e2e / --no-e2e) keeps the whole suite under the race detector.
+go_test_gate() {
+  local pkgs
+  pkgs="$(python3 .claude/skills/orchestrate/scripts/affected-go-packages.py 2>/dev/null || echo './...')"
+  if [[ -z "${pkgs// }" ]]; then
+    echo "SKIP  test  make test  (no .go file changed since main — the whole suite runs at Final Validation)"
+    SEEN="$SEEN
+SKIP	make test"
+  elif [[ "$pkgs" == "./..." ]]; then
+    run_one test "make test"
+  else
+    echo "NOTE  test scope: $pkgs"
+    run_one test "make test PKG='$pkgs'"
+  fi
+}
+
 # --- wave gate ------------------------------------------------------------------------------
 # Which side did this branch touch? Committed range plus the working tree; when neither can be
 # determined (no merge-base, detached tree) both run, so a wave gate never under-runs.
@@ -395,7 +415,7 @@ if [[ -n "$WAVE" ]]; then
   case "$WAVE" in
     1) (( DAEMON_TOUCHED )) && { run_one build "go build ./..."; run_one lint-src "lint_src"; run_one render-fixtures "make check-render-fixtures"; }
        (( WEB_TOUCHED ))    && { run_one web-build-src "web_build_src"; run_one features-inventory "features_inventory"; } ;;
-    2) (( DAEMON_TOUCHED )) && { run_one test "make test"; run_one lint "make lint"; run_one render-fixtures "make check-render-fixtures"; }
+    2) (( DAEMON_TOUCHED )) && { go_test_gate; run_one lint "make lint"; run_one render-fixtures "make check-render-fixtures"; }
        (( WEB_TOUCHED ))    && { run_one web-test "make web-test"; run_one web-build "make web-build"; run_one render-test "make render-test"; run_one web-lint "make web-lint"; } ;;   # render-test holds the lock shared, as this wave does; web-lint whether or not the plan authored it
     3) ;;   # the scoped e2e gate, below, after `--touch` has widened the header it reads
   esac
@@ -429,7 +449,7 @@ if (( RUN_BASELINE )); then
     [[ "$(seen_status "make test-race")" == PASS ]] && SEEN="$SEEN
 PASS	make test"
   else
-    run_one test "make test"
+    go_test_gate   # a cycle gate: the packages the change reaches (kb:adr/process-cycle-gates-affected-only)
   fi
   run_one lint  "make lint"
   run_one web-build "make web-build"
