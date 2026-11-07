@@ -1,0 +1,92 @@
+[
+ {
+  "id": "c01",
+  "plan": "title-crop-stop-resume-button",
+  "landed": "e036e82e",
+  "scope": "web/src",
+  "need": "a new header control must show one button whose label is Stop while the session is alive and Resume otherwise, and clicking it must dispatch the matching session action (end or resume)",
+  "expect_path": "web/src/render/actionbutton.ts",
+  "expect_symbol": "buildActionButton"
+ },
+ {
+  "id": "c02",
+  "plan": "maintainability-regressions",
+  "landed": "c8abb76d",
+  "scope": "internal",
+  "need": "a shell script file must be written atomically: write to a temp file in the same directory, fsync, chmod it executable, then rename over the destination so a reader never sees a partial file",
+  "expect_path": "internal/server/launcher.go",
+  "expect_symbol": "writeSettings"
+ },
+ {
+  "id": "c03",
+  "plan": "new-session-improvement",
+  "landed": "0610aef4",
+  "scope": "web/src",
+  "need": "after launching, the dashboard must bring the new session forward in whichever view is active (Tiles or Focus) so it becomes the selected, visible session",
+  "expect_path": "web/src/features/focus.ts",
+  "expect_symbol": "focusSession"
+ },
+ {
+  "id": "c04",
+  "plan": "popped-out-note-enhance",
+  "landed": "b5c45d34",
+  "scope": "web/src",
+  "need": "a standalone page opened in its own browser window must read the session id from its URL query string (?session=<id>) at startup",
+  "expect_path": "web/src/features/reader.ts",
+  "expect_symbol": "parseStandaloneQuery"
+ },
+ {
+  "id": "c05",
+  "plan": "remove-unread-right-click-1",
+  "landed": "bdcfa48e",
+  "scope": "internal",
+  "need": "the daemon must be able to set a session's unread flag to a given value and persist the whole row, refusing an unknown session id and skipping the write when the flag already has that value",
+  "expect_path": "internal/session/manager_rail.go",
+  "expect_symbol": "MarkSeen"
+ },
+ {
+  "id": "c06",
+  "plan": "restart-latest-claude",
+  "landed": "9a6994b2",
+  "scope": "internal",
+  "need": "a new HTTP action must run over a list of session ids: refuse a repeated id, lock each session in turn, and report which ids were done, skipped (unknown or not alive) and failed",
+  "expect_path": "internal/session/actions.go",
+  "expect_symbol": "runBatch"
+ },
+ {
+  "id": "c07",
+  "plan": "restart-latest-claude",
+  "landed": "9a6994b2",
+  "scope": "web/src",
+  "need": "a render module must update an element's text content only when the new text differs, to avoid needless DOM writes on each tick",
+  "expect_path": "web/src/dom.ts",
+  "expect_symbol": "setText"
+ },
+ {
+  "id": "c08",
+  "plan": "resume-and-dangerously-allow",
+  "landed": "8bbb10b0",
+  "scope": "internal",
+  "need": "a new request handler must validate the directory a session is started in (present, absolute, exists, is a directory) with the same rules the ordinary launch form applies",
+  "expect_path": "internal/server/launcher.go",
+  "expect_symbol": "validateLaunchRequest"
+ },
+ {
+  "id": "c09",
+  "plan": "see-added-dirs",
+  "landed": "0e547a30",
+  "scope": "web/src",
+  "need": "a protocol decoder must parse a JSON field that is an array of strings, rejecting the whole array if any element is not a string",
+  "expect_path": "web/src/protocol/decode.ts",
+  "expect_symbol": "parseListOf"
+ },
+ {
+  "id": "c10",
+  "plan": "session-notes",
+  "landed": "83b3c756",
+  "scope": "internal",
+  "need": "a PATCH handler must decode a required JSON key that is either null or a value: an absent key is invalid, JSON null means clear, otherwise unmarshal the value",
+  "expect_path": "internal/server/groups.go",
+  "expect_symbol": "decodeGroupID"
+ }
+]

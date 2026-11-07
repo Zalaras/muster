@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pipeline comparison</title><style>:root{--bg:#f7f7f5;--ink:#1d1d1b;--mute:#6b6b66;--line:#b9b9b3;--cur:#5b5b55;--curbg:#ecece9;--keep:#2f6f4f;--keepbg:#e3f1e9;--new:#2b5fa8;--newbg:#e3ecf9;--mech:#8a5a1e;--mechbg:#f7ecda;--loop:#b23b3b}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--ink:#ecece8;--mute:#a6a6a0;--line:#4a4a46;--cur:#b5b5ae;--curbg:#262625;--keep:#7fcfa3;--keepbg:#173427;--new:#8fb4f0;--newbg:#182a4a;--mech:#e0b36f;--mechbg:#3b2b12;--loop:#f08c8c}}
+:root[data-theme="dark"]{--bg:#161615;--ink:#ecece8;--mute:#a6a6a0;--line:#4a4a46;--cur:#b5b5ae;--curbg:#262625;--keep:#7fcfa3;--keepbg:#173427;--new:#8fb4f0;--newbg:#182a4a;--mech:#e0b36f;--mechbg:#3b2b12;--loop:#f08c8c}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;padding:16px}
+main{max-width:1500px;margin:0 auto}
+h1{font-size:20px;margin:0 0 2px} p.sub{margin:0 0 10px;color:var(--mute);font-size:13.5px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;margin-bottom:8px;color:var(--mute)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;border:2px solid;vertical-align:-2px;margin-right:5px}
+svg{width:100%;height:auto;display:block}
+.n rect,.n polygon{stroke-width:2}
+.n.cur rect,.n.cur polygon{fill:var(--curbg);stroke:var(--cur)}
+.n.keep rect{fill:var(--keepbg);stroke:var(--keep)}
+.n.new rect{fill:var(--newbg);stroke:var(--new)}
+.n.mech rect,.n.mech polygon{fill:var(--mechbg);stroke:var(--mech)}
+.t{font-size:13.5px;font-weight:650;text-anchor:middle;fill:var(--ink)}
+.s{font-size:11px;text-anchor:middle;fill:var(--mute)}
+.lane{font-size:14px;font-weight:700;letter-spacing:.08em;text-anchor:middle;fill:var(--mute)}
+.lane.small{font-size:11px;letter-spacing:.02em}
+path.a{fill:none;stroke:var(--line);stroke-width:1.8;marker-end:url(#ah)}
+path.a.nohead{marker-end:none}
+path.loop{fill:none;stroke:var(--loop);stroke-width:1.8;marker-end:url(#ahl)}
+path.dash{stroke-dasharray:6 5}
+.lbl{font-size:11.5px;fill:var(--loop)}</style></head><body><main>
+<h1>Pipeline today vs proposed</h1>
+<p class="sub">Hover a box for the detail. Left: as it runs now. Right: the proposal; green boxes are unchanged.</p>
+<div class="legend"><span><i style="border-color:var(--cur);background:var(--curbg)"></i>current</span><span><i style="border-color:var(--keep);background:var(--keepbg)"></i>kept</span><span><i style="border-color:var(--new);background:var(--newbg)"></i>changed / new</span><span><i style="border-color:var(--mech);background:var(--mechbg)"></i>mechanical, no model (hexagon = gate)</span><span><i style="border-color:var(--loop);border-style:dashed"></i>bounded loop</span></div>
+<svg viewBox="0 0 1480 1134" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Current pipeline beside the proposed pipeline">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--line)"/></marker>
+<marker id="ahl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--loop)"/></marker></defs>
+<line x1="725.0" y1="30" x2="725.0" y2="1124" stroke="var(--line)" stroke-dasharray="3 6"/>
+<text x="300.0" y="42" class="lane">CURRENT</text>
+<g class="n cur">
+<title>/spec then /plan-work: protocol delta, Testable UI, Affected Files, acceptance criteria. Same depth for every plan.</title>
+<rect x="135.0" y="70" width="330" height="46" rx="9"/>
+<text x="300.0" y="90.0" class="t">Spec &amp; plan</text>
+<text x="300.0" y="105.0" class="s">human approves</text>
+</g>
+<path class="a" d="M300.0,116 L300.0,144"/>
+<g class="n cur">
+<title>The main session follows a 593-line prose procedure across compactions; spawns 8–12 subagents; state via orch-state.py.</title>
+<rect x="110.0" y="144" width="380" height="46" rx="9"/>
+<text x="300.0" y="164.0" class="t">Orchestrator: prose skill</text>
+<text x="300.0" y="179.0" class="s">main session · 593 lines · 4–14 h</text>
+</g>
+<path class="a" d="M300.0,190 L300.0,218"/>
+<g class="n cur">
+<title>e2e-specs agent (Sonnet) authors Playwright tests from the plan; new tests gate on collection.</title>
+<rect x="135.0" y="218" width="330" height="46" rx="9"/>
+<text x="300.0" y="238.0" class="t">E2E specs</text>
+<text x="300.0" y="253.0" class="s">written before code</text>
+</g>
+<path class="a nohead" d="M300.0,264 L300.0,278.0"/><path class="a nohead" d="M171.5,278.0 L428.5,278.0"/>
+<path class="a" d="M171.5,278.0 L171.5,292"/>
+<path class="a" d="M428.5,278.0 L428.5,292"/>
+<g class="n cur">
+<title>Implements the daemon side behind the contract; never edits tests.</title>
+<rect x="50.0" y="292" width="243.0" height="46" rx="9"/>
+<text x="171.5" y="312.0" class="t">daemon-impl</text>
+<text x="171.5" y="327.0" class="s">Sonnet, high</text>
+</g>
+<g class="n cur">
+<title>Implements the dashboard side behind the contract; never edits tests.</title>
+<rect x="307.0" y="292" width="243.0" height="46" rx="9"/>
+<text x="428.5" y="312.0" class="t">web-impl</text>
+<text x="428.5" y="327.0" class="s">Sonnet, high</text>
+</g>
+<path class="a" d="M171.5,338 L128.66666666666669,366"/>
+<path class="a" d="M428.5,338 L300.0,366"/>
+<g class="n cur">
+<title>Writes Go unit tests after impl; may not edit implementation.</title>
+<rect x="50.0" y="366" width="157.33333333333334" height="46" rx="9"/>
+<text x="128.66666666666669" y="386.0" class="t">daemon-tests</text>
+<text x="128.66666666666669" y="401.0" class="s">separate agent</text>
+</g>
+<g class="n cur">
+<title>Writes Vitest tests after impl.</title>
+<rect x="221.33333333333334" y="366" width="157.33333333333334" height="46" rx="9"/>
+<text x="300.0" y="386.0" class="t">web-tests</text>
+<text x="300.0" y="401.0" class="s">separate agent</text>
+</g>
+<g class="n cur">
+<title>Writes render specs against generated fixtures.</title>
+<rect x="392.6666666666667" y="366" width="157.33333333333334" height="46" rx="9"/>
+<text x="471.33333333333337" y="386.0" class="t">render-tests</text>
+<text x="471.33333333333337" y="401.0" class="s">separate agent</text>
+</g>
+<path class="a nohead" d="M128.66666666666669,412 L128.66666666666669,426.0"/>
+<path class="a nohead" d="M300.0,412 L300.0,426.0"/>
+<path class="a nohead" d="M471.33333333333337,412 L471.33333333333337,426.0"/>
+<path class="a nohead" d="M128.66666666666669,426.0 L471.33333333333337,426.0"/>
+<path class="a" d="M300.0,426.0 L300.0,440"/>
+<g class="n mech">
+<title>gates.sh per wave; serial; cold 5–12 min.</title>
+<polygon points="147.0,440 453.0,440 465.0,463.0 453.0,486 147.0,486 135.0,463.0"/>
+<text x="300.0" y="460.0" class="t">Wave gates</text>
+<text x="300.0" y="475.0" class="s">lint · full go test · scoped e2e</text>
+</g>
+<path class="a" d="M300.0,486 L300.0,514"/>
+<g class="n cur">
+<title>e2e-specs in validate mode runs live; never weakens an assertion.</title>
+<rect x="135.0" y="514" width="330" height="46" rx="9"/>
+<text x="300.0" y="534.0" class="t">E2E validate</text>
+<text x="300.0" y="549.0" class="s">repairs proven</text>
+</g>
+<path class="a" d="M300.0,560 L300.0,588"/>
+<g class="n cur">
+<title>Every added comment stripped; a judge decides which return.</title>
+<rect x="135.0" y="588" width="330" height="46" rx="9"/>
+<text x="300.0" y="608.0" class="t">Comment pass</text>
+<text x="300.0" y="623.0" class="s">strip → Sonnet judge → apply</text>
+</g>
+<path class="a nohead" d="M300.0,634 L300.0,648.0"/><path class="a nohead" d="M128.66666666666669,648.0 L471.33333333333337,648.0"/>
+<path class="a" d="M128.66666666666669,648.0 L128.66666666666669,662"/>
+<path class="a" d="M300.0,648.0 L300.0,662"/>
+<path class="a" d="M471.33333333333337,648.0 L471.33333333333337,662"/>
+<g class="n cur">
+<title>review-work: statements vs plan and contract; 85k-word pack; Edit/Write available.</title>
+<rect x="50.0" y="662" width="157.33333333333334" height="46" rx="9"/>
+<text x="128.66666666666669" y="682.0" class="t">Correctness</text>
+<text x="128.66666666666669" y="697.0" class="s">Opus, every cycle</text>
+</g>
+<g class="n cur">
+<title>review-browser drives the real dashboard and measures DOM/layout.</title>
+<rect x="221.33333333333334" y="662" width="157.33333333333334" height="46" rx="9"/>
+<text x="300.0" y="682.0" class="t">Browser</text>
+<text x="300.0" y="697.0" class="s">Opus, every cycle</text>
+</g>
+<g class="n cur">
+<title>Plan withheld; newcomer read of the code.</title>
+<rect x="392.6666666666667" y="662" width="157.33333333333334" height="46" rx="9"/>
+<text x="471.33333333333337" y="682.0" class="t">Maintainability</text>
+<text x="471.33333333333337" y="697.0" class="s">Opus, every cycle</text>
+</g>
+<path class="a nohead" d="M128.66666666666669,708 L128.66666666666669,722.0"/>
+<path class="a nohead" d="M300.0,708 L300.0,722.0"/>
+<path class="a nohead" d="M471.33333333333337,708 L471.33333333333337,722.0"/>
+<path class="a nohead" d="M128.66666666666669,722.0 L471.33333333333337,722.0"/>
+<path class="a" d="M300.0,722.0 L300.0,736"/>
+<g class="n cur">
+<title>orch-state.py merge-review: worst of the parts and gates; no filter, no confidence, no dedupe.</title>
+<rect x="135.0" y="736" width="330" height="46" rx="9"/>
+<text x="300.0" y="756.0" class="t">Merge verdict</text>
+<text x="300.0" y="771.0" class="s">computed</text>
+</g>
+<path class="a" d="M300.0,782 L300.0,810"/>
+<g class="n cur">
+<title>Promotes the doc delta into specs and protocol after approval.</title>
+<rect x="135.0" y="810" width="330" height="46" rx="9"/>
+<text x="300.0" y="830.0" class="t">Doc reconcile</text>
+<text x="300.0" y="845.0" class="s">Sonnet</text>
+</g>
+<path class="a" d="M300.0,856 L300.0,884"/>
+<g class="n mech">
+<title>One full sweep per run; completion refused without a green record.</title>
+<polygon points="147.0,884 453.0,884 465.0,907.0 453.0,930 147.0,930 135.0,907.0"/>
+<text x="300.0" y="904.0" class="t">Final validation</text>
+<text x="300.0" y="919.0" class="s">full e2e · race</text>
+</g>
+<path class="a" d="M300.0,930 L300.0,958"/>
+<g class="n cur">
+<title>/land squash-merges to main and pushes.</title>
+<rect x="135.0" y="958" width="330" height="46" rx="9"/>
+<text x="300.0" y="978.0" class="t">Land</text>
+<text x="300.0" y="993.0" class="s">squash, closes #N</text>
+</g>
+<text x="1030.0" y="42" class="lane">PROPOSED</text>
+<g class="n new">
+<title>Same artefacts plus a Tier header (protocol / surface / internal / docs) that picks roles, reviewers and cycle budget; big plans become epics of child plans.</title>
+<rect x="865.0" y="70" width="330" height="46" rx="9"/>
+<text x="1030.0" y="90.0" class="t">Spec &amp; plan + Tier</text>
+<text x="1030.0" y="105.0" class="s">human approves</text>
+</g>
+<path class="a" d="M1030.0,116 L1030.0,144"/>
+<g class="n new">
+<title>A script (the fix-track loop generalised) or a Workflow: one-page brief + pack index per step; --json-schema verdicts; the state file is the journal; the main session only launches and reads.</title>
+<rect x="840.0" y="144" width="380" height="46" rx="9"/>
+<text x="1030.0" y="164.0" class="t">Runner: control flow in code</text>
+<text x="1030.0" y="179.0" class="s">fresh claude -p per step · JSON verdicts · journal</text>
+</g>
+<path class="a nohead" d="M1030.0,190 L1030.0,204.0"/><path class="a nohead" d="M901.5,204.0 L1158.5,204.0"/>
+<path class="a" d="M901.5,204.0 L901.5,218"/>
+<path class="a" d="M1158.5,204.0 L1158.5,218"/>
+<g class="n keep">
+<title>Unchanged: the test author never sees the implementation.</title>
+<rect x="780.0" y="218" width="243.0" height="46" rx="9"/>
+<text x="901.5" y="238.0" class="t">E2E specs</text>
+<text x="901.5" y="253.0" class="s">independent oracle</text>
+</g>
+<g class="n new">
+<title>Same parallel builders behind the contract; each writes its own unit and render tests; effort medium; maxTurns bounded. Separate test agents only on protocol/surface tiers.</title>
+<rect x="1037.0" y="218" width="243.0" height="46" rx="9"/>
+<text x="1158.5" y="238.0" class="t">Builders: daemon &amp; web</text>
+<text x="1158.5" y="253.0" class="s">own unit + render tests</text>
+</g>
+<path class="a nohead" d="M901.5,264 L901.5,278.0"/>
+<path class="a nohead" d="M1158.5,264 L1158.5,278.0"/>
+<path class="a nohead" d="M901.5,278.0 L1158.5,278.0"/>
+<path class="a" d="M1030.0,278.0 L1030.0,292"/>
+<g class="n mech">
+<title>Seconds, zero tokens: new tests proven red on the pre-change tree; affected-package Go tests; Playwright --only-changed; PostToolUse format hook; wire fixtures validated against a generated schema.</title>
+<polygon points="842.0,292 1218.0,292 1230.0,315.0 1218.0,338 842.0,338 830.0,315.0"/>
+<text x="1030.0" y="312.0" class="t">Mechanical checks</text>
+<text x="1030.0" y="327.0" class="s">red-on-main · affected tests · only-changed · format · schema</text>
+</g>
+<path class="a" d="M1030.0,338 L1030.0,366"/>
+<g class="n keep">
+<title>Unchanged.</title>
+<rect x="865.0" y="366" width="330" height="46" rx="9"/>
+<text x="1030.0" y="386.0" class="t">E2E validate</text>
+<text x="1030.0" y="401.0" class="s">repairs proven</text>
+</g>
+<path class="a" d="M1030.0,412 L1030.0,440"/>
+<g class="n keep">
+<title>Unchanged: strip every added comment, a judge decides what returns. The only approach that has worked for comments.</title>
+<rect x="865.0" y="440" width="330" height="46" rx="9"/>
+<text x="1030.0" y="460.0" class="t">Comment pass</text>
+<text x="1030.0" y="475.0" class="s">strip → Sonnet judge → apply</text>
+</g>
+<path class="a nohead" d="M1030.0,486 L1030.0,500.0"/><path class="a nohead" d="M858.6666666666666,500.0 L1201.3333333333335,500.0"/>
+<path class="a" d="M858.6666666666666,500.0 L858.6666666666666,514"/>
+<path class="a" d="M1030.0,500.0 L1030.0,514"/>
+<path class="a" d="M1201.3333333333335,500.0 L1201.3333333333335,514"/>
+<g class="n new">
+<title>Read-only, bounded, fed an index not a pack.</title>
+<rect x="780.0" y="514" width="157.33333333333334" height="46" rx="9"/>
+<text x="858.6666666666666" y="534.0" class="t">Correctness</text>
+<text x="858.6666666666666" y="549.0" class="s">always</text>
+</g>
+<g class="n new">
+<title>Plan withheld; runs on cycle 1 and when a module, type or seam changed.</title>
+<rect x="951.3333333333334" y="514" width="157.33333333333334" height="46" rx="9"/>
+<text x="1030.0" y="534.0" class="t">Maintainability</text>
+<text x="1030.0" y="549.0" class="s">cycle 1 / shape change</text>
+</g>
+<g class="n new">
+<title>Measurement lens on surface/protocol tiers with web changes.</title>
+<rect x="1122.6666666666667" y="514" width="157.33333333333334" height="46" rx="9"/>
+<text x="1201.3333333333335" y="534.0" class="t">Browser</text>
+<text x="1201.3333333333335" y="549.0" class="s">UI tiers</text>
+</g>
+<path class="a nohead" d="M858.6666666666666,560 L858.6666666666666,574.0"/>
+<path class="a nohead" d="M1030.0,560 L1030.0,574.0"/>
+<path class="a nohead" d="M1201.3333333333335,560 L1201.3333333333335,574.0"/>
+<path class="a nohead" d="M858.6666666666666,574.0 L1201.3333333333335,574.0"/>
+<path class="a" d="M1030.0,574.0 L1030.0,588"/>
+<g class="n new">
+<title>Critic sees only the diff + findings and may only delete; every finding has confidence 0–100 and a fingerprint; below threshold → proposed-backlog, never a wave.</title>
+<rect x="840.0" y="588" width="380" height="46" rx="9"/>
+<text x="1030.0" y="608.0" class="t">Filter &amp; score</text>
+<text x="1030.0" y="623.0" class="s">Sonnet critic · confidence · fingerprints</text>
+</g>
+<path class="a" d="M1030.0,634 L1030.0,662"/>
+<g class="n keep">
+<title>Same computed merge, over filtered findings.</title>
+<rect x="865.0" y="662" width="330" height="46" rx="9"/>
+<text x="1030.0" y="682.0" class="t">Merge verdict</text>
+<text x="1030.0" y="697.0" class="s">computed</text>
+</g>
+<path class="a" d="M1030.0,708 L1030.0,736"/>
+<g class="n keep">
+<title>Unchanged.</title>
+<rect x="865.0" y="736" width="330" height="46" rx="9"/>
+<text x="1030.0" y="756.0" class="t">Doc reconcile</text>
+<text x="1030.0" y="771.0" class="s">Sonnet, low effort</text>
+</g>
+<path class="a" d="M1030.0,782 L1030.0,810"/>
+<g class="n mech">
+<title>Same sweep plus Stryker incremental (web) and scoped gremlins (logic packages) as warnings.</title>
+<polygon points="877.0,810 1183.0,810 1195.0,833.0 1183.0,856 877.0,856 865.0,833.0"/>
+<text x="1030.0" y="830.0" class="t">Final validation</text>
+<text x="1030.0" y="845.0" class="s">full e2e · race · mutation warnings</text>
+</g>
+<path class="a" d="M1030.0,856 L1030.0,884"/>
+<g class="n keep">
+<title>Unchanged; epics land children on the epic branch, one merge to main.</title>
+<rect x="865.0" y="884" width="330" height="46" rx="9"/>
+<text x="1030.0" y="904.0" class="t">Land</text>
+<text x="1030.0" y="919.0" class="s">epic → main</text>
+</g>
+<path class="loop dash" d="M465.0,759.0 L588,759.0 L588,315.0 L556.0,315.0"/>
+<text x="596" y="516.0" class="lbl">fix waves 1→2→3,</text>
+<text x="596" y="530.0" class="lbl">gate between waves,</text>
+<text x="596" y="544.0" class="lbl">re-review by all three,</text>
+<text x="596" y="558.0" class="lbl">≤ 3 cycles then ask</text>
+<path class="loop dash" d="M1195.0,685.0 L1318,685.0 L1318,241.0 L1286.0,241.0"/>
+<text x="1326" y="449.0" class="lbl">fix → checks →</text>
+<text x="1326" y="463.0" class="lbl">delta re-review (1 lens);</text>
+<text x="1326" y="477.0" class="lbl">cycle 3: fresh implementer</text>
+<text x="740.0" y="1038" class="lane small">CROSS-CUTTING — how rules are enforced · what context is loaded · what each step costs</text>
+<g class="n cur">
+<title>Rules live in 14 agent files and CLAUDE.md; one SubagentStop hook that fails open; 2 of 14 agents restrict tools.</title>
+<rect x="30.0" y="1056" width="172.0" height="54" rx="9"/>
+<text x="116.0" y="1080.0" class="t">Enforcement</text>
+<text x="116.0" y="1095.0" class="s">prose rules · 1 hook</text>
+</g>
+<g class="n cur">
+<title>Everything a role might need is inlined; the 30k budget only warns; 65k words of pipeline prose.</title>
+<rect x="214.0" y="1056" width="172.0" height="54" rx="9"/>
+<text x="300.0" y="1080.0" class="t">Knowledge</text>
+<text x="300.0" y="1095.0" class="s">whole packs, 54–86k words</text>
+</g>
+<g class="n cur">
+<title>Sonnet high everywhere, Opus reviewers, Explore inherits Opus; subagent cache 5 min; no weekly guard; wall-clock only.</title>
+<rect x="398.0" y="1056" width="172.0" height="54" rx="9"/>
+<text x="484.0" y="1080.0" class="t">Cost</text>
+<text x="484.0" y="1095.0" class="s">Sonnet/Opus · 5 min cache</text>
+</g>
+<g class="n mech">
+<title>PreToolUse denies stash/config/push and cross-ownership writes; exit-2 hooks block finishing without a valid verdict; disallowedTools + maxTurns on every agent.</title>
+<rect x="760.0" y="1056" width="172.0" height="54" rx="9"/>
+<text x="846.0" y="1080.0" class="t">Enforcement</text>
+<text x="846.0" y="1095.0" class="s">hooks + tool limits</text>
+</g>
+<g class="n mech">
+<title>Inline what matches touched files, index the rest, fit to budget; retro findings routed to hook / fact / episode; /doctor prompt-audit.</title>
+<rect x="944.0" y="1056" width="172.0" height="54" rx="9"/>
+<text x="1030.0" y="1080.0" class="t">Knowledge</text>
+<text x="1030.0" y="1095.0" class="s">index + JIT reads</text>
+</g>
+<g class="n mech">
+<title>Effort per role; subagent cache 1 h; staggered spawns; usage recorded per step. No model pinning for exploration and no weekly threshold (developer rulings).</title>
+<rect x="1128.0" y="1056" width="172.0" height="54" rx="9"/>
+<text x="1214.0" y="1080.0" class="t">Cost</text>
+<text x="1214.0" y="1095.0" class="s">effort per role · 1 h cache</text>
+</g>
+</svg></main></body></html>
