@@ -11,18 +11,31 @@ type readerFileWire struct {
 // readerPlanWire is GET .../reader's `plan` object — session.plan plus writtenAt
 // (kb:anchor/sessions.reader). Null when the session has no derived plan.
 type readerPlanWire struct {
-	Path      string  `json:"path"`
-	Exists    bool    `json:"exists"`
-	WrittenAt *string `json:"writtenAt"`
+	Path       string  `json:"path"`
+	Exists     bool    `json:"exists"`
+	ModifiedAt *string `json:"modifiedAt"`
+	WrittenAt  *string `json:"writtenAt"`
+}
+
+type readerScratchFileWire struct {
+	Path       string  `json:"path"`
+	ModifiedAt string  `json:"modifiedAt"`
+	WrittenAt  *string `json:"writtenAt"`
+}
+
+type readerScratchWire struct {
+	Dir   string                  `json:"dir"`
+	Files []readerScratchFileWire `json:"files"`
 }
 
 // readerListingWire is GET /api/sessions/{id}/reader's 200 body (kb:anchor/sessions.reader).
 type readerListingWire struct {
-	Directory string           `json:"directory"`
-	Plan      *readerPlanWire  `json:"plan"`
-	Files     []readerFileWire `json:"files"`
-	Listing   string           `json:"listing"`
-	Truncated bool             `json:"truncated"`
+	Directory string             `json:"directory"`
+	Plan      *readerPlanWire    `json:"plan"`
+	Scratch   *readerScratchWire `json:"scratch"`
+	Files     []readerFileWire   `json:"files"`
+	Listing   string             `json:"listing"`
+	Truncated bool               `json:"truncated"`
 }
 
 // docChangedMessage is the WS `docChanged` (kb:anchor/ws.doc-changed).
@@ -47,4 +60,12 @@ func toWireSessionPlan(s *session.Session) *sessionWirePlan {
 		return nil
 	}
 	return &sessionWirePlan{Path: s.PlanPath, Exists: s.PlanExists}
+}
+
+func wireScratchpadDir(s *session.Session) *string {
+	if s.ScratchpadDir == "" {
+		return nil
+	}
+	v := s.ScratchpadDir
+	return &v
 }

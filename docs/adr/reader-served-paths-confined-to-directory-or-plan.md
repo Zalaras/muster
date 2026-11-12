@@ -1,7 +1,7 @@
 ---
 id: reader-served-paths-confined-to-directory-or-plan
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-14
 summary: The file route serves only a resolved path under the resolved session directory ending in .md, or the resolved plan path; anything else is 404, nothing writes.
 features: [reader]

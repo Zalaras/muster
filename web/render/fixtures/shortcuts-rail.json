@@ -73,6 +73,7 @@
           "name": "rail-a"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "rail-a",
@@ -124,6 +125,7 @@
           "name": "rail-b"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "rail-b",
@@ -178,6 +180,7 @@
           "name": "rail-c"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:04:00Z",
         "title": "rail-c",
@@ -266,6 +269,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -277,6 +281,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -288,6 +293,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3

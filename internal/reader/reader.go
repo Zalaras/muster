@@ -18,8 +18,9 @@ import (
 // served, and the plan path served alongside it even though it usually sits outside Dir
 // (kb:spec/reader). An empty PlanPath means no plan is bound yet.
 type Scope struct {
-	Dir      string
-	PlanPath string
+	Dir        string
+	PlanPath   string
+	ScratchDir string
 }
 
 // PathQualifies is the change-signal's scope test
@@ -34,11 +35,12 @@ func (s Scope) PathQualifies(path string) bool {
 	if !strings.EqualFold(filepath.Ext(path), ".md") {
 		return false
 	}
-	rel, err := filepath.Rel(s.Dir, path)
-	if err != nil {
-		return false
-	}
-	return filepath.IsLocal(rel)
+	return lexicallyUnder(s.Dir, path) || (s.ScratchDir != "" && lexicallyUnder(s.ScratchDir, path))
+}
+
+func lexicallyUnder(dir, path string) bool {
+	rel, err := filepath.Rel(dir, path)
+	return err == nil && filepath.IsLocal(rel)
 }
 
 // Confine reports whether requested may be served from this scope, and its
@@ -63,13 +65,19 @@ func (s Scope) Confine(requested string) (string, bool) {
 		}
 	}
 
-	if !strings.HasPrefix(resolvedRequested, resolvedDir+string(os.PathSeparator)) {
-		return "", false
-	}
 	if !strings.EqualFold(filepath.Ext(resolvedRequested), ".md") {
 		return "", false
 	}
-	return resolvedRequested, true
+	if strings.HasPrefix(resolvedRequested, resolvedDir+string(os.PathSeparator)) {
+		return resolvedRequested, true
+	}
+	if s.ScratchDir != "" {
+		if resolvedScratch, err := filepath.EvalSymlinks(filepath.Clean(s.ScratchDir)); err == nil &&
+			strings.HasPrefix(resolvedRequested, resolvedScratch+string(os.PathSeparator)) {
+			return resolvedRequested, true
+		}
+	}
+	return "", false
 }
 
 // maxWalkFiles is the non-git listing's walk cap.

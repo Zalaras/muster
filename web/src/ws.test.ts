@@ -104,6 +104,7 @@ const session: Session = {
   lastActivity: null,
   backgroundTasks: 0,
   claudeSessionId: "claude-session-abc",
+  scratchpadDir: null,
   tmuxTarget: "muster:@1",
   firstLaunchHere: false,
   createdAt: "2026-08-22T00:00:00Z",

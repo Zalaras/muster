@@ -129,6 +129,7 @@ type SessionRow struct {
 	AddedDirs []string
 
 	ClaudeVersion  *string
+	ScratchpadDir  *string
 	RestartPending bool
 
 	// GroupID (kb:spec/rail) is the rail group the session belongs to, nil = the Ungrouped
@@ -347,7 +348,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 			cache_reported_expires_at = ?,
 			effort_known = ?, effort_level = ?, effort_requested = ?,
 			effort_warning_requested = ?, effort_warning_actual = ?, effort_warning_model = ?,
-			claude_version = ?, restart_pending = ?
+			claude_version = ?, restart_pending = ?, scratchpad_dir = ?
 		WHERE id = ?
 	`,
 		row.TmuxTarget, row.TmuxPane, row.ClaudeSessionID, row.Directory, row.Branch,
@@ -362,7 +363,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		addedDirs, row.GroupID, cacheExpiresAt, row.CacheTTLSeconds, row.CacheRequests, cacheReportedExpiresAt,
 		boolToInt(row.EffortKnown), row.EffortLevel, row.EffortRequested,
 		row.EffortWarningRequested, row.EffortWarningActual, row.EffortWarningModel,
-		row.ClaudeVersion, boolToInt(row.RestartPending),
+		row.ClaudeVersion, boolToInt(row.RestartPending), row.ScratchpadDir,
 		row.ID,
 	)
 	if err != nil {
@@ -383,7 +384,7 @@ const sessionColumns = `
 	cache_expires_at, cache_ttl_seconds, cache_requests, cache_reported_expires_at,
 	effort_known, effort_level, effort_requested,
 	effort_warning_requested, effort_warning_actual, effort_warning_model,
-	claude_version, restart_pending
+	claude_version, restart_pending, scratchpad_dir
 `
 
 func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
@@ -498,7 +499,7 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 		&cacheExpiresAt, &r.CacheTTLSeconds, &r.CacheRequests, &cacheReportedExpiresAt,
 		&effortKnown, &r.EffortLevel, &r.EffortRequested,
 		&r.EffortWarningRequested, &r.EffortWarningActual, &r.EffortWarningModel,
-		&r.ClaudeVersion, &restartPending,
+		&r.ClaudeVersion, &restartPending, &r.ScratchpadDir,
 	); err != nil {
 		return SessionRow{}, err
 	}

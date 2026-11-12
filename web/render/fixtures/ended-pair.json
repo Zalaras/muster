@@ -73,6 +73,7 @@
           "name": "ended-old"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "ended-old",
@@ -124,6 +125,7 @@
           "name": "ended-new"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "ended-new",
@@ -199,6 +201,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -210,6 +213,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2

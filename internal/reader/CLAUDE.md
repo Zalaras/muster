@@ -1,15 +1,16 @@
 # internal/reader — a session's markdown scope and confinement rules
 
-**Owns**: which paths a session's reader may list and serve. `Scope` (a session's directory
-plus its plan path) decides the change-signal test (`PathQualifies`) and the serving
-confinement (`Confine`); `ListMarkdown`/`WalkMarkdown` list a directory's `.md` files.
+**Owns**: which paths a session's reader may list and serve. `Scope` (a session's directory, its
+plan path and its scratchpad directory) decides the change-signal test (`PathQualifies`) and the serving
+confinement (`Confine`); `ListMarkdown`/`WalkMarkdown` list a directory's `.md` files and `ListScratch` lists the
+files of a scratchpad directory.
 `WriteLog` is the in-memory record of routed writes a session's reader shows `written <age>
 ago` for. Pure filesystem logic; imports nothing from `internal/server`, `internal/session`
 or `internal/claudecode`. **Features**: reader.
 
 **Invariants** (violations are review-Critical):
-- `Confine` resolves symlinks on both `Dir` and the requested path before comparing them —
-  a `.md` symlink inside `Dir` pointing outside it must never resolve to allowed
+- `Confine` resolves symlinks on each of the three roots (`Dir`, the plan path, `ScratchDir`) and the requested path before comparing them —
+  a symlink inside a root pointing outside it must never resolve to allowed
   (kb:spec/reader's confinement rule).
 - `PathQualifies` is lexical only (no symlink resolution): it is the change-signal's scope
   test, not the serving guard (kb:adr/reader-change-signal-is-the-write-hook).
@@ -18,7 +19,7 @@ or `internal/claudecode`. **Features**: reader.
 - `ListMarkdown`/`WalkMarkdown` never fail: a git error selects the walk fallback, and a
   walk that hits its cap reports `truncated:true` rather than erroring.
 
-**Exemplar**: `reader.go`'s `Scope` — a small value type carrying the two paths a rule
+**Exemplar**: `reader.go`'s `Scope` — a small value type carrying the three roots a rule
 needs, with the rule itself as a method, matching `internal/locate`'s shape (a domain type
 plus pure functions, no logger, no HTTP).
 

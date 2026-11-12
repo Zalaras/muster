@@ -87,6 +87,7 @@
           "name": "economic-game-theory-simulation-lab"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "working",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "rework shift-swap approval for the weekend rosterinx",
@@ -150,6 +151,7 @@
           "name": "economic-game-theory-simulation-lab"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "working",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "rework shift-swap approval for the weekend rosterinx",
@@ -206,6 +208,7 @@
           "name": "economic-game-theory-simulation-lab"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:04:00Z",
         "title": "rework shift-swap approval for the weekend rosterinx",
@@ -257,6 +260,7 @@
           "name": "abc123"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:06:00Z",
         "title": "Game Play",
@@ -313,6 +317,7 @@
           "name": "abc123"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any heax",
@@ -371,6 +376,7 @@
           "name": "long-folder-name-for-wrapping-long-folder-name-for-wrapping-"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "working",
         "stateSince": "2026-01-01T00:10:00Z",
         "title": "Game Play",
@@ -465,6 +471,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -476,6 +483,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -487,6 +495,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3
@@ -498,6 +507,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 4
@@ -509,6 +519,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 5
@@ -520,6 +531,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 6

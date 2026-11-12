@@ -73,6 +73,7 @@
           "name": "quad-1"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "quad-1",
@@ -124,6 +125,7 @@
           "name": "quad-2"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "quad-2",
@@ -175,6 +177,7 @@
           "name": "quad-3"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "quad-3",
@@ -229,6 +232,7 @@
           "name": "quad-4"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:06:00Z",
         "title": "quad-4",
@@ -330,6 +334,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -341,6 +346,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -352,6 +358,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3
@@ -363,6 +370,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 4

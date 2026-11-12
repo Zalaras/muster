@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" data-theme="instrument"><head><meta charset="utf-8">
+<title>claude-tmp-files — mockups</title>
+<link rel="stylesheet" href="../../../web/src/style.css">
+<link rel="stylesheet" href="mockup.css">
+<style>
+.opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 18px 0; }
+.opt { background: var(--bg-raised); border: 1px solid var(--line-control); padding: 14px 16px; }
+.opt h3 { margin: 0 0 6px; font-size: var(--fs-md); }
+.opt h3 a { color: var(--fg); }
+.opt p { margin: 0 0 6px; color: var(--fg-muted); font-size: var(--fs-sm); }
+</style>
+</head><body><div class="frame">
+<h1>claude-tmp-files — Claude's scratch files in the reader nav, three ways</h1>
+<div class="sub">plan mockups · 2026-11-12 · built on the shipped web/src/style.css and #reader-template markup</div>
+<p>#121: Claude writes markdown into a per-session scratchpad under <code>/private/tmp/claude-501/…/&lt;session_id&gt;/scratchpad</code>,
+which the file explorer can't see. Every hook already names that folder (<code>kb:fact/scratchpad-dir-per-session-id</code>).
+Each option renames the nav's <b>plan</b> header to <b>claude</b> and lists the scratch files under the plan, above the
+directory's files.</p>
+<div class="opts">
+  <div class="opt"><h3><a href="opt-a-section.html">A — a claude section</a></h3>
+    <p>The plan header becomes a foldable <b>claude</b> section: plan row, then each scratch file with a <b>tmp</b> badge.</p>
+    <p>Smallest change; current session id only.</p></div>
+  <div class="opt"><h3><a href="opt-b-summary.html">B — one summary row</a></h3>
+    <p>Folded by default to <b>claude [plan] [3 tmp]</b>; unfolded rows show when each was last written.</p>
+    <p>Shortest nav.</p></div>
+  <div class="opt"><h3><a href="opt-c-tree.html">C — a small tree</a></h3>
+    <p>Plan, a <b>scratchpad/</b> folder, and a dimmed <b>before /clear</b> folder for the pane's earlier session ids; stays on an ended session.</p>
+    <p>Most complete; the daemon remembers each scratchpad.</p></div>
+</div>
+</div></body></html>

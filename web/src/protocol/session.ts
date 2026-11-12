@@ -159,6 +159,7 @@ export interface Session {
   // reported running. Display-only; the UI hides it for a dead session.
   backgroundTasks: number;
   claudeSessionId: string | null;
+  scratchpadDir: string | null;
   tmuxTarget: string;
   // kb:anchor/ws.session: true iff the launch created this directory's repo row —
   // drives the trust-prompt vs. no-signal honesty note client-side.
@@ -365,6 +366,7 @@ export function parseSession(value: unknown): Session | null {
   const lastActivity = value["lastActivity"];
   const backgroundTasks = value["backgroundTasks"];
   const claudeSessionId = value["claudeSessionId"];
+  const scratchpadDir = value["scratchpadDir"];
   const tmuxTarget = value["tmuxTarget"];
   const firstLaunchHere = value["firstLaunchHere"];
   const createdAt = value["createdAt"];
@@ -426,6 +428,7 @@ export function parseSession(value: unknown): Session | null {
   )
     return null;
   if (!isNullableString(claudeSessionId)) return null;
+  if (!isNullableString(scratchpadDir)) return null;
   if (typeof tmuxTarget !== "string") return null;
   if (typeof firstLaunchHere !== "boolean") return null;
   if (typeof createdAt !== "string") return null;
@@ -471,6 +474,7 @@ export function parseSession(value: unknown): Session | null {
     lastActivity,
     backgroundTasks,
     claudeSessionId,
+    scratchpadDir,
     tmuxTarget,
     firstLaunchHere,
     createdAt,

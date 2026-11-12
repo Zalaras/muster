@@ -73,6 +73,7 @@
           "name": "notes-plain"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "notes-plain",
@@ -124,6 +125,7 @@
           "name": "notes-short"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "notes-short",
@@ -175,6 +177,7 @@
           "name": "notes-long"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "notes-long",
@@ -226,6 +229,7 @@
           "name": "notes-ended"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "notes-ended",
@@ -327,6 +331,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -338,6 +343,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -349,6 +355,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3
@@ -360,6 +367,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 4

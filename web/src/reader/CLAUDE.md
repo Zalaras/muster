@@ -10,7 +10,7 @@ the loading-cue status text (`paths.ts`, on `sessions/paths.ts`'s `basename`, ke
 `reader/` for acyclic imports), status-line text and `docChanged` classification
 (`notice.ts`), the `?session=` parse shared with `features/noteswindows.ts` (`query.ts`), mermaid
 fence/theme/error-text/id helpers (`mermaid.ts`) and the diagram modal's zoom/pan
-arithmetic (`zoom.ts`) and the find bar's literal matcher and match stepping (`find.ts`). `render/reader.ts`
+arithmetic (`zoom.ts`) the find matcher (`find.ts`), the claude section's chips and re-scan (`claude.ts`). `render/reader.ts`
 draws the results; `render/mermaid.ts` and `render/diagrams.ts` are the DOM half of the
 diagram pass, and `render/frontmatter.ts` is the DOM half of the frontmatter split —
 `markdown.ts`'s `renderMarkdown` returns the parsed `Frontmatter` alongside the body

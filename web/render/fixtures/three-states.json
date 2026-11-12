@@ -73,6 +73,7 @@
           "name": "alpha"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "Alpha",
@@ -124,6 +125,7 @@
           "name": "beta"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "working",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": null,
@@ -174,6 +176,7 @@
         "railPos": 2,
         "repo": null,
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:04:00Z",
         "title": null,
@@ -262,6 +265,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -273,6 +277,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -284,6 +289,7 @@
         "files": [],
         "listing": "walk",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3

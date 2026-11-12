@@ -82,6 +82,7 @@
           "name": "rota"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "effort-clamped",
@@ -150,6 +151,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1

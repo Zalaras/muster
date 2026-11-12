@@ -73,6 +73,7 @@
           "name": "order5-ri"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "order5-ri",
@@ -124,6 +125,7 @@
           "name": "order5-w"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "working",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "order5-w",
@@ -175,6 +177,7 @@
           "name": "order5-pl"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "planning",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "order5-pl",
@@ -226,6 +229,7 @@
           "name": "order5-st"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:06:00Z",
         "title": "order5-st",
@@ -277,6 +281,7 @@
           "name": "order5-ui"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "order5-ui",
@@ -331,6 +336,7 @@
           "name": "order5-f"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "failed",
         "stateSince": "2026-01-01T00:10:00Z",
         "title": "order5-f",
@@ -385,6 +391,7 @@
           "name": "order5-ni"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:11:00Z",
         "title": "order5-ni",
@@ -525,6 +532,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -536,6 +544,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -547,6 +556,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3
@@ -558,6 +568,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 4
@@ -569,6 +580,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 5
@@ -580,6 +592,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 6
@@ -591,6 +604,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 7

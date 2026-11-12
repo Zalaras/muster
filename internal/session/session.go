@@ -217,6 +217,7 @@ type Session struct {
 	AddedDirs []Location
 
 	ClaudeVersion  string
+	ScratchpadDir  string
 	ClaudeBehind   bool
 	RestartPending bool
 

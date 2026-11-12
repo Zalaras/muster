@@ -15,6 +15,7 @@
 // a focused button), focus is restored to the equivalent node by its stable key (`path` /
 // `headingId`) after the rebuild.
 import { requireElement } from "../dom";
+import { reconcileKeyedOrder } from "./keyedreorder";
 import type { Frontmatter } from "../reader/frontmatter";
 import { UNKNOWN_SESSION_TEXT } from "../reader/notice";
 import { loadingText } from "../reader/paths";
@@ -49,12 +50,30 @@ export interface OutlineEntryVM {
 }
 
 export type PlanSlotVM =
-  | { kind: "absent" } // dead session
   | { kind: "none" } // session.plan is null or !exists
-  | { kind: "file"; basename: string; dirty: boolean; current: boolean };
+  | { kind: "file"; basename: string; dirty: boolean; current: boolean; age: string | null };
+
+export interface ScratchRowVM {
+  path: string;
+  abs: string;
+  dirty: boolean;
+  current: boolean;
+  age: string;
+}
+
+export interface ClaudeSectionVM {
+  folded: boolean;
+  planChip: "plan" | "no plan";
+  tmpChip: string | null;
+  plan: PlanSlotVM;
+  scratch: readonly ScratchRowVM[];
+  scratchLoading: boolean;
+}
+
+export type ReaderBadge = "plan" | "tmp";
 
 export interface ReaderBarVM {
-  badgeVisible: boolean;
+  badge: ReaderBadge | null;
   fname: string;
   path: string;
   /** `false` removes `.path` entirely — compact hosts (a tile) drop it from the bar. */
@@ -74,7 +93,7 @@ export interface ReaderVM {
   bar: ReaderBarVM;
   /** `null` hides the status line entirely. */
   notice: string | null;
-  planSlot: PlanSlotVM;
+  claude: ClaudeSectionVM;
   /** `null` before the listing arrives — the count element is absent, never `0 .md`. */
   filesHeader: { dir: string; count: string | null };
   tree: readonly FlatTreeEntry[];
@@ -99,6 +118,8 @@ export interface ReaderCallbacks extends FindCallbacks {
   /** The plan slot's own button — distinct from `onSelectPath` because the plan's path
    * is already absolute and usually lives outside the session directory entirely. */
   onSelectPlan(): void;
+  onSelectScratch(path: string): void;
+  onToggleClaude(): void;
   onToggleFolder(path: string): void;
   onFilterInput(value: string): void;
   onToggleNav(): void;
@@ -123,8 +144,12 @@ export interface ReaderRefs {
   notice: HTMLElement;
   body: HTMLElement;
   nav: HTMLElement;
-  planHeader: HTMLElement;
+  claudeToggle: HTMLButtonElement;
+  claudeCar: HTMLElement;
+  planChip: HTMLElement;
+  tmpChip: HTMLElement;
   planSlot: HTMLElement;
+  scratchRows: HTMLElement;
   filesToggle: HTMLButtonElement;
   filesDir: HTMLElement;
   filter: HTMLInputElement;
@@ -165,8 +190,12 @@ export function buildReader(template: HTMLTemplateElement, callbacks: ReaderCall
     notice: requireElement(".reader-notice", root),
     body: requireElement("article.md", root),
     nav: requireElement("nav.rnav", root),
-    planHeader: requireElement('[data-role="plan-header"]', root),
+    claudeToggle: requireElement<HTMLButtonElement>('[data-role="claude-toggle"]', root),
+    claudeCar: requireElement('[data-role="claude-toggle"] .car', root),
+    planChip: requireElement('[data-role="plan-chip"]', root),
+    tmpChip: requireElement('[data-role="tmp-chip"]', root),
     planSlot: requireElement('[data-role="plan-slot"]', root),
+    scratchRows: requireElement('[data-role="scratch-rows"]', root),
     filesToggle: requireElement<HTMLButtonElement>('[data-role="files-toggle"]', root),
     filesDir: requireElement('[data-role="files-toggle"] .dir', root),
     filter: requireElement<HTMLInputElement>(".filter", root),
@@ -185,6 +214,7 @@ export function buildReader(template: HTMLTemplateElement, callbacks: ReaderCall
   };
 
   refs.navToggle.addEventListener("click", callbacks.onToggleNav);
+  refs.claudeToggle.addEventListener("click", callbacks.onToggleClaude);
   refs.filesToggle.addEventListener("click", callbacks.onToggleFiles);
   refs.outlineToggle.addEventListener("click", callbacks.onToggleOutline);
   refs.filter.addEventListener("input", () => callbacks.onFilterInput(refs.filter.value));
@@ -195,10 +225,17 @@ export function buildReader(template: HTMLTemplateElement, callbacks: ReaderCall
   return refs;
 }
 
-function setPresence(el: HTMLElement, anchor: HTMLElement, present: boolean): void {
+function setPresence(
+  el: HTMLElement,
+  anchor: HTMLElement,
+  present: boolean,
+  side: "before" | "after" = "before",
+): void {
   const connected = el.parentNode !== null;
-  if (present && !connected) anchor.parentElement?.insertBefore(el, anchor);
-  else if (!present && connected) el.remove();
+  if (present && !connected) {
+    if (side === "before") anchor.parentElement?.insertBefore(el, anchor);
+    else anchor.after(el);
+  } else if (!present && connected) el.remove();
 }
 
 /** `vm.popOutHref` is `null` both when nothing is open and, permanently, on the
@@ -206,7 +243,11 @@ function setPresence(el: HTMLElement, anchor: HTMLElement, present: boolean): vo
  * `features/reader.ts`/`doc.ts` never compute
  * a non-null href in standalone mode, so this needs no separate "am I doc.html" flag. */
 function renderBar(refs: ReaderRefs, vm: ReaderBarVM): void {
-  setPresence(refs.badge, refs.fname, vm.badgeVisible);
+  setPresence(refs.badge, refs.fname, vm.badge !== null);
+  if (vm.badge !== null) {
+    refs.badge.textContent = vm.badge;
+    refs.badge.classList.toggle("scratch", vm.badge === "tmp");
+  }
   refs.fname.textContent = vm.fname;
   refs.path.textContent = vm.path;
 
@@ -255,28 +296,32 @@ function setDirtyDot(btn: HTMLElement, dirty: boolean | undefined): void {
   }
 }
 
+function setWhen(btn: HTMLElement, age: string | null): void {
+  const existing = btn.querySelector<HTMLElement>(".when");
+  if (age === null) {
+    existing?.remove();
+    return;
+  }
+  if (existing) {
+    if (existing.textContent !== age) existing.textContent = age;
+    return;
+  }
+  const when = document.createElement("span");
+  when.className = "when";
+  when.textContent = age;
+  btn.querySelector(".nm")?.after(when);
+}
+
 function applyPlanAttrs(btn: HTMLButtonElement, vm: Extract<PlanSlotVM, { kind: "file" }>): void {
   setAriaCurrent(btn, vm.current);
+  setWhen(btn, vm.age);
   setDirtyDot(btn, vm.dirty);
 }
 
-/** `current`/`dirty` are attribute-level state — the same defect class
- * `kb:lesson/select-rebuilt-every-tick-passed-selectoption` measured on the tree/outline
- * buttons applies here
- * identically (this is the plan slot's own single interactive button): the struct
- * signature is only `kind` + `basename` (which file, if any is open), so opening the plan
- * or a `docChanged` toggling its dirty dot updates the existing button in place rather
- * than destroying and rebuilding it. */
-function renderPlanSlot(refs: ReaderRefs, vm: PlanSlotVM): void {
-  // A dead session drops the plan header row whole (`.hd` plus its label), not
-  // just the label — no empty padded strip at the top of the nav. The nav toggle now
-  // lives in the docbar, unaffected by plan liveness (kb:adr/reader-nav-toggle-is-one-fixed-button).
-  refs.planHeader.hidden = vm.kind === "absent";
-  refs.planSlot.hidden = vm.kind === "absent";
-
-  const structSig = vm.kind === "file" ? `file:${vm.basename}` : vm.kind;
+function renderPlanSlot(refs: ReaderRefs, vm: PlanSlotVM, folded: boolean): void {
+  const structSig = folded ? "folded" : vm.kind === "file" ? `file:${vm.basename}` : vm.kind;
   if (refs.planSlot.dataset["structSig"] === structSig) {
-    if (vm.kind === "file") {
+    if (!folded && vm.kind === "file") {
       const btn = refs.planSlot.querySelector<HTMLButtonElement>(".f.plan");
       if (btn) applyPlanAttrs(btn, vm);
     }
@@ -284,7 +329,7 @@ function renderPlanSlot(refs: ReaderRefs, vm: PlanSlotVM): void {
   }
   refs.planSlot.dataset["structSig"] = structSig;
 
-  if (vm.kind === "absent") {
+  if (folded) {
     refs.planSlot.replaceChildren();
     return;
   }
@@ -306,6 +351,72 @@ function renderPlanSlot(refs: ReaderRefs, vm: PlanSlotVM): void {
   applyPlanAttrs(btn, vm);
   btn.addEventListener("click", () => refs.callbacks.onSelectPlan());
   refs.planSlot.replaceChildren(btn);
+}
+
+function buildScratchRow(refs: ReaderRefs, row: ScratchRowVM): HTMLButtonElement {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "f scratch";
+  btn.dataset["path"] = row.abs;
+  btn.title = row.abs;
+  const badge = document.createElement("span");
+  badge.className = "badge scratch";
+  badge.textContent = "tmp";
+  btn.append(badge, navLabel(row.path));
+  btn.addEventListener("click", () => refs.callbacks.onSelectScratch(row.path));
+  return btn;
+}
+
+function applyScratchAttrs(btn: HTMLButtonElement, row: ScratchRowVM): void {
+  setAriaCurrent(btn, row.current);
+  setWhen(btn, row.age);
+  setDirtyDot(btn, row.dirty);
+}
+
+function renderScratchRows(refs: ReaderRefs, vm: ClaudeSectionVM): void {
+  const container = refs.scratchRows;
+  const mode = vm.folded ? "folded" : vm.scratchLoading ? "loading" : "rows";
+  if (container.dataset["mode"] !== mode) {
+    container.dataset["mode"] = mode;
+    if (mode === "loading") {
+      container.replaceChildren(buildLoadingRow("scratch-loading"));
+    } else {
+      container.replaceChildren();
+    }
+  }
+  if (mode !== "rows") return;
+
+  const existing = new Map<string, HTMLButtonElement>();
+  for (const child of container.children) {
+    if (child instanceof HTMLButtonElement && child.dataset["path"])
+      existing.set(child.dataset["path"], child);
+  }
+  const wanted = new Set(vm.scratch.map((row) => row.abs));
+  for (const [abs, btn] of existing) {
+    if (!wanted.has(abs)) {
+      btn.remove();
+      existing.delete(abs);
+    }
+  }
+  const entries = vm.scratch.map((row) => {
+    const btn = existing.get(row.abs) ?? buildScratchRow(refs, row);
+    applyScratchAttrs(btn, row);
+    return { id: row.abs, root: btn };
+  });
+  const focused = captureFocusedKey(container, "path");
+  reconcileKeyedOrder(container, entries, null);
+  restoreFocusedKey(container, "path", focused);
+}
+
+function renderClaude(refs: ReaderRefs, vm: ClaudeSectionVM): void {
+  refs.claudeToggle.setAttribute("aria-expanded", String(!vm.folded));
+  refs.claudeCar.textContent = vm.folded ? "▸" : "▾";
+  refs.planChip.textContent = vm.planChip;
+  refs.planChip.classList.toggle("off", vm.planChip === "no plan");
+  if (vm.tmpChip !== null) refs.tmpChip.textContent = vm.tmpChip;
+  setPresence(refs.tmpChip, refs.planChip, vm.tmpChip !== null, "after");
+  renderPlanSlot(refs, vm.plan, vm.folded);
+  renderScratchRows(refs, vm);
 }
 
 /** A nav row's name, in its own span so it can shrink and ellipsize — a bare text node in
@@ -382,9 +493,9 @@ function applyTreeAttrs(container: HTMLElement, entries: readonly FlatTreeEntry[
  * "no plan yet" can render before the listing fetch resolves (it reads `session.plan`,
  * not `this.listing`), so a `.rnav .f.none` locator would otherwise match both at once.
  * Not a button — a loading row is never focusable. */
-function buildTreeLoadingRow(): HTMLDivElement {
+function buildLoadingRow(className: "loading-row" | "scratch-loading"): HTMLDivElement {
   const row = document.createElement("div");
-  row.className = "f loading-row";
+  row.className = `f ${className}`;
   row.textContent = loadingText(null);
   return row;
 }
@@ -397,7 +508,7 @@ function renderTree(refs: ReaderRefs, entries: readonly FlatTreeEntry[], loading
   }
   refs.tree.dataset["structSig"] = structSig;
   if (loading) {
-    refs.tree.replaceChildren(buildTreeLoadingRow());
+    refs.tree.replaceChildren(buildLoadingRow("loading-row"));
     return;
   }
   const focusedPath = captureFocusedKey(refs.tree, "path");
@@ -462,7 +573,7 @@ export function renderReader(refs: ReaderRefs, vm: ReaderVM): void {
   refs.navToggle.setAttribute("aria-expanded", String(!vm.navCollapsed));
   refs.navToggle.textContent = vm.navCollapsed ? "‹" : "›";
 
-  renderPlanSlot(refs, vm.planSlot);
+  renderClaude(refs, vm.claude);
 
   refs.filesToggle.setAttribute("aria-expanded", String(!vm.filesFolded));
   refs.filesDir.textContent = vm.filesHeader.dir;

@@ -80,6 +80,7 @@
           "name": "muster-app"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "rework shift-swap approval for the weekend rostering rule changes",
@@ -131,6 +132,7 @@
           "name": "muster"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "rework shift-swap approval for the weekend rostering rule changes",
@@ -206,6 +208,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -217,6 +220,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2

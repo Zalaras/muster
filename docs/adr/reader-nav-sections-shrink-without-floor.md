@@ -1,7 +1,7 @@
 ---
 id: reader-nav-sections-shrink-without-floor
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-14
 summary: The nav's tree and outline shrink proportionally with no minimum height; a one-row tree in a dense tile is accepted because both sections stay scrollable.
 features: [reader]

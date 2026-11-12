@@ -76,6 +76,7 @@
           "name": "activity-failed"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "failed",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "activity-failed",
@@ -138,6 +139,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1

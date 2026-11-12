@@ -5,6 +5,7 @@ export interface ReaderMemory {
   openPath: string | null;
   clearedAt: Readonly<Record<string, string>>;
   expanded: readonly string[];
+  claudeFolded: boolean;
   filesFolded: boolean;
   outlineFolded: boolean;
   scroll: Readonly<Record<string, number>>;
@@ -14,6 +15,7 @@ const EMPTY_MEMORY: ReaderMemory = {
   openPath: null,
   clearedAt: {},
   expanded: [],
+  claudeFolded: true,
   filesFolded: false,
   outlineFolded: false,
   scroll: {},
@@ -46,6 +48,7 @@ function parseMemory(value: unknown): ReaderMemory | null {
     openPath,
     clearedAt,
     expanded,
+    claudeFolded: value["claudeFolded"] !== false,
     filesFolded: value["filesFolded"] === true,
     outlineFolded: value["outlineFolded"] === true,
     scroll: isScrollShape(value["scroll"]) ? value["scroll"] : {},
@@ -107,6 +110,10 @@ export function withFolderExpanded(
 
 export function withExpandedCleared(memory: ReaderMemory): ReaderMemory {
   return { ...memory, expanded: [] };
+}
+
+export function withClaudeFolded(memory: ReaderMemory, folded: boolean): ReaderMemory {
+  return { ...memory, claudeFolded: folded };
 }
 
 export function withFilesFolded(memory: ReaderMemory, folded: boolean): ReaderMemory {

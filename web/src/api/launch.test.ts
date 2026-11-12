@@ -33,6 +33,7 @@ const validSession: Session = {
   lastActivity: null,
   backgroundTasks: 0,
   claudeSessionId: null,
+  scratchpadDir: null,
   tmuxTarget: "muster:@1",
   firstLaunchHere: true,
   createdAt: "2026-08-22T00:00:00Z",

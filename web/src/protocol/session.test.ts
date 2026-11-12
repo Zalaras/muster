@@ -22,6 +22,7 @@ const validSession = {
   lastActivity: null,
   backgroundTasks: 0,
   claudeSessionId: "claude-session-abc",
+  scratchpadDir: "/private/tmp/claude-501/-Users-bob-code-muster/claude-session-abc/scratchpad",
   tmuxTarget: "muster:@1",
   firstLaunchHere: false,
   createdAt: "2026-08-22T00:00:00Z",
@@ -62,6 +63,7 @@ const freshLaunchSession = {
   lastActivity: null,
   backgroundTasks: 0,
   claudeSessionId: null,
+  scratchpadDir: null,
   tmuxTarget: "muster:@2",
   firstLaunchHere: true,
   createdAt: "2026-08-22T00:00:00Z",
@@ -142,6 +144,31 @@ describe("parseSession — full kb:anchor/ws.session shape", () => {
   it("rejects a repo object missing isWorktree", () => {
     const session = { ...validSession, repo: { name: "muster", branch: "main" } };
     expect(parseSession(session)).toBeNull();
+  });
+
+  // kb:anchor/ws.session scratchpadDir: required key, string or null (null until a well-formed hook).
+  describe("scratchpadDir", () => {
+    it("carries a populated folder through verbatim", () => {
+      expect(parseSession(validSession)?.scratchpadDir).toBe(validSession.scratchpadDir);
+    });
+
+    it("parses an explicit null (no hook has named a folder yet)", () => {
+      expect(parseSession({ ...validSession, scratchpadDir: null })?.scratchpadDir).toBeNull();
+    });
+
+    it.each([
+      ["undefined", undefined],
+      ["a number", 7],
+      ["an object", { dir: "/x" }],
+      ["a boolean", false],
+    ])("rejects %s", (_name, scratchpadDir) => {
+      expect(parseSession({ ...validSession, scratchpadDir })).toBeNull();
+    });
+
+    it("rejects a session whose key is missing", () => {
+      const { scratchpadDir: _omitted, ...withoutKey } = validSession;
+      expect(parseSession(withoutKey)).toBeNull();
+    });
   });
 
   // kb:anchor/ws.session claudeLocation: null while Claude is in the launch checkout.

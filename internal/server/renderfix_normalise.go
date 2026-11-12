@@ -21,6 +21,7 @@ var renderfixTimeKeys = map[string]bool{
 	"modelScopedAt":  true,
 	"lastLaunchedAt": true,
 	"writtenAt":      true,
+	"modifiedAt":     true,
 }
 
 // normaliseRenderFixture rewrites the parts of a recorded fixture that would differ

@@ -8,11 +8,17 @@
 // is DOM-only and never fetches or opens a socket. Mirrors `features/surfaces.ts`'s
 // mount/dispose diff shape — the render phase below is the only place a `ReaderInstance`
 // is ever constructed or disposed.
-import { fetchReaderFile, fetchReaderListing, type ReaderListing } from "../api/reader";
+import {
+  fetchReaderFile,
+  fetchReaderListing,
+  type ReaderListing,
+  type ReaderScratch,
+} from "../api/reader";
 import type { App, ConnectionStatus, RenderFrame } from "../app";
 import { requireElement } from "../dom";
 import type { DocChanged } from "../protocol/messages";
 import type { Session } from "../protocol/session";
+import { claudeChips, latestIso } from "../reader/claude";
 import { changedText } from "../reader/freshness";
 import { renderMarkdown, type OutlineEntry } from "../reader/markdown";
 import { parseSessionParam } from "../reader/query";
@@ -22,6 +28,7 @@ import {
   isMemoryWrite,
   loadMemory,
   saveMemory,
+  withClaudeFolded,
   withExpandedCleared,
   withFilesFolded,
   withFolderExpanded,
@@ -35,6 +42,8 @@ import { classifyDocChanged, deriveNotice, UNKNOWN_SESSION_TEXT } from "../reade
 import { loadingText } from "../reader/paths";
 import { buildTree, filterTree, flattenTree, type FlatTreeEntry } from "../reader/tree";
 import { visibleIds } from "../sessions/live";
+import { createScratchTracker } from "./readerscratch";
+import { ageAgo, formatAge } from "../sessions/format";
 import { basename } from "../sessions/paths";
 import { safeLocalStorage } from "../storage";
 import {
@@ -51,9 +60,11 @@ import {
   renderUnknownSessionNotice,
   scrollHeadingIntoView,
   setReaderBody,
-  type PlanSlotVM,
+  type ClaudeSectionVM,
+  type ReaderBadge,
   type ReaderRefs,
   type ReaderVM,
+  type ScratchRowVM,
 } from "../render/reader";
 import { getSurfaceState, type SurfaceSwitchState } from "../terminal/surfaceswitch";
 import { initReaderFind, type ReaderFindHandle } from "./readerfind";
@@ -115,6 +126,10 @@ class ReaderInstance {
    * so the tree's `loading…` row (driven by this, not by `listing`) disappears once the
    * request settles either way. */
   private listingLoading = true;
+  private listingSeq = 0;
+  /** Every scratchpad folder this reader has seen — an open scratch file keeps its `tmp`
+   * badge after `/clear` moves the session's folder away from it. */
+  private readonly scratch = createScratchTracker();
   /** Absolute path -> the latest `writtenAt`/`docChanged.at` known for it. Seeded from the
    * listing fetch, then kept current by `docChanged` alone — the listing itself is never
    * re-fetched after mount (kb:adr/reader-change-signal-is-the-write-hook). */
@@ -164,6 +179,8 @@ class ReaderInstance {
     this.refs = buildReader(template, {
       onSelectPath: (path) => this.selectRelative(path),
       onSelectPlan: () => this.selectPlan(),
+      onSelectScratch: (path) => this.selectScratch(path),
+      onToggleClaude: () => this.toggleClaude(),
       onToggleFolder: (path) => this.toggleFolder(path),
       onFilterInput: (value) => this.setFilter(value),
       onToggleNav: () => this.toggleNav(),
@@ -233,9 +250,9 @@ class ReaderInstance {
   }
 
   private async loadListing(): Promise<void> {
-    const seq = ++this.fetchSeq;
+    const seq = ++this.listingSeq;
     const result = await fetchReaderListing(this.sessionId);
-    if (this.disposed || seq !== this.fetchSeq) return;
+    if (this.disposed || seq !== this.listingSeq) return;
     this.listingLoading = false;
     if (!result.ok) {
       if (result.error.code === "unknown_session") {
@@ -250,21 +267,39 @@ class ReaderInstance {
       this.requestRender();
       return;
     }
-    this.listing = result.value;
-    this.pruneScrollMemory(result.value);
-    if (result.value.plan?.writtenAt)
-      this.writtenAt.set(result.value.plan.path, result.value.plan.writtenAt);
-    for (const file of result.value.files) {
-      if (file.writtenAt)
-        this.writtenAt.set(`${result.value.directory}/${file.path}`, file.writtenAt);
-    }
+    this.applyListing(result.value);
     this.decideInitialOpen(result.value);
     this.requestRender();
+  }
+
+  private async rescanListing(): Promise<void> {
+    const seq = ++this.listingSeq;
+    this.scratch.rescanStarted();
+    const result = await fetchReaderListing(this.sessionId);
+    if (this.disposed || seq !== this.listingSeq || !result.ok) return;
+    this.applyListing(result.value);
+    this.requestRender();
+  }
+
+  private applyListing(listing: ReaderListing): void {
+    this.listing = listing;
+    this.scratch.listingApplied(listing);
+    this.pruneScrollMemory(listing);
+    if (listing.plan?.writtenAt) this.writtenAt.set(listing.plan.path, listing.plan.writtenAt);
+    for (const file of listing.files) {
+      if (file.writtenAt) this.writtenAt.set(`${listing.directory}/${file.path}`, file.writtenAt);
+    }
+    for (const file of listing.scratch?.files ?? []) {
+      if (file.writtenAt)
+        this.writtenAt.set(`${listing.scratch?.dir}/${file.path}`, file.writtenAt);
+    }
   }
 
   private pruneScrollMemory(listing: ReaderListing): void {
     const listed = listing.files.map((f) => `${listing.directory}/${f.path}`);
     if (listing.plan) listed.push(listing.plan.path);
+    for (const file of listing.scratch?.files ?? [])
+      listed.push(`${listing.scratch?.dir}/${file.path}`);
     if (this.standalonePath) listed.push(this.standalonePath);
     this.commitMemory((m) => withScrollPruned(m, listed));
   }
@@ -354,6 +389,18 @@ class ReaderInstance {
     void this.openFile(`${this.listing.directory}/${relPath}`, { showLoading: true });
   }
 
+  private selectScratch(relPath: string): void {
+    const scratch = this.listing?.scratch;
+    if (!scratch) return;
+    void this.openFile(`${scratch.dir}/${relPath}`, { showLoading: true });
+  }
+
+  private toggleClaude(): void {
+    const fold = !this.memory.claudeFolded;
+    this.commitMemory((m) => withClaudeFolded(m, fold));
+    this.requestRender();
+  }
+
   private selectPlan(): void {
     const plan = this.listing?.plan;
     if (!plan) return;
@@ -406,6 +453,8 @@ class ReaderInstance {
    * even mid-open-in-flight for a different path. */
   handleDocChanged(msg: DocChanged): void {
     this.writtenAt.set(msg.path, msg.at);
+    if (this.scratch.docChangedNeedsRescan(this.listing, this.listingLoading, msg.path))
+      void this.rescanListing();
     if (classifyDocChanged(this.openPath, msg.path) === "refetch")
       void this.openFile(msg.path, { showLoading: false });
     else this.requestRender();
@@ -468,16 +517,54 @@ class ReaderInstance {
     if (plan?.exists) void this.openFile(plan.path, { showLoading: true });
   }
 
-  private buildPlanSlot(session: Session | null): PlanSlotVM {
-    if (!session?.alive) return { kind: "absent" };
-    const plan = session.plan;
+  private buildPlanSlot(session: Session | null, now: Date): ClaudeSectionVM["plan"] {
+    const plan = session?.plan;
     if (!plan?.exists) return { kind: "none" };
+    const listed = this.listing?.plan?.path === plan.path ? this.listing.plan : null;
+    const stamp = latestIso(listed?.modifiedAt, this.writtenAt.get(plan.path));
     return {
       kind: "file",
       basename: basename(plan.path),
       dirty: isDirty(this.memory, plan.path, this.writtenAt.get(plan.path) ?? null),
       current: this.openPath === plan.path,
+      age: stamp ? ageAgo(stamp, now) : null,
     };
+  }
+
+  private buildScratchRows(scratch: ReaderScratch | null | undefined, now: Date): ScratchRowVM[] {
+    if (!scratch) return [];
+    return scratch.files.map((file) => {
+      const abs = `${scratch.dir}/${file.path}`;
+      const written = this.writtenAt.get(abs) ?? null;
+      const stamp = latestIso(file.modifiedAt, written) ?? file.modifiedAt;
+      return {
+        path: file.path,
+        abs,
+        dirty: isDirty(this.memory, abs, written),
+        current: this.openPath === abs,
+        age: formatAge(stamp, now),
+      };
+    });
+  }
+
+  private buildClaudeVM(session: Session | null, now: Date): ClaudeSectionVM {
+    const scratch = this.buildScratchRows(this.listing?.scratch, now);
+    const plan = this.buildPlanSlot(session, now);
+    const chips = claudeChips(plan.kind === "file", scratch.length);
+    return {
+      folded: this.memory.claudeFolded,
+      planChip: chips.plan,
+      tmpChip: chips.tmp,
+      plan,
+      scratch,
+      scratchLoading: this.listingLoading,
+    };
+  }
+
+  private openBadge(planPath: string | null): ReaderBadge | null {
+    if (this.openPath === null) return null;
+    if (this.openPath === planPath) return "plan";
+    return this.scratch.isScratch(this.openPath) ? "tmp" : null;
   }
 
   /** The nav tree, flattened and decorated with this instance's dirty/current state —
@@ -510,7 +597,7 @@ class ReaderInstance {
     const planPath = session ? (session.plan?.path ?? null) : (this.listing?.plan?.path ?? null);
     const openWrittenAt = this.openPath ? (this.writtenAt.get(this.openPath) ?? null) : null;
     return {
-      badgeVisible: this.openPath !== null && this.openPath === planPath,
+      badge: this.openBadge(planPath),
       fname: this.openPath ? basename(this.openPath) : "",
       path: this.openPath ?? "",
       pathVisible: !this.compact,
@@ -522,8 +609,13 @@ class ReaderInstance {
     };
   }
 
+  private noteSession(session: Session | null): void {
+    if (this.scratch.observeSession(session, this.listingLoading)) void this.rescanListing();
+  }
+
   render(session: Session | null, now: Date, connection: ConnectionStatus, compact: boolean): void {
     this.compact = compact;
+    this.noteSession(session);
     this.refs.root.classList.toggle("compact", compact);
     this.maybeAutoOpenPlan(session);
     const listing = this.listing;
@@ -540,7 +632,7 @@ class ReaderInstance {
       outlineFolded: this.memory.outlineFolded,
       bar: this.buildBarVM(session, now),
       notice,
-      planSlot: this.buildPlanSlot(session),
+      claude: this.buildClaudeVM(session, now),
       filesHeader: {
         dir: listing?.directory ?? "",
         // Compact drops the count too, regardless of whether the listing arrived.

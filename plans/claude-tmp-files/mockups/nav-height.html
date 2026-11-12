@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en" data-theme="instrument"><head><meta charset="utf-8">
+<title>claude-tmp-files — nav height in a short tile</title>
+<link rel="stylesheet" href="../../../web/src/style.css">
+<link rel="stylesheet" href="mockup.css">
+<style>
+/* Mockup-only: a 3x2 tile in a 600 px window gives the nav 164 px x 190 px. */
+.short { height: 164px; width: 190px; }
+.short .reader { height: 100%; width: 100%; }
+.short .rnav { height: 100%; }
+.stage > div { width: 236px; }
+.cap2 { font-size: var(--fs-2xs); color: var(--fg-muted); max-width: 236px; margin-top: 6px; line-height: 1.45; }
+.cap2 b { color: var(--fg); }
+.flag { outline: 1px dashed var(--rose); outline-offset: -1px; }
+
+/* new (C, global scroll): sections take their natural height; only the nav scrolls. */
+.rnav.global .tree, .rnav.global .outline, .rnav.global .scratch-rows {
+  flex: none; overflow: visible; max-height: none; min-height: 0; }
+.rnav.global .scratch-rows:empty { display: none; }
+
+/* new (D, VS Code-style panes): a collapsed section is just its header; an open one keeps
+ * at least two rows and scrolls inside itself; the nav scrolls only if the open
+ * minimums don't fit. */
+.rnav.panes .tree, .rnav.panes .outline { flex: 1 1 0; min-height: 34px; }
+.rnav.panes .scratch-rows:empty { display: none; }
+.rnav.panes .scratch-rows { min-height: 0; }
+</style>
+</head><body><div class="frame">
+<h1>The reader nav in a short tile</h1>
+<div class="sub">claude-tmp-files · review cycle 2 · 2026-11-12 · <a href="index.html">all options</a></div>
+<p>Each box below is the real nav from this branch's <code>style.css</code> at the size a <b>3×2 tile in a
+600 px-tall window</b> gives it: <b>164 px tall, 190 px wide</b>. Scroll inside each one. A rose dashed
+outline marks space or a section that is the problem.</p>
+
+<h2 class="part">What the branch does today</h2>
+<div class="stage">
+
+<div><div class="stage-cap">A · folded (the default)</div>
+<div class="nav-only short"><section class="reader compact"><nav class="rnav" aria-label="Documents">
+<button type="button" class="claude-sum" aria-expanded="false"><span class="car">▸</span><span class="lbl">claude</span><span class="chips"><span class="chip">plan</span><span class="chip">3 tmp</span></span></button>
+<div class="plan-slot"></div>
+<div class="scratch-rows flag"></div>
+<div class="sep"></div>
+<button type="button" class="hd toggle" aria-expanded="true"><span class="dir">~/code/Projects/muster</span></button>
+<input type="search" class="filter" placeholder="filter files…">
+<div class="tree"><button type="button" class="f d0"><span class="car">▾</span><span class="nm">docs/</span><span class="cnt">18</span></button><button type="button" class="f d1"><span class="car">▸</span><span class="nm">adr/</span><span class="cnt">12</span></button><button type="button" class="f d1"><span class="nm">protocol.md</span></button><button type="button" class="f d0"><span class="car">▸</span><span class="nm">plans/</span><span class="cnt">9</span></button><button type="button" class="f d0"><span class="nm">CLAUDE.md</span></button><button type="button" class="f d0"><span class="nm">README.md</span></button><button type="button" class="f d0"><span class="nm">SPEC.md</span></button><button type="button" class="f d0"><span class="nm">TODO.md</span></button></div>
+<div class="sep"></div>
+<button type="button" class="hd toggle" aria-expanded="true">outline</button>
+<div class="outline"><button type="button" class="ol h1" aria-current="true">Findings</button><button type="button" class="ol h2">Hook payloads</button><button type="button" class="ol h2">Open questions</button></div>
+</nav></section></div>
+<div class="cap2"><b>The bug:</b> the empty scratch box under the summary row still takes 22 px
+(dashed), so the tree and outline get even less.</div></div>
+
+<div><div class="stage-cap">B · unfolded</div>
+<div class="nav-only short"><section class="reader compact"><nav class="rnav" aria-label="Documents">
+<button type="button" class="claude-sum" aria-expanded="true"><span class="car">▾</span><span class="lbl">claude</span><span class="chips"><span class="chip">plan</span><span class="chip">3 tmp</span></span></button>
+<div class="plan-slot"><button type="button" class="f"><span class="badge">plan</span><span class="nm">wobbly-tumbling-kettle.md</span><span class="when">2m</span></button></div>
+<div class="scratch-rows"><button type="button" class="f" aria-current="true"><span class="badge scratch">tmp</span><span class="nm">findings.md</span><span class="when">now</span></button><button type="button" class="f"><span class="badge scratch">tmp</span><span class="nm">options.md</span><span class="when">6m</span></button><button type="button" class="f"><span class="badge scratch">tmp</span><span class="nm">draft-reply.md</span><span class="when">41m</span></button></div>
+<div class="sep"></div>
+<button type="button" class="hd toggle" aria-expanded="true"><span class="dir">~/code/Projects/muster</span></button>
+<input type="search" class="filter" placeholder="filter files…">
+<div class="tree flag"><button type="button" class="f d0"><span class="car">▾</span><span class="nm">docs/</span><span class="cnt">18</span></button><button type="button" class="f d1"><span class="car">▸</span><span class="nm">adr/</span><span class="cnt">12</span></button><button type="button" class="f d1"><span class="nm">protocol.md</span></button><button type="button" class="f d0"><span class="car">▸</span><span class="nm">plans/</span><span class="cnt">9</span></button><button type="button" class="f d0"><span class="nm">CLAUDE.md</span></button><button type="button" class="f d0"><span class="nm">README.md</span></button><button type="button" class="f d0"><span class="nm">SPEC.md</span></button><button type="button" class="f d0"><span class="nm">TODO.md</span></button></div>
+<div class="sep"></div>
+<button type="button" class="hd toggle" aria-expanded="true">outline</button>
+<div class="outline flag"><button type="button" class="ol h1" aria-current="true">Findings</button><button type="button" class="ol h2">Hook payloads</button><button type="button" class="ol h2">Open questions</button></div>
+</nav></section></div>
+<div class="cap2"><b>The decision:</b> the tree and outline (dashed) are a few pixels tall. They
+scroll, but you never see one whole row in either.</div></div>
+</div>
+
+<h2 class="part">Two ways out</h2>
+<div class="stage">
+
+<div><div class="stage-cap">C · one scroll for the whole nav</div>
+<div class="nav-only short"><section class="reader compact"><nav class="rnav global" aria-label="Documents">
+<button type="button" class="claude-sum" aria-expanded="true"><span class="car">▾</span><span class="lbl">claude</span><span class="chips"><span class="chip">plan</span><span class="chip">3 tmp</span></span></button>
+<div class="plan-slot"><button type="button" class="f"><span class="badge">plan</span><span class="nm">wobbly-tumbling-kettle.md</span><span class="when">2m</span></button></div>
+<div class="scratch-rows"><button type="button" class="f" aria-current="true"><span class="badge scratch">tmp</span><span class="nm">findings.md</span><span class="when">now</span></button><button type="button" class="f"><span class="badge scratch">tmp</span><span class="nm">options.md</span><span class="when">6m</span></button><button type="button" class="f"><span class="badge scratch">tmp</span><span class="nm">draft-reply.md</span><span class="when">41m</span></button></div>
+<div class="sep"></div>
+<button type="button" class="hd toggle" aria-expanded="true"><span class="dir">~/code/Projects/muster</span></button>
+<input type="search" class="filter" placeholder="filter files…">
+<div class="tree"><button type="button" class="f d0"><span class="car">▾</span><span class="nm">docs/</span><span class="cnt">18</span></button><button type="button" class="f d1"><span class="car">▸</span><span class="nm">adr/</span><span class="cnt">12</span></button><button type="button" class="f d1"><span class="nm">protocol.md</span></button><button type="button" class="f d0"><span class="car">▸</span><span class="nm">plans/</span><span class="cnt">9</span></button><button type="button" class="f d0"><span class="nm">CLAUDE.md</span></button><button type="button" class="f d0"><span class="nm">README.md</span></button><button type="button" class="f d0"><span class="nm">SPEC.md</span></button><button type="button" class="f d0"><span class="nm">TODO.md</span></button></div>
+<div class="sep"></div>
+<button type="button" class="hd toggle" aria-expanded="true">outline</button>
+<div class="outline"><button type="button" class="ol h1" aria-current="true">Findings</button><button type="button" class="ol h2">Hook payloads</button><button type="button" class="ol h2">Open questions</button></div>
+</nav></section></div>
+<div class="cap2"><b>Your idea.</b> Every section shows all its rows; you scroll the nav itself.
+Nothing is ever squeezed, but with 40 files the outline sits below all of them, and the files
+header and filter scroll away with the list.</div></div>
+
+<div><div class="stage-cap">D · VS Code-style panes</div>
+<div class="nav-only short"><section class="reader compact"><nav class="rnav panes" aria-label="Documents">
+<button type="button" class="claude-sum" aria-expanded="false"><span class="car">▸</span><span class="lbl">claude</span><span class="chips"><span class="chip">plan</span><span class="chip">3 tmp</span></span></button>
+<div class="plan-slot"></div>
+<div class="scratch-rows"></div>
+<div class="sep"></div>
+<button type="button" class="hd toggle" aria-expanded="true"><span class="dir">~/code/Projects/muster</span></button>
+<input type="search" class="filter" placeholder="filter files…">
+<div class="tree"><button type="button" class="f d0"><span class="car">▾</span><span class="nm">docs/</span><span class="cnt">18</span></button><button type="button" class="f d1"><span class="car">▸</span><span class="nm">adr/</span><span class="cnt">12</span></button><button type="button" class="f d1"><span class="nm">protocol.md</span></button><button type="button" class="f d0"><span class="car">▸</span><span class="nm">plans/</span><span class="cnt">9</span></button><button type="button" class="f d0"><span class="nm">CLAUDE.md</span></button><button type="button" class="f d0"><span class="nm">README.md</span></button><button type="button" class="f d0"><span class="nm">SPEC.md</span></button><button type="button" class="f d0"><span class="nm">TODO.md</span></button></div>
+<div class="sep"></div>
+<button type="button" class="hd toggle" aria-expanded="false">outline</button>
+</nav></section></div>
+<div class="cap2"><b>How VS Code's Explorer works.</b> Each open section keeps at least two rows
+and scrolls inside itself; a closed one is just its header (outline closed here). Fold what you
+don't need and the rest gets the room. This needs a minimum height per section, which your
+earlier no-floor decision ruled out.</div></div>
+</div>
+
+<ul class="notes">
+<li>Tiles taller than this (a 900 px window) already show several rows in each section today; only short tiles hit this.</li>
+<li>The blank 22 px strip in A is a bug either way and will be fixed regardless.</li>
+</ul>
+</div></body></html>

@@ -114,14 +114,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   cost *tracking*, but spending is a new class of behaviour either way), and where a summary
   is cached and invalidated so it isn't recomputed every render. Wants a `/spec` pass.
 
-- [ ] **Find a way to get claude tmp files** ([#121](https://github.com/Zalaras/muster/issues/121)) — Claude
-  often writes markdown files into a temporary Claude directory whose path appears to include the
-  session id, and the author cannot see them in the file explorer. Expected: The dashboard should
-  provide a way to find and view the files Claude writes to its temporary session directory in the
-  file explorer.
-  Filed 2026-11-06 from musterd 0.29.0 / Claude Code 2.1.319, focus view, session idle.
-  Labels: enhancement, documents, claude-code.
-
 ## Bugs
 
 - [ ] **Long background tasks note the session as IDLE** ([#96](https://github.com/Zalaras/muster/issues/96)) — A
@@ -169,6 +161,13 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Labels: bug, rail, ux.
 
 ## Tweaks
+
+- [ ] **Revisit the reader nav's scrolling** — the docs reader's nav scrolls as one column, so with
+  a long file list the outline sits far below it and the files header and filter scroll out of
+  view. Expected: revisit the layout, including VS Code-style panes (each open section keeps a
+  minimum and scrolls inside itself, a closed section collapses to its header — mockup D in
+  `plans/claude-tmp-files/mockups/nav-height.html`) and a filter that stays pinned at the top
+  while the nav scrolls. Filed 2026-11-12 by the developer during `claude-tmp-files`.
 
 - [ ] **Should select mode be disabled after an action?** ([#98](https://github.com/Zalaras/muster/issues/98)) — After
   selecting several sessions and removing them, it is unclear whether the dashboard should stay in

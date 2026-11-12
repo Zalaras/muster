@@ -36,6 +36,7 @@ describe("renderDeadSurface — assigns deadSurfaceText's output to the endbar/s
     return {
       title: "some-session",
       titleOverride: null,
+      scratchpadDir: null,
       plan: null,
       state: "idle",
       stateSince: "2026-08-27T00:00:00Z",
@@ -224,6 +225,7 @@ describe("renderDeadSurface — Resume disabled reason (REQ-17/W3)", () => {
     return {
       title: "some-session",
       titleOverride: null,
+      scratchpadDir: null,
       plan: null,
       state: "idle",
       stateSince: "2026-08-27T00:00:00Z",

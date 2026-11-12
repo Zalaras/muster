@@ -47,7 +47,7 @@ C4Component
     Container_Boundary(dashboard, "Dashboard") {
         Boundary(ctl, "Entries and controllers") {
             Component(main, "main.ts", "entry", "Dashboard composition root: inits 22 controllers, owns render order")
-            Component(features, "features/", "51 modules", "21 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload; restart is the Claude-restart panel and dialog), 1 stateless handle (effort: the strip's dismiss call, wired by focus), 6 sub-controllers handed their elements by their owner (launch: launchresume, launchgroup; groups: groupsselect, groupsdialogs; reader: readerfind, readerscroll), plus 20 DOM-free helpers each owned by one controller, and three notes modules beside notes.ts: notesedit (editing and saving, shared with the note window), noteswindows (window handles, query parse), notespage (the note window's controller)")
+            Component(features, "features/", "52 modules", "21 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload; restart is the Claude-restart panel and dialog), 1 stateless handle (effort: the strip's dismiss call, wired by focus), 6 sub-controllers handed their elements by their owner (launch: launchresume, launchgroup; groups: groupsselect, groupsdialogs; reader: readerfind, readerscroll), plus 21 DOM-free helpers (reader's scratch re-scan tracker, readerscratch, among them) each owned by one controller, and three notes modules beside notes.ts: notesedit (editing and saving, shared with the note window), noteswindows (window handles, query parse), notespage (the note window's controller)")
             Component(doc, "doc.ts", "entry", "Pop-out reader composition root")
             Component(note, "note.ts", "entry", "Note window composition root")
             Component(wsapp, "wsapp.ts", "mapping", "The WS-to-app mapping every entry registers, then layer their own handlers on top of")
@@ -62,7 +62,7 @@ C4Component
             Component(api, "api/", "11 modules", "The only fetch to musterd, one file per endpoint family, no barrel; ApiResult, never throws")
             Component(terminal, "terminal/", "8 modules", "xterm.js surfaces, the per-terminal socket to musterd, shell key translation, drop wiring and the shell activity reducer")
             Component(dom, "dom.ts", "helpers", "Element lookup")
-            Component(reader, "reader/", "12 modules", "Markdown render, nav tree, per-session memory, find matching, the ?session= parse")
+            Component(reader, "reader/", "13 modules", "Markdown render, nav tree, per-session memory, find matching, the ?session= parse, claude-section chips and scratch re-scan rules")
             Component(sessions, "sessions/", "17 modules", "Pure derivation — view-models, sort, rail sections, tile math, formatters, a path basename")
             Component(theme, "theme.ts", "registry", "Theme choice; first-paint hint")
             Component(shortcuts, "shortcuts.ts", "pure", "Keyboard chord table")
@@ -109,6 +109,7 @@ C4Component
     Rel(reader, sessions, "freshness")
     Rel(reader, app, "connection state")
     Rel(reader, storage, "per-session memory")
+    Rel(reader, api, "listing type")
     Rel(theme, storage, "first-paint hint")
     Rel(features, storage, "restart handoff, note drafts, panel memory, Claude-restart Ignore")
     Rel(app, sessions, "SessionStore")

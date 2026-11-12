@@ -540,6 +540,7 @@ func (r *renderRig) captureReaderFiles(ctx context.Context, id int64, listing an
 			}
 		}
 	}
+	paths = append(paths, readerScratchPaths(m)...)
 	out := make([]any, 0, len(paths))
 	for _, p := range paths {
 		body, err := r.api(ctx, http.MethodGet, "/api/sessions/"+strconv.FormatInt(id, 10)+"/reader/file?path="+url.QueryEscape(p), nil)

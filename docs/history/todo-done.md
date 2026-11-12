@@ -2760,3 +2760,13 @@ that the dashboard shows.
   after Claude Code updates, the developer wants to restart every session onto the new version
   with each one resumed where it was, and also to restart just one session or just one group.
   Restart-all only: per-session and per-group restart were dropped by the developer at planning (2026-11-04).
+
+## Enhancements
+
+- [x] **Find a way to get claude tmp files** ([#121](https://github.com/Zalaras/muster/issues/121)) ✅ done 2026-11-12 (plan `claude-tmp-files`, via `/orchestrate`; approved review cycle 3) — Claude
+  often writes markdown files into a temporary Claude directory whose path appears to include the
+  session id, and the author cannot see them in the file explorer. Expected: The dashboard should
+  provide a way to find and view the files Claude writes to its temporary session directory in the
+  file explorer.
+  Filed 2026-11-06 from musterd 0.29.0 / Claude Code 2.1.319, focus view, session idle.
+  Labels: enhancement, documents, claude-code.

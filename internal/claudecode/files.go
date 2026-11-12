@@ -1,6 +1,9 @@
 package claudecode
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"path/filepath"
+)
 
 // FileSignal is the neutral file-change vocabulary the reader feature (kb:spec/reader)
 // derives from one persisted event's payload: internal/server never reads
@@ -18,6 +21,14 @@ type FileSignal struct {
 	// ExitPlanMode, and on a WrittenPath under the default plans directory — the
 	// reader's bounded scan triggers (kb:spec/reader), never on every hook.
 	PlanMaybeReady bool
+	ScratchpadDir  string
+}
+
+func wellFormedScratchpad(dir, sessionID string) bool {
+	if sessionID == "" || !filepath.IsAbs(dir) || filepath.Clean(dir) != dir {
+		return false
+	}
+	return filepath.Base(dir) == "scratchpad" && filepath.Base(filepath.Dir(dir)) == sessionID
 }
 
 // InterpretFiles derives FileSignal for one persisted event. eventType is the event
@@ -26,6 +37,8 @@ type FileSignal struct {
 // tool_input.file_path.
 func InterpretFiles(eventType string, payload []byte) FileSignal {
 	var f struct {
+		SessionID      string `json:"session_id"`
+		ScratchpadDir  string `json:"scratchpad_dir"`
 		TranscriptPath string `json:"transcript_path"`
 		ToolName       string `json:"tool_name"`
 		ToolInput      struct {
@@ -35,6 +48,9 @@ func InterpretFiles(eventType string, payload []byte) FileSignal {
 	_ = json.Unmarshal(payload, &f)
 
 	sig := FileSignal{TranscriptPath: f.TranscriptPath}
+	if wellFormedScratchpad(f.ScratchpadDir, f.SessionID) {
+		sig.ScratchpadDir = f.ScratchpadDir
+	}
 
 	switch eventType {
 	case "SessionStart":

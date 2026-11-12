@@ -1,0 +1,266 @@
+{
+  "plan_name": "claude-tmp-files",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 1,
+    "web-tests": 1,
+    "render-tests": 3,
+    "e2e-validate": 0,
+    "review": 2,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "web-tests",
+    "daemon-tests",
+    "render-tests",
+    "e2e-validate",
+    "review",
+    "doc-reconcile"
+  ],
+  "step_started_at": {
+    "e2e-specs": "2026-11-12T11:11:10Z",
+    "daemon-impl": "2026-11-12T13:33:36Z",
+    "web-impl": "2026-11-12T14:19:53Z",
+    "web-tests": "2026-11-12T12:44:47Z",
+    "render-tests": "2026-11-12T14:23:37Z",
+    "daemon-tests": "2026-11-12T12:44:47Z",
+    "e2e-validate": "2026-11-12T11:57:28Z",
+    "review": "2026-11-12T14:40:48Z",
+    "doc-reconcile": "2026-11-12T15:03:59Z"
+  },
+  "step_finished_at": {
+    "e2e-specs": "2026-11-12T11:18:33Z",
+    "web-impl": "2026-11-12T14:21:44Z",
+    "daemon-impl": "2026-11-12T13:39:10Z",
+    "web-tests": "2026-11-12T12:47:21Z",
+    "render-tests": "2026-11-12T14:31:54Z",
+    "daemon-tests": "2026-11-12T12:53:37Z",
+    "e2e-validate": "2026-11-12T12:04:23Z",
+    "review": "2026-11-12T15:03:59Z",
+    "doc-reconcile": "2026-11-12T15:21:30Z"
+  },
+  "step_attempts": {
+    "e2e-specs": [
+      {
+        "start": "2026-11-12T11:11:10Z",
+        "finish": "2026-11-12T11:18:33Z",
+        "usage_start": 10.0,
+        "usage_finish": 10.0
+      }
+    ],
+    "daemon-impl": [
+      {
+        "start": "2026-11-12T11:18:33Z",
+        "finish": "2026-11-12T11:30:24Z",
+        "usage_start": 10.0,
+        "usage_finish": 10.0
+      },
+      {
+        "start": "2026-11-12T11:43:17Z",
+        "finish": "2026-11-12T11:51:48Z",
+        "usage_start": 11.0,
+        "usage_finish": 11.0
+      },
+      {
+        "start": "2026-11-12T12:33:48Z",
+        "finish": "2026-11-12T12:42:47Z",
+        "usage_start": 12.0,
+        "usage_finish": 12.0
+      },
+      {
+        "start": "2026-11-12T12:58:53Z",
+        "finish": "2026-11-12T13:10:04Z",
+        "usage_start": 12.0,
+        "usage_finish": 12.0
+      },
+      {
+        "start": "2026-11-12T13:33:36Z",
+        "finish": "2026-11-12T13:39:10Z",
+        "usage_start": 13.0,
+        "usage_finish": 13.0
+      }
+    ],
+    "web-impl": [
+      {
+        "start": "2026-11-12T11:18:33Z",
+        "finish": "2026-11-12T11:28:37Z",
+        "usage_start": 10.0,
+        "usage_finish": 10.0
+      },
+      {
+        "start": "2026-11-12T11:35:54Z",
+        "finish": "2026-11-12T11:36:45Z",
+        "usage_start": 10.0,
+        "usage_finish": 11.0
+      },
+      {
+        "start": "2026-11-12T12:33:49Z",
+        "finish": "2026-11-12T12:42:47Z",
+        "usage_start": 12.0,
+        "usage_finish": 12.0
+      },
+      {
+        "start": "2026-11-12T12:58:53Z",
+        "finish": "2026-11-12T13:11:16Z",
+        "usage_start": 12.0,
+        "usage_finish": 13.0
+      },
+      {
+        "start": "2026-11-12T14:19:53Z",
+        "finish": "2026-11-12T14:21:44Z",
+        "usage_start": 13.0,
+        "usage_finish": 13.0
+      }
+    ],
+    "web-tests": [
+      {
+        "start": "2026-11-12T11:28:37Z",
+        "finish": "2026-11-12T11:35:54Z",
+        "usage_start": 10.0,
+        "usage_finish": 10.0
+      },
+      {
+        "start": "2026-11-12T11:36:46Z",
+        "finish": "2026-11-12T11:38:49Z",
+        "usage_start": 11.0,
+        "usage_finish": 11.0
+      },
+      {
+        "start": "2026-11-12T12:44:47Z",
+        "finish": "2026-11-12T12:47:21Z",
+        "usage_start": 12.0,
+        "usage_finish": 12.0
+      }
+    ],
+    "render-tests": [
+      {
+        "start": "2026-11-12T11:28:37Z",
+        "finish": "2026-11-12T11:43:17Z",
+        "usage_start": 10.0,
+        "usage_finish": 11.0
+      },
+      {
+        "start": "2026-11-12T11:51:36Z",
+        "finish": "2026-11-12T11:56:59Z",
+        "usage_start": 11.0,
+        "usage_finish": 11.0
+      },
+      {
+        "start": "2026-11-12T12:44:48Z",
+        "finish": "2026-11-12T12:58:52Z",
+        "usage_start": 12.0,
+        "usage_finish": 12.0
+      },
+      {
+        "start": "2026-11-12T13:23:21Z",
+        "finish": "2026-11-12T13:33:36Z",
+        "usage_start": 13.0,
+        "usage_finish": 13.0
+      },
+      {
+        "start": "2026-11-12T13:39:10Z",
+        "finish": "2026-11-12T13:43:27Z",
+        "usage_start": 13.0,
+        "usage_finish": 13.0
+      },
+      {
+        "start": "2026-11-12T14:23:37Z",
+        "finish": "2026-11-12T14:31:54Z",
+        "usage_start": 13.0,
+        "usage_finish": 14.0
+      }
+    ],
+    "daemon-tests": [
+      {
+        "start": "2026-11-12T11:37:15Z",
+        "finish": "2026-11-12T11:45:54Z",
+        "usage_start": 11.0,
+        "usage_finish": 11.0
+      },
+      {
+        "start": "2026-11-12T11:51:49Z",
+        "finish": "2026-11-12T11:56:59Z",
+        "usage_start": 11.0,
+        "usage_finish": 11.0
+      },
+      {
+        "start": "2026-11-12T12:44:47Z",
+        "finish": "2026-11-12T12:53:37Z",
+        "usage_start": 12.0,
+        "usage_finish": 12.0
+      }
+    ],
+    "e2e-validate": [
+      {
+        "start": "2026-11-12T11:57:28Z",
+        "finish": "2026-11-12T12:04:23Z",
+        "usage_start": 11.0,
+        "usage_finish": 11.0
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-11-12T12:04:23Z",
+        "finish": "2026-11-12T12:29:58Z",
+        "usage_start": 11.0,
+        "usage_finish": 12.0
+      },
+      {
+        "start": "2026-11-12T13:51:36Z",
+        "finish": "2026-11-12T14:13:10Z",
+        "usage_start": 13.0,
+        "usage_finish": 13.0
+      },
+      {
+        "start": "2026-11-12T14:40:48Z",
+        "finish": "2026-11-12T15:03:59Z",
+        "usage_start": 14.0,
+        "usage_finish": 14.0
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-11-12T15:03:59Z",
+        "finish": "2026-11-12T15:21:30Z",
+        "usage_start": 14.0,
+        "usage_finish": 14.0
+      }
+    ]
+  },
+  "started_at": "2026-11-12T11:10:51Z",
+  "updated_at": "2026-11-12T15:21:35Z",
+  "review_parts": {
+    "1": [
+      "code",
+      "browser",
+      "maintainability"
+    ],
+    "2": [
+      "code",
+      "browser"
+    ],
+    "3": [
+      "code",
+      "browser"
+    ]
+  },
+  "review_verdicts": {
+    "1": "needs-changes",
+    "2": "needs-changes",
+    "3": "approved"
+  },
+  "review_commits": {
+    "1": "e304d5f0e1727e2a2a28a8b5aaf49bf2d9900b50",
+    "2": "ef28dc1946343d7e6e842c3c9f2b06a8789207f9",
+    "3": "99708ec9ef22029479c659dbf66b2fe86e0fb3cd"
+  },
+  "review_cycle": 3,
+  "closes_issues": [
+    121
+  ]
+}

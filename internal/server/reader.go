@@ -25,6 +25,7 @@ const maxReaderFileBytes = 10 * 1024 * 1024
 type readerManager interface {
 	Get(id int64) (*session.Session, bool)
 	SetTranscript(ctx context.Context, id int64, claudeSessionID, path string) (bool, error)
+	SetScratchpad(ctx context.Context, id int64, claudeSessionID, dir string) (bool, error)
 	MarkPlanWritten(ctx context.Context, id int64, claudeSessionID, expectedPath string) (*session.Session, bool, error)
 	ApplyPlanScan(ctx context.Context, id int64, claudeSessionID, foundPath string) (*session.Session, bool, error)
 }
@@ -81,6 +82,12 @@ func (f *readerFeature) Observe(ctx context.Context, sessionID int64, claudeSess
 		}
 	}
 
+	if sig.ScratchpadDir != "" {
+		if _, err := f.manager.SetScratchpad(ctx, sessionID, claudeSessionID, sig.ScratchpadDir); err != nil && !errors.Is(err, session.ErrUnknownSession) {
+			f.log.Warn().Err(err).Int64("session_id", sessionID).Msg("reader: persisting scratchpad dir failed")
+		}
+	}
+
 	if sig.WrittenPath != "" {
 		f.observeWrite(ctx, sessionID, claudeSessionID, sig.WrittenPath)
 	}
@@ -100,7 +107,7 @@ func (f *readerFeature) observeWrite(ctx context.Context, sessionID int64, claud
 		return
 	}
 	clean := filepath.Clean(writtenPath)
-	scope := reader.Scope{Dir: sess.Directory, PlanPath: sess.PlanPath}
+	scope := readerScope(sess)
 	if !scope.PathQualifies(clean) {
 		return
 	}
@@ -185,16 +192,43 @@ func (f *readerFeature) handleReaderList(w http.ResponseWriter, r *http.Request)
 
 	var plan *readerPlanWire
 	if sess.PlanPath != "" {
-		plan = &readerPlanWire{Path: sess.PlanPath, Exists: sess.PlanExists, WrittenAt: f.writtenAtWire(id, sess.PlanPath)}
+		plan = &readerPlanWire{Path: sess.PlanPath, Exists: sess.PlanExists, ModifiedAt: modifiedAtWire(sess.PlanPath), WrittenAt: f.writtenAtWire(id, sess.PlanPath)}
 	}
 
 	writeJSON(w, http.StatusOK, readerListingWire{
 		Directory: sess.Directory,
 		Plan:      plan,
+		Scratch:   f.scratchWire(id, sess.ScratchpadDir),
 		Files:     files,
 		Listing:   listing,
 		Truncated: truncated,
 	})
+}
+
+func readerScope(sess *session.Session) reader.Scope {
+	return reader.Scope{Dir: sess.Directory, PlanPath: sess.PlanPath, ScratchDir: sess.ScratchpadDir}
+}
+
+func modifiedAtWire(path string) *string {
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return nil
+	}
+	s := wireTime(info.ModTime())
+	return &s
+}
+
+func (f *readerFeature) scratchWire(sessionID int64, dir string) *readerScratchWire {
+	if dir == "" {
+		return nil
+	}
+	listed := reader.ListScratch(dir)
+	files := make([]readerScratchFileWire, 0, len(listed))
+	for _, sf := range listed {
+		abs := filepath.Join(dir, filepath.FromSlash(sf.Path))
+		files = append(files, readerScratchFileWire{Path: sf.Path, ModifiedAt: wireTime(sf.ModifiedAt), WrittenAt: f.writtenAtWire(sessionID, abs)})
+	}
+	return &readerScratchWire{Dir: dir, Files: files}
 }
 
 func (f *readerFeature) writtenAtWire(sessionID int64, path string) *string {
@@ -224,7 +258,7 @@ func (f *readerFeature) handleReaderFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	scope := reader.Scope{Dir: sess.Directory, PlanPath: sess.PlanPath}
+	scope := readerScope(sess)
 	resolved, ok := scope.Confine(path)
 	if !ok {
 		writeJSONError(w, http.StatusNotFound, "not_found", "no such document")

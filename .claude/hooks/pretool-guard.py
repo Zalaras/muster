@@ -18,7 +18,7 @@ run it by hand or let the pre-commit hook's kb check stay unrelated; see Makefil
 import json, re, sys, os, fnmatch
 
 TEST_GO = ["*_test.go"]
-TEST_TS = ["web/src/**/*.test.ts", "web/src/*.test.ts"]
+TEST_TS = ["web/src/**/*.test.ts", "web/src/*.test.ts", "web/src/**/testfixtures.ts"]  # testfixtures: imported only by tests; gates.sh tolerates it as test-side
 E2E = ["web/e2e/**", "web/e2e/*"]
 RENDER = ["web/render/**", "web/render/*"]
 PLANS = ["plans/**", "plans/*"]

@@ -72,6 +72,7 @@
         "railPos": 0,
         "repo": null,
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "reader",
@@ -237,9 +238,11 @@
         "listing": "walk",
         "plan": {
           "exists": true,
+          "modifiedAt": "2026-01-01T00:02:00Z",
           "path": "/home/bob/projects/_plans/reader-plan-slug.md",
           "writtenAt": null
         },
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1

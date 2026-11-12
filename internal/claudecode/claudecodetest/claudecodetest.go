@@ -94,7 +94,8 @@ type SessionStartOpts struct {
 	OmitModel bool
 	// Cwd, when non-empty, replaces the payload's default working directory ("/tmp") —
 	// the launch directory a real `claude` reports on its first hook.
-	Cwd string
+	Cwd           string
+	ScratchpadDir string
 }
 
 // sessionStartPayload builds the `SessionStart` hook payload shared by
@@ -108,6 +109,7 @@ func sessionStartPayload(sessionID, transcriptPath string, opts SessionStartOpts
 		"cwd":             orDefault(opts.Cwd, defaultCWD),
 		"source":          orDefault(opts.Source, "startup"),
 	}
+	addScratchpad(payload, opts.ScratchpadDir)
 	if !opts.OmitModel {
 		// A plain model-id string, never an {id, display_name} object (settled by
 		// measurement — interface probe, 2026-08-22, docs/history/spikes/canary-fields.md "Values
@@ -137,7 +139,14 @@ type ToolFileOpts struct {
 	TranscriptPath string
 	// AgentID, when non-empty, marks the hook as subagent-fired (kb:fact/subagent-hooks-carry-agent-id):
 	// agent_id/agent_type are added to mark it.
-	AgentID string
+	AgentID       string
+	ScratchpadDir string
+}
+
+func addScratchpad(body map[string]any, dir string) {
+	if dir != "" {
+		body["scratchpad_dir"] = dir
+	}
 }
 
 func (o ToolFileOpts) promptID() string {
@@ -166,6 +175,7 @@ func RawPostToolUseFile(sessionID, toolName, filePath string, opts ToolFileOpts)
 		"tool_response":   map[string]any{"ok": true},
 		"duration_ms":     42,
 	}
+	addScratchpad(body, opts.ScratchpadDir)
 	markSubagent(body, opts.AgentID)
 	return marshal(body)
 }
@@ -186,6 +196,7 @@ func RawPreToolUseTool(sessionID, toolName string, opts ToolFileOpts) string {
 		"tool_input":      map[string]any{},
 		"tool_use_id":     "tu0",
 	}
+	addScratchpad(body, opts.ScratchpadDir)
 	markSubagent(body, opts.AgentID)
 	return marshal(body)
 }

@@ -76,6 +76,7 @@
           "name": "badge-needs-input"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "badge-needs-input",
@@ -130,6 +131,7 @@
           "name": "badge-failed"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "failed",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "badge-failed",
@@ -181,6 +183,7 @@
           "name": "badge-planning"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "planning",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "badge-planning",
@@ -232,6 +235,7 @@
           "name": "badge-working"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "working",
         "stateSince": "2026-01-01T00:07:00Z",
         "title": "badge-working",
@@ -333,6 +337,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -344,6 +349,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -355,6 +361,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3
@@ -366,6 +373,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 4

@@ -366,6 +366,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
   return {
     title: `session-${overrides.id}`,
     titleOverride: null,
+    scratchpadDir: null,
     plan: null,
     state: "idle",
     stateSince: "2026-08-27T00:00:00Z",

@@ -44,7 +44,8 @@ type sessionWire struct {
 	// Plan (kb:anchor/ws.session): the session's derived plan file, null until a
 	// transcript has named a plan; once set, a planless scan keeps it
 	// (kb:adr/reader-plan-sticky-once-named). Required key on every Session object.
-	Plan *sessionWirePlan `json:"plan"`
+	Plan          *sessionWirePlan `json:"plan"`
+	ScratchpadDir *string          `json:"scratchpadDir"`
 	// Unread/LastPrompt (kb:anchor/ws.session, kb:adr/rail-unread-inferred-from-live-terminal-client,
 	// kb:adr/rail-activity-line-turn-aware-default-with-pref): required keys on every
 	// Session object.
@@ -174,6 +175,7 @@ func toWireSession(s *session.Session) sessionWire {
 		RailPos:         s.RailPos,
 		GroupID:         s.GroupID,
 		Plan:            toWireSessionPlan(s),
+		ScratchpadDir:   wireScratchpadDir(s),
 		Unread:          s.Unread,
 		LastPrompt:      s.LastPrompt,
 		BackgroundTasks: s.BackgroundTasks,

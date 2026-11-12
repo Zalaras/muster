@@ -86,6 +86,7 @@
           "name": "alpha-one"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "alpha-one",
@@ -137,6 +138,7 @@
           "name": "alpha-two"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "alpha-two",
@@ -188,6 +190,7 @@
           "name": "bravo-one"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "bravo-one",
@@ -239,6 +242,7 @@
           "name": "loose-one"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "loose-one",
@@ -340,6 +344,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -351,6 +356,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -362,6 +368,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3
@@ -373,6 +380,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 4

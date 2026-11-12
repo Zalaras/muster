@@ -80,6 +80,7 @@
           "name": "menu-live"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "menu-live",
@@ -131,6 +132,7 @@
           "name": "menu-plain"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "menu-plain",
@@ -182,6 +184,7 @@
           "name": "menu-pinned"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "menu-pinned",
@@ -233,6 +236,7 @@
           "name": "menu-group"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "menu-group",
@@ -284,6 +288,7 @@
           "name": "menu-unbound"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:07:00Z",
         "title": "menu-unbound",
@@ -398,6 +403,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -409,6 +415,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -420,6 +427,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3
@@ -431,6 +439,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 4
@@ -442,6 +451,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 5

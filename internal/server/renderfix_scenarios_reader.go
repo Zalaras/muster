@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/Zalaras/muster/internal/claudecode/claudecodetest"
 )
@@ -30,6 +31,12 @@ func init() {
 		renderScenario{"reader-docs-plan", driveReaderDocsPlan},
 		// The same checkout on an ended session: the plan slot and its header row are absent.
 		renderScenario{"reader-docs-ended", driveReaderDocsEnded},
+		renderScenario{"reader-docs-scratch", driveReaderScratch(scratchOpts{plan: true})},
+		renderScenario{"reader-docs-scratch-tiles-3x2", withPrefs(driveReaderScratch(scratchOpts{plan: true}), map[string]any{"view": "tiles", "density": "3x2"})},
+		renderScenario{"reader-docs-scratch-ended", driveReaderScratch(scratchOpts{plan: true, ended: true})},
+		renderScenario{"reader-docs-scratch-only", driveReaderScratch(scratchOpts{single: true})},
+		renderScenario{"reader-docs-scratch-large", driveReaderScratch(scratchOpts{plan: true, large: true})},
+		renderScenario{"reader-docs-scratch-large-tiles-3x2", withPrefs(driveReaderScratch(scratchOpts{plan: true, large: true}), map[string]any{"view": "tiles", "density": "3x2"})},
 		// A tree taller than the nav: twenty files and a thirty-heading document.
 		renderScenario{"reader-docs-large", driveReaderDocsLarge},
 		renderScenario{"reader-docs-large-tiles-2x2", withPrefs(driveReaderDocsLarge, map[string]any{"view": "tiles"})},
@@ -64,32 +71,110 @@ func driveReaderDocsPlan(ctx context.Context, r *renderRig) error {
 			return err
 		}
 	}
-	planPath := filepath.Join(r.root, "_plans", "reader-plan-slug.md")
-	if err = r.writeDoc(filepath.Dir(planPath), filepath.Base(planPath), readerPlanBody); err != nil {
-		return err
-	}
-	transcript := filepath.Join(r.root, "_transcripts", "reader.jsonl")
-	if err = os.MkdirAll(filepath.Dir(transcript), 0o755); err != nil {
-		return err
-	}
-	lines := []string{`{"type":"system","subtype":"init"}`, claudecodetest.PlanAttachmentLine("plan_mode", planPath, true)}
-	if err = os.WriteFile(transcript, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil {
-		return err
-	}
-	const claudeID = "cs-reader-plan"
-	s, err := r.launch(ctx, dir, launchOpts{title: "reader"})
+	transcript, err := writeReaderPlan(r)
 	if err != nil {
 		return err
 	}
+	const claudeID = "cs-reader-plan"
+	_, err = bindReaderTranscript(ctx, r, dir, claudeID, transcript, "")
+	return err
+}
+
+func writeReaderPlan(r *renderRig) (string, error) {
+	planPath := filepath.Join(r.root, "_plans", "reader-plan-slug.md")
+	if err := r.writeDoc(filepath.Dir(planPath), filepath.Base(planPath), readerPlanBody); err != nil {
+		return "", err
+	}
+	planAt := time.Now().Add(-time.Hour)
+	if err := os.Chtimes(planPath, planAt, planAt); err != nil {
+		return "", err
+	}
+	transcript := filepath.Join(r.root, "_transcripts", "reader.jsonl")
+	if err := os.MkdirAll(filepath.Dir(transcript), 0o755); err != nil {
+		return "", err
+	}
+	lines := []string{`{"type":"system","subtype":"init"}`, claudecodetest.PlanAttachmentLine("plan_mode", planPath, true)}
+	return transcript, os.WriteFile(transcript, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
+}
+
+func bindReaderTranscript(ctx context.Context, r *renderRig, dir, claudeID, transcript, scratchpadDir string) (renderSession, error) {
+	s, err := r.launch(ctx, dir, launchOpts{title: "reader"})
+	if err != nil {
+		return s, err
+	}
 	if err = r.hook(ctx, claudecodetest.EnvelopedSessionStartTranscript(claudeID, transcript, claudecodetest.SessionStartOpts{
-		MusterSession: int(s.id), TmuxPane: s.pane, ModelID: renderModelSonnet, Cwd: dir,
+		MusterSession: int(s.id), TmuxPane: s.pane, ModelID: renderModelSonnet, Cwd: dir, ScratchpadDir: scratchpadDir,
 	})); err != nil {
-		return err
+		return s, err
 	}
 	if err = r.promptSubmit(ctx, s, claudeID); err != nil {
-		return err
+		return s, err
 	}
-	return r.hookStamped(ctx, claudecodetest.RawStop(claudeID, claudecodetest.StopOpts{}))
+	return s, r.hookStamped(ctx, claudecodetest.RawStop(claudeID, claudecodetest.StopOpts{}))
+}
+
+type scratchOpts struct {
+	plan   bool
+	ended  bool
+	single bool
+	large  bool
+}
+
+var readerScratchFiles = []struct {
+	rel     string
+	body    string
+	minsAgo int
+}{
+	{"notes/options.md", "# Options\n\nTwo ways to do it.\n", 95},
+	{"data.json", "{}\n", 50},
+	{"draft.md", "# Draft\n\nA first pass.\n", 30},
+	{"findings.md", "# Findings\n\nWhat was found.\n", 2},
+}
+
+func driveReaderScratch(opts scratchOpts) func(ctx context.Context, r *renderRig) error {
+	return func(ctx context.Context, r *renderRig) error {
+		dir, err := r.dir(ctx, readerDirName, "")
+		if err != nil {
+			return err
+		}
+		if opts.large {
+			for _, doc := range readerLargeDocs() {
+				if err = r.writeDoc(dir, doc.name, doc.body); err != nil {
+					return err
+				}
+			}
+		}
+		const claudeID = "cs-reader-scratch"
+		scratch := filepath.Join(r.root, "claude-501", "-home-bob-projects-reader", claudeID, "scratchpad")
+		files := readerScratchFiles
+		if opts.single {
+			files = files[3:]
+		}
+		now := time.Now()
+		for _, f := range files {
+			if err = r.writeDoc(scratch, f.rel, f.body); err != nil {
+				return err
+			}
+			at := now.Add(-time.Duration(f.minsAgo) * time.Minute)
+			if err = os.Chtimes(filepath.Join(scratch, filepath.FromSlash(f.rel)), at, at); err != nil {
+				return err
+			}
+		}
+		transcript := filepath.Join(r.root, "_transcripts", "reader-scratch.jsonl")
+		if opts.plan {
+			if transcript, err = writeReaderPlan(r); err != nil {
+				return err
+			}
+		}
+		s, err := bindReaderTranscript(ctx, r, dir, claudeID, transcript, scratch)
+		if err != nil {
+			return err
+		}
+		if opts.ended {
+			return r.markDead(ctx, s.id)
+		}
+		return nil
+	}
 }
 
 // driveReaderDocsEnded is driveReaderDocs ended the way a liveness tick would end it.
@@ -421,4 +506,22 @@ func readerMermaidDocs() []findDoc {
 			"",
 		)},
 	}
+}
+
+func readerScratchPaths(listing map[string]any) []string {
+	scratch, ok := listing["scratch"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	sdir, _ := scratch["dir"].(string)
+	files, _ := scratch["files"].([]any)
+	var paths []string
+	for _, f := range files {
+		if fm, ok := f.(map[string]any); ok {
+			if rel, ok := fm["path"].(string); ok {
+				paths = append(paths, filepath.Join(sdir, filepath.FromSlash(rel)))
+			}
+		}
+	}
+	return paths
 }

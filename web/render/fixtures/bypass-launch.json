@@ -69,6 +69,7 @@
         "railPos": 0,
         "repo": null,
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "bypass-chip-e2",
@@ -131,6 +132,7 @@
         "files": [],
         "listing": "walk",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1

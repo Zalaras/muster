@@ -1,0 +1,333 @@
+{
+  "plan": "claude-tmp-files",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-11-12T12:04:58Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 24,
+        "keep": 1,
+        "drop": 23
+      },
+      "keeps": [
+        {
+          "key": "web/src/features/reader.ts:b634985be3aee42b",
+          "path": "web/src/features/reader.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "private readonly scratchDirs = new Set\u003cstring\u003e();",
+            "line": 137
+          },
+          "lines": [
+            "/** Every scratchpad folder this reader has seen — an open scratch file keeps its `tmp`",
+            "* badge after `/clear` moves the session's folder away from it. */"
+          ],
+          "reason": "Without it a reader would shrink scratchDirs to only the session's current scratchpadDir; that breaks the tmp badge of an open scratch file after the folder moves, at `return isScratchPath(this.openPath, this.scratchDirs) ? \"tmp\" : null;`."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/claudecode/claudecodetest/claudecodetest.go:dc7c1865080a7f9f",
+          "path": "internal/claudecode/claudecodetest/claudecodetest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "ScratchpadDir string",
+            "line": 98
+          },
+          "lines": [
+            "// ScratchpadDir, when non-empty, is the payload's scratchpad_dir."
+          ]
+        },
+        {
+          "key": "internal/claudecode/claudecodetest/claudecodetest.go:56f6c17f6625f265",
+          "path": "internal/claudecode/claudecodetest/claudecodetest.go",
+          "anchor": {
+            "kind": "above",
+            "text": "ScratchpadDir string",
+            "line": 143
+          },
+          "lines": [
+            "// ScratchpadDir, when non-empty, is the hook's scratchpad_dir."
+          ]
+        },
+        {
+          "key": "internal/claudecode/files.go:0ff035f5d55a0dcb",
+          "path": "internal/claudecode/files.go",
+          "anchor": {
+            "kind": "above",
+            "text": "ScratchpadDir string",
+            "line": 24
+          },
+          "lines": [
+            "// ScratchpadDir is the event's scratchpad_dir when well formed for its own session_id,",
+            "// else \"\" (kb:fact/scratchpad-dir-per-session-id)."
+          ]
+        },
+        {
+          "key": "internal/reader/scratch.go:ceffce65790a1a29",
+          "path": "internal/reader/scratch.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type ScratchFile struct {",
+            "line": 10
+          },
+          "lines": [
+            "// ScratchFile is one `.md` under a session's scratchpad folder: its slash-separated path",
+            "// relative to the folder and its modification time."
+          ]
+        },
+        {
+          "key": "internal/reader/scratch.go:8c44a2ae3a4ab97a",
+          "path": "internal/reader/scratch.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func ListScratch(dir string) []ScratchFile {",
+            "line": 15
+          },
+          "lines": [
+            "// ListScratch lists every `.md` under dir, nested folders included and dot-directories",
+            "// skipped, newest modification first then by path. A missing or empty dir yields none."
+          ]
+        },
+        {
+          "key": "internal/server/readerwire.go:f2d0f90479735b2a",
+          "path": "internal/server/readerwire.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type readerScratchFileWire struct {",
+            "line": 20
+          },
+          "lines": [
+            "// readerScratchFileWire is one entry of the listing's scratch.files (kb:anchor/sessions.reader)."
+          ]
+        },
+        {
+          "key": "internal/server/readerwire.go:fd12aa0ddc548060",
+          "path": "internal/server/readerwire.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type readerScratchWire struct {",
+            "line": 26
+          },
+          "lines": [
+            "// readerScratchWire is GET .../reader's `scratch` block; null when the session has no",
+            "// scratchpad folder yet."
+          ]
+        },
+        {
+          "key": "internal/server/readerwire.go:72611c820e769a22",
+          "path": "internal/server/readerwire.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func wireScratchpadDir(s *session.Session) *string {",
+            "line": 65
+          },
+          "lines": [
+            "// wireScratchpadDir returns s's wire scratchpadDir, nil until a hook has named one."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_reader.go:db325dd464fc6741",
+          "path": "internal/server/renderfix_scenarios_reader.go",
+          "anchor": {
+            "kind": "above",
+            "text": "renderScenario{\"reader-docs-scratch\", driveReaderScratch(scratchOpts{plan: true})},",
+            "line": 34
+          },
+          "lines": [
+            "// The same checkout with a scratchpad folder named by its hooks: three markdown files with",
+            "// distinct mtimes, one nested, and a non-markdown file the listing leaves out."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_reader.go:2fcb159230484ae5",
+          "path": "internal/server/renderfix_scenarios_reader.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func writeReaderPlan(r *renderRig) (string, error) {",
+            "line": 81
+          },
+          "lines": [
+            "// writeReaderPlan writes the plan file and the transcript naming it under the rig root,",
+            "// returning the transcript's path."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_reader.go:b350efe55f9c2b4c",
+          "path": "internal/server/renderfix_scenarios_reader.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func bindReaderTranscript(ctx context.Context, r *renderRig, dir, claudeID, transcript, scratchpadDir string) (renderSession, error) {",
+            "line": 98
+          },
+          "lines": [
+            "// bindReaderTranscript launches a session in dir, binds claudeID through a SessionStart naming",
+            "// transcript and scratchpadDir (\"\" for none), and takes one turn."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_reader.go:acf1558f295938c3",
+          "path": "internal/server/renderfix_scenarios_reader.go",
+          "anchor": {
+            "kind": "above",
+            "text": "var readerScratchFiles = []struct {",
+            "line": 120
+          },
+          "lines": [
+            "// readerScratchFiles are the scratchpad's files with their ages in minutes; the listing shows",
+            "// them newest first. data.json is not markdown."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_reader.go:f3cf4d7af7ca3d79",
+          "path": "internal/server/renderfix_scenarios_reader.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func driveReaderScratch(opts scratchOpts) func(ctx context.Context, r *renderRig) error {",
+            "line": 131
+          },
+          "lines": [
+            "// driveReaderScratch is the reader checkout bound with a hook naming a scratchpad folder under",
+            "// the rig root, shaped as Claude Code's is (kb:fact/scratchpad-dir-per-session-id): with the",
+            "// plan transcript when opts.plan, holding one file when opts.single, ended when opts.ended."
+          ]
+        },
+        {
+          "key": "internal/session/reader.go:55e3bdc7f5c297d1",
+          "path": "internal/session/reader.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) SetScratchpad(ctx context.Context, id int64, claudeSessionID, dir string) (bool, error) {",
+            "line": 41
+          },
+          "lines": [
+            "// SetScratchpad records the scratchpad folder a hook of claudeSessionID named, persisting",
+            "// and broadcasting a sessionUpsert only when it changed. Refused when claudeSessionID no",
+            "// longer names id's current binding, and never clears: dir == \"\" is a no-op",
+            "// (kb:adr/reader-scratchpad-dir-from-hooks-persisted)."
+          ]
+        },
+        {
+          "key": "web/src/features/reader.ts:feb090819c4da515",
+          "path": "web/src/features/reader.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "private coveredScratchDir: string | null | undefined = undefined;",
+            "line": 135
+          },
+          "lines": [
+            "/** The scratchpad folder the latest listing request covers: the one it was issued for, then",
+            "* the one it returned. `undefined` until the first listing lands, so the mount fetch is never",
+            "* mistaken for a moved folder. */"
+          ]
+        },
+        {
+          "key": "web/src/features/reader.ts:de87368402620c2b",
+          "path": "web/src/features/reader.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "private async rescanListing(): Promise\u003cvoid\u003e {",
+            "line": 280
+          },
+          "lines": [
+            "/** A silent re-fetch of the listing after mount (a new scratch file, a moved scratchpad",
+            "* folder): no loading cue, the open file and every notice untouched, a failure keeps the",
+            "* last listing. */"
+          ]
+        },
+        {
+          "key": "web/src/protocol/session.ts:3d3af8a48e5abe90",
+          "path": "web/src/protocol/session.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "scratchpadDir: string | null;",
+            "line": 162
+          },
+          "lines": [
+            "// kb:anchor/ws.session: the scratchpad folder the latest routed hook of the current Claude",
+            "// session id named; never null again once set. Display-only (the reader's claude section)."
+          ]
+        },
+        {
+          "key": "web/src/render/reader.ts:74b836ba0a7e8aa2",
+          "path": "web/src/render/reader.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "path: string;",
+            "line": 57
+          },
+          "lines": [
+            "/** The path relative to the scratchpad folder, as the listing carries it. */"
+          ]
+        },
+        {
+          "key": "web/src/render/reader.ts:8512b1a86f4a2bb2",
+          "path": "web/src/render/reader.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "tmpChip: string | null;",
+            "line": 67
+          },
+          "lines": [
+            "/** `null` hides the chip — no scratch files, or the listing has not arrived. */"
+          ]
+        },
+        {
+          "key": "web/src/render/reader.ts:5224a0f6b6565af0",
+          "path": "web/src/render/reader.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "badge: ReaderBadge | null;",
+            "line": 76
+          },
+          "lines": [
+            "/** `null` removes the badge — a directory file, or nothing open. */"
+          ]
+        },
+        {
+          "key": "web/src/render/reader.ts:8eb0807c47e35cc1",
+          "path": "web/src/render/reader.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "onSelectScratch(path: string): void;",
+            "line": 121
+          },
+          "lines": [
+            "/** A scratch row — `path` is relative to the scratchpad folder, as the listing carries it. */"
+          ]
+        },
+        {
+          "key": "web/src/render/reader.ts:d8b051cf06d1edcb",
+          "path": "web/src/render/reader.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function renderPlanSlot(refs: ReaderRefs, vm: PlanSlotVM, folded: boolean): void {",
+            "line": 322
+          },
+          "lines": [
+            "/** `current`/`dirty`/age are attribute-level state",
+            "* (kb:lesson/select-rebuilt-every-tick-passed-selectoption): the struct signature is only",
+            "* the fold plus `kind` and `basename`, so opening the plan, a `docChanged` or the tick",
+            "* updates the existing button in place rather than rebuilding it. A folded section holds no",
+            "* plan row at all. */"
+          ]
+        },
+        {
+          "key": "web/src/render/reader.ts:2df21f0735d61ab1",
+          "path": "web/src/render/reader.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function renderScratchRows(refs: ReaderRefs, vm: ClaudeSectionVM): void {",
+            "line": 377
+          },
+          "lines": [
+            "/** Scratch rows are keyed by absolute path and reused across passes, so a listing re-fetch",
+            "* that inserts a row (or the tick) never replaces a focused row's node; only a row leaving",
+            "* the listing is removed, and `reconcileKeyedOrder` moves nothing that is already in place. */"
+          ]
+        }
+      ]
+    }
+  ]
+}

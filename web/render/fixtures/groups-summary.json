@@ -95,6 +95,7 @@
           "name": "e8-need"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "e8-need",
@@ -149,6 +150,7 @@
           "name": "e8-fail"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "failed",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "e8-fail",
@@ -200,6 +202,7 @@
           "name": "e8-new"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:04:00Z",
         "title": "e8-new",
@@ -251,6 +254,7 @@
           "name": "e8-work1"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "working",
         "stateSince": "2026-01-01T00:06:00Z",
         "title": "e8-work1",
@@ -302,6 +306,7 @@
           "name": "e8-work2"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "working",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "e8-work2",
@@ -353,6 +358,7 @@
           "name": "e8-idle"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:10:00Z",
         "title": "e8-idle",
@@ -404,6 +410,7 @@
           "name": "e8-dead"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:11:00Z",
         "title": "e8-dead",
@@ -458,6 +465,7 @@
           "name": "e9-need"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:13:00Z",
         "title": "e9-need",
@@ -509,6 +517,7 @@
           "name": "e9-work"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "working",
         "stateSince": "2026-01-01T00:16:00Z",
         "title": "e9-work",
@@ -560,6 +569,7 @@
           "name": "e9-new"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:17:00Z",
         "title": "e9-new",
@@ -739,6 +749,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -750,6 +761,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -761,6 +773,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3
@@ -772,6 +785,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 4
@@ -783,6 +797,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 5
@@ -794,6 +809,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 6
@@ -805,6 +821,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 7
@@ -816,6 +833,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 8
@@ -827,6 +845,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 9
@@ -838,6 +857,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 10

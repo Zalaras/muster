@@ -73,6 +73,7 @@
           "name": "find-a"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "find-a",
@@ -124,6 +125,7 @@
           "name": "find-b"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "find-b",
@@ -297,6 +299,7 @@
         ],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -406,6 +409,7 @@
         ],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2

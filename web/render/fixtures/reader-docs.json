@@ -69,6 +69,7 @@
         "railPos": 0,
         "repo": null,
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "reader",
@@ -229,6 +230,7 @@
         ],
         "listing": "walk",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1

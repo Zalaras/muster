@@ -49,6 +49,7 @@ import {
   treeLoadingRow,
   writeFakeTranscript,
 } from "./helpers/reader";
+import { unfoldClaudeSection } from "./helpers/reader-scratch";
 import { envelopeOpts, launchSession, scratchDirectory } from "./helpers/session";
 import {
   mainheadSurfaceButton,
@@ -159,6 +160,7 @@ test("after a /clear pair naming a planless transcript, the plan slot still show
 
     await mainheadSurfaceButton(page, "docs").click();
     const region = readerRegion(page, "reader-e5");
+    await unfoldClaudeSection(region);
     await expect(barPlanBadge(region)).toBeVisible({ timeout: 15_000 });
     await expect(barFileName(region)).toHaveText("reader-e5-old.md");
     await expect(barPath(region)).toHaveText(oldPlan);
@@ -743,6 +745,7 @@ test("after a /clear pair naming a planless transcript, a straggler Write hook f
 
     await mainheadSurfaceButton(page, "docs").click();
     const region = readerRegion(page, "reader-e29");
+    await unfoldClaudeSection(region);
     // The rebind's planless scan retains the pre-clear plan (isolated by the first
     // test above) rather than clearing to "no plan yet".
     await expect(barPlanBadge(region)).toBeVisible({ timeout: 15_000 });
@@ -786,6 +789,7 @@ test("leaving plan mode fires a scan that fills the plan slot (REQ-16, edge case
 
     await mainheadSurfaceButton(page, "docs").click();
     const region = readerRegion(page, "reader-req16");
+    await unfoldClaudeSection(region);
     await expect(noPlanText(region)).toHaveText("no plan yet", { timeout: 15_000 });
 
     const planPath = join(daemon.dataDir, "plans", "reader-req16.md");
@@ -957,6 +961,9 @@ test("keyboard-activating the plan slot, a tree file and an outline entry keeps 
     await mainheadSurfaceButton(page, "docs").click();
     const region = readerRegion(page, "reader-kbd");
     await expect(barPlanBadge(region)).toBeVisible({ timeout: 15_000 });
+    // The plan row sits inside the folded claude section (kb:adr/reader-scratchpad-in-folded-claude-section):
+    // unfold it with a real click before the keyboard walk reaches the row.
+    await unfoldClaudeSection(region);
 
     // Expand the nested folders up front so `x.md`'s button exists for the docChanged
     // step below — folder children render only while expanded, and expanding a

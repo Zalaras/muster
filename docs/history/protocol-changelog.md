@@ -202,3 +202,7 @@ on 2026-09-11.
   (button or `musterd -update`) and verified by a minisign signature on `checksums.txt` plus the
   archive's SHA-256; `restart:true` re-execs in place without touching a session. Additive; no
   version bump.
+- **2026-11-12 — Session `scratchpadDir`; `GET /api/sessions/{id}/reader` `scratch` and plan <!-- kb: adr/reader-scratchpad-dir-from-hooks-persisted, adr/reader-served-paths-include-scratchpad, adr/reader-scratchpad-in-folded-claude-section -->
+  `modifiedAt`; reader file confinement and `docChanged` widened to the scratchpad** (plan
+  `claude-tmp-files`, #121). The scratchpad folder a session's hooks name is kept on the row and
+  its markdown listed, served and change-signalled like the directory's. Additive; no version bump.

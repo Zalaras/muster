@@ -51,6 +51,8 @@ class Writes(unittest.TestCase):
         self.assertIsNotNone(self.w("daemon-tests", "internal/session/a.go"))
         self.assertIsNone(self.w("web-tests", "web/src/features/x.test.ts"))
         self.assertIsNotNone(self.w("web-tests", "web/src/features/x.ts"))
+        self.assertIsNone(self.w("web-tests", "web/src/sessions/testfixtures.ts"))
+        self.assertIsNotNone(self.w("web-impl", "web/src/sessions/testfixtures.ts"))
         self.assertIsNone(self.w("render-tests", "web/render/x.spec.ts"))
         self.assertIsNotNone(self.w("render-tests", "web/e2e/x.spec.ts"))
         self.assertIsNone(self.w("e2e-specs", "web/e2e/helpers/fixtures.ts"))

@@ -49,10 +49,13 @@
           </div>
         </div>
         <nav class="rnav" aria-label="Documents">
-          <div class="hd" data-role="plan-header">
-            <span class="plan-label">plan</span>
-          </div>
+          <button type="button" class="claude-sum" data-role="claude-toggle" aria-label="Claude" aria-expanded="false">
+            <span class="car" aria-hidden="true">▸</span>
+            <span class="lbl">claude</span>
+            <span class="chips" data-role="claude-chips"><span class="chip" data-role="plan-chip">no plan</span><span class="chip" data-role="tmp-chip"></span></span>
+          </button>
           <div class="plan-slot" data-role="plan-slot"></div>
+          <div class="scratch-rows" data-role="scratch-rows"></div>
           <div class="sep"></div>
           <button type="button" class="hd toggle" data-role="files-toggle" aria-expanded="true" aria-label="Files">
             <span class="dir"></span>

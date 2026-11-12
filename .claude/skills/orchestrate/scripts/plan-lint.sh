@@ -278,6 +278,18 @@ if section 'Acceptance Criteria' | grep -qE '^\- \*\*R[0-9]+\*\*'; then
       [[ -f "web/render/fixtures/$name.json" ]] || note "**Render fixtures** names '$name' but web/render/fixtures/$name.json does not exist (mark it 'new: $name (<what it holds>)')"
     done
   fi
+  # 17b. The render harness cannot switch views, so an R* naming tiles N×M needs a fixture recorded
+  #      in that view (`<f>-tiles-NxM`); a Focus-only fixture sends render-tests back with
+  #      needs-scenario (claude-tmp-files: three daemon-impl ↔ render-tests rounds).
+  while IFS= read -r line; do
+    dims="$(printf '%s' "$line" | grep -oiE 'tiles?[^0-9]{0,3}[0-9][x×][0-9]' | head -1 | grep -oE '[0-9][x×][0-9]' | tr '×' 'x')"
+    [[ -z "$dims" ]] && continue
+    fix="$(printf '%s' "$line" | grep -oE '`[a-z0-9-]+`' | head -1 | tr -d '`')"
+    [[ -z "$fix" || "$fix" == *"-tiles-$dims" ]] && continue
+    grep -qE "^\*\*Render fixtures\*\*:.*$fix-tiles-$dims" "$P" && continue
+    rid="$(printf '%s' "$line" | grep -oE 'R[0-9]+' | head -1)"
+    echo "NOTE  $rid names tiles $dims but its fixture \`$fix\` records Focus — add 'new: $fix-tiles-$dims (…)' to **Render fixtures**"
+  done < <(section 'Acceptance Criteria' | grep -E '^\- \*\*R[0-9]+\*\*')
 fi
 
 # 18. Warn, never fail: when E* criteria outnumber every other level, the plan is probably testing

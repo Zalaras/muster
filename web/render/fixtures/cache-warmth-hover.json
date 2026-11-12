@@ -98,6 +98,7 @@
           "name": "hover-unk-a"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "hover-unk-a",
@@ -149,6 +150,7 @@
           "name": "hover-unk-b"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "hover-unk-b",
@@ -203,6 +205,7 @@
           "name": "hover-unk-c"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "failed",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "hover-unk-c",
@@ -262,6 +265,7 @@
           "name": "hover-cld-a"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:07:00Z",
         "title": "hover-cld-a",
@@ -324,6 +328,7 @@
           "name": "hover-cld-b"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "hover-cld-b",
@@ -375,6 +380,7 @@
           "name": "pop-working"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "working",
         "stateSince": "2026-01-01T00:11:00Z",
         "title": "pop-working",
@@ -426,6 +432,7 @@
           "name": "pop-started"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:12:00Z",
         "title": "pop-started",
@@ -485,6 +492,7 @@
           "name": "hover-wrm-a"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:15:00Z",
         "title": "hover-wrm-a",
@@ -547,6 +555,7 @@
           "name": "hover-wrm-b"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "failed",
         "stateSince": "2026-01-01T00:18:00Z",
         "title": "hover-wrm-b",
@@ -606,6 +615,7 @@
           "name": "pop-warm"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:21:00Z",
         "title": "pop-warm",
@@ -665,6 +675,7 @@
           "name": "pop-cooling"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:24:00Z",
         "title": "pop-cooling",
@@ -863,6 +874,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -874,6 +886,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -885,6 +898,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3
@@ -896,6 +910,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 4
@@ -907,6 +922,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 5
@@ -918,6 +934,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 6
@@ -929,6 +946,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 7
@@ -940,6 +958,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 8
@@ -951,6 +970,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 9
@@ -962,6 +982,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 10
@@ -973,6 +994,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 11

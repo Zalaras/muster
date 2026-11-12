@@ -9,6 +9,7 @@ import {
   isMemoryWrite,
   loadMemory,
   saveMemory,
+  withClaudeFolded,
   withExpandedCleared,
   withFilesFolded,
   withFolderExpanded,
@@ -24,6 +25,7 @@ const EMPTY: ReaderMemory = {
   openPath: null,
   clearedAt: {},
   expanded: [],
+  claudeFolded: true,
   filesFolded: false,
   outlineFolded: false,
   scroll: {},
@@ -181,6 +183,14 @@ describe("loadMemory — expanded and fold fields (REQ-4)", () => {
     ["filesFolded is a number", { filesFolded: 1 }, {}],
     ["outlineFolded is a string", { outlineFolded: "yes" }, {}],
     ["outlineFolded is null", { outlineFolded: null }, {}],
+    ["claudeFolded is a string", { claudeFolded: "no" }, {}],
+    ["claudeFolded is null", { claudeFolded: null }, {}],
+    ["claudeFolded is absent (a memory saved before the section)", {}, {}],
+    [
+      "claudeFolded is false (the section was opened)",
+      { claudeFolded: false },
+      { claudeFolded: false },
+    ],
   ])("defaults the field when %s", (_name, fields, expected) => {
     expect(loadMemory(stored({ openPath: "a.md", ...fields }), 1)).toEqual(
       mem({ openPath: "a.md", ...expected }),
@@ -349,6 +359,7 @@ describe("withExpandedCleared (REQ-3: a filter clear collapses the tree and is s
 describe.each([
   ["withFilesFolded", withFilesFolded, "filesFolded", "outlineFolded"],
   ["withOutlineFolded", withOutlineFolded, "outlineFolded", "filesFolded"],
+  ["withClaudeFolded", withClaudeFolded, "claudeFolded", "filesFolded"],
 ] as const)("%s (REQ-2: a fold is remembered)", (_name, setFolded, field, other) => {
   it.each([
     [true, false],
@@ -360,7 +371,7 @@ describe.each([
   });
 
   it("never touches the other fold or any other field, and does not mutate its input", () => {
-    const memory = mem({ openPath: "a.md", expanded: ["docs"], [other]: true });
+    const memory = mem({ openPath: "a.md", expanded: ["docs"], [field]: false, [other]: true });
     const next = setFolded(memory, true);
     expect(next).toEqual({ ...memory, [field]: true });
     expect(memory[field]).toBe(false);

@@ -67,15 +67,12 @@ import {
   MARKDOWN_TREE_DOCUMENTS,
   MERMAID_DOCUMENTS,
   navLabelLayout,
-  navOutlineSection,
   navToggle,
-  navTreeSection,
   noPlanText,
   OriginRequestTracker,
   outlineEntries,
   outlineEntry,
   outlineHeaderToggle,
-  planHeaderRow,
   planSlotEntry,
   READER_DOCUMENTS,
   READER_PLAN_BODY,
@@ -86,6 +83,7 @@ import {
   renderedBody,
 } from "./helpers/reader";
 import { mainheadSurfaceButton, tileSurfaceButton } from "./helpers/reader-find";
+import { claudeSummary, expectSectionsNaturalHeight, unfoldClaude } from "./helpers/reader-scratch";
 import { terminalRegion } from "./helpers/surfaces";
 import { liveTileById } from "./helpers/tiles";
 
@@ -282,6 +280,8 @@ test("a session whose transcript names an existing plan file opens it automatica
   await expect(barPlanBadge(region)).toBeVisible();
   await expect(barFileName(region)).toHaveText(planPath.split("/").pop() ?? "");
   await expect(barPath(region)).toHaveText(planPath);
+  // the plan row lives in the claude section, which starts folded
+  await unfoldClaude(region);
   await expect(planSlotEntry(region)).toHaveAttribute("aria-current", "true");
 });
 
@@ -290,6 +290,7 @@ test("a session whose transcript names no plan shows no plan yet and lists the d
   dashboard,
 }) => {
   const { region } = await openFocusReader(page, dashboard);
+  await unfoldClaude(region);
   await expect(noPlanText(region)).toHaveText("no plan yet");
   await expect(fileEntry(region, "TODO.md")).toBeVisible();
 });
@@ -503,7 +504,7 @@ test("the last opened file is remembered across a reload (E19, REQ-7)", async ({
   await expect(barFileName(readerRegion(page, TITLE))).toHaveText("x.md");
 });
 
-test("on an ended session the plan block and the nav's plan header row are absent, opening a tree file still renders it, and the nav toggle still hides/restores the nav (E22, REQ-3; markdown-render-fixes E5, REQ-6)", async ({
+test("on an ended session the claude section is present, opening a tree file still renders it, and the nav toggle still hides/restores the nav (E22, REQ-3; markdown-render-fixes E5, REQ-6)", async ({
   page,
   dashboard,
 }) => {
@@ -515,11 +516,12 @@ test("on an ended session the plan block and the nav's plan header row are absen
   await mainheadSurfaceButton(page, "docs").click();
   const region = readerRegion(page, TITLE);
   await expect(region).toBeVisible();
+  // The claude section stays on an ended session (kb:adr/reader-claude-section-kept-on-ended-session): the summary
+  // row is there, folded, and the plan row appears when it is unfolded.
+  await expect(claudeSummary(region)).toBeVisible();
   await expect(planSlotEntry(region)).toHaveCount(0);
-  await expect(noPlanText(region)).toHaveCount(0);
-  // The plan header row is hidden with the slot it labels — no empty padded
-  // strip at the top of the nav on a dead session.
-  await expect(planHeaderRow(region)).toBeHidden();
+  await unfoldClaude(region);
+  await expect(planSlotEntry(region).or(noPlanText(region))).toBeVisible();
 
   // The nav toggle is unaffected by session liveness — still present and still works.
   const toggle = navToggle(region);
@@ -593,54 +595,31 @@ test("the reader nav sits beside the body as a right-hand column bounded by its 
     focusHostBox!.y + focusHostBox!.height + 1,
   );
 
-  // review cycle 2 Critical 1: bounding the nav (above) exposed `.rnav .tree`/`.rnav
-  // .outline` clipping their own content — each is independently `overflow-y: auto`
-  // rather than the whole nav scrolling as one column, so reachability has to be
-  // measured by scrolling the OWNING element to its own `scrollHeight`, never the nav's.
-  // First, confirm this fixture genuinely overflows each section (so the reachability
-  // check below isn't vacuously true against content that already fit).
-  const treeSection = navTreeSection(focusRegion);
-  const outlineSection = navOutlineSection(focusRegion);
+  // kb:adr/reader-nav-scrolls-as-one-column: the tree and the outline take their natural
+  // height (no inner scroller) and `.rnav` is the one scroller, so the last row of each is
+  // reached by scrolling the nav. (Rewritten from the per-section overflow model the
+  // developer's decision superseded.)
+  const nav = readerNav(focusRegion);
   await expect(fileEntry(focusRegion, LARGE_TREE.lastFileName)).toBeAttached();
   await expect(outlineEntry(focusRegion, LARGE_TREE.lastHeading)).toBeAttached();
+  await expectSectionsNaturalHeight(nav);
+  // the fixture genuinely overflows the nav, so the reach check is not vacuous
+  expect(await nav.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
 
-  expect(await treeSection.evaluate((el) => getComputedStyle(el).overflowY)).toBe("auto");
-  expect(await outlineSection.evaluate((el) => getComputedStyle(el).overflowY)).toBe("auto");
-  const treeOverflow = await treeSection.evaluate((el) => ({
-    scrollHeight: el.scrollHeight,
-    clientHeight: el.clientHeight,
-  }));
-  expect(treeOverflow.scrollHeight).toBeGreaterThan(treeOverflow.clientHeight);
-  const outlineOverflow = await outlineSection.evaluate((el) => ({
-    scrollHeight: el.scrollHeight,
-    clientHeight: el.clientHeight,
-  }));
-  expect(outlineOverflow.scrollHeight).toBeGreaterThan(outlineOverflow.clientHeight);
-
-  // Now scroll each section to its own scrollHeight and confirm the last row of each is
-  // actually reachable — this is what the fix made possible; before it, nothing scrolled
-  // (neither the section nor `.rnav` itself) and both rows sat permanently past the fold.
-  await treeSection.evaluate((el) => {
-    el.scrollTop = el.scrollHeight;
-  });
-  const treeBox = await treeSection.boundingBox();
-  const lastFileBox = await fileEntry(focusRegion, LARGE_TREE.lastFileName).boundingBox();
-  expect(treeBox).not.toBeNull();
-  expect(lastFileBox).not.toBeNull();
-  expect(lastFileBox!.y + lastFileBox!.height).toBeLessThanOrEqual(
-    treeBox!.y + treeBox!.height + 1,
-  );
-
-  await outlineSection.evaluate((el) => {
-    el.scrollTop = el.scrollHeight;
-  });
-  const outlineBox = await outlineSection.boundingBox();
-  const lastHeadingBox = await outlineEntry(focusRegion, LARGE_TREE.lastHeading).boundingBox();
-  expect(outlineBox).not.toBeNull();
-  expect(lastHeadingBox).not.toBeNull();
-  expect(lastHeadingBox!.y + lastHeadingBox!.height).toBeLessThanOrEqual(
-    outlineBox!.y + outlineBox!.height + 1,
-  );
+  const navBox = await nav.boundingBox();
+  expect(navBox).not.toBeNull();
+  // The tree here is taller than the nav, so its last row and the outline's last row are not in
+  // view together: each is brought into view by scrolling the nav.
+  for (const row of [
+    fileEntry(focusRegion, LARGE_TREE.lastFileName),
+    outlineEntry(focusRegion, LARGE_TREE.lastHeading),
+  ]) {
+    await row.scrollIntoViewIfNeeded();
+    const box = await row.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y).toBeGreaterThanOrEqual(navBox!.y - 1);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(navBox!.y + navBox!.height + 1);
+  }
 
   // The same session's reader hosted by a tile. The view is the fixture's pref, so the 2×2
   // Tiles fixture is opened on the same page (deliberate difference); the tile's reader

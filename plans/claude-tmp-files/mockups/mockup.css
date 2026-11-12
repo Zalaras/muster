@@ -1,0 +1,51 @@
+/* Mockup-only styles. Every page links the shipped web/src/style.css first, so the reader,
+ * docbar, nav rows, badges and headers are the real ones; this file adds the page frame and
+ * the NEW components each option introduces (each marked "new:"). */
+
+body { overflow: auto; padding: 28px 36px 90px; line-height: 1.55; height: auto; }
+.frame { max-width: 1240px; margin: 0 auto; }
+.frame > h1 { font-size: 21px; letter-spacing: -.02em; margin: 0 0 2px; }
+.frame > .sub { font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-dim);
+  letter-spacing: .1em; text-transform: uppercase; margin-bottom: 18px; }
+.frame > p, .notes li { color: var(--fg-muted); font-size: var(--fs-md); max-width: 880px; }
+.notes { padding-left: 20px; }
+.notes b, .frame > p b { color: var(--fg); }
+.frame code { font-family: var(--mono); font-size: .8em; color: var(--teal); }
+.frame h2.part { font-size: var(--fs-md); margin: 30px 0 4px; color: var(--fg); }
+.stage { display: flex; gap: 22px; align-items: flex-start; margin: 14px 0 22px; flex-wrap: wrap; }
+.stage-cap { font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-dim);
+  letter-spacing: .08em; text-transform: uppercase; margin: 0 0 6px; max-width: 236px; }
+.nav-only { border: 1px solid var(--line); height: 470px; display: flex; }
+.nav-only .rnav { height: 100%; }
+.nav-only .reader { display: flex; }
+
+/* A full reader, shown statically at a fixed size. */
+.reader-box { width: 820px; height: 470px; border: 1px solid var(--line); display: flex; }
+.reader-box .md { padding: 18px 26px; overflow: auto; font-size: var(--fs-md); color: var(--fg-muted); }
+.reader-box .md h1 { font-size: 18px; color: var(--fg); margin: 0 0 8px; }
+.reader-box .md h2 { font-size: 14px; color: var(--fg); margin: 14px 0 4px; }
+
+/* new (all options): the scratch badge, a sibling of the plan badge */
+.rnav .badge.scratch, .docbar .badge.scratch { color: var(--teal); border-color: color-mix(in srgb, var(--teal) 45%, var(--line-control)); }
+
+/* new (A): the claude section header carries a count and a caret like the files header */
+.rnav .hd.toggle .car { flex: none; }
+
+/* new (B): one summary row for the whole claude section when it is folded */
+.rnav .claude-sum { display: flex; align-items: center; gap: 6px; padding: 7px 12px 7px;
+  border: none; background: transparent; width: 100%; text-align: left; cursor: pointer;
+  font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); }
+.rnav .claude-sum:hover { color: var(--fg); background: var(--bg-hover); }
+.rnav .claude-sum .lbl { font-size: var(--fs-2xs); letter-spacing: .12em; text-transform: uppercase; }
+.rnav .claude-sum .chips { display: flex; gap: 4px; margin-left: auto; }
+.rnav .claude-sum .chip { font-size: var(--fs-2xs); padding: 1px 5px; border: 1px solid var(--line-control); color: var(--fg-muted); }
+.rnav .claude-sum .chip.off { opacity: .45; font-style: italic; }
+.rnav .f .when { margin-left: auto; font-size: var(--fs-2xs); color: var(--fg-dim); flex: none; }
+
+/* new (C): the earlier-sessions group is dimmer */
+.rnav .f.earlier { opacity: .7; }
+.rnav .subhd { padding: 6px 12px 2px 24px; font-size: var(--fs-2xs); color: var(--fg-dim);
+  letter-spacing: .08em; text-transform: uppercase; }
+
+.sw { outline: 2px dashed var(--amber); outline-offset: -2px; }
+.frame > .sub a { color: var(--teal); }

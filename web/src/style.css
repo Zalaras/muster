@@ -1793,13 +1793,6 @@ body {
   flex: none;
 }
 
-/* markdown-render-fixes REQ-6: the plan header row is hidden whole on a dead session
- * (no plan slot) rather than just its label — an author `display` rule on `.hd` would
- * otherwise survive the `hidden` attribute (kb:lesson/display-rule-overrides-hidden-attribute). */
-.rnav .hd[hidden] {
-  display: none;
-}
-
 .rnav .hd.toggle {
   background: transparent;
   border: none;
@@ -1813,8 +1806,8 @@ body {
   color: var(--fg);
 }
 
-/* #67: the files header's directory is a full path — it may break anywhere, so a long
- * segment wraps inside the panel instead of running past its edge. */
+/* #67: the files header's directory is a full path (carried whole in its title) — a long
+ * segment breaks anywhere inside the panel. */
 .rnav .hd .dir {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -1832,13 +1825,91 @@ body {
   display: none;
 }
 
-.rnav .plan-slot[hidden] {
-  display: none;
+.reader.compact .rnav .hd {
+  padding: 5px 12px 3px;
+}
+
+.reader.compact .rnav .sep {
+  margin: 2px 0;
+}
+
+.reader.compact .rnav .claude-sum {
+  padding-block: 4px;
+}
+
+.reader.compact .rnav .filter {
+  margin-block: 2px 3px;
 }
 
 .rnav .f.none,
-.rnav .f.loading-row {
+.rnav .f.loading-row,
+.rnav .f.scratch-loading {
   font-style: italic;
+}
+
+.rnav .claude-sum {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  width: 100%;
+  padding: 7px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+}
+
+.rnav .claude-sum:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.rnav .claude-sum .lbl {
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.rnav .claude-sum .chips {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.rnav .claude-sum .chip {
+  font-size: var(--fs-2xs);
+  padding: 1px 5px;
+  border: 1px solid var(--line-control);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.rnav .claude-sum .chip.off {
+  opacity: 0.45;
+  font-style: italic;
+}
+
+.rnav .badge.scratch,
+.docbar .badge.scratch {
+  border-style: dashed;
+}
+
+.rnav .f .when {
+  margin-left: auto;
+  flex: none;
+  font-size: var(--fs-2xs);
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.rnav .f .when + .dot {
+  margin-left: 0;
 }
 
 .rnav .filter,
@@ -1983,16 +2054,11 @@ body {
   flex: none;
 }
 
-/* review cycle-2 Critical 1: `.tree`/`.outline` are unconstrained-height flex items in
- * `.rnav`'s column, so once bounded (`.rnav`'s own `overflow: hidden auto`, cycle-1
- * Critical 1) they take the automatic flex minimum size of 0 and shrink to whatever
- * column space is left, clipping the remainder — `.rnav`'s own scrollbar never engages
- * because nothing overflows *it*, only its children. Each section scrolls independently
- * inside its own shrunken box instead. */
 .rnav .tree,
-.rnav .outline {
-  overflow-y: auto;
-  overflow-x: hidden;
+.rnav .outline,
+.rnav .plan-slot,
+.rnav .scratch-rows {
+  flex: none;
 }
 
 .rnav .tree[hidden],

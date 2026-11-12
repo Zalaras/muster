@@ -73,6 +73,7 @@
           "name": "wrap-repo"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "a very long session title that should need more than one line to display in full at the rail's fixed column width",
@@ -124,6 +125,7 @@
           "name": "density-clamp-e1"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "density-clamp-e1",
@@ -175,6 +177,7 @@
           "name": "density-ramp-short"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:04:00Z",
         "title": "density-ramp-short",
@@ -226,6 +229,7 @@
           "name": "density-ramp-long"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:06:00Z",
         "title": "density-ramp-long",
@@ -282,6 +286,7 @@
           "name": "density-e3-known"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:07:00Z",
         "title": "density-e3-known",
@@ -333,6 +338,7 @@
           "name": "density-e6-unknown"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "density-e6-unknown",
@@ -466,6 +472,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -477,6 +484,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -488,6 +496,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3
@@ -499,6 +508,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 4
@@ -510,6 +520,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 5
@@ -521,6 +532,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 6

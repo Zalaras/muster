@@ -80,6 +80,7 @@
           "name": "economic-game-theory-simulation-lab"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "Game Play",
@@ -138,6 +139,7 @@
           "name": "economic-game-theory-simulation-lab"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "working",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "Game Play",
@@ -189,6 +191,7 @@
           "name": "economic-game-theory-simulation-lab"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "rework shift-swap approval for the weekend rosterinx",
@@ -245,6 +248,7 @@
           "name": "economic-game-theory-simulation-lab"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:04:00Z",
         "title": "a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any heax",
@@ -301,6 +305,7 @@
           "name": "economic-game-theory-simulation-lab"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:06:00Z",
         "title": "a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any heax",
@@ -352,6 +357,7 @@
           "name": "economic-game-theory-simulation-lab"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:07:00Z",
         "title": "Game Play",
@@ -403,6 +409,7 @@
           "name": "economic-game-theory-simulation-lab"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "approve weekend shift swaps x",
@@ -454,6 +461,7 @@
           "name": "economic-game-theory-simulation-lab"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:09:00Z",
         "title": "Game Play",
@@ -505,6 +513,7 @@
           "name": "economic-game-theory-simulation-lab"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:11:00Z",
         "title": "approve weekend shift swaps x",
@@ -556,6 +565,7 @@
           "name": "economic-game-theory-simulation-lab"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:13:00Z",
         "title": "rework shift-swap approval for the weekend rosterinx",
@@ -612,6 +622,7 @@
           "name": "economic-game-theory-simulation-lab"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:15:00Z",
         "title": "a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any heax",
@@ -675,6 +686,7 @@
           "name": "long-folder-name-for-wrapping-long-folder-name-for-wrapping-"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "working",
         "stateSince": "2026-01-01T00:18:00Z",
         "title": "a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any header can show a title that is far longer than any heax",
@@ -726,6 +738,7 @@
           "name": "long-folder-name-for-wrapping-long-folder-name-for-wrapping-"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:19:00Z",
         "title": "rework shift-swap approval for the weekend rosterinx",
@@ -777,6 +790,7 @@
           "name": "abc123"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:21:00Z",
         "title": "Game Play",
@@ -871,6 +885,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -882,6 +897,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -893,6 +909,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3
@@ -904,6 +921,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 4
@@ -915,6 +933,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 5
@@ -926,6 +945,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 6
@@ -937,6 +957,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 7
@@ -948,6 +969,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 8
@@ -959,6 +981,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 9
@@ -970,6 +993,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 10
@@ -981,6 +1005,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 11
@@ -992,6 +1017,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 12
@@ -1003,6 +1029,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 13
@@ -1014,6 +1041,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 14

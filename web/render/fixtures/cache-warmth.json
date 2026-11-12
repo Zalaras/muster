@@ -73,6 +73,7 @@
           "name": "unknown-started"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:00:00Z",
         "title": "unknown-started",
@@ -124,6 +125,7 @@
           "name": "unknown-planning"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "planning",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "unknown-planning",
@@ -175,6 +177,7 @@
           "name": "unknown-working"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "working",
         "stateSince": "2026-01-01T00:04:00Z",
         "title": "unknown-working",
@@ -229,6 +232,7 @@
           "name": "unknown-needs"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "unknown-needs",
@@ -283,6 +287,7 @@
           "name": "unknown-failed"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "failed",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "unknown-failed",
@@ -334,6 +339,7 @@
           "name": "unknown-idle"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:10:00Z",
         "title": "unknown-idle",
@@ -385,6 +391,7 @@
           "name": "unknown-ended"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:13:00Z",
         "title": "unknown-ended",
@@ -444,6 +451,7 @@
           "name": "known-started"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:15:00Z",
         "title": "known-started",
@@ -503,6 +511,7 @@
           "name": "known-planning"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "planning",
         "stateSince": "2026-01-01T00:18:00Z",
         "title": "known-planning",
@@ -562,6 +571,7 @@
           "name": "known-working"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "working",
         "stateSince": "2026-01-01T00:21:00Z",
         "title": "known-working",
@@ -624,6 +634,7 @@
           "name": "known-needs"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:22:00Z",
         "title": "known-needs",
@@ -686,6 +697,7 @@
           "name": "known-failed"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "failed",
         "stateSince": "2026-01-01T00:27:00Z",
         "title": "known-failed",
@@ -745,6 +757,7 @@
           "name": "known-idle"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:30:00Z",
         "title": "known-idle",
@@ -804,6 +817,7 @@
           "name": "known-ended"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:34:00Z",
         "title": "known-ended",
@@ -863,6 +877,7 @@
           "name": "fade-cold"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:36:00Z",
         "title": "fade-cold",
@@ -922,6 +937,7 @@
           "name": "bound-short"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:39:00Z",
         "title": "bound-short",
@@ -981,6 +997,7 @@
           "name": "bound-hour"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:42:00Z",
         "title": "bound-hour",
@@ -1257,6 +1274,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -1268,6 +1286,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -1279,6 +1298,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3
@@ -1290,6 +1310,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 4
@@ -1301,6 +1322,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 5
@@ -1312,6 +1334,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 6
@@ -1323,6 +1346,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 7
@@ -1334,6 +1358,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 8
@@ -1345,6 +1370,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 9
@@ -1356,6 +1382,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 10
@@ -1367,6 +1394,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 11
@@ -1378,6 +1406,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 12
@@ -1389,6 +1418,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 13
@@ -1400,6 +1430,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 14
@@ -1411,6 +1442,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 15
@@ -1422,6 +1454,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 16
@@ -1433,6 +1466,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 17

@@ -78,6 +78,7 @@
           "name": "flaky-e2e-hunt"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:01:00Z",
         "title": "flaky-e2e-hunt",
@@ -137,6 +138,7 @@
           "name": "migration-dry-run"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "failed",
         "stateSince": "2026-01-01T00:03:00Z",
         "title": "migration-dry-run",
@@ -193,6 +195,7 @@
           "name": "rail-card-polish"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "working",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "rail-card-polish",
@@ -249,6 +252,7 @@
           "name": "log-tail-watch"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:07:00Z",
         "title": "log-tail-watch",
@@ -308,6 +312,7 @@
           "name": "deploy-approval"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "needs_input",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "deploy-approval",
@@ -364,6 +369,7 @@
           "name": "auth-rework-plan"
         },
         "restartPending": true,
+        "scratchpadDir": null,
         "state": "planning",
         "stateSince": "2026-01-01T00:11:00Z",
         "title": "auth-rework-plan",
@@ -420,6 +426,7 @@
           "name": "already-current"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:13:00Z",
         "title": "already-current",
@@ -471,6 +478,7 @@
           "name": "retired-spike"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "started",
         "stateSince": "2026-01-01T00:14:00Z",
         "title": "retired-spike",
@@ -630,6 +638,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -641,6 +650,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -652,6 +662,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3
@@ -663,6 +674,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 4
@@ -674,6 +686,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 5
@@ -685,6 +698,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 6
@@ -696,6 +710,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 7
@@ -707,6 +722,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 8

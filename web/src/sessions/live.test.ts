@@ -28,6 +28,7 @@ function makeSession(id: number): Session {
     lastActivity: null,
     backgroundTasks: 0,
     claudeSessionId: null,
+    scratchpadDir: null,
     tmuxTarget: `muster-${id}:@1`,
     firstLaunchHere: false,
     createdAt: `2026-08-22T00:00:${String(id).padStart(2, "0")}Z`,

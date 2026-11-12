@@ -81,6 +81,7 @@
           "name": "strip-warm-0"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:02:00Z",
         "title": "strip-warm-0",
@@ -140,6 +141,7 @@
           "name": "strip-warm-1"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:05:00Z",
         "title": "strip-warm-1",
@@ -199,6 +201,7 @@
           "name": "strip-warm-2"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:08:00Z",
         "title": "strip-warm-2",
@@ -258,6 +261,7 @@
           "name": "strip-warm-3"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:11:00Z",
         "title": "strip-warm-3",
@@ -317,6 +321,7 @@
           "name": "strip-warm-4"
         },
         "restartPending": false,
+        "scratchpadDir": null,
         "state": "idle",
         "stateSince": "2026-01-01T00:14:00Z",
         "title": "strip-warm-4",
@@ -437,6 +442,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 1
@@ -448,6 +454,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 2
@@ -459,6 +466,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 3
@@ -470,6 +478,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 4
@@ -481,6 +490,7 @@
         "files": [],
         "listing": "git",
         "plan": null,
+        "scratch": null,
         "truncated": false
       },
       "sessionId": 5

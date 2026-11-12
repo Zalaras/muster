@@ -26,6 +26,7 @@ the JSON the wrapper scripts post; everything Claude-Code-shaped is parsed insid
 | Failed and its reason | `StopFailure` with its typed `error` (kb:fact/stopfailure-error-taxonomy) |
 | Context, model, effort, title, account usage | the status-line payload, posted by the status-line script; effort is read from `effort.level` on every routed post (kb:fact/effort-changes-mid-session) |
 | Claude's working directory | `cwd` on every main-agent hook and the status line's `workspace.current_dir`, read in `internal/claudecode` alone; `CwdChanged` stays unregistered (kb:adr/ingest-claude-cwd-read-in-interpret-only) |
+| Claude's scratchpad folder | `scratchpad_dir` on the hooks that carry it, taken only when absolute, clean, ending in `scratchpad` under a parent named for the hook's `session_id`, and only from the session's current Claude session id; read in `internal/claudecode` alone (kb:adr/reader-scratchpad-dir-from-hooks-persisted, kb:fact/scratchpad-dir-per-session-id) |
 | Running Claude Code version | the status line's top-level `version`, leading major.minor.patch, read in `internal/claudecode` alone (kb:fact/running-session-version-sources) |
 | Terminal content | never ingest; the PTY bridge (kb:spec/surfaces) |
 

@@ -5,12 +5,24 @@ import { requestJson, requestText, type ApiResult } from "./http";
 export interface ReaderPlan {
   path: string;
   exists: boolean;
+  modifiedAt: string | null;
   writtenAt: string | null;
 }
 
 export interface ReaderFileEntry {
   path: string;
   writtenAt: string | null;
+}
+
+export interface ReaderScratchFile {
+  path: string;
+  modifiedAt: string;
+  writtenAt: string | null;
+}
+
+export interface ReaderScratch {
+  dir: string;
+  files: ReaderScratchFile[];
 }
 
 export const READER_LISTING_KINDS = ["git", "walk"] as const;
@@ -20,6 +32,7 @@ export interface ReaderListing {
   directory: string;
   plan: ReaderPlan | null;
   files: ReaderFileEntry[];
+  scratch: ReaderScratch | null;
   listing: ReaderListingKind;
   truncated: boolean;
 }
@@ -32,11 +45,13 @@ function parseReaderPlan(value: unknown): ReaderPlan | null {
   if (!isRecord(value)) return null;
   const path = value["path"];
   const exists = value["exists"];
+  const modifiedAt = value["modifiedAt"];
   const writtenAt = value["writtenAt"];
   if (typeof path !== "string") return null;
   if (typeof exists !== "boolean") return null;
+  if (!isNullableString(modifiedAt)) return null;
   if (!isNullableString(writtenAt)) return null;
-  return { path, exists, writtenAt };
+  return { path, exists, modifiedAt, writtenAt };
 }
 
 function parseReaderFileEntry(value: unknown): ReaderFileEntry | null {
@@ -46,6 +61,23 @@ function parseReaderFileEntry(value: unknown): ReaderFileEntry | null {
   if (typeof path !== "string") return null;
   if (!isNullableString(writtenAt)) return null;
   return { path, writtenAt };
+}
+
+function parseScratchFile(value: unknown): ReaderScratchFile | null {
+  if (!isRecord(value)) return null;
+  const { path, modifiedAt, writtenAt } = value;
+  if (typeof path !== "string" || typeof modifiedAt !== "string") return null;
+  if (!isNullableString(writtenAt)) return null;
+  return { path, modifiedAt, writtenAt };
+}
+
+function parseScratch(value: unknown): ReaderScratch | null {
+  if (!isRecord(value)) return null;
+  const dir = value["dir"];
+  if (typeof dir !== "string") return null;
+  const files = parseListOf(value["files"], parseScratchFile);
+  if (!files) return null;
+  return { dir, files };
 }
 
 function parseReaderListing(value: unknown): ReaderListing | null {
@@ -58,9 +90,11 @@ function parseReaderListing(value: unknown): ReaderListing | null {
   if (plan === undefined) return null;
   const files = parseListOf(value["files"], parseReaderFileEntry);
   if (!files) return null;
+  const scratch = parseNullable(value["scratch"], parseScratch);
+  if (scratch === undefined) return null;
   if (!isReaderListingKind(listing)) return null;
   if (typeof truncated !== "boolean") return null;
-  return { directory, plan, files, listing, truncated };
+  return { directory, plan, files, scratch, listing, truncated };
 }
 
 /** `GET /api/sessions/{id}/reader` (kb:anchor/sessions.reader). Lists the session's

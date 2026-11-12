@@ -38,6 +38,27 @@ func (m *Manager) SetTranscript(ctx context.Context, id int64, claudeSessionID, 
 	return true, nil
 }
 
+func (m *Manager) SetScratchpad(ctx context.Context, id int64, claudeSessionID, dir string) (bool, error) {
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		return false, ErrUnknownSession
+	}
+	if dir == "" || sess.ClaudeSessionID != claudeSessionID || sess.ScratchpadDir == dir {
+		m.mu.Unlock()
+		return false, nil
+	}
+	prev := sess.Clone()
+	sess.ScratchpadDir = dir
+	post := sess.Clone()
+
+	if _, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true); err != nil {
+		return false, fmt.Errorf("persisting scratchpad dir for session %d: %w", id, err)
+	}
+	return true, nil
+}
+
 // SetPlan records id's derived plan file, persisting and broadcasting a sessionUpsert
 // only when path or exists actually changed. Refused (no persist, changed=false, the
 // session's current snapshot returned) when claudeSessionID no longer names id's current

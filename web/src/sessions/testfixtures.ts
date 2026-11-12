@@ -39,6 +39,7 @@ export function makeSession(overrides: Partial<Session> & { id: number }): Sessi
     restartPending: false,
     note: null,
     cache: null,
+    scratchpadDir: null,
     ...overrides,
   };
 }
