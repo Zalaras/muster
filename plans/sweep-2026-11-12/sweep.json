@@ -1,0 +1,21 @@
+{"sweep": "sweep-2026-11-12", "created_at": "2026-11-12T00:00:00Z",
+ "selector": "#122 #123 (one batch; decision in research/e1.md ## Answers)", "parallel": 1,
+ "entries": [
+  {"id": "e1", "title": "IDLE while WORKING", "issue": 122, "section": "Bugs",
+   "work_type": "daemon", "features": ["lifecycle", "ingest"],
+   "files": ["internal/claudecode/interpret.go", "internal/session/machine.go", "internal/session/session.go",
+             "internal/session/machine_test.go", "internal/session/machine_turnstate_test.go",
+             "internal/claudecode/interpret_rail_test.go", "docs/adr/lifecycle-prompt-ordering-guards.md",
+             "docs/facts/teammate-reinvocation-reuses-closed-prompt-id.md", "docs/protocol.md",
+             "docs/features/lifecycle/spec.md", "internal/session/CLAUDE.md"],
+   "route": "fix", "research": "plans/sweep-2026-11-12/research/e1.md", "batch": 1},
+  {"id": "e2", "title": "Says Working but is actually Needs Input", "issue": 123, "section": "Bugs",
+   "work_type": "daemon", "features": ["lifecycle", "ingest"],
+   "files": ["internal/claudecode/interpret.go", "internal/session/machine.go", "internal/session/session.go",
+             "internal/session/machine_test.go", "internal/session/machine_turnstate_test.go",
+             "internal/claudecode/interpret_rail_test.go",
+             "docs/facts/teammate-reinvocation-reuses-closed-prompt-id.md", "docs/protocol.md",
+             "docs/features/lifecycle/spec.md", "internal/session/CLAUDE.md"],
+   "route": "fix", "research": "plans/sweep-2026-11-12/research/e2.md", "batch": 1}
+ ],
+ "batches": [{"n": 1, "entries": ["e1", "e2"], "work_type": "daemon"}]}
