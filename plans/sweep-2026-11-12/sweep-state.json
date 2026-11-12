@@ -1,0 +1,32 @@
+{
+  "sweep": "sweep-2026-11-12",
+  "parallel": 1,
+  "started_at": "2026-11-12T08:20:02Z",
+  "updated_at": "2026-11-12T09:28:37Z",
+  "batches": [
+    {
+      "n": 1,
+      "name": "sweep-2026-11-12-1",
+      "entries": [
+        "e1",
+        "e2"
+      ],
+      "work_type": "daemon",
+      "status": "landed",
+      "worktree": "/Users/damian/Documents/code/Projects/muster-sweep-2026-11-12-1",
+      "branch": "plan/sweep-2026-11-12-1",
+      "pid": 32725,
+      "log": "plans/sweep-2026-11-12/batch-1.log",
+      "started_at": "2026-11-12T08:20:22Z",
+      "finished_at": "2026-11-12T09:28:23Z",
+      "subject": "fix(lifecycle): show working or needs input after a teammate finishes (closes #122, closes #123)",
+      "closes": [
+        122,
+        123
+      ],
+      "landed_sha": "5d0c2573",
+      "error": null,
+      "question": null
+    }
+  ]
+}
