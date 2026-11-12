@@ -192,3 +192,65 @@ func TestRunningSessionReportsItsVersion(t *testing.T) {
 		assert.NotZero(t, hooks, "no hook payload captured")
 	})
 }
+
+// TestScratchpadDirPerSessionID guards kb:fact/scratchpad-dir-per-session-id: an interactive
+// session's scratchpad_dir is <...>/<encoded resolved cwd>/<session_id>/scratchpad and exists
+// from startup; /clear moves to the new session id's folder and keeps the old one; --resume
+// returns to the original folder; a -p session sends no path at all.
+func TestScratchpadDirPerSessionID(t *testing.T) {
+	f := harness(t)
+
+	resolved, err := filepath.EvalSymlinks(f.repo)
+	require.NoError(t, err)
+	encoded := regexp.MustCompile(`[^A-Za-z0-9-]`).ReplaceAllString(resolved, "-")
+	scratchpad := func(c *capture) string {
+		t.Helper()
+		dir, _ := c.payload["scratchpad_dir"].(string)
+		return dir
+	}
+	assertShape := func(dir, sessionID, what string) {
+		t.Helper()
+		assert.Truef(t, filepath.IsAbs(dir), "%s scratchpad_dir %q must be absolute", what, dir)
+		assert.Equalf(t, filepath.Join(encoded, sessionID, "scratchpad"),
+			filepath.Join(filepath.Base(filepath.Dir(filepath.Dir(dir))), filepath.Base(filepath.Dir(dir)), filepath.Base(dir)),
+			"%s scratchpad_dir must end in <encoded cwd>/<session_id>/scratchpad", what)
+		info, err := os.Stat(dir)
+		if assert.NoErrorf(t, err, "%s scratchpad folder must exist", what) {
+			assert.True(t, info.IsDir())
+		}
+	}
+
+	// Run D, before /clear: the folder is named for the first session id.
+	first := f.firstHook(sessionInteract, "SessionStart")
+	require.NotNilf(t, first, "run D never emitted SessionStart; saw %v", f.hookTypes(sessionInteract))
+	original := scratchpad(first)
+	require.NotEmpty(t, original, "run D's SessionStart carried no scratchpad_dir")
+	assertShape(original, f.preClearClaudeID(), "run D's")
+	for _, post := range f.statusPostsFor(sessionInteract, f.preClearClaudeID()) {
+		assert.Equal(t, original, scratchpad(&post), "every pre-/clear status post must name the same scratchpad")
+	}
+
+	// /clear: a new folder under the new id; the old one is kept.
+	if f.interactive.clearErr == nil {
+		cleared := f.sessionStartAfterClear()
+		require.NotNilf(t, cleared, "no SessionStart{source:\"clear\"}; run D saw %v", f.hookTypes(sessionInteract))
+		assertShape(scratchpad(cleared), cleared.ev.SessionID, "the /clear SessionStart's")
+		assert.NotEqual(t, original, scratchpad(cleared), "/clear must move the session to a new scratchpad")
+		_, err := os.Stat(original)
+		assert.NoError(t, err, "/clear must keep the old scratchpad folder")
+	} else {
+		t.Logf("run D's /clear step did not complete (%v); the /clear half is TestClearMintsNewSessionID's failure to report", f.interactive.clearErr)
+	}
+
+	// Run E, --resume of run D's first id: back to the original folder.
+	resumed := f.firstHook(sessionResume, "SessionStart")
+	require.NotNilf(t, resumed, "run E never emitted SessionStart; saw %v", f.hookTypes(sessionResume))
+	assert.Equal(t, original, scratchpad(resumed), "--resume must return to the original session's scratchpad")
+
+	// Run A, headless -p: no path on any hook.
+	headless := f.hookEvents(sessionManaged)
+	require.NotEmpty(t, headless, "run A emitted no hooks")
+	for _, c := range headless {
+		assert.Nilf(t, c.payload["scratchpad_dir"], "a -p session's %s must carry no scratchpad_dir", c.ev.Type)
+	}
+}

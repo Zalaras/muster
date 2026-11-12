@@ -7,10 +7,10 @@ summary: scratchpad_dir names <tmp>/claude-<uid>/<cwd>/<session_id>/scratchpad; 
 features: [reader, ingest]
 tags: [claude-code-format]
 files: []
-tests: []
+tests: [TestScratchpadDirPerSessionID]
 refs: [kb:fact/status-line-keys, kb:fact/hook-payload-fields, kb:fact/transcript-dir-encoding, kb:fact/resume-keeps-session-identity]
-verified: 2.1.322..2.1.322
-guard: none
+verified: 2.1.322..canary
+guard: TestScratchpadDirPerSessionID
 ---
 The temporary directory Claude Code tells the model to write scratch files into (#121) is
 named, as an absolute path, by `scratchpad_dir` on every hook and every status-line post of
