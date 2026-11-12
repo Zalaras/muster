@@ -2733,7 +2733,7 @@ that the dashboard shows.
   Filed 2026-10-23 from musterd 0.25.3 / Claude Code 2.1.293, focus view, session idle.
   Labels: enhancement, sessions, documents, ux.
 
-- [ ] ~~**If a session just started then we can upgrade that too**~~ ([#118](https://github.com/Zalaras/muster/issues/118)) — **dropped 2026-11-06** (the developer, at the `sweep-2026-11-06` stop; issue closed): a behind `started` session is already offered the upgrade and queued until free, per `kb:adr/restart-busy-sessions-queued-until-free`, which stands. When
+- [x] ~~**If a session just started then we can upgrade that too**~~ ([#118](https://github.com/Zalaras/muster/issues/118)) — **dropped 2026-11-06** (the developer, at the `sweep-2026-11-06` stop; issue closed): a behind `started` session is already offered the upgrade and queued until free, per `kb:adr/restart-busy-sessions-queued-until-free`, which stands. When
   a newer Claude Code version is available for restarting sessions, a session that has just started
   is not offered the upgrade. Expected: A session in the started state should be treated like an
   idle one and be eligible for restart onto the newer Claude Code version.
