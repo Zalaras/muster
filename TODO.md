@@ -153,6 +153,27 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   the session's list. Expected: each shape measured with `/interface-probe` and recorded as a fact,
   and the list behaves as measured. From `plans/see-added-dirs/`.
 
+- [ ] **IDLE while WORKING** ([#122](https://github.com/Zalaras/muster/issues/122)) — A session
+  shows as idle on the dashboard while the main session is still working through a turn, possibly
+  after switching to the docs tab. Expected: A session that is actively working in a turn should
+  show a working state rather than idle.
+  Filed 2026-11-10 from musterd 0.29.1 / Claude Code 2.1.322, focus view, session idle.
+  Labels: bug, lifecycle.
+
+- [ ] **Says Working but is actually Needs Input** ([#123](https://github.com/Zalaras/muster/issues/123)) — A
+  session is shown as Working in the dashboard while it is actually waiting for the user, which is
+  the Needs Input state. Expected: A session that is waiting on the user should be shown as Needs
+  Input rather than Working.
+  Filed 2026-11-10 from musterd 0.29.1 / Claude Code 2.1.322, focus view, session working; 1 image attached.
+  Labels: bug, lifecycle.
+
+- [ ] **Can't use the select for the group** ([#124](https://github.com/Zalaras/muster/issues/124)) — In
+  select mode in the rail, the group's own select-all checkbox cannot be clicked; sessions only
+  highlight as selected when each is picked one by one. Expected: The group checkbox should select
+  or unselect all sessions in that group at once.
+  Filed 2026-11-11 from musterd 0.29.1 / Claude Code 2.1.293, focus view, session started.
+  Labels: bug, rail, ux.
+
 ## Tweaks
 
 - [ ] **Should select mode be disabled after an action?** ([#98](https://github.com/Zalaras/muster/issues/98)) — After
@@ -216,6 +237,14 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   so a session can be restarted manually for other reasons, such as reloading an MCP.
   Filed 2026-11-06 from musterd 0.29.0 / Claude Code 2.1.293, focus view, session started.
   Labels: enhancement, rail, lifecycle, ux, claude-code.
+
+- [ ] **Read and write from notes** ([#125](https://github.com/Zalaras/muster/issues/125)) — The
+  author wants to start having Claude interact with Muster and asks for the best way to do so, with
+  reading and writing a session's notes as a simple proof of concept. Expected: Claude should be
+  able to read and write the notes of its own session through Muster as a first proof of concept of
+  Claude interacting with Muster.
+  Filed 2026-11-11 from musterd 0.29.1 / Claude Code 2.1.293, focus view, session working.
+  Labels: question, sessions.
 
 ## Tooling and docs
 
