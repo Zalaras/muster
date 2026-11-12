@@ -10,6 +10,8 @@ import (
 // never a real user prompt, so it's never surfaced as StateInput.Prompt.
 const backgroundCompletionTag = "<task-notification>"
 
+const teammateMessageTag = "<agent-message"
+
 // InputKind is the neutral vocabulary the kb:anchor/state state machine (internal/session) operates
 // on. This is the whole interface between the two packages: internal/session never
 // reads a Claude Code payload key or event name (CLAUDE.md hard rule) — only these
@@ -58,6 +60,8 @@ type StateInput struct {
 	LastActivity *string
 
 	FromSubagent bool
+
+	ReopensClosedPrompt bool
 
 	// Agent is the subagent's opaque id when the payload carries the agent marker, "" for
 	// the main agent — derived for exactly the events FromSubagent is. It names who raised
@@ -135,26 +139,14 @@ func interpretKind(eventType string, payload []byte) StateInput {
 		}
 		_ = json.Unmarshal(payload, &f)
 		in := StateInput{Kind: KindTurnActivity, PermissionMode: f.PermissionMode, FromSubagent: f.AgentID != nil, Agent: agentOf(f.AgentID)}
-		if f.Prompt != nil && !strings.HasPrefix(*f.Prompt, backgroundCompletionTag) {
+		if f.Prompt != nil && !strings.HasPrefix(*f.Prompt, backgroundCompletionTag) && !strings.HasPrefix(*f.Prompt, teammateMessageTag) {
 			in.Prompt = f.Prompt
 		}
 		return in
-	case "PreToolUse", "PostToolUse", "PostToolBatch":
-		var f struct {
-			PermissionMode *string `json:"permission_mode"`
-			AgentID        *string `json:"agent_id"`
-		}
-		_ = json.Unmarshal(payload, &f)
-		return StateInput{Kind: KindTurnActivity, PermissionMode: f.PermissionMode, FromSubagent: f.AgentID != nil, Agent: agentOf(f.AgentID)}
+	case "PreToolUse", "PostToolUse", "PostToolBatch", "PermissionRequest":
+		return interpretToolEvent(eventType, payload)
 	case "Notification":
 		return interpretNotification(payload)
-	case "PermissionRequest":
-		var f struct {
-			PermissionMode *string `json:"permission_mode"`
-			AgentID        *string `json:"agent_id"`
-		}
-		_ = json.Unmarshal(payload, &f)
-		return StateInput{Kind: KindNeedsInputPermission, PermissionMode: f.PermissionMode, FromSubagent: f.AgentID != nil, Agent: agentOf(f.AgentID)}
 	case "Stop":
 		return interpretStop(payload)
 	case "StopFailure":
@@ -182,6 +174,20 @@ func interpretKind(eventType string, payload []byte) StateInput {
 		// (forward compatibility, kb:anchor/state.transitions's last row).
 		return StateInput{Kind: KindInert}
 	}
+}
+
+func interpretToolEvent(eventType string, payload []byte) StateInput {
+	var f struct {
+		PermissionMode *string `json:"permission_mode"`
+		AgentID        *string `json:"agent_id"`
+	}
+	_ = json.Unmarshal(payload, &f)
+	in := StateInput{Kind: KindTurnActivity, PermissionMode: f.PermissionMode, FromSubagent: f.AgentID != nil, Agent: agentOf(f.AgentID)}
+	if eventType == "PermissionRequest" {
+		in.Kind = KindNeedsInputPermission
+	}
+	in.ReopensClosedPrompt = f.AgentID == nil && eventType != "PostToolUse" && eventType != "PostToolBatch"
+	return in
 }
 
 // interpretStop reads a Stop: the turn closing, plus the count of background tasks it

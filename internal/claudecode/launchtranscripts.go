@@ -290,24 +290,30 @@ func scanTranscript(path string) transcriptScan {
 
 // readTail returns path's last n bytes, or the whole file when it is smaller than n.
 func readTail(path string, n int) ([]byte, error) {
+	tail, _, err := readTailFrom(path, n)
+	return tail, err
+}
+
+func readTailFrom(path string, n int) ([]byte, int64, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer f.Close()
 
 	info, err := f.Stat()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	offset := int64(0)
 	if info.Size() > int64(n) {
 		offset = info.Size() - int64(n)
 	}
-	if _, err := f.Seek(offset, io.SeekStart); err != nil {
-		return nil, err
+	if _, err = f.Seek(offset, io.SeekStart); err != nil {
+		return nil, 0, err
 	}
-	return io.ReadAll(f)
+	tail, err := io.ReadAll(f)
+	return tail, offset, err
 }
 
 // readHead returns path's first n bytes.

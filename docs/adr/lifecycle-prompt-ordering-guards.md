@@ -1,7 +1,7 @@
 ---
 id: lifecycle-prompt-ordering-guards
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-20
 summary: Events apply in seq order; Stop-family events close their prompt_id, a closed prompt never reopens, and an unseen prompt_id starts a turn.
 features: [lifecycle]

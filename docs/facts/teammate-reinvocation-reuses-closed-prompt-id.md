@@ -7,10 +7,10 @@ summary: A named Agent runs as a teammate; when it finishes, the main agent is r
 features: [lifecycle]
 tags: [claude-code-format, state-machine]
 files: [internal/claudecode/interpret.go, internal/session/machine.go]
-tests: []
+tests: [TestApplyInput_TeammateReinvocationOnClosedPrompt, TestApplyInput_TeammateReinvocationAskUserQuestionReadsNeedsInput]
 refs: [kb:fact/background-completion-new-prompt-id, kb:fact/subagent-hooks-carry-agent-id, kb:fact/ask-user-question-hook-sequence, "#122", "#123"]
 verified: 2.1.322..2.1.322
-guard: none
+guard: TestApplyInput_TeammateReinvocationOnClosedPrompt
 ---
 An `Agent` call with a `name` starts a **teammate**: the TUI says "1 teammate started", and
 `SubagentStart.agent_type` is that name. The teammate's tool hooks carry `agent_id`, with

@@ -421,7 +421,7 @@ func TestApplyInput_TurnActivity(t *testing.T) {
 
 		assert.Equal(t, StateIdle, sess.State, "a straggler past Stop must not move the card off idle")
 		assert.Equal(t, fixedNow, sess.StateSince)
-		assert.Empty(t, sess.currentPromptID, "a closed prompt id must not become the current prompt")
+		assert.Empty(t, sess.currentPromptID, "an unflagged event must not make a closed prompt id the current prompt")
 	})
 
 	t.Run("a nil prompt id is treated as open (no closed-prompt guard applies)", func(t *testing.T) {
@@ -437,7 +437,9 @@ func TestApplyInput_TurnActivity(t *testing.T) {
 // TestApplyInput_TurnActivity_ClosedPromptSubagentMarked: a turn-activity
 // input for an already-closed prompt that carries the subagent marker is not a
 // straggler — it transitions to ACTIVE exactly like open-prompt activity does, but
-// (INV-P) the closed prompt id is neither reopened nor adopted as currentPromptID.
+// (INV-P) the closed prompt id is neither reopened nor adopted as currentPromptID — only an
+// unmarked event carrying ReopensClosedPrompt reopens (the reopen rows of
+// TestApplyInput_CrossStateInvariants).
 func TestApplyInput_TurnActivity_ClosedPromptSubagentMarked(t *testing.T) {
 	sess := newTestSession()
 	sess.State = StateIdle
@@ -450,14 +452,14 @@ func TestApplyInput_TurnActivity_ClosedPromptSubagentMarked(t *testing.T) {
 
 	assert.Equal(t, StateWorking, sess.State, "a background subagent still working past the parent's Stop must read as working, not idle (#14)")
 	assert.NotEqual(t, fixedNow, sess.StateSince, "the transition must actually move stateSince")
-	assert.Empty(t, sess.currentPromptID, "INV-P: the closed prompt must not be adopted as current")
-	assert.True(t, sess.promptClosed("p1"), "INV-P: the closed prompt id must stay closed")
+	assert.Empty(t, sess.currentPromptID, "INV-P: a marked, unflagged event must not adopt the closed prompt as current")
+	assert.True(t, sess.promptClosed("p1"), "INV-P: a marked, unflagged event leaves the closed prompt id closed")
 }
 
 // TestApplyInput_NeedsInputPermission_ClosedPromptSubagentMarked: a
 // needs-input-permission input for an already-closed prompt that carries the subagent
 // marker corroborates a background permission wait exactly like the open-prompt case —
-// same transition, no prompt reopening.
+// same transition, no prompt reopening (the marker never reopens; only ReopensClosedPrompt does).
 func TestApplyInput_NeedsInputPermission_ClosedPromptSubagentMarked(t *testing.T) {
 	sess := newTestSession()
 	sess.State = StateIdle
@@ -470,8 +472,8 @@ func TestApplyInput_NeedsInputPermission_ClosedPromptSubagentMarked(t *testing.T
 	assert.Equal(t, StateNeedsInput, sess.State)
 	require.NotNil(t, sess.Attention)
 	assert.Equal(t, "permission", sess.Attention.Reason)
-	assert.Empty(t, sess.currentPromptID, "INV-P: a permission corroboration for a closed prompt must never adopt it as current")
-	assert.True(t, sess.promptClosed("p1"), "INV-P: the closed prompt id must stay closed")
+	assert.Empty(t, sess.currentPromptID, "INV-P: an unflagged permission corroboration for a closed prompt must not adopt it as current")
+	assert.True(t, sess.promptClosed("p1"), "INV-P: a marked, unflagged event leaves the closed prompt id closed")
 }
 
 // TestApplyInput_IdleNotice_FromFailedViaUnseenFreshPromptKeepsFailure covers the INV-F gap
@@ -602,8 +604,8 @@ func TestApplyInput_TurnActivity_SubagentMarkedNilPromptIsTreatedAsOpen(t *testi
 // TestApplyInput_CrossStateInvariants covers the cross-state invariants (a review lesson from the sessions work): the
 // named invariants INV-A ("attention non-null iff needs_input"), INV-F ("failure
 // non-null iff failed"), INV-G (an event without the subagent marker whose prompt id is
-// closed never changes any state-machine-owned field) and INV-P (a closed prompt id
-// stays closed) must hold from EVERY reachable source state crossed against every input
+// closed and without ReopensClosedPrompt never changes any state-machine-owned field) and
+// INV-P (an unflagged, unmarked event leaves a closed prompt id closed) must hold from EVERY reachable source state crossed against every input
 // variant in the plan's Affected Files table — not just the one convenient state each
 // narrower per-transition test above happens to start from. Every row seeds BOTH a
 // stale Attention and a stale Failure regardless of the starting state's own
@@ -668,8 +670,8 @@ func TestApplyInput_CrossStateInvariants(t *testing.T) {
 					assert.Equal(t, "permission", sess.Attention.Reason)
 					require.NotNil(t, sess.Failure, "INV-G: a straggler must not clear a pre-existing failure note")
 					assert.Equal(t, "stale_error", sess.Failure.Error)
-					assert.Empty(t, sess.currentPromptID, "INV-G/INV-P: a straggler must not adopt the closed prompt as current")
-					assert.True(t, sess.promptClosed("p1"), "INV-P: the closed prompt id must stay closed")
+					assert.Empty(t, sess.currentPromptID, "INV-G/INV-P: an unflagged straggler must not adopt the closed prompt as current")
+					assert.True(t, sess.promptClosed("p1"), "INV-P: a marked, unflagged event leaves the closed prompt id closed")
 					return
 				}
 
@@ -679,8 +681,8 @@ func TestApplyInput_CrossStateInvariants(t *testing.T) {
 					assert.Nil(t, sess.Attention, "INV-A: a transitioning turn-activity input must clear a stale attention note (state is no longer needs_input)")
 					assert.Nil(t, sess.Failure, "INV-F: a transitioning turn-activity input must clear a stale failure note (state is no longer failed)")
 					if st.closed {
-						assert.NotEqual(t, "p1", sess.currentPromptID, "INV-P: a closed prompt must never be adopted as current")
-						assert.True(t, sess.promptClosed("p1"), "INV-P: the closed prompt id must stay closed")
+						assert.NotEqual(t, "p1", sess.currentPromptID, "INV-P: an unflagged event must not adopt a closed prompt as current")
+						assert.True(t, sess.promptClosed("p1"), "INV-P: a marked, unflagged event leaves the closed prompt id closed")
 					} else {
 						assert.Equal(t, "p1", sess.currentPromptID, "an open prompt id is adopted as current")
 					}
@@ -688,8 +690,8 @@ func TestApplyInput_CrossStateInvariants(t *testing.T) {
 					assert.Equal(t, StateNeedsInput, sess.State)
 					require.NotNil(t, sess.Attention, "INV-A: state is needs_input, attention must be non-null")
 					assert.Equal(t, "permission", sess.Attention.Reason)
-					assert.NotEqual(t, "p1", sess.currentPromptID, "INV-P: a permission corroboration for a closed prompt must never adopt it as current")
-					assert.True(t, sess.promptClosed("p1"), "INV-P: the closed prompt id must stay closed")
+					assert.NotEqual(t, "p1", sess.currentPromptID, "INV-P: an unflagged permission corroboration for a closed prompt must not adopt it as current")
+					assert.True(t, sess.promptClosed("p1"), "INV-P: a marked, unflagged event leaves the closed prompt id closed")
 					// INV-F (kb:anchor/ws.session, unconditional): failure non-null IFF state ==
 					// failed. State has just moved to needs_input, so a stale failure
 					// left over from an earlier failed turn must not survive here.
@@ -698,6 +700,70 @@ func TestApplyInput_CrossStateInvariants(t *testing.T) {
 					// The steps table drives only the two kinds above through a
 					// transition; every other Kind is unreachable here, so there are no
 					// kind-specific invariants left to assert.
+				}
+			})
+		}
+	}
+
+	// A main-agent PreToolUse or PermissionRequest on a closed prompt reopens it
+	// (ReopensClosedPrompt, kb:fact/teammate-reinvocation-reuses-closed-prompt-id): from every
+	// source state the id leaves the closed ring and becomes current, and the stale notes are
+	// cleared — except a wait another agent owns, which keeps needs_input (INV-B). The
+	// unflagged twin of each row stays inert (INV-G), so the flag is the only difference.
+	reopenSources := append([]struct {
+		name  string
+		state State
+	}{{"needs_input_subagent_wait", StateNeedsInput}}, sourceStates...)
+	reopenSteps := []struct {
+		name   string
+		kind   claudecode.InputKind
+		reopen bool
+	}{
+		{"tool_start", claudecode.KindTurnActivity, true},
+		{"permission_request", claudecode.KindNeedsInputPermission, true},
+		{"unflagged_activity", claudecode.KindTurnActivity, false},
+		{"unflagged_permission", claudecode.KindNeedsInputPermission, false},
+	}
+	for _, from := range reopenSources {
+		for _, st := range reopenSteps {
+			t.Run("reopen/"+from.name+"/"+st.name, func(t *testing.T) {
+				sess := newTestSession()
+				sess.State = from.state
+				sess.StateSince = fixedNow
+				sess.Attention = &Attention{Reason: "permission", Since: fixedNow}
+				sess.Failure = &Failure{Error: "stale_error", Message: "stale message"}
+				sess.closedPromptIDs = []string{"p1"}
+				ownedByOther := from.name == "needs_input_subagent_wait"
+				if ownedByOther {
+					sess.AttentionAgent = "agent-a"
+				}
+
+				promptID := "p1"
+				in := claudecode.StateInput{Kind: st.kind, ReopensClosedPrompt: st.reopen}
+				applyInput(sess, "c1", &promptID, in, laterNow())
+
+				if !st.reopen {
+					assert.Equal(t, from.state, sess.State, "INV-G: an unflagged event on a closed prompt is a straggler")
+					assert.Empty(t, sess.currentPromptID)
+					assert.True(t, sess.promptClosed("p1"), "INV-P: an unflagged event leaves the id closed")
+					return
+				}
+				assert.Equal(t, "p1", sess.currentPromptID, "the reopened id is adopted as current")
+				assert.False(t, sess.promptClosed("p1"), "the reopened id leaves the closed ring")
+				switch {
+				case st.kind == claudecode.KindNeedsInputPermission:
+					assert.Equal(t, StateNeedsInput, sess.State)
+					require.NotNil(t, sess.Attention, "INV-A")
+					assert.Empty(t, sess.AttentionAgent, "the main agent owns the wait it raised")
+					assert.Nil(t, sess.Failure, "INV-F")
+				case ownedByOther:
+					assert.Equal(t, StateNeedsInput, sess.State, "INV-B: main tool start on a reopened prompt keeps another agent's wait")
+					require.NotNil(t, sess.Attention)
+					assert.Equal(t, "agent-a", sess.AttentionAgent)
+				default:
+					assert.Equal(t, StateWorking, sess.State)
+					assert.Nil(t, sess.Attention, "INV-A: working carries no attention")
+					assert.Nil(t, sess.Failure, "INV-F: working carries no failure")
 				}
 			})
 		}

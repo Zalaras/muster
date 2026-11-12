@@ -444,7 +444,7 @@ func buildServerConfig(f *cliFlags, st *store.Store, log zerolog.Logger, serving
 		TmuxSocket:    f.tmuxSocket,
 		Locator:       locate.New(),
 
-		InterruptChecker: claudecode.PromptInterrupted,
+		InterruptChecker: claudecode.PromptInterruptedAt,
 
 		Launch: server.LaunchConfig{
 			ClaudeBin:        f.claudeBin,

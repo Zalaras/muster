@@ -16,7 +16,7 @@ import (
 // attention/failure/prompt-adoption invariant comments cross-reference between adjacent
 // arms ("also reachable from failed") — splitting the switch would strand an invariant's
 // halves in different functions, which no test can catch. See
-// kb:adr/lifecycle-prompt-ordering-guards, kb:adr/ingest-monotonic-rebind and
+// kb:adr/lifecycle-awaited-main-event-reopens-closed-prompt, kb:adr/ingest-monotonic-rebind and
 // kb:adr/lifecycle-subagent-marked-events-not-stragglers.
 //
 //nolint:gocyclo // one arm per wire Kind; splitting strands the cross-referencing attention/failure/prompt invariant comments
@@ -31,14 +31,19 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 	case claudecode.KindTurnActivity:
 		latchPermissionMode(sess, input)
 		closed := promptID != nil && sess.promptClosed(*promptID)
-		if closed && !input.FromSubagent {
+		if closed && !input.FromSubagent && !input.ReopensClosedPrompt {
 			return false
 		}
 		// A closed prompt with the subagent marker is a background subagent still
 		// working past the parent's Stop (kb:fact/subagent-hooks-carry-agent-id): it
 		// transitions the session like ordinary activity, but the closed prompt id
-		// itself is never reopened or adopted as current — only an open/unseen prompt id
-		// is adopted here.
+		// itself is never reopened or adopted as current. An awaited main-agent event
+		// on a closed prompt is a re-invoked turn and reopens it
+		// (kb:adr/lifecycle-awaited-main-event-reopens-closed-prompt).
+		if closed && input.ReopensClosedPrompt && !input.FromSubagent {
+			sess.reopenPrompt(*promptID)
+			closed = false
+		}
 		if !closed && promptID != nil {
 			sess.currentPromptID = *promptID
 		}
@@ -65,7 +70,10 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 
 	case claudecode.KindNeedsInputPermission:
 		if promptID != nil && sess.promptClosed(*promptID) && !input.FromSubagent {
-			return false
+			if !input.ReopensClosedPrompt {
+				return false
+			}
+			sess.reopenPrompt(*promptID)
 		}
 		// A subagent-marked PermissionRequest for a closed prompt corroborates a
 		// background permission wait (measured 2.1.259) exactly like the open-prompt

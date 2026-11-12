@@ -18,7 +18,7 @@ import (
 	"github.com/Zalaras/muster/internal/store"
 )
 
-func withInterruptChecker(f func(path, promptID string) (bool, error)) testManagerOpt {
+func withInterruptChecker(f func(path, promptID string) (int64, error)) testManagerOpt {
 	return func(c *Config) { c.InterruptChecker = f }
 }
 
@@ -27,16 +27,16 @@ func withInterruptChecker(f func(path, promptID string) (bool, error)) testManag
 type checkerDouble struct {
 	mu     sync.Mutex
 	calls  [][2]string
-	answer func(path, promptID string) (bool, error)
+	answer func(path, promptID string) (int64, error)
 }
 
-func (c *checkerDouble) check(path, promptID string) (bool, error) {
+func (c *checkerDouble) check(path, promptID string) (int64, error) {
 	c.mu.Lock()
 	c.calls = append(c.calls, [2]string{path, promptID})
 	answer := c.answer
 	c.mu.Unlock()
 	if answer == nil {
-		return false, nil
+		return 0, nil
 	}
 	return answer(path, promptID)
 }
@@ -194,7 +194,7 @@ func TestSweepInterrupts_LandsIdleLikeStop(t *testing.T) {
 				st := openTestStore(t)
 				rec := &upsertsRecorder{}
 				w := newFakeWatcher()
-				chk := &checkerDouble{answer: func(string, string) (bool, error) { return true, nil }}
+				chk := &checkerDouble{answer: func(string, string) (int64, error) { return 1, nil }}
 				mgr := newTestManager(t, st, nil, rec.record, withInterruptChecker(chk.check), withWatcher(w))
 				sess := driveTo(t, mgr, st, state)
 				w.setWatched(sess.ID, watched)
@@ -231,7 +231,7 @@ func TestSweepInterrupts_LandsIdleLikeStop(t *testing.T) {
 
 	t.Run("a subagent-owned wait is ended by the interrupt and forgets its owner", func(t *testing.T) {
 		st := openTestStore(t)
-		chk := &checkerDouble{answer: func(string, string) (bool, error) { return true, nil }}
+		chk := &checkerDouble{answer: func(string, string) (int64, error) { return 1, nil }}
 		mgr := newTestManager(t, st, nil, nil, withInterruptChecker(chk.check))
 		sess := driveTo(t, mgr, st, StateWorking)
 		id := strconv.FormatInt(sess.ID, 10)
@@ -259,7 +259,12 @@ func TestSweepInterrupts_OnlyTheInterruptedSessionMoves(t *testing.T) {
 	mgr := newTestManager(t, st, nil, rec.record, withInterruptChecker(chk.check))
 	victim := driveTo(t, mgr, st, StateWorking)
 	bystander := driveTo(t, mgr, st, StateNeedsInput)
-	chk.answer = func(path, _ string) (bool, error) { return path == victim.TranscriptPath, nil }
+	chk.answer = func(path, _ string) (int64, error) {
+		if path == victim.TranscriptPath {
+			return 1, nil
+		}
+		return 0, nil
+	}
 	before := len(rec.all())
 
 	mgr.sweepInterrupts(context.Background())
@@ -279,12 +284,12 @@ func TestSweepInterrupts_OnlyTheInterruptedSessionMoves(t *testing.T) {
 func TestSweepInterrupts_FailuresLeaveTheSessionUnchanged(t *testing.T) {
 	tests := []struct {
 		name   string
-		answer func(path, promptID string) (bool, error)
+		answer func(path, promptID string) (int64, error)
 	}{
-		{"checker error", func(string, string) (bool, error) { return false, errors.New("permission denied") }},
-		{"checker says no", func(string, string) (bool, error) { return false, nil }},
-		{"missing transcript file via the real checker", claudecode.PromptInterrupted},
-		{"error together with a true answer is still an error", func(string, string) (bool, error) { return true, errors.New("half read") }},
+		{"checker error", func(string, string) (int64, error) { return 0, errors.New("permission denied") }},
+		{"checker says no", func(string, string) (int64, error) { return 0, nil }},
+		{"missing transcript file via the real checker", claudecode.PromptInterruptedAt},
+		{"error together with a true answer is still an error", func(string, string) (int64, error) { return 1, errors.New("half read") }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -323,7 +328,7 @@ func TestSweepInterrupts_RealTranscriptFile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := openTestStore(t)
-			mgr := newTestManager(t, st, nil, nil, withInterruptChecker(claudecode.PromptInterrupted))
+			mgr := newTestManager(t, st, nil, nil, withInterruptChecker(claudecode.PromptInterruptedAt))
 			sess := driveTo(t, mgr, st, StateWorking)
 			content := ""
 			for _, l := range tt.lines("p-" + strconv.FormatInt(sess.ID, 10)) {
@@ -342,6 +347,39 @@ func TestSweepInterrupts_RealTranscriptFile(t *testing.T) {
 	}
 }
 
+// An interrupt line stays in the transcript after the sweep acts on it, so a reopened prompt
+// must not be re-closed by that same line; only a new interrupt closes it again
+// (kb:adr/lifecycle-awaited-main-event-reopens-closed-prompt).
+func TestSweepInterrupts_ReopenedPromptNotReclosedByOldInterrupt(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil, withInterruptChecker(claudecode.PromptInterruptedAt))
+	sess := driveTo(t, mgr, st, StateWorking)
+	id := strconv.FormatInt(sess.ID, 10)
+	prompt := "p-" + id
+	line := claudecodetest.InterruptLine(prompt, false) + "\n"
+
+	writeFile(t, sess.TranscriptPath, line)
+	mgr.sweepInterrupts(ctx)
+	require.Equal(t, StateIdle, mustGet(t, mgr, sess.ID).State, "the first interrupt closes the turn")
+
+	mgr.sweepInterrupts(ctx)
+	require.Equal(t, StateIdle, mustGet(t, mgr, sess.ID).State, "a sweep while the card sits idle leaves it idle")
+
+	_, err := mgr.Apply(ctx, sess.ID, sess.ClaudeSessionID, &prompt,
+		claudecode.StateInput{Kind: claudecode.KindTurnActivity, ReopensClosedPrompt: true}, true)
+	require.NoError(t, err)
+	require.Equal(t, StateWorking, mustGet(t, mgr, sess.ID).State, "a main PreToolUse reopens the prompt")
+
+	mgr.sweepInterrupts(ctx)
+	mgr.sweepInterrupts(ctx)
+	assert.Equal(t, StateWorking, mustGet(t, mgr, sess.ID).State, "the old interrupt line must not re-close the reopened turn")
+
+	writeFile(t, sess.TranscriptPath, line+claudecodetest.InterruptLine(prompt, false)+"\n")
+	mgr.sweepInterrupts(ctx)
+	assert.Equal(t, StateIdle, mustGet(t, mgr, sess.ID).State, "a new interrupt of the reopened prompt lands idle")
+}
+
 // TestSweepInterrupts_TurnClosedBetweenCheckAndApply covers the snapshot race the arm
 // re-validates: the checker answers true, but a Stop lands meanwhile — the sweep must not
 // disturb the closed turn (it lands nothing new: state idle, prompt closed once).
@@ -350,10 +388,10 @@ func TestSweepInterrupts_TurnClosedBetweenCheckAndApply(t *testing.T) {
 	var mgr *Manager
 	var sessID int64
 	var claudeID, prompt string
-	chk := &checkerDouble{answer: func(string, string) (bool, error) {
+	chk := &checkerDouble{answer: func(string, string) (int64, error) {
 		_, err := mgr.Apply(context.Background(), sessID, claudeID, &prompt, claudecode.StateInput{Kind: claudecode.KindTurnClosed, LastActivity: strp("finished"), BackgroundTasks: intp(1)}, true)
 		require.NoError(t, err)
-		return true, nil
+		return 1, nil
 	}}
 	mgr = newTestManager(t, st, nil, nil, withInterruptChecker(chk.check))
 	sess := driveTo(t, mgr, st, StateWorking)
@@ -375,7 +413,7 @@ func TestSweepInterrupts_TurnClosedBetweenCheckAndApply(t *testing.T) {
 func TestPollLoop_SweepsInterrupts(t *testing.T) {
 	st := openTestStore(t)
 	pc := newFakePaneChecker()
-	chk := &checkerDouble{answer: func(string, string) (bool, error) { return true, nil }}
+	chk := &checkerDouble{answer: func(string, string) (int64, error) { return 1, nil }}
 	mgr := newTestManager(t, st, pc, nil, withInterruptChecker(chk.check), withPollInterval(5*time.Millisecond))
 	sess := driveTo(t, mgr, st, StateWorking)
 	pc.setExists(sess.TmuxTarget, true)

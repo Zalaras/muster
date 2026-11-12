@@ -6,7 +6,7 @@
 - A session is identified by its tmux target; the Claude session_id is a mutable attribute (kb:adr/lifecycle-session-identity-is-tmux-target, kb:fact/clear-mints-new-session-id).
 - Alive is decided by pane existence alone; SessionEnd is a hint (kb:adr/lifecycle-liveness-from-pane-existence, kb:adr/lifecycle-alive-flag-not-a-state).
 - No Claude Code payload key or event name appears here; `machine.go` switches on `Kind`, never on strings.
-- An enveloped event never rebinds backwards; stragglers past a Stop persist without transitioning (kb:adr/ingest-monotonic-rebind, kb:adr/lifecycle-prompt-ordering-guards).
+- An enveloped event never rebinds backwards; stragglers past a Stop persist without transitioning, except an unmarked awaited event (tool start, permission request) on a closed prompt, which reopens it as the current turn (kb:adr/ingest-monotonic-rebind, kb:adr/lifecycle-awaited-main-event-reopens-closed-prompt).
 - Attention is non-nil iff `needs_input`; Failure is non-nil iff `failed`. Every transitioning path clears both.
 - `ClaudeDir` and `ClaudeLocation` (where Claude is working) are display-only: only the repo poll's derivation reads `ClaudeDir`; the shell, reader, drop, resume and past-session matching use `Directory` (kb:adr/lifecycle-card-shows-launch-directory-marks-claude-elsewhere).
 - The rail's pinned-before-unpinned invariant holds per section (`railorder.go`'s `rebuild`); `railPos` stays unique across all sessions. `Session.GroupID` is display-only, like `Pinned`: only the group methods, `SetOrder` with a group and `CreateSession` write it.
@@ -23,7 +23,7 @@
 - Per-transition tests miss invariants; name each invariant and cross it from every source state (kb:lesson/invariant-missed-by-per-transition-tests).
 
 <!-- kb:trailer -->
-<!-- kb:hash ad1640600cfa3742 -->
+<!-- kb:hash e0a9df4bd521d2b2 -->
 - **actions** — Stop, Resume, Remove and Restart a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **card-location** — The card's launch directory, its branch kept fresh by the repo poll, where Claude works when elsewhere, the directories added to it, and the bind's model name. → `docs/features/card-location/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
@@ -33,5 +33,5 @@
 - **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`
 - **rename** — Muster-owned session title override, inline rename in the mainhead and tiles. → `docs/features/rename/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 80 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 81 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

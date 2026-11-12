@@ -38,6 +38,14 @@ func TestInterpret_UserPromptSubmit_Prompt(t *testing.T) {
 		assert.Nil(t, in.Prompt, "kb:fact/background-completion-new-prompt-id: a synthetic re-invocation must never surface as a user prompt")
 	})
 
+	t.Run("a prompt beginning <agent-message yields nil", func(t *testing.T) {
+		payload := []byte(`{"hook_event_name":"UserPromptSubmit","session_id":"c1","prompt_id":"p1","prompt":"<agent-message from=\"alice\">please review the diff</agent-message>"}`)
+
+		in := Interpret("UserPromptSubmit", payload)
+
+		assert.Nil(t, in.Prompt, "a teammate's message is never a last prompt, like a task notification")
+	})
+
 	t.Run("the tag appearing mid-string, not as a prefix, does not suppress the prompt", func(t *testing.T) {
 		payload := []byte(`{"hook_event_name":"UserPromptSubmit","session_id":"c1","prompt_id":"p1","prompt":"please handle ` + backgroundCompletionTag + ` literally"}`)
 
@@ -72,6 +80,40 @@ func TestInterpret_ToolUseEvents_NeverSetPrompt(t *testing.T) {
 
 			assert.Equal(t, KindTurnActivity, in.Kind)
 			assert.Nil(t, in.Prompt)
+		})
+	}
+}
+
+// TestInterpret_ReopensClosedPromptFlag: the neutral flag is true exactly for a PreToolUse or
+// PermissionRequest without the subagent marker — the awaited main-agent events
+// (kb:fact/hook-await-per-event) — and false for every other event.
+func TestInterpret_ReopensClosedPromptFlag(t *testing.T) {
+	tests := []struct {
+		event string
+		extra string
+		want  bool
+	}{
+		{"PreToolUse", ``, true},
+		{"PermissionRequest", ``, true},
+		{"PostToolUse", ``, false},
+		{"PostToolBatch", ``, false},
+		{"PreToolUse", `,"agent_id":"a1","agent_type":"helper"`, false},
+		{"PermissionRequest", `,"agent_id":"a1","agent_type":"helper"`, false},
+		{"UserPromptSubmit", `,"prompt":"hi"`, false},
+		{"Stop", ``, false},
+		{"Notification", `,"notification_type":"permission_prompt"`, false},
+	}
+	for _, tt := range tests {
+		name := tt.event
+		if tt.extra != "" {
+			name += tt.extra
+		}
+		t.Run(name, func(t *testing.T) {
+			payload := []byte(`{"hook_event_name":"` + tt.event + `","session_id":"c1","prompt_id":"p1"` + tt.extra + `}`)
+
+			in := Interpret(tt.event, payload)
+
+			assert.Equal(t, tt.want, in.ReopensClosedPrompt)
 		})
 	}
 }

@@ -130,3 +130,85 @@ func TestPromptInterrupted(t *testing.T) {
 		assert.False(t, got, "the interrupt is the last line of its prompt, so a line pushed out of the tail belongs to a long-closed prompt")
 	})
 }
+
+// TestPromptInterruptedAt covers the offset the sweep compares to tell a new interrupt from
+// the old line still sitting in the transcript: 0 when there is none, a positive offset past
+// the last interrupt line of the prompt, strictly larger once another such line is appended,
+// and unmoved by other prompts' interrupt lines.
+func TestPromptInterruptedAt(t *testing.T) {
+	write := func(t *testing.T, content string) string {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), "t.jsonl")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+		return path
+	}
+	first := jsonl(toolUseLine("p1"), claudecodetest.InterruptLine("p1", false))
+
+	t.Run("0 when the prompt has no interrupt line", func(t *testing.T) {
+		for name, content := range map[string]string{
+			"empty file":       "",
+			"tool use only":    jsonl(toolUseLine("p1")),
+			"plan rejection":   jsonl(claudecodetest.PlanRejectionLine("p1")),
+			"another prompt's": jsonl(claudecodetest.InterruptLine("p0", false), toolUseLine("p1")),
+			"a newer prompt's": jsonl(claudecodetest.InterruptLine("p2", true)),
+		} {
+			t.Run(name, func(t *testing.T) {
+				got, err := PromptInterruptedAt(write(t, content), "p1")
+
+				require.NoError(t, err)
+				assert.Zero(t, got)
+			})
+		}
+	})
+
+	t.Run("one interrupt line gives a positive offset within the file", func(t *testing.T) {
+		got, err := PromptInterruptedAt(write(t, first), "p1")
+
+		require.NoError(t, err)
+		assert.Positive(t, got)
+		assert.LessOrEqual(t, got, int64(len(first)))
+		assert.Greater(t, got, int64(len(jsonl(toolUseLine("p1")))), "past the interrupt line, not before it")
+	})
+
+	t.Run("a second interrupt line of the same prompt gives a strictly larger offset", func(t *testing.T) {
+		before, err := PromptInterruptedAt(write(t, first), "p1")
+		require.NoError(t, err)
+		second := first + jsonl(toolUseLine("p1"), claudecodetest.InterruptLine("p1", true))
+
+		after, err := PromptInterruptedAt(write(t, second), "p1")
+
+		require.NoError(t, err)
+		assert.Greater(t, after, before)
+		assert.LessOrEqual(t, after, int64(len(second)))
+	})
+
+	t.Run("another prompt's interrupt line appended leaves the offset unchanged", func(t *testing.T) {
+		before, err := PromptInterruptedAt(write(t, first), "p1")
+		require.NoError(t, err)
+
+		after, err := PromptInterruptedAt(write(t, first+jsonl(claudecodetest.InterruptLine("p2", false))), "p1")
+
+		require.NoError(t, err)
+		assert.Equal(t, before, after)
+	})
+
+	t.Run("the offset is absolute in a file larger than the tail window", func(t *testing.T) {
+		filler := strings.Repeat(toolUseLine("p1")+"\n", 2*transcriptTailBytes/len(toolUseLine("p1")))
+		content := filler + claudecodetest.InterruptLine("p1", false) + "\n"
+
+		got, err := PromptInterruptedAt(write(t, content), "p1")
+
+		require.NoError(t, err)
+		assert.Greater(t, got, int64(len(filler)), "counted from the file start, not the tail start")
+		assert.LessOrEqual(t, got, int64(len(content)))
+	})
+
+	t.Run("a missing file is 0 with no error, a directory an error", func(t *testing.T) {
+		got, err := PromptInterruptedAt(filepath.Join(t.TempDir(), "absent.jsonl"), "p1")
+		require.NoError(t, err)
+		assert.Zero(t, got)
+
+		_, err = PromptInterruptedAt(t.TempDir(), "p1")
+		assert.Error(t, err)
+	})
+}

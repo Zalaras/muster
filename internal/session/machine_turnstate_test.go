@@ -1,6 +1,7 @@
 package session
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -577,4 +578,125 @@ func TestApplyInput_TurnStateInvariantsAcrossEverySourceState(t *testing.T) {
 			}
 		}
 	}
+}
+
+// hookReplay feeds raw hook payloads through the real claudecode.Interpret into applyInput
+// the way the ingest worker does: the prompt id comes from the payload, the state moves
+// only through the machine.
+type hookReplay struct {
+	t    *testing.T
+	sess *Session
+}
+
+func newHookReplay(t *testing.T) *hookReplay {
+	t.Helper()
+	sess := newTestSession()
+	sess.ClaudeSessionID = "c1"
+	return &hookReplay{t: t, sess: sess}
+}
+
+func (r *hookReplay) feed(event, payload string) {
+	r.t.Helper()
+	var f struct {
+		PromptID *string `json:"prompt_id"`
+	}
+	require.NoError(r.t, json.Unmarshal([]byte(payload), &f))
+	applyInput(r.sess, "c1", f.PromptID, claudecode.Interpret(event, []byte(payload)), laterNow())
+}
+
+// hookOpts is the tool-hook shape every replay step uses: prompt p1, default permission
+// mode, and a teammate marker when agentID is set.
+func hookOpts(agentID string) claudecodetest.ToolFileOpts {
+	return claudecodetest.ToolFileOpts{PromptID: "p1", PermissionMode: "default", AgentID: agentID}
+}
+
+// feedTeammateLifecycle replays the agent-marked SubagentStart, SubagentStop and TeammateIdle
+// a finished teammate sends (kb:fact/teammate-reinvocation-reuses-closed-prompt-id).
+func (r *hookReplay) feedTeammateLifecycle(agentID string) {
+	r.t.Helper()
+	for _, event := range []string{"SubagentStart", "SubagentStop", "TeammateIdle"} {
+		r.feed(event, `{"hook_event_name":"`+event+`","session_id":"c1","prompt_id":"p1","agent_id":"`+agentID+`","agent_type":"helper"}`)
+	}
+}
+
+// TestApplyInput_TeammateReinvocationOnClosedPrompt replays kb:fact/teammate-reinvocation-reuses-closed-prompt-id
+// (#122): a teammate finishes after the main Stop and Claude Code re-invokes the main
+// agent with no UserPromptSubmit, under the prompt id the Stop closed. The awaited main
+// events (PreToolUse, PermissionRequest) reopen it; the unawaited ones stay stragglers.
+func TestApplyInput_TeammateReinvocationOnClosedPrompt(t *testing.T) {
+	r := newHookReplay(t)
+	sess := r.sess
+
+	r.feed("UserPromptSubmit", claudecodetest.RawUserPromptSubmit("c1", claudecodetest.PromptSubmitOpts{PromptID: "p1", PermissionMode: "default", Prompt: "start a teammate"}))
+	r.feed("PreToolUse", claudecodetest.RawPreToolUseTool("c1", "Agent", hookOpts("")))
+	r.feed("PostToolUse", claudecodetest.RawPostToolUseFile("c1", "Agent", "/tmp/x", hookOpts("")))
+	r.feed("Stop", claudecodetest.RawStop("c1", claudecodetest.StopOpts{PromptID: "p1", PermissionMode: "default"}))
+	require.Equal(t, StateIdle, sess.State)
+	require.True(t, sess.promptClosed("p1"))
+
+	r.feedTeammateLifecycle("a1")
+	require.Equal(t, StateIdle, sess.State, "the teammate's lifecycle events never move the main card")
+
+	r.feed("PreToolUse", claudecodetest.RawPreToolUseTool("c1", "Read", hookOpts("")))
+	assert.Equal(t, StateWorking, sess.State, "a main PreToolUse on the closed id is the re-invoked turn working")
+	assert.Equal(t, "p1", sess.currentPromptID, "the reopened id is the current prompt")
+	assert.False(t, sess.promptClosed("p1"), "the reopened id has left the closed ring")
+
+	r.feed("PostToolUse", claudecodetest.RawPostToolUseFile("c1", "Read", "/tmp/x", hookOpts("")))
+	r.feed("PostToolBatch", claudecodetest.RawPostToolBatch("c1", hookOpts("")))
+	assert.Equal(t, StateWorking, sess.State)
+
+	r.feed("Stop", claudecodetest.RawStop("c1", claudecodetest.StopOpts{PromptID: "p1", PermissionMode: "default"}))
+	assert.Equal(t, StateIdle, sess.State)
+	assert.Empty(t, sess.currentPromptID, "the second Stop clears the current prompt")
+	assert.True(t, sess.promptClosed("p1"), "the second Stop closes the id again")
+
+	r.feed("PreToolUse", claudecodetest.RawPreToolUseTool("c1", "AskUserQuestion", hookOpts("")))
+	r.feed("PermissionRequest", claudecodetest.RawPermissionRequest("c1", "p1"))
+	assert.Equal(t, StateNeedsInput, sess.State, "a main PermissionRequest on the closed id reopens it and waits on the developer")
+	assert.Empty(t, sess.AttentionAgent, "the main agent owns the wait")
+	assertTurnStateInvariants(t, sess)
+}
+
+// TestApplyInput_TeammateReinvocationAskUserQuestionReadsNeedsInput replays #123: a teammate
+// t1 keeps sending agent-marked hooks while the re-invoked main agent asks the developer a
+// question. The wait is the main agent's, so t1's traffic must not knock it back to working
+// (INV-B), and the answer's PostToolUse lands working.
+func TestApplyInput_TeammateReinvocationAskUserQuestionReadsNeedsInput(t *testing.T) {
+	r := newHookReplay(t)
+	sess := r.sess
+
+	r.feed("UserPromptSubmit", claudecodetest.RawUserPromptSubmit("c1", claudecodetest.PromptSubmitOpts{PromptID: "p1", PermissionMode: "default", Prompt: "start teammate"}))
+	r.feed("PreToolUse", claudecodetest.RawPreToolUseTool("c1", "Agent", hookOpts("")))
+	r.feed("PreToolUse", claudecodetest.RawPreToolUseTool("c1", "Bash", hookOpts("t1")))
+	r.feed("Stop", claudecodetest.RawStop("c1", claudecodetest.StopOpts{PromptID: "p1", PermissionMode: "default"}))
+	require.Equal(t, StateIdle, sess.State)
+	r.feed("PreToolUse", claudecodetest.RawPreToolUseTool("c1", "Bash", hookOpts("t1")))
+
+	r.feed("PreToolUse", claudecodetest.RawPreToolUseTool("c1", "AskUserQuestion", hookOpts("")))
+	r.feed("PermissionRequest", claudecodetest.RawPermissionRequest("c1", "p1"))
+	assert.Equal(t, StateNeedsInput, sess.State, "AskUserQuestion in the re-invoked turn is needs_input")
+	assert.Empty(t, sess.AttentionAgent)
+
+	steps := []struct{ name, event, payload string }{
+		{"t1 PreToolUse", "PreToolUse", claudecodetest.RawPreToolUseTool("c1", "Bash", hookOpts("t1"))},
+		{"t1 PostToolUse", "PostToolUse", claudecodetest.RawPostToolUseFile("c1", "Bash", "/tmp/x", hookOpts("t1"))},
+		{"t1 PostToolBatch", "PostToolBatch", claudecodetest.RawPostToolBatch("c1", hookOpts("t1"))},
+		{"permission_prompt notification", "Notification", claudecodetest.RawNotification("c1", "p1", "permission_prompt")},
+	}
+	for _, step := range steps {
+		r.feed(step.event, step.payload)
+		assert.Equal(t, StateNeedsInput, sess.State, "still needs_input after %s", step.name)
+		assert.Empty(t, sess.AttentionAgent, "the main agent still owns the wait after %s", step.name)
+		assertTurnStateInvariants(t, sess)
+	}
+
+	r.feed("PostToolUse", claudecodetest.RawPostToolUseFile("c1", "AskUserQuestion", "/tmp/x", hookOpts("")))
+	assert.Equal(t, StateWorking, sess.State, "the answer's PostToolUse lands working (the id left the closed ring)")
+	assertTurnStateInvariants(t, sess)
+
+	r.feed("Stop", claudecodetest.RawStop("c1", claudecodetest.StopOpts{PromptID: "p1", PermissionMode: "default"}))
+	assert.Equal(t, StateIdle, sess.State)
+	assert.Empty(t, sess.currentPromptID)
+	assert.True(t, sess.promptClosed("p1"))
 }

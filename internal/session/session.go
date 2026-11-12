@@ -5,6 +5,7 @@
 package session
 
 import (
+	"slices"
 	"time"
 	"unicode/utf8"
 
@@ -300,6 +301,11 @@ func (s *Session) promptClosed(id string) bool {
 		}
 	}
 	return false
+}
+
+func (s *Session) reopenPrompt(id string) {
+	s.closedPromptIDs = slices.DeleteFunc(s.closedPromptIDs, func(closed string) bool { return closed == id })
+	s.currentPromptID = id
 }
 
 func (s *Session) closePrompt(id string) {

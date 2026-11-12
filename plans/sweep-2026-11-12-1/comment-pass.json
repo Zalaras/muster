@@ -1,0 +1,263 @@
+{
+  "plan": "sweep-2026-11-12-1",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-11-12T08:32:06Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 5,
+        "keep": 2,
+        "drop": 3
+      },
+      "keeps": [
+        {
+          "key": "internal/session/machine.go:2f8ebfb21dee999a",
+          "path": "internal/session/machine.go",
+          "anchor": {
+            "kind": "above",
+            "text": "//nolint:gocyclo // one arm per wire Kind; splitting strands the cross-referencing attention/failure/prompt invariant comments",
+            "line": 9
+          },
+          "lines": [
+            "// applyInput mutates sess per kb:anchor/state.transitions / kb:anchor/state.ordering, given the already-resolved",
+            "// claudeSessionID and promptID (generic identifiers — not Claude Code payload",
+            "// vocabulary) and the neutral StateInput the claudecode interpreter derived. Callers",
+            "// hold the manager's lock.",
+            "//",
+            "// Deliberately exceeds the complexity ceiling. Every arm is one Kind of the wire",
+            "// vocabulary, so the count is the domain's, not this function's, and the",
+            "// attention/failure/prompt-adoption invariant comments cross-reference between adjacent",
+            "// arms (\"also reachable from failed\") — splitting the switch would strand an invariant's",
+            "// halves in different functions, which no test can catch. See",
+            "// kb:adr/lifecycle-awaited-main-event-reopens-closed-prompt, kb:adr/ingest-monotonic-rebind and",
+            "// kb:adr/lifecycle-subagent-marked-events-not-stragglers.",
+            "//"
+          ],
+          "reason": "Edited on main; still true: the `//nolint:gocyclo` on `applyInput` is one arm per wire Kind, as the comment says."
+        },
+        {
+          "key": "internal/session/machine.go:e9d007a7ae8448d1",
+          "path": "internal/session/machine.go",
+          "anchor": {
+            "kind": "above",
+            "text": "if closed \u0026\u0026 input.ReopensClosedPrompt \u0026\u0026 !input.FromSubagent {",
+            "line": 24
+          },
+          "lines": [
+            "// A closed prompt with the subagent marker is a background subagent still",
+            "// working past the parent's Stop (kb:fact/subagent-hooks-carry-agent-id): it",
+            "// transitions the session like ordinary activity, but the closed prompt id",
+            "// itself is never reopened or adopted as current. An awaited main-agent event",
+            "// on a closed prompt is a re-invoked turn and reopens it",
+            "// (kb:adr/lifecycle-awaited-main-event-reopens-closed-prompt)."
+          ],
+          "reason": "Edited on main; still true: `if closed \u0026\u0026 input.ReopensClosedPrompt \u0026\u0026 !input.FromSubagent {` reopens only for an awaited main-agent event, while subagent-marked events on closed prompts are never reopened."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/claudecode/interpret.go:01abcc3505cc1566",
+          "path": "internal/claudecode/interpret.go",
+          "anchor": {
+            "kind": "above",
+            "text": "const teammateMessageTag = \"\u003cagent-message\"",
+            "line": 13
+          },
+          "lines": [
+            "// teammateMessageTag marks a prompt-submit event carrying a teammate's message: never a",
+            "// real user prompt, so it's never surfaced as StateInput.Prompt."
+          ]
+        },
+        {
+          "key": "internal/claudecode/interpret.go:33e578e42df8aa3c",
+          "path": "internal/claudecode/interpret.go",
+          "anchor": {
+            "kind": "above",
+            "text": "ReopensClosedPrompt bool",
+            "line": 64
+          },
+          "lines": [
+            "// ReopensClosedPrompt is true for an awaited main-agent event (tool start, permission",
+            "// request): on a prompt id already closed it is the re-invoked turn, not a straggler",
+            "// (kb:adr/lifecycle-awaited-main-event-reopens-closed-prompt). False for tool-end,",
+            "// batch-end, marked and every other event."
+          ]
+        },
+        {
+          "key": "internal/claudecode/interpret.go:c77fe478436d0d77",
+          "path": "internal/claudecode/interpret.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func interpretToolEvent(eventType string, payload []byte) StateInput {",
+            "line": 179
+          },
+          "lines": [
+            "// interpretToolEvent reads the main-or-subagent tool and permission hooks; only an",
+            "// unmarked tool start or permission request is awaited and may reopen a closed prompt."
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-11-12T08:58:10Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 10,
+        "keep": 3,
+        "drop": 7
+      },
+      "keeps": [
+        {
+          "key": "internal/claudecode/interpret_transcript.go:efaaa82382ecc3fa",
+          "path": "internal/claudecode/interpret_transcript.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func PromptInterrupted(transcriptPath, promptID string) (bool, error) {",
+            "line": 19
+          },
+          "lines": [
+            "// PromptInterrupted reports whether the transcript at path records an interrupt of the",
+            "// prompt promptID; see PromptInterruptedAt."
+          ],
+          "reason": "Edited on `main`; still true: `PromptInterrupted` returns `at \u003e 0` from `PromptInterruptedAt`, so it reports whether an interrupt of the prompt is recorded."
+        },
+        {
+          "key": "internal/claudecode/interpret_transcript.go:f3fdb8f2b7f848aa",
+          "path": "internal/claudecode/interpret_transcript.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func scanInterruptEnd(r io.Reader, promptID string, base int64) int64 {",
+            "line": 39
+          },
+          "lines": [
+            "// scanInterruptEnd returns base plus the offset just past the last JSONL `user` line for",
+            "// promptID carrying a text block that starts with interruptTextPrefix, or 0 when r holds",
+            "// none. Lines that are not JSON (a tail read can begin mid-line) and lines of any other",
+            "// shape are skipped. A plan-feedback rejection writes a tool_result block only, never this",
+            "// text, so it never matches.",
+            "//",
+            "// It reads with bufio.Reader, not the bufio.Scanner of transcriptScan.scanChunk",
+            "// (launchtranscripts.go): Scanner caps a line (1 MiB there) and stops the whole scan on",
+            "// an over-long one, and a tail holding one huge tool_result line ahead of the interrupt",
+            "// line must not hide the interrupt. ReadBytes has no cap."
+          ],
+          "reason": "Edited on `main`; still true: `scanInterruptEnd` reads with `bufio.NewReader`/`ReadBytes`, returns `last` (0 when none) and skips non-matching lines via `lineInterrupts`."
+        },
+        {
+          "key": "internal/session/interrupt.go:f0083fd4cae35e40",
+          "path": "internal/session/interrupt.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) pruneInterruptActed() {",
+            "line": 75
+          },
+          "lines": [
+            "// pruneInterruptActed drops marks of removed sessions and of sessions now on another",
+            "// prompt. A closed turn has no current prompt, so its mark is kept until the prompt",
+            "// reopens or is replaced."
+          ],
+          "reason": "Without it a reader would simplify the prune condition at `(s.currentPromptID != \"\" \u0026\u0026 s.currentPromptID != mark.promptID)` to delete marks whenever the prompt is empty, so a closed turn loses its mark and the same interrupt line is acted on again."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/claudecode/interpret_transcript.go:8f0ef1c3e3b9f234",
+          "path": "internal/claudecode/interpret_transcript.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func PromptInterruptedAt(transcriptPath, promptID string) (int64, error) {",
+            "line": 24
+          },
+          "lines": [
+            "// PromptInterruptedAt returns the absolute file offset just past the last interrupt line",
+            "// for promptID in the transcript's tail, or 0 when there is none. It reads only the file's",
+            "// tail (the interrupt line is the last line of its prompt, so transcriptTailBytes is",
+            "// enough). A missing file is (0, nil): a session that has not written a transcript yet has",
+            "// not been interrupted. The offset lets a caller tell a new interrupt line from one it has",
+            "// already acted on."
+          ]
+        },
+        {
+          "key": "internal/claudecode/interpret_transcript.go:a240a7c4a7fda026",
+          "path": "internal/claudecode/interpret_transcript.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func scanInterrupt(r io.Reader, promptID string) bool {",
+            "line": 35
+          },
+          "lines": [
+            "// scanInterrupt reports whether r holds an interrupt line for promptID."
+          ]
+        },
+        {
+          "key": "internal/claudecode/launchtranscripts.go:a271d1f69ac62eeb",
+          "path": "internal/claudecode/launchtranscripts.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func readTailFrom(path string, n int) ([]byte, int64, error) {",
+            "line": 297
+          },
+          "lines": [
+            "// readTailFrom is readTail plus the absolute file offset the returned bytes start at."
+          ]
+        },
+        {
+          "key": "internal/session/interrupt.go:25a5ade58a6cf071",
+          "path": "internal/session/interrupt.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type interruptMark struct {",
+            "line": 19
+          },
+          "lines": [
+            "// interruptMark is the interrupt line a session's turn was last closed on."
+          ]
+        },
+        {
+          "key": "internal/session/manager.go:be72e47738d84d49",
+          "path": "internal/session/manager.go",
+          "anchor": {
+            "kind": "above",
+            "text": "InterruptChecker InterruptChecker",
+            "line": 105
+          },
+          "lines": [
+            "// InterruptChecker returns the offset just past the last interrupt line of promptID in",
+            "// the transcript at path, 0 when none. Injected so this package never reads transcript bytes",
+            "// (kb:adr/lifecycle-interrupt-read-from-transcript); nil disables the interrupt sweep."
+          ]
+        },
+        {
+          "key": "internal/session/manager.go:1d335085bf7438ed",
+          "path": "internal/session/manager.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type InterruptChecker func(path, promptID string) (int64, error)",
+            "line": 108
+          },
+          "lines": [
+            "// InterruptChecker returns the absolute offset just past the last interrupt line the",
+            "// transcript at path records for promptID, 0 when none. The one declaration of the seam: session.Config, server.Config and the",
+            "// Manager field all use it, so a signature change happens here."
+          ]
+        },
+        {
+          "key": "internal/session/manager.go:fde406fe39179a01",
+          "path": "internal/session/manager.go",
+          "anchor": {
+            "kind": "above",
+            "text": "interruptActed map[int64]interruptMark",
+            "line": 128
+          },
+          "lines": [
+            "// interruptActed is, per session id, the prompt and transcript offset of the interrupt",
+            "// line sweepInterrupts last closed a turn on. Written only by sweepInterrupts, guarded",
+            "// by mu, at most one entry per session."
+          ]
+        }
+      ]
+    }
+  ]
+}

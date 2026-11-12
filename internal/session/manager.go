@@ -102,16 +102,10 @@ type Config struct {
 
 	OnRestartDue func(id int64)
 
-	// InterruptChecker reports whether the transcript at path records an interrupt of
-	// promptID. Injected so this package never reads transcript bytes
-	// (kb:adr/lifecycle-interrupt-read-from-transcript); nil disables the interrupt sweep.
 	InterruptChecker InterruptChecker
 }
 
-// InterruptChecker reports whether the transcript at path records an interrupt of
-// promptID. The one declaration of the seam: session.Config, server.Config and the
-// Manager field all use it, so a signature change happens here.
-type InterruptChecker func(path, promptID string) (bool, error)
+type InterruptChecker func(path, promptID string) (int64, error)
 
 // Manager is the in-memory session registry and the kb:anchor/state state machine's home. Every
 // mutation persists the full row and (unless OnUpsert is nil) broadcasts the fresh
@@ -131,6 +125,7 @@ type Manager struct {
 	watcher          Watcher
 	// interruptChecker is Config.InterruptChecker, read only by sweepInterrupts.
 	interruptChecker InterruptChecker
+	interruptActed   map[int64]interruptMark
 
 	// installedClaude is the installed Claude Code version, "" while unknown, and
 	// installedChecked whether SetInstalledClaude has run at all; both guarded by mu.
@@ -299,6 +294,7 @@ func NewManager(cfg Config) *Manager {
 		interval:         interval,
 		watcher:          cfg.Watcher,
 		interruptChecker: cfg.InterruptChecker,
+		interruptActed:   make(map[int64]interruptMark),
 		sessions:         make(map[int64]*Session),
 		byClaude:         make(map[string]int64),
 		launchGroups:     make(map[int64]struct{}),
