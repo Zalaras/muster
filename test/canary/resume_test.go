@@ -237,7 +237,7 @@ func TestScratchpadDirPerSessionID(t *testing.T) {
 		assertShape(scratchpad(cleared), cleared.ev.SessionID, "the /clear SessionStart's")
 		assert.NotEqual(t, original, scratchpad(cleared), "/clear must move the session to a new scratchpad")
 		_, err := os.Stat(original)
-		assert.NoError(t, err, "/clear must keep the old scratchpad folder")
+		require.NoError(t, err, "/clear must keep the old scratchpad folder")
 	} else {
 		t.Logf("run D's /clear step did not complete (%v); the /clear half is TestClearMintsNewSessionID's failure to report", f.interactive.clearErr)
 	}
