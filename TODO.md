@@ -143,20 +143,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   kb:adr/lifecycle-background-tasks-count-not-state, so a change goes through `/spec` together with
   #96. Research: `plans/sweep-2026-11-03/research/e3.md`.
 
-- [ ] **IDLE while WORKING** ([#122](https://github.com/Zalaras/muster/issues/122)) — A session
-  shows as idle on the dashboard while the main session is still working through a turn, possibly
-  after switching to the docs tab. Expected: A session that is actively working in a turn should
-  show a working state rather than idle.
-  Filed 2026-11-10 from musterd 0.29.1 / Claude Code 2.1.322, focus view, session idle.
-  Labels: bug, lifecycle.
-
-- [ ] **Says Working but is actually Needs Input** ([#123](https://github.com/Zalaras/muster/issues/123)) — A
-  session is shown as Working in the dashboard while it is actually waiting for the user, which is
-  the Needs Input state. Expected: A session that is waiting on the user should be shown as Needs
-  Input rather than Working.
-  Filed 2026-11-10 from musterd 0.29.1 / Claude Code 2.1.322, focus view, session working; 1 image attached.
-  Labels: bug, lifecycle.
-
 - [ ] **Review how menus behave while the daemon is down** — an open card right-click menu
   closes at each reconnect attempt (about 2 s, 4 s and 8 s) while musterd is unreachable; the
   other menus, popovers and dialogs may do the same. Decide how each should behave while the
