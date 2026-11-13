@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClaudeCodeInfo } from "../protocol/hello";
 import type { Density } from "../protocol/prefs";
-import type { ModelWindow, Usage } from "../protocol/usage";
+import { type ModelWindow, UNKNOWN_USAGE, type Usage } from "../protocol/usage";
 import { formatResets, formatResetsTitle } from "../sessions/format";
 import {
   buildUsageBucket,
@@ -711,12 +711,7 @@ describe("buildUsageModelWeek + renderUsageModelWeek (plan usage-model-bar REQ-9
     usedPct: 20.0,
     resetsAt: "2026-09-01T13:59:59Z",
   };
-  const baseUsage: Usage = {
-    fiveHour: null,
-    sevenDay: null,
-    sampledAt: null,
-    source: "subscription",
-  };
+  const baseUsage: Usage = { ...UNKNOWN_USAGE };
 
   beforeEach(() => {
     vi.stubGlobal("document", { createElement: (tag: string) => new FakeDomNodeRich(tag) });
@@ -978,12 +973,7 @@ describe("renderUsageModelWeek — node reuse across render passes (review cycle
     usedPct: 20.0,
     resetsAt: "2026-09-01T13:59:59Z",
   };
-  const baseUsage: Usage = {
-    fiveHour: null,
-    sevenDay: null,
-    sampledAt: null,
-    source: "subscription",
-  };
+  const baseUsage: Usage = { ...UNKNOWN_USAGE };
 
   beforeEach(() => {
     vi.stubGlobal("document", { createElement: (tag: string) => new FakeDomNodeRich(tag) });

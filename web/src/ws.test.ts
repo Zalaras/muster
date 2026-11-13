@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GroupsMessage } from "./protocol/groups";
 import type { Hello } from "./protocol/hello";
 import type { DocChanged } from "./protocol/messages";
-import type { PrefsMessage } from "./protocol/prefs";
+import { PREF_DEFAULTS, type PrefsMessage } from "./protocol/prefs";
 import type { Session } from "./protocol/session";
 import { makeSnapshot, makeUpdateInfo } from "./protocol/testfixtures";
 import type { ClaudeThemeMessage } from "./protocol/theme";
 import type { UpdateMessage } from "./protocol/update";
-import type { Usage, UsageMessage } from "./protocol/usage";
+import { UNKNOWN_USAGE, type Usage, type UsageMessage } from "./protocol/usage";
 import { makeRepo, makeSession } from "./sessions/testfixtures";
 import { backoffDelay, type SocketLike, WsClient, type WsClientHandlers } from "./ws";
 
@@ -26,6 +26,7 @@ const snapshot = makeSnapshot({ update: updateInfo });
 const prefsMessage: PrefsMessage = {
   type: "prefs",
   prefs: {
+    ...PREF_DEFAULTS,
     view: "tiles",
     density: "3x2",
     usageModel: "Opus",
@@ -40,6 +41,7 @@ const prefsMessage: PrefsMessage = {
 const updateMessage: UpdateMessage = { type: "update", update: updateInfo };
 
 const usage: Usage = {
+  ...UNKNOWN_USAGE,
   fiveHour: { usedPct: 61.2, resetsAt: "2026-08-23T11:00:00Z" },
   sevenDay: { usedPct: 23.0, resetsAt: "2026-08-25T06:00:00Z" },
   sampledAt: "2026-08-23T09:15:31Z",
