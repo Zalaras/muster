@@ -6,8 +6,7 @@
 // (this file's own fakeStorage, matching reader/memory.test.ts's shape).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../app";
-import type { Snapshot } from "../protocol/messages";
-import { makeUpdateInfo } from "../protocol/testfixtures";
+import { makeSnapshot, makeUpdateInfo } from "../protocol/testfixtures";
 import type { UpdateInfo } from "../protocol/update";
 import type { StorageLike } from "../storage";
 import { computeBannerOverride, initUpdateRestart } from "./updaterestart";
@@ -52,28 +51,6 @@ const baseUpdate = makeUpdateInfo();
 
 function restartingUpdate(version: string): UpdateInfo {
   return { ...baseUpdate, apply: { phase: "restarting", version, error: null } };
-}
-
-function makeSnapshot(update: UpdateInfo | null): Snapshot {
-  return {
-    type: "snapshot",
-    sessions: [],
-    usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-    prefs: {
-      view: "focus",
-      density: "2x2",
-      usageModel: "Fable",
-      railSort: "manual",
-      theme: "follow",
-      updateCheck: true,
-      railDensity: "comfortable",
-      railActivity: "turn",
-    },
-    claudeTheme: { family: "unknown" },
-    groups: [],
-    ungrouped: { pos: 0, collapsed: false },
-    update,
-  };
 }
 
 describe("computeBannerOverride (pure — W1/W2/W3/W5)", () => {
@@ -287,7 +264,7 @@ describe("initUpdateRestart — confirmation from the sessionStorage handoff (RE
     const storage = fakeStorage({ "muster.update-restart": JSON.stringify({ version: "0.18.1" }) });
     const app = createApp();
     const handle = initUpdateRestart(app, storage);
-    app.emit("snapshot", makeSnapshot({ ...baseUpdate, running: "0.18.1" }));
+    app.emit("snapshot", makeSnapshot({ update: { ...baseUpdate, running: "0.18.1" } }));
     expect(handle.bannerOverride(new Date(), "connected")).toEqual({
       text: "Updated to v0.18.1.",
       neutral: true,
@@ -309,7 +286,7 @@ describe("initUpdateRestart — confirmation from the sessionStorage handoff (RE
       initUpdateRestart(app, storage);
       const renderSpy = vi.spyOn(app, "render");
 
-      app.emit("snapshot", makeSnapshot({ ...baseUpdate, running: "0.18.1" }));
+      app.emit("snapshot", makeSnapshot({ update: { ...baseUpdate, running: "0.18.1" } }));
       expect(renderSpy).not.toHaveBeenCalled();
 
       vi.advanceTimersByTime(3_049);
@@ -330,14 +307,14 @@ describe("initUpdateRestart — confirmation from the sessionStorage handoff (RE
     const storage = fakeStorage({ "muster.update-restart": JSON.stringify({ version: "0.18.1" }) });
     const app = createApp();
     const handle = initUpdateRestart(app, storage);
-    app.emit("snapshot", makeSnapshot({ ...baseUpdate, running: "0.19.0" }));
+    app.emit("snapshot", makeSnapshot({ update: { ...baseUpdate, running: "0.19.0" } }));
     expect(handle.bannerOverride(new Date(), "connected")).toBeNull();
   });
 
   it("INV-3: never confirms when no handoff was ever written", () => {
     const app = createApp();
     const handle = initUpdateRestart(app, fakeStorage());
-    app.emit("snapshot", makeSnapshot({ ...baseUpdate, running: "0.18.1" }));
+    app.emit("snapshot", makeSnapshot({ update: { ...baseUpdate, running: "0.18.1" } }));
     expect(handle.bannerOverride(new Date(), "connected")).toBeNull();
   });
 
@@ -345,14 +322,14 @@ describe("initUpdateRestart — confirmation from the sessionStorage handoff (RE
     const storage = fakeStorage({ "muster.update-restart": JSON.stringify({ version: "0.18.1" }) });
     const app = createApp();
     const handle = initUpdateRestart(app, storage);
-    app.emit("snapshot", makeSnapshot(null));
+    app.emit("snapshot", makeSnapshot({ update: null }));
     expect(handle.bannerOverride(new Date(), "connected")).toBeNull();
   });
 
   it("INV-3: never confirms from a throwing storage (private mode) — degrades the same as no handoff", () => {
     const app = createApp();
     const handle = initUpdateRestart(app, throwingStorage());
-    app.emit("snapshot", makeSnapshot({ ...baseUpdate, running: "0.18.1" }));
+    app.emit("snapshot", makeSnapshot({ update: { ...baseUpdate, running: "0.18.1" } }));
     expect(handle.bannerOverride(new Date(), "connected")).toBeNull();
   });
 
@@ -362,7 +339,7 @@ describe("initUpdateRestart — confirmation from the sessionStorage handoff (RE
     });
     const app = createApp();
     const handle = initUpdateRestart(app, storage);
-    app.emit("snapshot", makeSnapshot({ ...baseUpdate, running: "0.18.1" }));
+    app.emit("snapshot", makeSnapshot({ update: { ...baseUpdate, running: "0.18.1" } }));
     expect(handle.bannerOverride(new Date(), "connected")).toBeNull();
   });
 
@@ -371,9 +348,9 @@ describe("initUpdateRestart — confirmation from the sessionStorage handoff (RE
     const app = createApp();
     const handle = initUpdateRestart(app, storage);
     // First snapshot doesn't match — the handoff is "used up" regardless.
-    app.emit("snapshot", makeSnapshot({ ...baseUpdate, running: "0.9.0" }));
+    app.emit("snapshot", makeSnapshot({ update: { ...baseUpdate, running: "0.9.0" } }));
     // A later snapshot (e.g. after an unrelated reconnect) does match, but must not confirm.
-    app.emit("snapshot", makeSnapshot({ ...baseUpdate, running: "0.18.1" }));
+    app.emit("snapshot", makeSnapshot({ update: { ...baseUpdate, running: "0.18.1" } }));
     expect(handle.bannerOverride(new Date(), "connected")).toBeNull();
   });
 });

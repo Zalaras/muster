@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GroupsMessage } from "./protocol/groups";
 import type { Hello } from "./protocol/hello";
-import type { DocChanged, Snapshot } from "./protocol/messages";
+import type { DocChanged } from "./protocol/messages";
 import type { PrefsMessage } from "./protocol/prefs";
 import type { Session } from "./protocol/session";
-import { makeUpdateInfo } from "./protocol/testfixtures";
+import { makeSnapshot, makeUpdateInfo } from "./protocol/testfixtures";
 import type { ClaudeThemeMessage } from "./protocol/theme";
 import type { UpdateMessage } from "./protocol/update";
 import type { Usage, UsageMessage } from "./protocol/usage";
@@ -21,25 +21,7 @@ const hello: Hello = {
 // Plan auto-update (kb:anchor/ws.update): a fully-populated UpdateInfo, badge showing.
 const updateInfo = makeUpdateInfo({ available: "0.11.0", checkedAt: "2026-09-10T20:00:00Z" });
 
-const snapshot: Snapshot = {
-  type: "snapshot",
-  sessions: [],
-  usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-  prefs: {
-    view: "focus",
-    density: "2x2",
-    usageModel: "Fable",
-    railSort: "manual",
-    theme: "follow",
-    updateCheck: true,
-    railDensity: "comfortable",
-    railActivity: "turn",
-  },
-  claudeTheme: { family: "unknown" },
-  groups: [],
-  ungrouped: { pos: 0, collapsed: false },
-  update: updateInfo,
-};
+const snapshot = makeSnapshot({ update: updateInfo });
 
 const prefsMessage: PrefsMessage = {
   type: "prefs",

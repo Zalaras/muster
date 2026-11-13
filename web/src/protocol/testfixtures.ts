@@ -2,7 +2,11 @@
 // `sessions/testfixtures.ts` (Session). Each returns a complete, valid object and takes the
 // fields a test is about as overrides. The decoder tests here keep their raw wire literals —
 // spelling the whole payload out is their job.
+import { emptyGroupsFields } from "./groups";
+import type { Snapshot } from "./messages";
+import { PREF_DEFAULTS } from "./prefs";
 import type { UpdateInfo } from "./update";
+import { UNKNOWN_USAGE } from "./usage";
 
 /** An installer-managed daemon on 0.10.0 that can check, with nothing available and no apply
  * under way. */
@@ -16,6 +20,23 @@ export function makeUpdateInfo(overrides: Partial<UpdateInfo> = {}): UpdateInfo 
     checkedAt: null,
     installed: null,
     apply: { phase: "idle", version: null, error: null },
+    ...overrides,
+  };
+}
+
+/** What a current daemon sends a first connection before anything has happened: no sessions,
+ * unknown usage, the default prefs, no groups, and no update information. Built from the
+ * product's own defaults, so a test needing a whole `Prefs` or `Usage` spreads `PREF_DEFAULTS`
+ * or `UNKNOWN_USAGE` the same way. */
+export function makeSnapshot(overrides: Partial<Omit<Snapshot, "type">> = {}): Snapshot {
+  return {
+    type: "snapshot",
+    sessions: [],
+    usage: { ...UNKNOWN_USAGE },
+    prefs: { ...PREF_DEFAULTS },
+    claudeTheme: { family: "unknown" },
+    update: null,
+    ...emptyGroupsFields(),
     ...overrides,
   };
 }
