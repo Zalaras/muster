@@ -1,5 +1,6 @@
 // The one place a unit test gets a whole `Session`. A file whose tests start from a different
-// session wraps `makeSession` with just those fields, never a second whole literal.
+// session wraps `makeSession` with just those fields; `web/scripts/shape-lint.mjs` fails a test
+// that spells the whole shape out itself.
 import type { Session, SessionRepo } from "../protocol/session";
 
 /** A live, idle, ungrouped, unpinned session; a test overrides only what it is about. `railPos`

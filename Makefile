@@ -55,7 +55,7 @@ web-test: ## Frontend unit tests (Vitest)
 	cd web && npm test
 
 .PHONY: web-lint
-web-lint: ## Biome lint + format check over web/src, web/e2e and web/scripts
+web-lint: ## Biome lint + format check over web/src, web/e2e and web/scripts, then shape-lint (no test spells out a whole shared wire shape)
 	cd web && npm run -s lint
 
 .PHONY: web-fmt
