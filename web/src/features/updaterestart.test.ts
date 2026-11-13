@@ -7,6 +7,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../app";
 import type { Snapshot } from "../protocol/messages";
+import { makeUpdateInfo } from "../protocol/testfixtures";
 import type { UpdateInfo } from "../protocol/update";
 import type { StorageLike } from "../storage";
 import { computeBannerOverride, initUpdateRestart } from "./updaterestart";
@@ -47,16 +48,7 @@ function throwingStorage(): StorageLike {
   };
 }
 
-const baseUpdate: UpdateInfo = {
-  running: "0.10.0",
-  install: "installer",
-  remedy: null,
-  canCheck: true,
-  available: null,
-  checkedAt: null,
-  installed: null,
-  apply: { phase: "idle", version: null, error: null },
-};
+const baseUpdate = makeUpdateInfo();
 
 function restartingUpdate(version: string): UpdateInfo {
   return { ...baseUpdate, apply: { phase: "restarting", version, error: null } };

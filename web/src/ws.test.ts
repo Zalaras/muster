@@ -4,8 +4,9 @@ import type { Hello } from "./protocol/hello";
 import type { DocChanged, Snapshot } from "./protocol/messages";
 import type { PrefsMessage } from "./protocol/prefs";
 import type { Session } from "./protocol/session";
+import { makeUpdateInfo } from "./protocol/testfixtures";
 import type { ClaudeThemeMessage } from "./protocol/theme";
-import type { UpdateInfo, UpdateMessage } from "./protocol/update";
+import type { UpdateMessage } from "./protocol/update";
 import type { Usage, UsageMessage } from "./protocol/usage";
 import { makeRepo, makeSession } from "./sessions/testfixtures";
 import { backoffDelay, type SocketLike, WsClient, type WsClientHandlers } from "./ws";
@@ -18,16 +19,7 @@ const hello: Hello = {
 };
 
 // Plan auto-update (kb:anchor/ws.update): a fully-populated UpdateInfo, badge showing.
-const updateInfo: UpdateInfo = {
-  running: "0.10.0",
-  install: "installer",
-  remedy: null,
-  canCheck: true,
-  available: "0.11.0",
-  checkedAt: "2026-09-10T20:00:00Z",
-  installed: null,
-  apply: { phase: "idle", version: null, error: null },
-};
+const updateInfo = makeUpdateInfo({ available: "0.11.0", checkedAt: "2026-09-10T20:00:00Z" });
 
 const snapshot: Snapshot = {
   type: "snapshot",

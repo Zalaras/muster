@@ -4,24 +4,13 @@
 // functions it feeds (`renderUpdateSection` and friends) are tested in
 // `../render/update.test.ts` against plain fakes, not here.
 import { describe, expect, it } from "vitest";
+import { makeUpdateInfo } from "../protocol/testfixtures";
 import type { UpdateApplyPhase, UpdateInfo, UpdateInstallKind } from "../protocol/update";
 import { buildUpdateViewModel, type CheckState } from "./updateview";
 
 const idleApply = { phase: "idle" as const, version: null, error: null };
 
-const baseUpdate: UpdateInfo = {
-  running: "0.10.0",
-  install: "installer",
-  remedy: null,
-  // Most tests below predate the Check-now feature
-  // and don't vary canCheck themselves — the dedicated "Check now" describe block overrides
-  // it per case.
-  canCheck: true,
-  available: null,
-  checkedAt: null,
-  installed: null,
-  apply: idleApply,
-};
+const baseUpdate = makeUpdateInfo();
 
 // `NOW`/`idleCheck` are the neutral
 // defaults for every test below that predates the Check-now feature and doesn't itself vary

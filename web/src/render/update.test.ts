@@ -9,6 +9,7 @@
 // models these DOM functions render.
 import { describe, expect, it, vi } from "vitest";
 import type { RestartImpactShell } from "../api/update";
+import { makeUpdateInfo } from "../protocol/testfixtures";
 import type { UpdateInfo } from "../protocol/update";
 import {
   initRestartConfirm,
@@ -20,18 +21,7 @@ import {
 } from "./update";
 import { buildUpdateViewModel, type CheckState } from "../features/updateview";
 
-const idleApply = { phase: "idle" as const, version: null, error: null };
-
-const baseUpdate: UpdateInfo = {
-  running: "0.10.0",
-  install: "installer",
-  remedy: null,
-  canCheck: true,
-  available: null,
-  checkedAt: null,
-  installed: null,
-  apply: idleApply,
-};
+const baseUpdate = makeUpdateInfo();
 
 const NOW = new Date("2026-09-10T20:02:00Z");
 const idleCheck: CheckState = { inFlight: false, error: null };
