@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ReaderListing } from "../api/reader";
+import { makeReaderListing } from "../api/testfixtures";
 import {
   claudeChips,
   docChangedNeedsRescan,
@@ -12,7 +13,7 @@ import {
 const DIR = "/private/tmp/claude-501/-x/abc/scratchpad";
 
 function listing(scratch: ReaderListing["scratch"]): ReaderListing {
-  return { directory: "/d", plan: null, files: [], scratch, listing: "git", truncated: false };
+  return makeReaderListing({ scratch });
 }
 
 function file(path: string) {

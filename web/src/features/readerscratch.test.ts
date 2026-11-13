@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { ReaderListing } from "../api/reader";
+import { makeReaderListing } from "../api/testfixtures";
 import { makeSession } from "../sessions/testfixtures";
 import { createScratchTracker } from "./readerscratch";
 
 const DIR = "/tmp/claude-501/proj/abc/scratchpad";
 
 function listing(scratch: ReaderListing["scratch"]): ReaderListing {
-  return { directory: "/proj", plan: null, files: [], scratch, listing: "git", truncated: false };
+  return makeReaderListing({ scratch });
 }
 const session = (scratchpadDir: string | null) => makeSession({ id: 1, scratchpadDir });
 
