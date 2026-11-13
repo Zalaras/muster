@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import type { Session } from "../protocol/session";
 import { endDialogBody, removeDialogBody } from "./actionscopy";
-import { makeSession as sharedSession } from "../sessions/testfixtures";
+import { makeRepo, makeSession as sharedSession } from "../sessions/testfixtures";
 
 /** A titled session bound to a Claude session id, in bob's checkout. */
 function makeSession(overrides: Partial<Session> & { id: number }): Session {
@@ -37,7 +37,7 @@ describe("endDialogBody", () => {
     const session = makeSession({
       id: 1,
       title: "fix auth",
-      repo: { name: "muster", branch: "plan/foo", isWorktree: false },
+      repo: makeRepo({ name: "muster", branch: "plan/foo", isWorktree: false }),
     });
     expect(endDialogBody(session)).toContain("fix auth — muster / plan/foo.");
   });

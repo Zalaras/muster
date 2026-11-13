@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
 import type { AddedDirectory, Session } from "../protocol/session";
 import { locationPanelModel } from "./locationpanel";
-import { makeSession } from "./testfixtures";
+import { makeRepo, makeSession } from "./testfixtures";
 
 const infra: AddedDirectory = {
   directory: "/Users/bob/code/infra",
-  repo: { name: "infra", branch: "main", isWorktree: false },
+  repo: makeRepo({ name: "infra", branch: "main", isWorktree: false }),
 };
 const detached: AddedDirectory = {
   directory: "/Users/bob/code/lib",
-  repo: { name: "lib", branch: null, isWorktree: false },
+  repo: makeRepo({ name: "lib", branch: null, isWorktree: false }),
 };
 const scratch: AddedDirectory = { directory: "/tmp/scratch/", repo: null };
-const muster = { name: "muster", branch: "main", isWorktree: false };
+const muster = makeRepo({ name: "muster", branch: "main", isWorktree: false });
 
 type Model = ReturnType<typeof locationPanelModel>;
 
@@ -50,7 +50,7 @@ describe("locationPanelModel (REQ-7)", () => {
       session: {
         claudeLocation: {
           directory: "/Users/bob/code/muster/.claude/worktrees/e7b",
-          repo: { name: "e7b", branch: "worktree-e7b", isWorktree: true },
+          repo: makeRepo({ name: "e7b", branch: "worktree-e7b", isWorktree: true }),
         },
       },
       check: (m) =>

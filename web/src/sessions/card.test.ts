@@ -25,7 +25,7 @@ import {
   tileHeaderTimerText,
   unreadLabel,
 } from "./card";
-import { makeSession as sharedSession } from "./testfixtures";
+import { makeRepo, makeSession as sharedSession } from "./testfixtures";
 
 const NOW = new Date("2026-08-22T00:00:10Z");
 
@@ -96,7 +96,7 @@ describe("buildCardViewModel — badge word and state class (every displayed sta
 describe("buildCardViewModel — repo / branch line", () => {
   it("renders 'name / branch' when repo is present with a branch", () => {
     const vm = buildCardViewModel(
-      makeSession({ id: 1, repo: { name: "muster", branch: "main", isWorktree: false } }),
+      makeSession({ id: 1, repo: makeRepo({ name: "muster", branch: "main", isWorktree: false }) }),
       NOW,
     );
     expect(vm.repoLine).toBe("muster / main");
@@ -104,7 +104,7 @@ describe("buildCardViewModel — repo / branch line", () => {
 
   it("renders an em-dash for a repo with no branch (git repo, detached or unreadable)", () => {
     const vm = buildCardViewModel(
-      makeSession({ id: 1, repo: { name: "muster", branch: null, isWorktree: false } }),
+      makeSession({ id: 1, repo: makeRepo({ name: "muster", branch: null, isWorktree: false }) }),
       NOW,
     );
     expect(vm.repoLine).toBe("muster / —");
@@ -112,7 +112,10 @@ describe("buildCardViewModel — repo / branch line", () => {
 
   it("appends a worktree marker when isWorktree is true", () => {
     const vm = buildCardViewModel(
-      makeSession({ id: 1, repo: { name: "muster", branch: "feature/x", isWorktree: true } }),
+      makeSession({
+        id: 1,
+        repo: makeRepo({ name: "muster", branch: "feature/x", isWorktree: true }),
+      }),
       NOW,
     );
     expect(vm.repoLine).toBe("muster / feature/x (worktree)");
@@ -617,7 +620,7 @@ describe("buildCardViewModel — ended timer (REQ-9): 'ended <age>' from endedAt
 
 const WORKTREE_AT = {
   directory: "/Users/bob/code/muster/.claude/worktrees/e7b",
-  repo: { name: "e7b", branch: "worktree-e7b", isWorktree: true },
+  repo: makeRepo({ name: "e7b", branch: "worktree-e7b", isWorktree: true }),
 };
 
 // The launch directory's readout split at the slash; the one-line `repoLine`
@@ -631,19 +634,19 @@ describe("repoParts — the launch readout split into folder and branch lines (W
   }> = [
     {
       name: "repo with a branch",
-      session: { repo: { name: "muster", branch: "main", isWorktree: false } },
+      session: { repo: makeRepo({ name: "muster", branch: "main", isWorktree: false }) },
       want: { folder: "muster /", branch: "main" },
       line: "muster / main",
     },
     {
       name: "linked worktree gets the marker on the branch line",
-      session: { repo: { name: "muster", branch: "x", isWorktree: true } },
+      session: { repo: makeRepo({ name: "muster", branch: "x", isWorktree: true }) },
       want: { folder: "muster /", branch: "x (worktree)" },
       line: "muster / x (worktree)",
     },
     {
       name: "detached or unreadable branch reads an em-dash, never empty",
-      session: { repo: { name: "muster", branch: null, isWorktree: false } },
+      session: { repo: makeRepo({ name: "muster", branch: null, isWorktree: false }) },
       want: { folder: "muster /", branch: "—" },
       line: "muster / —",
     },
@@ -671,7 +674,7 @@ describe("repoParts — the launch readout split into folder and branch lines (W
 });
 
 describe("folderName — the one repo-name-else-basename rule, and repoParts without the slash", () => {
-  const repo = { name: "muster", branch: "main", isWorktree: false };
+  const repo = makeRepo({ name: "muster", branch: "main", isWorktree: false });
   const rows: Array<{ name: string; repo: typeof repo | null; dir: string; want: string }> = [
     { name: "the repo name wins over the directory", repo, dir: "/x/other", want: "muster" },
     { name: "no repo: the basename", repo: null, dir: "/Users/bob/code/infra", want: "infra" },
@@ -714,7 +717,7 @@ describe("claudeLocationParts — the `↳` readout (W2)", () => {
       name: "a null branch reads an em-dash",
       location: {
         directory: "/Users/bob/other",
-        repo: { name: "other", branch: null, isWorktree: false },
+        repo: makeRepo({ name: "other", branch: null, isWorktree: false }),
       },
       want: { folder: "other /", branch: "—" },
     },
@@ -734,7 +737,7 @@ describe("claudeLocationParts — the `↳` readout (W2)", () => {
 
 // Lines 1-2 always, 3 while moved, 4 while moved with a location branch.
 describe("locationHover, claudeHover, claudeNote — the hover text (W3)", () => {
-  const base = { repo: { name: "muster", branch: "main", isWorktree: false } };
+  const base = { repo: makeRepo({ name: "muster", branch: "main", isWorktree: false }) };
   const cases: Array<{
     name: string;
     session: Partial<Session>;
@@ -773,7 +776,7 @@ describe("locationHover, claudeHover, claudeNote — the hover text (W3)", () =>
         ...base,
         claudeLocation: {
           directory: "/tmp/detached",
-          repo: { name: "detached", branch: null, isWorktree: false },
+          repo: makeRepo({ name: "detached", branch: null, isWorktree: false }),
         },
       },
       hover: "muster / main\n/Users/bob/code/muster\nClaude is in /tmp/detached",
@@ -803,7 +806,7 @@ describe("buildCardViewModel — carries the split readout and hover texts", () 
   it("fills repo, claudeAt, claudeHover, claudeNote and hover from the same session", () => {
     const session = makeSession({
       id: 1,
-      repo: { name: "muster", branch: "main", isWorktree: false },
+      repo: makeRepo({ name: "muster", branch: "main", isWorktree: false }),
       claudeLocation: WORKTREE_AT,
     });
     const vm = buildCardViewModel(session, NOW);
@@ -839,7 +842,7 @@ describe("mainheadMeta — the structured Focus header view-model (W4)", () => {
   it("carries the repo block and the `↳` block", () => {
     const session = makeSession({
       id: 1,
-      repo: { name: "muster", branch: "main", isWorktree: false },
+      repo: makeRepo({ name: "muster", branch: "main", isWorktree: false }),
       claudeLocation: WORKTREE_AT,
     });
     const meta = mainheadMeta(session, NOW);
@@ -852,7 +855,7 @@ describe("mainheadMeta — the structured Focus header view-model (W4)", () => {
     { directory: "/Users/bob/code/infra", repo: null },
     { directory: "/tmp/scratch", repo: null },
   ];
-  const mainRepo = { name: "muster", branch: "main", isWorktree: false };
+  const mainRepo = makeRepo({ name: "muster", branch: "main", isWorktree: false });
   const addedCases: Array<{
     name: string;
     session: Partial<Session>;

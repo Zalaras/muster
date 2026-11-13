@@ -7,7 +7,7 @@ import type { Session } from "./protocol/session";
 import type { ClaudeThemeMessage } from "./protocol/theme";
 import type { UpdateInfo, UpdateMessage } from "./protocol/update";
 import type { Usage, UsageMessage } from "./protocol/usage";
-import { makeSession } from "./sessions/testfixtures";
+import { makeRepo, makeSession } from "./sessions/testfixtures";
 import { backoffDelay, type SocketLike, WsClient, type WsClientHandlers } from "./ws";
 
 const hello: Hello = {
@@ -89,7 +89,7 @@ const session: Session = makeSession({
   title: "fix the thing",
   state: "working",
   directory: "/Users/bob/code/muster",
-  repo: { name: "muster", branch: "main", isWorktree: false },
+  repo: makeRepo(),
   model: { id: "claude-sonnet-4-5", displayName: "sonnet" },
   claudeSessionId: "claude-session-abc",
   railPos: 0,

@@ -12,7 +12,7 @@ import type { Session } from "../protocol/session";
 import type { RenameEditorController } from "./rename";
 import type { SurfaceSegmentRefs } from "./surfaceseg";
 import { renderStrip, renderTileGeometry, updateTile, type TileRefs } from "./tiles";
-import { makeSession as sharedSession } from "../sessions/testfixtures";
+import { makeRepo, makeSession as sharedSession } from "../sessions/testfixtures";
 
 function fakeElement(): HTMLElement {
   return {
@@ -265,7 +265,7 @@ describe("updateTile — Claude-location hover and `↳` marker (REQ-14, REQ-15)
   }> = [
     {
       name: "not moved: hover is the repo line and directory, the marker is hidden and empty",
-      session: { repo: { name: "muster", branch: "main", isWorktree: false } },
+      session: { repo: makeRepo({ name: "muster", branch: "main", isWorktree: false }) },
       want: {
         hover: "muster / main\n/Users/bob/code/muster",
         markerHidden: true,
@@ -275,10 +275,10 @@ describe("updateTile — Claude-location hover and `↳` marker (REQ-14, REQ-15)
     {
       name: "moved into a worktree: hover gains lines 3 and 4, the marker shows with its text",
       session: {
-        repo: { name: "muster", branch: "main", isWorktree: false },
+        repo: makeRepo({ name: "muster", branch: "main", isWorktree: false }),
         claudeLocation: {
           directory: "/Users/bob/code/muster/.claude/worktrees/e7b",
-          repo: { name: "e7b", branch: "worktree-e7b", isWorktree: true },
+          repo: makeRepo({ name: "e7b", branch: "worktree-e7b", isWorktree: true }),
         },
       },
       want: {

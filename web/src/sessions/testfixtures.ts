@@ -1,6 +1,6 @@
 // The one place a unit test gets a whole `Session`. A file whose tests start from a different
 // session wraps `makeSession` with just those fields, never a second whole literal.
-import type { Session } from "../protocol/session";
+import type { Session, SessionRepo } from "../protocol/session";
 
 /** A live, idle, ungrouped, unpinned session; a test overrides only what it is about. `railPos`
  * follows `id` unless overridden, so ids read as manual order. */
@@ -42,4 +42,9 @@ export function makeSession(overrides: Partial<Session> & { id: number }): Sessi
     scratchpadDir: null,
     ...overrides,
   };
+}
+
+/** A plain checkout of `muster` on `main`. */
+export function makeRepo(overrides: Partial<SessionRepo> = {}): SessionRepo {
+  return { name: "muster", branch: "main", isWorktree: false, ...overrides };
 }

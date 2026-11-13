@@ -24,7 +24,7 @@ import type { Session } from "../protocol/session";
 import { DEFAULT_SURFACE_STATE } from "../terminal/surfaceswitch";
 import { renderMainhead, type MainheadElements } from "./mainhead";
 import type { SurfaceSegmentRefs } from "./surfaceseg";
-import { makeSession as sharedSession } from "../sessions/testfixtures";
+import { makeRepo, makeSession as sharedSession } from "../sessions/testfixtures";
 
 function textNode(text: string): FakeNode {
   const node = new FakeNode();
@@ -398,14 +398,14 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
 
   const worktreeAt = {
     directory: "/Users/bob/code/muster/.claude/worktrees/e7b",
-    repo: { name: "e7b", branch: "worktree-e7b", isWorktree: true },
+    repo: makeRepo({ name: "e7b", branch: "worktree-e7b", isWorktree: true }),
   };
 
   it("not moved: two repo lines, the `↳` block and the first `.loc` separator hidden (the last stays), no title", () => {
     const { s } = render(
       makeSession({
         id: 1,
-        repo: { name: "muster", branch: "main", isWorktree: false },
+        repo: makeRepo({ name: "muster", branch: "main", isWorktree: false }),
       }),
     );
     expect(lines(s.repo).map((n) => [n.className, n.textContent])).toEqual([
@@ -421,7 +421,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
     const { s } = render(
       makeSession({
         id: 1,
-        repo: { name: "muster", branch: "main", isWorktree: false },
+        repo: makeRepo({ name: "muster", branch: "main", isWorktree: false }),
         claudeLocation: worktreeAt,
       }),
     );
@@ -446,7 +446,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
     const elements = fakeMainheadElements();
     const withRepo = makeSession({
       id: 1,
-      repo: { name: "muster", branch: "main", isWorktree: false },
+      repo: makeRepo({ name: "muster", branch: "main", isWorktree: false }),
     });
     renderMainhead(elements, withRepo, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
     renderMainhead(
@@ -464,7 +464,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
 
   // `.rf` holds `.rf-name` + `.plus` while directories are added; plain text at 0.
   describe("the `+N` suffix on the folder line", () => {
-    const mainRepo = { name: "muster", branch: "main", isWorktree: false };
+    const mainRepo = makeRepo({ name: "muster", branch: "main", isWorktree: false });
     const dirs = (n: number) =>
       Array.from({ length: n }, (_, i) => ({ directory: `/tmp/d${i}`, repo: null }));
     const rf = (elements: MainheadElements) => lines(slots(elements).repo)[0] as FakeNode;

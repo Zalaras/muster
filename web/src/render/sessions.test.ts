@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { vi } from "vitest";
 import type { Session } from "../protocol/session";
 import { reconcileCards, type CardListOptions } from "./sessions";
-import { makeSession as sharedSession } from "../sessions/testfixtures";
+import { makeRepo, makeSession as sharedSession } from "../sessions/testfixtures";
 
 // review m4-reconcile cycle-3 Minor 4: `reconcileCards` (id-matching, reorder-in-place,
 // insert, remove, and — as of cycle-3's Fix Attempt 3 — focus capture/restore across a
@@ -1125,7 +1125,7 @@ describe("reconcileCards — repo block and `↳` block", () => {
 
   const MOVED = {
     directory: "/Users/bob/code/muster/.claude/worktrees/e7b",
-    repo: { name: "e7b", branch: "worktree-e7b", isWorktree: true },
+    repo: makeRepo({ name: "e7b", branch: "worktree-e7b", isWorktree: true }),
   };
 
   function renderCard(...sessions: Session[]): FakeDomNode {
@@ -1157,7 +1157,7 @@ describe("reconcileCards — repo block and `↳` block", () => {
     const card = renderCard(
       makeSession({
         id: 1,
-        repo: { name: "muster", branch: "main", isWorktree: false },
+        repo: makeRepo({ name: "muster", branch: "main", isWorktree: false }),
       }),
     );
     expect(lines(r2(card))).toEqual([
@@ -1171,7 +1171,7 @@ describe("reconcileCards — repo block and `↳` block", () => {
     const card = renderCard(
       makeSession({
         id: 1,
-        repo: { name: "muster", branch: "x", isWorktree: true },
+        repo: makeRepo({ name: "muster", branch: "x", isWorktree: true }),
       }),
     );
     expect(lines(r2(card))?.[1]).toEqual(["rb", "x (worktree)"]);
@@ -1185,7 +1185,7 @@ describe("reconcileCards — repo block and `↳` block", () => {
   it("removes `.rb` when a session's repo goes away between renders, and recreates it when it returns", () => {
     const withRepo = makeSession({
       id: 1,
-      repo: { name: "muster", branch: "main", isWorktree: false },
+      repo: makeRepo({ name: "muster", branch: "main", isWorktree: false }),
     });
     const gone = renderCard(withRepo, makeSession({ id: 1, repo: null }));
     expect(lines(r2(gone))).toEqual([["rf", "muster"]]);
