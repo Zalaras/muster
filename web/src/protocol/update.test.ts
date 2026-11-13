@@ -1,43 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseMessage } from "./messages";
+import { validSnapshot, validUpdateInfo } from "./wirefixtures";
 
-// (kb:anchor/ws.update) A fully-populated UpdateInfo, badge showing
-// (available set, installed null), no apply in flight. A real daemon always sends a full
-// object here (never an explicit `null` — only an older daemon omits the key entirely,
-// which `parseSnapshot` treats differently from an explicit `null`, see the "parseSnapshot
-// — update" describe block below), so this — not `null` — is what belongs on validSnapshot.
-const validUpdateInfo = {
-  running: "0.10.0",
-  install: "installer",
-  remedy: null,
-  // (kb:anchor/ws.update) True iff a release check is
-  // possible at all — see the "canCheck is missing/not a boolean" cases in the
-  // "parseSnapshot — update" describe block below.
-  canCheck: true,
-  available: "0.11.0",
-  checkedAt: "2026-09-10T20:00:00Z",
-  installed: null,
-  apply: { phase: "idle", version: null, error: null },
-};
-const validSnapshot = {
-  type: "snapshot",
-  sessions: [],
-  usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-  prefs: {
-    view: "focus",
-    density: "2x2",
-    usageModel: "Fable",
-    railSort: "manual",
-    theme: "follow",
-    updateCheck: true,
-    railDensity: "comfortable",
-    railActivity: "turn",
-  },
-  claudeTheme: { family: "unknown" },
-  groups: [],
-  ungrouped: { pos: 0, collapsed: false },
-  update: validUpdateInfo,
-};
 describe("parseSnapshot — update (plan auto-update kb:anchor/ws.snapshot / kb:anchor/ws.update, W6, edge case 32)", () => {
   it("defaults a missing update key to null (pre-plan daemon payload — no throw, no synthesized object)", () => {
     const { update, ...rest } = validSnapshot;
