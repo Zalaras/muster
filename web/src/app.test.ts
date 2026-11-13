@@ -1,32 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Session } from "./protocol/session";
 import { createApp } from "./app";
-
-function makeSession(overrides: Partial<Session> & { id: number }): Session {
-  return {
-    title: null,
-    titleOverride: null,
-    state: "idle",
-    stateSince: "2026-08-22T00:00:00Z",
-    alive: true,
-    endedAt: null,
-    attention: null,
-    failure: null,
-    directory: "/tmp/repo",
-    repo: null,
-    model: null,
-    permissionMode: { value: "default", source: "seed" },
-    context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
-    lastActivity: null,
-    claudeSessionId: null,
-    tmuxTarget: "muster:@1",
-    firstLaunchHere: false,
-    createdAt: "2026-08-22T00:00:00Z",
-    pinned: false,
-    railPos: overrides.id,
-    ...overrides,
-  } as Session;
-}
+import { makeSession } from "./sessions/testfixtures";
 
 describe("createApp initial state", () => {
   it("starts with the documented defaults", () => {

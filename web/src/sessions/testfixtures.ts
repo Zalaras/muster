@@ -1,5 +1,5 @@
-// The one Session fixture the sessions-, groups- and launch-group-shaped unit tests share, beside
-// `api/testfakes.ts`. Older test files keep the private copy each declared before this existed.
+// The one place a unit test gets a whole `Session`. A file whose tests start from a different
+// session wraps `makeSession` with just those fields, never a second whole literal.
 import type { Session } from "../protocol/session";
 
 /** A live, idle, ungrouped, unpinned session; a test overrides only what it is about. `railPos`

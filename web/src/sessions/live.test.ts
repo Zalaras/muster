@@ -1,49 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Session, SessionState } from "../protocol/session";
 import { applyDensity, densityCount, initialLive, moveTile, promote, visibleIds } from "./live";
+import { makeSession as sharedSession } from "./testfixtures";
 
 // All sessions share the same state ("idle") with strictly increasing `stateSince`, so
 // sort.ts's tiebreak (stateSince ascending) makes the §3.4 sort order exactly the
 // ascending id order [1, 2, 3, ...] — keeps every table below easy to read without
 // re-deriving sort.ts's own priority rules (already covered by sort.test.ts).
 function makeSession(id: number): Session {
-  return {
-    id,
-    title: null,
-    titleOverride: null,
-    plan: null,
-    state: "idle",
-    stateSince: `2026-08-22T00:00:${String(id).padStart(2, "0")}Z`,
-    alive: true,
-    endedAt: null,
-    attention: null,
-    failure: null,
-    directory: "/tmp/repo",
-    repo: null,
-    claudeLocation: null,
-    addedDirs: [],
-    model: null,
-    permissionMode: { value: "default", source: "seed" },
-    context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
-    lastActivity: null,
-    backgroundTasks: 0,
-    claudeSessionId: null,
-    scratchpadDir: null,
-    tmuxTarget: `muster-${id}:@1`,
-    firstLaunchHere: false,
-    createdAt: `2026-08-22T00:00:${String(id).padStart(2, "0")}Z`,
-    pinned: false,
-    railPos: id,
-    unread: false,
-    lastPrompt: null,
-    groupId: null,
-    effort: null,
-    effortWarning: null,
-    claudeVersion: null,
-    restartPending: false,
-    note: null,
-    cache: null,
-  };
+  const at = `2026-08-22T00:00:${String(id).padStart(2, "0")}Z`;
+  return sharedSession({ id, stateSince: at, createdAt: at });
 }
 
 function sessions(ids: number[]): Session[] {

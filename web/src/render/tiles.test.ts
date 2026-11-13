@@ -12,6 +12,7 @@ import type { Session } from "../protocol/session";
 import type { RenameEditorController } from "./rename";
 import type { SurfaceSegmentRefs } from "./surfaceseg";
 import { renderStrip, renderTileGeometry, updateTile, type TileRefs } from "./tiles";
+import { makeSession as sharedSession } from "../sessions/testfixtures";
 
 function fakeElement(): HTMLElement {
   return {
@@ -105,44 +106,13 @@ function fakeRenameController(initialEditing = false): {
 
 const NOW = new Date("2026-08-22T00:00:10Z");
 
+/** An untitled session in bob's checkout; each test overrides only what it is about. */
 function makeSession(overrides: Partial<Session> & { id: number }): Session {
-  return {
+  return sharedSession({
     title: null,
-    titleOverride: null,
-    scratchpadDir: null,
-    plan: null,
-    state: "idle",
-    stateSince: "2026-08-22T00:00:00Z",
-    alive: true,
-    endedAt: null,
-    attention: null,
-    failure: null,
     directory: "/Users/bob/code/muster",
-    repo: null,
-    claudeLocation: null,
-    addedDirs: [],
-    model: null,
-    permissionMode: { value: "default", source: "seed" },
-    context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
-    lastActivity: null,
-    backgroundTasks: 0,
-    claudeSessionId: null,
-    tmuxTarget: "muster:@1",
-    firstLaunchHere: false,
-    createdAt: "2026-08-22T00:00:00Z",
-    pinned: false,
-    railPos: overrides.id,
-    unread: false,
-    lastPrompt: null,
-    groupId: null,
-    effort: null,
-    effortWarning: null,
-    claudeVersion: null,
-    restartPending: false,
-    note: null,
-    cache: null,
     ...overrides,
-  };
+  });
 }
 
 /** A root whose `.querySelector` resolves the chrome selectors `updateTileChrome`

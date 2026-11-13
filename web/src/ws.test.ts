@@ -7,6 +7,7 @@ import type { Session } from "./protocol/session";
 import type { ClaudeThemeMessage } from "./protocol/theme";
 import type { UpdateInfo, UpdateMessage } from "./protocol/update";
 import type { Usage, UsageMessage } from "./protocol/usage";
+import { makeSession } from "./sessions/testfixtures";
 import { backoffDelay, type SocketLike, WsClient, type WsClientHandlers } from "./ws";
 
 const hello: Hello = {
@@ -83,43 +84,16 @@ const docChangedMessage: DocChanged = {
   at: "2026-09-13T09:15:00Z",
 };
 
-const session: Session = {
+const session: Session = makeSession({
   id: 1,
   title: "fix the thing",
-  titleOverride: null,
-  plan: null,
   state: "working",
-  stateSince: "2026-08-22T00:00:00Z",
-  alive: true,
-  endedAt: null,
-  attention: null,
-  failure: null,
   directory: "/Users/bob/code/muster",
   repo: { name: "muster", branch: "main", isWorktree: false },
-  claudeLocation: null,
-  addedDirs: [],
   model: { id: "claude-sonnet-4-5", displayName: "sonnet" },
-  permissionMode: { value: "default", source: "seed" },
-  context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
-  lastActivity: null,
-  backgroundTasks: 0,
   claudeSessionId: "claude-session-abc",
-  scratchpadDir: null,
-  tmuxTarget: "muster:@1",
-  firstLaunchHere: false,
-  createdAt: "2026-08-22T00:00:00Z",
-  pinned: false,
   railPos: 0,
-  unread: false,
-  lastPrompt: null,
-  groupId: null,
-  effort: null,
-  effortWarning: null,
-  claudeVersion: null,
-  restartPending: false,
-  note: null,
-  cache: null,
-};
+});
 
 describe("backoffDelay", () => {
   it("doubles from 500ms and caps at 8000ms (REQ-17)", () => {

@@ -16,44 +16,16 @@ import {
   setSessionUnread,
 } from "./sessions";
 import { fakeResponse, fakeResponseThatThrows, fakeStatusResponse } from "./testfakes";
+import { makeSession } from "../sessions/testfixtures";
 
-const validSession: Session = {
+const validSession: Session = makeSession({
   id: 1,
   title: null,
-  titleOverride: null,
-  plan: null,
   state: "started",
-  stateSince: "2026-08-22T00:00:00Z",
-  alive: true,
-  endedAt: null,
-  attention: null,
-  failure: null,
   directory: "/Users/bob/code/muster",
-  repo: null,
-  claudeLocation: null,
-  addedDirs: [],
-  model: null,
-  permissionMode: { value: "default", source: "seed" },
-  context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
-  lastActivity: null,
-  backgroundTasks: 0,
-  claudeSessionId: null,
-  scratchpadDir: null,
-  tmuxTarget: "muster:@1",
   firstLaunchHere: true,
-  createdAt: "2026-08-22T00:00:00Z",
-  pinned: false,
   railPos: 0,
-  unread: false,
-  lastPrompt: null,
-  groupId: null,
-  effort: null,
-  effortWarning: null,
-  claudeVersion: null,
-  restartPending: false,
-  note: null,
-  cache: null,
-};
+});
 
 const endedSession: Session = { ...validSession, alive: false, endedAt: "2026-08-22T00:05:00Z" };
 

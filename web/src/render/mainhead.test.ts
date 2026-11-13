@@ -24,6 +24,7 @@ import type { Session } from "../protocol/session";
 import { DEFAULT_SURFACE_STATE } from "../terminal/surfaceswitch";
 import { renderMainhead, type MainheadElements } from "./mainhead";
 import type { SurfaceSegmentRefs } from "./surfaceseg";
+import { makeSession as sharedSession } from "../sessions/testfixtures";
 
 function textNode(text: string): FakeNode {
   const node = new FakeNode();
@@ -279,44 +280,13 @@ afterEach(() => {
 
 const NOW = new Date("2026-08-22T00:00:10Z");
 
+/** A session bound to a Claude session id, in bob's checkout. */
 function makeSession(overrides: Partial<Session> & { id: number }): Session {
-  return {
-    title: `session-${overrides.id}`,
-    titleOverride: null,
-    scratchpadDir: null,
-    plan: null,
-    state: "idle",
-    stateSince: "2026-08-22T00:00:00Z",
-    alive: true,
-    endedAt: null,
-    attention: null,
-    failure: null,
+  return sharedSession({
     directory: "/Users/bob/code/muster",
-    repo: null,
-    claudeLocation: null,
-    addedDirs: [],
-    model: null,
-    permissionMode: { value: "default", source: "seed" },
-    context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
-    lastActivity: null,
-    backgroundTasks: 0,
     claudeSessionId: "claude-sess",
-    tmuxTarget: "muster:@1",
-    firstLaunchHere: false,
-    createdAt: "2026-08-22T00:00:00Z",
-    pinned: false,
-    railPos: overrides.id,
-    unread: false,
-    lastPrompt: null,
-    groupId: null,
-    effort: null,
-    effortWarning: null,
-    claudeVersion: null,
-    restartPending: false,
-    note: null,
-    cache: null,
     ...overrides,
-  };
+  });
 }
 
 describe("renderMainhead — no-session branch must not detach the rename button (Fix Attempt 1 regression pin)", () => {

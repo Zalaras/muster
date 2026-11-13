@@ -7,6 +7,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "../protocol/session";
 import { deadCapPrefix, deadEndbarText, type PaneState } from "../sessions/card";
 import { renderDeadSurface, showDeadSurfaceNotice, type DeadSurfaceRefs } from "./dead";
+import { makeSession as sharedSession } from "../sessions/testfixtures";
+
+/** An ended session that bound a Claude session id — every describe block below starts from it. */
+function makeSession(overrides: Partial<Session> & { id: number }): Session {
+  return sharedSession({
+    title: "some-session",
+    stateSince: "2026-08-27T00:00:00Z",
+    alive: false,
+    endedAt: "2026-08-27T00:00:00Z",
+    directory: "/Users/bob/code/muster",
+    claudeSessionId: "claude-sess",
+    createdAt: "2026-08-26T23:00:00Z",
+    ...overrides,
+  });
+}
 
 /** Shared across every describe block below (renderDeadSurface, showDeadSurfaceNotice,
  * the Resume-disabled-reason block) — a plain-fake `DeadSurfaceRefs`, matching this file's
@@ -31,46 +46,6 @@ function fakeDeadSurfaceRefs(overrides: Partial<DeadSurfaceRefs> = {}): DeadSurf
 // card.test.ts's "deadSurfaceText" describe block with no DOM involved.
 describe("renderDeadSurface — assigns deadSurfaceText's output to the endbar/snapshot/capBody elements", () => {
   const NOW = new Date("2026-08-27T00:10:00Z");
-
-  function makeSession(overrides: Partial<Session> & { id: number }): Session {
-    return {
-      title: "some-session",
-      titleOverride: null,
-      scratchpadDir: null,
-      plan: null,
-      state: "idle",
-      stateSince: "2026-08-27T00:00:00Z",
-      alive: false,
-      endedAt: "2026-08-27T00:00:00Z",
-      attention: null,
-      failure: null,
-      directory: "/Users/bob/code/muster",
-      repo: null,
-      claudeLocation: null,
-      addedDirs: [],
-      model: null,
-      permissionMode: { value: "default", source: "seed" },
-      context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
-      lastActivity: null,
-      backgroundTasks: 0,
-      claudeSessionId: "claude-sess",
-      tmuxTarget: "muster:@1",
-      firstLaunchHere: false,
-      createdAt: "2026-08-26T23:00:00Z",
-      pinned: false,
-      railPos: overrides.id,
-      unread: false,
-      lastPrompt: null,
-      groupId: null,
-      effort: null,
-      effortWarning: null,
-      claudeVersion: null,
-      restartPending: false,
-      note: null,
-      cache: null,
-      ...overrides,
-    };
-  }
 
   it("assigns the composed endbar, snapshot and capBody text to their elements", () => {
     const refs = fakeDeadSurfaceRefs();
@@ -219,46 +194,6 @@ describe("renderDeadSurface — Resume disabled reason (REQ-17/W3)", () => {
       btn.getAttribute("title") ||
       ""
     );
-  }
-
-  function makeSession(overrides: Partial<Session> & { id: number }): Session {
-    return {
-      title: "some-session",
-      titleOverride: null,
-      scratchpadDir: null,
-      plan: null,
-      state: "idle",
-      stateSince: "2026-08-27T00:00:00Z",
-      alive: false,
-      endedAt: "2026-08-27T00:00:00Z",
-      attention: null,
-      failure: null,
-      directory: "/Users/bob/code/muster",
-      repo: null,
-      claudeLocation: null,
-      addedDirs: [],
-      model: null,
-      permissionMode: { value: "default", source: "seed" },
-      context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
-      lastActivity: null,
-      backgroundTasks: 0,
-      claudeSessionId: "claude-sess",
-      tmuxTarget: "muster:@1",
-      firstLaunchHere: false,
-      createdAt: "2026-08-26T23:00:00Z",
-      pinned: false,
-      railPos: overrides.id,
-      unread: false,
-      lastPrompt: null,
-      groupId: null,
-      effort: null,
-      effortWarning: null,
-      claudeVersion: null,
-      restartPending: false,
-      note: null,
-      cache: null,
-      ...overrides,
-    };
   }
 
   it("disables Resume with a non-empty reason when the session never bound a Claude session id", () => {

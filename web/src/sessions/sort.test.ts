@@ -2,47 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RailSort } from "../protocol/prefs";
 import type { Session, SessionState } from "../protocol/session";
 import { orderRail, pickNeediest, sortSessions } from "./sort";
-
-// Minimal valid Session fixture; each test overrides only the fields it cares about.
-function makeSession(overrides: Partial<Session> & { id: number }): Session {
-  return {
-    title: null,
-    titleOverride: null,
-    scratchpadDir: null,
-    plan: null,
-    state: "idle",
-    stateSince: "2026-08-22T00:00:00Z",
-    alive: true,
-    endedAt: null,
-    attention: null,
-    failure: null,
-    directory: "/tmp/repo",
-    repo: null,
-    claudeLocation: null,
-    addedDirs: [],
-    model: null,
-    permissionMode: { value: "default", source: "seed" },
-    context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
-    lastActivity: null,
-    backgroundTasks: 0,
-    claudeSessionId: null,
-    tmuxTarget: "muster:@1",
-    firstLaunchHere: false,
-    createdAt: "2026-08-22T00:00:00Z",
-    pinned: false,
-    railPos: overrides.id,
-    unread: false,
-    lastPrompt: null,
-    groupId: null,
-    effort: null,
-    effortWarning: null,
-    claudeVersion: null,
-    restartPending: false,
-    note: null,
-    cache: null,
-    ...overrides,
-  };
-}
+import { makeSession } from "./testfixtures";
 
 // The seven-group attention priority table,
 // amended from the six-state table — idle now splits into an unread "your turn"

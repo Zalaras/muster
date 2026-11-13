@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { vi } from "vitest";
 import type { Session } from "../protocol/session";
 import { reconcileCards, type CardListOptions } from "./sessions";
+import { makeSession as sharedSession } from "../sessions/testfixtures";
 
 // review m4-reconcile cycle-3 Minor 4: `reconcileCards` (id-matching, reorder-in-place,
 // insert, remove, and — as of cycle-3's Fix Attempt 3 — focus capture/restore across a
@@ -362,49 +363,15 @@ function fakeTemplate(): HTMLTemplateElement {
 
 const NOW = new Date("2026-08-27T00:00:10Z");
 
+/** A session bound to a Claude session id, in bob's checkout, in its state since ten seconds before `NOW`. */
 function makeSession(overrides: Partial<Session> & { id: number }): Session {
-  return {
-    title: `session-${overrides.id}`,
-    titleOverride: null,
-    scratchpadDir: null,
-    plan: null,
-    state: "idle",
+  return sharedSession({
     stateSince: "2026-08-27T00:00:00Z",
-    alive: true,
-    endedAt: null,
-    attention: null,
-    failure: null,
     directory: "/Users/bob/code/muster",
-    repo: null,
-    claudeLocation: null,
-    addedDirs: [],
-    model: null,
-    permissionMode: { value: "default", source: "seed" },
-    context: {
-      usedPct: null,
-      totalInputTokens: null,
-      windowSize: null,
-      compactions: 0,
-    },
-    lastActivity: null,
-    backgroundTasks: 0,
     claudeSessionId: "claude-sess",
-    tmuxTarget: "muster:@1",
-    firstLaunchHere: false,
     createdAt: "2026-08-27T00:00:00Z",
-    pinned: false,
-    railPos: overrides.id,
-    unread: false,
-    lastPrompt: null,
-    groupId: null,
-    effort: null,
-    effortWarning: null,
-    claudeVersion: null,
-    restartPending: false,
-    note: null,
-    cache: null,
     ...overrides,
-  };
+  });
 }
 
 /** Review Major 5: `reconcileCards` takes one `CardListOptions`

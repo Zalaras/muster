@@ -5,45 +5,18 @@
 import { describe, expect, it } from "vitest";
 import type { Session } from "../protocol/session";
 import { endDialogBody, removeDialogBody } from "./actionscopy";
+import { makeSession as sharedSession } from "../sessions/testfixtures";
 
+/** A titled session bound to a Claude session id, in bob's checkout. */
 function makeSession(overrides: Partial<Session> & { id: number }): Session {
-  return {
+  return sharedSession({
     title: "some-session",
-    titleOverride: null,
-    scratchpadDir: null,
-    plan: null,
-    state: "idle",
     stateSince: "2026-08-27T00:00:00Z",
-    alive: true,
-    endedAt: null,
-    attention: null,
-    failure: null,
     directory: "/Users/bob/code/muster",
-    repo: null,
-    claudeLocation: null,
-    addedDirs: [],
-    model: null,
-    permissionMode: { value: "default", source: "seed" },
-    context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
-    lastActivity: null,
-    backgroundTasks: 0,
     claudeSessionId: "claude-sess",
-    tmuxTarget: "muster:@1",
-    firstLaunchHere: false,
     createdAt: "2026-08-26T23:00:00Z",
-    pinned: false,
-    railPos: overrides.id,
-    unread: false,
-    lastPrompt: null,
-    groupId: null,
-    effort: null,
-    effortWarning: null,
-    claudeVersion: null,
-    restartPending: false,
-    note: null,
-    cache: null,
     ...overrides,
-  };
+  });
 }
 
 describe("endDialogBody", () => {
