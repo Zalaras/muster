@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Group } from "../protocol/groups";
+import { makeGroup } from "../protocol/testfixtures";
 import { makeSession } from "../sessions/testfixtures";
 import {
   defaultGroupValue,
@@ -11,12 +12,8 @@ import {
   NO_GROUP_VALUE,
 } from "./launchgroupchoice";
 
-const group = (id: number, pos: number, name = `group-${id}`): Group => ({
-  id,
-  name,
-  pos,
-  collapsed: false,
-});
+const group = (id: number, pos: number, name = `group-${id}`): Group =>
+  makeGroup({ id, pos, name });
 
 describe("groupOptions — the launch dialog's Group select (kb:anchor/sessions.create)", () => {
   it("with no groups offers No group and New group… only", () => {

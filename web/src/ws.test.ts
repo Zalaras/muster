@@ -4,7 +4,13 @@ import type { Hello } from "./protocol/hello";
 import type { DocChanged } from "./protocol/messages";
 import { PREF_DEFAULTS, type PrefsMessage } from "./protocol/prefs";
 import type { Session } from "./protocol/session";
-import { makeHello, makeSnapshot, makeUpdateInfo } from "./protocol/testfixtures";
+import {
+  makeGroup,
+  makeHello,
+  makeSnapshot,
+  makeUngrouped,
+  makeUpdateInfo,
+} from "./protocol/testfixtures";
 import type { ClaudeThemeMessage } from "./protocol/theme";
 import type { UpdateMessage } from "./protocol/update";
 import { UNKNOWN_USAGE, type Usage, type UsageMessage } from "./protocol/usage";
@@ -269,18 +275,15 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
 describe("WsClient.dispatch — groups (plan groups kb:anchor/ws.groups)", () => {
   const groupsMessage: GroupsMessage = {
     type: "groups",
-    groups: [{ id: 3, name: "PR reviews", pos: 0, collapsed: false }],
-    ungrouped: { pos: 1, collapsed: true },
+    groups: [makeGroup({ id: 3, name: "PR reviews", pos: 0 })],
+    ungrouped: makeUngrouped({ pos: 1, collapsed: true }),
   };
 
   it("routes a groups message to onGroups with the bare list and Ungrouped layout, not onSnapshot", () => {
     const handlers = makeHandlers();
     const client = new WsClient("ws://x", handlers);
     client.dispatch(groupsMessage);
-    expect(handlers.onGroups).toHaveBeenCalledWith(
-      [{ id: 3, name: "PR reviews", pos: 0, collapsed: false }],
-      { pos: 1, collapsed: true },
-    );
+    expect(handlers.onGroups).toHaveBeenCalledWith(groupsMessage.groups, groupsMessage.ungrouped);
     expect(handlers.onSnapshot).not.toHaveBeenCalled();
   });
 
@@ -347,17 +350,13 @@ describe("WsClient — full socket lifecycle via an injected fake socket", () =>
   it("dispatches a groups frame to onGroups (plan groups kb:anchor/ws.groups)", () => {
     client.start();
     sockets[0]!.emitOpen();
-    sockets[0]!.emitMessage(
-      JSON.stringify({
-        type: "groups",
-        groups: [{ id: 3, name: "PR reviews", pos: 0, collapsed: false }],
-        ungrouped: { pos: 1, collapsed: false },
-      }),
-    );
-    expect(handlers.onGroups).toHaveBeenCalledWith(
-      [{ id: 3, name: "PR reviews", pos: 0, collapsed: false }],
-      { pos: 1, collapsed: false },
-    );
+    const frame: GroupsMessage = {
+      type: "groups",
+      groups: [makeGroup({ id: 3, name: "PR reviews", pos: 0 })],
+      ungrouped: makeUngrouped({ pos: 1 }),
+    };
+    sockets[0]!.emitMessage(JSON.stringify(frame));
+    expect(handlers.onGroups).toHaveBeenCalledWith(frame.groups, frame.ungrouped);
   });
 
   it("drops a malformed groups frame without calling onGroups", () => {

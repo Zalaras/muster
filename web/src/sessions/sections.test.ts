@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Group, UngroupedLayout } from "../protocol/groups";
 import type { RailSort } from "../protocol/prefs";
+import { makeGroup, makeUngrouped } from "../protocol/testfixtures";
 import type { Session } from "../protocol/session";
 import {
   buildSections,
@@ -42,14 +43,10 @@ const NOW = new Date("2026-08-22T00:00:10Z");
 const TIMER = "00:10";
 const UNKNOWN = { state: "unknown", fraction: 0, hover: "cache unknown" };
 
-const group = (id: number, pos: number, over: Partial<Group> = {}): Group => ({
-  id,
-  name: `group-${id}`,
-  pos,
-  collapsed: false,
-  ...over,
-});
-const ungrouped = (pos: number, collapsed = false): UngroupedLayout => ({ pos, collapsed });
+const group = (id: number, pos: number, over: Partial<Group> = {}): Group =>
+  makeGroup({ id, pos, ...over });
+const ungrouped = (pos: number, collapsed = false): UngroupedLayout =>
+  makeUngrouped({ pos, collapsed });
 const ids = (cards: readonly Session[]): number[] => cards.map((c) => c.id);
 const sectionIds = (sections: readonly Section[]): Array<number | null> =>
   sections.map((s) => s.id);

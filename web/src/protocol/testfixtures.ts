@@ -2,7 +2,7 @@
 // `sessions/testfixtures.ts` (Session). Each returns a complete, valid object and takes the
 // fields a test is about as overrides. The decoder tests here keep their raw wire literals —
 // spelling the whole payload out is their job.
-import { emptyGroupsFields } from "./groups";
+import { emptyGroupsFields, type Group, type UngroupedLayout } from "./groups";
 import { type ClaudeCodeInfo, type Hello, PROTOCOL_VERSION } from "./hello";
 import type { Snapshot } from "./messages";
 import { PREF_DEFAULTS } from "./prefs";
@@ -45,6 +45,21 @@ export function makeHello(overrides: Partial<Omit<Hello, "type">> = {}): Hello {
     claudeCode: makeClaudeCodeInfo(),
     ...overrides,
   };
+}
+
+/** An expanded group named `group-<id>`; `pos` follows `id` unless overridden. */
+export function makeGroup(overrides: Partial<Group> & { id: number }): Group {
+  return {
+    name: `group-${overrides.id}`,
+    pos: overrides.id,
+    collapsed: false,
+    ...overrides,
+  };
+}
+
+/** The Ungrouped section in first place, expanded. */
+export function makeUngrouped(overrides: Partial<UngroupedLayout> = {}): UngroupedLayout {
+  return { pos: 0, collapsed: false, ...overrides };
 }
 
 /** What a current daemon sends a first connection before anything has happened: no sessions,
