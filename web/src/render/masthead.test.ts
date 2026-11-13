@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClaudeCodeInfo } from "../protocol/hello";
+import { makeClaudeCodeInfo } from "../protocol/testfixtures";
 import type { Density } from "../protocol/prefs";
 import { type ModelWindow, UNKNOWN_USAGE, type Usage } from "../protocol/usage";
 import { formatResets, formatResetsTitle } from "../sessions/format";
@@ -429,12 +430,7 @@ describe("renderClaudeVersion — rebuilds #claude-version via replaceChildren (
 
   it("no warning: a lone text node, no glyph", () => {
     const el = element();
-    const info: ClaudeCodeInfo = {
-      installed: "2.1.267",
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "verified",
-    };
+    const info: ClaudeCodeInfo = makeClaudeCodeInfo({ installed: "2.1.267", status: "verified" });
     renderClaudeVersion(el as unknown as HTMLElement, describeClaudeVersion(info));
     expect(el.nodes()).toHaveLength(1);
     expect(el.textContent).toBe("claude 2.1.267");
@@ -451,24 +447,14 @@ describe("renderClaudeVersion — rebuilds #claude-version via replaceChildren (
     const el = element();
     renderClaudeVersion(el as unknown as HTMLElement, describeClaudeVersion(null));
     expect(el.title).toBe("The Claude Code version check failed or hasn't completed yet");
-    const info: ClaudeCodeInfo = {
-      installed: "2.1.267",
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "verified",
-    };
+    const info: ClaudeCodeInfo = makeClaudeCodeInfo({ installed: "2.1.267", status: "verified" });
     renderClaudeVersion(el as unknown as HTMLElement, describeClaudeVersion(info));
     expect(el.title).toBe("");
   });
 
   it("warning present: trailing-space text node followed by a role=img glyph whose aria-label and title both carry the warning sentence", () => {
     const el = element();
-    const info: ClaudeCodeInfo = {
-      installed: "2.1.270",
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "above",
-    };
+    const info: ClaudeCodeInfo = makeClaudeCodeInfo({ installed: "2.1.270", status: "above" });
     renderClaudeVersion(el as unknown as HTMLElement, describeClaudeVersion(info));
 
     const [textNode, glyph] = el.nodes();
@@ -485,12 +471,7 @@ describe("renderClaudeVersion — rebuilds #claude-version via replaceChildren (
 
   it("below-range warning uses the update wording, still matching aria-label to title", () => {
     const el = element();
-    const info: ClaudeCodeInfo = {
-      installed: "2.1.200",
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "below",
-    };
+    const info: ClaudeCodeInfo = makeClaudeCodeInfo({ installed: "2.1.200", status: "below" });
     renderClaudeVersion(el as unknown as HTMLElement, describeClaudeVersion(info));
 
     const [, glyph] = el.nodes();
@@ -503,23 +484,13 @@ describe("renderClaudeVersion — rebuilds #claude-version via replaceChildren (
     const el = element();
     renderClaudeVersion(
       el as unknown as HTMLElement,
-      describeClaudeVersion({
-        installed: "2.1.270",
-        floor: "2.1.246",
-        verified: "2.1.267",
-        status: "above",
-      }),
+      describeClaudeVersion(makeClaudeCodeInfo({ installed: "2.1.270", status: "above" })),
     );
     expect(el.nodes()).toHaveLength(2);
 
     renderClaudeVersion(
       el as unknown as HTMLElement,
-      describeClaudeVersion({
-        installed: "2.1.267",
-        floor: "2.1.246",
-        verified: "2.1.267",
-        status: "verified",
-      }),
+      describeClaudeVersion(makeClaudeCodeInfo({ installed: "2.1.267", status: "verified" })),
     );
     expect(el.nodes()).toHaveLength(1);
     expect(el.textContent).toBe("claude 2.1.267");

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClaudeCodeInfo } from "../protocol/hello";
+import { makeClaudeCodeInfo } from "../protocol/testfixtures";
 import { describeClaudeVersion } from "./connectionversion";
 
 // Plan version-claude-interface, UI Specifications > DOM: the six-row table
@@ -19,12 +20,7 @@ describe("describeClaudeVersion — UI Specifications > DOM six-row table", () =
   });
 
   it("row 2: status 'unknown' (with a populated installed, which the daemon never actually sends alongside unknown) -> 'claude unknown', no warning", () => {
-    const info: ClaudeCodeInfo = {
-      installed: "2.1.267",
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "unknown",
-    };
+    const info: ClaudeCodeInfo = makeClaudeCodeInfo({ installed: "2.1.267", status: "unknown" });
     expect(describeClaudeVersion(info)).toEqual({
       text: "claude unknown",
       warning: null,
@@ -33,12 +29,7 @@ describe("describeClaudeVersion — UI Specifications > DOM six-row table", () =
   });
 
   it("row 2 (installed genuinely null): status 'unknown' with installed null -> 'claude unknown', no warning", () => {
-    const info: ClaudeCodeInfo = {
-      installed: null,
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "unknown",
-    };
+    const info: ClaudeCodeInfo = makeClaudeCodeInfo({ installed: null, status: "unknown" });
     expect(describeClaudeVersion(info)).toEqual({
       text: "claude unknown",
       warning: null,
@@ -47,12 +38,7 @@ describe("describeClaudeVersion — UI Specifications > DOM six-row table", () =
   });
 
   it("row 3: status 'verified' -> 'claude <installed>', no warning", () => {
-    const info: ClaudeCodeInfo = {
-      installed: "2.1.267",
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "verified",
-    };
+    const info: ClaudeCodeInfo = makeClaudeCodeInfo({ installed: "2.1.267", status: "verified" });
     expect(describeClaudeVersion(info)).toEqual({
       text: "claude 2.1.267",
       warning: null,
@@ -61,12 +47,7 @@ describe("describeClaudeVersion — UI Specifications > DOM six-row table", () =
   });
 
   it("row 4: status 'above' -> 'claude <installed>' + the not-tested warning (no update wording)", () => {
-    const info: ClaudeCodeInfo = {
-      installed: "2.1.270",
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "above",
-    };
+    const info: ClaudeCodeInfo = makeClaudeCodeInfo({ installed: "2.1.270", status: "above" });
     expect(describeClaudeVersion(info)).toEqual({
       text: "claude 2.1.270",
       warning: VERSION_NOT_TESTED,
@@ -75,12 +56,7 @@ describe("describeClaudeVersion — UI Specifications > DOM six-row table", () =
   });
 
   it("row 5: status 'below' -> 'claude <installed>' + the not-tested-please-update warning (em dash U+2014)", () => {
-    const info: ClaudeCodeInfo = {
-      installed: "2.1.200",
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "below",
-    };
+    const info: ClaudeCodeInfo = makeClaudeCodeInfo({ installed: "2.1.200", status: "below" });
     const result = describeClaudeVersion(info);
     expect(result).toEqual({
       text: "claude 2.1.200",
@@ -92,12 +68,7 @@ describe("describeClaudeVersion — UI Specifications > DOM six-row table", () =
 
   it("row 6 (defensive): a non-'unknown' status with installed null -> 'claude unknown', no warning (the daemon never sends this — INV-1 — but the parser only type-checks, so the renderer must not template 'claude null')", () => {
     for (const status of ["verified", "above", "below"] as const) {
-      const info: ClaudeCodeInfo = {
-        installed: null,
-        floor: "2.1.246",
-        verified: "2.1.267",
-        status,
-      };
+      const info: ClaudeCodeInfo = makeClaudeCodeInfo({ installed: null, status });
       expect(describeClaudeVersion(info)).toEqual({
         text: "claude unknown",
         warning: null,

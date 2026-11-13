@@ -4,19 +4,14 @@ import type { Hello } from "./protocol/hello";
 import type { DocChanged } from "./protocol/messages";
 import { PREF_DEFAULTS, type PrefsMessage } from "./protocol/prefs";
 import type { Session } from "./protocol/session";
-import { makeSnapshot, makeUpdateInfo } from "./protocol/testfixtures";
+import { makeHello, makeSnapshot, makeUpdateInfo } from "./protocol/testfixtures";
 import type { ClaudeThemeMessage } from "./protocol/theme";
 import type { UpdateMessage } from "./protocol/update";
 import { UNKNOWN_USAGE, type Usage, type UsageMessage } from "./protocol/usage";
 import { makeRepo, makeSession } from "./sessions/testfixtures";
 import { backoffDelay, type SocketLike, WsClient, type WsClientHandlers } from "./ws";
 
-const hello: Hello = {
-  type: "hello",
-  protocolVersion: 2,
-  daemon: { version: "0.1.0" },
-  claudeCode: { installed: "2.1.267", floor: "2.1.246", verified: "2.1.267", status: "verified" },
-};
+const hello = makeHello();
 
 // Plan auto-update (kb:anchor/ws.update): a fully-populated UpdateInfo, badge showing.
 const updateInfo = makeUpdateInfo({ available: "0.11.0", checkedAt: "2026-09-10T20:00:00Z" });

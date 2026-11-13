@@ -3,6 +3,7 @@
 // fields a test is about as overrides. The decoder tests here keep their raw wire literals —
 // spelling the whole payload out is their job.
 import { emptyGroupsFields } from "./groups";
+import { type ClaudeCodeInfo, type Hello, PROTOCOL_VERSION } from "./hello";
 import type { Snapshot } from "./messages";
 import { PREF_DEFAULTS } from "./prefs";
 import type { UpdateInfo } from "./update";
@@ -20,6 +21,28 @@ export function makeUpdateInfo(overrides: Partial<UpdateInfo> = {}): UpdateInfo 
     checkedAt: null,
     installed: null,
     apply: { phase: "idle", version: null, error: null },
+    ...overrides,
+  };
+}
+
+/** Claude Code 2.1.267 installed, inside the verified range 2.1.246–2.1.267. */
+export function makeClaudeCodeInfo(overrides: Partial<ClaudeCodeInfo> = {}): ClaudeCodeInfo {
+  return {
+    installed: "2.1.267",
+    floor: "2.1.246",
+    verified: "2.1.267",
+    status: "verified",
+    ...overrides,
+  };
+}
+
+/** A hello this client supports, from daemon 0.1.0 with a verified Claude Code. */
+export function makeHello(overrides: Partial<Omit<Hello, "type">> = {}): Hello {
+  return {
+    type: "hello",
+    protocolVersion: PROTOCOL_VERSION,
+    daemon: { version: "0.1.0" },
+    claudeCode: makeClaudeCodeInfo(),
     ...overrides,
   };
 }
