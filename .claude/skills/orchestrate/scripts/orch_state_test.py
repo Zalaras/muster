@@ -53,5 +53,17 @@ class Filter(unittest.TestCase):
             self.assertEqual(orch.critic_strikes(p), {"web/src/x.ts:setText:duplicate helper"})
             self.assertEqual(orch.critic_strikes(pathlib.Path(d) / "nope"), set())
 
+class Prototype(unittest.TestCase):
+    def test_init_sees_a_surviving_prototype_branch(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as d:
+            git = ["git", "-C", d, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "core.hooksPath=/dev/null"]
+            subprocess.run(["git", "init", "-q", d], check=True)
+            subprocess.run(git + ["commit", "-q", "--allow-empty", "-m", "chore: seed"], check=True)
+            self.assertFalse(orch.prototype_branch("x", cwd=d))
+            subprocess.run(git + ["branch", "proto/x"], check=True)
+            self.assertTrue(orch.prototype_branch("x", cwd=d))
+            self.assertFalse(orch.prototype_branch("y", cwd=d))
+
 if __name__ == "__main__":
     unittest.main()

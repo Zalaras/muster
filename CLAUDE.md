@@ -29,7 +29,10 @@ current state.
 
 ## Workflow — the build pipeline
 
-Feature work goes through the multi-agent pipeline, not ad-hoc editing:
+Feature work goes through the multi-agent pipeline, not ad-hoc editing. Work whose requirements
+cannot be written unseen starts with `/proto <name> "<desc>"`: a throwaway prototype on
+`proto/<name>` the developer works until accepted, whose log feeds step 1 and whose code is never
+landed (kb:adr/process-prototype-first-track).
 
 1. `/spec <name> "<desc>"` — optional interview naming the features it touches and stating
    requirements as observable consequence → `plans/<name>/spec.md`, `Status: Approved`.

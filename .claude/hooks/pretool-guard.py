@@ -3,7 +3,8 @@
 tool call. Reads the hook payload on stdin and prints a permissionDecision; exit 0 always, so the
 only way to block is the JSON (onFailure: block covers a crash).
 
-Bash — denied for every caller: `git stash`, a repo-local git identity (`git config user.*`).
+Bash — denied for every caller: `git stash`, a repo-local git identity (`git config user.*`),
+and merging or cherry-picking a `proto/` branch (a prototype is thrown away, never landed).
 Denied for subagents (payload carries agent_type): `git push`, `git add -A` / `git add .`,
 `git reset --hard`, `git clean`, `git checkout -- <path>`, `git rebase` — the worker rules say why
 (a shared index, files other agents hold); the main session keeps them for /land.
@@ -45,6 +46,7 @@ GIT = r"\bgit\b(?:\s+-[-\w=./]+(?:\s+[^-\s]\S*)?)*\s+"   # `git`, any leading op
 BASH_DENY_ALL = [
     (GIT + r"stash\b", "git stash is never run here: it touches files other agents hold (worker rules § Git; CLAUDE.md hard rules)"),
     (GIT + r"config\b(?!.*--global)(?!.*--get)(?=.*\buser\.(name|email)\b)", "a repo-local git identity is never set: worktrees share .git/config (CLAUDE.md hard rules); pass -c user.name=… per command in a scratch repo"),
+    (GIT + r"(merge|cherry-pick)\b[^|;&\n]*\bproto/", "a proto/ branch is never merged or picked from: the prototype is thrown away and built again from its spec (kb:adr/process-prototype-first-track)"),
 ]
 BASH_DENY_AGENT = [
     (GIT + r"push\b", "agents never push; /land pushes from the primary checkout (worker rules § Git)"),

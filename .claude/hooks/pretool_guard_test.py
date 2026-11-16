@@ -28,6 +28,12 @@ class Bash(unittest.TestCase):
         self.assertIsNone(run({"tool_name": "Bash", "agent_type": "web-tests", "tool_input": {"command": "git add web/src/a.test.ts && git commit -- web/src/a.test.ts -m 'test(x): y'"}}))
         self.assertIsNone(run({"tool_name": "Bash", "agent_type": "web-tests", "tool_input": {"command": "git checkout plan/x"}}))
 
+    def test_proto_branch_never_merged(self):
+        for c in ("git merge proto/x", "git -C ../muster merge --squash proto/x", "git cherry-pick proto/x~2"):
+            self.assertIn("proto/", run({"tool_name": "Bash", "tool_input": {"command": c}}), c)
+        for c in ("git merge main", "git checkout proto/x", "git diff main...proto/x", "git merge main && git log proto/x"):
+            self.assertIsNone(run({"tool_name": "Bash", "tool_input": {"command": c}}), c)
+
     def test_literals_are_not_commands(self):
         banned = "git " + "stash"   # spelled apart so this file itself never trips the guard
         self.assertIsNone(run({"tool_name": "Bash", "tool_input": {"command": f"cat > x.md <<'EOF'\nnever run {banned} here\nEOF\necho done"}}))

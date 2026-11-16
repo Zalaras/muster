@@ -9,6 +9,10 @@
 #   make worktree-rm NAME=<plan> [FORCE=1]  rm:    remove a tree; never the branch (/land does that)
 #   make worktrees                          list:  every tree, and which plan branches touch the same files
 #
+# KIND=proto (add, rm) is a throwaway prototype (kb:adr/process-prototype-first-track):
+# ../<repo>-proto-<name> on proto/<name>. `add` carries no planning edits onto it, and `rm`
+# deletes the branch with the tree, because a prototype is never landed.
+#
 # Deliberate choices:
 #   - bash 3.2 (macOS), set -u; git plumbing only, no stash, no `git add -A`, no `git config user.*`
 #     (worktrees share .git/config).
@@ -26,7 +30,9 @@ REPO="$(basename "$PRIMARY")"
 
 die() { echo "worktree: $*" >&2; exit 1; }
 say() { printf '%s\n' "$*"; }
-tree_for() { printf '%s/%s-%s\n' "$(dirname "$PRIMARY")" "$REPO" "$1"; }
+KIND="${KIND:-plan}"
+case "$KIND" in plan|proto) ;; *) die "KIND '$KIND' must be plan or proto" ;; esac
+tree_for() { local k=""; [ "$KIND" = proto ] && k="proto-"; printf '%s/%s-%s%s\n' "$(dirname "$PRIMARY")" "$REPO" "$k" "$1"; }
 valid_name() { [[ "$1" =~ ^[A-Za-z0-9._-]+$ ]]; }
 registered_branch() {   # $1 = tree path → the branch checked out there, or nothing
   git -C "$PRIMARY" worktree list --porcelain | awk -v t="$1" '$1=="worktree"{cur=$2} $1=="branch" && cur==t {sub("refs/heads/","",$2); print $2}'
@@ -60,8 +66,8 @@ cmd_add() {
   [ "$ROOT" = "$PRIMARY" ] || die "run from the primary checkout ($PRIMARY), not a tree"
   [ "$(git symbolic-ref --short -q HEAD)" = "main" ] || die "the primary must be on main (it is on $(git symbolic-ref --short -q HEAD || echo 'a detached HEAD'))"
   git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null || die "base '$BASE' is not a commit"
-  [ -f "plans/$NAME/plan.md" ] || say "warning: no plans/$NAME/plan.md — fine for a scratch tree, wrong for a pipeline run"
-  local BRANCH="plan/$NAME" TREE; TREE="$(tree_for "$NAME")"
+  [ "$KIND" = proto ] || [ -f "plans/$NAME/plan.md" ] || say "warning: no plans/$NAME/plan.md — fine for a scratch tree, wrong for a pipeline run"
+  local BRANCH="$KIND/$NAME" TREE; TREE="$(tree_for "$NAME")"
 
   # Already there and registered for this branch → idempotent: setup again and stop.
   if [ -e "$TREE" ]; then
@@ -77,7 +83,7 @@ cmd_add() {
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     xy="${line:0:2}"; path="${line:3}"; path="${path##* -> }"
-    if in_planning_set "$path"; then planning+=("$path"); else stays+=("$xy $path"); fi
+    if [ "$KIND" = plan ] && in_planning_set "$path"; then planning+=("$path"); else stays+=("$xy $path"); fi
   done < <(git status --porcelain)
 
   if [ ${#planning[@]} -gt 0 ]; then
@@ -150,13 +156,18 @@ cmd_setup() {
 cmd_rm() {
   local NAME="${1:-}"; [ -n "$NAME" ] || die "usage: make worktree-rm NAME=<plan> [FORCE=1]"
   valid_name "$NAME" || die "name '$NAME' must match [A-Za-z0-9._-]+"
-  local BRANCH="plan/$NAME" TREE; TREE="$(tree_for "$NAME")"
+  local BRANCH="$KIND/$NAME" TREE; TREE="$(tree_for "$NAME")"
+  if [ "$KIND" = proto ] && [ ! -e "$TREE" ]; then   # the tree is already gone: only the branch is left to drop
+    git -C "$PRIMARY" show-ref --verify --quiet "refs/heads/$BRANCH" || die "neither $TREE nor $BRANCH exists"
+    git -C "$PRIMARY" branch -q -D "$BRANCH" || die "could not delete $BRANCH"
+    say "deleted $BRANCH"; return
+  fi
   [ "$(registered_branch "$TREE")" = "$BRANCH" ] || die "$TREE is not the registered worktree for $BRANCH (make worktrees lists them)"
   local force="${FORCE:-}"
   if [ -n "$(git -C "$TREE" status --porcelain)" ]; then
     [ -n "$force" ] || die "$TREE is dirty — commit or discard there first, or FORCE=1 to discard"
   fi
-  if ! landed "$BRANCH"; then
+  if [ "$KIND" = plan ] && ! landed "$BRANCH"; then
     [ -n "$force" ] || die "$BRANCH holds content main lacks (git diff main...$BRANCH) — /land it, or FORCE=1 to remove the tree anyway (the branch stays)"
   fi
   if lsof -a -d cwd -c claude -Fn 2>/dev/null | grep -qx "n$TREE"; then
@@ -164,6 +175,10 @@ cmd_rm() {
   fi
   if [ -n "$force" ]; then git -C "$PRIMARY" worktree remove --force "$TREE"; else git -C "$PRIMARY" worktree remove "$TREE"; fi \
     || die "git worktree remove failed"
+  if [ "$KIND" = proto ]; then
+    git -C "$PRIMARY" branch -q -D "$BRANCH" || die "removed $TREE but could not delete $BRANCH"
+    say "removed $TREE and deleted $BRANCH — a prototype is never landed"; return
+  fi
   say "removed $TREE — branch $BRANCH kept (/land deletes it after the squash)"
 }
 

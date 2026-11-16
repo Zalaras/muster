@@ -108,6 +108,14 @@ def usage_pct():
     except Exception:
         return None
 
+def prototype_branch(plan, cwd=None):
+    """True while the plan's throwaway prototype branch exists. init refuses then: an implementer
+    that can read the prototype ports it, and the spec is what gets built
+    (kb:adr/process-prototype-first-track)."""
+    r = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"refs/heads/proto/{plan}"],
+                       capture_output=True, text=True, cwd=cwd)
+    return r.returncode == 0
+
 def close_attempt(s, step):
     """Stamp step_finished_at[step] and close the step's open attempt (or record a finish-only
     attempt when no `start` was called — the fallback the timings table marks `~`).
@@ -410,6 +418,9 @@ def main():
     if a.cmd == "init":
         if path.exists():
             sys.exit(f"{path} already exists — use reopen/status, not init")
+        if prototype_branch(a.plan):
+            sys.exit(f"proto/{a.plan} still exists — no pipeline agent may read the prototype's code; "
+                     f"drop it first: make worktree-rm NAME={a.plan} KIND=proto")
         s = {"plan_name": a.plan, "status": "in-progress",
              "current_step": a.step or STEPS[0],
              "retry_counts": {k: 0 for k in STEPS},

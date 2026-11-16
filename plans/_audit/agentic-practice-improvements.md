@@ -42,6 +42,7 @@ their order, and each pick becomes its own plan and commit.
 | R13 Contract generated from one schema | 3 | proposed |
 | R14 Per-agent step and context budgets | 3 | proposed |
 | R15 Local code graph without model indexing — trial against a probe set | 3 | proposed |
+| R16 Prototype-first track: throwaway prototype, spec drafted from it | 2 | built 2026-11-16 (kb:adr/process-prototype-first-track); the first prototype-led run and its numbers are still to come |
 | M1–M5 Facts to re-measure | — | proposed |
 
 Developer's ruling (2026-11-07): Tier 2 is applied **in place** and observed on the next runs with
@@ -568,6 +569,52 @@ https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents;
 https://github.com/openclaw/openclaw/blob/main/.agents/skills/test-audit/SKILL.md;
 kb:adr/process-test-levels-journey-property-logic; kb:adr/process-render-fixtures-generated-from-daemon;
 `docs/protocol.md`; `web/render/`.
+
+### R16. A prototype-first track: work a throwaway prototype, then spec and build properly
+
+Added 2026-11-16 from a design conversation with the developer; not part of the 2026-11-05 review.
+
+**Problem.** `/spec` asks the developer to describe a surface nobody has seen, so requirements are
+written from imagination. What they got wrong surfaces in review cycles or after landing, where a
+change costs most. Mockups under `plans/<name>/mockups/` show layout but cannot be used.
+
+**Why.** The median run takes two review cycles (§ Measured baseline) and each one is a fix wave
+plus a re-review; how much of that churn is requirements the plan got wrong is **not measured**, so this
+item is a hypothesis with a measure, not a finding. The idea itself is Brooks's "plan to throw one
+away" (The Mythical Man-Month, ch. 11). It fits the Tier 1 doctrine: the track adds almost no
+prose, and each of its zero-exception rules is a check.
+
+**Proposed solution.**
+1. `scripts/worktree.sh` takes `KIND=proto`, so a prototype lives in `../muster-proto-<name>`
+   on `proto/<name>`, never on a `plan/` branch.
+2. `pretool-guard.py` denies merging a `proto/` branch for every caller, with a unit test beside
+   the existing ones.
+3. `orch-state.py init`, the orchestrate pre-flight's first state edit, refuses while
+   `proto/<name>` exists, so no implementer can read the prototype's code. Screenshots are the target and stay readable; the code is the hack.
+4. `/proto <name> "<desc>"`, a short main-session skill with no subagents: make the tree, run
+   `musterd` through `make proto-run` (its own `-data-dir`, `-tmux-socket` and `-port`), loop on the developer's feedback, append each
+   round to `plans/<name>/prototype-log.md`, and record a usage sample at start and at done. Only
+   CLAUDE.md § Hard rules bind inside it; tests, conventions and doc upkeep do not.
+5. `/proto <name> done` writes screenshots and a draft spec from the log; `/spec` then asks only
+   its approval question. `/plan-work` drafts from the log and screenshots and asks only what the
+   prototype left open; approval stays. Changed minds in the log become the plan's proposed ADRs.
+6. Use it only where requirements cannot be written without seeing it: a new surface or a
+   protocol change (R8's `surface` and `protocol` tiers once R8 lands). Daemon-only, web-internal
+   and docs work never prototype; small work stays `/fix`.
+7. Flip the ADR to `accepted`; add the third track to CLAUDE.md § Workflow.
+
+**Order.** Independent of R7 (the loop is interactive and stays in the main session; its hand-off
+is the approved spec, the script's existing input). Works before R8; step 6 becomes mechanical
+after it.
+
+**Done when.** One feature goes prototype → spec → plan → `/orchestrate` → `/land`; its review
+cycle count and Δweekly (prototype session plus run) are reported beside two comparable earlier
+runs; the track is kept or the item closed on those numbers.
+
+**References.** kb:adr/process-prototype-first-track; kb:adr/process-boundaries-enforced-by-hooks;
+kb:adr/process-retro-sink-rule; kb:adr/process-cost-knobs-cache-effort-usage-column;
+`.claude/skills/spec/SKILL.md`; `.claude/skills/plan-work/SKILL.md`; `scripts/worktree.sh`;
+`.claude/hooks/pretool-guard.py`; `cmd/musterd/main.go` (`-data-dir`, `-port`).
 
 ---
 

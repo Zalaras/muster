@@ -52,6 +52,14 @@ All plan artifacts live there. If a spec exists:
 
 If no spec exists, proceed normally — the spec step is optional.
 
+**A prototype came first** when `plans/<plan-name>/prototype-log.md` exists
+(kb:adr/process-prototype-first-track). Read the log and `plans/<plan-name>/prototype/`, and read
+`git diff main...proto/<plan-name>` for **impact only**: which messages it needed, which surfaces
+and files it touched, which tests it would break. Draft each section from that and ask only what
+it leaves open. Never carry the prototype's shape into the plan — the implementers build from this
+plan alone and never see it. Name the screenshots under UI Specifications as what the browser
+reviewer compares against; each `Changed mind` entry in the log is a decision for Approval step 4.
+
 ### 1. Understand the Scope
 
 Ask the developer to elaborate on what this adds or fixes and which `TODO.md` entry or issue it
@@ -489,7 +497,10 @@ When the developer explicitly approves the plan, in this order:
 4. Write each decision the plan makes as a `status: proposed` ADR in `docs/adr/`
    (`refs: [plan:<plan-name>]`, one decision each).
 5. `make gen-kb && make check-kb`.
-6. Tell the developer what comes next: `make worktree NAME=<plan-name>` from this primary
+6. If `proto/<plan-name>` exists, tell the developer the prototype is being dropped and run
+   `make worktree-rm NAME=<plan-name> KIND=proto` — `/orchestrate` refuses to start while the
+   branch exists. Its log and screenshots stay in `plans/<plan-name>/`.
+7. Tell the developer what comes next: `make worktree NAME=<plan-name>` from this primary
    checkout (it commits these planning edits onto `plan/<plan-name>` and builds
    `../muster-<plan-name>`), then `/orchestrate <plan-name>`, which enters that tree itself with
    `EnterWorktree` (kb:adr/process-session-enters-worktree-in-place). If they say to go on, run

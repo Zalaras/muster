@@ -187,19 +187,31 @@ hooks-test: ## Unit tests for the Claude Code hooks (PreToolUse guard) and orch-
 # lives in ../<repo>-<plan> on plan/<plan>, created here before the session starts; the primary
 # stays on main for /land. scripts/worktree.sh holds the logic and its refusals.
 BASE ?= main
+KIND ?= plan
 .PHONY: worktree
-worktree: ## Create ../<repo>-$(NAME) on plan/$(NAME) from $(BASE), carry the planning edits, copy local files, build (NAME=<plan>)
-	@test -n "$(NAME)" || { echo "usage: make worktree NAME=<plan> [BASE=main]"; exit 2; }
-	scripts/worktree.sh add "$(NAME)" "$(BASE)"
+worktree: ## Create ../<repo>-$(NAME) on plan/$(NAME) from $(BASE), carry the planning edits, copy local files, build (NAME=<plan>); KIND=proto makes a throwaway ../<repo>-proto-$(NAME) on proto/$(NAME)
+	@test -n "$(NAME)" || { echo "usage: make worktree NAME=<plan> [BASE=main] [KIND=proto]"; exit 2; }
+	KIND="$(KIND)" scripts/worktree.sh add "$(NAME)" "$(BASE)"
 
 .PHONY: worktree-setup
 worktree-setup: ## In a worktree: copy the gitignored local files from the primary (settings.local.json, node_modules, captures, .env) and build
 	scripts/worktree.sh setup
 
 .PHONY: worktree-rm
-worktree-rm: ## Remove ../<repo>-$(NAME); refuses a dirty tree, unlanded content or a live session unless FORCE=1; never deletes the branch
-	@test -n "$(NAME)" || { echo "usage: make worktree-rm NAME=<plan> [FORCE=1]"; exit 2; }
-	scripts/worktree.sh rm "$(NAME)"
+worktree-rm: ## Remove ../<repo>-$(NAME); refuses a dirty tree, unlanded content or a live session unless FORCE=1; never deletes the branch — except KIND=proto, which drops the prototype's tree and branch together
+	@test -n "$(NAME)" || { echo "usage: make worktree-rm NAME=<plan> [FORCE=1] [KIND=proto]"; exit 2; }
+	KIND="$(KIND)" scripts/worktree.sh rm "$(NAME)"
+
+# A prototype's daemon (kb:adr/process-prototype-first-track) never shares the developer's data
+# dir, tmux server or port, and takes its sessions with it when it stops.
+PROTO_PORT ?= 8799
+.PHONY: proto-branch proto-run
+proto-branch:
+	@case "$$(git symbolic-ref --short -q HEAD)" in proto/*) ;; *) echo "proto-run: this checkout is not on a proto/ branch (make worktree NAME=<name> KIND=proto)"; exit 2 ;; esac
+
+proto-run: proto-branch build web-build ## In a proto/<name> tree only: run the prototype musterd on its own data dir (.proto-data), tmux socket and port (PROTO_PORT=8799), killing its sessions on exit
+	@b="$$(git symbolic-ref --short -q HEAD)"; \
+	exec ./$(BIN) -web-dist internal/webui/assets -data-dir "$(CURDIR)/.proto-data" -tmux-socket "muster-proto-$${b#proto/}" -port $(PROTO_PORT) -on-exit kill
 
 .PHONY: worktrees
 worktrees: ## List every worktree (branch, ahead, landed, dirty) and which plan branches touch the same files

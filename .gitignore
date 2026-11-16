@@ -53,5 +53,8 @@ internal/webui/assets/*
 # fresh worktree (groups review cycle 1).
 .claude/worktrees/
 
+# A prototype daemon's data dir (make proto-run): tokens and a database, never committed
+/.proto-data/
+
 # python bytecode from the hook and script unit tests
 __pycache__/

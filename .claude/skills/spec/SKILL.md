@@ -36,6 +36,18 @@ If no arguments are provided, ask the developer for a plan name and description.
   surface them rather than asking the developer to remember.
 - Work through the sections below in order, and move on only when the current one is answered.
 
+## From a prototype
+
+When `plans/<plan-name>/prototype-log.md` exists, `/proto` has already asked the questions by
+letting the developer use the thing (kb:adr/process-prototype-first-track). Do §0 as written, then
+**draft every section yourself** from the log's accepted rounds and the screenshots in
+`plans/<plan-name>/prototype/`, and put the whole draft to the developer as one confirmation. Ask
+only what the log leaves open — usually §5, because a prototype is worked on the happy path. A
+`Changed mind` entry is a requirement plus a rejected alternative: write the first under
+Requirements and the second under Out of Scope. Read the prototype (`git diff main...proto/<plan-name>`)
+only to learn what it does, never to name its code: that code is thrown away and no implementer
+sees it. Cite the log and the screenshots under References. The approval question stands.
+
 ## Interview Flow
 
 ### 0. Which features does this touch?
