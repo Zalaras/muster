@@ -180,8 +180,8 @@ check-fast: ## check with its independent members in parallel (make -j), then te
 	$(MAKE) test check-render-fixtures
 
 .PHONY: hooks-test
-hooks-test: ## Unit tests for the Claude Code hooks (PreToolUse guard) and orch-state.py review filtering
-	python3 .claude/hooks/pretool_guard_test.py && python3 .claude/skills/orchestrate/scripts/orch_state_test.py
+hooks-test: ## Unit tests for the Claude Code hooks (PreToolUse guard), orch-state.py review filtering and the prototype feedback receiver
+	python3 .claude/hooks/pretool_guard_test.py && python3 .claude/skills/orchestrate/scripts/orch_state_test.py && python3 .claude/skills/proto/feedback_server_test.py
 
 # Pipeline worktrees (kb:adr/process-session-enters-worktree-in-place): every /orchestrate run
 # lives in ../<repo>-<plan> on plan/<plan>, created here before the session starts; the primary
@@ -203,15 +203,32 @@ worktree-rm: ## Remove ../<repo>-$(NAME); refuses a dirty tree, unlanded content
 	KIND="$(KIND)" scripts/worktree.sh rm "$(NAME)"
 
 # A prototype's daemon (kb:adr/process-prototype-first-track) never shares the developer's data
-# dir, tmux server or port, and takes its sessions with it when it stops.
+# dir, tmux server or port, and takes its sessions with it when it stops. Its built pages carry
+# the click-to-feedback overlay, added after every dashboard build here and nowhere else, and a
+# receiver on PROTO_FEEDBACK_PORT writes what the developer sends to the prototype's plan folder.
 PROTO_PORT ?= 8799
-.PHONY: proto-branch proto-run
-proto-branch:
-	@case "$$(git symbolic-ref --short -q HEAD)" in proto/*) ;; *) echo "proto-run: this checkout is not on a proto/ branch (make worktree NAME=<name> KIND=proto)"; exit 2 ;; esac
+PROTO_FEEDBACK_PORT ?= 8798
+PROTO_FEEDBACK := .claude/skills/proto/feedback-server.py
+.PHONY: proto-branch proto-web proto-run proto-stop
+proto-stop: proto-branch ## In a proto/<name> tree only: stop this prototype's musterd (SIGTERM, which kills its sessions and ends the feedback receiver) and fail if a tmux session survived
+	@b="$$(git symbolic-ref --short -q HEAD)"; n="$${b#proto/}"; \
+	pid="$$(pgrep -f "^\./$(BIN) .*-tmux-socket muster-proto-$$n -port")"; \
+	if [ -z "$$pid" ]; then echo "proto-stop: no prototype musterd for $$n is running"; else \
+	  kill -TERM $$pid; for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do kill -0 $$pid 2>/dev/null || break; sleep 0.5; done; \
+	  kill -0 $$pid 2>/dev/null && { echo "proto-stop: musterd $$pid did not exit"; exit 1; }; echo "proto-stop: stopped musterd $$pid"; fi; \
+	if tmux -L "muster-proto-$$n" ls >/dev/null 2>&1; then echo "proto-stop: sessions survived on tmux socket muster-proto-$$n — kill them: tmux -L muster-proto-$$n kill-server"; exit 1; fi
 
-proto-run: proto-branch build web-build ## In a proto/<name> tree only: run the prototype musterd on its own data dir (.proto-data), tmux socket and port (PROTO_PORT=8799), killing its sessions on exit
-	@b="$$(git symbolic-ref --short -q HEAD)"; \
-	exec ./$(BIN) -web-dist internal/webui/assets -data-dir "$(CURDIR)/.proto-data" -tmux-socket "muster-proto-$${b#proto/}" -port $(PROTO_PORT) -on-exit kill
+proto-branch:
+	@case "$$(git symbolic-ref --short -q HEAD)" in proto/*) ;; *) echo "proto: this checkout is not on a proto/ branch (make worktree NAME=<name> KIND=proto)"; exit 2 ;; esac
+
+proto-web: proto-branch web-build ## In a proto/<name> tree only: build the dashboard and add the click-to-feedback overlay to the built pages
+	@python3 $(PROTO_FEEDBACK) inject --port $(PROTO_FEEDBACK_PORT) internal/webui/assets/*.html
+
+proto-run: proto-branch build proto-web ## In a proto/<name> tree only: run the prototype musterd on its own data dir (.proto-data), tmux socket and port (PROTO_PORT=8799) with the feedback receiver beside it, killing its sessions on exit
+	@b="$$(git symbolic-ref --short -q HEAD)"; n="$${b#proto/}"; \
+	python3 $(PROTO_FEEDBACK) serve --port $(PROTO_FEEDBACK_PORT) --dashboard-port $(PROTO_PORT) --out "plans/$$n/prototype-feedback.jsonl" --state-dir .proto-data & fb=$$!; \
+	trap 'kill $$fb 2>/dev/null' EXIT; \
+	./$(BIN) -web-dist internal/webui/assets -data-dir "$(CURDIR)/.proto-data" -tmux-socket "muster-proto-$$n" -port $(PROTO_PORT) -on-exit kill
 
 .PHONY: worktrees
 worktrees: ## List every worktree (branch, ahead, landed, dirty) and which plan branches touch the same files

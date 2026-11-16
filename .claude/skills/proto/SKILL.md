@@ -28,7 +28,12 @@ This command was invoked with: **$ARGUMENTS**
 3. Build the quickest thing that shows the idea.
 4. `make proto-run` in the background. It runs on its own data dir, tmux socket and port, so the
    developer's live sessions are out of reach. Give the developer `dashboardUrl` from
-   `.proto-data/tokens.json`.
+   `.proto-data/tokens.json`, and tell them how to give feedback without leaving the page: click
+   **Feedback** (or hold Alt and click anything), type what should change, repeat, then **Send**.
+5. Arm `Monitor` on `tail -n0 -F .proto-data/feedback-events.log` at the longest timeout. Each
+   line is one sent batch; the notes and the elements they point at are in
+   `plans/<name>/prototype-feedback.jsonl` (selector, text, size, colours, a clip of the markup).
+   On expiry re-arm, first reading any batch newer than the last one you handled.
 
 ## What binds here
 
@@ -39,8 +44,10 @@ killed straight after; the developer's own launches are theirs.
 
 ## The loop
 
-On each round of feedback: change it, rebuild (`make web-build` and a reload for the dashboard;
-restart `make proto-run` for Go), and append to the log:
+A round is a batch sent from the page or a message in chat; both count the same. Change it,
+rebuild (`make proto-web` for the dashboard — a plain `make web-build` drops the feedback
+overlay; restart `make proto-run` for Go), write `done <batch>` to `.proto-data/feedback-status`
+so the page offers a reload, and append to the log:
 
 ```markdown
 ### Round <n> — <date>
@@ -59,8 +66,8 @@ the code does not survive. The developer says when it is done; don't ask each ro
    state, with Playwright in headless Chromium against the running daemon (`npx playwright
    screenshot` from `web/` for a plain view; a throwaway script for a state that needs clicks).
 2. Append the weekly usage now to the log.
-3. Stop the daemon with SIGTERM. `tmux -L muster-proto-<name> ls` must then print "no server
-   running"; anything listed is an orphan burning subscription — kill it.
+3. `make proto-stop`. It stops the daemon and its sessions and fails if a tmux session survived —
+   an orphan burns subscription, so kill it as the message says.
 4. Commit the whole tree on `proto/<name>` as `chore(proto): <name> as accepted`. `--no-verify` is
    allowed on this branch only.
 5. `ExitWorktree` (keep), then copy `../muster-proto-<name>/plans/<name>/` into the primary's

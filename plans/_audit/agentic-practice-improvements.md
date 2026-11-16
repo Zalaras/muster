@@ -595,6 +595,9 @@ prose, and each of its zero-exception rules is a check.
    `musterd` through `make proto-run` (its own `-data-dir`, `-tmux-socket` and `-port`), loop on the developer's feedback, append each
    round to `plans/<name>/prototype-log.md`, and record a usage sample at start and at done. Only
    CLAUDE.md § Hard rules bind inside it; tests, conventions and doc upkeep do not.
+   Feedback needs no trip to chat: the prototype's pages carry a click-to-feedback overlay
+   (`make proto-web` adds it, a prototype tree only) whose batches a local receiver writes to
+   `plans/<name>/prototype-feedback.jsonl`, waking the session through `Monitor`.
 5. `/proto <name> done` writes screenshots and a draft spec from the log; `/spec` then asks only
    its approval question. `/plan-work` drafts from the log and screenshots and asks only what the
    prototype left open; approval stays. Changed minds in the log become the plan's proposed ADRs.
