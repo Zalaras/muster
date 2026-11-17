@@ -12,7 +12,7 @@ class Server(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         d = pathlib.Path(self.tmp.name)
         self.out, self.state = d / "plans" / "x" / "prototype-feedback.jsonl", d / "state"
-        self.srv = fb.Receiver(0, DASH, self.out, self.state)
+        self.srv = fb.Receiver(0, DASH, self.out, self.state, "My-Proto.localhost")
         self.port = self.srv.server_address[1]
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
 
@@ -43,8 +43,14 @@ class Server(unittest.TestCase):
         self.assertEqual(json.loads(self.call("GET", "/status")[1]), {"state": "sent", "batch": 1})
         self.assertEqual(json.loads(self.call("POST", "/feedback", GOOD)[1]), {"batch": 2})
 
+    def test_the_prototypes_own_host_may_post(self):
+        origin = f"http://my-proto.localhost:{DASH}"   # as a browser sends it: lower-cased
+        status, _, acao = self.call("POST", "/feedback", GOOD, origin=origin)
+        self.assertEqual((status, acao), (200, origin))
+
     def test_other_origins_and_hosts_are_refused(self):
-        for origin in ("http://evil.example", "http://127.0.0.1:8765", f"https://127.0.0.1:{DASH}", None):
+        for origin in ("http://evil.example", "http://127.0.0.1:8765", f"https://127.0.0.1:{DASH}",
+                       f"http://other-proto.localhost:{DASH}", "http://my-proto.localhost:8765", None):
             self.assertEqual(self.call("POST", "/feedback", GOOD, origin=origin)[0], 403, origin)
         self.assertEqual(self.call("POST", "/feedback", GOOD, host=f"evil.example:{self.port}")[0], 403)
         self.assertEqual(self.call("OPTIONS", "/feedback", origin="http://evil.example")[0], 403)

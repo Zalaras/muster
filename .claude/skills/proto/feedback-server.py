@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Prototype feedback receiver (kb:adr/process-prototype-first-track), started by `make proto-run`.
 
-  feedback-server.py serve  --port N --dashboard-port M --out <file.jsonl> --state-dir <dir>
+  feedback-server.py serve  --port N --dashboard-port M [--dashboard-host H] --out <file.jsonl> --state-dir <dir>
   feedback-server.py inject --port N <built .html>...
 
 `serve` listens on 127.0.0.1 only and takes the batches feedback-overlay.js posts from a
@@ -132,11 +132,14 @@ class Handler(BaseHTTPRequestHandler):
 class Receiver(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, port, dashboard_port, out, state_dir):
+    def __init__(self, port, dashboard_port, out, state_dir, dashboard_host=None):
         super().__init__(("127.0.0.1", port), Handler)
         port = self.server_address[1]
         self.hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
-        self.origins = {f"http://127.0.0.1:{dashboard_port}", f"http://localhost:{dashboard_port}"}
+        # dashboard_host is the name the prototype is opened at (<name>.localhost); a browser
+        # sends it lower-cased in Origin.
+        names = ["127.0.0.1", "localhost"] + ([dashboard_host.lower()] if dashboard_host else [])
+        self.origins = {f"http://{n}:{dashboard_port}" for n in names}
         self.out = pathlib.Path(out)
         self.state = pathlib.Path(state_dir)
         self.out.parent.mkdir(parents=True, exist_ok=True)
@@ -171,6 +174,7 @@ def main():
     s = sub.add_parser("serve")
     s.add_argument("--port", type=int, required=True)
     s.add_argument("--dashboard-port", type=int, required=True)
+    s.add_argument("--dashboard-host")
     s.add_argument("--out", required=True)
     s.add_argument("--state-dir", required=True)
     i = sub.add_parser("inject")
@@ -180,7 +184,7 @@ def main():
     if a.cmd == "inject":
         return inject(a.port, a.files)
     try:
-        srv = Receiver(a.port, a.dashboard_port, a.out, a.state_dir)
+        srv = Receiver(a.port, a.dashboard_port, a.out, a.state_dir, a.dashboard_host)
     except OSError as e:
         sys.exit(f"feedback: cannot listen on 127.0.0.1:{a.port} ({e}) — the overlay will not send")
     try:

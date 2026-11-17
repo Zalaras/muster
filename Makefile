@@ -203,15 +203,21 @@ worktree-rm: ## Remove ../<repo>-$(NAME); refuses a dirty tree, unlanded content
 	KIND="$(KIND)" scripts/worktree.sh rm "$(NAME)"
 
 # A prototype's daemon (kb:adr/process-prototype-first-track) never shares the developer's data
-# dir, tmux server or port, and takes its sessions with it when it stops. Its built pages carry
-# the click-to-feedback overlay, added after every dashboard build here and nowhere else, and a
+# dir, tmux server, port or browser cookie, and takes its sessions with it when it stops. Its port
+# pair is derived from the prototype's name, so several prototypes run beside each other and beside
+# the developer's own Muster. Its dashboard is opened at <name>.localhost (`make proto-url`), never
+# 127.0.0.1: a browser scopes a cookie to the host and ignores the port, so a second musterd opened
+# on 127.0.0.1 replaces the first one's auth cookie and logs it out. Its built pages carry the
+# click-to-feedback overlay, added after every dashboard build here and nowhere else, and a
 # receiver on PROTO_FEEDBACK_PORT writes what the developer sends to the prototype's plan folder.
-PROTO_PORT ?= 8799
-PROTO_FEEDBACK_PORT ?= 8798
+PROTO_NAME ?= $(patsubst proto/%,%,$(shell git symbolic-ref --short -q HEAD))
+PROTO_PORT ?= $(shell printf '%s' '$(PROTO_NAME)' | cksum | awk '{print 28800 + ($$1 % 500) * 2}')
+PROTO_FEEDBACK_PORT ?= $(shell echo $$(( $(PROTO_PORT) + 1 )))
+PROTO_HOST ?= $(shell printf '%s' '$(PROTO_NAME)' | tr '[:upper:]' '[:lower:]').localhost
 PROTO_FEEDBACK := .claude/skills/proto/feedback-server.py
-.PHONY: proto-branch proto-web proto-run proto-stop
+.PHONY: proto-branch proto-web proto-run proto-url proto-stop
 proto-stop: proto-branch ## In a proto/<name> tree only: stop this prototype's musterd (SIGTERM, which kills its sessions and ends the feedback receiver) and fail if a tmux session survived
-	@b="$$(git symbolic-ref --short -q HEAD)"; n="$${b#proto/}"; \
+	@n="$(PROTO_NAME)"; \
 	pid="$$(pgrep -f "^\./$(BIN) .*-tmux-socket muster-proto-$$n -port")"; \
 	if [ -z "$$pid" ]; then echo "proto-stop: no prototype musterd for $$n is running"; else \
 	  kill -TERM $$pid; for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do kill -0 $$pid 2>/dev/null || break; sleep 0.5; done; \
@@ -224,11 +230,14 @@ proto-branch:
 proto-web: proto-branch web-build ## In a proto/<name> tree only: build the dashboard and add the click-to-feedback overlay to the built pages
 	@python3 $(PROTO_FEEDBACK) inject --port $(PROTO_FEEDBACK_PORT) internal/webui/assets/*.html
 
-proto-run: proto-branch build proto-web ## In a proto/<name> tree only: run the prototype musterd on its own data dir (.proto-data), tmux socket and port (PROTO_PORT=8799) with the feedback receiver beside it, killing its sessions on exit
-	@b="$$(git symbolic-ref --short -q HEAD)"; n="$${b#proto/}"; \
-	python3 $(PROTO_FEEDBACK) serve --port $(PROTO_FEEDBACK_PORT) --dashboard-port $(PROTO_PORT) --out "plans/$$n/prototype-feedback.jsonl" --state-dir .proto-data & fb=$$!; \
+proto-run: proto-branch build proto-web ## In a proto/<name> tree only: run the prototype musterd on its own data dir (.proto-data), tmux socket and port (derived from the name; PROTO_PORT=<n> overrides) with the feedback receiver beside it, killing its sessions on exit; open it at the URL `make proto-url` prints
+	@python3 $(PROTO_FEEDBACK) serve --port $(PROTO_FEEDBACK_PORT) --dashboard-port $(PROTO_PORT) --dashboard-host $(PROTO_HOST) --out "plans/$(PROTO_NAME)/prototype-feedback.jsonl" --state-dir .proto-data & fb=$$!; \
 	trap 'kill $$fb 2>/dev/null' EXIT; \
-	./$(BIN) -web-dist internal/webui/assets -data-dir "$(CURDIR)/.proto-data" -tmux-socket "muster-proto-$$n" -port $(PROTO_PORT) -on-exit kill
+	./$(BIN) -web-dist internal/webui/assets -data-dir "$(CURDIR)/.proto-data" -tmux-socket "muster-proto-$(PROTO_NAME)" -port $(PROTO_PORT) -on-exit kill -open=false
+
+proto-url: proto-branch ## In a proto/<name> tree only: print the prototype's dashboard URL at its own host, <name>.localhost — the only address to open it at (127.0.0.1 logs the developer's own Muster out)
+	@test -f .proto-data/tokens.json || { echo "proto-url: no .proto-data/tokens.json — start the prototype first (make proto-run)"; exit 1; }
+	@python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["dashboardUrl"].replace("127.0.0.1", sys.argv[2], 1))' .proto-data/tokens.json $(PROTO_HOST)
 
 .PHONY: worktrees
 worktrees: ## List every worktree (branch, ahead, landed, dirty) and which plan branches touch the same files

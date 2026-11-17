@@ -26,10 +26,13 @@ This command was invoked with: **$ARGUMENTS**
 2. Create `plans/<name>/prototype-log.md`: the description, the date, and the weekly usage now —
    `sqlite3 -readonly ~/Library/Application\ Support/Muster/muster.db "select seven_day_pct from usage_sample order by at desc limit 1"`.
 3. Build the quickest thing that shows the idea.
-4. `make proto-run` in the background. It runs on its own data dir, tmux socket and port, so the
-   developer's live sessions are out of reach. Give the developer `dashboardUrl` from
-   `.proto-data/tokens.json`, and tell them how to give feedback without leaving the page: click
-   **Feedback** (or hold Alt and click anything), type what should change, repeat, then **Send**.
+4. `make proto-run` in the background. It runs on its own data dir, tmux socket and port (from the
+   name, so prototypes run side by side), so the developer's live sessions are out of reach. Give
+   the developer the URL `make proto-url` prints, at `<name>.localhost` — never `dashboardUrl`
+   from `.proto-data/tokens.json`: opened on `127.0.0.1`, a prototype replaces the auth cookie of
+   the developer's own Muster and logs it out. Tell them how to give feedback without leaving the
+   page: click **Feedback** (or hold Alt and click anything), type what should change, repeat,
+   then **Send**.
 5. Arm `Monitor` on `tail -n0 -F .proto-data/feedback-events.log` at the longest timeout. Each
    line is one sent batch; the notes and the elements they point at are in
    `plans/<name>/prototype-feedback.jsonl` (selector, text, size, colours, a clip of the markup).
