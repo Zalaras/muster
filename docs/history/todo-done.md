@@ -2712,6 +2712,12 @@ that the dashboard shows.
   Filed 2026-11-10 from musterd 0.29.1 / Claude Code 2.1.322, focus view, session working; 1 image attached.
   Labels: bug, lifecycle.
 
+- [x] **The loading animation on the shell tab is off-center** ([#126](https://github.com/Zalaras/muster/issues/126)) ✅ done 2026-11-17 (plan `sweep-2026-11-17-1`, via `/fix`) — The
+  loading spinner on the shell tab shifts position while it is spinning instead of staying centered.
+  Expected: The loading spinner should stay still in the center and only rotate.
+  Filed 2026-11-16 from musterd 0.30.0 / Claude Code 2.1.322, focus view, session idle.
+  Labels: bug, shell, ux.
+
 ## Tweaks
 
 - [x] **Add mark unread right click option** ([#103](https://github.com/Zalaras/muster/issues/103)) ✅ done 2026-10-26 (plan `remove-unread-right-click-1`, via `/fix`) — There

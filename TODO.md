@@ -160,12 +160,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Filed 2026-11-11 from musterd 0.29.1 / Claude Code 2.1.293, focus view, session started.
   Labels: bug, rail, ux.
 
-- [ ] **The loading animation on the shell tab is off-center** ([#126](https://github.com/Zalaras/muster/issues/126)) — The
-  loading spinner on the shell tab shifts position while it is spinning instead of staying centered.
-  Expected: The loading spinner should stay still in the center and only rotate.
-  Filed 2026-11-16 from musterd 0.30.0 / Claude Code 2.1.322, focus view, session idle.
-  Labels: bug, shell, ux.
-
 ## Tweaks
 
 - [ ] **Revisit the reader nav's scrolling** — the docs reader's nav scrolls as one column, so with
