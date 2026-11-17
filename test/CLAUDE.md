@@ -24,7 +24,7 @@
 - Six runs depart from production, each covered by an ADR: G appends `--allowedTools Bash` to the argv and N appends `--add-dir` (outside the repo; from 2.1.326 that raises an "Adding a new directory:" prompt the harness answers), I, J, N and P set `ANTHROPIC_BASE_URL` + `CLAUDE_CODE_MAX_RETRIES=0` (P's fail server also holds each reply 30 s so an Esc lands before any output), and the capture server holds run H's `PostToolUse` replies for 1.5 s.
 
 <!-- kb:trailer -->
-<!-- kb:hash 591bead233437a6d -->
+<!-- kb:hash 307d82bee0fccf70 -->
 - **canary** — The verified Claude Code version range, canary tiers, and the fragments tools/versions regenerates. → `docs/features/canary/INDEX.md`
-- 22 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 23 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->
