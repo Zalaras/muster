@@ -1,0 +1,30 @@
+{
+  "sweep": "sweep-2026-11-17",
+  "parallel": 1,
+  "started_at": "2026-11-17T14:02:54Z",
+  "updated_at": "2026-11-17T14:37:55Z",
+  "batches": [
+    {
+      "n": 1,
+      "name": "sweep-2026-11-17-1",
+      "entries": [
+        "e1"
+      ],
+      "work_type": "web",
+      "status": "landed",
+      "worktree": "/Users/damian/Documents/code/Projects/muster-sweep-2026-11-17-1",
+      "branch": "plan/sweep-2026-11-17-1",
+      "pid": 38963,
+      "log": "plans/sweep-2026-11-17/batch-1.log",
+      "started_at": "2026-11-17T14:03:14Z",
+      "finished_at": "2026-11-17T14:37:44Z",
+      "subject": "fix(surfaces): keep the busy shell spinner centred as it turns (closes #126)",
+      "closes": [
+        126
+      ],
+      "landed_sha": "5c3de796",
+      "error": null,
+      "question": null
+    }
+  ]
+}
