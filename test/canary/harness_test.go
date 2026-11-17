@@ -600,8 +600,8 @@ func (f *fixture) runD(ctx context.Context) error {
 		Title:          "Muster Canary",
 		PermissionMode: "plan",
 	})
-	target, c, trustPromptSeen, err := f.startInteractive(ctx, interactiveTmuxID, sessionInteract, argv, nil)
-	f.interactive.trustPromptSeen = trustPromptSeen
+	target, c, prompts, err := f.startInteractive(ctx, interactiveTmuxID, sessionInteract, argv, nil)
+	f.interactive.trustPromptSeen = prompts.trust
 	if err != nil {
 		return err
 	}
@@ -656,19 +656,19 @@ func (f *fixture) runD(ctx context.Context) error {
 
 // startInteractive launches argv as tmux session muster-<tmuxID> on the scratch socket, with
 // $MUSTER_SESSION=session plus extraEnv (KEY=value, as headlessRun takes it), sized 200x50,
-// and waits up to 90 s for its SessionStart, answering the trust prompt on the way. A nil
+// and waits up to 90 s for its SessionStart, answering the startup dialogs on the way. A nil
 // capture means none arrived; each caller words that failure itself. On success it gives the
 // REPL 2 s to accept input.
-func (f *fixture) startInteractive(ctx context.Context, tmuxID, session int64, argv, extraEnv []string) (string, *capture, bool, error) {
+func (f *fixture) startInteractive(ctx context.Context, tmuxID, session int64, argv, extraEnv []string) (string, *capture, startupPrompts, error) {
 	target, err := f.launchPane(ctx, tmuxID, session, argv, extraEnv)
 	if err != nil {
-		return target, nil, false, err
+		return target, nil, startupPrompts{}, err
 	}
-	c, trustPromptSeen, err := f.waitForSessionStart(ctx, target, session, 90*time.Second)
+	c, prompts, err := f.waitForSessionStart(ctx, target, session, 90*time.Second)
 	if c != nil {
 		time.Sleep(2 * time.Second)
 	}
-	return target, c, trustPromptSeen, err
+	return target, c, prompts, err
 }
 
 // launchPane starts argv as tmux session muster-<tmuxID> on the scratch socket with
@@ -710,32 +710,46 @@ func (f *fixture) submit(ctx context.Context, target, text string) error {
 	return f.sendKeys(ctx, target, "Enter")
 }
 
-// waitForSessionStart polls for session's SessionStart hook, answering the workspace-trust
-// prompt whenever it appears: startup blocks on that prompt in a never-seen directory
-// (FINDINGS §9) and no hooks fire until it is answered. capture-pane is the wait oracle only.
+// startupPrompts reports which dialogs blocked a launch before its SessionStart: run D asserts
+// on the workspace-trust prompt, run N on the added-folder one.
+type startupPrompts struct {
+	trust       bool
+	addedFolder bool
+}
+
+// waitForSessionStart polls for session's SessionStart hook, answering the two dialogs startup
+// blocks on whenever one appears: the workspace-trust prompt in a never-seen directory
+// (FINDINGS §9) and the added-folder prompt for an untrusted --add-dir
+// (kb:adr/canary-bang-cd-run-answers-added-folder-dialog). No hooks fire until each is
+// answered. capture-pane is the wait oracle only.
 //
-// Shared by run D and run E, whose resume launch can re-trigger the same prompt (Edge Case 3).
-// Returns a nil capture on timeout rather than an error, so each caller keeps its own message;
-// the bool reports whether the trust prompt was ever seen, which run D asserts on.
-func (f *fixture) waitForSessionStart(ctx context.Context, target string, session int64, limit time.Duration) (*capture, bool, error) {
+// Shared by run D and run E, whose resume launch can re-trigger the trust prompt (Edge Case 3).
+// Returns a nil capture on timeout rather than an error, so each caller keeps its own message.
+func (f *fixture) waitForSessionStart(ctx context.Context, target string, session int64, limit time.Duration) (*capture, startupPrompts, error) {
 	deadline := time.Now().Add(limit)
 	lastAction := time.Time{}
-	trustPromptSeen := false
+	var seen startupPrompts
 	for time.Now().Before(deadline) {
 		if c := f.firstHook(session, "SessionStart"); c != nil {
-			return c, trustPromptSeen, nil
+			return c, seen, nil
 		}
 		pane, _ := f.tmuxClient.CapturePane(ctx, target)
-		if looksLikeTrustPrompt(pane) && time.Since(lastAction) > 3*time.Second {
-			trustPromptSeen = true
-			if err := f.answerTrustPrompt(ctx, target, pane); err != nil {
-				return nil, trustPromptSeen, err
+		yesRow := ""
+		switch {
+		case looksLikeTrustPrompt(pane):
+			seen.trust, yesRow = true, trustPromptYesRow
+		case looksLikeAddedFolderPrompt(pane):
+			seen.addedFolder, yesRow = true, addedFolderYesRow
+		}
+		if yesRow != "" && time.Since(lastAction) > 3*time.Second {
+			if err := f.chooseRow(ctx, target, pane, yesRow); err != nil {
+				return nil, seen, err
 			}
 			lastAction = time.Now()
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
-	return nil, trustPromptSeen, nil
+	return nil, seen, nil
 }
 
 // shiftTabStep cycles the permission mode with Shift+Tab and then waits two refresh periods,
@@ -852,25 +866,39 @@ const (
 	trustPromptMarker = "❯"
 )
 
-// answerTrustPrompt drives one step toward accepting the workspace-trust prompt: it moves the
-// selection marker onto the "Yes, I trust this folder" row before ever pressing Enter, never
-// a blind Enter — on 2.1.259+ the prompt preselects "No, exit", and a blind Enter there exits
-// the session instead of reaching the REPL (plan Edge Case 15). pane is the just-captured
-// frame the caller already has; capture-pane stays a wait/answer oracle only (CLAUDE.md),
-// never a state source — this only decides how to answer a dialog that is already on screen,
-// it is not used to infer session state.
+// addedFolderYesRow is the row that accepts the added-folder prompt, which a launch with
+// --add-dir on an untrusted directory blocks on from 2.1.326. It shares the trust prompt's
+// marker and its "No, exit" preselection, and none of its wording.
+const addedFolderYesRow = "Yes, add it"
+
+func looksLikeAddedFolderPrompt(pane string) bool {
+	return strings.Contains(strings.ToLower(pane), "adding a new directory")
+}
+
+// answerTrustPrompt drives one step toward accepting the workspace-trust prompt.
+func (f *fixture) answerTrustPrompt(ctx context.Context, target, pane string) error {
+	return f.chooseRow(ctx, target, pane, trustPromptYesRow)
+}
+
+// chooseRow drives one step toward accepting a two-row startup dialog: it moves the selection
+// marker onto yesRow before ever pressing Enter, never a blind Enter — on 2.1.259+ the
+// workspace-trust prompt preselects "No, exit", as the added-folder prompt does, and a blind
+// Enter there exits the session instead of reaching the REPL (plan Edge Case 15). pane is the
+// just-captured frame the caller already has; capture-pane stays a wait/answer oracle only
+// (CLAUDE.md), never a state source — this only decides how to answer a dialog that is already
+// on screen, it is not used to infer session state.
 //
 // Only two rows exist today, so a single step always moves between them; if the marker's row
 // can't be resolved this frame (e.g. mid-render), it nudges Down and lets the caller's
 // pacing retry on the next capture rather than risk answering blind.
-func (f *fixture) answerTrustPrompt(ctx context.Context, target, pane string) error {
+func (f *fixture) chooseRow(ctx context.Context, target, pane, yesRow string) error {
 	lines := strings.Split(pane, "\n")
 	yesLine, markerLine := -1, -1
 	for i, l := range lines {
 		if markerLine == -1 && strings.Contains(l, trustPromptMarker) {
 			markerLine = i
 		}
-		if yesLine == -1 && strings.Contains(l, trustPromptYesRow) {
+		if yesLine == -1 && strings.Contains(l, yesRow) {
 			yesLine = i
 		}
 	}

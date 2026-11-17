@@ -91,6 +91,7 @@ type bangCdRun struct {
 	repoDir         string    // the scratch repo: the launch directory
 	subDir          string    // <repo>/sub, where `!cd sub` moves the shell
 	addedDir        string    // outside the repo, passed with --add-dir at launch
+	addedFolderSeen bool      // the added-folder prompt blocked startup and was answered
 	cdSubAt         time.Time // when `!cd sub` was submitted
 	cdRootAt        time.Time // when `!cd /` was submitted
 	err             error
@@ -272,6 +273,8 @@ func (f *fixture) runJ(ctx context.Context) error {
 // (kb:fact/cwd-follows-claude-mid-session). Each step waits for a status post at the
 // expected directory and for the failed turn's hook. The launch also passes --add-dir, which
 // costs nothing and puts a directory in workspace.added_dirs (kb:fact/added-dirs-in-status-line).
+// From 2.1.326 that directory, never trusted, raises the added-folder prompt before the session
+// starts; startInteractive answers it (kb:adr/canary-bang-cd-run-answers-added-folder-dialog).
 func (f *fixture) runN(ctx context.Context) error {
 	if err := os.MkdirAll(filepath.Join(f.repo, "sub"), 0o755); err != nil {
 		return err
@@ -298,13 +301,14 @@ func (f *fixture) runN(ctx context.Context) error {
 
 	argv := claudecode.BuildArgv(claudeBin, claudecode.LaunchParams{Model: haikuModel, PermissionMode: "default"})
 	argv = append(argv, "--add-dir", f.bangCd.addedDir)
-	target, started, _, err := f.startInteractive(ctx, bangCdTmuxID, sessionBangCd, argv, failEnv(srv))
+	target, started, prompts, err := f.startInteractive(ctx, bangCdTmuxID, sessionBangCd, argv, failEnv(srv))
+	f.bangCd.addedFolderSeen = prompts.addedFolder
 	if err != nil {
 		return err
 	}
 	defer func() { _ = f.killPane(ctx, bangCdTmuxID) }()
 	if started == nil {
-		f.bangCd.err = fmt.Errorf("no SessionStart within 90s (run N)")
+		f.bangCd.err = fmt.Errorf("no SessionStart within 90s (run N; added-folder prompt seen: %t)", prompts.addedFolder)
 		return nil
 	}
 	id := started.ev.SessionID

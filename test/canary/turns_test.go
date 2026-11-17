@@ -12,6 +12,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Zalaras/muster/internal/claudecode"
 )
 
 // Views over runs G–J and N (harness_turns_test.go).
@@ -256,6 +258,23 @@ func TestAddedDirsInStatusLine(t *testing.T) {
 	require.Lenf(t, dirs, 2, "workspace.added_dirs must hold the launch directory and the --add-dir one")
 	assert.True(t, sameDir(dirs[0], r.repoDir), "workspace.added_dirs must lead with the launch directory")
 	assert.True(t, sameDir(dirs[1], r.addedDir), "workspace.added_dirs must list the --add-dir directory")
+}
+
+// addedFolderPromptSince is the first Claude Code version that asks before adding an untrusted
+// --add-dir directory.
+const addedFolderPromptSince = "2.1.326"
+
+// TestAddDirFlagAsksTrustAtStartup pins both shapes of run N's launch
+// (kb:adr/canary-bang-cd-run-answers-added-folder-dialog): from addedFolderPromptSince the
+// --add-dir directory raises the added-folder prompt before SessionStart, and below it the
+// session starts unasked. The prompt's answer is not saved, so it shows on every run.
+func TestAddDirFlagAsksTrustAtStartup(t *testing.T) {
+	f := harness(t)
+	r := f.bangCd
+	require.NoError(t, r.err, "run N did not complete")
+	want := !claudecode.OlderVersion(f.installed, addedFolderPromptSince)
+	assert.Equalf(t, want, r.addedFolderSeen,
+		"added-folder prompt at startup on %s (asked from %s)", f.installed, addedFolderPromptSince)
 }
 
 // hooksBefore is the prefix of hooks that arrived before t.

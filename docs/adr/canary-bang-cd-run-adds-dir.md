@@ -1,7 +1,7 @@
 ---
 id: canary-bang-cd-run-adds-dir
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-16
 summary: Run N appends --add-dir to the production argv so the canary can guard workspace.added_dirs at zero tokens; the DirectoryAdded hook stays a static check.
 features: [canary]
