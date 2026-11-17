@@ -30,7 +30,7 @@ defines the **roles**; it does not repeat the numbers.
 | `--bg-hover` | hover + selected |
 | `--well` | chrome recesses that follow the Muster theme: text inputs, previews, browse pane, empty placeholder, dead-session snapshot |
 | `--line` | hairline rules between sections (decorative — exempt from the contrast bar) |
-| `--line-control` | button borders, badge borders, drag/drop outline (exempt — the label identifies the control) |
+| `--line-control` | button borders, badge borders, drag/drop outline, the shell busy spinner's faint track ring (exempt — the label identifies the control) |
 | `--edge` | boundaries that must be seen on their own, ≥ 3:1: inputs, selects, textarea, the segmented-control track |
 | `--fg` / `--fg-muted` / `--fg-dim` | primary / secondary / metadata-and-label text |
 | `--amber` `--rose` `--violet` `--teal` `--idle` | state (§3): Needs-Input / Failed / Planning / Working / Idle — **fixed hue families in every theme** (amber 25–45°, rose 345–15°, violet 235–270°, teal 165–195°, idle ≤ 20% saturation); a theme tunes only lightness |

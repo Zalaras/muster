@@ -15,7 +15,14 @@
 // busy, the tick clearing on a shell click or 3 s after, a shell exiting or the daemon
 // restarting mid-command, two busy shells, a superseded surface — stay in
 // web/e2e/shell-activity.spec.ts.
-import { type Dashboard, expect, type Locator, loadFixture, test } from "./helpers/harness";
+import {
+  type Dashboard,
+  expect,
+  type Locator,
+  loadFixture,
+  type Page,
+  test,
+} from "./helpers/harness";
 import {
   mainheadSurfaceButton,
   shellActivityIndicator,
@@ -175,4 +182,132 @@ test("without a reduced-motion preference the busy spinner still spins, on the m
   const tileIndicator = shellActivityIndicator(tileSurfaceButton(page, id, "shell"));
   await expect(tileIndicator).toHaveAttribute("data-act", "busy", { timeout: 15_000 });
   expect(await busyAnimationName(tileIndicator)).toEqual({ act: "busy", name: "shellact-spin" });
+});
+
+// #126 — the busy spinner turns in place. The oracle is the ring's ink bounds (pixels that differ
+// from the button background) at four angles: a ring with an empty quarter has bounds that shift
+// with the angle and sit off the box centre; a complete ring (a faint track under the arc) has
+// stable bounds centred on the box. Ink weight is deliberately not measured.
+const SPIN_PERIOD_MS = 700;
+/** Half a device pixel: the ring snaps to the pixel grid, and the 7 px tile indicator's box sits on
+ * a half pixel, so a perfectly round ring still reads up to 0.5 px off the box centre. An empty
+ * quarter moves the bounds by a pixel or more. */
+const CENTRE_TOLERANCE = 0.51;
+/** Margin around the indicator's box in the clip: wide enough to hold the ring's antialiasing,
+ * narrow enough to leave the tile footer's segment border outside it. */
+const CLIP_MARGIN = 1.5;
+
+interface InkBounds {
+  width: number;
+  height: number;
+  /** centre of the bounds minus the box centre, in CSS px */
+  dx: number;
+  dy: number;
+}
+
+/** Pauses the indicator's animations at `deg` of a turn, screenshots a clip around its box and
+ * measures the ink bounds against the clip's corner pixel (the button background). */
+async function inkBoundsAt(page: Page, indicator: Locator, deg: number): Promise<InkBounds> {
+  await indicator.evaluate(
+    (el, ms) => {
+      for (const a of el.getAnimations()) {
+        a.pause();
+        a.currentTime = ms;
+      }
+    },
+    (SPIN_PERIOD_MS * deg) / 360,
+  );
+  const box = await indicator.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { cx: r.left + r.width / 2, cy: r.top + r.height / 2, w: r.width };
+  });
+  const half = Math.ceil(box.w / 2 + CLIP_MARGIN);
+  const x0 = Math.floor(box.cx) - half;
+  const y0 = Math.floor(box.cy) - half;
+  const png = await page.screenshot({
+    clip: { x: x0, y: y0, width: half * 2, height: half * 2 },
+    scale: "css",
+  });
+  const ink = await page.evaluate(async (b64) => {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const bmp = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
+    const c = new OffscreenCanvas(bmp.width, bmp.height);
+    const ctx = c.getContext("2d");
+    if (!ctx) throw new Error("no 2d context");
+    ctx.drawImage(bmp, 0, 0);
+    const { data, width, height } = ctx.getImageData(0, 0, bmp.width, bmp.height);
+    const bg = [data[0] ?? 0, data[1] ?? 0, data[2] ?? 0];
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (let p = 0; p < width * height; p++) {
+      const diff = Math.max(...bg.map((v, k) => Math.abs((data[p * 4 + k] ?? 0) - v)));
+      if (diff > 6) {
+        xs.push(p % width);
+        ys.push(Math.floor(p / width));
+      }
+    }
+    return {
+      minX: Math.min(...xs),
+      minY: Math.min(...ys),
+      maxX: xs.length ? Math.max(...xs) : -1,
+      maxY: ys.length ? Math.max(...ys) : -1,
+      pxWidth: bmp.width,
+    };
+  }, png.toString("base64"));
+  expect(ink.maxX, "no ink found around the busy indicator").toBeGreaterThanOrEqual(0);
+  const s = ink.pxWidth / (half * 2);
+  const left = ink.minX / s;
+  const right = (ink.maxX + 1) / s;
+  const top = ink.minY / s;
+  const bottom = (ink.maxY + 1) / s;
+  return {
+    width: right - left,
+    height: bottom - top,
+    dx: x0 + (left + right) / 2 - box.cx,
+    dy: y0 + (top + bottom) / 2 - box.cy,
+  };
+}
+
+async function expectRingStable(page: Page, indicator: Locator): Promise<void> {
+  const seen: InkBounds[] = [];
+  for (const deg of [0, 90, 180, 270]) {
+    const b = await inkBoundsAt(page, indicator, deg);
+    expect(Math.abs(b.dx), `ring centre x offset at ${deg}deg`).toBeLessThanOrEqual(
+      CENTRE_TOLERANCE,
+    );
+    expect(Math.abs(b.dy), `ring centre y offset at ${deg}deg`).toBeLessThanOrEqual(
+      CENTRE_TOLERANCE,
+    );
+    seen.push(b);
+  }
+  const widths = seen.map((b) => b.width);
+  const heights = seen.map((b) => b.height);
+  expect(Math.max(...widths) - Math.min(...widths), "ring width across angles").toBeLessThanOrEqual(
+    0.5,
+  );
+  expect(
+    Math.max(...heights) - Math.min(...heights),
+    "ring height across angles",
+  ).toBeLessThanOrEqual(0.5);
+}
+
+test("the busy spinner's ring stays centred on its box at every angle, on the Focus mainhead (#126, REQ-1)", async ({
+  page,
+  dashboard,
+}) => {
+  await openBusy(dashboard, false);
+  const mainhead = shellActivityIndicator(mainheadSurfaceButton(page, "shell"));
+  await expect(mainhead).toHaveAttribute("data-act", "busy", { timeout: 15_000 });
+  await expectRingStable(page, mainhead);
+});
+
+test("the busy spinner's ring stays centred on its box at every angle, in a tile footer (#126, REQ-1)", async ({
+  page,
+  dashboard,
+}) => {
+  const id = await openBusy(dashboard, true);
+  await expect(liveTileById(page, id)).toBeVisible();
+  const tile = shellActivityIndicator(tileSurfaceButton(page, id, "shell"));
+  await expect(tile).toHaveAttribute("data-act", "busy", { timeout: 15_000 });
+  await expectRingStable(page, tile);
 });

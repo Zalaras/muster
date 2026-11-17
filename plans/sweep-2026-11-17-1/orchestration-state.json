@@ -1,0 +1,71 @@
+{
+  "plan_name": "sweep-2026-11-17-1",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "render-tests": 0,
+    "e2e-validate": 0,
+    "review": 0,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [
+    "render-tests",
+    "web-impl"
+  ],
+  "step_started_at": {
+    "web-impl": "2026-11-17T14:13:17Z",
+    "review": "2026-11-17T14:24:59Z"
+  },
+  "step_finished_at": {
+    "render-tests": "2026-11-17T14:13:16Z",
+    "web-impl": "2026-11-17T14:19:08Z",
+    "review": "2026-11-17T14:28:20Z"
+  },
+  "step_attempts": {
+    "render-tests": [
+      {
+        "start": null,
+        "finish": "2026-11-17T14:13:16Z",
+        "usage_finish": 1.0
+      }
+    ],
+    "web-impl": [
+      {
+        "start": "2026-11-17T14:13:17Z",
+        "finish": "2026-11-17T14:19:08Z",
+        "usage_start": 1.0,
+        "usage_finish": 1.0
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-11-17T14:24:59Z",
+        "finish": "2026-11-17T14:28:20Z",
+        "usage_start": 1.0,
+        "usage_finish": 1.0
+      }
+    ]
+  },
+  "started_at": "2026-11-17T14:04:16Z",
+  "updated_at": "2026-11-17T14:36:59Z",
+  "review_parts": {
+    "1": [
+      "code",
+      "browser"
+    ]
+  },
+  "review_verdicts": {
+    "1": "approved"
+  },
+  "review_commits": {
+    "1": "2578c125d7b761633d9328e1a19916f7d39e6d99"
+  },
+  "closes_issues": [
+    126
+  ]
+}

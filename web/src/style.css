@@ -1210,7 +1210,7 @@ body {
  * the pip (a bare presence dot on its own dedicated colour token, now removed) is retired
  * for a busy/done indicator carrying real information — monochrome, never a state hue
  * (design-system §1: amber/rose/violet/teal stay reserved for session state; a spinner is
- * not a session state). `--fg-dim` while busy (a working spinner is ambient, not urgent),
+ * not a session state). `--fg-dim` arc over a `--line-control` track while busy (a working spinner is ambient, not urgent),
  * `--fg` once done (a completed tick is worth a beat more contrast) — colour is still
  * never the sole carrier here: shape (spin vs. check) and `data-act` both change too. */
 .shellact {
@@ -1222,8 +1222,8 @@ body {
 
 .shellact[data-act="busy"] {
   border-radius: 50%;
-  border: 1.5px solid var(--fg-dim);
-  border-top-color: transparent;
+  border: 1.5px solid var(--line-control);
+  border-top-color: var(--fg-dim);
   animation: shellact-spin 0.7s linear infinite;
 }
 
