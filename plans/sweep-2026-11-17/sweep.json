@@ -1,0 +1,35 @@
+{
+  "sweep": "sweep-2026-11-17",
+  "created_at": "2026-11-17T16:02:51+02:00",
+  "selector": "The loading animation on the shell tab is off-center",
+  "parallel": 1,
+  "entries": [
+    {
+      "id": "e1",
+      "title": "The loading animation on the shell tab is off-center",
+      "issue": 126,
+      "section": "Bugs",
+      "work_type": "web",
+      "features": [
+        "surfaces",
+        "theme"
+      ],
+      "files": [
+        "web/src/style.css",
+        "web/render/surfaces.spec.ts"
+      ],
+      "route": "fix",
+      "research": "plans/sweep-2026-11-17/research/e1.md",
+      "batch": 1
+    }
+  ],
+  "batches": [
+    {
+      "n": 1,
+      "entries": [
+        "e1"
+      ],
+      "work_type": "web"
+    }
+  ]
+}

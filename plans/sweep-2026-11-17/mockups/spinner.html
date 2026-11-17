@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en" data-theme="instrument">
+<head>
+<meta charset="utf-8">
+<title>Shell spinner options (#126)</title>
+<link rel="stylesheet" href="../../../web/src/style.css">
+<style>
+  /* Mockup-only. The real .surfseg / .shellact come from web/src/style.css; the two
+     candidates override only the busy glyph, scoped to their own column. */
+  body { overflow: auto; padding: 28px 36px 90px; background: var(--bg); color: var(--fg);
+    font-family: var(--mono, monospace); }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { color: var(--fg-dim); font-size: 12px; margin: 0 0 22px; }
+  .controls { display: flex; gap: 18px; align-items: center; font-size: 12px; color: var(--fg-dim);
+    margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: 170px repeat(3, 240px); gap: 18px 24px; align-items: center; }
+  .hd { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--fg-dim); }
+  .hd b { color: var(--fg); }
+  .rowlab { font-size: 11px; color: var(--fg-dim); }
+  .cell { background: var(--bg-raised); border: 1px solid var(--line); padding: 14px; display: flex;
+    justify-content: center; align-items: center; min-height: 40px; }
+  .cell .mainhead, .cell .tfoot { display: flex; position: static; border: 0; background: none;
+    padding: 0; margin: 0; width: 100%; height: auto; min-height: 0; flex: none; justify-content: center; }
+  .cell .mainhead .acts, .cell .tfoot .acts { margin: 0 auto; }
+  /* centre crosshair on the zoomed row */
+  .zoom { position: relative; width: 9px; height: 9px; transform: scale(9); transform-origin: center; margin: 44px; }
+  .zoom .shellact { position: absolute; inset: 0; }
+  .zoom::before, .zoom::after { content: ""; position: absolute; background: var(--amber); opacity: .7; z-index: 1; }
+  .zoom::before { left: 4.47px; top: 3px; width: .06px; height: 3px; }
+  .zoom::after { top: 4.47px; left: 3px; height: .06px; width: 3px; }
+  .cell.z { min-height: 140px; }
+
+  /* (a) two opposite arcs, one grey */
+  .opt-a .shellact[data-act="busy"] { border-top-color: transparent; border-bottom-color: transparent; }
+  /* (b) one arc over a faint full ring (track = --line-control) */
+  .opt-b .shellact[data-act="busy"] { border-color: var(--line-control); border-top-color: var(--fg-dim); }
+
+  body.slow .shellact[data-act="busy"] { animation-duration: 3s; }
+  .notes { margin-top: 30px; font-size: 12px; color: var(--fg-muted); max-width: 820px; line-height: 1.6; }
+  .notes b { color: var(--fg); }
+</style>
+</head>
+<body>
+<h1>Shell tab spinner, #126</h1>
+<p class="sub">Real shipped CSS. Each column changes only the busy glyph.</p>
+
+<div class="controls">
+  <label>Theme
+    <select id="theme"><option>instrument</option><option>dark</option><option>light</option></select>
+  </label>
+  <label><input type="checkbox" id="slow"> slow motion (3 s per turn)</label>
+</div>
+
+<div class="grid">
+  <div></div>
+  <div class="hd"><b>Today</b><br>one quarter missing</div>
+  <div class="hd"><b>(a) Two arcs</b><br>recommended · one grey</div>
+  <div class="hd"><b>(b) Arc on faint ring</b><br>adds a track colour</div>
+
+  <div class="rowlab">Focus header<br>(9 px, real size)</div>
+  <div class="cell"><div class="mainhead"><div class="acts"><div class="surfseg">
+    <button>claude</button><button aria-pressed="true">shell<span class="shellact" data-act="busy"></span></button><button>docs</button>
+  </div></div></div></div>
+  <div class="cell opt-a"><div class="mainhead"><div class="acts"><div class="surfseg">
+    <button>claude</button><button aria-pressed="true">shell<span class="shellact" data-act="busy"></span></button><button>docs</button>
+  </div></div></div></div>
+  <div class="cell opt-b"><div class="mainhead"><div class="acts"><div class="surfseg">
+    <button>claude</button><button aria-pressed="true">shell<span class="shellact" data-act="busy"></span></button><button>docs</button>
+  </div></div></div></div>
+
+  <div class="rowlab">Tile footer<br>(7 px, real size)</div>
+  <div class="cell"><div class="tfoot"><div class="acts"><div class="surfseg">
+    <button>claude</button><button>shell<span class="shellact" data-act="busy"></span></button><button>docs</button>
+  </div></div></div></div>
+  <div class="cell opt-a"><div class="tfoot"><div class="acts"><div class="surfseg">
+    <button>claude</button><button>shell<span class="shellact" data-act="busy"></span></button><button>docs</button>
+  </div></div></div></div>
+  <div class="cell opt-b"><div class="tfoot"><div class="acts"><div class="surfseg">
+    <button>claude</button><button>shell<span class="shellact" data-act="busy"></span></button><button>docs</button>
+  </div></div></div></div>
+
+  <div class="rowlab">Zoomed 9×<br>(amber cross = centre)</div>
+  <div class="cell z"><div class="zoom"><span class="shellact" data-act="busy"></span></div></div>
+  <div class="cell z opt-a"><div class="zoom"><span class="shellact" data-act="busy"></span></div></div>
+  <div class="cell z opt-b"><div class="zoom"><span class="shellact" data-act="busy"></span></div></div>
+</div>
+
+<div class="notes">
+  <p><b>Today:</b> the gap puts the ring's weight off to one side, so at 9 px it looks like it slides around the centre.</p>
+  <p><b>(a)</b> Balanced, so nothing appears to orbit. Stays one grey (<code>--fg-dim</code>). It looks like it spins twice as fast because the shape repeats every half turn.</p>
+  <p><b>(b)</b> Keeps the one-arc look. The faint ring uses <code>--line-control</code>, which adds a second colour against the "one grey only" decision.</p>
+</div>
+
+<script>
+  document.getElementById("theme").onchange = e => document.documentElement.dataset.theme = e.target.value;
+  document.getElementById("slow").onchange = e => document.body.classList.toggle("slow", e.target.checked);
+</script>
+</body>
+</html>
