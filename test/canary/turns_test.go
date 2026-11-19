@@ -38,6 +38,23 @@ func TestInterruptEmitsNoTurnEnd(t *testing.T) {
 	t.Logf("hooks in the %s after Escape: %v", window, seen)
 }
 
+// TestInterruptMidToolRecordedInTranscript guards kb:fact/interrupt-recorded-in-transcript:
+// Esc during a running tool writes the interrupt line for the turn's prompt into the main
+// transcript, the only signal that ends an interrupted turn, so the production interrupt
+// reader must find it.
+func TestInterruptMidToolRecordedInTranscript(t *testing.T) {
+	f := harness(t)
+	r := f.interrupt
+	require.NoError(t, r.err, "run G did not reach the interrupt")
+	require.True(t, r.paneInterrupted, "the pane never showed \"Interrupted\" after Escape, so there is nothing to find")
+	require.NotEmpty(t, r.promptID, "run G's UserPromptSubmit carried no prompt_id")
+	require.NotEmpty(t, r.transcriptPath, "run G's UserPromptSubmit carried no transcript_path")
+
+	interrupted, err := claudecode.PromptInterrupted(r.transcriptPath, r.promptID)
+	require.NoError(t, err)
+	assert.True(t, interrupted, "an Esc during a running tool no longer writes an interrupt line the sweep can read; an interrupted card would stay working")
+}
+
 // TestPostToolUseNotAwaited guards the PostToolUse half of kb:fact/hook-await-per-event:
 // Claude Code does not wait for a PostToolUse hook before the next tool's PreToolUse. Run H's
 // capture server holds every PostToolUse reply for postToolUseHold, so an awaited hook would

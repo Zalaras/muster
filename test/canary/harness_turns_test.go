@@ -61,6 +61,8 @@ var (
 // interruptRun is what run G observed; TestInterruptEmitsNoTurnEnd reads it.
 type interruptRun struct {
 	claudeSessionID string
+	promptID        string    // the interrupted turn's UserPromptSubmit prompt_id
+	transcriptPath  string    // from the same UserPromptSubmit
 	interruptAt     time.Time // when Escape was sent
 	quietUntil      time.Time // end of the window TestInterruptEmitsNoTurnEnd judges
 	paneInterrupted bool      // the pane showed "Interrupted" after Escape
@@ -147,6 +149,12 @@ func (f *fixture) runG(ctx context.Context) error {
 	if !f.waitFor(90*time.Second, func() bool { return f.bashPreToolUse() != nil }) {
 		f.interrupt.err = fmt.Errorf("no PreToolUse{Bash} within 90s; hooks seen: %v", f.hookTypes(sessionInterrupt))
 		return nil
+	}
+	if submit := f.firstHook(sessionInterrupt, "UserPromptSubmit"); submit != nil {
+		if submit.ev.PromptID != nil {
+			f.interrupt.promptID = *submit.ev.PromptID
+		}
+		f.interrupt.transcriptPath, _ = submit.payload["transcript_path"].(string)
 	}
 	time.Sleep(interruptAfter)
 	f.interrupt.interruptAt = time.Now()

@@ -10,7 +10,7 @@ files: [internal/claudecode/interpret.go, internal/session/machine.go]
 tests: []
 refs: [kb:fact/interrupt-emits-no-turn-end, kb:fact/transcript-session-lines, "#59"]
 verified: 2.1.285..2.1.328
-guard: none
+guard: TestInterruptMidToolRecordedInTranscript
 ---
 With all 31 hook events of the 2.1.285 binary registered, four ways of ending a turn by hand
 emit **no hook at all**, and no `idle_prompt` follows within 70 s:
