@@ -166,14 +166,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Filed 2026-11-19 from musterd 0.30.3 / Claude Code 2.1.322, focus view, session working.
   Labels: bug, lifecycle.
 
-- [ ] **Keep getting blank session when swapping session** ([#128](https://github.com/Zalaras/muster/issues/128)) — Clicking
-  another session leaves the session window blank, and clicking back is also blank; a page refresh
-  shows nothing for a while before reloading, and the blank state recurs on the next swap. Expected:
-  Switching sessions should show the selected session's content right away instead of a blank
-  window.
-  Filed 2026-11-19 from musterd 0.30.3 / Claude Code 2.1.328, focus view, session working.
-  Labels: bug, focus, sessions, perf.
-
 ## Tweaks
 
 - [ ] **Revisit the reader nav's scrolling** — the docs reader's nav scrolls as one column, so with
@@ -244,6 +236,12 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   so a session can be restarted manually for other reasons, such as reloading an MCP.
   Filed 2026-11-06 from musterd 0.29.0 / Claude Code 2.1.293, focus view, session started.
   Labels: enhancement, rail, lifecycle, ux, claude-code.
+
+- [ ] **Session switching slows under a flood of updates** — filed by the developer 2026-11-19.
+  Switching sessions is instantaneous in normal use, but when the dashboard receives a very high
+  rate of session updates (around 500 a second, measured on a scratch daemon during #128's research)
+  a switch takes 4–9 s while the daemon still answers in milliseconds. Expected: switching stays
+  instantaneous however many updates arrive. From `plans/temp-blank-session/research/e1.md`.
 
 ## Tooling and docs
 

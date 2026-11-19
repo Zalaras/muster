@@ -2718,6 +2718,14 @@ that the dashboard shows.
   Filed 2026-11-16 from musterd 0.30.0 / Claude Code 2.1.322, focus view, session idle.
   Labels: bug, shell, ux.
 
+- [x] **Keep getting blank session when swapping session** ([#128](https://github.com/Zalaras/muster/issues/128)) ✅ done 2026-11-19 (sweep `temp-blank-session`, fixed by hand on `main`: the auth cookie is named by port, kb:adr/connection-auth-cookie-named-by-port) — Clicking
+  another session leaves the session window blank, and clicking back is also blank; a page refresh
+  shows nothing for a while before reloading, and the blank state recurs on the next swap. Expected:
+  Switching sessions should show the selected session's content right away instead of a blank
+  window.
+  Filed 2026-11-19 from musterd 0.30.3 / Claude Code 2.1.328, focus view, session working.
+  Labels: bug, focus, sessions, perf.
+
 ## Tweaks
 
 - [x] **Add mark unread right click option** ([#103](https://github.com/Zalaras/muster/issues/103)) ✅ done 2026-10-26 (plan `remove-unread-right-click-1`, via `/fix`) — There
