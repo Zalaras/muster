@@ -28,9 +28,8 @@ This command was invoked with: **$ARGUMENTS**
 3. Build the quickest thing that shows the idea.
 4. `make proto-run` in the background. It runs on its own data dir, tmux socket and port (from the
    name, so prototypes run side by side), so the developer's live sessions are out of reach. Give
-   the developer the URL `make proto-url` prints, at `<name>.localhost` — never `dashboardUrl`
-   from `.proto-data/tokens.json`: opened on `127.0.0.1`, a prototype replaces the auth cookie of
-   the developer's own Muster and logs it out. Tell them how to give feedback without leaving the
+   the developer the URL `make proto-url` prints, at `<name>.localhost`, a host of its own so its cookies
+   never meet an older musterd's — never `dashboardUrl` from `.proto-data/tokens.json`. Tell them how to give feedback without leaving the
    page: click **Feedback** (or hold Alt and click anything), type what should change, repeat,
    then **Send**.
 5. Arm `Monitor` on `tail -n0 -F .proto-data/feedback-events.log` at the longest timeout. Each
