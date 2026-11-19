@@ -27,6 +27,10 @@
       button:hover { background: #2e3440; }
       button.on { background: #f5b83d; color: #16181d; border-color: #f5b83d; }
       button.go { background: #3d8bf5; border-color: #3d8bf5; color: #fff; }
+      .grip { align-self: stretch; display: flex; align-items: center; padding: 0 3px 0 5px; color: #6f7684;
+              cursor: grab; user-select: none; touch-action: none; letter-spacing: -2px; }
+      .grip:hover { color: #e8eaed; }
+      .grip.drag { cursor: grabbing; color: #f5b83d; }
       .st { padding: 0 4px; color: #aab0bd; max-width: 260px; }
       .st button { margin-left: 6px; }
       .hl { position: fixed; pointer-events: none; outline: 2px solid #f5b83d; outline-offset: 1px;
@@ -47,6 +51,7 @@
     <div class="hl" hidden></div>
     <div class="marks"></div>
     <div class="bar">
+      <span class="grip" title="Drag to move · double-click to put it back in the corner">⋮⋮</span>
       <button class="pick" title="Pick elements to comment on. Or hold Alt and click anything, at any time.">Feedback</button>
       <button class="gen" title="A note about the page as a whole">+ Note</button>
       <button class="send go" hidden></button>
@@ -80,8 +85,67 @@
     if (host.parentNode !== parent) parent.appendChild(host);
   }
   rehome();
+
+  // The bar is dragged by its grip, so it never has to sit on the thing being worked on. It is
+  // placed from the right and bottom edges, so it keeps growing leftwards as its status text
+  // changes, and where it was left is remembered for this prototype's host.
+  const bar = $(".bar"), grip = $(".grip");
+  const POS_KEY = "protoFeedbackPos";
+  const HOME = { right: 12, bottom: 12 };
+  let pos = { ...HOME };
+  try {
+    const saved = JSON.parse(localStorage.getItem(POS_KEY) || "null");
+    if (saved && Number.isFinite(saved.right) && Number.isFinite(saved.bottom)) pos = { right: saved.right, bottom: saved.bottom };
+  } catch {
+    // No storage, or a value that is not ours — start in the corner.
+  }
+  function placeBar() {
+    const r = bar.getBoundingClientRect();
+    pos.right = Math.max(0, Math.min(pos.right, innerWidth - r.width));
+    pos.bottom = Math.max(0, Math.min(pos.bottom, innerHeight - r.height));
+    bar.style.right = `${pos.right}px`;
+    bar.style.bottom = `${pos.bottom}px`;
+  }
+  function keepPos() {
+    try {
+      localStorage.setItem(POS_KEY, JSON.stringify(pos));
+    } catch {
+      // Remembering the position is a convenience only.
+    }
+  }
+  let drag = null; // { x, y, right, bottom } at pointerdown, while the grip is held
+  grip.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    drag = { x: e.clientX, y: e.clientY, right: pos.right, bottom: pos.bottom };
+    grip.setPointerCapture(e.pointerId);
+    grip.classList.add("drag");
+    e.preventDefault();
+  });
+  grip.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    pos.right = drag.right - (e.clientX - drag.x);
+    pos.bottom = drag.bottom - (e.clientY - drag.y);
+    placeBar();
+  });
+  for (const type of ["pointerup", "pointercancel"]) {
+    grip.addEventListener(type, () => {
+      if (!drag) return;
+      drag = null;
+      grip.classList.remove("drag");
+      keepPos();
+    });
+  }
+  grip.addEventListener("dblclick", () => {
+    pos = { ...HOME };
+    placeBar();
+    keepPos();
+  });
+  window.addEventListener("resize", placeBar);
+  placeBar();
+
   setInterval(() => {
     if (ed.hidden) rehome();
+    if (!drag) placeBar();
     placeMarks();
   }, 400);
 

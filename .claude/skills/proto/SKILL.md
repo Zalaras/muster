@@ -31,7 +31,7 @@ This command was invoked with: **$ARGUMENTS**
    the developer the URL `make proto-url` prints, at `<name>.localhost`, a host of its own so its cookies
    never meet an older musterd's — never `dashboardUrl` from `.proto-data/tokens.json`. Tell them how to give feedback without leaving the
    page: click **Feedback** (or hold Alt and click anything), type what should change, repeat,
-   then **Send**.
+   then **Send**; the bar drags by its grip when it sits on what they are looking at.
 5. Arm `Monitor` on `tail -n0 -F .proto-data/feedback-events.log` at the longest timeout. Each
    line is one sent batch; the notes and the elements they point at are in
    `plans/<name>/prototype-feedback.jsonl` (selector, text, size, colours, a clip of the markup).
