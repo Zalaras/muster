@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en" data-theme="instrument">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Muster runs</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+  html { font-size: var(--fs-root); }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); }
+  header { display: flex; align-items: baseline; gap: 16px; padding: 14px 24px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: var(--fs-lg); margin: 0; font-weight: 600; }
+  header .meta { color: var(--fg-dim); font-size: var(--fs-sm); font-family: var(--mono); }
+  header .live { margin-left: auto; font-size: var(--fs-sm); color: var(--teal); font-family: var(--mono); }
+  header .live::before { content: "●"; margin-right: 6px; animation: pulse 2s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  main { padding: 20px 24px 40px; max-width: 1180px; }
+  h2 { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .08em; color: var(--fg-dim); margin: 26px 0 8px; font-weight: 600; }
+  h2:first-of-type { margin-top: 0; }
+
+  .list { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .row { display: grid; grid-template-columns: 16px minmax(150px, 1.3fr) 92px minmax(190px, 2fr) 70px 70px 74px 64px; gap: 12px; align-items: center;
+         padding: 9px 14px; background: var(--bg-raised); border-top: 1px solid var(--line); cursor: pointer; font-size: var(--fs-sm); }
+  .list > .item:first-child .row { border-top: 0; }
+  .row:hover { background: var(--bg-hover); }
+  .row .chev { color: var(--fg-dim); transition: transform .15s; font-size: var(--fs-xs); }
+  .item.open .chev { transform: rotate(90deg); }
+  .row .name { font-family: var(--mono); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kind { font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: .06em; color: var(--fg-dim); }
+  .row .num { font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-muted); text-align: right; }
+  .row .num.warn { color: var(--amber); }
+  .now { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-width: 0; }
+  .chip { font-family: var(--mono); font-size: var(--fs-2xs); padding: 2px 7px; border-radius: 10px; white-space: nowrap; }
+  .c-run { color: var(--teal); border: 1px solid var(--teal-line); }
+  .c-run::before { content: "▸ "; }
+  .c-stale { color: var(--amber); border: 1px solid var(--amber-line); }
+  .c-fail { color: var(--rose); border: 1px solid var(--rose-line); }
+  .c-done { color: var(--violet); border: 1px solid var(--violet-line); }
+  .c-wait { color: var(--idle); border: 1px solid var(--line-control); }
+  .stepcell { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-muted); }
+  .bar { height: 4px; flex: 1; background: var(--well); border-radius: 2px; overflow: hidden; width: 100%; }
+  .bar i { display: block; height: 100%; background: var(--violet); }
+  .heads { display: grid; grid-template-columns: 16px minmax(150px, 1.3fr) 92px minmax(190px, 2fr) 70px 70px 74px 64px; gap: 12px;
+           padding: 0 14px 6px; font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: .06em; color: var(--fg-dim); }
+  .heads span.r { text-align: right; }
+  .flash .row { animation: flash 1.2s; }
+  @keyframes flash { 0% { background: var(--teal-line); } 100% { background: var(--bg-raised); } }
+
+  .detail { display: none; background: var(--bg); border-top: 1px solid var(--line); padding: 14px 16px 16px 42px; }
+  .item.open .detail { display: block; }
+  .where { font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); margin-bottom: 12px; }
+  .where b { color: var(--fg-muted); font-weight: 500; }
+  .alert { font-size: var(--fs-xs); color: var(--amber-note); margin-bottom: 10px; }
+  .err { font-family: var(--mono); font-size: var(--fs-xs); color: var(--rose-note); background: var(--well); padding: 8px 10px; border-radius: 3px; margin-bottom: 10px; }
+
+  /* timeline: one row per step, bars per attempt, lanes show parallel tracks */
+  .tl { display: grid; grid-template-columns: 150px 1fr 120px; row-gap: 3px; column-gap: 12px; font-size: var(--fs-xs); }
+  .tl .lab { font-family: var(--mono); color: var(--fg-muted); display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+  .tl .lab .lane { font-size: var(--fs-2xs); width: 44px; color: var(--fg-dim); }
+  .tl .lab .lane.d { color: var(--teal); }
+  .tl .lab .lane.w { color: var(--violet); }
+  .tl .track { position: relative; height: 16px; background: var(--well); border-radius: 2px; }
+  .tl .seg { position: absolute; top: 2px; bottom: 2px; border-radius: 2px; background: var(--violet); min-width: 3px; }
+  .tl .seg.retried { background: var(--amber); opacity: .75; }
+  .tl .seg.running { background: repeating-linear-gradient(-45deg, var(--teal) 0 6px, var(--teal-line) 6px 12px); background-size: 17px 17px; animation: move 1s linear infinite; }
+  @keyframes move { to { background-position: 17px 0; } }
+  .tl .seg.failed { background: var(--rose); }
+  .tl .info { font-family: var(--mono); color: var(--fg-dim); white-space: nowrap; }
+  .tl .info.run { color: var(--teal); }
+  .tl .info.amb { color: var(--amber); }
+  .tl .skip .lab, .tl .skip.info { opacity: .45; }
+  .tl .sep { grid-column: 1 / -1; height: 4px; }
+  .tl .nowline { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--teal); opacity: .6; }
+  .axis { display: grid; grid-template-columns: 150px 1fr 120px; column-gap: 12px; font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-dim); margin-top: 4px; }
+  .axis div { display: flex; justify-content: space-between; }
+  .legend { display: flex; gap: 14px; margin-top: 12px; font-size: var(--fs-2xs); color: var(--fg-dim); flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 14px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+
+  .batches { display: grid; grid-template-columns: 24px 1fr 150px 60px 54px; gap: 4px 12px; font-size: var(--fs-sm); align-items: baseline; }
+  .batches .n { font-family: var(--mono); color: var(--fg-dim); }
+  .batches .s { color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .batches .m { font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); }
+
+  .mockbar { position: fixed; right: 16px; bottom: 16px; display: flex; gap: 8px; align-items: center; background: var(--bg-raised); border: 1px dashed var(--line-control);
+             padding: 8px 10px; border-radius: 6px; font-size: var(--fs-xs); color: var(--fg-dim); }
+  .mockbar button { font: inherit; color: var(--fg); background: var(--bg-hover); border: 1px solid var(--line-control); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+  .mockbar button:hover { border-color: var(--edge); }
+
+  @media (max-width: 820px) {
+    main, header { padding-left: 16px; padding-right: 16px; }
+    .row, .heads { grid-template-columns: 14px 1fr 1fr 60px; }
+    .row .kind, .row .hide, .heads .hide { display: none; }
+    .detail { padding-left: 16px; }
+    .tl, .axis { grid-template-columns: 110px 1fr; }
+    .tl .info, .axis .pad { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Muster runs</h1>
+  <span class="meta" id="meta"></span>
+  <span class="live" id="live"></span>
+</header>
+<main>
+  <div class="heads"><span></span><span>Run</span><span class="hide">Kind</span><span>Running now</span><span class="hide">Steps</span><span class="r hide">Elapsed</span><span class="r">Usage</span><span class="r hide">Updated</span></div>
+  <h2>Active</h2>
+  <div class="list" id="active"></div>
+  <h2>Needs attention</h2>
+  <div class="list" id="attn"></div>
+  <h2>Recently finished</h2>
+  <div class="list" id="done"></div>
+</main>
+
+<div class="mockbar">
+  <span>mock</span>
+  <button id="tick">Simulate state-file update</button>
+  <button id="reset">Reset</button>
+</div>
+
+<script>
+/* Pipeline layout: which lane each step sits on. Steps in the middle block run as two
+   parallel tracks — daemon (impl → tests) and web (impl → web-tests ∥ render-tests). */
+const STEPS = [
+  { id: "e2e-specs",     lane: "" },
+  { sep: true },
+  { id: "daemon-impl",   lane: "d", label: "impl" },
+  { id: "daemon-tests",  lane: "d", label: "tests" },
+  { id: "web-impl",      lane: "w", label: "impl" },
+  { id: "web-tests",     lane: "w", label: "tests" },
+  { id: "render-tests",  lane: "w", label: "render" },
+  { sep: true },
+  { id: "e2e-validate",  lane: "" },
+  { id: "review",        lane: "" },
+  { id: "doc-reconcile", lane: "" },
+];
+const NSTEPS = 9;
+
+/* Mock clock. Times are minutes since 17:00Z on 19 Nov. */
+let NOW = 154; // 19:34
+const hm = m => { const h = 17 + Math.floor(m / 60), mm = Math.round(m % 60); return `${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}`; };
+const dur = m => { m = Math.round(m); return m >= 60 ? `${Math.floor(m/60)}h ${m%60}m` : `${m}m`; };
+const t = s => { const [h, m] = s.split(":").map(Number); return (h - 17) * 60 + m; };
+
+/* attempts: [start, finish|null, usageStart, usageFinish] */
+const RUNS = [
+  { // real: ../muster-diff-viewer/plans/diff-viewer/orchestration-state.json
+    name: "diff-viewer", kind: "orchestrate", group: "active",
+    where: "../muster-diff-viewer", branch: "plan/diff-viewer",
+    start: t("17:57"), updated: t("19:31"),
+    steps: {
+      "e2e-specs":    [[t("17:58"), t("18:12"), 14, 14]],
+      "daemon-impl":  [[t("18:13"), t("18:30"), 14, 15]],
+      "web-impl":     [[t("18:13"), t("18:39"), 14, 16], [t("18:53"), t("19:13"), 17, 17]],
+      "daemon-tests": [[t("18:30"), t("18:56"), 15, 17]],
+      "web-tests":    [[t("18:39"), t("18:43"), 16, 17]],
+      "render-tests": [[t("18:39"), t("18:53"), 16, 17], [t("19:31"), null, 18]],
+    },
+    usageNow: 18,
+  },
+  { // invented: the parallel moment — daemon track already in tests while web-impl still runs
+    name: "better-terminal", kind: "orchestrate", group: "active",
+    where: "../muster-better-terminal", branch: "plan/better-terminal",
+    start: t("18:40"), updated: t("19:29"),
+    steps: {
+      "e2e-specs":    [[t("18:41"), t("18:58"), 31, 32]],
+      "daemon-impl":  [[t("18:59"), t("19:21"), 32, 33]],
+      "daemon-tests": [[t("19:21"), null, 33]],
+      "web-impl":     [[t("18:59"), null, 32]],
+    },
+    usageNow: 35,
+  },
+  { // invented: fix sweep with batches
+    name: "sweep-2026-11-19", kind: "fix sweep", group: "active",
+    where: "plans/sweep-2026-11-19", branch: "parallel 1",
+    start: t("18:20"), updated: t("19:22"),
+    batches: [
+      { n: 1, s: "fix(surfaces): keep the busy shell spinner centred as it turns (closes #126)", st: "landed 5c3de796", cls: "c-done", wt: "web", took: 34 },
+      { n: 2, s: "#129 rail card loses focus ring after reorder · #131 masthead clock drift", st: "review · 12m", cls: "c-run", wt: "web", took: 41 },
+      { n: 3, s: "#130 ingest drops status line after /clear", st: "pending", cls: "c-wait", wt: "daemon", took: null },
+    ],
+    usageFrom: 24, usageNow: 29,
+  },
+  { // invented: stale — in progress but no write for a long time
+    name: "effort", kind: "orchestrate", group: "attn",
+    where: "../muster-effort", branch: "plan/effort",
+    start: t("17:20"), updated: t("18:42"),
+    skip: ["daemon-impl", "daemon-tests"],
+    steps: {
+      "e2e-specs":    [[t("17:21"), t("17:35"), 9, 10]],
+      "web-impl":     [[t("17:35"), t("18:00"), 10, 13]],
+      "web-tests":    [[t("18:00"), t("18:08"), 13, 14]],
+      "render-tests": [[t("18:00"), t("18:12"), 13, 14]],
+      "e2e-validate": [[t("18:12"), t("18:30"), 14, 16]],
+      "review":       [[t("18:30"), null, 16]],
+    },
+    usageNow: 21, alert: "In progress but its state file hasn't changed for 52m. The session may be waiting on you.",
+  },
+  { // invented: batch failed with a question
+    name: "sweep-2026-11-18-2", kind: "fix batch", group: "attn",
+    where: "../muster-sweep-2026-11-18-2", branch: "plan/sweep-2026-11-18-2",
+    start: t("17:05"), updated: t("17:48"), failed: true,
+    question: "Should a renamed group keep its colour when merged into an existing group?  →  scripts/sweep.py resume sweep-2026-11-18",
+    steps: {
+      "web-impl":  [[t("17:06"), t("17:30"), 12, 14]],
+      "web-tests": [[t("17:30"), t("17:48"), 14, 15]],
+    },
+    skip: ["e2e-specs", "daemon-impl", "daemon-tests", "render-tests", "e2e-validate"],
+    usageNow: 15,
+  },
+  { name: "sweep-2026-11-17-1", kind: "fix batch", group: "done", finished: "17 Nov 14:37", took: 34, usage: 2, outcome: "landed 5c3de796",
+    where: "plans/sweep-2026-11-17-1", branch: "worktree removed", start: 0,
+    skip: ["e2e-specs", "daemon-impl", "daemon-tests", "render-tests", "e2e-validate"],
+    steps: { "web-impl": [[0, 11, 5, 6]], "web-tests": [[11, 15, 6, 6]], "review": [[15, 28, 6, 7]], "doc-reconcile": [[28, 34, 7, 7]] } },
+  { name: "claude-tmp-files", kind: "orchestrate", group: "done", finished: "12 Nov 16:05", took: 252, usage: 18, outcome: "completed · 3 review cycles",
+    where: "plans/claude-tmp-files", branch: "landed 31fd7095", start: 0,
+    steps: {
+      "e2e-specs": [[0, 22, 40, 41]], "daemon-impl": [[23, 61, 41, 44]], "web-impl": [[23, 70, 41, 45]],
+      "daemon-tests": [[61, 80, 44, 46]], "web-tests": [[70, 84, 45, 46]], "render-tests": [[70, 95, 45, 47]],
+      "e2e-validate": [[95, 120, 47, 49]], "review": [[120, 160, 49, 52], [175, 205, 53, 55], [215, 236, 56, 57]], "doc-reconcile": [[236, 252, 57, 58]],
+    } },
+];
+
+const done = r => Object.entries(r.steps || {}).filter(([, a]) => a[a.length - 1][1] != null).length;
+const total = r => NSTEPS - (r.skip || []).length;
+const running = r => Object.entries(r.steps || {}).filter(([, a]) => a[a.length - 1][1] == null);
+const usageFrom = r => r.usageFrom ?? Math.min(...Object.values(r.steps || {}).map(a => a[0][2]));
+
+function nowChips(r) {
+  if (r.group === "done") return `<span class="chip c-done">${r.outcome}</span>`;
+  if (r.failed) return `<span class="chip c-fail">failed · question</span>`;
+  if (r.batches) return r.batches.filter(b => b.cls === "c-run").map(b => `<span class="chip c-run">batch ${b.n} · ${b.st}</span>`).join("");
+  const stale = NOW - r.updated > 30;
+  return running(r).map(([id, a]) => {
+    const tries = a.length > 1 ? ` · try ${a.length}` : "";
+    return `<span class="chip ${stale ? "c-stale" : "c-run"}">${id} ${dur(NOW - a[a.length - 1][0])}${tries}</span>`;
+  }).join("");
+}
+
+function progress(r) {
+  if (r.batches) { const l = r.batches.filter(b => b.cls === "c-done").length; return [l, r.batches.length, "batches"]; }
+  return [done(r), total(r), ""];
+}
+
+function timeline(r) {
+  const end = r.group === "done" ? r.start + r.took : NOW;
+  const span = Math.max(end - r.start, 1);
+  const pct = m => ((m - r.start) / span) * 100;
+  let rows = "";
+  for (const s of STEPS) {
+    if (s.sep) { rows += `<div class="sep"></div>`; continue; }
+    const a = (r.steps || {})[s.id];
+    const skipped = (r.skip || []).includes(s.id);
+    const lane = s.lane === "d" ? `<span class="lane d">daemon</span>` : s.lane === "w" ? `<span class="lane w">web</span>` : `<span class="lane"></span>`;
+    const label = s.label || s.id;
+    let segs = "", info = "", infoCls = "";
+    if (a) {
+      a.forEach((at, i) => {
+        const last = i === a.length - 1, f = at[1] ?? end;
+        const cls = at[1] == null ? (r.failed ? "failed" : "running") : !last ? "retried" : "";
+        segs += `<div class="seg ${cls}" style="left:${pct(at[0])}%;width:${pct(f) - pct(at[0])}%" title="${s.id} try ${i + 1}: ${hm(at[0])}–${at[1] == null ? "now" : hm(at[1])}"></div>`;
+      });
+      const cur = a[a.length - 1];
+      const totalMin = a.reduce((x, at) => x + ((at[1] ?? end) - at[0]), 0);
+      const used = (cur[3] ?? r.usageNow) - a[0][2];
+      if (cur[1] == null) { info = `running ${dur(end - cur[0])}${a.length > 1 ? ` · try ${a.length}` : ""}`; infoCls = "run"; }
+      else { info = `${dur(totalMin)} · +${used}%${a.length > 1 ? ` · ${a.length} ${s.id === "review" ? "cycles" : "tries"}` : ""}`; infoCls = a.length > 1 ? "amb" : ""; }
+    } else if (skipped) info = "skipped";
+    else info = "waiting";
+    if (r.group !== "done") segs += `<div class="nowline" style="left:100%"></div>`;
+    rows += `<div class="lab ${skipped ? "skip" : ""}">${lane}${label}</div><div class="track">${segs}</div><div class="info ${infoCls} ${skipped ? "skip" : ""}">${info}</div>`;
+  }
+  const startLab = r.group === "done" ? "0m" : hm(r.start);
+  const endLab = r.group === "done" ? dur(r.took) : `now ${hm(NOW)}`;
+  return `<div class="tl">${rows}</div>
+    <div class="axis"><span></span><div><span>${startLab}</span><span>${endLab}</span></div><span class="pad"></span></div>
+    <div class="legend"><span><i style="background:var(--violet)"></i>done</span><span><i style="background:var(--amber);opacity:.75"></i>attempt sent back</span><span><i style="background:var(--teal)"></i>running</span><span><i style="background:var(--rose)"></i>failed</span><span>daemon and web tracks run side by side</span></div>`;
+}
+
+function batches(r) {
+  return `<div class="batches">${r.batches.map(b => `<span class="n">${b.n}</span><span class="s" title="${b.s}">${b.s}</span><span><span class="chip ${b.cls}">${b.st}</span></span><span class="m">${b.wt}</span><span class="m">${b.took ? dur(b.took) : "—"}</span>`).join("")}</div>`;
+}
+
+const openSet = new Set(["better-terminal"]);
+
+function render() {
+  const lists = { active: "", attn: "", done: "" };
+  for (const r of RUNS) {
+    const [d, n, unit] = progress(r);
+    const elapsed = r.group === "done" ? dur(r.took) : dur(NOW - r.start);
+    const usage = r.group === "done" ? `+${r.usage}%` : `+${r.usageNow - usageFrom(r)}%`;
+    const upd = r.group === "done" ? r.finished.split(" ").slice(0, 2).join(" ") : hm(r.updated);
+    const stale = r.group !== "done" && !r.batches && !r.failed && NOW - r.updated > 30;
+    const detail = `<div class="where"><b>${r.where}</b> · ${r.branch}${r.group !== "done" ? ` · started ${hm(r.start)} · usage ${usageFrom(r)}% → ${r.usageNow}%` : ` · finished ${r.finished}`}</div>
+      ${r.alert ? `<div class="alert">${r.alert}</div>` : ""}
+      ${r.question ? `<div class="err">${r.question}</div>` : ""}
+      ${r.batches ? batches(r) : timeline(r)}`;
+    lists[r.group] += `<div class="item ${openSet.has(r.name) ? "open" : ""}" data-name="${r.name}">
+      <div class="row">
+        <span class="chev">▶</span>
+        <span class="name">${r.name}</span>
+        <span class="kind">${r.kind}</span>
+        <span class="now">${nowChips(r)}</span>
+        <span class="hide stepcell" title="${d} of ${n} ${unit || "steps"}"><span>${d}/${n}</span><span class="bar"><i style="width:${(d / n) * 100}%"></i></span></span>
+        <span class="num hide">${elapsed}</span>
+        <span class="num">${usage}</span>
+        <span class="num hide ${stale ? "warn" : ""}">${upd}</span>
+      </div>
+      <div class="detail">${detail}</div>
+    </div>`;
+  }
+  for (const k in lists) document.getElementById(k).innerHTML = lists[k];
+  const act = RUNS.filter(r => r.group === "active").length;
+  document.getElementById("meta").textContent = `${RUNS.filter(r => r.group !== "done").length} worktrees · ${act} active`;
+  document.getElementById("live").textContent = `live · ${hm(NOW)}`;
+}
+
+document.addEventListener("click", e => {
+  const row = e.target.closest(".row");
+  if (!row) return;
+  const item = row.parentElement, name = item.dataset.name;
+  openSet.has(name) ? openSet.delete(name) : openSet.add(name);
+  item.classList.toggle("open");
+});
+
+/* Simulated state-file writes, one per click, to show the live update. */
+const SCRIPT = [
+  () => { const r = RUNS[1]; r.steps["web-impl"][0][1] = NOW; r.steps["web-impl"][0][3] = 35;
+          r.steps["web-tests"] = [[NOW, null, 35]]; r.steps["render-tests"] = [[NOW, null, 35]]; r.updated = NOW; return "better-terminal"; },
+  () => { const r = RUNS[0]; const a = r.steps["render-tests"]; a[1][1] = NOW; a[1][3] = 19; r.usageNow = 19;
+          r.steps["e2e-validate"] = [[NOW, null, 19]]; r.updated = NOW; return "diff-viewer"; },
+  () => { const r = RUNS[1]; r.steps["daemon-tests"][0][1] = NOW; r.steps["daemon-tests"][0][3] = 36; r.usageNow = 36; r.updated = NOW; return "better-terminal"; },
+  () => { const r = RUNS[2]; r.batches[1] = { ...r.batches[1], st: "landed 7a1c09e2", cls: "c-done", took: 48 };
+          r.batches[2] = { ...r.batches[2], st: "daemon-impl · 0m", cls: "c-run" }; r.usageNow = 31; r.updated = NOW; return "sweep-2026-11-19"; },
+];
+let step = 0;
+document.getElementById("tick").onclick = () => {
+  NOW += 4;
+  const name = step < SCRIPT.length ? SCRIPT[step++]() : null;
+  render();
+  if (name) { const el = document.querySelector(`[data-name="${name}"]`); el.classList.add("flash"); }
+};
+const snapshot = JSON.stringify(RUNS);
+document.getElementById("reset").onclick = () => { RUNS.splice(0, RUNS.length, ...JSON.parse(snapshot)); NOW = 154; step = 0; render(); };
+
+render();
+</script>
+</body>
+</html>

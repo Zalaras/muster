@@ -1,0 +1,69 @@
+:root,
+:root[data-theme="instrument"] {
+  --bg: #12141c;
+  --bg-raised: #171a24;
+  --bg-hover: #1c2029;
+  --well: #0d0f16;
+  --line: #282d3b;
+  --line-control: #343a4a;
+  --edge: #6a7286;
+  --fg: #e8e6e1;
+  --fg-muted: #b2b6c3;
+  --fg-dim: #a6abbc;
+  --amber: #f2a33c;
+  --rose: #e77f7f;
+  --violet: #9e91f1;
+  --teal: #56c5d0;
+  --idle: #989db1;
+  --amber-line: #5c4526;
+  --rose-line: #5c2e2e;
+  --violet-line: #3e3663;
+  --teal-line: #215058;
+  --amber-note: #f5cc93;
+  --rose-note: #f1b0b0;
+  --amber-fg: #12141c;
+  --banner-bg: #3a1e1e;
+  --banner-line: #5a2c2c;
+  --banner-fg: #f3b7b7;
+  --danger: #c24646;
+  --danger-line: #7a3535;
+  --danger-fg: #ffffff;
+  --disabled-fg: #5a6070;
+  --disabled-line: #2c3140;
+  --disabled-bg: #22262f;
+  --term-dark-bg: #0d0f16;
+  --term-dark-fg: #e8e6e1;
+  --term-light-bg: #fbfaf7;
+  --term-light-fg: #1c1e26;
+  --scrim: rgba(8, 9, 13, 0.72);
+  --bg-raised-95: rgba(23, 26, 36, 0.95);
+  --health-ok: #7bc47f;
+  --health-pending: #e3c64a;
+  --health-down: #ee6a32;
+  --warn: #e8cf5a;
+  --warn-bg: #4a4116;
+  --warn-line: #8a7526;
+  --warn-fg: #fbefb8;
+  --find-match: #2b4a6b;
+  --find-current: #3a6694;
+}
+:root {
+  /* system stacks only — nothing vendored, nothing fetched (decided 2026-08-16) */
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --disp: system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* REQ-6 (plan ui-text-and-focus, 2026-09-03): the type ramp, in rem anchored to
+   * --fs-root — theme-independent, so it lives on the bare :root alongside the font
+   * stacks above. Ramp mapping (REQ-7, Implementation Notes): every font-size
+   * declaration below resolves to one of these seven tokens; no numeric literal
+   * remains outside this block and the html rule that consumes --fs-root. */
+  --fs-root: 15px;
+  --fs-2xs: 0.68rem;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.82rem;
+  --fs-md: 0.89rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.07rem;
+  --fs-xl: 1.14rem;
+}
