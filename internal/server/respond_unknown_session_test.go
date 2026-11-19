@@ -30,7 +30,7 @@ func authedRequest(t *testing.T, srv *testServer, method, path, body string) *ht
 	} else {
 		req = httptest.NewRequest(method, path, strings.NewReader(body))
 	}
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	return rec

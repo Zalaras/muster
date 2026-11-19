@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -30,7 +31,7 @@ import (
 func postSessionsRequest(t *testing.T, srv *testServer, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/api/sessions", strings.NewReader(body))
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	return rec
@@ -41,7 +42,7 @@ func postSessionsRequest(t *testing.T, srv *testServer, body string) *httptest.R
 func sessionActionRequest(t *testing.T, srv *testServer, method, path string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, path, nil)
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	return rec
@@ -172,7 +173,7 @@ func newTestTmuxClient(t *testing.T) *tmux.Client {
 func putSessionPinRequest(t *testing.T, srv *testServer, id int64, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/sessions/%d/pin", id), strings.NewReader(body))
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	return rec
@@ -209,3 +210,12 @@ const (
 	msgGroupBadIDs  = "ids must be known session ids without duplicates"
 	msgOrderBadBody = "ids must be a duplicate-free list of known session ids, and pinnedCount must be in [0, len(ids)]"
 )
+
+// authCookieHeader is the Cookie header value a real listener at rawURL (http or ws) accepts:
+// the UI token under the cookie name its host:port carries.
+func authCookieHeader(t *testing.T, rawURL string) string {
+	t.Helper()
+	u, err := url.Parse(rawURL)
+	require.NoError(t, err)
+	return authCookieNameForHost(u.Host) + "=" + testUIToken
+}

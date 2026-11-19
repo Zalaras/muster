@@ -28,7 +28,7 @@ import (
 func postShellRequest(t *testing.T, srv *testServer, id int64) (rec *httptest.ResponseRecorder, target string, created bool) {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/api/sessions/"+strconv.FormatInt(id, 10)+"/shell", nil)
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec = httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	if rec.Code == http.StatusOK {
@@ -47,7 +47,7 @@ func postShellRequest(t *testing.T, srv *testServer, id int64) (rec *httptest.Re
 func dialShell(t *testing.T, httpSrv *httptest.Server, id int64) (*websocket.Conn, *http.Response, error) {
 	t.Helper()
 	wsURL := "ws" + httpSrv.URL[len("http"):] + "/ws/shell/" + strconv.FormatInt(id, 10)
-	header := http.Header{"Cookie": {cookieName + "=" + testUIToken}}
+	header := http.Header{"Cookie": {authCookieHeader(t, httpSrv.URL)}}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header})

@@ -26,8 +26,9 @@ kb:adr/connection-missing-web-build-fails-fast).
 
 Two random tokens are generated at first run and kept in the kv table. The UI token is
 carried in the launcher's URL and exchanged at `GET /auth` for a strict same-site,
-HTTP-only cookie; it stays valid at that endpoint for the install's life
-(kb:adr/connection-ui-token-reusable-not-one-time). Every API, socket and static request
+HTTP-only cookie named by the daemon's port, so two daemons on one host never sign each
+other out (kb:adr/connection-auth-cookie-named-by-port); the token stays valid at that
+endpoint for the install's life (kb:adr/connection-ui-token-reusable-not-one-time). Every API, socket and static request
 without the cookie is refused, and a WebSocket upgrade with a foreign Origin is rejected.
 The ingest token is separate and lives in the hook URL path
 (kb:adr/ingest-separate-token-in-url-path). Nothing else authenticates: the accepted

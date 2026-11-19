@@ -47,7 +47,7 @@ func usageRefreshRequest(t *testing.T, srv *Server, withCookie bool) *httptest.R
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/api/usage/refresh", nil)
 	if withCookie {
-		req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+		req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	}
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)

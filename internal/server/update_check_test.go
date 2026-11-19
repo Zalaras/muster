@@ -25,7 +25,7 @@ import (
 func postCheckUpdate(t *testing.T, srv *testServer) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/api/update/check", strings.NewReader(""))
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	return rec

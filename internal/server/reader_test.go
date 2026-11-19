@@ -90,7 +90,7 @@ func seedLiveSessionInDir(t *testing.T, srv *testServer, dir string) *session.Se
 func getReaderListRequest(t *testing.T, srv *testServer, id int64) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/sessions/%d/reader", id), nil)
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	return rec
@@ -103,7 +103,7 @@ func getReaderFileRequest(t *testing.T, srv *testServer, id int64, path string) 
 		u += "?path=" + path
 	}
 	req := httptest.NewRequest(http.MethodGet, u, nil)
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	return rec

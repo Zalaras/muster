@@ -161,7 +161,7 @@ func TestGroups_RealServerSnapshotAndBroadcast(t *testing.T) {
 	assert.Equal(t, map[string]any{"pos": float64(0), "collapsed": false}, snap["ungrouped"])
 
 	req := httptest.NewRequest(http.MethodPost, pathGroups, strings.NewReader(`{"name":"Reviews"}`))
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
@@ -173,7 +173,7 @@ func TestGroups_RealServerSnapshotAndBroadcast(t *testing.T) {
 	assert.Equal(t, "Reviews", groups[0].(map[string]any)["name"])
 
 	req = httptest.NewRequest(http.MethodGet, "/api/state", nil)
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec = httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	var state map[string]json.RawMessage

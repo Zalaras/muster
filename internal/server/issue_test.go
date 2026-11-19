@@ -60,7 +60,7 @@ func newIssueTestServer(t *testing.T, ghURL, repo, token string) *testServer {
 func postCaptureRequest(t *testing.T, srv *testServer, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/api/issue/captures", strings.NewReader(body))
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	return rec
@@ -69,7 +69,7 @@ func postCaptureRequest(t *testing.T, srv *testServer, body string) *httptest.Re
 func postIssueRequest(t *testing.T, srv *testServer, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/api/issues", strings.NewReader(body))
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	return rec
@@ -1009,7 +1009,7 @@ func TestHandleCreateCapture_AbsentBodyDefaultsToDashboardScope(t *testing.T) {
 	srv := newIssueTestServer(t, gh.server(t).URL, "acme/widgets", issueTestToken)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/issue/captures", nil)
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 

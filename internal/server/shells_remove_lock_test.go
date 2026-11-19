@@ -107,7 +107,7 @@ func TestHandleCreateShell_BlocksConcurrentRemoveUntilEnsureCompletes(t *testing
 	// goroutine (testifylint's go-require); the response body is decoded back on the
 	// main test goroutine once ensureDone fires.
 	shellReq := httptest.NewRequest(http.MethodPost, "/api/sessions/"+strconv.FormatInt(sess.ID, 10)+"/shell", nil)
-	shellReq.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	shellReq.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	shellRec := httptest.NewRecorder()
 	ensureDone := make(chan struct{})
 	go func() {

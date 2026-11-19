@@ -46,7 +46,7 @@ func TestHandleState_ReturnsSnapshotJSON(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/state", nil)
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 
@@ -122,7 +122,7 @@ func TestCurrentSnapshot_LoadsPersistedPrefsFromKV(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, rec.Code)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/state", nil)
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	out := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(out, req)
 

@@ -25,7 +25,9 @@ test("shows the relaunch page for an unauthenticated visit to /", async ({ page 
 test("shows the relaunch page for a stale cookie", async ({ page }) => {
   await page
     .context()
-    .addCookies([{ name: "muster_auth", value: "not-a-real-token", url: daemon().baseURL }]);
+    .addCookies([
+      { name: daemon().authCookieName, value: "not-a-real-token", url: daemon().baseURL },
+    ]);
   const res = await page.goto(`${daemon().baseURL}/`);
   expect(res?.status()).toBe(401);
   await expect(page.getByText(/relaunch/i)).toBeVisible();
@@ -50,7 +52,7 @@ test("exchanges the UI token for a session cookie and lands on the rendered shel
   await expect(page.getByRole("heading", { name: "Muster" })).toBeVisible();
 
   const cookies = await page.context().cookies();
-  const authCookie = cookies.find((c) => c.name === "muster_auth");
+  const authCookie = cookies.find((c) => c.name === daemon().authCookieName);
   expect(authCookie).toBeTruthy();
   expect(authCookie?.httpOnly).toBe(true);
   expect(authCookie?.sameSite).toBe("Strict");

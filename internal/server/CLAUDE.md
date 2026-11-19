@@ -19,7 +19,7 @@
 - A fixture reshaped to stay green changes the wire (kb:lesson/stale-fixture-reshaped-the-wire).
 
 <!-- kb:trailer -->
-<!-- kb:hash b32017c87bff5158 -->
+<!-- kb:hash 6d71351814a65539 -->
 - **actions** — Stop, Resume, Remove and Restart a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **card-location** — The card's launch directory, its branch kept fresh by the repo poll, where Claude works when elsewhere, the directories added to it, and the bind's model name. → `docs/features/card-location/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
@@ -40,5 +40,5 @@
 - **theme** — Muster theme preference and the Claude theme family poll. → `docs/features/theme/INDEX.md`
 - **update** — Release check, minisign-verified apply, in-place restart with sessions re-adopted. → `docs/features/update/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 86 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 87 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

@@ -45,9 +45,13 @@ sits on the line before each `##`/`###` heading, and code and docs cite a sectio
   WebSockets (`/ws/terminal/{id}`, `/ws/shell/{id}`), ingest (`/ingest/…`), health (`/healthz`).
 - **Two tokens, distinct lifecycles** (both random, generated at first run, stored in kv):
   - **UI token** — carried once in the launcher's URL, exchanged at `GET /auth` for a
-    cookie. Cookie: `muster_auth`, `HttpOnly`, `SameSite=Strict`, no `Secure` (localhost
-    HTTP). Every `/api/*`, `/ws*` and static request without a valid cookie → `401`
-    (API/WS) or redirect-to-nowhere page telling the user to relaunch (static).
+    cookie. Cookie: `muster_auth_<port>` (the port of the request's `Host`, so daemons on one
+    host never replace each other's cookie; a `Host` with no port gets bare `muster_auth`; on a
+    `Host` with a port, a valid bare `muster_auth` from an older daemon is accepted and re-set
+    under the port name — `kb:adr/connection-auth-cookie-named-by-port`), `HttpOnly`,
+    `SameSite=Strict`, no `Secure` (localhost HTTP). Every `/api/*`, `/ws*` and static
+    request without a valid cookie → `401` (API/WS) or redirect-to-nowhere page telling the
+    user to relaunch (static).
   - **Ingest token** — embedded in the ingest URL path that Muster writes into each
     directory's project-scoped Claude Code settings. Keeps a random webpage (or a stray
     local process) from POSTing forged events; it grants nothing else. Same-user malware

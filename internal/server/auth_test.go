@@ -44,7 +44,7 @@ func TestRequireCookie(t *testing.T) {
 	}{
 		{
 			name:           "valid cookie passes through to next",
-			cookie:         &http.Cookie{Name: cookieName, Value: validToken},
+			cookie:         &http.Cookie{Name: cookieBaseName, Value: validToken},
 			wantNextCalled: true,
 		},
 		{
@@ -54,12 +54,12 @@ func TestRequireCookie(t *testing.T) {
 		},
 		{
 			name:           "wrong cookie value is rejected",
-			cookie:         &http.Cookie{Name: cookieName, Value: "wrong-token"},
+			cookie:         &http.Cookie{Name: cookieBaseName, Value: "wrong-token"},
 			wantNextCalled: false,
 		},
 		{
 			name:           "empty cookie value is rejected",
-			cookie:         &http.Cookie{Name: cookieName, Value: ""},
+			cookie:         &http.Cookie{Name: cookieBaseName, Value: ""},
 			wantNextCalled: false,
 		},
 	}
@@ -144,7 +144,7 @@ func TestHandleHealthz_NoCookieRequired(t *testing.T) {
 func TestHandleAuth_ValidTokenSetsCookieAndRedirects(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
-	req := httptest.NewRequest(http.MethodGet, "/auth?token="+testUIToken, nil)
+	req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:28820/auth?token="+testUIToken, nil)
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 
@@ -154,7 +154,7 @@ func TestHandleAuth_ValidTokenSetsCookieAndRedirects(t *testing.T) {
 	cookies := rec.Result().Cookies()
 	require.Len(t, cookies, 1)
 	c := cookies[0]
-	assert.Equal(t, cookieName, c.Name)
+	assert.Equal(t, "muster_auth_28820", c.Name)
 	assert.Equal(t, testUIToken, c.Value)
 	assert.True(t, c.HttpOnly)
 	assert.Equal(t, http.SameSiteStrictMode, c.SameSite)
@@ -199,7 +199,7 @@ func TestRoutes_APIStateRequiresCookie(t *testing.T) {
 
 	t.Run("with valid cookie: 200 snapshot", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/state", nil)
-		req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+		req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 		rec := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(rec, req)
 
@@ -219,7 +219,7 @@ func TestRoutes_StaticRequiresCookie(t *testing.T) {
 	}{
 		{"root, no cookie", "/", nil},
 		{"nonexistent asset path, no cookie", "/assets/app.js", nil},
-		{"root, stale/garbage cookie", "/", &http.Cookie{Name: cookieName, Value: "garbage-not-a-real-token"}},
+		{"root, stale/garbage cookie", "/", &http.Cookie{Name: cookieBaseName, Value: "garbage-not-a-real-token"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -233,6 +233,69 @@ func TestRoutes_StaticRequiresCookie(t *testing.T) {
 			assert.Equal(t, http.StatusUnauthorized, rec.Code)
 			assert.Contains(t, rec.Header().Get("Content-Type"), "text/html")
 			assert.Regexp(t, `(?i)relaunch`, rec.Body.String())
+		})
+	}
+}
+
+// Two daemons on one host share the browser's cookie jar, which ignores the port: each
+// names its cookie by the port the browser addressed, so one /auth never logs the other
+// out (kb:adr/connection-auth-cookie-named-by-port).
+func TestAuthCookie_NamedByPort(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	for host, want := range map[string]string{
+		"127.0.0.1:28820":         "muster_auth_28820",
+		"diff-viewer.localhost:9": "muster_auth_9",
+		"[::1]:7070":              "muster_auth_7070",
+		"localhost":               "muster_auth",
+		"[::1]":                   "muster_auth",
+	} {
+		assert.Equal(t, want, authCookieNameForHost(host), host)
+	}
+
+	tests := []struct {
+		name       string
+		cookies    []*http.Cookie
+		wantCode   int
+		wantSetFor string
+	}{
+		{"own port's cookie beside another daemon's", []*http.Cookie{
+			{Name: "muster_auth_7070", Value: testUIToken},
+			{Name: "muster_auth_28820", Value: "the-other-daemons-token"},
+			{Name: "muster_auth", Value: "the-other-daemons-token"},
+		}, http.StatusOK, ""},
+		{"only another port's cookie", []*http.Cookie{
+			{Name: "muster_auth_28820", Value: testUIToken},
+		}, http.StatusUnauthorized, ""},
+		{"bare legacy cookie is accepted and renamed", []*http.Cookie{
+			{Name: "muster_auth", Value: testUIToken},
+		}, http.StatusOK, "muster_auth_7070"},
+		{"bare legacy cookie with a wrong token", []*http.Cookie{
+			{Name: "muster_auth", Value: "wrong-token"},
+		}, http.StatusUnauthorized, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:7070/api/state", nil)
+			for _, c := range tt.cookies {
+				req.AddCookie(c)
+			}
+			rec := httptest.NewRecorder()
+			srv.Handler().ServeHTTP(rec, req)
+
+			assert.Equal(t, tt.wantCode, rec.Code)
+			set := rec.Result().Cookies()
+			if tt.wantSetFor == "" {
+				assert.Empty(t, set)
+				return
+			}
+			require.Len(t, set, 1)
+			assert.Equal(t, tt.wantSetFor, set[0].Name)
+			assert.Equal(t, testUIToken, set[0].Value)
+			assert.True(t, set[0].HttpOnly)
+			assert.Equal(t, http.SameSiteStrictMode, set[0].SameSite)
+			assert.Equal(t, "/", set[0].Path)
+			assert.Equal(t, cookieMaxAge, set[0].MaxAge)
 		})
 	}
 }

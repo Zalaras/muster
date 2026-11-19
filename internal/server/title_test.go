@@ -17,7 +17,7 @@ import (
 func putSessionTitleRequest(t *testing.T, srv *testServer, id int64, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/sessions/%d/title", id), strings.NewReader(body))
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	return rec

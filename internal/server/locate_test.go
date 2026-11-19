@@ -58,7 +58,7 @@ func buildLocateRequest(t *testing.T, id int64, filename string, content []byte,
 	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/sessions/%d/locate", id), &body)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	if authed {
-		req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+		req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	}
 	return req
 }
@@ -77,7 +77,7 @@ func buildLocateRequestNoFilePart(t *testing.T, id int64) *http.Request {
 
 	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/sessions/%d/locate", id), &body)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	return req
 }
 
@@ -120,7 +120,7 @@ func buildOversizeLocateRequest(t *testing.T, id int64) *http.Request {
 
 	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/sessions/%d/locate", id), pr)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	return req
 }
 
@@ -222,7 +222,7 @@ func TestHandleLocateFile_NotMultipartBody(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/sessions/%d/locate", id), bytes.NewBufferString(`{"not":"multipart"}`))
 	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)

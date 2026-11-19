@@ -94,7 +94,7 @@ func sleepForeverCommand() []string {
 func dialTerminal(t *testing.T, httpSrv *httptest.Server, id int64) (*websocket.Conn, *http.Response, error) {
 	t.Helper()
 	wsURL := "ws" + httpSrv.URL[len("http"):] + "/ws/terminal/" + strconv.FormatInt(id, 10)
-	header := http.Header{"Cookie": {cookieName + "=" + testUIToken}}
+	header := http.Header{"Cookie": {authCookieHeader(t, httpSrv.URL)}}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header})
@@ -223,7 +223,7 @@ func TestHandleTerminal_NonNumericIDIs404(t *testing.T) {
 	t.Cleanup(httpSrv.Close)
 
 	wsURL := "ws" + httpSrv.URL[len("http"):] + "/ws/terminal/not-a-number"
-	header := http.Header{"Cookie": {cookieName + "=" + testUIToken}}
+	header := http.Header{"Cookie": {authCookieHeader(t, httpSrv.URL)}}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_, resp, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header})

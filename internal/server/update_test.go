@@ -452,7 +452,7 @@ func newUpdateTestServer(t *testing.T, mutate func(*Config)) *testServer {
 func postApplyUpdate(t *testing.T, srv *testServer, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/api/update/apply", strings.NewReader(body))
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	return rec
@@ -461,7 +461,7 @@ func postApplyUpdate(t *testing.T, srv *testServer, body string) *httptest.Respo
 func getRestartImpact(t *testing.T, srv *testServer) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/api/update/restart-impact", nil)
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	return rec

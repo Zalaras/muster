@@ -128,7 +128,7 @@ func TestIngestStatusLine_ModelOnlyChangeKeepsStateSnapshotFreeOfModel(t *testin
 	srv, _, _ := modelOnlyScenario(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/state", nil)
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	require.Equal(t, http.StatusOK, rec.Code)

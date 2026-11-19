@@ -239,6 +239,15 @@ func spawnDaemon(t *testing.T, onExit string, stdin *os.File) *spawnedDaemon {
 	return d
 }
 
+// authCookie is the dashboard's auth cookie for this daemon: muster_auth_<port>.
+func (d *spawnedDaemon) authCookie(t *testing.T) *http.Cookie {
+	t.Helper()
+	u, err := url.Parse(d.baseURL)
+	require.NoError(t, err)
+	require.NotEmpty(t, u.Port(), "baseURL %q carries no port", d.baseURL)
+	return &http.Cookie{Name: "muster_auth_" + u.Port(), Value: d.uiToken}
+}
+
 // launchSession POSTs a real launch request against the running daemon's HTTP API — the
 // only way this black-box test can put a live tmux session under it. Returns the launched
 // session's id (the shell tests need it to spawn a shell on that same session).
@@ -247,7 +256,7 @@ func (d *spawnedDaemon) launchSession(t *testing.T, dir string) int64 {
 	body := fmt.Sprintf(`{"directory":%q,"model":"sonnet","permissionMode":"default"}`, dir)
 	req, err := http.NewRequest(http.MethodPost, d.baseURL+"/api/sessions", strings.NewReader(body))
 	require.NoError(t, err)
-	req.AddCookie(&http.Cookie{Name: "muster_auth", Value: d.uiToken})
+	req.AddCookie(d.authCookie(t))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -269,7 +278,7 @@ func (d *spawnedDaemon) spawnShell(t *testing.T, sessionID int64) {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/sessions/%d/shell", d.baseURL, sessionID), nil)
 	require.NoError(t, err)
-	req.AddCookie(&http.Cookie{Name: "muster_auth", Value: d.uiToken})
+	req.AddCookie(d.authCookie(t))
 
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err, "stderr so far: %s", d.stderr)
@@ -462,7 +471,7 @@ func TestOnExit_Kill_ShellOnlyNoLiveSessionsStillKillsIt(t *testing.T) {
 	// only be spawned against a known session id in the first place).
 	endReq, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/sessions/%d/end", d.baseURL, id), nil)
 	require.NoError(t, err)
-	endReq.AddCookie(&http.Cookie{Name: "muster_auth", Value: d.uiToken})
+	endReq.AddCookie(d.authCookie(t))
 	endResp, err := http.DefaultClient.Do(endReq)
 	require.NoError(t, err, "stderr so far: %s", d.stderr)
 	_ = endResp.Body.Close()

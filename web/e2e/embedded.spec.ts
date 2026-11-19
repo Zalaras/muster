@@ -55,7 +55,7 @@ test("serves the working dashboard from the embedded FS with no -web-dist flag: 
   // Auth flow completed for real: the daemon minted and the browser stored the same
   // httpOnly session cookie the disk path uses (auth.spec.ts's token-exchange test).
   const cookies = await page.context().cookies();
-  const authCookie = cookies.find((c) => c.name === "muster_auth");
+  const authCookie = cookies.find((c) => c.name === daemon().authCookieName);
   expect(authCookie).toBeTruthy();
   expect(authCookie?.httpOnly).toBe(true);
   expect(authCookie?.sameSite).toBe("Strict");

@@ -24,7 +24,7 @@ import (
 // dials directly instead so it can close that body itself.
 func dialWS(t *testing.T, wsURL string, extraHeaders http.Header) (*websocket.Conn, error) {
 	t.Helper()
-	header := http.Header{"Cookie": {cookieName + "=" + testUIToken}}
+	header := http.Header{"Cookie": {authCookieHeader(t, wsURL)}}
 	for k, vs := range extraHeaders {
 		header[k] = vs
 	}
@@ -145,7 +145,7 @@ func TestHandleWS_ClaudeCodeKeySetExactAndInstalledNullIffUnknown(t *testing.T) 
 			wsURL := "ws" + httpSrv.URL[len("http"):] + "/ws"
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			header := http.Header{"Cookie": {cookieName + "=" + testUIToken}}
+			header := http.Header{"Cookie": {authCookieHeader(t, wsURL)}}
 			c, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header}) //nolint:bodyclose // coder/websocket Dial nils out resp.Body on success (dial.go); there is nothing to close
 			require.NoError(t, err)
 			defer func() { _ = c.CloseNow() }()
@@ -205,7 +205,7 @@ func TestHandleWS_RejectsForeignOrigin(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, httpSrv.URL+"/ws", nil)
 	require.NoError(t, err)
-	req.Header.Set("Cookie", cookieName+"="+testUIToken)
+	req.Header.Set("Cookie", authCookieHeader(t, req.URL.String()))
 	req.Header.Set("Connection", "Upgrade")
 	req.Header.Set("Upgrade", "websocket")
 	req.Header.Set("Sec-WebSocket-Version", "13")
@@ -228,7 +228,7 @@ func TestHandleWS_AllowsAbsentOrigin(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, httpSrv.URL+"/ws", nil)
 	require.NoError(t, err)
-	req.Header.Set("Cookie", cookieName+"="+testUIToken)
+	req.Header.Set("Cookie", authCookieHeader(t, req.URL.String()))
 	req.Header.Set("Connection", "Upgrade")
 	req.Header.Set("Upgrade", "websocket")
 	req.Header.Set("Sec-WebSocket-Version", "13")

@@ -287,7 +287,7 @@ func (r *renderRig) apiRaw(ctx context.Context, method, path string, body any) (
 		reader = bytes.NewReader(b)
 	}
 	req := httptest.NewRequestWithContext(ctx, method, path, reader)
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: renderfixUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: renderfixUIToken})
 	rec := httptest.NewRecorder()
 	r.srv.Handler().ServeHTTP(rec, req)
 	if rec.Code < 200 || rec.Code >= 300 {
@@ -454,7 +454,7 @@ func (r *renderRig) capture(ctx context.Context, scenario string) (RenderFixture
 
 	dialCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	header := http.Header{"Cookie": {cookieName + "=" + renderfixUIToken}}
+	header := http.Header{"Cookie": {authCookieNameForHost(strings.TrimPrefix(ts.URL, "http://")) + "=" + renderfixUIToken}}
 	conn, _, err := websocket.Dial(dialCtx, "ws"+strings.TrimPrefix(ts.URL, "http")+"/ws", &websocket.DialOptions{HTTPHeader: header}) //nolint:bodyclose // coder/websocket Dial nils out resp.Body on success (dial.go); there is nothing to close
 	if err != nil {
 		return RenderFixture{}, fmt.Errorf("dialing /ws: %w", err)

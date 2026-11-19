@@ -369,7 +369,7 @@ func getModelsRequest(t *testing.T, h http.Handler, query string, withCookie boo
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/api/models"+query, nil)
 	if withCookie {
-		req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+		req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)

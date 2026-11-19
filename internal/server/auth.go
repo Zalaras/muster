@@ -2,10 +2,29 @@ package server
 
 import (
 	"crypto/hmac"
+	"net"
 	"net/http"
 )
 
-const cookieName = "muster_auth"
+// cookieBaseName is the auth cookie's name before the port is added, and the whole name on
+// a host without a port. Daemons before kb:adr/connection-auth-cookie-named-by-port set it
+// on every host, so requireCookie still accepts it there.
+const cookieBaseName = "muster_auth"
+
+// authCookieName is the cookie this daemon sets and reads for r
+// (kb:adr/connection-auth-cookie-named-by-port).
+func authCookieName(r *http.Request) string {
+	return authCookieNameForHost(r.Host)
+}
+
+// authCookieNameForHost is muster_auth_<port> for a host:port, and cookieBaseName for a
+// host without one.
+func authCookieNameForHost(host string) string {
+	if _, port, err := net.SplitHostPort(host); err == nil && port != "" {
+		return cookieBaseName + "_" + port
+	}
+	return cookieBaseName
+}
 
 // cookieMaxAge is 30 days: the UI token is reusable at /auth, not single-shot
 // (kb:adr/connection-ui-token-reusable-not-one-time — "one-time" describes the launcher
@@ -39,17 +58,34 @@ func writeJSONUnauthorized(w http.ResponseWriter, _ *http.Request) {
 	writeJSONError(w, http.StatusUnauthorized, "unauthorized", "missing or invalid auth cookie; relaunch Muster")
 }
 
-// requireCookie wraps next so that a request without a valid muster_auth cookie never
-// reaches it; onUnauthorized decides the shape of the 401 (JSON for API/WS, HTML for
-// static).
+// requireCookie wraps next so that a request without a valid auth cookie never reaches
+// it; onUnauthorized decides the shape of the 401 (JSON for API/WS, HTML for static).
+// A valid cookie under cookieBaseName is still accepted and re-set under the port-named
+// name, so an upgrade does not sign an open dashboard out.
 func requireCookie(token string, onUnauthorized http.HandlerFunc, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c, err := r.Cookie(cookieName)
-		if err != nil || !tokensEqual(c.Value, token) {
-			onUnauthorized(w, r)
+		name := authCookieName(r)
+		if c, err := r.Cookie(name); err == nil && tokensEqual(c.Value, token) {
+			next.ServeHTTP(w, r)
 			return
 		}
-		next.ServeHTTP(w, r)
+		if c, err := r.Cookie(cookieBaseName); err == nil && name != cookieBaseName && tokensEqual(c.Value, token) {
+			setAuthCookie(w, name, token)
+			next.ServeHTTP(w, r)
+			return
+		}
+		onUnauthorized(w, r)
+	})
+}
+
+func setAuthCookie(w http.ResponseWriter, name, token string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     name,
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   cookieMaxAge,
 	})
 }
 
@@ -69,13 +105,6 @@ func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     cookieName,
-		Value:    s.uiToken,
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
-		MaxAge:   cookieMaxAge,
-	})
+	setAuthCookie(w, authCookieName(r), s.uiToken)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

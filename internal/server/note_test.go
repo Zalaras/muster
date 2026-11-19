@@ -18,7 +18,7 @@ import (
 func putSessionNoteRequest(t *testing.T, srv *testServer, idPath, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPut, "/api/sessions/"+idPath+"/note", strings.NewReader(body))
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	return rec

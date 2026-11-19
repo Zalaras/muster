@@ -34,7 +34,7 @@ func newStaticTestServer(t *testing.T, webDist string) *Server {
 }
 
 func withAuthCookie(req *http.Request) *http.Request {
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: testUIToken})
 	return req
 }
 
@@ -99,7 +99,7 @@ func TestStaticServing_Embedded(t *testing.T) {
 	t.Run("wrong cookie value is rejected on the embedded branch too", func(t *testing.T) {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/.gitkeep", nil)
-		req.AddCookie(&http.Cookie{Name: cookieName, Value: "wrong-token"})
+		req.AddCookie(&http.Cookie{Name: cookieBaseName, Value: "wrong-token"})
 		srv.Handler().ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusUnauthorized, rec.Code)

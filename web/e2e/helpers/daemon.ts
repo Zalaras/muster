@@ -588,6 +588,11 @@ export class ScratchDaemon {
    * run's spawn, or `undefined` for no override beyond the stub-version env below. */
   private readonly extraEnv: Record<string, string> | undefined;
 
+  /** The auth cookie this daemon sets and reads, named by its port (kb:adr/connection-auth-cookie-named-by-port). */
+  get authCookieName(): string {
+    return `muster_auth_${this.port}`;
+  }
+
   private constructor(
     port: number,
     dataDir: string,
