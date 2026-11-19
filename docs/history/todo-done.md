@@ -2596,6 +2596,12 @@ that the dashboard shows.
 
 ## Bugs
 
+- [x] **Interrupt didn't return to IDLE status** ([#127](https://github.com/Zalaras/muster/issues/127)) ✅ closed 2026-11-19 (research `interrupt-to-idle-bug`, no code change: the accepted early-interrupt gap, kb:adr/lifecycle-early-interrupt-gap-accepted) — After
+  pressing Esc to interrupt a session, its status stays as working instead of returning to idle.
+  Expected: An interrupted session should return to the idle status once the interrupt happens.
+  Filed 2026-11-19 from musterd 0.30.3 / Claude Code 2.1.322, focus view, session working.
+  Labels: bug, lifecycle.
+
 - [x] **5h gauge showing 100% after reset** ([#105](https://github.com/Zalaras/muster/issues/105)) ✅ done 2026-10-26 (plan `usage-bar-consistency`) — The
   5h usage gauge still shows 100% after the limit window reset, and neither the refresh button
   beside the gauge nor a browser page reload updates it. Expected: The 5h gauge should show the

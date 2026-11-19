@@ -9,7 +9,7 @@ tags: [claude-code-format, state-machine]
 files: [internal/claudecode/interpret.go, internal/session/machine.go]
 tests: []
 refs: [kb:fact/interrupt-emits-no-turn-end, kb:fact/transcript-session-lines, "#59"]
-verified: 2.1.285..2.1.285
+verified: 2.1.285..2.1.328
 guard: none
 ---
 With all 31 hook events of the 2.1.285 binary registered, four ways of ending a turn by hand
@@ -30,6 +30,6 @@ line (0 of 1).
 The status line keeps posting after an interrupt, and now carries `prompt_id`, but nothing in
 it marks the interrupt.
 
-Evidence: interface probe 2026-09-30, instance 9, 1 interactive haiku session.
+Evidence: interface probe 2026-09-30, instance 9, 1 interactive haiku session. Re-checked 2026-11-19 against the canary run G transcripts of 2.1.325, 2.1.326 (2) and 2.1.328: Esc 3 s into a foreground `sleep 30` wrote the `tool_result` then the `[Request interrupted by user for tool use]` line, with the turn's `promptId` (4 of 4). An interactive mid-stream Esc on 2.1.328 wrote `[Request interrupted by user]` the same way (1 of 1).
 
 Raw probe capture (local only, not in git): `capture-9.jsonl`.
