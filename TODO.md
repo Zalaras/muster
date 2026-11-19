@@ -160,6 +160,20 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Filed 2026-11-11 from musterd 0.29.1 / Claude Code 2.1.293, focus view, session started.
   Labels: bug, rail, ux.
 
+- [ ] **Interrupt didn't return to IDLE status** ([#127](https://github.com/Zalaras/muster/issues/127)) — After
+  pressing Esc to interrupt a session, its status stays as working instead of returning to idle.
+  Expected: An interrupted session should return to the idle status once the interrupt happens.
+  Filed 2026-11-19 from musterd 0.30.3 / Claude Code 2.1.322, focus view, session working.
+  Labels: bug, lifecycle.
+
+- [ ] **Keep getting blank session when swapping session** ([#128](https://github.com/Zalaras/muster/issues/128)) — Clicking
+  another session leaves the session window blank, and clicking back is also blank; a page refresh
+  shows nothing for a while before reloading, and the blank state recurs on the next swap. Expected:
+  Switching sessions should show the selected session's content right away instead of a blank
+  window.
+  Filed 2026-11-19 from musterd 0.30.3 / Claude Code 2.1.328, focus view, session working.
+  Labels: bug, focus, sessions, perf.
+
 ## Tweaks
 
 - [ ] **Revisit the reader nav's scrolling** — the docs reader's nav scrolls as one column, so with
