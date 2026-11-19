@@ -46,6 +46,21 @@
       .ed .what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .ed .row { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
       .ed .hint { margin-right: auto; }
+      .list { position: fixed; width: 320px; max-height: 50vh; overflow: auto; padding: 4px;
+              border-radius: 10px; background: #16181d; border: 1px solid #3a3f4b;
+              box-shadow: 0 6px 20px rgba(0,0,0,.5); color: #e8eaed; pointer-events: auto; }
+      .list .item { display: flex; gap: 6px; align-items: flex-start; padding: 5px 4px; border-radius: 6px; }
+      .list .item:hover { background: #232730; }
+      .list .num { flex: none; min-width: 18px; height: 18px; border-radius: 9px; background: #f5b83d;
+                   color: #16181d; font-weight: 700; text-align: center; line-height: 18px; }
+      .list .txt { flex: 1; min-width: 0; cursor: pointer; }
+      .list .txt .on { color: #6f7684; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .list .txt .body { white-space: pre-wrap; overflow-wrap: anywhere; }
+      .list .acts { flex: none; display: flex; gap: 4px; }
+      .list .acts button { padding: 1px 6px; }
+      .list .acts .del:hover { background: #c24646; border-color: #c24646; }
+      .ed .del { margin-right: auto; }
+      .ed .del:hover { background: #c24646; border-color: #c24646; }
       [hidden] { display: none !important; }
     </style>
     <div class="hl" hidden></div>
@@ -54,21 +69,24 @@
       <span class="grip" title="Drag to move · double-click to put it back in the corner">⋮⋮</span>
       <button class="pick" title="Pick elements to comment on. Or hold Alt and click anything, at any time.">Feedback</button>
       <button class="gen" title="A note about the page as a whole">+ Note</button>
+      <button class="lst" hidden title="See, edit or remove the unsent notes"></button>
       <button class="send go" hidden></button>
       <button class="clear" hidden title="Discard the unsent notes">Clear</button>
       <span class="st" hidden></span>
     </div>
+    <div class="list" hidden></div>
     <div class="ed" hidden>
       <div class="what"></div>
       <textarea placeholder="What should change?"></textarea>
-      <div class="row"><span class="hint">Enter saves · Esc cancels</span><button class="cancel">Cancel</button><button class="save go">Add</button></div>
+      <div class="row"><button class="del" hidden>Delete</button><span class="hint">Enter saves · Esc cancels</span><button class="cancel">Cancel</button><button class="save go">Add</button></div>
     </div>`;
   const $ = (s) => root.querySelector(s);
   const hl = $(".hl"), marks = $(".marks"), ed = $(".ed"), ta = $("textarea"), st = $(".st");
   const pickBtn = $(".pick"), sendBtn = $(".send"), clearBtn = $(".clear");
+  const lstBtn = $(".lst"), list = $(".list"), delBtn = $(".del"), saveBtn = $(".save");
 
   let picking = false;
-  let editing = null; // { el } while the note box is open; el is null for a page-level note
+  let editing = null; // { el, index } while the note box is open; el is null for a page-level note, index is set when an existing note is being edited
   const notes = []; // { note, el, info }
 
   // A modal <dialog> makes everything outside it inert, so the overlay moves inside the
@@ -105,6 +123,15 @@
     pos.bottom = Math.max(0, Math.min(pos.bottom, innerHeight - r.height));
     bar.style.right = `${pos.right}px`;
     bar.style.bottom = `${pos.bottom}px`;
+    placeList();
+  }
+  // The note list opens beside the bar: above it, or below when the bar sits near the top.
+  function placeList() {
+    if (list.hidden) return;
+    const b = bar.getBoundingClientRect();
+    const h = list.offsetHeight;
+    list.style.left = `${Math.max(8, Math.min(b.right - 320, innerWidth - 328))}px`;
+    list.style.top = `${b.top - h - 6 >= 8 ? b.top - h - 6 : Math.min(b.bottom + 6, innerHeight - h - 8)}px`;
   }
   function keepPos() {
     try {
@@ -210,12 +237,23 @@
     if (!on) hl.hidden = true;
   }
 
-  function openEditor(el) {
+  function what(el, info) {
+    if (el) return `${el.localName} — ${cut(el.innerText ?? el.textContent, 60) || selector(el)}`;
+    if (info) return `${info.tag} — ${cut(info.text, 60) || info.selector}`;
+    return "The page as a whole";
+  }
+
+  // index is the note being edited, or undefined for a new one.
+  function openEditor(el, index) {
     if (!ed.hidden && ta.value.trim()) saveNote();
     rehome();
-    editing = { el };
-    $(".what").textContent = el ? `${el.localName} — ${cut(el.innerText ?? el.textContent, 60) || selector(el)}` : "The page as a whole";
-    ta.value = "";
+    const existing = index === undefined ? null : notes[index];
+    if (existing) el = existing.el?.isConnected ? existing.el : null;
+    editing = { el, index: existing ? index : undefined };
+    $(".what").textContent = existing ? `Note ${index + 1}: ${what(el, existing.info)}` : what(el, null);
+    ta.value = existing ? existing.note : "";
+    delBtn.hidden = !existing;
+    saveBtn.textContent = existing ? "Save" : "Add";
     ed.hidden = false;
     const r = el ? el.getBoundingClientRect() : { x: innerWidth - 320, y: innerHeight - 220, width: 0, height: 0, bottom: innerHeight - 220 };
     const h = ed.offsetHeight;
@@ -227,6 +265,7 @@
       hl.hidden = false;
     }
     ta.focus();
+    if (existing) ta.setSelectionRange(ta.value.length, ta.value.length);
   }
 
   function closeEditor() {
@@ -238,31 +277,87 @@
 
   function saveNote() {
     const note = ta.value.trim();
-    if (note && editing) notes.push({ note, el: editing.el, info: editing.el ? describe(editing.el) : null });
+    if (editing && editing.index !== undefined) {
+      // Saving an edited note empty removes it.
+      if (note) notes[editing.index].note = note;
+      else notes.splice(editing.index, 1);
+    } else if (note && editing) {
+      notes.push({ note, el: editing.el, info: editing.el ? describe(editing.el) : null });
+    }
     closeEditor();
     renderQueue();
   }
 
+  function removeNote(i) {
+    notes.splice(i, 1);
+    if (editing && editing.index !== undefined) {
+      if (editing.index === i) closeEditor();
+      else if (editing.index > i) editing.index -= 1;
+    }
+    renderQueue();
+  }
+
   function renderQueue() {
-    sendBtn.hidden = clearBtn.hidden = notes.length === 0;
+    sendBtn.hidden = clearBtn.hidden = lstBtn.hidden = notes.length === 0;
     sendBtn.textContent = `Send ${notes.length}`;
+    lstBtn.textContent = `Notes ${notes.length}`;
+    if (notes.length === 0) list.hidden = true;
+    lstBtn.classList.toggle("on", !list.hidden);
     marks.replaceChildren(
       ...notes.map((n, i) => {
         const m = document.createElement("div");
         m.className = "mark";
         m.textContent = String(i + 1);
-        m.title = `${n.note}\n(click to remove)`;
-        m.onclick = () => {
-          notes.splice(i, 1);
-          renderQueue();
-        };
+        m.title = `${n.note}\n(click to edit or delete)`;
+        m.onclick = () => openEditor(n.el, i);
         return m;
       }),
     );
+    renderList();
     placeMarks();
   }
 
+  function renderList() {
+    list.replaceChildren(
+      ...notes.map((n, i) => {
+        const item = document.createElement("div");
+        item.className = "item";
+        const num = document.createElement("span");
+        num.className = "num";
+        num.textContent = String(i + 1);
+        const txt = document.createElement("div");
+        txt.className = "txt";
+        txt.title = "Click to edit";
+        const on = document.createElement("div");
+        on.className = "on";
+        on.textContent = n.info ? `${n.info.tag} — ${cut(n.info.text, 50) || n.info.selector}` : "The page as a whole";
+        const body = document.createElement("div");
+        body.className = "body";
+        body.textContent = n.note;
+        txt.append(on, body);
+        txt.onclick = () => openEditor(n.el, i);
+        const acts = document.createElement("span");
+        acts.className = "acts";
+        const edit = document.createElement("button");
+        edit.textContent = "Edit";
+        edit.onclick = () => openEditor(n.el, i);
+        const del = document.createElement("button");
+        del.className = "del";
+        del.textContent = "×";
+        del.title = "Remove this note";
+        del.setAttribute("aria-label", `Remove note ${i + 1}`);
+        del.onclick = () => removeNote(i);
+        acts.append(edit, del);
+        item.append(num, txt, acts);
+        return item;
+      }),
+    );
+    placeList();
+  }
+
   function placeMarks() {
+    const b = bar.getBoundingClientRect();
+    let loose = 0; // markers with no element on screen, lined up to the left of the bar
     [...marks.children].forEach((m, i) => {
       const el = notes[i]?.el;
       if (el?.isConnected) {
@@ -271,9 +366,11 @@
         m.style.left = `${Math.max(2, r.x - 8 + earlier * 20)}px`;
         m.style.top = `${Math.max(2, r.y - 8)}px`;
       } else {
-        // A page-level note, or its element has gone: stack beside the bar.
-        m.style.left = `${innerWidth - 34}px`;
-        m.style.top = `${innerHeight - 76 - i * 22}px`;
+        // A page-level note, or its element has gone: line up to the left of the bar, wherever
+        // it has been dragged.
+        m.style.left = `${Math.max(2, b.left - 24 - loose * 22)}px`;
+        m.style.top = `${b.top + (b.height - 18) / 2}px`;
+        loose += 1;
       }
     });
   }
@@ -337,7 +434,15 @@
   sendBtn.onclick = send;
   clearBtn.onclick = () => {
     notes.length = 0;
+    if (editing && editing.index !== undefined) closeEditor();
     renderQueue();
+  };
+  lstBtn.onclick = () => {
+    list.hidden = !list.hidden;
+    renderQueue();
+  };
+  delBtn.onclick = () => {
+    if (editing && editing.index !== undefined) removeNote(editing.index);
   };
 
   // Pointer events: while picking, or with Alt held at any time, the dashboard never sees them.
