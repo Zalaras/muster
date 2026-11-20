@@ -931,12 +931,13 @@ the state stream carries the terminal list in `kb:anchor/ws.shell-activity`.
 **Response 200:**
 
 ```json
-{ "target": "muster-7-shell", "n": 1, "created": true }
+{ "target": "muster-7-shell", "n": 1, "created": true, "rev": 42 }
 ```
 
 - `target` — string, the terminal's tmux session name.
 - `n` — integer ≥ 1, the terminal returned.
 - `created` — boolean, `true` iff this call spawned it.
+- `rev` — integer ≥ 0, the session's list revision after the call (see § Revisions below).
 
 **Errors** (envelope per `kb:anchor/transport`):
 
@@ -957,7 +958,7 @@ No body. Always spawns a new terminal at the lowest free number, exactly as abov
 **Response 201:**
 
 ```json
-{ "target": "muster-7-shell-2", "n": 2, "name": "shell 2" }
+{ "target": "muster-7-shell-2", "n": 2, "name": "shell 2", "rev": 43 }
 ```
 
 **Errors:** as `POST /api/sessions/{id}/shell` — 404 `unknown_session`, 409 `directory_missing`,
@@ -978,10 +979,10 @@ ends or the daemon stops. Broadcasts `terminals` when the effective name changed
 **Response 200:**
 
 ```json
-{ "n": 2, "name": "build" }
+{ "n": 2, "name": "build", "rev": 44 }
 ```
 
-`name` — the effective name after the change.
+`name` — the effective name after the change. `rev` — as in § Revisions below.
 
 **Errors:**
 
@@ -1000,12 +1001,28 @@ pane_ended`), forgets its name and broadcasts `terminals`. Never touches another
 Claude pane or the session's liveness. No confirmation server-side — asking first is the
 dashboard's.
 
-**Response 204:** no body.
+**Response 200:**
+
+```json
+{ "rev": 45 }
+```
+
+`rev` — as in § Revisions below.
 
 **Errors:**
 
 - `404 unknown_session` — `{ "error": { "code": "unknown_session", "message": "unknown session id" } }`
 - `404 no_shell` — `{ "error": { "code": "no_shell", "message": "no such terminal" } }`
+
+#### Revisions
+
+Every route above answers with `rev`: the `rev` of session `{id}`'s **latest broadcast**
+`terminals` message (`kb:anchor/ws.shell-activity`) once the call's own change has been
+broadcast, or `0` if the session has had none since the daemon started. Its list already
+reflects the call. It is per session, not the daemon-wide counter, so a list for the session
+sent before the reply and not superseded still applies (`kb:adr/surfaces-terminals-list-revision`).
+A reply with a `rev` at or below what the client has already seen for the session, whose terminal
+is missing from the client's current list, means that terminal has already ended.
 
 Terminals are deliberately **not** persistent: they outlive musterd only because tmux sessions
 do, and reconcile (`kb:anchor/state.liveness`) kills every `muster-<n>-shell` and
@@ -1353,6 +1370,7 @@ across a `musterd` upgrade.
   "prefs": { "view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual", "theme": "follow", "updateCheck": true, "railDensity": "comfortable", "railActivity": "turn" },
   "claudeTheme": { "family": "dark" },   // "light" | "dark" | "unknown" — always present
   "terminals": { "7": [ { "n": 1, "name": "shell 1", "busy": false } ] },  // each session's running terminals (kb:anchor/ws.shell-activity), keyed by session id; only sessions with one or more; {} when none, always present
+  "terminalsRev": 41,                     // integer ≥ 0 — the daemon-wide terminals revision these lists reflect (kb:anchor/ws.shell-activity); 0 before any broadcast; always present
   "groups": [ /* Group objects, kb:anchor/ws.groups — [] when none; always present; the client sorts by pos */ ],
   "ungrouped": { "pos": 0, "collapsed": false },   // the Ungrouped section's place and collapsed state (kb:anchor/ws.groups); always present
   "update": { /* kb:anchor/ws.update — always present*/ } }
@@ -1716,7 +1734,7 @@ dashboard theme while an override is set.
 ### `terminals`
 
 ```jsonc
-{ "type": "terminals", "sessionId": 7,
+{ "type": "terminals", "sessionId": 7, "rev": 43,
   "terminals": [
     { "n": 1, "name": "shell 1", "busy": false },
     { "n": 2, "name": "build",   "busy": true }
@@ -1730,6 +1748,15 @@ a terminal spawned, closed, or observed gone (exit or external kill, found by th
 its attach PTY ending), a rename, or a busy flip; never when nothing changed. Never replayed: the
 current lists are in `snapshot.terminals`, so a reconnecting client re-syncs without waiting for a
 change, and the whole-list shape means a later message corrects a lost one.
+
+`rev` is an integer ≥ 1 from one daemon-wide counter that rises by one per `terminals` broadcast,
+for any session, so messages on `/ws` arrive in increasing `rev`. It restarts with the daemon;
+`snapshot.terminalsRev` is its value when the snapshot was built. A client keeps, **per session**,
+the highest revision it has seen — from these messages, from the terminal routes' replies
+(`kb:anchor/sessions.shell` § Revisions) and from `snapshot.terminalsRev`, which sets every session
+— and ignores a `terminals` message whose `rev` is below it. Equal is applied. That is what stops a
+list built before a spawn, close or rename, arriving after its reply, from undoing it
+(`kb:adr/surfaces-terminals-list-revision`).
 
 `busy` is true when the terminal pane's foreground command differs from the shell's own basename,
 the pane is **not** on the alternate screen, and the pane's tty is in **canonical** mode. The
