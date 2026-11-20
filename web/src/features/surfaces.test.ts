@@ -59,7 +59,7 @@ function deferred<T = ApiResult<CreateShellResult>>(): {
 }
 
 function okResult(target = "muster-shell:1", n = 1): ApiResult<CreateShellResult> {
-  return { ok: true, value: { target, n, created: true } };
+  return { ok: true, value: { target, n, created: true, rev: 1 } };
 }
 
 afterEach(() => {
@@ -158,7 +158,7 @@ describe("initSurfaces select('shell') — always asks the daemon (E3, REQ-1)", 
 
   it("returns to the last-shown terminal when the daemon list still holds it", async () => {
     const { app, handle } = knownApp();
-    app.emit("terminals", 1, [term(1), term(2)]);
+    app.emit("terminals", 1, 0, [term(1), term(2)]);
     handle.showTerminal(1, 2);
     handle.select(1, "claude", noDeadRefs);
     createShellMock.mockResolvedValueOnce(okResult("t", 1));
@@ -173,10 +173,10 @@ describe("initSurfaces select('shell') — always asks the daemon (E3, REQ-1)", 
 
   it("shows the response's terminal when the last-shown one left the list before the message arrived", async () => {
     const { app, handle } = knownApp();
-    app.emit("terminals", 1, [term(1), term(2)]);
+    app.emit("terminals", 1, 0, [term(1), term(2)]);
     handle.showTerminal(1, 2);
     handle.select(1, "claude", noDeadRefs);
-    app.emit("terminals", 1, [term(1)]);
+    app.emit("terminals", 1, 0, [term(1)]);
     createShellMock.mockResolvedValueOnce(okResult("t", 1));
     handle.select(1, "shell", noDeadRefs);
     await flush();
@@ -198,7 +198,7 @@ describe("initSurfaces select('shell') — always asks the daemon (E3, REQ-1)", 
 describe("initSurfaces — the terminals list is the one source (W2, REQ-6, INV-5)", () => {
   it("a terminals message sets the session's list and view count and shown name", () => {
     const { app, handle } = knownApp();
-    app.emit("terminals", 1, [term(1), term(2, "build", true)]);
+    app.emit("terminals", 1, 0, [term(1), term(2, "build", true)]);
     expect(handle.terminals(1)).toEqual([term(1), term(2, "build", true)]);
     handle.showTerminal(1, 2);
     expect(handle.terminalsViewFor(1)).toEqual({
@@ -209,7 +209,7 @@ describe("initSurfaces — the terminals list is the one source (W2, REQ-6, INV-
 
   it("shownName is null while another surface is selected", () => {
     const { app, handle } = knownApp();
-    app.emit("terminals", 1, [term(1), term(2, "build")]);
+    app.emit("terminals", 1, 0, [term(1), term(2, "build")]);
     handle.showTerminal(1, 2);
     handle.select(1, "claude", noDeadRefs);
     expect(handle.terminalsViewFor(1).shownName).toBeNull();
@@ -218,16 +218,16 @@ describe("initSurfaces — the terminals list is the one source (W2, REQ-6, INV-
 
   it("a terminals message for an unknown session is ignored", () => {
     const { app, handle } = knownApp();
-    app.emit("terminals", 99, [term(1)]);
+    app.emit("terminals", 99, 0, [term(1)]);
     expect(handle.terminals(99)).toEqual([]);
     expect(handle.state().has(99)).toBe(false);
   });
 
   it("the shown terminal ending moves the window to the lowest remaining one, staying on shell", () => {
     const { app, handle } = knownApp();
-    app.emit("terminals", 1, [term(1), term(2), term(3)]);
+    app.emit("terminals", 1, 0, [term(1), term(2), term(3)]);
     handle.showTerminal(1, 2);
-    app.emit("terminals", 1, [term(1), term(3)]);
+    app.emit("terminals", 1, 0, [term(1), term(3)]);
     expect(getSurfaceState(handle.state(), 1)).toEqual({
       selected: "shell",
       shell: 1,
@@ -236,9 +236,9 @@ describe("initSurfaces — the terminals list is the one source (W2, REQ-6, INV-
 
   it("the last terminal ending reverts shell to claude and the view reads no count", () => {
     const { app, handle } = knownApp();
-    app.emit("terminals", 1, [term(1)]);
+    app.emit("terminals", 1, 0, [term(1)]);
     handle.showTerminal(1, 1);
-    app.emit("terminals", 1, []);
+    app.emit("terminals", 1, 0, []);
     expect(getSurfaceState(handle.state(), 1)).toEqual({
       selected: "claude",
       shell: null,
@@ -248,10 +248,10 @@ describe("initSurfaces — the terminals list is the one source (W2, REQ-6, INV-
 
   it("a terminals message for one session never touches another's list or shown terminal", () => {
     const { app, handle } = knownApp();
-    app.emit("terminals", 1, [term(1)]);
-    app.emit("terminals", 2, [term(1), term(2)]);
+    app.emit("terminals", 1, 0, [term(1)]);
+    app.emit("terminals", 2, 0, [term(1), term(2)]);
     handle.showTerminal(2, 2);
-    app.emit("terminals", 1, []);
+    app.emit("terminals", 1, 0, []);
     expect(handle.terminals(2)).toEqual([term(1), term(2)]);
     expect(getSurfaceState(handle.state(), 2)).toEqual({
       selected: "shell",
@@ -261,8 +261,8 @@ describe("initSurfaces — the terminals list is the one source (W2, REQ-6, INV-
 
   it("snapshot.terminals replaces every list whole and drops the ones it omits", () => {
     const { app, handle } = knownApp();
-    app.emit("terminals", 1, [term(1)]);
-    app.emit("terminals", 2, [term(1), term(2)]);
+    app.emit("terminals", 1, 0, [term(1)]);
+    app.emit("terminals", 2, 0, [term(1), term(2)]);
     app.emit("snapshot", makeSnapshot({ terminals: { 2: [term(2, "build")] } }));
     expect(handle.terminals(1)).toEqual([]);
     expect(handle.terminals(2)).toEqual([term(2, "build")]);
@@ -270,7 +270,7 @@ describe("initSurfaces — the terminals list is the one source (W2, REQ-6, INV-
 
   it("a snapshot without terminals (older fixture) empties every list and reverts a shown shell", () => {
     const { app, handle } = knownApp();
-    app.emit("terminals", 1, [term(1)]);
+    app.emit("terminals", 1, 0, [term(1)]);
     handle.showTerminal(1, 1);
     app.emit("snapshot", makeSnapshot());
     expect(handle.terminals(1)).toEqual([]);
@@ -282,7 +282,7 @@ describe("initSurfaces — the terminals list is the one source (W2, REQ-6, INV-
 
   it("a snapshot that lost the shown terminal falls back to the lowest remaining", () => {
     const { app, handle } = knownApp();
-    app.emit("terminals", 1, [term(1), term(2)]);
+    app.emit("terminals", 1, 0, [term(1), term(2)]);
     handle.showTerminal(1, 2);
     app.emit("snapshot", makeSnapshot({ terminals: { 1: [term(1), term(3)] } }));
     expect(getSurfaceState(handle.state(), 1)).toEqual({
@@ -293,7 +293,7 @@ describe("initSurfaces — the terminals list is the one source (W2, REQ-6, INV-
 
   it("sessionRemoved forgets the session's list and surface state", () => {
     const { app, handle } = knownApp();
-    app.emit("terminals", 1, [term(1)]);
+    app.emit("terminals", 1, 0, [term(1)]);
     handle.showTerminal(1, 1);
     app.emit("sessionRemoved", 1);
     expect(handle.terminals(1)).toEqual([]);
@@ -312,7 +312,7 @@ describe("initSurfaces — activity follows any-terminal-busy (REQ-13)", () => {
     vi.useFakeTimers();
     try {
       const { app, handle } = knownApp();
-      app.emit("terminals", 1, [term(1), term(2, "build", true)]);
+      app.emit("terminals", 1, 0, [term(1), term(2, "build", true)]);
       vi.advanceTimersByTime(60000);
       expect(handle.activityFor(1)).toBe("busy");
     } finally {
@@ -324,7 +324,7 @@ describe("initSurfaces — activity follows any-terminal-busy (REQ-13)", () => {
     const { app, handle } = knownApp();
     app.emit("snapshot", makeSnapshot({ terminals: { 1: [term(1, "shell 1", true)] } }));
     expect(handle.activityFor(1)).toBe("busy");
-    app.emit("terminals", 1, []);
+    app.emit("terminals", 1, 0, []);
     expect(handle.activityFor(1)).toBe("none");
   });
 });
@@ -334,7 +334,7 @@ describe("initSurfaces — terminal actions (REQ-1..5)", () => {
     const { handle } = knownApp();
     createTerminalMock.mockResolvedValueOnce({
       ok: true,
-      value: { target: "t", n: 4, name: "shell 4" },
+      value: { target: "t", n: 4, name: "shell 4", rev: 1 },
     });
     handle.newTerminal(1, noDeadRefs);
     await flush();
@@ -350,15 +350,15 @@ describe("initSurfaces — terminal actions (REQ-1..5)", () => {
     createTerminalMock.mockReturnValueOnce(spawn.promise);
     handle.newTerminal(1, noDeadRefs);
     handle.select(1, "docs", noDeadRefs);
-    spawn.resolve({ ok: true, value: { target: "t", n: 2, name: "shell 2" } });
+    spawn.resolve({ ok: true, value: { target: "t", n: 2, name: "shell 2", rev: 1 } });
     await flush();
     expect(getSurfaceState(handle.state(), 1).selected).toBe("docs");
   });
 
   it("rename and close forward the session id, number and name to the API", () => {
     const { handle } = knownApp();
-    renameTerminalMock.mockResolvedValue({ ok: true, value: null });
-    closeTerminalMock.mockResolvedValue({ ok: true, value: null });
+    renameTerminalMock.mockResolvedValue({ ok: true, value: { rev: 1 } });
+    closeTerminalMock.mockResolvedValue({ ok: true, value: { rev: 1 } });
     handle.renameTerminal(1, 2, "build");
     handle.closeTerminal(1, 2);
     expect(renameTerminalMock).toHaveBeenCalledWith(1, 2, "build");

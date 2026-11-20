@@ -90,8 +90,8 @@ export function dashboardWsHandlers(
       app.emit("usage", usage);
       app.render();
     },
-    onTerminals: (sessionId, terminals) => {
-      app.emit("terminals", sessionId, terminals);
+    onTerminals: (sessionId, rev, terminals) => {
+      app.emit("terminals", sessionId, rev, terminals);
       app.render();
     },
     onClaudeCode: (claudeCode) => connection.claudeCodeChanged(claudeCode),

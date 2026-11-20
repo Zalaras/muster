@@ -113,7 +113,7 @@ export async function openPanel(host: TerminalHost): Promise<void> {
 /** ▾ → New terminal; resolves with the 201 body of `POST …/shells`. */
 export async function newTerminal(
   host: TerminalHost,
-): Promise<{ target: string; n: number; name: string }> {
+): Promise<{ target: string; n: number; name: string; rev: number }> {
   await openPanel(host);
   const created = host.page.waitForResponse(
     (res) =>
@@ -123,7 +123,18 @@ export async function newTerminal(
   await newTerminalButton(host.page).click();
   const res = await created;
   expect(res.status()).toBe(201);
-  return (await res.json()) as { target: string; n: number; name: string };
+  return (await res.json()) as { target: string; n: number; name: string; rev: number };
+}
+
+/**
+ * A terminal route's `rev` (docs/protocol.md sessions.shell § Revisions): an integer >= 0,
+ * and >= `floor` — pass 1 once the call's own change has been broadcast. Returns it so a
+ * caller can compare it with the reply before.
+ */
+export function replyRev(body: { rev?: unknown }, floor = 0): number {
+  expect(Number.isInteger(body.rev)).toBe(true);
+  expect(body.rev as number).toBeGreaterThanOrEqual(floor);
+  return body.rev as number;
 }
 
 /** ▾ → the row for `name`: the panel closes and that terminal is shown. */

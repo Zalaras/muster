@@ -77,7 +77,7 @@ export interface AppEvents {
   focusChanged: (id: number | null) => void; // before the render that follows app.focus
   cancelRenames: () => void; // any trigger that must not let a blur-commit through
   docChanged: (docChanged: DocChanged) => void; // WS docChanged
-  terminals: (sessionId: number, terminals: readonly TerminalInfo[]) => void;
+  terminals: (sessionId: number, rev: number, terminals: readonly TerminalInfo[]) => void;
   // Emitted by features/theme.ts once it has written the `<html>`
   // theme/family attributes — the one signal both features/surfaces.ts's live terminals
   // and features/reader.ts's diagram instances react to, replacing a `deps.surfaces`

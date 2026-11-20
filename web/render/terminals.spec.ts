@@ -117,12 +117,13 @@ test("the panel lists shell 1 idle and build running with the spinner, rename on
 }) => {
   await dashboard.open("terminals-two");
   // The fixture is Focus on claude, so nothing is on screen. Putting `shell 1` on screen is the
-  // shell button's POST, which the harness answers 404; stub it (no fixture changes).
+  // shell button's POST, which the harness answers 404; stub it (no fixture changes). The reply
+  // carries `rev`, here the fixture snapshot's `terminalsRev` (3): shell 1 is in that list.
   await page.route(/\/api\/sessions\/\d+\/shell$/, (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ target: "muster-1-shell", n: 1, created: false }),
+      body: JSON.stringify({ target: "muster-1-shell", n: 1, created: false, rev: 3 }),
     }),
   );
   await mainheadSurfaceButton(page, "shell").click();

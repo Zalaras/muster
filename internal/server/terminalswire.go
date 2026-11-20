@@ -9,5 +9,6 @@ type terminalWire struct {
 type terminalsMessage struct {
 	Type      string         `json:"type"`
 	SessionID int64          `json:"sessionId"`
+	Rev       int64          `json:"rev"`
 	Terminals []terminalWire `json:"terminals"`
 }

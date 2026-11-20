@@ -40,12 +40,14 @@ type createShellResponse struct {
 	Target  string `json:"target"`
 	N       int    `json:"n"`
 	Created bool   `json:"created"`
+	Rev     int64  `json:"rev"`
 }
 
 type newTerminalResponse struct {
 	Target string `json:"target"`
 	N      int    `json:"n"`
 	Name   string `json:"name"`
+	Rev    int64  `json:"rev"`
 }
 
 type terminalNameRequest struct {
@@ -55,6 +57,11 @@ type terminalNameRequest struct {
 type terminalNameResponse struct {
 	N    int    `json:"n"`
 	Name string `json:"name"`
+	Rev  int64  `json:"rev"`
+}
+
+type terminalClosedResponse struct {
+	Rev int64 `json:"rev"`
 }
 
 type shellFeature struct {
@@ -67,6 +74,7 @@ type shellFeature struct {
 	// so a test can fake copy-mode behaviour without faking session spawning too.
 	scroll  shellScroller
 	changed func(context.Context)
+	revFor  func(sessionID int64) int64
 	log     zerolog.Logger
 }
 
@@ -74,8 +82,8 @@ type shellFeature struct {
 // when set, else the daemon's one real tmux client (New defaults every Config override
 // whose fallback is another root-built object in the one place, alongside spawner/attach/
 // httpClient).
-func newShellFeature(registry *shellRegistry, terminals *terminalRegistry, manager *session.Manager, attach attachFunc, scroll shellScroller, changed func(context.Context), log zerolog.Logger) *shellFeature {
-	return &shellFeature{registry: registry, terminals: terminals, manager: manager, attach: attach, scroll: scroll, changed: changed, log: log}
+func newShellFeature(registry *shellRegistry, terminals *terminalRegistry, manager *session.Manager, attach attachFunc, scroll shellScroller, changed func(context.Context), revFor func(int64) int64, log zerolog.Logger) *shellFeature {
+	return &shellFeature{registry: registry, terminals: terminals, manager: manager, attach: attach, scroll: scroll, changed: changed, revFor: revFor, log: log}
 }
 
 func (f *shellFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
@@ -108,11 +116,11 @@ func writeNoShell(w http.ResponseWriter) {
 // Remove that starts after this check passes must wait for the spawn to finish first —
 // either way, a terminal can never be spawned for an id whose Remove has started or already
 // succeeded. spawn runs with the lock held and the session's directory. It reports whether
-// spawn succeeded; on false the error response is already written.
-func (f *shellFeature) spawnInSession(w http.ResponseWriter, r *http.Request, spawn func(ctx context.Context, id int64, dir string) error) bool {
+// spawn succeeded and the session id; on false the error response is already written.
+func (f *shellFeature) spawnInSession(w http.ResponseWriter, r *http.Request, spawn func(ctx context.Context, id int64, dir string) error) (int64, bool) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
-		return false
+		return 0, false
 	}
 
 	unlock := f.manager.LockSession(id)
@@ -120,42 +128,44 @@ func (f *shellFeature) spawnInSession(w http.ResponseWriter, r *http.Request, sp
 
 	sess, ok := sessionOr404(w, f.manager, id)
 	if !ok {
-		return false
+		return 0, false
 	}
 	if info, err := os.Stat(sess.Directory); err != nil || !info.IsDir() {
 		writeDirectoryMissing(w, sess.Directory)
-		return false
+		return 0, false
 	}
 
 	ctx := context.WithoutCancel(r.Context())
 	if err := spawn(ctx, id, sess.Directory); err != nil {
 		f.log.Error().Err(err).Int64("session_id", id).Msg("spawning shell failed")
 		writeJSONError(w, http.StatusInternalServerError, "shell_spawn_failed", msgShellSpawnFailed)
-		return false
+		return 0, false
 	}
 	f.changed(ctx)
-	return true
+	return id, true
 }
 
 func (f *shellFeature) handleCreateShell(w http.ResponseWriter, r *http.Request) {
 	var resp createShellResponse
-	ok := f.spawnInSession(w, r, func(ctx context.Context, id int64, dir string) (err error) {
+	id, ok := f.spawnInSession(w, r, func(ctx context.Context, id int64, dir string) (err error) {
 		resp.Target, resp.N, resp.Created, err = f.registry.EnsureAny(ctx, id, dir)
 		return err
 	})
 	if ok {
+		resp.Rev = f.revFor(id)
 		writeJSON(w, http.StatusOK, resp)
 	}
 }
 
 func (f *shellFeature) handleNewTerminal(w http.ResponseWriter, r *http.Request) {
 	var resp newTerminalResponse
-	ok := f.spawnInSession(w, r, func(ctx context.Context, id int64, dir string) (err error) {
+	id, ok := f.spawnInSession(w, r, func(ctx context.Context, id int64, dir string) (err error) {
 		resp.Target, resp.N, err = f.registry.New(ctx, id, dir)
 		resp.Name = defaultTerminalName(resp.N)
 		return err
 	})
 	if ok {
+		resp.Rev = f.revFor(id)
 		writeJSON(w, http.StatusCreated, resp)
 	}
 }
@@ -197,7 +207,7 @@ func (f *shellFeature) handleRenameTerminal(w http.ResponseWriter, r *http.Reque
 	}
 	f.registry.names.set(id, n, name)
 	f.changed(ctx)
-	writeJSON(w, http.StatusOK, terminalNameResponse{N: n, Name: f.registry.names.effective(id, n)})
+	writeJSON(w, http.StatusOK, terminalNameResponse{N: n, Name: f.registry.names.effective(id, n), Rev: f.revFor(id)})
 }
 
 func (f *shellFeature) handleCloseTerminal(w http.ResponseWriter, r *http.Request) {
@@ -227,7 +237,7 @@ func (f *shellFeature) handleCloseTerminal(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	f.changed(ctx)
-	w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, http.StatusOK, terminalClosedResponse{Rev: f.revFor(id)})
 }
 
 // handleShellTerminal is GET /ws/shell/{id}/{n} (kb:anchor/terminal.shell-ws): pre-upgrade auth

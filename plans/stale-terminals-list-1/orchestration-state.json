@@ -1,0 +1,91 @@
+{
+  "plan_name": "stale-terminals-list-1",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "render-tests": 0,
+    "e2e-validate": 0,
+    "review": 1,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [],
+  "step_started_at": {
+    "daemon-impl": "2026-11-20T07:02:43Z",
+    "daemon-tests": "2026-11-20T07:15:20Z",
+    "review": "2026-11-20T08:40:57Z",
+    "doc-reconcile": "2026-11-20T08:59:22Z"
+  },
+  "step_finished_at": {
+    "daemon-impl": "2026-11-20T07:15:20Z",
+    "daemon-tests": "2026-11-20T07:31:54Z",
+    "review": "2026-11-20T08:58:50Z",
+    "doc-reconcile": "2026-11-20T09:01:14Z"
+  },
+  "step_attempts": {
+    "daemon-impl": [
+      {
+        "start": "2026-11-20T07:02:43Z",
+        "finish": "2026-11-20T07:15:20Z",
+        "usage_start": 35.0,
+        "usage_finish": 36.0
+      }
+    ],
+    "daemon-tests": [
+      {
+        "start": "2026-11-20T07:15:20Z",
+        "finish": "2026-11-20T07:31:54Z",
+        "usage_start": 36.0,
+        "usage_finish": 38.0
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-11-20T08:35:01Z",
+        "finish": "2026-11-20T08:39:12Z",
+        "usage_start": 39.0,
+        "usage_finish": 40.0
+      },
+      {
+        "start": "2026-11-20T08:40:57Z",
+        "finish": "2026-11-20T08:58:50Z",
+        "usage_start": 40.0,
+        "usage_finish": 41.0
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-11-20T08:59:22Z",
+        "finish": "2026-11-20T09:01:14Z",
+        "usage_start": 41.0,
+        "usage_finish": 41.0
+      }
+    ]
+  },
+  "started_at": "2026-11-20T06:58:35Z",
+  "updated_at": "2026-11-20T09:21:24Z",
+  "review_parts": {
+    "1": [
+      "code",
+      "browser",
+      "maintainability"
+    ],
+    "2": [
+      "code"
+    ]
+  },
+  "review_verdicts": {
+    "1": "needs-changes",
+    "2": "approved"
+  },
+  "review_commits": {
+    "1": "ca3591757be74e9ebf4cffafdb336948cbca6c42",
+    "2": "5d529091ad1c72f31713b343197e8a632494bff9"
+  },
+  "review_cycle": 2,
+  "closes_issues": []
+}

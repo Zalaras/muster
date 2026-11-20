@@ -61,12 +61,12 @@ export async function createShellViaApi(
   page: Page,
   daemonBaseURL: string,
   sessionId: number,
-): Promise<{ target: string; created: boolean }> {
+): Promise<{ target: string; created: boolean; rev: number }> {
   const res = await page.request.post(`${daemonBaseURL}/api/sessions/${sessionId}/shell`);
   if (res.status() !== 200) {
     throw new Error(`POST .../shell failed: ${res.status()} ${await res.text()}`);
   }
-  return (await res.json()) as { target: string; created: boolean };
+  return (await res.json()) as { target: string; created: boolean; rev: number };
 }
 
 /**

@@ -29,6 +29,7 @@ import {
   renameButton,
   renameField,
   renameTerminal,
+  replyRev,
   expectShown,
   shellButton,
   shellCount,
@@ -134,7 +135,9 @@ test("New terminal from the panel spawns shell 2 in the session directory, shows
     await expect(terminalRowBox(page, "shell 1")).toContainText("running");
 
     const created = await newTerminal(host);
-    expect(created).toEqual({ target: shellTmuxTarget(session.id, 2), n: 2, name: "shell 2" });
+    const { rev: createdRev, ...createdBody } = created;
+    expect(createdBody).toEqual({ target: shellTmuxTarget(session.id, 2), n: 2, name: "shell 2" });
+    replyRev({ rev: createdRev }, 1);
 
     await expect(terminalsPanel(page)).toBeHidden();
     await expectShown(host, "shell 2", region);
@@ -722,7 +725,10 @@ test("ending one terminal leaves a sibling attached in another window and the Cl
       const res = await page.request.delete(
         `${daemon.baseURL}/api/sessions/${session.id}/shells/2`,
       );
-      expect(res.status()).toBe(204);
+      expect(res.status()).toBe(200);
+      const deleted = (await res.json()) as { rev: number };
+      expect(Number.isInteger(deleted.rev)).toBe(true);
+      expect(deleted.rev).toBeGreaterThanOrEqual(1);
       await expect
         .poll(() => tmuxTerminalTargets(daemon, session.id))
         .toEqual([shellTmuxTarget(session.id, 1)]);
@@ -1165,21 +1171,33 @@ test("the terminal endpoints answer as the contract says for spawn, rename, clos
 
     const first = await page.request.post(`${base}/shell`);
     expect(first.status()).toBe(200);
-    expect(await first.json()).toEqual({ target: shellTmuxTarget(id, 1), n: 1, created: true });
+    const { rev: firstRev, ...firstBody } = (await first.json()) as { rev: number };
+    expect(firstBody).toEqual({ target: shellTmuxTarget(id, 1), n: 1, created: true });
+    replyRev({ rev: firstRev }, 1);
     const again = await page.request.post(`${base}/shell`);
-    expect(await again.json()).toEqual({ target: shellTmuxTarget(id, 1), n: 1, created: false });
+    const { rev: againRev, ...againBody } = (await again.json()) as { rev: number };
+    expect(againBody).toEqual({ target: shellTmuxTarget(id, 1), n: 1, created: false });
+    expect(replyRev({ rev: againRev }, 1)).toBeGreaterThanOrEqual(firstRev);
 
     const two = await page.request.post(`${base}/shells`);
     expect(two.status()).toBe(201);
-    expect(await two.json()).toEqual({ target: shellTmuxTarget(id, 2), n: 2, name: "shell 2" });
+    const { rev: twoRev, ...twoBody } = (await two.json()) as { rev: number };
+    expect(twoBody).toEqual({ target: shellTmuxTarget(id, 2), n: 2, name: "shell 2" });
+    expect(replyRev({ rev: twoRev }, 1)).toBeGreaterThan(againRev);
     const three = await page.request.post(`${base}/shells`);
-    expect(await three.json()).toEqual({ target: shellTmuxTarget(id, 3), n: 3, name: "shell 3" });
+    const { rev: threeRev, ...threeBody } = (await three.json()) as { rev: number };
+    expect(threeBody).toEqual({ target: shellTmuxTarget(id, 3), n: 3, name: "shell 3" });
+    expect(replyRev({ rev: threeRev }, 1)).toBeGreaterThan(twoRev);
 
     const named = await page.request.put(`${base}/shells/2/name`, { data: { name: "  build  " } });
     expect(named.status()).toBe(200);
-    expect(await named.json()).toEqual({ n: 2, name: "build" });
+    const { rev: namedRev, ...namedBody } = (await named.json()) as { rev: number };
+    expect(namedBody).toEqual({ n: 2, name: "build" });
+    expect(replyRev({ rev: namedRev }, 1)).toBeGreaterThan(threeRev);
     const cleared = await page.request.put(`${base}/shells/2/name`, { data: { name: "   " } });
-    expect(await cleared.json()).toEqual({ n: 2, name: "shell 2" });
+    const { rev: clearedRev, ...clearedBody } = (await cleared.json()) as { rev: number };
+    expect(clearedBody).toEqual({ n: 2, name: "shell 2" });
+    expect(replyRev({ rev: clearedRev }, 1)).toBeGreaterThan(namedRev);
     const longest = await page.request.put(`${base}/shells/2/name`, {
       data: { name: "x".repeat(40) },
     });
@@ -1213,7 +1231,12 @@ test("the terminal endpoints answer as the contract says for spawn, rename, clos
     );
 
     await page.request.put(`${base}/shells/2/name`, { data: { name: "build" } });
-    expect((await page.request.delete(`${base}/shells/2`)).status()).toBe(204);
+    const ended = await page.request.delete(`${base}/shells/2`);
+    expect(ended.status()).toBe(200);
+    const endedBody = (await ended.json()) as { rev: number };
+    expect(Number.isInteger(endedBody.rev)).toBe(true);
+    expect(endedBody.rev).toBeGreaterThanOrEqual(1);
+    expect(Object.keys(endedBody)).toEqual(["rev"]);
     const missing = await page.request.delete(`${base}/shells/2`);
     expect(missing.status()).toBe(404);
     expect(((await missing.json()) as { error: { code: string } }).error.code).toBe("no_shell");
@@ -1224,7 +1247,9 @@ test("the terminal endpoints answer as the contract says for spawn, rename, clos
     );
 
     const reused = await page.request.post(`${base}/shells`);
-    expect(await reused.json()).toEqual({ target: shellTmuxTarget(id, 2), n: 2, name: "shell 2" });
+    const { rev: reusedRev, ...reusedBody } = (await reused.json()) as { rev: number };
+    expect(reusedBody).toEqual({ target: shellTmuxTarget(id, 2), n: 2, name: "shell 2" });
+    expect(replyRev({ rev: reusedRev }, 1)).toBeGreaterThan(endedBody.rev);
 
     const anonymous = await request.post(`${base}/shells`);
     expect(anonymous.status()).toBe(401);

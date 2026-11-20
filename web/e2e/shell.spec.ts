@@ -37,6 +37,9 @@ test("GET /api/state returns exactly the empty-daemon snapshot object once authe
     // better-terminal: `snapshot.terminals` (an object keyed by session id, `{}` with none)
     // replaces `shellsBusy`.
     terminals: {},
+    // better-terminal's list revision (kb:anchor/ws.snapshot): always present, 0 on a daemon
+    // that has broadcast no terminals list.
+    terminalsRev: 0,
     usage: {
       fiveHour: null,
       sevenDay: null,

@@ -191,10 +191,11 @@ func TestHandleNewTerminal_SpawnsLowestFreeAndReportsDefaultName(t *testing.T) {
 		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
 		var body newTerminalResponse
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
-		assert.Equal(t, newTerminalResponse{Target: tmux.TerminalSessionName(sess.ID, want), N: want, Name: "shell " + strconv.Itoa(want)}, body)
+		assert.Equal(t, newTerminalResponse{Target: tmux.TerminalSessionName(sess.ID, want), N: want, Name: "shell " + strconv.Itoa(want), Rev: body.Rev}, body)
+		assert.GreaterOrEqual(t, body.Rev, int64(0), "the reply always carries the session's rev; its value is pinned in terminalsrev_test.go")
 	}
 	rec := terminalsRequest(t, srv, http.MethodDelete, shellsPath(sess.ID, "/2"), "")
-	require.Equal(t, http.StatusNoContent, rec.Code)
+	require.Equal(t, http.StatusOK, rec.Code)
 
 	rec = terminalsRequest(t, srv, http.MethodPost, shellsPath(sess.ID, ""), "")
 	require.Equal(t, http.StatusCreated, rec.Code)
@@ -232,15 +233,17 @@ func TestHandleCreateShell_ReturnsLowestRunningTerminalWithN(t *testing.T) {
 	assert.True(t, created)
 	assert.Equal(t, tmux.TerminalSessionName(sess.ID, 1), target)
 	assert.Contains(t, rec.Body.String(), `"n":1`)
+	assert.Contains(t, rec.Body.String(), `"rev":`)
 
 	require.Equal(t, http.StatusCreated, terminalsRequest(t, srv, http.MethodPost, shellsPath(sess.ID, ""), "").Code)
-	require.Equal(t, http.StatusNoContent, terminalsRequest(t, srv, http.MethodDelete, shellsPath(sess.ID, "/1"), "").Code)
+	require.Equal(t, http.StatusOK, terminalsRequest(t, srv, http.MethodDelete, shellsPath(sess.ID, "/1"), "").Code)
 
 	rec, target, created = postShellRequest(t, srv, sess.ID)
 	require.Equal(t, http.StatusOK, rec.Code)
 	assert.False(t, created, "a terminal is running, so none is spawned")
 	assert.Equal(t, tmux.TerminalSessionName(sess.ID, 2), target)
 	assert.Contains(t, rec.Body.String(), `"n":2`)
+	assert.Contains(t, rec.Body.String(), `"rev":`)
 }
 
 func TestHandleRenameTerminal_Table(t *testing.T) {
@@ -321,8 +324,8 @@ func TestHandleCloseTerminal_EndsOnlyThatTerminalOfOnlyThatSession(t *testing.T)
 
 	rec := terminalsRequest(t, srv, http.MethodDelete, shellsPath(a.ID, "/1"), "")
 
-	assert.Equal(t, http.StatusNoContent, rec.Code)
-	assert.Empty(t, rec.Body.String())
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Regexp(t, `^\{"rev":\d+\}\s*$`, rec.Body.String(), "the body is the rev and nothing else; its value is pinned in terminalsrev_test.go")
 	listed, err := fake.ListSessions(context.Background())
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{

@@ -270,12 +270,12 @@ describe("sessions — createShell (POST /api/sessions/{id}/shell, kb:anchor/ses
 
   it("posts to the id-scoped shell endpoint with no body and decodes created:true on first spawn (D1)", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(true, { target: "muster-1-shell", n: 1, created: true }),
+      fakeResponse(true, { target: "muster-1-shell", n: 1, created: true, rev: 3 }),
     );
     const result = await createShell(1);
     expect(result).toEqual({
       ok: true,
-      value: { target: "muster-1-shell", n: 1, created: true },
+      value: { target: "muster-1-shell", n: 1, created: true, rev: 3 },
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/sessions/1/shell", {
       method: "POST",
@@ -285,12 +285,12 @@ describe("sessions — createShell (POST /api/sessions/{id}/shell, kb:anchor/ses
 
   it("decodes created:false when the shell already exists (D2 — idempotent, same wire shape)", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(true, { target: "muster-1-shell-2", n: 2, created: false }),
+      fakeResponse(true, { target: "muster-1-shell-2", n: 2, created: false, rev: 3 }),
     );
     const result = await createShell(1);
     expect(result).toEqual({
       ok: true,
-      value: { target: "muster-1-shell-2", n: 2, created: false },
+      value: { target: "muster-1-shell-2", n: 2, created: false, rev: 3 },
     });
   });
 
@@ -343,14 +343,16 @@ describe("sessions — createShell (POST /api/sessions/{id}/shell, kb:anchor/ses
   });
 
   it("falls back to a generic error when the success body is missing target", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(true, { created: true }));
+    fetchMock.mockResolvedValue(fakeResponse(true, { created: true, rev: 3 }));
     const result = await createShell(1);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("unknown_error");
   });
 
   it("falls back to a generic error when the success body is missing n (the terminal number)", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(true, { target: "muster-1-shell", created: true }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(true, { target: "muster-1-shell", created: true, rev: 3 }),
+    );
     const result = await createShell(1);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("unknown_error");
@@ -358,7 +360,7 @@ describe("sessions — createShell (POST /api/sessions/{id}/shell, kb:anchor/ses
 
   it("falls back to a generic error when n is not a number", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(true, { target: "muster-1-shell", n: "1", created: true }),
+      fakeResponse(true, { target: "muster-1-shell", n: "1", created: true, rev: 3 }),
     );
     const result = await createShell(1);
     expect(result.ok).toBe(false);
@@ -366,7 +368,7 @@ describe("sessions — createShell (POST /api/sessions/{id}/shell, kb:anchor/ses
   });
 
   it("falls back to a generic error when the success body is missing created", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(true, { target: "muster-1-shell", n: 1 }));
+    fetchMock.mockResolvedValue(fakeResponse(true, { target: "muster-1-shell", n: 1, rev: 3 }));
     const result = await createShell(1);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("unknown_error");
@@ -374,7 +376,7 @@ describe("sessions — createShell (POST /api/sessions/{id}/shell, kb:anchor/ses
 
   it("falls back to a generic error when created is not a boolean (e.g. a stray string)", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(true, { target: "muster-1-shell", n: 1, created: "true" }),
+      fakeResponse(true, { target: "muster-1-shell", n: 1, created: "true", rev: 3 }),
     );
     const result = await createShell(1);
     expect(result.ok).toBe(false);
@@ -778,11 +780,11 @@ describe("sessions — terminals (kb:anchor/sessions.shell): createTerminal, ren
 
   it("createTerminal posts to the shells endpoint and decodes target, n and name", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(true, { target: "muster-1-shell-2", n: 2, name: "shell 2" }),
+      fakeResponse(true, { target: "muster-1-shell-2", n: 2, name: "shell 2", rev: 6 }),
     );
     expect(await createTerminal(1)).toEqual({
       ok: true,
-      value: { target: "muster-1-shell-2", n: 2, name: "shell 2" },
+      value: { target: "muster-1-shell-2", n: 2, name: "shell 2", rev: 6 },
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/sessions/1/shells", {
       method: "POST",
@@ -791,10 +793,13 @@ describe("sessions — terminals (kb:anchor/sessions.shell): createTerminal, ren
   });
 
   it.each([
-    ["missing n", { target: "t", name: "shell 2" }],
-    ["missing name", { target: "t", n: 2 }],
-    ["missing target", { n: 2, name: "shell 2" }],
-    ["n a string", { target: "t", n: "2", name: "shell 2" }],
+    ["missing n", { target: "t", name: "shell 2", rev: 6 }],
+    ["missing name", { target: "t", n: 2, rev: 6 }],
+    ["missing target", { n: 2, name: "shell 2", rev: 6 }],
+    ["n a string", { target: "t", n: "2", name: "shell 2", rev: 6 }],
+    ["missing rev", { target: "t", n: 2, name: "shell 2" }],
+    ["rev a string", { target: "t", n: 2, name: "shell 2", rev: "6" }],
+    ["rev negative", { target: "t", n: 2, name: "shell 2", rev: -1 }],
     ["not an object", "ok"],
   ])("createTerminal falls back to a generic error on a body with %s", async (_label, body) => {
     fetchMock.mockResolvedValue(fakeResponse(true, body));
@@ -816,10 +821,10 @@ describe("sessions — terminals (kb:anchor/sessions.shell): createTerminal, ren
   });
 
   it("renameTerminal puts the name as JSON to the terminal's name endpoint and decodes 200", async () => {
-    fetchMock.mockResolvedValue(fakeStatusResponse(200));
+    fetchMock.mockResolvedValue(fakeResponse(true, { n: 2, name: "build", rev: 8 }));
     expect(await renameTerminal(7, 2, "build")).toEqual({
       ok: true,
-      value: null,
+      value: { rev: 8 },
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/sessions/7/shells/2/name", {
       method: "PUT",
@@ -852,14 +857,29 @@ describe("sessions — terminals (kb:anchor/sessions.shell): createTerminal, ren
     });
   });
 
-  it("closeTerminal deletes the terminal's endpoint and decodes 204", async () => {
-    fetchMock.mockResolvedValue(fakeStatusResponse(204));
-    expect(await closeTerminal(7, 3)).toEqual({ ok: true, value: null });
+  it("closeTerminal deletes the terminal's endpoint and decodes 200 {rev}", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { rev: 8 }));
+    expect(await closeTerminal(7, 3)).toEqual({ ok: true, value: { rev: 8 } });
     expect(fetchMock).toHaveBeenCalledWith("/api/sessions/7/shells/3", {
       method: "DELETE",
       credentials: "same-origin",
     });
   });
+
+  it.each([
+    ["rename", () => renameTerminal(7, 2, "x")],
+    ["close", () => closeTerminal(7, 2)],
+  ])(
+    "%s falls back to a generic error on a success body with no valid rev",
+    async (_label, call) => {
+      for (const body of [{}, { rev: "8" }, { rev: -1 }, null]) {
+        fetchMock.mockResolvedValue(fakeResponse(true, body));
+        const result = await call();
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.error.code).toBe("unknown_error");
+      }
+    },
+  );
 
   it("closeTerminal decodes a 404 no_shell error (a stale row; nothing thrown)", async () => {
     fetchMock.mockResolvedValue({

@@ -309,5 +309,13 @@ while IFS= read -r l; do
   note "check-kb: ${l:0:160}"
 done <<< "$(go tool kb check 2>&1)"
 
+# 17. Warn, never fail: web/e2e/shell.spec.ts states the whole empty-daemon snapshot literally
+#     (kb:lesson/wire-shape-change-owns-its-fixtures), so a plan that edits the snapshot's Go shape
+#     without naming that spec has usually missed a pin. stale-terminals-list-1 added a snapshot
+#     key, named no such spec, and met it red at its first gate run.
+if section 'Affected Files' | grep -qF 'internal/server/state.go' && ! grep -qF 'shell.spec.ts' "$P"; then
+  echo "NOTE  Affected Files names internal/server/state.go but the plan never names web/e2e/shell.spec.ts — it asserts the whole empty-daemon snapshot, so a new snapshot key edits it; list it under Existing tests this breaks, or ignore this if the snapshot's shape is unchanged"
+fi
+
 if (( FAILS )); then echo "plan-lint: $FAILS failure(s) in $P"; exit 1; fi
 echo "plan-lint: $P clean"

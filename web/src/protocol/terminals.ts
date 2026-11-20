@@ -11,7 +11,13 @@ export type TerminalsBySession = Record<number, TerminalInfo[]>;
 export interface TerminalsMessage {
   type: "terminals";
   sessionId: number;
+  rev: number;
   terminals: TerminalInfo[];
+}
+
+export function parseRev(value: unknown): number | null {
+  const rev = asInteger(value);
+  return rev !== null && rev >= 0 ? rev : null;
 }
 
 function parseTerminalInfo(value: unknown): TerminalInfo | null {
@@ -29,9 +35,10 @@ function parseTerminalList(value: unknown): TerminalInfo[] | null {
 
 export function parseTerminalsMessage(rec: Record<string, unknown>): TerminalsMessage | null {
   const sessionId = asInteger(rec["sessionId"]);
+  const rev = parseRev(rec["rev"]);
   const terminals = parseTerminalList(rec["terminals"]);
-  if (sessionId === null || terminals === null) return null;
-  return { type: "terminals", sessionId, terminals };
+  if (sessionId === null || rev === null || rev < 1 || terminals === null) return null;
+  return { type: "terminals", sessionId, rev, terminals };
 }
 
 export function parseSnapshotTerminals(value: unknown): TerminalsBySession | null {

@@ -98,7 +98,7 @@ func TestHandleCloseTerminal_SocketsAndBroadcastAcrossSessions1And12(t *testing.
 	})
 
 	rec := terminalsRequest(t, srv, http.MethodDelete, shellsPath(s1.ID, "/1"), "")
-	require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 	assert.Equal(t, websocket.StatusCode(4001), websocket.CloseStatus(readUntilError(t, closing, 3*time.Second)),
 		"the deleted terminal's socket closes pane_ended")

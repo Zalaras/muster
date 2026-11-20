@@ -8,6 +8,7 @@ import {
 } from "../protocol/batch";
 import { parseSession, type Session } from "../protocol/session";
 import { isRecord } from "../protocol/decode";
+import { parseRev } from "../protocol/terminals";
 import { requestEmpty, requestJson, type ApiResult, type RequestOptions } from "./http";
 
 /** `POST /api/sessions/{id}/end` (kb:anchor/sessions.end). `200` + the Session object
@@ -77,12 +78,18 @@ export interface CreateShellResult {
   target: string;
   n: number;
   created: boolean;
+  rev: number;
 }
 
 export interface NewTerminalResult {
   target: string;
   n: number;
   name: string;
+  rev: number;
+}
+
+export interface TerminalRevResult {
+  rev: number;
 }
 
 function parseCreateShellResult(value: unknown): CreateShellResult | null {
@@ -90,10 +97,11 @@ function parseCreateShellResult(value: unknown): CreateShellResult | null {
   const target = value["target"];
   const created = value["created"];
   const n = value["n"];
+  const rev = parseRev(value["rev"]);
   if (typeof target !== "string") return null;
   if (typeof created !== "boolean") return null;
-  if (typeof n !== "number") return null;
-  return { target, n, created };
+  if (typeof n !== "number" || rev === null) return null;
+  return { target, n, created, rev };
 }
 
 function parseNewTerminalResult(value: unknown): NewTerminalResult | null {
@@ -101,8 +109,16 @@ function parseNewTerminalResult(value: unknown): NewTerminalResult | null {
   const target = value["target"];
   const n = value["n"];
   const name = value["name"];
+  const rev = parseRev(value["rev"]);
   if (typeof target !== "string" || typeof n !== "number" || typeof name !== "string") return null;
-  return { target, n, name };
+  if (rev === null) return null;
+  return { target, n, name, rev };
+}
+
+function parseTerminalRevResult(value: unknown): TerminalRevResult | null {
+  if (!isRecord(value)) return null;
+  const rev = parseRev(value["rev"]);
+  return rev === null ? null : { rev };
 }
 
 /** `POST /api/sessions/{id}/shell` (kb:anchor/sessions.shell). Idempotent — ensures the
@@ -122,12 +138,14 @@ export async function renameTerminal(
   id: number,
   n: number,
   name: string,
-): Promise<ApiResult<null>> {
-  return requestEmpty("PUT", `/api/sessions/${id}/shells/${n}/name`, 200, { name });
+): Promise<ApiResult<TerminalRevResult>> {
+  return requestJson("PUT", `/api/sessions/${id}/shells/${n}/name`, parseTerminalRevResult, {
+    name,
+  });
 }
 
-export async function closeTerminal(id: number, n: number): Promise<ApiResult<null>> {
-  return requestEmpty("DELETE", `/api/sessions/${id}/shells/${n}`, 204);
+export async function closeTerminal(id: number, n: number): Promise<ApiResult<TerminalRevResult>> {
+  return requestJson("DELETE", `/api/sessions/${id}/shells/${n}`, parseTerminalRevResult);
 }
 
 /** `PUT /api/sessions/{id}/pin` (kb:anchor/sessions.pin). `204` with no body on success —
@@ -187,5 +205,7 @@ export async function removeSessions(ids: readonly number[]): Promise<ApiResult<
 }
 
 export async function restartSessions(ids: readonly number[]): Promise<ApiResult<RestartResult>> {
-  return requestJson("POST", "/api/sessions/restart", parseRestartResult, { ids });
+  return requestJson("POST", "/api/sessions/restart", parseRestartResult, {
+    ids,
+  });
 }

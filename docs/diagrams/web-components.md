@@ -60,7 +60,7 @@ C4Component
             Component(protocol, "protocol/", "11 modules", "Wire types and parsers for protocol version 2, split per concept, no barrel; imported by every layer, wires not drawn")
             Component(ws, "ws.ts", "WebSocket", "The state socket to musterd, backoff, dispatch")
             Component(api, "api/", "11 modules", "The only fetch to musterd, one file per endpoint family, no barrel; ApiResult, never throws")
-            Component(terminal, "terminal/", "9 modules", "xterm.js surfaces, the per-terminal socket to musterd, shell key translation, drop wiring and the shell activity reducer")
+            Component(terminal, "terminal/", "10 modules", "xterm.js surfaces, the per-terminal socket to musterd, shell key translation, drop wiring, the shell activity reducer and the terminals-list revision a window has seen")
             Component(dom, "dom.ts", "helpers", "Element lookup")
             Component(reader, "reader/", "13 modules", "Markdown render, nav tree, per-session memory, find matching, the ?session= parse, claude-section chips and scratch re-scan rules")
             Component(sessions, "sessions/", "17 modules", "Pure derivation — view-models, sort, rail sections, tile math, formatters, a path basename")

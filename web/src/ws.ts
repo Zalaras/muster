@@ -50,7 +50,7 @@ export interface WsClientHandlers {
   onClaudeCode?: (claudeCode: ClaudeCodeInfo) => void;
   onUpdate?: (update: UpdateInfo) => void;
   onDocChanged?: (docChanged: DocChanged) => void;
-  onTerminals?: (sessionId: number, terminals: TerminalInfo[]) => void;
+  onTerminals?: (sessionId: number, rev: number, terminals: TerminalInfo[]) => void;
   onGroups?: (groups: Group[], ungrouped: UngroupedLayout) => void;
   onDisconnected?: () => void;
   onProtocolMismatch?: (protocolVersion: number) => void;
@@ -172,7 +172,7 @@ export class WsClient {
       return;
     }
     if (message.type === "terminals") {
-      this.handlers.onTerminals?.(message.sessionId, message.terminals);
+      this.handlers.onTerminals?.(message.sessionId, message.rev, message.terminals);
       return;
     }
     if (message.type === "groups") {

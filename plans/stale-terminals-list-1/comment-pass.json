@@ -1,0 +1,96 @@
+{
+  "plan": "stale-terminals-list-1",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-11-20T07:32:17Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 5,
+        "keep": 2,
+        "drop": 3
+      },
+      "keeps": [
+        {
+          "key": "internal/server/shellactivity.go:3a19a9bba77ab279",
+          "path": "internal/server/shellactivity.go",
+          "anchor": {
+            "kind": "above",
+            "text": "tickMu sync.Mutex",
+            "line": 66
+          },
+          "lines": [
+            "// tickMu serialises tick and sync, so each diff-and-broadcast sees the previous one's",
+            "// result and two lists for one session never go out of order; it is also the only",
+            "// writer's guard on revs' assignment order. mu guards terms, rev and revs together, so a",
+            "// reader never sees lists older than the revision it reads."
+          ],
+          "reason": "Without it a reader would delete tickMu as redundant with mu, or release it before the broadcast; that lets two lists for one session go out of order at `p.tickMu.Lock()` in tick."
+        },
+        {
+          "key": "internal/server/shells.go:de5f26658ad2417e",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *shellFeature) spawnInSession(w http.ResponseWriter, r *http.Request, spawn func(ctx context.Context, id int64, dir string) error) (int64, bool) {",
+            "line": 109
+          },
+          "lines": [
+            "// spawnInSession is the guard both spawn handlers share. Deliberately not gated on alive",
+            "// (kb:adr/surfaces-shell-is-attach-target-not-session) — a terminal may be started on a",
+            "// dead session and never consults the manager's liveness field.",
+            "//",
+            "// The whole existence-check-then-spawn runs under id's session.Manager lock:",
+            "// session.Manager.Remove holds that same lock for its entire removal, so this check can",
+            "// never observe a session that a concurrent Remove is in the middle of dropping, and any",
+            "// Remove that starts after this check passes must wait for the spawn to finish first —",
+            "// either way, a terminal can never be spawned for an id whose Remove has started or already",
+            "// succeeded. spawn runs with the lock held and the session's directory. It reports whether",
+            "// spawn succeeded and the session id; on false the error response is already written."
+          ],
+          "reason": "Edited on `main`; still true: `spawnInSession` takes `f.manager.LockSession(id)` and returns `(int64, bool)` with the error response already written, as it says."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/server/shells.go:42c3bead3f7cf33c",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "revFor func(sessionID int64) int64",
+            "line": 77
+          },
+          "lines": [
+            "// revFor is the session's latest broadcast terminals revision; routes read it after changed."
+          ]
+        },
+        {
+          "key": "internal/server/state.go:afc1e55547c93ef0",
+          "path": "internal/server/state.go",
+          "anchor": {
+            "kind": "above",
+            "text": "TerminalsRev int64 `json:\"terminalsRev\"`",
+            "line": 20
+          },
+          "lines": [
+            "// TerminalsRev (kb:anchor/ws.snapshot): the revision of the latest terminals broadcast the",
+            "// lists above include; always present, 0 before any broadcast."
+          ]
+        },
+        {
+          "key": "web/src/features/surfaces.ts:b500c9f590707214",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function observeSpawnReply(id: number, n: number, rev: number): boolean {",
+            "line": 179
+          },
+          "lines": [
+            "/** Raises the seen revision to a spawn reply's `rev` and says whether that reply's",
+            "* terminal had already ended: its `rev` was already seen, yet the list lacks `n`. */"
+          ]
+        }
+      ]
+    }
+  ]
+}

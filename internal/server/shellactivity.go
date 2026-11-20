@@ -38,7 +38,7 @@ func newShellActivityFeature(hasShells func() bool, lister paneActivityLister, n
 	shellBase := filepath.Base(interactiveShellArgv()[0])
 	f := &shellActivityFeature{}
 	f.poller = newShellActivityPoller(lister, tty.IsCanonical, hasShells, shellBase, shellActivityPollInterval, names, func(sessionID int64, terminals []terminalWire) {
-		hub.broadcast(terminalsMessage{Type: "terminals", SessionID: sessionID, Terminals: terminals})
+		hub.broadcast(terminalsMessage{Type: "terminals", SessionID: sessionID, Rev: f.poller.revFor(sessionID), Terminals: terminals})
 	}, log)
 	return f
 }
@@ -50,7 +50,7 @@ func (f *shellActivityFeature) Start() { f.poller.Start() }
 func (f *shellActivityFeature) Stop(ctx context.Context) { f.poller.Stop(ctx) }
 
 func (f *shellActivityFeature) contribute(_ context.Context, snap *Snapshot) {
-	snap.Terminals = f.poller.Current()
+	snap.Terminals, snap.TerminalsRev = f.poller.snapshot()
 }
 
 type shellActivityPoller struct {
@@ -64,10 +64,14 @@ type shellActivityPoller struct {
 	log       zerolog.Logger
 
 	// tickMu serialises tick and sync, so each diff-and-broadcast sees the previous one's
-	// result and two lists for one session never go out of order. mu guards terms only.
+	// result and two lists for one session never go out of order; it is also the only
+	// writer's guard on revs' assignment order. mu guards terms, rev and revs together, so a
+	// reader never sees lists older than the revision it reads.
 	tickMu sync.Mutex
 	mu     sync.RWMutex
 	terms  map[int64][]terminalWire
+	rev    int64
+	revs   map[int64]int64
 
 	bg bgLoop
 }
@@ -83,6 +87,7 @@ func newShellActivityPoller(lister paneActivityLister, canonical ttyCanonicalChe
 		broadcast: broadcast,
 		log:       log,
 		terms:     make(map[int64][]terminalWire),
+		revs:      make(map[int64]int64),
 	}
 }
 
@@ -98,13 +103,24 @@ func (p *shellActivityPoller) Stop(ctx context.Context) {
 }
 
 func (p *shellActivityPoller) Current() map[string][]terminalWire {
+	lists, _ := p.snapshot()
+	return lists
+}
+
+func (p *shellActivityPoller) snapshot() (map[string][]terminalWire, int64) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	out := make(map[string][]terminalWire, len(p.terms))
 	for id, list := range p.terms {
 		out[strconv.FormatInt(id, 10)] = append([]terminalWire(nil), list...)
 	}
-	return out
+	return out, p.rev
+}
+
+func (p *shellActivityPoller) revFor(sessionID int64) int64 {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.revs[sessionID]
 }
 
 func (p *shellActivityPoller) sync(ctx context.Context) { p.tick(ctx) }
@@ -153,21 +169,36 @@ func (p *shellActivityPoller) busy(pa tmux.PaneActivity, id int64) bool {
 	return canonical
 }
 
+type pendingBroadcast struct {
+	sessionID int64
+	terminals []terminalWire
+}
+
 func (p *shellActivityPoller) reconcile(next map[int64][]terminalWire) {
+	var pending []pendingBroadcast
 	p.mu.Lock()
 	old := p.terms
 	p.terms = next
-	p.mu.Unlock()
-
 	for id, list := range next {
 		if !slices.Equal(old[id], list) {
-			p.broadcast(id, list)
+			pending = append(pending, pendingBroadcast{id, list})
 		}
 	}
-	for id, oldList := range old {
+	for id := range old {
 		if _, still := next[id]; !still {
-			p.broadcast(id, []terminalWire{})
+			pending = append(pending, pendingBroadcast{id, []terminalWire{}})
 		}
+	}
+	for _, b := range pending {
+		p.rev++
+		p.revs[b.sessionID] = p.rev
+	}
+	p.mu.Unlock()
+
+	for _, b := range pending {
+		p.broadcast(b.sessionID, b.terminals)
+	}
+	for id, oldList := range old {
 		for _, t := range oldList {
 			if !slices.ContainsFunc(next[id], func(w terminalWire) bool { return w.N == t.N }) {
 				p.names.forget(id, t.N)

@@ -29,6 +29,7 @@ import {
 import {
   type TerminalsBySession,
   type TerminalsMessage,
+  parseRev,
   parseSnapshotTerminals,
   parseTerminalsMessage,
 } from "./terminals";
@@ -47,6 +48,7 @@ export interface Snapshot {
   // `claudeTheme` before it.
   update: UpdateInfo | null;
   terminals?: TerminalsBySession;
+  terminalsRev?: number;
   // kb:anchor/ws.groups: always present on a current daemon's snapshot; an older daemon's
   // payload (neither key) parses as no groups and Ungrouped in last place, so the rail renders
   // flat — same additive-evolution tolerance as `update` above.
@@ -127,6 +129,11 @@ function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
     const terminals = parseSnapshotTerminals(rec["terminals"]);
     if (!terminals) return null;
     snapshot.terminals = terminals;
+  }
+  if ("terminalsRev" in rec) {
+    const terminalsRev = parseRev(rec["terminalsRev"]);
+    if (terminalsRev === null) return null;
+    snapshot.terminalsRev = terminalsRev;
   }
   return snapshot;
 }

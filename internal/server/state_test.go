@@ -37,6 +37,7 @@ func TestBuildSnapshot_M0Shape(t *testing.T) {
 			"apply": {"phase": "idle", "version": null, "error": null}
 		},
 		"terminals": {},
+		"terminalsRev": 0,
 		"groups": [],
 		"ungrouped": {"pos": 0, "collapsed": false}
 	}`, string(got))

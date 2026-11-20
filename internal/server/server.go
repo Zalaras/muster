@@ -222,7 +222,7 @@ func New(cfg Config) *Server {
 	register(s, newEffortFeature(s.manager, cfg.Logger))
 	register(s, newGroupsFeature(s.manager, actions.teardownRemoved, cfg.Logger))
 	s.terminal = register(s, newTerminalFeature(terminals, s.manager, attach, cfg.Logger))
-	register(s, newShellFeature(shells, terminals, s.manager, attach, shellScroll, shellActivity.poller.sync, cfg.Logger))
+	register(s, newShellFeature(shells, terminals, s.manager, attach, shellScroll, shellActivity.poller.sync, shellActivity.poller.revFor, cfg.Logger))
 	s.locate = register(s, newLocateFeature(s.manager, cfg.Locator, cfg.Logger))
 	register(s, newBrowseFeature(cfg.Launch.BrowseRoot, cfg.Logger))
 	register(s, newReposFeature(cfg.Store, cfg.Logger))

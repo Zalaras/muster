@@ -55,6 +55,8 @@ reads `shell`; a count beside it shows once two or more terminals run, and its t
 terminal on screen. A new terminal is named `shell N`, the lowest number free in its session, until
 renamed; a name lasts as long as its terminal. When the terminal on screen ends, the
 lowest-numbered running terminal of the session takes its place, or claude when none is left.
+A window ignores a terminals list older than a spawn, close or rename reply it has already acted
+on, so a late list never undoes one.
 A terminal is spawned lazily by `kb:anchor/sessions.shell` and attached over
 `kb:anchor/terminal.shell-ws`, which never spawns, so a spawn failure has a body the
 dashboard can render — a fixed-phrase message, with the raw tmux/OS error in the daemon

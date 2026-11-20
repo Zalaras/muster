@@ -16,33 +16,46 @@ describe("parseTerminalsMessage", () => {
       parseTerminalsMessage({
         type: "terminals",
         sessionId: 7,
+        rev: 4,
         terminals: [one, two],
       }),
-    ).toEqual({ type: "terminals", sessionId: 7, terminals: [one, two] });
+    ).toEqual({ type: "terminals", sessionId: 7, rev: 4, terminals: [one, two] });
   });
 
   it("decodes the empty list sent once the last terminal ends", () => {
-    expect(parseTerminalsMessage({ type: "terminals", sessionId: 7, terminals: [] })).toEqual({
+    expect(
+      parseTerminalsMessage({ type: "terminals", sessionId: 7, rev: 1, terminals: [] }),
+    ).toEqual({
       type: "terminals",
       sessionId: 7,
+      rev: 1,
       terminals: [],
     });
   });
 
   it.each([
-    ["terminals null", { sessionId: 7, terminals: null }],
+    ["terminals null", { sessionId: 7, rev: 1, terminals: null }],
     ["terminals missing", { sessionId: 7 }],
-    ["terminals not an array", { sessionId: 7, terminals: {} }],
-    ["sessionId missing", { terminals: [one] }],
+    ["terminals not an array", { sessionId: 7, rev: 1, terminals: {} }],
+    ["rev missing", { sessionId: 7, terminals: [one] }],
+    ["rev null", { sessionId: 7, rev: null, terminals: [one] }],
+    ["rev a string", { sessionId: 7, rev: "4", terminals: [one] }],
+    ["rev zero", { sessionId: 7, rev: 0, terminals: [one] }],
+    ["rev negative", { sessionId: 7, rev: -1, terminals: [one] }],
+    ["rev fractional", { sessionId: 7, rev: 1.5, terminals: [one] }],
+    ["sessionId missing", { rev: 1, terminals: [one] }],
     ["sessionId a string", { sessionId: "7", terminals: [one] }],
-    ["an entry with n 0", { sessionId: 7, terminals: [{ ...one, n: 0 }] }],
-    ["an entry with a negative n", { sessionId: 7, terminals: [{ ...one, n: -1 }] }],
-    ["an entry with a fractional n", { sessionId: 7, terminals: [{ ...one, n: 1.5 }] }],
-    ["an entry with no name", { sessionId: 7, terminals: [{ n: 1, busy: false }] }],
-    ["an entry with a non-string name", { sessionId: 7, terminals: [{ ...one, name: 4 }] }],
-    ["an entry with no busy", { sessionId: 7, terminals: [{ n: 1, name: "x" }] }],
-    ["an entry with a non-boolean busy", { sessionId: 7, terminals: [{ ...one, busy: "yes" }] }],
-    ["an entry that is not an object", { sessionId: 7, terminals: [one, 3] }],
+    ["an entry with n 0", { sessionId: 7, rev: 1, terminals: [{ ...one, n: 0 }] }],
+    ["an entry with a negative n", { sessionId: 7, rev: 1, terminals: [{ ...one, n: -1 }] }],
+    ["an entry with a fractional n", { sessionId: 7, rev: 1, terminals: [{ ...one, n: 1.5 }] }],
+    ["an entry with no name", { sessionId: 7, rev: 1, terminals: [{ n: 1, busy: false }] }],
+    ["an entry with a non-string name", { sessionId: 7, rev: 1, terminals: [{ ...one, name: 4 }] }],
+    ["an entry with no busy", { sessionId: 7, rev: 1, terminals: [{ n: 1, name: "x" }] }],
+    [
+      "an entry with a non-boolean busy",
+      { sessionId: 7, rev: 1, terminals: [{ ...one, busy: "yes" }] },
+    ],
+    ["an entry that is not an object", { sessionId: 7, rev: 1, terminals: [one, 3] }],
   ])("rejects %s", (_label, rec) => {
     expect(parseTerminalsMessage({ type: "terminals", ...rec })).toBeNull();
   });
@@ -74,9 +87,10 @@ describe("parseSnapshotTerminals", () => {
 
 describe("parseMessage — terminals", () => {
   it("routes a terminals message", () => {
-    expect(parseMessage({ type: "terminals", sessionId: 3, terminals: [two] })).toEqual({
+    expect(parseMessage({ type: "terminals", sessionId: 3, rev: 2, terminals: [two] })).toEqual({
       type: "terminals",
       sessionId: 3,
+      rev: 2,
       terminals: [two],
     });
   });
@@ -102,6 +116,26 @@ describe("parseMessage — terminals", () => {
     const parsed = parseMessage(validSnapshot);
     expect(parsed).not.toBeNull();
     expect(parsed).not.toHaveProperty("terminals");
+  });
+
+  it("reads a snapshot with no terminalsRev as absent (the app treats it as 0)", () => {
+    expect(parseMessage(validSnapshot)).not.toHaveProperty("terminalsRev");
+  });
+
+  it("parses snapshot.terminalsRev", () => {
+    expect(parseMessage({ ...validSnapshot, terminalsRev: 9 })).toMatchObject({
+      type: "snapshot",
+      terminalsRev: 9,
+    });
+  });
+
+  it.each([
+    ["null", null],
+    ["a string", "9"],
+    ["negative", -1],
+    ["fractional", 1.5],
+  ])("rejects a snapshot whose terminalsRev is %s", (_label, terminalsRev) => {
+    expect(parseMessage({ ...validSnapshot, terminalsRev })).toBeNull();
   });
 
   it("rejects a snapshot whose terminals is malformed rather than dropping it silently", () => {

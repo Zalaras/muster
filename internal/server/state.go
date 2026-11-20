@@ -15,8 +15,9 @@ type Snapshot struct {
 	ClaudeTheme ClaudeThemeInfo `json:"claudeTheme"`
 	// Update (kb:anchor/ws.update): always present, even on a daemon with updates disabled
 	// entirely.
-	Update    UpdateInfo                `json:"update"`
-	Terminals map[string][]terminalWire `json:"terminals"`
+	Update       UpdateInfo                `json:"update"`
+	Terminals    map[string][]terminalWire `json:"terminals"`
+	TerminalsRev int64                     `json:"terminalsRev"`
 	// Groups and Ungrouped (kb:anchor/ws.groups): the rail's sections, always present — Groups
 	// as [] when there are none.
 	Groups    []groupWire   `json:"groups"`

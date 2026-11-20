@@ -13,8 +13,14 @@ import type { App, RenderFrame } from "../app";
 import type { Snapshot } from "../protocol/messages";
 import type { Session } from "../protocol/session";
 import type { TerminalInfo } from "../protocol/terminals";
-import { closeTerminal, createShell, createTerminal, renameTerminal } from "../api/sessions";
-import type { ApiErrorBody } from "../api/http";
+import {
+  closeTerminal,
+  createShell,
+  createTerminal,
+  renameTerminal,
+  type TerminalRevResult,
+} from "../api/sessions";
+import type { ApiErrorBody, ApiResult } from "../api/http";
 import { showDeadSurfaceNotice, type DeadSurfaceRefs } from "../render/dead";
 import { focusIsOnSwitchOrPage, type SurfaceTerminalsView } from "../render/surfaceseg";
 import { visibleIds } from "../sessions/live";
@@ -57,6 +63,15 @@ import {
   terminalsFromSnapshot,
   type TerminalsState,
 } from "../terminal/terminals";
+import {
+  EMPTY_TERMINALS_REV,
+  forgetSeenRev,
+  isStaleList,
+  raiseSeenRev,
+  resetSeenRev,
+  seenRev,
+  type TerminalsRevState,
+} from "../terminal/terminalsrev";
 
 export interface SurfacesDeps {
   tilesLive(): readonly number[];
@@ -85,6 +100,7 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
   let surfaceSwitchState: SurfaceSwitchState = new Map();
   let terminalsState: TerminalsState = EMPTY_TERMINALS;
   let activityState: ShellActivityState = EMPTY_SHELL_ACTIVITY;
+  let revState: TerminalsRevState = EMPTY_TERMINALS_REV;
   // Stale-response guard for the terminal-spawn round trips — same shape as
   // `features/launch.ts`'s `browseRequestId` and `features/issue.ts`'s `captureRequestId`,
   // but keyed per session id: `select` runs for independent sessions concurrently, and a
@@ -160,6 +176,20 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     app.emit("surfaceSwitched", id, "shell");
   }
 
+  function observeSpawnReply(id: number, n: number, rev: number): boolean {
+    const ended =
+      rev <= seenRev(revState, id) &&
+      !getTerminals(terminalsState, id).some((terminal) => terminal.n === n);
+    revState = raiseSeenRev(revState, id, rev);
+    return ended;
+  }
+
+  function observeReply(id: number): (result: ApiResult<TerminalRevResult>) => void {
+    return (result) => {
+      if (result.ok) revState = raiseSeenRev(revState, id, result.value.rev);
+    };
+  }
+
   function nextRequestId(id: number): number {
     const requestId = (selectRequestId.get(id) ?? 0) + 1;
     selectRequestId.set(id, requestId);
@@ -183,6 +213,7 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     // runs, so a last-shown terminal this window still believes in never outlives a terminal
     // that ended before its `terminals` message arrived.
     void createShell(id).then((result) => {
+      const ended = result.ok && observeSpawnReply(id, result.value.n, result.value.rev);
       // A newer selection for this id landed first — drop this stale response
       // (features/launch.ts's `navigate` guard, same shape).
       if (selectRequestId.get(id) !== requestId) return;
@@ -190,19 +221,22 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
         reportShellSpawnFailure(id, result.error, findDeadRefs);
         return;
       }
-      showAndSelect(id, getSurfaceState(surfaceSwitchState, id).shell ?? result.value.n);
+      const shown =
+        getSurfaceState(surfaceSwitchState, id).shell ?? (ended ? null : result.value.n);
+      if (shown !== null) showAndSelect(id, shown);
     });
   }
 
   function newTerminal(id: number, findDeadRefs: () => DeadSurfaceRefs | null): void {
     const requestId = nextRequestId(id);
     void createTerminal(id).then((result) => {
+      const ended = result.ok && observeSpawnReply(id, result.value.n, result.value.rev);
       if (selectRequestId.get(id) !== requestId) return;
       if (!result.ok) {
         reportShellSpawnFailure(id, result.error, findDeadRefs);
         return;
       }
-      showAndSelect(id, result.value.n);
+      if (!ended) showAndSelect(id, result.value.n);
     });
   }
 
@@ -292,17 +326,21 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     }
     surfaceSwitchState = forgetSession(surfaceSwitchState, id);
     terminalsState = forgetTerminals(terminalsState, id);
+    revState = forgetSeenRev(revState, id);
     activityState = shellGone(activityState, id);
     selectRequestId.delete(id);
   });
 
-  app.on("terminals", (sessionId, terminals) => {
+  app.on("terminals", (sessionId, rev, terminals) => {
     if (!app.store.values().some((session) => session.id === sessionId)) return;
+    if (isStaleList(revState, sessionId, rev)) return;
+    revState = raiseSeenRev(revState, sessionId, rev);
     applyTerminalList(sessionId, terminals);
   });
 
   function adoptSnapshotTerminals(snapshot: Snapshot): void {
     const known = new Set([...terminalsState.keys(), ...surfaceSwitchState.keys()]);
+    revState = resetSeenRev(snapshot.terminalsRev ?? 0);
     terminalsState = terminalsFromSnapshot(snapshot.terminals ?? {});
     for (const id of terminalsState.keys()) known.add(id);
     for (const id of known) {
@@ -389,10 +427,10 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     showTerminal: showAndSelect,
     newTerminal,
     renameTerminal(id, n, name) {
-      void renameTerminal(id, n, name);
+      void renameTerminal(id, n, name).then(observeReply(id));
     },
     closeTerminal(id, n) {
-      void closeTerminal(id, n);
+      void closeTerminal(id, n).then(observeReply(id));
     },
   };
 }
