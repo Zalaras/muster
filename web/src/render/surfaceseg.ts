@@ -154,3 +154,9 @@ export function updateSurfaceSegment(
   if (!hasIndicator) refs.shellBtn.prepend(refs.shellActEl);
   refs.shellActEl.dataset["act"] = activity;
 }
+
+export function clearSurfaceSegmentSelection(refs: SurfaceSegmentRefs): void {
+  for (const button of [refs.claudeBtn, refs.shellBtn, refs.docsBtn]) {
+    button.setAttribute("aria-pressed", "false");
+  }
+}

@@ -23,9 +23,10 @@
 - `diagramdialog.ts`'s backdrop-close is `event.target === dialogEl` (a `::backdrop` isn't a node), so its children must fill the box.
 
 <!-- kb:trailer -->
-<!-- kb:hash 1bfd0b7f3c4b70cf -->
+<!-- kb:hash e56fe0c3e8ecf607 -->
 - **actions** — Stop, Resume, Remove and Restart a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
+- **diff** — A session's code diff in the dashboard — a size-row button, Unified, Split and Review views, ticks and comments kept with the session. → `docs/features/diff/INDEX.md`
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
 - **groups** — Rail groups: sections, header summary and popover, select mode, filter, group create, rename, ungroup and delete, persistence. → `docs/features/groups/INDEX.md`

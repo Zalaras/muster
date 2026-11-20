@@ -77,6 +77,12 @@
   --warn-fg: #fbefb8;
   --find-match: #2b4a6b;
   --find-current: #3a6694;
+  --diff-add-bg: #16301f;
+  --diff-add-word: #1f5a33;
+  --diff-del-bg: #3a1a20;
+  --diff-del-word: #6b2a33;
+  --diff-sel: #2b3a5e;
+  --diff-comment: #6ea8fe;
 }
 
 /* Dark — conventional web-style dark (neutral greys, editor/GitHub sense) */
@@ -127,6 +133,12 @@
   --warn-fg: #f6ecc0;
   --find-match: #2a4866;
   --find-current: #3a6592;
+  --diff-add-bg: #1a3322;
+  --diff-add-word: #25603a;
+  --diff-del-bg: #3b1f24;
+  --diff-del-word: #6e2f38;
+  --diff-sel: #2d3f63;
+  --diff-comment: #74adf5;
 }
 
 /* Light — standard light */
@@ -177,6 +189,12 @@
   --warn-fg: #5a4a00;
   --find-match: #cfe1f5;
   --find-current: #8fb8e6;
+  --diff-add-bg: #dcf3e0;
+  --diff-add-word: #a6e0b4;
+  --diff-del-bg: #fbe0e2;
+  --diff-del-word: #f2a9af;
+  --diff-sel: #d4e1fa;
+  --diff-comment: #1f5fbf;
 }
 
 /* Terminal ground follows Claude Code's own theme family, never the Muster theme
@@ -2107,20 +2125,50 @@ body {
   display: none;
 }
 
-.sizenote {
+.sizerow {
   flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
   padding: 6px 16px;
   border-top: 1px solid var(--line);
   background: var(--bg-raised);
   font-family: var(--mono);
   font-size: var(--fs-xs);
   color: var(--fg-dim);
-  display: flex;
-  gap: 16px;
   font-variant-numeric: tabular-nums;
 }
 
+.sizerow:not(:has(> :not([hidden]))) {
+  display: none;
+}
+
+.sizenote {
+  min-width: 0;
+  margin-right: auto;
+}
+
 .sizenote[hidden] {
+  display: none;
+}
+
+.diffbtn {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  line-height: 13px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.diffbtn:hover {
+  color: var(--fg);
+}
+
+.diffbtn[hidden] {
   display: none;
 }
 
@@ -5326,6 +5374,582 @@ body[data-rail-density="compact"] .r2 .mk {
 
 .pop.note-pop .ph {
   margin-bottom: 0;
+}
+
+/* ── diff viewer (plan diff-viewer) — replaces the pane in Focus's main slot ───────── */
+
+.dv {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+}
+
+.dv [hidden] {
+  display: none !important;
+}
+
+.dv-toolbar {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-raised);
+}
+
+.dv-spacer {
+  flex: 1;
+}
+
+.dv-seg {
+  display: inline-flex;
+  border: 1px solid var(--line-control);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.dv-seg-btn,
+.dv-tab {
+  padding: 3px 10px;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.dv-seg-btn[aria-pressed="true"],
+.dv-tab[aria-pressed="true"] {
+  background: var(--bg-hover);
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.dv-btn {
+  padding: 3px 10px;
+  border: 1px solid var(--line-control);
+  border-radius: 6px;
+  background: var(--bg-raised);
+  font: inherit;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.dv-btn:hover {
+  background: var(--bg-hover);
+}
+
+.dv-btn.primary {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
+}
+
+.dv-summary,
+.dv-progress,
+.dv-counts,
+.dv-tickcount,
+.dv-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-summary {
+  color: var(--fg-muted);
+}
+
+.dv-review-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dv-fail {
+  color: var(--warn);
+}
+
+.dv-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 14px;
+  background: var(--warn-bg);
+  border-bottom: 1px solid var(--warn-line);
+  box-shadow: inset 3px 0 0 var(--warn);
+  color: var(--warn-fg);
+}
+
+.dv-bar-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.dv-bar .dv-btn.primary {
+  background: var(--warn);
+  border-color: var(--warn);
+  color: var(--bg);
+}
+
+.dv-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.dv-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  outline: none;
+}
+
+.dv-map {
+  flex: none;
+  width: 14px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 2px;
+  border-left: 1px solid var(--line);
+  background: var(--bg-raised);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.dv-mark {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: 14px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--bg-raised);
+  border-radius: 2px;
+  background: var(--line-control);
+  background-clip: padding-box;
+  cursor: pointer;
+}
+
+.dv-mark[data-state="reviewed"] {
+  background: var(--diff-add-word);
+}
+
+.dv-mark[data-state="flipped"] {
+  background: var(--diff-del-word);
+}
+
+.dv-mark.has-comment {
+  box-shadow: inset 0 0 0 1px var(--diff-comment);
+}
+
+.dv-mark.current {
+  outline: 1px solid var(--fg);
+}
+
+.dv-side {
+  flex: none;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--line);
+  background: var(--bg-raised);
+}
+
+.dv-tabs {
+  flex: none;
+  display: flex;
+  border-bottom: 1px solid var(--line);
+}
+
+.dv-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.dv-frow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 0;
+}
+
+.dv-fjump {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  padding: 5px 8px 5px 12px;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--fg-muted);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.dv-fjump:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.dv-centry {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.dv-centry:hover {
+  background: var(--bg-hover);
+}
+
+.dv-cwhere {
+  font-family: var(--mono);
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+.dv-cmark {
+  color: var(--warn);
+}
+
+.dv-cquote {
+  font-family: var(--mono);
+  color: var(--fg-dim);
+  overflow-wrap: anywhere;
+}
+
+.dv-cbody {
+  margin-top: 2px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.dv-resolved-title {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--fg-muted);
+}
+
+.dv-file {
+  border-bottom: 1px solid var(--line);
+}
+
+.dv-file-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-raised);
+}
+
+.dv-fold {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.dv-path {
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.dv-status {
+  color: var(--fg-dim);
+  font-size: var(--fs-xs);
+}
+
+.dv-counts {
+  color: var(--fg-dim);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+
+.dv-filetick {
+  margin-left: auto;
+}
+
+.dv-hunk,
+.dv-placeholder {
+  padding: 2px 12px;
+  background: var(--bg-hover);
+  color: var(--fg-dim);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+
+.dv-placeholder {
+  font-style: italic;
+}
+
+.dv-note,
+.dv-empty,
+.dv-loading,
+.dv-error {
+  padding: 16px;
+  color: var(--fg-muted);
+}
+
+.dv-error {
+  color: var(--warn);
+}
+
+.dv-row {
+  display: grid;
+  grid-template-columns: 3.5em 3.5em 1.6em 1.2em minmax(0, 1fr);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.dv-srow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.dv-cell {
+  display: grid;
+  grid-template-columns: 3.5em 1.6em 1.2em minmax(0, 1fr);
+  min-width: 0;
+}
+
+.dv-cell.empty {
+  background: var(--bg-hover);
+}
+
+.dv-cell.new {
+  border-left: 1px solid var(--line);
+}
+
+.dv-row.add,
+.dv-cell.add {
+  background: var(--diff-add-bg);
+}
+
+.dv-row.del,
+.dv-cell.del {
+  background: var(--diff-del-bg);
+}
+
+.dv-row.sel,
+.dv-cell.sel {
+  background: var(--diff-sel);
+}
+
+.dv-row.has-comment,
+.dv-cell.has-comment {
+  box-shadow: inset 3px 0 0 var(--diff-comment);
+}
+
+.dv-num {
+  padding-right: 8px;
+  text-align: right;
+  color: var(--fg-dim);
+  cursor: pointer;
+  user-select: none;
+}
+
+.dv-plus {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--diff-comment);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dv-row:hover .dv-plus,
+.dv-cell:hover .dv-plus,
+.dv-plus:focus-visible {
+  opacity: 1;
+}
+
+.dv-sign {
+  color: var(--fg-dim);
+  user-select: none;
+}
+
+.dv-code {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.dv-code del,
+.dv-code ins {
+  color: inherit;
+  text-decoration: none;
+}
+
+.dv-code del {
+  background: var(--diff-del-word);
+}
+
+.dv-code ins {
+  background: var(--diff-add-word);
+}
+
+.dv-change {
+  margin: 4px 8px;
+  border: 1px solid var(--line-control);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.dv-change.current {
+  outline: 2px solid var(--edge);
+  outline-offset: 1px;
+}
+
+.dv-change-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 8px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--line);
+}
+
+.dv-label {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+}
+
+.dv-changetick {
+  margin-left: auto;
+  padding: 0 6px;
+  border: 1px solid var(--line-control);
+  border-radius: 4px;
+  background: none;
+  font: inherit;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.dv-changetick[aria-pressed="true"] {
+  background: var(--diff-add-word);
+  color: var(--fg);
+}
+
+.dv-folded {
+  display: block;
+  width: calc(100% - 16px);
+  margin: 4px 8px;
+  padding: 2px 8px;
+  border: 1px dashed var(--line-control);
+  background: var(--bg-raised);
+  font: inherit;
+  text-align: left;
+  color: var(--fg-dim);
+  cursor: pointer;
+}
+
+.dv-comment-ui {
+  margin: 6px 12px 6px 4.5em;
+  padding: 8px 10px;
+  border: 1px solid var(--line-control);
+  border-radius: 6px;
+  background: var(--bg-raised);
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  color: var(--fg);
+  cursor: default;
+}
+
+.dv-card-head,
+.dv-box-actions,
+.dv-resolved-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dv-card-lines {
+  margin-right: auto;
+  color: var(--fg-muted);
+}
+
+.dv-card-body {
+  margin-top: 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.dv-box-heading {
+  margin-bottom: 4px;
+  color: var(--fg-muted);
+}
+
+.dv-textarea {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--line-control);
+  border-radius: 4px;
+  background: var(--well);
+  font: inherit;
+  color: var(--fg);
+  resize: vertical;
+}
+
+.dv-resolved {
+  color: var(--fg-dim);
+}
+
+.dv-resolved-row {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--fg-dim);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dv-resolved-detail {
+  margin-top: 6px;
 }
 
 /* ── plan better-terminal: the ▾ Terminals opener, the `shell` count and the Terminals panel ── */

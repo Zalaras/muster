@@ -4,7 +4,7 @@ description: "Maintainability review agent: a newcomer's read of a plan's code c
 model: opus
 effort: high
 color: red
-disallowedTools: Edit, Write, MultiEdit, NotebookEdit
+disallowedTools: Edit, MultiEdit, NotebookEdit
 maxTurns: 150
 ---
 

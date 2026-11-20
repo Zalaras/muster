@@ -1,0 +1,787 @@
+{
+  "scenario": "diff-tiles",
+  "hello": {
+    "claudeCode": {
+      "floor": "2.1.246",
+      "installed": "2.1.300",
+      "status": "verified",
+      "verified": "2.1.300"
+    },
+    "daemon": {
+      "version": "0.0.0-renderfix"
+    },
+    "protocolVersion": 2,
+    "type": "hello"
+  },
+  "snapshot": {
+    "claudeTheme": {
+      "family": "unknown"
+    },
+    "groups": [],
+    "prefs": {
+      "density": "2x2",
+      "railActivity": "turn",
+      "railDensity": "comfortable",
+      "railSort": "manual",
+      "theme": "follow",
+      "updateCheck": true,
+      "usageModel": "Fable",
+      "view": "tiles"
+    },
+    "sessions": [
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-diff-app",
+        "claudeVersion": null,
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:00:00Z",
+        "directory": "/home/bob/projects/diff-app",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 1,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "note": null,
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 0,
+        "repo": {
+          "branch": "feature",
+          "isWorktree": false,
+          "name": "diff-app"
+        },
+        "restartPending": false,
+        "scratchpadDir": null,
+        "state": "idle",
+        "stateSince": "2026-01-01T00:01:00Z",
+        "title": "diff-app",
+        "titleOverride": null,
+        "tmuxTarget": "muster-1:@1",
+        "unread": true
+      }
+    ],
+    "terminals": {},
+    "terminalsRev": 0,
+    "type": "snapshot",
+    "ungrouped": {
+      "collapsed": false,
+      "pos": 0
+    },
+    "update": {
+      "apply": {
+        "error": null,
+        "phase": "idle",
+        "version": null
+      },
+      "available": null,
+      "canCheck": false,
+      "checkedAt": null,
+      "install": "dev",
+      "installed": null,
+      "remedy": null,
+      "running": "renderfix"
+    },
+    "usage": {
+      "fiveHour": null,
+      "modelScoped": null,
+      "modelScopedAt": null,
+      "modelScopedError": null,
+      "modelScopedSource": "subscription-api",
+      "sampledAt": null,
+      "sevenDay": null,
+      "source": "subscription"
+    }
+  },
+  "repos": [
+    {
+      "branch": "feature",
+      "id": 1,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:00:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "diff-app",
+      "path": "/home/bob/projects/diff-app",
+      "pinned": false
+    }
+  ],
+  "reader": [
+    {
+      "files": [
+        {
+          "body": "# Engine\n\nA small game engine.\n\nRun the tests with npm test.\n",
+          "path": "/home/bob/projects/diff-app/README.md"
+        },
+        {
+          "body": "# Notes\n\n- check the fallback word\n- ask about the retry budget\n",
+          "path": "/home/bob/projects/diff-app/src/notes.md"
+        }
+      ],
+      "listing": {
+        "directory": "/home/bob/projects/diff-app",
+        "files": [
+          {
+            "path": "README.md",
+            "writtenAt": null
+          },
+          {
+            "path": "src/notes.md",
+            "writtenAt": null
+          }
+        ],
+        "listing": "git",
+        "plan": null,
+        "scratch": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    }
+  ],
+  "diff": [
+    {
+      "branch": {
+        "base": "main @ 58cdff2",
+        "files": [
+          {
+            "additions": 2,
+            "binary": false,
+            "deletions": 0,
+            "hunks": [
+              {
+                "header": "@@ -1,3 +1,5 @@",
+                "lines": [
+                  {
+                    "kind": "context",
+                    "new": 1,
+                    "old": 1,
+                    "text": "# Engine"
+                  },
+                  {
+                    "kind": "context",
+                    "new": 2,
+                    "old": 2,
+                    "text": ""
+                  },
+                  {
+                    "kind": "context",
+                    "new": 3,
+                    "old": 3,
+                    "text": "A small game engine."
+                  },
+                  {
+                    "kind": "add",
+                    "new": 4,
+                    "old": null,
+                    "text": ""
+                  },
+                  {
+                    "kind": "add",
+                    "new": 5,
+                    "old": null,
+                    "text": "Run the tests with npm test."
+                  }
+                ],
+                "newLines": 5,
+                "newStart": 1,
+                "oldLines": 3,
+                "oldStart": 1
+              }
+            ],
+            "oldPath": null,
+            "path": "README.md",
+            "status": "modified"
+          },
+          {
+            "additions": 0,
+            "binary": true,
+            "deletions": 0,
+            "hunks": [],
+            "oldPath": null,
+            "path": "assets/logo.bin",
+            "status": "modified"
+          },
+          {
+            "additions": 1,
+            "binary": false,
+            "deletions": 0,
+            "hunks": [
+              {
+                "header": "@@ -4,3 +4,4 @@ export function clamp(n: number, lo: number, hi: number): number {",
+                "lines": [
+                  {
+                    "kind": "context",
+                    "new": 4,
+                    "old": 4,
+                    "text": ""
+                  },
+                  {
+                    "kind": "context",
+                    "new": 5,
+                    "old": 5,
+                    "text": "export const ZERO = 0;"
+                  },
+                  {
+                    "kind": "context",
+                    "new": 6,
+                    "old": 6,
+                    "text": "export const ONE = 1;"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 7,
+                    "old": null,
+                    "text": "export const TWO = 2;"
+                  }
+                ],
+                "newLines": 4,
+                "newStart": 4,
+                "oldLines": 3,
+                "oldStart": 4
+              }
+            ],
+            "oldPath": "src/util.ts",
+            "path": "src/helpers.ts",
+            "status": "renamed"
+          },
+          {
+            "additions": 0,
+            "binary": false,
+            "deletions": 2,
+            "hunks": [
+              {
+                "header": "@@ -1,2 +0,0 @@",
+                "lines": [
+                  {
+                    "kind": "del",
+                    "new": null,
+                    "old": 1,
+                    "text": "export const legacy = true;"
+                  },
+                  {
+                    "kind": "del",
+                    "new": null,
+                    "old": 2,
+                    "text": "export const oldFlag = false;"
+                  }
+                ],
+                "newLines": 0,
+                "newStart": 0,
+                "oldLines": 2,
+                "oldStart": 1
+              }
+            ],
+            "oldPath": null,
+            "path": "src/legacy.ts",
+            "status": "deleted"
+          },
+          {
+            "additions": 4,
+            "binary": false,
+            "deletions": 0,
+            "hunks": [
+              {
+                "header": "@@ -0,0 +1,4 @@",
+                "lines": [
+                  {
+                    "kind": "add",
+                    "new": 1,
+                    "old": null,
+                    "text": "# Notes"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 2,
+                    "old": null,
+                    "text": ""
+                  },
+                  {
+                    "kind": "add",
+                    "new": 3,
+                    "old": null,
+                    "text": "- check the fallback word"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 4,
+                    "old": null,
+                    "text": "- ask about the retry budget"
+                  }
+                ],
+                "newLines": 4,
+                "newStart": 1,
+                "oldLines": 0,
+                "oldStart": 0
+              }
+            ],
+            "oldPath": null,
+            "path": "src/notes.md",
+            "status": "added"
+          },
+          {
+            "additions": 5,
+            "binary": false,
+            "deletions": 4,
+            "hunks": [
+              {
+                "header": "@@ -2,9 +2,10 @@ import { words } from \"./words\";",
+                "lines": [
+                  {
+                    "kind": "context",
+                    "new": 2,
+                    "old": 2,
+                    "text": ""
+                  },
+                  {
+                    "kind": "context",
+                    "new": 3,
+                    "old": 3,
+                    "text": "export function pickPraise(score: number): string {"
+                  },
+                  {
+                    "kind": "context",
+                    "new": 4,
+                    "old": 4,
+                    "text": "  const list = words(score);"
+                  },
+                  {
+                    "kind": "del",
+                    "new": null,
+                    "old": 5,
+                    "text": "  let lastPraise = \"\";"
+                  },
+                  {
+                    "kind": "del",
+                    "new": null,
+                    "old": 6,
+                    "text": "  const count = list.length;"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 5,
+                    "old": null,
+                    "text": "  const previous = lastPraiseFor(score);"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 6,
+                    "old": null,
+                    "text": "  const fresh = list.filter((w) => w !== previous);"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 7,
+                    "old": null,
+                    "text": "  const count = fresh.length;"
+                  },
+                  {
+                    "kind": "context",
+                    "new": 8,
+                    "old": 7,
+                    "text": "  const index = score % count;"
+                  },
+                  {
+                    "kind": "del",
+                    "new": null,
+                    "old": 8,
+                    "text": "  // pick a praise word that is not the previous one, so repeated rounds never read as a stutter to the player"
+                  },
+                  {
+                    "kind": "del",
+                    "new": null,
+                    "old": 9,
+                    "text": "  return list[index] ?? lastPraise;"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 9,
+                    "old": null,
+                    "text": "  // pick a praise word that is not the previous one, so repeated rounds never read as a stammer to the player"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 10,
+                    "old": null,
+                    "text": "  return fresh[index] ?? previous;"
+                  },
+                  {
+                    "kind": "context",
+                    "new": 11,
+                    "old": 10,
+                    "text": "}"
+                  }
+                ],
+                "newLines": 10,
+                "newStart": 2,
+                "oldLines": 9,
+                "oldStart": 2
+              }
+            ],
+            "oldPath": null,
+            "path": "src/praise.ts",
+            "status": "modified"
+          }
+        ],
+        "fingerprint": "047c9f5797217bff",
+        "scope": "branch"
+      },
+      "review": {
+        "comments": [
+          {
+            "body": "Should this fall back to the previous word?",
+            "createdAt": "2026-01-01T00:02:00Z",
+            "end": {
+              "line": 10,
+              "side": "new"
+            },
+            "id": "c-single",
+            "path": "src/praise.ts",
+            "quote": [
+              "  return fresh[index] ?? previous;"
+            ],
+            "resolved": false,
+            "start": {
+              "line": 10,
+              "side": "new"
+            }
+          },
+          {
+            "body": "Why look the previous word up by score?",
+            "createdAt": "2026-01-01T00:03:00Z",
+            "end": {
+              "line": 6,
+              "side": "new"
+            },
+            "id": "c-range",
+            "path": "src/praise.ts",
+            "quote": [
+              "  const previous = lastPraiseFor(score);",
+              "  const fresh = list.filter((w) => w !== previous);"
+            ],
+            "resolved": false,
+            "start": {
+              "line": 5,
+              "side": "new"
+            }
+          },
+          {
+            "body": "This let is never reassigned.",
+            "createdAt": "2026-01-01T00:04:00Z",
+            "end": {
+              "line": 5,
+              "side": "old"
+            },
+            "id": "c-resolved",
+            "path": "src/praise.ts",
+            "quote": [
+              "  let lastPraise = \"\";"
+            ],
+            "resolved": true,
+            "start": {
+              "line": 5,
+              "side": "old"
+            }
+          },
+          {
+            "body": "This line has since gone.",
+            "createdAt": "2026-01-01T00:05:00Z",
+            "end": {
+              "line": 40,
+              "side": "new"
+            },
+            "id": "c-outdated",
+            "path": "src/praise.ts",
+            "quote": [
+              "  return PRAISE[index];"
+            ],
+            "resolved": false,
+            "start": {
+              "line": 40,
+              "side": "new"
+            }
+          }
+        ],
+        "ticks": [
+          "k1:5e2e1a30b17b4e9a",
+          "k1:5d244dfba3b64be2"
+        ]
+      },
+      "sessionId": 1,
+      "summary": {
+        "branch": {
+          "additions": 12,
+          "deletions": 6,
+          "files": 6,
+          "fingerprint": "047c9f5797217bff"
+        },
+        "openComments": 3,
+        "repo": true,
+        "uncommitted": {
+          "additions": 10,
+          "deletions": 6,
+          "files": 5,
+          "fingerprint": "b227a58c5d12aa7a"
+        }
+      },
+      "uncommitted": {
+        "base": "HEAD (2b3752a)",
+        "files": [
+          {
+            "additions": 0,
+            "binary": true,
+            "deletions": 0,
+            "hunks": [],
+            "oldPath": null,
+            "path": "assets/logo.bin",
+            "status": "modified"
+          },
+          {
+            "additions": 1,
+            "binary": false,
+            "deletions": 0,
+            "hunks": [
+              {
+                "header": "@@ -4,3 +4,4 @@ export function clamp(n: number, lo: number, hi: number): number {",
+                "lines": [
+                  {
+                    "kind": "context",
+                    "new": 4,
+                    "old": 4,
+                    "text": ""
+                  },
+                  {
+                    "kind": "context",
+                    "new": 5,
+                    "old": 5,
+                    "text": "export const ZERO = 0;"
+                  },
+                  {
+                    "kind": "context",
+                    "new": 6,
+                    "old": 6,
+                    "text": "export const ONE = 1;"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 7,
+                    "old": null,
+                    "text": "export const TWO = 2;"
+                  }
+                ],
+                "newLines": 4,
+                "newStart": 4,
+                "oldLines": 3,
+                "oldStart": 4
+              }
+            ],
+            "oldPath": "src/util.ts",
+            "path": "src/helpers.ts",
+            "status": "renamed"
+          },
+          {
+            "additions": 0,
+            "binary": false,
+            "deletions": 2,
+            "hunks": [
+              {
+                "header": "@@ -1,2 +0,0 @@",
+                "lines": [
+                  {
+                    "kind": "del",
+                    "new": null,
+                    "old": 1,
+                    "text": "export const legacy = true;"
+                  },
+                  {
+                    "kind": "del",
+                    "new": null,
+                    "old": 2,
+                    "text": "export const oldFlag = false;"
+                  }
+                ],
+                "newLines": 0,
+                "newStart": 0,
+                "oldLines": 2,
+                "oldStart": 1
+              }
+            ],
+            "oldPath": null,
+            "path": "src/legacy.ts",
+            "status": "deleted"
+          },
+          {
+            "additions": 4,
+            "binary": false,
+            "deletions": 0,
+            "hunks": [
+              {
+                "header": "@@ -0,0 +1,4 @@",
+                "lines": [
+                  {
+                    "kind": "add",
+                    "new": 1,
+                    "old": null,
+                    "text": "# Notes"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 2,
+                    "old": null,
+                    "text": ""
+                  },
+                  {
+                    "kind": "add",
+                    "new": 3,
+                    "old": null,
+                    "text": "- check the fallback word"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 4,
+                    "old": null,
+                    "text": "- ask about the retry budget"
+                  }
+                ],
+                "newLines": 4,
+                "newStart": 1,
+                "oldLines": 0,
+                "oldStart": 0
+              }
+            ],
+            "oldPath": null,
+            "path": "src/notes.md",
+            "status": "added"
+          },
+          {
+            "additions": 5,
+            "binary": false,
+            "deletions": 4,
+            "hunks": [
+              {
+                "header": "@@ -2,9 +2,10 @@ import { words } from \"./words\";",
+                "lines": [
+                  {
+                    "kind": "context",
+                    "new": 2,
+                    "old": 2,
+                    "text": ""
+                  },
+                  {
+                    "kind": "context",
+                    "new": 3,
+                    "old": 3,
+                    "text": "export function pickPraise(score: number): string {"
+                  },
+                  {
+                    "kind": "context",
+                    "new": 4,
+                    "old": 4,
+                    "text": "  const list = words(score);"
+                  },
+                  {
+                    "kind": "del",
+                    "new": null,
+                    "old": 5,
+                    "text": "  let lastPraise = \"\";"
+                  },
+                  {
+                    "kind": "del",
+                    "new": null,
+                    "old": 6,
+                    "text": "  const count = list.length;"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 5,
+                    "old": null,
+                    "text": "  const previous = lastPraiseFor(score);"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 6,
+                    "old": null,
+                    "text": "  const fresh = list.filter((w) => w !== previous);"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 7,
+                    "old": null,
+                    "text": "  const count = fresh.length;"
+                  },
+                  {
+                    "kind": "context",
+                    "new": 8,
+                    "old": 7,
+                    "text": "  const index = score % count;"
+                  },
+                  {
+                    "kind": "del",
+                    "new": null,
+                    "old": 8,
+                    "text": "  // pick a praise word that is not the previous one, so repeated rounds never read as a stutter to the player"
+                  },
+                  {
+                    "kind": "del",
+                    "new": null,
+                    "old": 9,
+                    "text": "  return list[index] ?? lastPraise;"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 9,
+                    "old": null,
+                    "text": "  // pick a praise word that is not the previous one, so repeated rounds never read as a stammer to the player"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 10,
+                    "old": null,
+                    "text": "  return fresh[index] ?? previous;"
+                  },
+                  {
+                    "kind": "context",
+                    "new": 11,
+                    "old": 10,
+                    "text": "}"
+                  }
+                ],
+                "newLines": 10,
+                "newStart": 2,
+                "oldLines": 9,
+                "oldStart": 2
+              }
+            ],
+            "oldPath": null,
+            "path": "src/praise.ts",
+            "status": "modified"
+          }
+        ],
+        "fingerprint": "b227a58c5d12aa7a",
+        "scope": "uncommitted"
+      }
+    }
+  ]
+}

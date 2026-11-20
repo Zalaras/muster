@@ -1,0 +1,221 @@
+{
+  "scenario": "diff-branch-only",
+  "hello": {
+    "claudeCode": {
+      "floor": "2.1.246",
+      "installed": "2.1.300",
+      "status": "verified",
+      "verified": "2.1.300"
+    },
+    "daemon": {
+      "version": "0.0.0-renderfix"
+    },
+    "protocolVersion": 2,
+    "type": "hello"
+  },
+  "snapshot": {
+    "claudeTheme": {
+      "family": "unknown"
+    },
+    "groups": [],
+    "prefs": {
+      "density": "2x2",
+      "railActivity": "turn",
+      "railDensity": "comfortable",
+      "railSort": "manual",
+      "theme": "follow",
+      "updateCheck": true,
+      "usageModel": "Fable",
+      "view": "focus"
+    },
+    "sessions": [
+      {
+        "addedDirs": [],
+        "alive": true,
+        "attention": null,
+        "backgroundTasks": 0,
+        "cache": null,
+        "claudeLocation": null,
+        "claudeSessionId": "cs-diff-branch-only",
+        "claudeVersion": null,
+        "context": {
+          "compactions": 0,
+          "totalInputTokens": null,
+          "usedPct": null,
+          "windowSize": null
+        },
+        "createdAt": "2026-01-01T00:00:00Z",
+        "directory": "/home/bob/projects/diff-branch-only",
+        "effort": null,
+        "effortWarning": null,
+        "endedAt": null,
+        "failure": null,
+        "firstLaunchHere": true,
+        "groupId": null,
+        "id": 1,
+        "lastActivity": "hi",
+        "lastPrompt": null,
+        "model": {
+          "displayName": "claude-sonnet-4-5-20250929",
+          "id": "claude-sonnet-4-5-20250929"
+        },
+        "note": null,
+        "permissionMode": {
+          "source": "hook",
+          "value": "default"
+        },
+        "pinned": false,
+        "plan": null,
+        "railPos": 0,
+        "repo": {
+          "branch": "feature",
+          "isWorktree": false,
+          "name": "diff-branch-only"
+        },
+        "restartPending": false,
+        "scratchpadDir": null,
+        "state": "idle",
+        "stateSince": "2026-01-01T00:01:00Z",
+        "title": "diff-branch-only",
+        "titleOverride": null,
+        "tmuxTarget": "muster-1:@1",
+        "unread": true
+      }
+    ],
+    "terminals": {},
+    "terminalsRev": 0,
+    "type": "snapshot",
+    "ungrouped": {
+      "collapsed": false,
+      "pos": 0
+    },
+    "update": {
+      "apply": {
+        "error": null,
+        "phase": "idle",
+        "version": null
+      },
+      "available": null,
+      "canCheck": false,
+      "checkedAt": null,
+      "install": "dev",
+      "installed": null,
+      "remedy": null,
+      "running": "renderfix"
+    },
+    "usage": {
+      "fiveHour": null,
+      "modelScoped": null,
+      "modelScopedAt": null,
+      "modelScopedError": null,
+      "modelScopedSource": "subscription-api",
+      "sampledAt": null,
+      "sevenDay": null,
+      "source": "subscription"
+    }
+  },
+  "repos": [
+    {
+      "branch": "feature",
+      "id": 1,
+      "isGit": true,
+      "lastEffort": null,
+      "lastLaunchedAt": "2026-01-01T00:00:00Z",
+      "lastModel": "sonnet",
+      "lastPermissionMode": "default",
+      "launchCount": 1,
+      "name": "diff-branch-only",
+      "path": "/home/bob/projects/diff-branch-only",
+      "pinned": false
+    }
+  ],
+  "reader": [
+    {
+      "files": [],
+      "listing": {
+        "directory": "/home/bob/projects/diff-branch-only",
+        "files": [],
+        "listing": "git",
+        "plan": null,
+        "scratch": null,
+        "truncated": false
+      },
+      "sessionId": 1
+    }
+  ],
+  "diff": [
+    {
+      "branch": {
+        "base": "main @ 8466f61",
+        "files": [
+          {
+            "additions": 2,
+            "binary": false,
+            "deletions": 1,
+            "hunks": [
+              {
+                "header": "@@ -1 +1,2 @@",
+                "lines": [
+                  {
+                    "kind": "del",
+                    "new": null,
+                    "old": 1,
+                    "text": "export const version = 1;"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 1,
+                    "old": null,
+                    "text": "export const version = 2;"
+                  },
+                  {
+                    "kind": "add",
+                    "new": 2,
+                    "old": null,
+                    "text": "export const channel = \"stable\";"
+                  }
+                ],
+                "newLines": 2,
+                "newStart": 1,
+                "oldLines": 1,
+                "oldStart": 1
+              }
+            ],
+            "oldPath": null,
+            "path": "src/version.ts",
+            "status": "modified"
+          }
+        ],
+        "fingerprint": "fe51865179f31fab",
+        "scope": "branch"
+      },
+      "review": {
+        "comments": [],
+        "ticks": []
+      },
+      "sessionId": 1,
+      "summary": {
+        "branch": {
+          "additions": 2,
+          "deletions": 1,
+          "files": 1,
+          "fingerprint": "fe51865179f31fab"
+        },
+        "openComments": 0,
+        "repo": true,
+        "uncommitted": {
+          "additions": 0,
+          "deletions": 0,
+          "files": 0,
+          "fingerprint": "25bfc33c4661370e"
+        }
+      },
+      "uncommitted": {
+        "base": "HEAD (138999f)",
+        "files": [],
+        "fingerprint": "25bfc33c4661370e",
+        "scope": "uncommitted"
+      }
+    }
+  ]
+}

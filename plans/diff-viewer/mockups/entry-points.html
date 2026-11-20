@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en" data-theme="instrument"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diff entry points</title>
+<link rel="stylesheet" href="../../../web/src/style.css">
+<link rel="stylesheet" href="mockup.css">
+</head><body>
+<svg width="0" height="0" aria-hidden="true" focusable="false" class="sprite"><symbol id="note-glyph" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="3" y="1.2" width="9.5" height="11.6" rx="1"/><path d="M1.5 4h3M1.5 7h3M1.5 10h3M6.5 5h4M6.5 7.5h4M6.5 10h2.5"/></symbol></svg>
+<div class="page">
+<h1>Where does the way into the diff live?</h1>
+<p class="q">The Focus header is already crowded, so a chip there squeezes the title and readout. Below are three other placements, each under the same long title, directory, branch and model.</p>
+<div class="toggle"><span>Mock state</span><div class="seg" role="group" aria-label="Session changes">
+<button type="button" class="seg-btn" data-state="has" aria-pressed="true">session has changes</button>
+<button type="button" class="seg-btn" data-state="none" aria-pressed="false">no changes</button></div></div>
+<section class="exp"><h2 class="part"><span class="tag">Current</span> Chip in the header</h2>
+<div class="mini"><aside class="rail"><div class="railhead">
+<select class="sel" aria-label="Sort"><option>Manual</option></select><span class="n">3 sessions</span></div>
+<div class="cards">
+<article class="card s-work current"><div class="stripe"></div><div class="card-in">
+<div class="r1"><span class="name">Refactor the billing reconciliation pipeline and migrate the nightly export jobs</span></div>
+<div class="r0"><span class="badge">working</span><span class="timer">4m 12s</span></div>
+<div class="r2"><span class="rf">enterprise-billing-reconciliation-service / packages/exporters</span><span class="rb">feature/nightly-export-migration-phase-2</span></div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+<div class="r1"><span class="name">Add retry to the webhook handler</span></div>
+<div class="r0"><span class="badge">idle</span><span class="timer">12m</span></div>
+<div class="r2"><span class="rf">webhook-gateway /</span><span class="rb">main</span></div>
+</div></article>
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+<div class="r1"><span class="name">Fix flaky date parsing in invoices</span></div>
+<div class="r0"><span class="badge">blocked</span><span class="timer">1m 08s</span></div>
+<div class="r2"><span class="rf">invoice-parser /</span><span class="rb">fix/date-parsing</span></div>
+</div></article>
+</div></aside><section class="main"><div class="mainhead"><div class="idrow">
+<button type="button" class="ng has" aria-label="Note"><svg aria-hidden="true" focusable="false"><use href="#note-glyph"/></svg></button>
+<h2 class="name"><button type="button" class="rename" title="Refactor the billing reconciliation pipeline and migrate the nightly export jobs">Refactor the billing reconciliation pipeline and migrate the nightly export jobs</button></h2>
+<button type="button" class="ingroup" title="Group"><span class="ig-name">billing</span><span aria-hidden="true">▾</span></button>
+<span class="meta"><span class="loc"><span class="repo"><span class="rf">enterprise-billing-reconciliation-service / packages/exporters</span><span class="rb">feature/nightly-export-migration-phase-2</span></span>
+<span class="sep" hidden>·</span><span class="claude-at" hidden><span class="lead">↳</span><span class="rf"></span></span><span class="sep">·</span></span>
+<span class="model">Sonnet 5.5 (medium)</span><span class="ended-at" hidden><span class="ended"></span></span></span></div>
+<div class="acts"><button type="button" class="dv-chip" data-diff aria-pressed="false" title="Uncommitted: 8 files +51 −9"><span class="dv-chip-f">8 files</span><b class="dv-addn">+51</b><b class="dv-deln">−9</b><span class="dv-chip-c">💬 2</span></button><div class="surfseg" role="group" aria-label="Surface"><button type="button" aria-pressed="true">claude</button><button type="button" aria-pressed="false">shell</button><button type="button" aria-pressed="false">docs</button></div>
+<button type="button" class="btn icon more" aria-label="Session actions">⋯</button></div></div><div class="pane"><div class="pcol"><div class="terminal-slot"><div class="terminal-surface"><pre class="terminal-body mock-term">● Read(packages/exporters/nightly.py)
+  ⎿  Read 212 lines
+● Update(packages/exporters/nightly.py)
+  ⎿  Updated with 14 additions and 3 removals
+● Bash(pytest packages/exporters -q)
+  ⎿  38 passed in 4.21s
+● The nightly export now batches by ledger and the old
+  cron entry is removed. Next I'll migrate the S3 sink.
+
+<span class="prompt">&gt;</span> <span class="cursor"> </span></pre></div></div></div></div></section></div><div class="cap"><p>Today's chip, in the header, under the stress data. The real header rules run here, so the title ellipsizes and the readout stacks.</p><ul><li>Good: built and working; shown only when the session has changes.</li><li>Cost: it sits in the busiest row, so a long title or long directory and branch makes it fight them for room.</li></ul></div></section><section class="exp"><h2 class="part"><span class="tag">A</span> On the rail card</h2>
+<div class="mini"><aside class="rail"><div class="railhead">
+<select class="sel" aria-label="Sort"><option>Manual</option></select><span class="n">3 sessions</span></div>
+<div class="cards">
+<article class="card s-work current"><div class="stripe"></div><div class="card-in">
+<div class="r1"><span class="name">Refactor the billing reconciliation pipeline and migrate the nightly export jobs</span></div>
+<div class="r0"><span class="badge">working</span><span class="timer">4m 12s</span></div>
+<div class="r2"><span class="rf">enterprise-billing-reconciliation-service / packages/exporters</span><span class="rb">feature/nightly-export-migration-phase-2</span></div><div class="r-dv"><button type="button" class="mk-rail" data-diff title="Open the diff"><span class="mk-rc-f">±8</span><b class="dv-addn">+51</b><b class="dv-deln">−9</b><span class="mk-rc-c">💬2</span></button></div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+<div class="r1"><span class="name">Add retry to the webhook handler</span></div>
+<div class="r0"><span class="badge">idle</span><span class="timer">12m</span></div>
+<div class="r2"><span class="rf">webhook-gateway /</span><span class="rb">main</span></div>
+</div></article>
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+<div class="r1"><span class="name">Fix flaky date parsing in invoices</span></div>
+<div class="r0"><span class="badge">blocked</span><span class="timer">1m 08s</span></div>
+<div class="r2"><span class="rf">invoice-parser /</span><span class="rb">fix/date-parsing</span></div><div class="r-dv"><button type="button" class="mk-rail" data-diff title="Open the diff"><span class="mk-rc-f">±3</span><b class="dv-addn">+12</b><b class="dv-deln">−4</b></button></div>
+</div></article>
+</div></aside><section class="main"><div class="mainhead"><div class="idrow">
+<button type="button" class="ng has" aria-label="Note"><svg aria-hidden="true" focusable="false"><use href="#note-glyph"/></svg></button>
+<h2 class="name"><button type="button" class="rename" title="Refactor the billing reconciliation pipeline and migrate the nightly export jobs">Refactor the billing reconciliation pipeline and migrate the nightly export jobs</button></h2>
+<button type="button" class="ingroup" title="Group"><span class="ig-name">billing</span><span aria-hidden="true">▾</span></button>
+<span class="meta"><span class="loc"><span class="repo"><span class="rf">enterprise-billing-reconciliation-service / packages/exporters</span><span class="rb">feature/nightly-export-migration-phase-2</span></span>
+<span class="sep" hidden>·</span><span class="claude-at" hidden><span class="lead">↳</span><span class="rf"></span></span><span class="sep">·</span></span>
+<span class="model">Sonnet 5.5 (medium)</span><span class="ended-at" hidden><span class="ended"></span></span></span></div>
+<div class="acts"><div class="surfseg" role="group" aria-label="Surface"><button type="button" aria-pressed="true">claude</button><button type="button" aria-pressed="false">shell</button><button type="button" aria-pressed="false">docs</button></div>
+<button type="button" class="btn icon more" aria-label="Session actions">⋯</button></div></div><div class="pane"><div class="pcol"><div class="terminal-slot"><div class="terminal-surface"><pre class="terminal-body mock-term">● Read(packages/exporters/nightly.py)
+  ⎿  Read 212 lines
+● Update(packages/exporters/nightly.py)
+  ⎿  Updated with 14 additions and 3 removals
+● Bash(pytest packages/exporters -q)
+  ⎿  38 passed in 4.21s
+● The nightly export now batches by ledger and the old
+  cron entry is removed. Next I'll migrate the S3 sink.
+
+<span class="prompt">&gt;</span> <span class="cursor"> </span></pre></div></div></div></div></section></div><div class="cap"><p>A changes chip on the rail card, under the repo and branch lines. Clicking it opens that session's diff. The header has nothing diff-related.</p><ul><li>Good: every session's changes are visible at a glance without focusing it; the header costs nothing.</li><li>Cost: the card gets one more line, and the Tiles view needs its own answer.</li></ul></div></section><section class="exp"><h2 class="part"><span class="tag">B</span> A strip under the pane</h2>
+<div class="mini"><aside class="rail"><div class="railhead">
+<select class="sel" aria-label="Sort"><option>Manual</option></select><span class="n">3 sessions</span></div>
+<div class="cards">
+<article class="card s-work current"><div class="stripe"></div><div class="card-in">
+<div class="r1"><span class="name">Refactor the billing reconciliation pipeline and migrate the nightly export jobs</span></div>
+<div class="r0"><span class="badge">working</span><span class="timer">4m 12s</span></div>
+<div class="r2"><span class="rf">enterprise-billing-reconciliation-service / packages/exporters</span><span class="rb">feature/nightly-export-migration-phase-2</span></div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+<div class="r1"><span class="name">Add retry to the webhook handler</span></div>
+<div class="r0"><span class="badge">idle</span><span class="timer">12m</span></div>
+<div class="r2"><span class="rf">webhook-gateway /</span><span class="rb">main</span></div>
+</div></article>
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+<div class="r1"><span class="name">Fix flaky date parsing in invoices</span></div>
+<div class="r0"><span class="badge">blocked</span><span class="timer">1m 08s</span></div>
+<div class="r2"><span class="rf">invoice-parser /</span><span class="rb">fix/date-parsing</span></div>
+</div></article>
+</div></aside><section class="main"><div class="mainhead"><div class="idrow">
+<button type="button" class="ng has" aria-label="Note"><svg aria-hidden="true" focusable="false"><use href="#note-glyph"/></svg></button>
+<h2 class="name"><button type="button" class="rename" title="Refactor the billing reconciliation pipeline and migrate the nightly export jobs">Refactor the billing reconciliation pipeline and migrate the nightly export jobs</button></h2>
+<button type="button" class="ingroup" title="Group"><span class="ig-name">billing</span><span aria-hidden="true">▾</span></button>
+<span class="meta"><span class="loc"><span class="repo"><span class="rf">enterprise-billing-reconciliation-service / packages/exporters</span><span class="rb">feature/nightly-export-migration-phase-2</span></span>
+<span class="sep" hidden>·</span><span class="claude-at" hidden><span class="lead">↳</span><span class="rf"></span></span><span class="sep">·</span></span>
+<span class="model">Sonnet 5.5 (medium)</span><span class="ended-at" hidden><span class="ended"></span></span></span></div>
+<div class="acts"><div class="surfseg" role="group" aria-label="Surface"><button type="button" aria-pressed="true">claude</button><button type="button" aria-pressed="false">shell</button><button type="button" aria-pressed="false">docs</button></div>
+<button type="button" class="btn icon more" aria-label="Session actions">⋯</button></div></div><div class="pane"><div class="pcol"><div class="terminal-slot"><div class="terminal-surface"><pre class="terminal-body mock-term">● Read(packages/exporters/nightly.py)
+  ⎿  Read 212 lines
+● Update(packages/exporters/nightly.py)
+  ⎿  Updated with 14 additions and 3 removals
+● Bash(pytest packages/exporters -q)
+  ⎿  38 passed in 4.21s
+● The nightly export now batches by ledger and the old
+  cron entry is removed. Next I'll migrate the S3 sink.
+
+<span class="prompt">&gt;</span> <span class="cursor"> </span></pre></div></div>
+<div class="mk-strip" data-diff><span class="mk-sl"><span class="mk-sf">8 files changed</span><b class="dv-addn">+51</b><b class="dv-deln">−9</b><span class="mk-dot">·</span><span class="mk-sc">2 comments</span></span>
+<button type="button" class="mk-sgo">View diff ›</button></div></div></div></section></div><div class="cap"><p>A thin status bar docked at the bottom edge of the pane. It exists only while there are changes; with none, the pane uses the full height.</p><ul><li>Good: the header is untouched and there is plenty of room for counts and comments.</li><li>Cost: it takes about 24px of terminal height while changes exist, and it is far from where the eye rests.</li></ul></div></section><section class="exp"><h2 class="part"><span class="tag">C</span> A tab on the pane's right edge, closed</h2>
+<div class="mini"><aside class="rail"><div class="railhead">
+<select class="sel" aria-label="Sort"><option>Manual</option></select><span class="n">3 sessions</span></div>
+<div class="cards">
+<article class="card s-work current"><div class="stripe"></div><div class="card-in">
+<div class="r1"><span class="name">Refactor the billing reconciliation pipeline and migrate the nightly export jobs</span></div>
+<div class="r0"><span class="badge">working</span><span class="timer">4m 12s</span></div>
+<div class="r2"><span class="rf">enterprise-billing-reconciliation-service / packages/exporters</span><span class="rb">feature/nightly-export-migration-phase-2</span></div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+<div class="r1"><span class="name">Add retry to the webhook handler</span></div>
+<div class="r0"><span class="badge">idle</span><span class="timer">12m</span></div>
+<div class="r2"><span class="rf">webhook-gateway /</span><span class="rb">main</span></div>
+</div></article>
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+<div class="r1"><span class="name">Fix flaky date parsing in invoices</span></div>
+<div class="r0"><span class="badge">blocked</span><span class="timer">1m 08s</span></div>
+<div class="r2"><span class="rf">invoice-parser /</span><span class="rb">fix/date-parsing</span></div>
+</div></article>
+</div></aside><section class="main"><div class="mainhead"><div class="idrow">
+<button type="button" class="ng has" aria-label="Note"><svg aria-hidden="true" focusable="false"><use href="#note-glyph"/></svg></button>
+<h2 class="name"><button type="button" class="rename" title="Refactor the billing reconciliation pipeline and migrate the nightly export jobs">Refactor the billing reconciliation pipeline and migrate the nightly export jobs</button></h2>
+<button type="button" class="ingroup" title="Group"><span class="ig-name">billing</span><span aria-hidden="true">▾</span></button>
+<span class="meta"><span class="loc"><span class="repo"><span class="rf">enterprise-billing-reconciliation-service / packages/exporters</span><span class="rb">feature/nightly-export-migration-phase-2</span></span>
+<span class="sep" hidden>·</span><span class="claude-at" hidden><span class="lead">↳</span><span class="rf"></span></span><span class="sep">·</span></span>
+<span class="model">Sonnet 5.5 (medium)</span><span class="ended-at" hidden><span class="ended"></span></span></span></div>
+<div class="acts"><div class="surfseg" role="group" aria-label="Surface"><button type="button" aria-pressed="true">claude</button><button type="button" aria-pressed="false">shell</button><button type="button" aria-pressed="false">docs</button></div>
+<button type="button" class="btn icon more" aria-label="Session actions">⋯</button></div></div><div class="pane"><div class="pcol"><div class="terminal-slot"><div class="terminal-surface"><pre class="terminal-body mock-term">● Read(packages/exporters/nightly.py)
+  ⎿  Read 212 lines
+● Update(packages/exporters/nightly.py)
+  ⎿  Updated with 14 additions and 3 removals
+● Bash(pytest packages/exporters -q)
+  ⎿  38 passed in 4.21s
+● The nightly export now batches by ledger and the old
+  cron entry is removed. Next I'll migrate the S3 sink.
+
+<span class="prompt">&gt;</span> <span class="cursor"> </span></pre></div></div></div><button type="button" class="mk-tab" data-diff title="Open the diff beside the terminal"><span class="mk-tab-l">Diff · 8</span><span class="mk-tab-bar"><i class="a"></i><i class="d"></i></span></button></div></section></div><div class="cap"><p>A small vertical tab on the pane's right edge, centred, with a tiny add/delete bar. Closed state.</p><ul><li>Good: the header is untouched; the tab stays out of the way until wanted.</li><li>Cost: a new kind of control, and it is small, so counts are cramped.</li></ul></div></section><section class="exp"><h2 class="part"><span class="tag">C</span> The same tab, open</h2>
+<div class="mini"><aside class="rail"><div class="railhead">
+<select class="sel" aria-label="Sort"><option>Manual</option></select><span class="n">3 sessions</span></div>
+<div class="cards">
+<article class="card s-work current"><div class="stripe"></div><div class="card-in">
+<div class="r1"><span class="name">Refactor the billing reconciliation pipeline and migrate the nightly export jobs</span></div>
+<div class="r0"><span class="badge">working</span><span class="timer">4m 12s</span></div>
+<div class="r2"><span class="rf">enterprise-billing-reconciliation-service / packages/exporters</span><span class="rb">feature/nightly-export-migration-phase-2</span></div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+<div class="r1"><span class="name">Add retry to the webhook handler</span></div>
+<div class="r0"><span class="badge">idle</span><span class="timer">12m</span></div>
+<div class="r2"><span class="rf">webhook-gateway /</span><span class="rb">main</span></div>
+</div></article>
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+<div class="r1"><span class="name">Fix flaky date parsing in invoices</span></div>
+<div class="r0"><span class="badge">blocked</span><span class="timer">1m 08s</span></div>
+<div class="r2"><span class="rf">invoice-parser /</span><span class="rb">fix/date-parsing</span></div>
+</div></article>
+</div></aside><section class="main"><div class="mainhead"><div class="idrow">
+<button type="button" class="ng has" aria-label="Note"><svg aria-hidden="true" focusable="false"><use href="#note-glyph"/></svg></button>
+<h2 class="name"><button type="button" class="rename" title="Refactor the billing reconciliation pipeline and migrate the nightly export jobs">Refactor the billing reconciliation pipeline and migrate the nightly export jobs</button></h2>
+<button type="button" class="ingroup" title="Group"><span class="ig-name">billing</span><span aria-hidden="true">▾</span></button>
+<span class="meta"><span class="loc"><span class="repo"><span class="rf">enterprise-billing-reconciliation-service / packages/exporters</span><span class="rb">feature/nightly-export-migration-phase-2</span></span>
+<span class="sep" hidden>·</span><span class="claude-at" hidden><span class="lead">↳</span><span class="rf"></span></span><span class="sep">·</span></span>
+<span class="model">Sonnet 5.5 (medium)</span><span class="ended-at" hidden><span class="ended"></span></span></span></div>
+<div class="acts"><div class="surfseg" role="group" aria-label="Surface"><button type="button" aria-pressed="true">claude</button><button type="button" aria-pressed="false">shell</button><button type="button" aria-pressed="false">docs</button></div>
+<button type="button" class="btn icon more" aria-label="Session actions">⋯</button></div></div><div class="pane"><div class="pcol"><div class="terminal-slot"><div class="terminal-surface"><pre class="terminal-body mock-term">● Read(packages/exporters/nightly.py)
+  ⎿  Read 212 lines
+● Update(packages/exporters/nightly.py)
+  ⎿  Updated with 14 additions and 3 removals
+● Bash(pytest packages/exporters -q)
+  ⎿  38 passed in 4.21s
+● The nightly export now batches by ledger and the old
+  cron entry is removed. Next I'll migrate the S3 sink.
+
+<span class="prompt">&gt;</span> <span class="cursor"> </span></pre></div></div></div><aside class="mk-side" data-diff>
+<div class="mk-sh"><span class="dv-chip-f">Diff · uncommitted</span><b class="dv-addn">+51</b><b class="dv-deln">−9</b><span class="dv-chip-c">💬 2</span><button type="button" class="dv-chip dv-close" aria-label="Close">×</button></div>
+<div class="mk-files"><span class="on">nightly.py <b class="dv-addn">+14</b></span><span>sink_s3.py <b class="dv-addn">+9</b> <b class="dv-deln">−2</b></span><span>crontab.yml <b class="dv-deln">−3</b></span><span class="more">+5 more</span></div>
+<div class="mk-code">
+<div class="ln hunk">@@ nightly.py · def run_nightly()</div>
+<div class="ln"><i>41</i>  ledgers = load_ledgers(day)</div>
+<div class="ln del"><i>42</i>- for l in ledgers: export(l)</div>
+<div class="ln add"><i>42</i>+ for batch in chunk(ledgers, 50):</div>
+<div class="ln add"><i>43</i>+     export_batch(batch, sink=S3Sink())</div>
+<div class="ln cm"><span>💬 should the batch size be configurable?</span></div>
+<div class="ln"><i>44</i>  mark_done(day)</div>
+<div class="ln hunk">@@ sink_s3.py</div>
+<div class="ln add"><i>12</i>+ class S3Sink(Sink):</div>
+<div class="ln add"><i>13</i>+     retries = 3</div>
+</div></aside></div></section></div><div class="cap"><p>The same tab, clicked: the diff slides in beside the terminal and takes about 45% of the pane. The terminal stays visible on the left.</p><ul><li>Good: terminal and diff visible together.</li><li>Cost: the terminal gets narrower while it is open, and it is a new kind of panel.</li></ul></div></section>
+</div>
+<script>
+// Mock-only. The toggle hides every diff entry; fit() is a port of render/mainhead.ts's
+// fitMainheadMeta so the static header stacks the way the live one does.
+function sharesRow(a,b){return a.getBoundingClientRect().top < b.getBoundingClientRect().bottom - 1;}
+function fit(root){
+  var meta=root.querySelector('.meta'), loc=meta.querySelector('.loc');
+  meta.style.removeProperty('--loc-cap'); meta.classList.remove('stacked'); loc.classList.remove('repo-only');
+  loc.classList.add('repo-only');
+  var repo=loc.querySelector('.repo'), box=repo.getBoundingClientRect();
+  var room=parseFloat(getComputedStyle(repo).marginRight)||0;
+  meta.style.setProperty('--loc-cap',(box.right+room-loc.getBoundingClientRect().left)+'px');
+  var title=root.querySelector('.name');
+  if(sharesRow(meta,title)) return;
+  meta.classList.add('stacked');
+  var rn=title.querySelector('.rename');
+  if(rn.scrollWidth>rn.clientWidth){
+    var nat=meta.style.getPropertyValue('--loc-cap');
+    meta.style.setProperty('--loc-cap','min(var(--loc-floor), '+nat+')');
+  }
+}
+function fitAll(){document.querySelectorAll('.mainhead').forEach(fit);}
+document.querySelectorAll('[data-state]').forEach(function(b){b.addEventListener('click',function(){
+  document.body.classList.toggle('nochanges', b.dataset.state==='none');
+  document.querySelectorAll('[data-state]').forEach(function(x){x.setAttribute('aria-pressed', String(x===b));});
+  fitAll();
+});});
+fitAll(); if(document.fonts&&document.fonts.ready) document.fonts.ready.then(fitAll);
+</script></body></html>

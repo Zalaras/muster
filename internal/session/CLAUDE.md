@@ -23,9 +23,10 @@
 - Per-transition tests miss invariants; name each invariant and cross it from every source state (kb:lesson/invariant-missed-by-per-transition-tests).
 
 <!-- kb:trailer -->
-<!-- kb:hash 9703880e676974b8 -->
+<!-- kb:hash cb6bf9129db9548f -->
 - **actions** — Stop, Resume, Remove and Restart a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **card-location** — The card's launch directory, its branch kept fresh by the repo poll, where Claude works when elsewhere, the directories added to it, and the bind's model name. → `docs/features/card-location/INDEX.md`
+- **diff** — A session's code diff in the dashboard — a size-row button, Unified, Split and Review views, ticks and comments kept with the session. → `docs/features/diff/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`
 - **notes** — A persistent, markdown-rendered note per session, edited from the Focus header and peeked from the rail card and tile header. → `docs/features/notes/INDEX.md`

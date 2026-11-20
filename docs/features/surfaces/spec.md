@@ -55,6 +55,10 @@ reads `shell`; a count beside it shows once two or more terminals run, and its t
 terminal on screen. A new terminal is named `shell N`, the lowest number free in its session, until
 renamed; a name lasts as long as its terminal. When the terminal on screen ends, the
 lowest-numbered running terminal of the session takes its place, or claude when none is left.
+While the diff viewer is open no segment of the surface switch is selected; choosing a segment, or
+picking or creating a terminal from the Terminals panel, closes the viewer and shows that surface;
+opening the panel, or renaming or closing a terminal from it, leaves the viewer open; closing the
+viewer any other way returns to the surface that was selected (kb:spec/diff).
 A window ignores a terminals list older than a spawn, close or rename reply it has already acted
 on, so a late list never undoes one.
 A terminal is spawned lazily by `kb:anchor/sessions.shell` and attached over

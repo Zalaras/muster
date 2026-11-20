@@ -19,10 +19,11 @@
 - A fixture reshaped to stay green changes the wire (kb:lesson/stale-fixture-reshaped-the-wire).
 
 <!-- kb:trailer -->
-<!-- kb:hash 096b5c2b0b09832e -->
+<!-- kb:hash 5720d4ba9d1a87bf -->
 - **actions** — Stop, Resume, Remove and Restart a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **card-location** — The card's launch directory, its branch kept fresh by the repo poll, where Claude works when elsewhere, the directories added to it, and the bind's model name. → `docs/features/card-location/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
+- **diff** — A session's code diff in the dashboard — a size-row button, Unified, Split and Review views, ticks and comments kept with the session. → `docs/features/diff/INDEX.md`
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
 - **groups** — Rail groups: sections, header summary and popover, select mode, filter, group create, rename, ungroup and delete, persistence. → `docs/features/groups/INDEX.md`
@@ -40,5 +41,5 @@
 - **theme** — Muster theme preference and the Claude theme family poll. → `docs/features/theme/INDEX.md`
 - **update** — Release check, minisign-verified apply, in-place restart with sessions re-adopted. → `docs/features/update/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 90 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 91 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

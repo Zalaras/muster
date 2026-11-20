@@ -23,7 +23,7 @@ session id; hook events drive state, the status-line event refreshes readings an
 state, and an event whose envelope names no session stays unrouted.
 **Context Usage** is the session's reading of its context window. **Account Usage** is the
 account's rate-limit readings, fed by any session's status events and Muster's poll.
-**Claude's Session Plan** is the document Claude writes in plan mode, at most one. The dashboard looks at a session through three **Tabs**; the Claude and Shell tabs each
+**Claude's Session Plan** is the document Claude writes in plan mode, at most one. The dashboard shows a session through three **Tabs** (not the diff viewer); the Claude and Shell tabs
 attach to one Terminal at a time, live in one client at a time. **User Settings** are one set per install. A **Group** is a named, ordered, collapsible rail
 section the developer made; a Session belongs to at most one (kb:spec/rail).
 
@@ -44,6 +44,7 @@ classDiagram
         permission_mode: default, acceptEdits, plan, auto
         title, title_override
         note: the developer's own text, Muster-owned
+        diff review: comments and ticks, Muster-owned
         branch, is_worktree
         pane snapshot when dead
         pinned, position

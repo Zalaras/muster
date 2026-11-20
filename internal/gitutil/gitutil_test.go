@@ -160,22 +160,22 @@ func TestIsWorktree_ComparesResolvedPaths(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := &gitRunner{run: func(_ context.Context, dir, _ string, args ...string) ([]byte, error) {
+			g := &Git{run: func(_ context.Context, dir string, _ []string, _ string, args ...string) ([]byte, error) {
 				assert.Equal(t, tc.dir, dir)
 				assert.Equal(t, []string{"rev-parse", "--git-dir", "--git-common-dir"}, args)
 				return []byte(tc.out), nil
 			}}
 
-			assert.Equal(t, tc.want, g.isWorktree(context.Background(), tc.dir))
+			assert.Equal(t, tc.want, g.IsWorktree(context.Background(), tc.dir))
 		})
 	}
 
 	t.Run("a failing git is not a worktree", func(t *testing.T) {
-		g := &gitRunner{run: func(context.Context, string, string, ...string) ([]byte, error) {
+		g := &Git{run: func(context.Context, string, []string, string, ...string) ([]byte, error) {
 			return []byte("a\nb\n"), errors.New("exit status 128")
 		}}
 
-		assert.False(t, g.isWorktree(context.Background(), repo))
+		assert.False(t, g.IsWorktree(context.Background(), repo))
 	})
 }
 
@@ -185,22 +185,22 @@ func TestIsWorktree_ComparesResolvedPaths(t *testing.T) {
 // not-ignored split the reader depends on.
 
 func TestGitRunner_ListFiles_ParsesNulSeparatedOutput(t *testing.T) {
-	g := &gitRunner{run: func(context.Context, string, string, ...string) ([]byte, error) {
+	g := &Git{run: func(context.Context, string, []string, string, ...string) ([]byte, error) {
 		return []byte("zeta.md\x00notes.txt\x00docs/alpha.md\x00"), nil
 	}}
 
-	paths, err := g.listFiles(context.Background(), "/some/dir")
+	paths, err := g.ListFiles(context.Background(), "/some/dir")
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"zeta.md", "notes.txt", "docs/alpha.md"}, paths)
 }
 
 func TestGitRunner_ListFiles_EmptyOutputIsNilNotEmptySlice(t *testing.T) {
-	g := &gitRunner{run: func(context.Context, string, string, ...string) ([]byte, error) {
+	g := &Git{run: func(context.Context, string, []string, string, ...string) ([]byte, error) {
 		return nil, nil
 	}}
 
-	paths, err := g.listFiles(context.Background(), "/some/dir")
+	paths, err := g.ListFiles(context.Background(), "/some/dir")
 
 	require.NoError(t, err)
 	assert.Nil(t, paths)
@@ -208,11 +208,11 @@ func TestGitRunner_ListFiles_EmptyOutputIsNilNotEmptySlice(t *testing.T) {
 
 func TestGitRunner_ListFiles_RunErrorPropagates(t *testing.T) {
 	wantErr := errors.New("exit status 128: not a git repository")
-	g := &gitRunner{run: func(context.Context, string, string, ...string) ([]byte, error) {
+	g := &Git{run: func(context.Context, string, []string, string, ...string) ([]byte, error) {
 		return nil, wantErr
 	}}
 
-	_, err := g.listFiles(context.Background(), "/some/dir")
+	_, err := g.ListFiles(context.Background(), "/some/dir")
 
 	assert.ErrorIs(t, err, wantErr)
 }
@@ -257,12 +257,17 @@ func TestGitRunner_TopLevel(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var gotArgs []string
-			g := &gitRunner{run: func(_ context.Context, _, _ string, args ...string) ([]byte, error) {
+			g := &Git{run: func(_ context.Context, _ string, _ []string, _ string, args ...string) ([]byte, error) {
 				gotArgs = args
 				return []byte(tc.out), tc.err
 			}}
 
-			assert.Equal(t, tc.want, g.topLevel(context.Background(), "/repo/sub"))
+			top, err := g.Root(context.Background(), "/repo/sub")
+			if tc.want == nil {
+				require.Error(t, err)
+			} else {
+				assert.Equal(t, *tc.want, top)
+			}
 			assert.Equal(t, []string{"rev-parse", "--show-toplevel"}, gotArgs)
 		})
 	}
@@ -302,3 +307,52 @@ func TestTopLevel_RealGit(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+func TestGitRunner_Root_ExitCode128IsErrNotRepo(t *testing.T) {
+	// A real non-repo dir yields git's own exit 128; the fake seam would not carry a real *exec.ExitError.
+	dir := t.TempDir()
+	_, err := NewGit(Exec).Root(context.Background(), dir)
+	require.ErrorIs(t, err, ErrNotRepo)
+
+	t.Run("another failure is returned as itself", func(t *testing.T) {
+		boom := errors.New("boom")
+		_, err := NewGit(func(context.Context, string, []string, string, ...string) ([]byte, error) { return nil, boom }).Root(context.Background(), dir)
+		require.ErrorIs(t, err, boom)
+		assert.NotErrorIs(t, err, ErrNotRepo)
+	})
+
+	t.Run("empty output is not a repo", func(t *testing.T) {
+		_, err := NewGit(func(context.Context, string, []string, string, ...string) ([]byte, error) { return []byte("\n"), nil }).Root(context.Background(), dir)
+		require.ErrorIs(t, err, ErrNotRepo)
+	})
+
+	t.Run("a checkout root is trimmed", func(t *testing.T) {
+		repo := initRepoWithOneCommit(t)
+		top, err := NewGit(Exec).Root(context.Background(), repo)
+		require.NoError(t, err)
+		assert.NotEmpty(t, top)
+	})
+}
+
+// Exec runs git lock-free with quotepath off, and passes WithEnv's variables through.
+func TestExec_IsLockFreeAndHonoursWithEnv(t *testing.T) {
+	dir := t.TempDir()
+	probe := filepath.Join(t.TempDir(), "probe")
+	require.NoError(t, os.WriteFile(probe, []byte("#!/bin/sh\nprintf '%s|%s|' \"$GIT_OPTIONAL_LOCKS\" \"$MUSTER_PROBE\"\nprintf '%s ' \"$@\"\n"), 0o755))
+
+	out, err := Exec(context.Background(), dir, nil, probe, "x")
+	require.NoError(t, err)
+	assert.Equal(t, "0||--no-optional-locks -c core.quotepath=off x ", string(out), "locks off in env and argv, quotepath off")
+
+	out, err = Exec(context.Background(), dir, []string{"MUSTER_PROBE=yes"}, probe)
+	require.NoError(t, err)
+	assert.Equal(t, "0|yes|--no-optional-locks -c core.quotepath=off ", string(out))
+
+	t.Run("a non-ASCII path is printed raw", func(t *testing.T) {
+		repo := initRepoWithOneCommit(t)
+		require.NoError(t, os.WriteFile(filepath.Join(repo, "é.txt"), []byte("x"), 0o644))
+		out, err := Exec(context.Background(), repo, nil, "git", "ls-files", "-o")
+		require.NoError(t, err)
+		assert.Contains(t, string(out), "é.txt")
+	})
+}

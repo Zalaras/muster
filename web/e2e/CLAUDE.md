@@ -22,10 +22,11 @@
 - Rail card and strip card share one template; scope locators to the host.
 
 <!-- kb:trailer -->
-<!-- kb:hash 67a4c9c753b29aa4 -->
+<!-- kb:hash ac70e7575c2abafc -->
 - **actions** — Stop, Resume, Remove and Restart a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **card-location** — The card's launch directory, its branch kept fresh by the repo poll, where Claude works when elsewhere, the directories added to it, and the bind's model name. → `docs/features/card-location/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
+- **diff** — A session's code diff in the dashboard — a size-row button, Unified, Split and Review views, ticks and comments kept with the session. → `docs/features/diff/INDEX.md`
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
 - **groups** — Rail groups: sections, header summary and popover, select mode, filter, group create, rename, ungroup and delete, persistence. → `docs/features/groups/INDEX.md`

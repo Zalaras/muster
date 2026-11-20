@@ -4,7 +4,7 @@ description: "Browser review agent: drives the real dashboard against a scratch 
 model: opus
 effort: medium
 color: red
-disallowedTools: Edit, Write, MultiEdit, NotebookEdit
+disallowedTools: Edit, MultiEdit, NotebookEdit
 maxTurns: 150
 ---
 

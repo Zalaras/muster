@@ -51,8 +51,10 @@ whenever the title is shortened. Below about 316px of header content the cluster
 and stays one row. The group control hides whole while the header's content box is under 640px and
 stays above it (kb:adr/focus-group-control-hides-below-640px-container-width). The main slot hosts the focused
 session's live surface; when the session is dead and the Claude surface is selected it shows
-the dead surface instead (kb:spec/actions). A size note under the pane states the pane's
-real geometry.
+the dead surface instead (kb:spec/actions). The row under the pane holds the size note, stating the pane's
+real geometry, and at its right end the diff button while the session's checkout has changes or open
+comments (kb:spec/diff); the row shows with only the button where the pane has no size note. The
+main slot shows the diff viewer while it is open (kb:spec/diff).
 
 A session launched at a level it did not come up at shows a warning strip under the mainhead, in the
 warning tokens, naming the requested and actual level, and tints the effort the same; Dismiss clears both

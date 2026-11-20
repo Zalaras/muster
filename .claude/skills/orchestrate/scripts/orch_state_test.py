@@ -53,6 +53,16 @@ class Filter(unittest.TestCase):
             self.assertEqual(orch.critic_strikes(p), {"web/src/x.ts:setText:duplicate helper"})
             self.assertEqual(orch.critic_strikes(pathlib.Path(d) / "nope"), set())
 
+class RetryReview(unittest.TestCase):
+    def test_refused_until_this_cycles_review_is_archived(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = pathlib.Path(d); s = {"review_cycle": 2, "retry_counts": {"review": 1}}
+            self.assertFalse(orch.review_archived(p, s))
+            (p / "review.cycle1.md").write_text("old cycle")                     # an earlier cycle does not count
+            self.assertFalse(orch.review_archived(p, s))
+            (p / "review.cycle2.md").write_text("this cycle")
+            self.assertTrue(orch.review_archived(p, s))
+
 class Prototype(unittest.TestCase):
     def test_init_sees_a_surviving_prototype_branch(self):
         import subprocess

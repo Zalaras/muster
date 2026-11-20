@@ -7,39 +7,71 @@ package gitutil
 
 import (
 	"context"
+	"errors"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
-// gitRunner holds the one subprocess seam every query in this file crosses (the
+// Git holds the one subprocess seam every query in this file crosses (the
 // constructor-default shape docs/conventions.md § Testing names —
-// kb:adr/process-adapter-run-seam-constructor-default): production always runGit,
-// same-package tests overwrite the field directly. Built fresh per call, the same as
-// tmux.Preflight's newPreflighter(), since none of gitutil's functions carry any
-// per-call config beyond ctx and dir. The stdout-only shape
+// kb:adr/process-adapter-run-seam-constructor-default): the package-level functions build
+// NewGit(Exec) per call, internal/gitdiff builds one with its own RunFunc, and
+// same-package tests overwrite the field directly. The stdout-only shape
 // (kb:adr/process-adapter-run-seam-constructor-default's "one signature per output
 // need") is claudecode.execFunc/tmux's preflighter.run/locate.SpotlightFinder.run's own
-// `func(ctx, name string, args ...string) ([]byte, error)`, with dir prepended — every
-// git invocation needs a working directory, and name/args still carry the argv the same
-// way, even though runGit's own name is always "git" (mirroring tmux.Client.exec's own
-// field, always called with "tmux").
-type gitRunner struct {
-	run func(ctx context.Context, dir, name string, args ...string) ([]byte, error)
+// `func(ctx, name string, args ...string) ([]byte, error)`, with dir and env prepended —
+// every git invocation needs a working directory, and a caller that points git at
+// another index says so in env, where a fake runner sees it; name/args still carry the
+// argv the same way, even though Exec's name is always "git" (mirroring tmux.Client.exec's
+// own field, always called with "tmux").
+type Git struct {
+	run RunFunc
 }
 
-func newGitRunner() *gitRunner {
-	return &gitRunner{run: runGit}
+type RunFunc func(ctx context.Context, dir string, env []string, name string, args ...string) ([]byte, error)
+
+var ErrNotRepo = errors.New("not a git repository")
+
+const gitTimeout = 30 * time.Second
+
+func NewGit(run RunFunc) *Git {
+	return &Git{run: run}
+}
+
+func (g *Git) Run(ctx context.Context, dir string, env []string, args ...string) ([]byte, error) {
+	return g.run(ctx, dir, env, "git", args...)
+}
+
+func (g *Git) Root(ctx context.Context, dir string) (string, error) {
+	out, err := g.run(ctx, dir, nil, "git", "rev-parse", "--show-toplevel")
+	if err != nil {
+		var exit *exec.ExitError
+		if errors.As(err, &exit) && exit.ExitCode() == 128 {
+			return "", ErrNotRepo
+		}
+		return "", err
+	}
+	top := strings.TrimSpace(string(out))
+	if top == "" {
+		return "", ErrNotRepo
+	}
+	return top, nil
+}
+
+func (g *Git) ListUntracked(ctx context.Context, dir string) ([]string, error) {
+	return g.files(ctx, dir, "-o")
 }
 
 // IsRepo reports whether dir is inside a git working tree.
 func IsRepo(ctx context.Context, dir string) bool {
-	return newGitRunner().isRepo(ctx, dir)
+	return NewGit(Exec).IsRepo(ctx, dir)
 }
 
-func (g *gitRunner) isRepo(ctx context.Context, dir string) bool {
-	out, err := g.run(ctx, dir, "git", "rev-parse", "--is-inside-work-tree")
+func (g *Git) IsRepo(ctx context.Context, dir string) bool {
+	out, err := g.run(ctx, dir, nil, "git", "rev-parse", "--is-inside-work-tree")
 	return err == nil && strings.TrimSpace(string(out)) == "true"
 }
 
@@ -47,11 +79,11 @@ func (g *gitRunner) isRepo(ctx context.Context, dir string) bool {
 // a detached-HEAD state — the wire's own "null when not git" contract
 // (docs/protocol.md's repo.branch).
 func Branch(ctx context.Context, dir string) *string {
-	return newGitRunner().branch(ctx, dir)
+	return NewGit(Exec).Branch(ctx, dir)
 }
 
-func (g *gitRunner) branch(ctx context.Context, dir string) *string {
-	out, err := g.run(ctx, dir, "git", "rev-parse", "--abbrev-ref", "HEAD")
+func (g *Git) Branch(ctx context.Context, dir string) *string {
+	out, err := g.run(ctx, dir, nil, "git", "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
 		return nil
 	}
@@ -66,16 +98,8 @@ func (g *gitRunner) branch(ctx context.Context, dir string) *string {
 // one. The daemon compares it to tell two directories of one checkout from two checkouts
 // (internal/session.Elsewhere); a linked worktree has its own top level.
 func TopLevel(ctx context.Context, dir string) *string {
-	return newGitRunner().topLevel(ctx, dir)
-}
-
-func (g *gitRunner) topLevel(ctx context.Context, dir string) *string {
-	out, err := g.run(ctx, dir, "git", "rev-parse", "--show-toplevel")
+	top, err := NewGit(Exec).Root(ctx, dir)
 	if err != nil {
-		return nil
-	}
-	top := strings.TrimSpace(string(out))
-	if top == "" {
 		return nil
 	}
 	return &top
@@ -86,11 +110,11 @@ func (g *gitRunner) topLevel(ctx context.Context, dir string) *string {
 // recognition rule). They are compared as resolved paths, never as git prints them: from a
 // subdirectory of an ordinary checkout git spells one absolute and the other relative to dir.
 func IsWorktree(ctx context.Context, dir string) bool {
-	return newGitRunner().isWorktree(ctx, dir)
+	return NewGit(Exec).IsWorktree(ctx, dir)
 }
 
-func (g *gitRunner) isWorktree(ctx context.Context, dir string) bool {
-	out, err := g.run(ctx, dir, "git", "rev-parse", "--git-dir", "--git-common-dir")
+func (g *Git) IsWorktree(ctx context.Context, dir string) bool {
+	out, err := g.run(ctx, dir, nil, "git", "rev-parse", "--git-dir", "--git-common-dir")
 	if err != nil {
 		return false
 	}
@@ -120,11 +144,15 @@ func resolveFrom(dir, path string) string {
 // than growing a second, caller-specific query — the one place that runs `git ls-files`
 // at all, so a caller never carries its own git argv.
 func ListFiles(ctx context.Context, dir string) ([]string, error) {
-	return newGitRunner().listFiles(ctx, dir)
+	return NewGit(Exec).ListFiles(ctx, dir)
 }
 
-func (g *gitRunner) listFiles(ctx context.Context, dir string) ([]string, error) {
-	out, err := g.run(ctx, dir, "git", "ls-files", "-co", "--exclude-standard", "-z")
+func (g *Git) ListFiles(ctx context.Context, dir string) ([]string, error) {
+	return g.files(ctx, dir, "-co")
+}
+
+func (g *Git) files(ctx context.Context, dir, which string) ([]string, error) {
+	out, err := g.run(ctx, dir, nil, "git", "ls-files", which, "--exclude-standard", "-z")
 	if err != nil {
 		return nil, err
 	}
@@ -142,9 +170,13 @@ func (g *gitRunner) listFiles(ctx context.Context, dir string) ([]string, error)
 	return paths, nil
 }
 
-func runGit(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
+func Exec(ctx context.Context, dir string, env []string, name string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, gitTimeout)
+	defer cancel()
+	full := append([]string{"--no-optional-locks", "-c", "core.quotepath=off"}, args...)
+	cmd := exec.CommandContext(ctx, name, full...)
 	cmd.Dir = dir
+	cmd.Env = append(append(os.Environ(), "GIT_OPTIONAL_LOCKS=0"), env...)
 	// WaitDelay bounds the wait for a descendant that inherited the stdout pipe
 	// to close it. The timer starts when ctx is done or when Wait sees git
 	// exit, whichever comes first — without it, Output's Wait can block on

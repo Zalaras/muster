@@ -61,7 +61,8 @@ C4Component
             Component(server, "internal/server", "net/http", "Routes, three WebSockets, the ingest queue, one type per feature")
         }
         Boundary(adapters, "Adapters") {
-            Component(gitutil, "internal/gitutil", "git", "Repo, branch and worktree detection")
+            Component(gitutil, "internal/gitutil", "git", "The one lock-free git runner; repo, branch and worktree detection")
+            Component(gitdiff, "internal/gitdiff", "git", "A checkout's diff, counts and fingerprint, read-only")
             ComponentDb(store, "internal/store", "database/sql", "Row gateway and forward-only migrations over SQLite")
             Component(tmuxpkg, "internal/tmux", "tmux CLI", "Dedicated-socket tmux driver")
             Component(ttypkg, "internal/tty", "TIOCGETA ioctl", "Reads a pane tty's line discipline to tell work from waiting")
@@ -92,6 +93,7 @@ C4Component
     Rel(server, bridge, "attaches")
     Rel(server, ghissue, "files issues")
     Rel(server, gitutil, "detects repo")
+    Rel(server, gitdiff, "reads diffs")
     Rel(server, store, "events, rows")
     Rel(server, tmuxpkg, "spawns, kills")
     Rel(server, ttypkg, "reads line discipline")
@@ -112,6 +114,7 @@ C4Component
     Rel(usage, store, "persists samples")
     Rel(bridge, tmuxpkg, "attach argv, resize")
     Rel(reader, evict, "write-log eviction")
+    Rel(gitdiff, gitutil, "runs git, lists files")
     Rel(cc, atomicfile, "wrapper scripts")
     Rel(server, atomicfile, "settings write")
     Rel(selfupd, atomicfile, "binary install")

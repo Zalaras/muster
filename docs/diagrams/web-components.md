@@ -46,20 +46,20 @@ C4Component
 
     Container_Boundary(dashboard, "Dashboard") {
         Boundary(ctl, "Entries and controllers") {
-            Component(main, "main.ts", "entry", "Dashboard composition root: inits 23 controllers, owns render order")
-            Component(features, "features/", "53 modules", "22 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload; restart is the Claude-restart panel and dialog), 1 stateless handle (effort: the strip's dismiss call, wired by focus), 6 sub-controllers handed their elements by their owner (launch: launchresume, launchgroup; groups: groupsselect, groupsdialogs; reader: readerfind, readerscroll), plus 21 DOM-free helpers (reader's scratch re-scan tracker, readerscratch, among them) each owned by one controller, and three notes modules beside notes.ts: notesedit (editing and saving, shared with the note window), noteswindows (window handles, query parse), notespage (the note window's controller)")
+            Component(main, "main.ts", "entry", "Dashboard composition root: inits 24 controllers, owns render order")
+            Component(features, "features/", "62 modules", "23 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload; restart is the Claude-restart panel and dialog), 1 stateless handle (effort: the strip's dismiss call, wired by focus), 9 sub-controllers handed their elements by their owner (launch: launchresume, launchgroup; groups: groupsselect, groupsdialogs; reader: readerfind, readerscroll; diff: diffviewer, diffcomments, diffreviewui), plus 26 DOM-free helpers (reader's scratch re-scan tracker, readerscratch, among them) each owned by one controller, and three notes modules beside notes.ts: notesedit (editing and saving, shared with the note window), noteswindows (window handles, query parse), notespage (the note window's controller)")
             Component(doc, "doc.ts", "entry", "Pop-out reader composition root")
             Component(note, "note.ts", "entry", "Note window composition root")
             Component(wsapp, "wsapp.ts", "mapping", "The WS-to-app mapping every entry registers, then layer their own handlers on top of")
         }
         Boundary(rnd, "Render and seam") {
-            Component(render, "render/", "49 modules", "DOM only — view-model in, DOM out; one menu builder serves every menu")
+            Component(render, "render/", "55 modules", "DOM only — view-model in, DOM out; one menu builder serves every menu")
             Component(app, "app.ts", "seam", "Session store, shared state (incl. ConnectionStatus), typed event bus, render phases")
         }
         Boundary(leaves, "Leaves") {
             Component(protocol, "protocol/", "11 modules", "Wire types and parsers for protocol version 2, split per concept, no barrel; imported by every layer, wires not drawn")
             Component(ws, "ws.ts", "WebSocket", "The state socket to musterd, backoff, dispatch")
-            Component(api, "api/", "11 modules", "The only fetch to musterd, one file per endpoint family, no barrel; ApiResult, never throws")
+            Component(api, "api/", "12 modules", "The only fetch to musterd, one file per endpoint family, no barrel; ApiResult, never throws")
             Component(terminal, "terminal/", "10 modules", "xterm.js surfaces, the per-terminal socket to musterd, shell key translation, drop wiring, the shell activity reducer and the terminals-list revision a window has seen")
             Component(dom, "dom.ts", "helpers", "Element lookup")
             Component(reader, "reader/", "13 modules", "Markdown render, nav tree, per-session memory, find matching, the ?session= parse, claude-section chips and scratch re-scan rules")

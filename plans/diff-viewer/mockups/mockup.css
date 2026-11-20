@@ -1,0 +1,72 @@
+/* Mockup-only styles. entry-points.html links the shipped web/src/style.css first, so the
+ * rail card, mainhead, surface switch and .dv-chip are the real ones; this file adds the page
+ * frame and the NEW pieces each idea introduces (each marked "new:"). */
+
+body { overflow: auto; height: auto; padding: 28px 36px 90px; line-height: 1.5; }
+.page { max-width: 1240px; margin: 0 auto; }
+.page h1 { font-size: 21px; letter-spacing: -.02em; margin: 0 0 6px; }
+.q { color: var(--fg-muted); font-size: var(--fs-md); max-width: 880px; margin: 0 0 14px; }
+.toggle { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: var(--fs-2xs);
+  color: var(--fg-dim); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 6px; }
+.exp { margin-top: 26px; }
+.exp .part { font-size: var(--fs-md); margin: 0 0 8px; color: var(--fg); }
+.exp .tag { font-family: var(--mono); font-size: var(--fs-2xs); letter-spacing: .1em; text-transform: uppercase;
+  padding: 2px 6px; border: 1px solid var(--line-control); color: var(--teal); margin-right: 6px; }
+.cap { max-width: 880px; color: var(--fg-muted); font-size: var(--fs-md); margin-top: 8px; }
+.cap p { margin: 0 0 4px; color: var(--fg); }
+.cap ul { margin: 0; padding-left: 20px; }
+
+/* A framed mini-dashboard: real .rail + .main inside a fixed box. */
+.mini { width: 1200px; height: 480px; display: flex; border: 1px solid var(--line); background: var(--bg); overflow: hidden; }
+.mini .rail { height: 100%; }
+.mini .main { height: 100%; }
+.pane { flex: 1; min-height: 0; display: flex; position: relative; }
+.pcol { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.mock-term { margin: 0; padding: 12px 14px; font-family: var(--mono); font-size: var(--fs-sm); line-height: 1.5;
+  color: var(--term-dark-fg); white-space: pre-wrap; overflow: hidden; }
+.mock-term .prompt { color: var(--teal); }
+.mock-term .cursor { background: var(--term-dark-fg); }
+
+/* Hide every diff entry while "no changes" is chosen. */
+body.nochanges [data-diff] { display: none !important; }
+
+/* new (A): the changes line on a rail card, a sibling of .r2 */
+.r-dv { margin-top: 6px; }
+.mk-rail { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: var(--fs-xs);
+  padding: 2px 7px; color: var(--fg-dim); background: transparent; border: 1px solid var(--line-control); cursor: pointer; }
+.mk-rail:hover { color: var(--fg); background: var(--bg-hover); }
+.mk-rc-c { color: var(--fg); }
+
+/* new (B): the status strip docked under the terminal */
+.mk-strip { flex: none; display: flex; align-items: center; gap: 12px; height: 24px; padding: 0 12px;
+  background: var(--bg-raised); border-top: 1px solid var(--line); font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); }
+.mk-sl { display: flex; align-items: center; gap: 8px; }
+.mk-dot { color: var(--fg-muted); }
+.mk-sc { color: var(--fg); }
+.mk-sgo { margin-left: auto; font: inherit; color: var(--fg-dim); background: transparent; border: 0; padding: 0; cursor: pointer; }
+.mk-sgo:hover { color: var(--fg); }
+
+/* new (C): the right-edge tab and the side panel */
+.mk-tab { position: absolute; right: 0; top: 50%; transform: translateY(-50%); z-index: 2; display: flex; flex-direction: column;
+  align-items: center; gap: 8px; padding: 10px 5px; background: var(--bg-raised); border: 1px solid var(--line-control);
+  border-right: 0; color: var(--fg-dim); font-family: var(--mono); font-size: var(--fs-xs); cursor: pointer; }
+.mk-tab:hover { color: var(--fg); background: var(--bg-hover); }
+.mk-tab-l { writing-mode: vertical-rl; white-space: nowrap; }
+.mk-tab-bar { display: flex; width: 4px; height: 26px; flex-direction: column; }
+.mk-tab-bar i { display: block; }
+.mk-tab-bar .a { flex: 51; background: var(--diff-add-fg); }
+.mk-tab-bar .d { flex: 9; background: var(--diff-del-fg); }
+.mk-side { flex: none; width: 45%; display: flex; flex-direction: column; min-width: 0; background: var(--bg);
+  border-left: 1px solid var(--line-control); font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); }
+.mk-sh { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--bg-raised); border-bottom: 1px solid var(--line); }
+.mk-sh .dv-close { margin-left: auto; }
+.mk-files { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.mk-files .on { color: var(--fg); }
+.mk-files .more { color: var(--fg-muted); }
+.mk-code { flex: 1; min-height: 0; overflow: hidden; line-height: 1.55; }
+.mk-code .ln { padding: 0 10px; white-space: pre; }
+.mk-code .ln i { display: inline-block; width: 3ch; margin-right: 1ch; color: var(--fg-muted); font-style: normal; text-align: right; }
+.mk-code .hunk { color: var(--fg-muted); background: var(--bg-raised); }
+.mk-code .add { background: var(--diff-add-bg); color: var(--diff-add-fg); }
+.mk-code .del { background: var(--diff-del-bg); color: var(--diff-del-fg); }
+.mk-code .cm { padding: 3px 10px 3px 6ch; background: var(--bg-raised); color: var(--fg); font-family: var(--sans); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }

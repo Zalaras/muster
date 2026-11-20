@@ -36,7 +36,7 @@ OWNERSHIP = {
     "render-tests": (RENDER + PLANS, PLAN_FILE),
     "e2e-specs":    (E2E + PLANS + ["web/playwright.config.ts", "web/scripts/**"], PLAN_FILE),
     "review-work": (["plans/*/review.code.md"], []),
-    "review-browser": (["plans/*/review.browser.md"], []),
+    "review-browser": (["plans/*/review.browser.md", "web/e2e/zz-*.spec.ts"], []),   # its throwaway spec, deleted before it reports
     "review-maintainability": (["plans/*/review.maintainability.md"], []),
     "review-critic": (["plans/*/review.critic.md"], []),
     "doc-reconcile": (DOCS_FEATURES + PLANS + ["docs/diagrams/**", "docs/INDEX.md", ".claude/rules/**", "**/CLAUDE.md"], PLAN_FILE),

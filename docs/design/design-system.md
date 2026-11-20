@@ -42,6 +42,8 @@ defines the **roles**; it does not repeat the numbers.
 | `--danger` / `--danger-line` / `--danger-fg` | destructive actions (§3: rose is never delete) |
 | `--disabled-fg` / `--disabled-line` / `--disabled-bg` | every `.btn:disabled` (§5) — exempt from the contrast bar (inactive components) |
 | `--find-match` / `--find-current` | the reader find bar's `::highlight()` grounds: every match / the current one — background only, never `color`, so diagram `<text>` matches paint too (kb:adr/reader-find-highlights-via-css-highlight-api); each pair ≥ 4.5:1 against `--fg` |
+| `--diff-add-bg` / `--diff-add-word` / `--diff-del-bg` / `--diff-del-word` | the diff viewer's added and removed line grounds and the stronger word-level grounds inside a changed line; each ≥ 4.5:1 against `--fg`, never a state colour (kb:adr/diff-viewer-in-dashboard-comments-stay-local) |
+| `--diff-sel` / `--diff-comment` | the diff viewer's selected-lines ground (≥ 4.5:1 against `--fg`) and the comment gutter bar (≥ 3:1 against `--bg` and `--bg-raised`); distinct from added, removed and word marking in every theme |
 | `--term-dark-bg`/`-fg`, `--term-light-bg`/`-fg` | the two terminal pairs every theme supplies |
 | `--term` / `--term-fg` | **the live pane's ground/foreground — chosen by `<html data-claude-family>`, not by the theme** (see below) |
 | `--scrim` / `--bg-raised-95` | modal backdrop and overlays / the dead-surface pill (translucent; exempt) |
@@ -460,3 +462,5 @@ makes the UI assert something Muster does not know.
 extra. It simply cannot be *built* before the PTY bridge, so M1 ships the Focus view and
 the switcher arrives with M2. The masthead must be laid out from M1 as though the switcher
 is there, so adding it moves nothing.
+
+**Size row** (Focus, under the main slot, `#sizerow`) — holds the size note at its left and the diff button (`#diff-button`) flush right, mono `--fs-xs`, `--fg-dim`, tabular numerals. The row shows while either child shows and is exactly one size-note line tall; with no size note (docs, an ended session, the diff viewer) it shows holding only the button. Row visibility is CSS (`:has()`), so no render ordering decides it.

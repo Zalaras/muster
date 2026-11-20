@@ -2792,6 +2792,11 @@ that the dashboard shows.
   with each one resumed where it was, and also to restart just one session or just one group.
   Restart-all only: per-session and per-group restart were dropped by the developer at planning (2026-11-04).
 
+- [x] **Code diff viewing** ✅ done 2026-11-20 (plan `diff-viewer`, via `/orchestrate`; approved review cycle 3) —
+  view a session's code diff directly in the dashboard. Revisits
+  `kb:adr/nongoal-diff-review-placeholder-button` (today's placeholder just opens the worktree
+  in an editor, an acknowledged hack); would need a superseding ADR before being planned.
+
 ## Enhancements
 
 - [x] **Find a way to get claude tmp files** ([#121](https://github.com/Zalaras/muster/issues/121)) ✅ done 2026-11-12 (plan `claude-tmp-files`, via `/orchestrate`; approved review cycle 3) — Claude

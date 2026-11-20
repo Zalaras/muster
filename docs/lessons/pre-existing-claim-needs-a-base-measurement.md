@@ -16,4 +16,4 @@ roles: [daemon-impl, web-impl, daemon-tests, web-tests, e2e-specs, orchestrator]
 
 **Cost.** A wasted fix attempt, a bisect the orchestrator ran, a 48-minute re-fix, and an accepted ADR one approval from being reopened for a bug this plan introduced.
 
-**The lesson.** "Pre-existing" is a comparative claim and needs a comparative measurement: build the base commit (`git worktree add <dir> main`) and run the same repro there before making it. A mechanism present on both sides cannot explain a difference between them. Until measured, the verdict is "cause not yet established".
+**The lesson.** "Pre-existing" is a comparative claim and needs a comparative measurement: build the base commit — the merge base (`git worktree add <dir> $(git merge-base HEAD main)`), not `main`'s tip, which may already carry a fix the branch lacks (diff-viewer cycle 2) — and run the same repro there before making it. A mechanism present on both sides cannot explain a difference between them. Until measured, the verdict is "cause not yet established".

@@ -95,6 +95,8 @@ type SessionRow struct {
 
 	Note *string
 
+	DiffReview *string
+
 	// TranscriptPath/PlanPath/PlanExists (docs/features/reader/spec.md): the latest
 	// transcript path a routed hook named, and the plan derived from it. Display-only,
 	// never read by the state machine. TranscriptPath is NULL until a hook sets it.
@@ -348,7 +350,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 			cache_reported_expires_at = ?,
 			effort_known = ?, effort_level = ?, effort_requested = ?,
 			effort_warning_requested = ?, effort_warning_actual = ?, effort_warning_model = ?,
-			claude_version = ?, restart_pending = ?, scratchpad_dir = ?
+			claude_version = ?, restart_pending = ?, scratchpad_dir = ?, diff_review = ?
 		WHERE id = ?
 	`,
 		row.TmuxTarget, row.TmuxPane, row.ClaudeSessionID, row.Directory, row.Branch,
@@ -363,7 +365,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		addedDirs, row.GroupID, cacheExpiresAt, row.CacheTTLSeconds, row.CacheRequests, cacheReportedExpiresAt,
 		boolToInt(row.EffortKnown), row.EffortLevel, row.EffortRequested,
 		row.EffortWarningRequested, row.EffortWarningActual, row.EffortWarningModel,
-		row.ClaudeVersion, boolToInt(row.RestartPending), row.ScratchpadDir,
+		row.ClaudeVersion, boolToInt(row.RestartPending), row.ScratchpadDir, row.DiffReview,
 		row.ID,
 	)
 	if err != nil {
@@ -384,7 +386,7 @@ const sessionColumns = `
 	cache_expires_at, cache_ttl_seconds, cache_requests, cache_reported_expires_at,
 	effort_known, effort_level, effort_requested,
 	effort_warning_requested, effort_warning_actual, effort_warning_model,
-	claude_version, restart_pending, scratchpad_dir
+	claude_version, restart_pending, scratchpad_dir, diff_review
 `
 
 func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
@@ -499,7 +501,7 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 		&cacheExpiresAt, &r.CacheTTLSeconds, &r.CacheRequests, &cacheReportedExpiresAt,
 		&effortKnown, &r.EffortLevel, &r.EffortRequested,
 		&r.EffortWarningRequested, &r.EffortWarningActual, &r.EffortWarningModel,
-		&r.ClaudeVersion, &restartPending, &r.ScratchpadDir,
+		&r.ClaudeVersion, &restartPending, &r.ScratchpadDir, &r.DiffReview,
 	); err != nil {
 		return SessionRow{}, err
 	}

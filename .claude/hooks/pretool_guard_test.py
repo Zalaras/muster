@@ -68,6 +68,12 @@ class Writes(unittest.TestCase):
         self.assertIsNone(self.w("review-work", "plans/x/review.code.md"))
         self.assertIsNotNone(self.w("review-work", "internal/a.go"))
         self.assertIsNotNone(self.w("review-browser", "plans/x/review.code.md"))
+        self.assertIsNone(self.w("review-browser", "plans/x/review.browser.md"))
+        self.assertIsNone(self.w("review-browser", "web/e2e/zz-browser-review.spec.ts"))
+        self.assertIsNotNone(self.w("review-browser", "web/e2e/diff.spec.ts"))
+        self.assertIsNotNone(self.w("review-browser", "web/src/x.ts"))
+        self.assertIsNone(self.w("review-maintainability", "plans/x/review.maintainability.md"))
+        self.assertIsNotNone(self.w("review-maintainability", "web/src/x.ts"))
     def test_main_session_and_unknown_roles_unrestricted(self):
         self.assertIsNone(self.w("", "docs/protocol.md"))
         self.assertIsNone(self.w("Explore", "internal/a_test.go"))

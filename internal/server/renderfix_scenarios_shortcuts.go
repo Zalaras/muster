@@ -56,11 +56,23 @@ func (r *renderRig) workingSession(ctx context.Context, name string) (renderSess
 	if err != nil {
 		return renderSession{}, err
 	}
-	s, err := r.bind(ctx, dir, "cs-"+name, renderModelSonnet, launchOpts{title: name})
+	return r.workingSessionIn(ctx, dir, name, name)
+}
+
+func (r *renderRig) workingSessionIn(ctx context.Context, dir, claudeName, title string) (renderSession, error) {
+	s, err := r.bind(ctx, dir, "cs-"+claudeName, renderModelSonnet, launchOpts{title: title})
 	if err != nil {
 		return renderSession{}, err
 	}
-	return s, r.promptSubmit(ctx, s, "cs-"+name)
+	return s, r.promptSubmit(ctx, s, "cs-"+claudeName)
+}
+
+func (r *renderRig) idleSessionIn(ctx context.Context, dir, claudeName, title string) (renderSession, error) {
+	s, err := r.workingSessionIn(ctx, dir, claudeName, title)
+	if err != nil {
+		return s, err
+	}
+	return s, r.hookStamped(ctx, claudecodetest.RawStop("cs-"+claudeName, claudecodetest.StopOpts{}))
 }
 
 // idleSession is workingSession stopped: idle since the Stop's stamp.

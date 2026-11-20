@@ -9,6 +9,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/Zalaras/muster/internal/gitdiff"
 	"github.com/Zalaras/muster/internal/locate"
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
@@ -219,6 +220,7 @@ func New(cfg Config) *Server {
 	register(s, newRailFeature(s.manager, cfg.Logger))
 	register(s, newRenameFeature(s.manager, cfg.Logger))
 	register(s, newNoteFeature(s.manager, cfg.Logger))
+	register(s, newDiffFeature(s.manager, gitdiff.NewReader(), cfg.Logger))
 	register(s, newEffortFeature(s.manager, cfg.Logger))
 	register(s, newGroupsFeature(s.manager, actions.teardownRemoved, cfg.Logger))
 	s.terminal = register(s, newTerminalFeature(terminals, s.manager, attach, cfg.Logger))

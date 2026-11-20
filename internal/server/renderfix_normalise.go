@@ -58,6 +58,7 @@ func normaliseRenderFixture(f RenderFixture, tempRoot string) RenderFixture {
 	f.Hello = n.walk(f.Hello, "")
 	f.Repos = n.walk(f.Repos, "")
 	f.Reader = n.walk(f.Reader, "")
+	f.Diff = n.walk(f.Diff, "")
 	if hello, ok := f.Hello.(map[string]any); ok {
 		setRenderString(hello, "daemon", "version", "0.0.0-renderfix")
 		setRenderString(hello, "claudeCode", "floor", "2.1.246")

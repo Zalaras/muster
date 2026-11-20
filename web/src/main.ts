@@ -22,6 +22,7 @@ import { initUpdate } from "./features/update";
 import { initUpdateRestart } from "./features/updaterestart";
 import { initIssue } from "./features/issue";
 import { initTiles } from "./features/tiles";
+import { initDiff } from "./features/diff";
 import { initEffort } from "./features/effort";
 import { initFocus } from "./features/focus";
 import { initSurfaces } from "./features/surfaces";
@@ -62,6 +63,7 @@ const tiles = initTiles(app, {
   getReader: () => reader,
 });
 const effort = initEffort({ actions });
+const diff = initDiff(app, { surfaces: { focusSelected: (id) => surfaces.focusSelected(id) } });
 const focus = initFocus(app, {
   actions,
   getSurfaces: () => surfaces,
@@ -71,6 +73,7 @@ const focus = initFocus(app, {
   renameHandlers: rename.mainheadRenameHandlers,
   groups,
   effort,
+  diff,
   railMenu,
 });
 const surfaces = initSurfaces(app, { tilesLive: tiles.liveIds });

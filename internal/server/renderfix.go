@@ -49,6 +49,7 @@ type RenderFixture struct {
 	// the plan when it exists) read through `GET …/reader/file`, so a render test can open the
 	// docs surface and its find bar (kb:anchor/sessions.reader, kb:anchor/sessions.reader-file).
 	Reader any `json:"reader"`
+	Diff   any `json:"diff,omitempty"`
 }
 
 // RenderScenarioNames lists every scenario in generation order.
@@ -100,9 +101,10 @@ func encodeRenderFixture(fixture RenderFixture) ([]byte, error) {
 
 // renderRig is one scenario's Server plus the temp root its session directories live in.
 type renderRig struct {
-	srv  *Server
-	st   *store.Store
-	root string
+	srv        *Server
+	st         *store.Store
+	root       string
+	recordDiff bool
 	// lastStep is the wall-clock second the previous step finished in; every step runs in a
 	// later second (see freshSecond).
 	lastStep int64
@@ -204,12 +206,16 @@ func (r *renderRig) worktree(ctx context.Context, dir, name, branch string) (str
 // git runs one command with the developer's own git config shut out, so a fixture never
 // depends on the machine it was recorded on.
 func (r *renderRig) git(ctx context.Context, dir string, args ...string) error {
+	return r.gitEnv(ctx, dir, nil, args...)
+}
+
+func (r *renderRig) gitEnv(ctx context.Context, dir string, env []string, args ...string) error {
 	full := append([]string{
 		"-c", "user.name=bob", "-c", "user.email=bob@example.invalid", "-c", "commit.gpgsign=false",
 	}, args...)
 	cmd := exec.CommandContext(ctx, "git", full...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1")
+	cmd.Env = append(append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1"), env...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 	}
@@ -455,7 +461,11 @@ func (r *renderRig) capture(ctx context.Context, scenario string) (RenderFixture
 	if err != nil {
 		return RenderFixture{}, err
 	}
-	fixture := RenderFixture{Scenario: scenario, Hello: frames[0], Snapshot: frames[1], Repos: repos, Reader: reader}
+	diff, err := r.captureDiff(ctx)
+	if err != nil {
+		return RenderFixture{}, err
+	}
+	fixture := RenderFixture{Scenario: scenario, Hello: frames[0], Snapshot: frames[1], Repos: repos, Reader: reader, Diff: diff}
 	return normaliseRenderFixture(fixture, r.root), nil
 }
 

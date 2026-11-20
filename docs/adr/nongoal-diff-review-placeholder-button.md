@@ -1,7 +1,7 @@
 ---
 id: nongoal-diff-review-placeholder-button
 type: decision
-status: rejected
+status: superseded
 date: 2026-08-16
 summary: No inline diff review with comments fed back to the agent; the placeholder is a button that opens the worktree in VSCode, an acknowledged hack.
 features: []

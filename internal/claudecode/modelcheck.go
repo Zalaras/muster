@@ -35,7 +35,7 @@ const (
 // every sibling run-func does; dir is prepended because the caller picks which directory
 // the check runs in — the catalog is built into the binary, so the directory never feeds
 // the verdict — the same "one signature per output need, plus a working-dir input where
-// one is needed" shape gitutil.gitRunner's run field uses
+// one is needed" shape gitutil.Git's run field uses
 // (kb:adr/process-adapter-run-seam-constructor-default).
 type modelCheckRun func(ctx context.Context, dir, name string, args ...string) ([]byte, error)
 

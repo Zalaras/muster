@@ -10,7 +10,8 @@ Usage (run from the project root):
                                                      authoring Tests row is marked neither run nor collection-only
   orch-state.py <plan> retry <step>                  bump retry_counts[<step>]; `retry review` is refused while an impl
                                                      fix since the last review has no later render-tests/e2e-specs
-                                                     attempt, unless --no-new-behaviour REASON
+                                                     attempt, unless --no-new-behaviour REASON, and until this
+                                                     cycle's review.md is archived as review.cycle<N>.md
   orch-state.py <plan> status <in-progress|blocked|completed> [--step STEP]
                                                      completed is refused unless review.md says **Verdict**: approved
                                                      and gates.sh's last full run on this tree had 0 failed
@@ -337,6 +338,12 @@ def review_cycle(s):
     groups' fourth cycle merged as "Cycle 2" and overwrote cycle 2's verdict (retro, 2026-10-05)."""
     return s.get("review_cycle") or s["retry_counts"].get("review", 0) + 1
 
+def review_archived(plan_dir, s):
+    """`retry review` closes the current cycle, so this cycle's merged review must already be archived
+    (Review Retry Logic step 5). An inspecting call made before the merge bumped the cycle once
+    (diff-viewer retro, 2026-11-20)."""
+    return (plan_dir / f"review.cycle{review_cycle(s)}.md").exists()
+
 def approved(plan_dir):
     r = plan_dir / "review.md"
     return r.exists() and "**Verdict**: approved" in r.read_text()
@@ -466,6 +473,9 @@ def main():
             close_attempt(s, a.arg)
             s["current_step"] = a.next
         elif a.cmd == "retry":
+            if a.arg == "review" and not review_archived(path.parent, s):
+                sys.exit(f"review.cycle{review_cycle(s)}.md does not exist — archive this cycle's review.md "
+                         "first (SKILL.md § Review Retry Logic step 5); nothing changed")
             if (s.get("step_attempts") or {}).get(a.arg, [{}])[-1].get("finish", 0) is None:
                 close_attempt(s, a.arg)  # a retry means the step just reported
             if a.arg == "review" and (at := uncovered_impl_fix(s)):

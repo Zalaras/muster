@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en" data-theme="instrument"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diff changed notice</title>
+<link rel="stylesheet" href="../../../web/src/style.css">
+<link rel="stylesheet" href="changed-notice.css">
+</head><body class="mk-changed">
+<div class="mk-page">
+<h1>The diff on screen is out of date — how does the viewer say so?</h1>
+<p class="mk-q">The open diff does not redraw when the checkout changes; within about ten seconds it shows a notice with Refresh, and the lines stay put. Each frame below is scrolled part-way down, because a notice that lives only at the top of the scroll content would be off screen.</p>
+<div class="mk-ctl"><span>Mock state</span>
+<div class="dv-seg" role="group" aria-label="Mock state">
+<button type="button" class="dv-segbtn" data-s="current" aria-pressed="false">diff is current</button>
+<button type="button" class="dv-segbtn" data-s="changed" aria-pressed="true">checkout changed</button></div>
+<button type="button" class="dv-btn" id="replay">replay</button></div>
+
+<section class="mk-exp"><h2 class="mk-part"><span class="mk-tag">A</span> A bar across the top of the diff</h2>
+<div class="mk-frame" data-v="a"></div>
+<div class="mk-cap"><p>A full-width amber bar pinned under the toolbar, with a filled Refresh at its right end; it slides down on arrival.</p><ul>
+<li>Good: hardest to miss, it stays put while the diff scrolls, and it says what changed.</li>
+<li>Cost: it takes its own row, so the diff body shifts down by the bar's height (28px) when it arrives.</li></ul></div></section>
+
+<section class="mk-exp"><h2 class="mk-part"><span class="mk-tag">B</span> The Refresh button and summary change in place</h2>
+<div class="mk-frame" data-v="b"></div>
+<div class="mk-cap"><p>No new element: the toolbar's Refresh turns into a filled accent button with a dot and pulses twice, and the summary goes muted with an "out of date" tag.</p><ul>
+<li>Good: nothing moves and no new element is added.</li>
+<li>Cost: it lives in the toolbar corner, so it is the easiest of the three to miss while reading lower down.</li></ul></div></section>
+
+<section class="mk-exp"><h2 class="mk-part"><span class="mk-tag">C</span> A floating pill over the diff, plus dots on the changed files</h2>
+<div class="mk-frame" data-v="c"></div>
+<div class="mk-cap"><p>A pill floats near the bottom of the diff body and stays put while it scrolls; changed files carry an amber dot and a new file appears as a muted row tagged new.</p><ul>
+<li>Good: it appears where the eye is, and shows which files changed before refreshing.</li>
+<li>Cost: it covers a line or two of the diff, and the daemon has to say which files differ.</li></ul></div></section>
+</div>
+<script>
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const W = (t) => `<span class="dv-w">${esc(t)}</span>`;
+// [old, new, kind, html]
+const R = (o, n, k, t) => `<div class="dv-row n2 dv-${k}"><span class="dv-n">${o}</span><span class="dv-n">${n}</span><span class="dv-t">${t}</span></div>`;
+const c = (o, n, t) => R(o, n, "ctx", esc(t)).replace(" dv-ctx", "");
+const a = (n, t, raw) => R("", n, "add", raw ? t : esc(t));
+const d = (o, t, raw) => R(o, "", "del", raw ? t : esc(t));
+const hunk = t => `<div class="dv-row n0"><span class="dv-hunk">${esc(t)}</span></div>`;
+const file = (st, path, cnt, rows) => `<div class="dv-file"><div class="dv-fhead"><span class="dv-chev">▾</span><span class="dv-st dv-st-${st === "A" ? "added" : "mod"}">${st}</span><span class="dv-fpath">${path}</span><span class="dv-ncnt">${cnt}</span></div><div class="dv-fbody"><div class="dv-scroll">${rows}</div></div></div>`;
+const engine = [
+  hunk("@@ -6,8 +6,11 @@ import type { AudioBus, GameView } from './gameView';"),
+  c(6,6,"import { Settings } from '../shared/settings';"), c(7,7,"import {"), c(8,8,"  COMBO_AMP_THRESHOLD,"),
+  a(9,"  COMBO_MILESTONE_STEP,"), a(10,"  COMBO_MILESTONE_WORDS,"), c(9,11,"  DIFFICULTY_PROFILES,"),
+  c(10,12,"  KEY_TARGETS,"), a(13,"  MILESTONE_FLOATER_OFFSET_REM,"), c(11,14,"  POINTS_PENALTY_TIMEOUT,"),
+  c(12,15,"  POINTS_PENALTY_WRONG,"), c(13,16,"  PRAISE_WORDS,"),
+  hunk("@@ -87,8 +90,22 @@ export function createEngine({"),
+  c(87,90,"    return `var(--${colorKey})`;"), c(88,91,"  }"), c(89,92,""),
+  a(93,"  let lastPraise: string | null = null;"), a(94,""),
+  c(90,95,"  function pickPraise(): string {"),
+  d(91,`    ${W("return")} PRAISE_WORDS[Math.floor(Math.random() * PRAISE_WORDS.length)] ?? 'BOOP!';`, 1),
+  a(96,`    ${W("let word =")} PRAISE_WORDS[Math.floor(Math.random() * PRAISE_WORDS.length)] ?? 'BOOP!';`, 1),
+  a(97,"    if (word === lastPraise) {"), a(98,"      const index = PRAISE_WORDS.indexOf(word);"),
+  a(99,"      word = PRAISE_WORDS[(index + 1) % PRAISE_WORDS.length] ?? 'BOOP!';"), a(100,"    }"),
+  a(101,"    lastPraise = word;"), a(102,"    return word;"), a(103,"  }"), a(104,""),
+  a(105,"  function milestoneWord(level: number): string | null {"),
+  a(106,"    if (level < COMBO_MILESTONE_STEP || level % COMBO_MILESTONE_STEP !== 0) return null;"),
+  a(107,"    const index = Math.min(level / COMBO_MILESTONE_STEP - 1, COMBO_MILESTONE_WORDS.length - 1);"),
+  a(108,"    return COMBO_MILESTONE_WORDS[index] ?? null;"),
+  c(92,109,"  }"), c(93,110,""), c(94,111,"  function tooClose(x: number, y: number): boolean {"),
+  hunk("@@ -230,6 +247,15 @@ export function createEngine({"),
+  c(230,247,"        stats.hits += 1;"),
+  c(231,248,"        view.spawnFloater(matched.x, matched.y, pickPraise(), colorVar(matched.colorKey));"),
+  a(249,"        const milestone = milestoneWord(combo);"), a(250,"        if (milestone !== null) {"),
+  a(251,"          view.spawnFloater(matched.x, matched.y - remToPx(MILESTONE_FLOATER_OFFSET_REM), milestone);"), a(252,"        }"),
+  c(232,253,"        view.setMood(combo >= COMBO_AMP_THRESHOLD ? 'cheer' : 'happy');"), c(233,254,"        publishHud();"), c(234,255,"        return;"),
+].join("");
+const timer = [
+  hunk("@@ -41,7 +41,9 @@ export function createTimer(clock: Clock): Timer {"),
+  c(41,41,"  let remaining = limitMs;"), c(42,42,"  let paused = false;"),
+  d(43,"  const tick = () => { remaining -= 100; };"),
+  a(43,"  const tick = () => {"), a(44,"    remaining = Math.max(0, remaining - 100);"), a(45,"  };"),
+  c(44,46,"  return { tick, pause: () => (paused = true) };"), c(45,47,"}"),
+].join("");
+const fileEngine = file("M", "src/game/engine.ts", `<span class="dv-addn">+27</span> <span class="dv-deln">−1</span>`, engine);
+const fileTimer = file("M", "src/game/timer.ts", `<span class="dv-addn">+4</span> <span class="dv-deln">−2</span>`, timer);
+
+// [status, path, +, -, changed-since-read]
+const FILES = [["M","src/game/engine.ts",27,1,1],["M","src/game/timer.ts",4,2,0],["M","src/presentation/screens/gameOver.ts",1,1,0],
+  ["M","src/presentation/ui/confetti.ts",2,2,1],["M","src/presentation/ui/effectsLayer.ts",2,2,0],["M","src/shared/config.ts",13,0,0]];
+const fileRows = v => FILES.map(f => `<div class="dv-nrow"><span class="dv-st">${f[0]}</span><span class="dv-np">${f[1]}</span>${v === "c" ? `<span class="mk-fdot ${f[4] ? "on" : ""} mk-notice-dot" title="changed since the diff was read"></span>` : ""}<span class="dv-ncnt"><span class="dv-addn">+${f[2]}</span> <span class="dv-deln">−${f[3]}</span></span></div>`).join("")
+  + (v === "c" ? `<div class="dv-nrow mk-newrow"><span class="dv-st dv-st-added">A</span><span class="dv-np">src/game/combo.ts</span><span class="mk-newtag">new</span><span class="dv-ncnt"><span class="dv-addn">+12</span></span></div>` : "");
+
+const notice = {
+  a: `<div class="mk-bar mk-notice" role="status"><span class="mk-msg"><span class="mk-ico">●</span>This diff has changed since you opened it — 1 new file, 2 files changed</span><button type="button" class="mk-fill">Refresh</button></div>`,
+  b: "", c: "",
+};
+const pill = `<div class="mk-pill mk-notice" role="status"><span>↻ Diff changed</span><span aria-hidden="true">·</span><button type="button" class="mk-fill">Refresh</button></div>`;
+function frame(v) {
+  const sum = v === "b"
+    ? `<span class="dv-summary mk-b-sum">8 files · +51 −9 · <span class="mk-t-current">against HEAD</span><span class="mk-t-changed mk-stale">out of date</span></span>`
+    : `<span class="dv-summary">8 files · +51 −9 · against HEAD</span>`;
+  const rbtn = v === "b"
+    ? `<button type="button" class="dv-btn mk-b-btn"><span class="mk-t-current">Refresh</span><span class="mk-t-changed">↻ Refresh — diff changed <i class="mk-b-dot"></i></span></button>`
+    : `<button type="button" class="dv-btn">Refresh</button>`;
+  return `<div class="dv-root" data-mode="unified">
+<div class="dv-toolbar"><div class="dv-seg"><button class="dv-segbtn" aria-pressed="true">Uncommitted</button><button class="dv-segbtn" aria-pressed="false">Branch</button></div>
+<div class="dv-seg"><button class="dv-segbtn" aria-pressed="true">Unified</button><button class="dv-segbtn" aria-pressed="false">Split</button><button class="dv-segbtn" aria-pressed="false">Review</button></div>
+${sum}${rbtn}<button class="dv-btn dv-close" aria-label="Close">×</button></div>
+${notice[v]}
+<div class="dv-main"><div class="dv-bodywrap"><div class="dv-body">${fileEngine}${fileTimer}</div>${v === "c" ? pill : ""}</div>
+<div class="dv-side"><div class="dv-tabs"><button class="dv-tab" aria-pressed="true">Files</button><button class="dv-tab" aria-pressed="false">Comments (0)</button></div><div class="dv-files">${fileRows(v)}</div></div></div></div>
+<div class="mk-sizerow"><button class="dv-chip" type="button"><span class="mk-t-current">8 files</span><span class="mk-t-changed">9 files</span>
+<b class="dv-addn"><span class="mk-t-current">+51</span><span class="mk-t-changed">+63</span></b><b class="dv-deln">−9</b><span class="dv-strip-dot">·</span><span>Close diff ×</span></button></div>`;
+}
+document.querySelectorAll(".mk-frame").forEach(f => {
+  f.innerHTML = frame(f.dataset.v);
+  f.querySelector(".dv-body").scrollTop = 330;
+});
+const seg = document.querySelectorAll(".mk-ctl [data-s]");
+let timer_;
+function setState(s) {
+  clearTimeout(timer_);
+  document.body.classList.toggle("mk-changed", s === "changed");
+  seg.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.s === s)));
+}
+seg.forEach(b => b.addEventListener("click", () => setState(b.dataset.s)));
+document.getElementById("replay").addEventListener("click", () => {
+  setState("current");
+  timer_ = setTimeout(() => setState("changed"), 1000);
+});
+</script></body></html>

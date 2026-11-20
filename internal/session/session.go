@@ -154,6 +154,8 @@ type Session struct {
 	// written through, so restoreChangedFields can compare it by identity.
 	Note *string
 
+	DiffReview *string
+
 	titleDelivery titleDelivery
 
 	// TranscriptPath/PlanPath/PlanExists (kb:spec/reader): the latest transcript path a

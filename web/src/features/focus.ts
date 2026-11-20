@@ -26,6 +26,7 @@ import {
 } from "../terminal/surfaceswitch";
 import {
   buildSurfaceSegment,
+  clearSurfaceSegmentSelection,
   NO_TERMINALS_VIEW,
   type SurfaceTerminalsView,
 } from "../render/surfaceseg";
@@ -80,6 +81,11 @@ export interface FocusDeps {
     openMoveMenu(opener: HTMLElement, session: Session): void;
   };
   effort: { dismiss(id: number): void };
+  diff: {
+    viewerRoot(id: number): HTMLElement | null;
+    mounted(id: number): void;
+    close(id: number): void;
+  };
   railMenu: { open(request: CardMenuRequest): void };
 }
 
@@ -116,6 +122,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     (kind) => {
       if (app.state.focusedId !== null) {
         const id = app.state.focusedId;
+        deps.diff.close(id);
         deps.getSurfaces().select(id, kind, () => deadSurfaceRefsFor(id));
       }
     },
@@ -126,6 +133,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
       }
     },
   );
+  app.on("surfaceSwitched", (id) => deps.diff.close(id));
   requireElement<HTMLElement>("#mainhead .acts").prepend(mainheadSurfaceSegment.root);
 
   const mainheadElements: MainheadElements = {
@@ -170,6 +178,13 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
   const mainEmptyEl = requireElement<HTMLElement>("#main-empty");
   const mainSlotEl = requireElement<HTMLElement>("#main-terminal-slot");
   const sizenoteEl = requireElement<HTMLElement>("#sizenote");
+
+  new ResizeObserver(() => {
+    const id = app.state.focusedId;
+    if (id === null || deps.diff.viewerRoot(id) !== null) return;
+    const selected = getSurfaceState(deps.getSurfaces().state(), id).selected;
+    deps.getSurfaces().get(id, selected)?.refit();
+  }).observe(mainSlotEl);
 
   const moreBtn = requireElement<HTMLButtonElement>("#mainhead .acts .more");
   moreBtn.addEventListener("click", () => {
@@ -271,11 +286,17 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     renderSizenote(sizenoteEl, surface.geometry);
   }
 
-  function renderFrame(frame: RenderFrame): void {
-    const { sessions, now, connected } = frame;
-    const hasSessions = sessions.length > 0;
-    renderFocusMain({ emptyEl: mainEmptyEl }, hasSessions);
-    const session = sessions.find((s) => s.id === app.state.focusedId) ?? null;
+  function mountViewer(root: HTMLElement, id: number): void {
+    deadSurfaceEl.hidden = true;
+    setMainSlotHidden(mainSlotEl, false);
+    const fresh = root.parentElement !== mainSlotEl;
+    mountSlotRoot(mainSlotEl, root);
+    if (fresh) deps.diff.mounted(id);
+    renderSizenote(sizenoteEl, null);
+    clearSurfaceSegmentSelection(mainheadSurfaceSegment);
+  }
+
+  function renderHead(frame: RenderFrame, session: Session | null): SessionSurfaceState {
     const surfaceState = session
       ? getSurfaceState(deps.getSurfaces().state(), session.id)
       : DEFAULT_SURFACE_STATE;
@@ -286,8 +307,8 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     renderMainhead(
       mainheadElements,
       session,
-      now,
-      connected,
+      frame.now,
+      frame.connected,
       surfaceState,
       activity,
       terminalsView,
@@ -295,12 +316,27 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
       session ? groupLabel(session, app.state.groups) : "",
     );
     locationPanel.refresh();
+    return surfaceState;
+  }
+
+  function renderFrame(frame: RenderFrame): void {
+    const { sessions, now, connected } = frame;
+    const hasSessions = sessions.length > 0;
+    renderFocusMain({ emptyEl: mainEmptyEl }, hasSessions);
+    const session = sessions.find((s) => s.id === app.state.focusedId) ?? null;
+    const surfaceState = renderHead(frame, session);
 
     if (!session) {
       setMainSlotHidden(mainSlotEl, true);
       mountSlotRoot(mainSlotEl, null);
       deadSurfaceEl.hidden = true;
       renderSizenote(sizenoteEl, null);
+      return;
+    }
+
+    const viewerRoot = deps.diff.viewerRoot(session.id);
+    if (viewerRoot) {
+      mountViewer(viewerRoot, session.id);
       return;
     }
 

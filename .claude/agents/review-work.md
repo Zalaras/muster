@@ -4,7 +4,7 @@ description: "Correctness review agent: reviews a plan's implementation and test
 model: opus
 effort: high
 color: red
-disallowedTools: Edit, Write, MultiEdit, NotebookEdit
+disallowedTools: Edit, MultiEdit, NotebookEdit
 maxTurns: 150
 ---
 

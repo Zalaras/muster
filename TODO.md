@@ -60,10 +60,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   merge into settings with an atomic write, never an LLM editing settings
   (kb:adr/nongoal-permissions-ui-basic-user-level-only).
 
-- [ ] **Code diff viewing** — view a session's code diff directly in the dashboard. Revisits
-  `kb:adr/nongoal-diff-review-placeholder-button` (today's placeholder just opens the worktree
-  in an editor, an acknowledged hack); would need a superseding ADR before being planned.
-
 - [ ] **Read and write from notes** ([#125](https://github.com/Zalaras/muster/issues/125)) — The
   author wants to start having Claude interact with Muster and asks for the best way to do so, with
   reading and writing a session's notes as a simple proof of concept. Expected: Claude should be
@@ -173,6 +169,12 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   changes.
   Filed 2026-11-20 from musterd 0.30.3 / Claude Code 2.1.329, focus view, session idle.
   Labels: bug, launch, ux.
+
+- [ ] **The diff viewer's change map draws blank and unreachable above about 530 changes** — in
+  review view, a diff with more than about 530 changes shows an empty change map, and the marks for
+  later changes sit below the map box, reachable only by wheel-scrolling a map with no visible
+  scrollbar. Expected: one clickable mark per change, all inside the map box, at any change count.
+  From `plans/diff-viewer/`.
 
 ## Tweaks
 

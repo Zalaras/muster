@@ -53,7 +53,7 @@ export function initNotes(app: App, deps: NotesDeps): void {
   const mainEl = requireElement<HTMLElement>(".main");
   const mainheadEl = requireElement<HTMLElement>("#mainhead");
   const effortStripEl = requireElement<HTMLElement>("#effort-strip");
-  const sizenoteEl = requireElement<HTMLElement>("#sizenote");
+  const sizenoteEl = requireElement<HTMLElement>("#sizerow");
   const sessionStore = safeSessionStorage();
   const saving = createNoteSaving(app);
   const windows = createNoteWindows((url, name, features) => window.open(url, name, features));

@@ -1,0 +1,2184 @@
+{
+  "plan": "diff-viewer",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-11-19T21:30:42Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 53,
+        "keep": 25,
+        "drop": 28
+      },
+      "keeps": [
+        {
+          "key": "internal/session/diffreview.go:fd21e9153ee23fdc",
+          "path": "internal/session/diffreview.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) mutateDiffReview(ctx context.Context, id int64, change func(*DiffReview)) error {",
+            "line": 108
+          },
+          "lines": [
+            "// mutateDiffReview reads, changes and writes a session's review under Manager.mu, so two",
+            "// writes to one session never lose each other; the write itself is ordered by the",
+            "// session's write turnstile like every whole-row setter. It never broadcasts."
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:3d8687944dd4b4a0",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { DiffBody, DiffScope, ReviewComment } from \"../api/diff\";",
+            "line": 1
+          },
+          "lines": [
+            "// One session's viewer state, shared by the viewer's parts. Each field has one writer, named",
+            "// beside it; the DOM refs are rebuilt with each read and held here so a tick never rebuilds."
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:4ed88e13ec51efb5",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "open: boolean;",
+            "line": 31
+          },
+          "lines": [
+            "// diffviewer.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:4ed88e13ec51efb5",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "scope: DiffScope;",
+            "line": 32
+          },
+          "lines": [
+            "// diffviewer.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:4ed88e13ec51efb5",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "view: DiffView;",
+            "line": 33
+          },
+          "lines": [
+            "// diffviewer.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:4ed88e13ec51efb5",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "tab: SideTab;",
+            "line": 34
+          },
+          "lines": [
+            "// diffviewer.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:4ed88e13ec51efb5",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "load: LoadState;",
+            "line": 35
+          },
+          "lines": [
+            "// diffviewer.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:4ed88e13ec51efb5",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "diff: DiffBody | null;",
+            "line": 36
+          },
+          "lines": [
+            "// diffviewer.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:4ed88e13ec51efb5",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "models: FileModel[];",
+            "line": 37
+          },
+          "lines": [
+            "// diffviewer.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:4ed88e13ec51efb5",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "body: BodyRefs | null;",
+            "line": 38
+          },
+          "lines": [
+            "// diffviewer.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:4ed88e13ec51efb5",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "filesRows: FilesRowRefs[];",
+            "line": 39
+          },
+          "lines": [
+            "// diffviewer.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:4ed88e13ec51efb5",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "map: MapMark[];",
+            "line": 40
+          },
+          "lines": [
+            "// diffviewer.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:b411d4afce898b68",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "comments: ReviewComment[];",
+            "line": 41
+          },
+          "lines": [
+            "// diffcomments.ts, and diffviewer.ts on a read"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:b9697790faa15ce0",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "ticks: Set\u003cstring\u003e;",
+            "line": 42
+          },
+          "lines": [
+            "// diffreviewui.ts, and diffviewer.ts on a read"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:6a7c6927c402676f",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "pendingAdd: Set\u003cstring\u003e;",
+            "line": 43
+          },
+          "lines": [
+            "// diffreviewui.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:6a7c6927c402676f",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "pendingRemove: Set\u003cstring\u003e;",
+            "line": 44
+          },
+          "lines": [
+            "// diffreviewui.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:6a7c6927c402676f",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "flips: Set\u003cstring\u003e;",
+            "line": 45
+          },
+          "lines": [
+            "// diffreviewui.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:6a7c6927c402676f",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "reopened: Set\u003cstring\u003e;",
+            "line": 46
+          },
+          "lines": [
+            "// diffreviewui.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:6a7c6927c402676f",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "fileFold: Map\u003cstring, boolean\u003e;",
+            "line": 47
+          },
+          "lines": [
+            "// diffreviewui.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:35aad8409d0a2c3d",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "expandedResolved: Set\u003cstring\u003e;",
+            "line": 48
+          },
+          "lines": [
+            "// diffcomments.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:35aad8409d0a2c3d",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "selection: Selection | null;",
+            "line": 49
+          },
+          "lines": [
+            "// diffcomments.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:35aad8409d0a2c3d",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "draft: Draft | null;",
+            "line": 50
+          },
+          "lines": [
+            "// diffcomments.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:6a7c6927c402676f",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "current: string | null;",
+            "line": 51
+          },
+          "lines": [
+            "// diffreviewui.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:4ed88e13ec51efb5",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "latest: DiffBody | null;",
+            "line": 52
+          },
+          "lines": [
+            "// diffviewer.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:4ed88e13ec51efb5",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "scrollTop: number;",
+            "line": 53
+          },
+          "lines": [
+            "// diffviewer.ts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/gitdiff/gitdiff.go:9c3fd1a9af8b52cb",
+          "path": "internal/gitdiff/gitdiff.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type Reader struct {",
+            "line": 79
+          },
+          "lines": [
+            "// Reader reads a checkout's diff through the git CLI and never writes to it: every command",
+            "// runs with optional locks off, so nothing refreshes the index."
+          ]
+        },
+        {
+          "key": "internal/gitdiff/gitdiff.go:52451d36a7c0c1f1",
+          "path": "internal/gitdiff/gitdiff.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *Reader) Summary(ctx context.Context, dir string) (Summary, error) {",
+            "line": 122
+          },
+          "lines": [
+            "// Summary returns both scopes' counts; repo is false, with zero counts, outside a checkout."
+          ]
+        },
+        {
+          "key": "internal/gitdiff/gitdiff.go:b4be805ce9cba2a9",
+          "path": "internal/gitdiff/gitdiff.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *Reader) Read(ctx context.Context, dir string, scope Scope) (Diff, error) {",
+            "line": 141
+          },
+          "lines": [
+            "// Read returns one scope's whole diff of the checkout dir is in."
+          ]
+        },
+        {
+          "key": "internal/gitdiff/gitdiff.go:bd59da5d9c089392",
+          "path": "internal/gitdiff/gitdiff.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *Reader) resolveBase(ctx context.Context, top string, scope Scope) (display, ref string, err error) {",
+            "line": 214
+          },
+          "lines": [
+            "// resolveBase names what a scope compares against and the ref to diff the working tree",
+            "// with; an empty ref means the repository has no commits."
+          ]
+        },
+        {
+          "key": "internal/gitdiff/untracked.go:bff157d41fd09ef3",
+          "path": "internal/gitdiff/untracked.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func addedFile(top, rel string) (File, bool) {",
+            "line": 51
+          },
+          "lines": [
+            "// addedFile builds an added file from the working tree. A symlink reads as its target's",
+            "// text, never followed; a file over the size bound or holding a NUL byte reads as binary."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix.go:f5508c30693d7538",
+          "path": "internal/server/renderfix.go",
+          "anchor": {
+            "kind": "above",
+            "text": "Diff any `json:\"diff,omitempty\"`",
+            "line": 53
+          },
+          "lines": [
+            "// Diff is one entry per session of a scenario that records diffs (renderRig.recordDiff)",
+            "// whose summary answered `repo: true`: `{sessionId, summary, uncommitted, branch,",
+            "// review}`, each the 200 body of its GET (kb:anchor/diff.summary, diff.read, diff.review)."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix.go:19627f9252da0d0d",
+          "path": "internal/server/renderfix.go",
+          "anchor": {
+            "kind": "above",
+            "text": "recordDiff bool",
+            "line": 156
+          },
+          "lines": [
+            "// recordDiff makes capture record each git-backed session's diff; set only by the diff",
+            "// scenarios, so every other fixture stays byte for byte as it was."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_diff.go:1bd0c18426cc77e3",
+          "path": "internal/server/renderfix_scenarios_diff.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *renderRig) diffRepo(ctx context.Context, name string, files map[string]string) (string, error) {",
+            "line": 84
+          },
+          "lines": [
+            "// diffRepo makes \u003croot\u003e/\u003cname\u003e a checkout on main holding files, committed with a pinned date",
+            "// and identity so its commit ids are the same on every run."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_diff.go:b19c22e323d8efbe",
+          "path": "internal/server/renderfix_scenarios_diff.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *renderRig) diffCheckout(ctx context.Context, name, branch string) (string, error) {",
+            "line": 114
+          },
+          "lines": [
+            "// diffCheckout is the `diff` scenario's checkout: base on main, one commit on branch, then",
+            "// uncommitted a modified file, a deleted one, a staged rename edited after, a binary file",
+            "// changed and an untracked file."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_diff.go:37cfd3ebefa36644",
+          "path": "internal/server/renderfix_scenarios_diff.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *renderRig) diffReviewFull(ctx context.Context, s renderSession, dir string) error {",
+            "line": 169
+          },
+          "lines": [
+            "// diffReviewFull records the four comments and two ticks the `diff` scenario's review holds."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_diff.go:f4121018d1cb4557",
+          "path": "internal/server/renderfix_scenarios_diff.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *renderRig) diffTickKeys(ctx context.Context, dir string) ([]string, error) {",
+            "line": 196
+          },
+          "lines": [
+            "// diffTickKeys are the keys of the first change of src/helpers.ts and of src/praise.ts in",
+            "// the uncommitted diff, as the dashboard derives them (web/src/features/diffmodel.ts",
+            "// changeKey): a render test reading the fixture finds those two changes ticked."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_diff.go:2aba2f0974f38d4c",
+          "path": "internal/server/renderfix_scenarios_diff.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *renderRig) captureDiff(ctx context.Context) (any, error) {",
+            "line": 356
+          },
+          "lines": [
+            "// captureDiff records, per session in id order whose summary answers `repo: true`, the",
+            "// summary, both scopes' diffs and the review. A session whose directory is gone answers 409",
+            "// and, like one outside a checkout, is left out."
+          ]
+        },
+        {
+          "key": "internal/session/diffreview.go:5f3fe2286fca7df7",
+          "path": "internal/session/diffreview.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) PutDiffComment(ctx context.Context, id int64, c DiffComment) error {",
+            "line": 79
+          },
+          "lines": [
+            "// PutDiffComment creates c or replaces the comment with its ID, keeping the replaced",
+            "// comment's place in the list and its CreatedAt."
+          ]
+        },
+        {
+          "key": "web/src/api/diff.ts:ad474dcb930856c2",
+          "path": "web/src/api/diff.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import {",
+            "line": 1
+          },
+          "lines": [
+            "// kb:anchor/diff.summary, diff.read, diff.review, diff.comment, diff.comment-delete, diff.ticks."
+          ]
+        },
+        {
+          "key": "web/src/features/diffbutton.ts:89254eec3d66a3bf",
+          "path": "web/src/features/diffbutton.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { DiffBody, DiffScope, DiffSummary, ScopeCounts } from \"../api/diff\";",
+            "line": 1
+          },
+          "lines": [
+            "// Text the diff button, its hover and the staleness bar carry: pure, no DOM."
+          ]
+        },
+        {
+          "key": "web/src/features/diffbutton.ts:47b2984a29e64760",
+          "path": "web/src/features/diffbutton.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function diffButtonText(summary: DiffSummary | null, open: boolean): string | null {",
+            "line": 28
+          },
+          "lines": [
+            "/** The button's text, or `null` while there is nothing to open. */"
+          ]
+        },
+        {
+          "key": "web/src/features/diffbutton.ts:df223c9fb3ee7af1",
+          "path": "web/src/features/diffbutton.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function whatChanged(shown: DiffBody, latest: DiffBody): string {",
+            "line": 60
+          },
+          "lines": [
+            "/** What changed by file between the diff on screen and a newer read of the same scope. */"
+          ]
+        },
+        {
+          "key": "web/src/features/diffmodel.ts:d27412fe6b20714d",
+          "path": "web/src/features/diffmodel.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { CommentSide, DiffFile, DiffLineKind } from \"../api/diff\";",
+            "line": 1
+          },
+          "lines": [
+            "// One file of a diff as the viewer reasons about it: its lines flattened in order, grouped",
+            "// into changes (a run of removed and added lines), each change keyed by its content. Pure, no DOM."
+          ]
+        },
+        {
+          "key": "web/src/features/diffplace.ts:f3fe0b80079f90e3",
+          "path": "web/src/features/diffplace.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { CommentSide, ReviewComment } from \"../api/diff\";",
+            "line": 1
+          },
+          "lines": [
+            "// Where a saved comment sits on the diff shown now, found by matching its quoted lines: pure, no DOM."
+          ]
+        },
+        {
+          "key": "web/src/features/diffreviewui.ts:efa93d6b04d5327f",
+          "path": "web/src/features/diffreviewui.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function onReviewKey(ctx: ViewerCtx, event: KeyboardEvent): boolean {",
+            "line": 270
+          },
+          "lines": [
+            "/** Review's keys, acting only inside the viewer and never in a text field. */"
+          ]
+        },
+        {
+          "key": "web/src/features/diffwords.ts:1782bf95f360dfcf",
+          "path": "web/src/features/diffwords.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface Seg {",
+            "line": 1
+          },
+          "lines": [
+            "// Word-level highlight for a removed line and the added line that replaced it: pure, no DOM."
+          ]
+        },
+        {
+          "key": "web/src/features/diffwords.ts:406b8cbe7e8acd55",
+          "path": "web/src/features/diffwords.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function wordDiff(oldText: string, newText: string): WordPair | null {",
+            "line": 42
+          },
+          "lines": [
+            "/** The differing words of `oldText` and `newText`, or `null` when the two are mostly",
+            "* different (a rewritten line stays plainly red or green) or too long to compare. */"
+          ]
+        },
+        {
+          "key": "web/src/render/diffbody.ts:c00cfc36c099a504",
+          "path": "web/src/render/diffbody.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { DiffFile } from \"../api/diff\";",
+            "line": 1
+          },
+          "lines": [
+            "// The diff body for one read: every file a section, in Unified, Split or Review. Built once",
+            "// per read and view; the viewer then updates it in place through the refs returned here."
+          ]
+        },
+        {
+          "key": "web/src/render/diffchrome.ts:dde2057f2f0d4cae",
+          "path": "web/src/render/diffchrome.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { DiffScope } from \"../api/diff\";",
+            "line": 1
+          },
+          "lines": [
+            "// The viewer's frame — toolbar, changed bar, body slot, change map, side panel — built once",
+            "// per session and only updated afterwards, so a render tick never rebuilds a control."
+          ]
+        },
+        {
+          "key": "web/src/render/diffcomment.ts:3ed5288bfeee5966",
+          "path": "web/src/render/diffcomment.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import { el } from \"./diffrows\";",
+            "line": 1
+          },
+          "lines": [
+            "// Comment DOM: the box a comment is typed in, a saved card, and the folded resolved row."
+          ]
+        },
+        {
+          "key": "web/src/render/diffrows.ts:e3023ba3faf527fc",
+          "path": "web/src/render/diffrows.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { Entry } from \"../features/diffmodel\";",
+            "line": 1
+          },
+          "lines": [
+            "// The diff's line-level DOM: one builder per row shape, no state. Event wiring is the",
+            "// viewer's, by delegation on `data-idx` and the classes below."
+          ]
+        },
+        {
+          "key": "web/src/render/diffside.ts:46f2fbb67a397c27",
+          "path": "web/src/render/diffside.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { DiffFile } from \"../api/diff\";",
+            "line": 1
+          },
+          "lines": [
+            "// The side panel's rows: a Files row per file, a Comments entry per comment."
+          ]
+        },
+        {
+          "key": "web/src/render/surfaceseg.ts:386e7f1e256a509f",
+          "path": "web/src/render/surfaceseg.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function clearSurfaceSegmentSelection(refs: SurfaceSegmentRefs): void {",
+            "line": 109
+          },
+          "lines": [
+            "/** While the diff viewer replaces the pane no segment reads as selected. */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-11-20T07:02:35Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 4,
+        "keep": 4,
+        "drop": 0
+      },
+      "keeps": [
+        {
+          "key": "internal/gitutil/gitutil.go:6a0e65d9e1ba0c4e",
+          "path": "internal/gitutil/gitutil.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type gitRunner struct {",
+            "line": 18
+          },
+          "lines": [
+            "// gitRunner holds the one subprocess seam every query in this file crosses (the",
+            "// constructor-default shape docs/conventions.md § Testing names —",
+            "// kb:adr/process-adapter-run-seam-constructor-default): production always runGit,",
+            "// same-package tests overwrite the field directly. Built fresh per call, the same as",
+            "// tmux.Preflight's newPreflighter(), since none of gitutil's functions carry any",
+            "// per-call config beyond ctx and dir. The stdout-only shape",
+            "// (kb:adr/process-adapter-run-seam-constructor-default's \"one signature per output",
+            "// need\") is claudecode.execFunc/tmux's preflighter.run/locate.SpotlightFinder.run's own",
+            "// `func(ctx, name string, args ...string) ([]byte, error)`, with dir prepended — every",
+            "// git invocation needs a working directory, and name/args still carry the argv the same",
+            "// way, even though runGit's own name is always \"git\" (mirroring tmux.Client.exec's own",
+            "// field, always called with \"tmux\")."
+          ],
+          "reason": "exists on main as gitRunner's doc, the run seam kb:adr/process-adapter-run-seam-constructor-default names; keep it and have its stale `runGit` reworded rather than lose the doc (lesson comment-pass-reads-rewritten-main-comment-as-added; orchestrator override)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:8e1c157796e593a1",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "comments: ReviewComment[];",
+            "line": 48
+          },
+          "lines": [
+            "// diffcomments.ts, and diffviewer.ts on a read no comment write overlapped"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:ecff7176e715220b",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "flushing: Promise\u003cvoid\u003e;",
+            "line": 53
+          },
+          "lines": [
+            "// diffreviewui.ts, the tail of the ordered tick posts"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:6ddc65edd9d2fd9b",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "reopened: Set\u003cstring\u003e;",
+            "line": 55
+          },
+          "lines": [
+            "// diffreviewui.ts, until that change is next ticked or unticked"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        }
+      ],
+      "drops": null
+    },
+    {
+      "cycle": 3,
+      "at": "2026-11-20T10:37:51Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 77,
+        "keep": 77,
+        "drop": 0
+      },
+      "keeps": [
+        {
+          "key": "cmd/musterd/main.go:e82d61ff14770fc3",
+          "path": "cmd/musterd/main.go",
+          "anchor": {
+            "kind": "above",
+            "text": "const defaultRepoPoll = 5 * time.Second",
+            "line": 49
+          },
+          "lines": [
+            "// defaultRepoPoll is -repo-poll's default: the liveness poll's cadence, so a checkout shows",
+            "// on the card within one tick (kb:adr/lifecycle-branch-refreshed-by-repo-poll)."
+          ],
+          "reason": "Edited on `main`; still true: `const defaultRepoPoll = 5 * time.Second` is the -repo-poll default."
+        },
+        {
+          "key": "cmd/musterd/main.go:007722cb2e7a1162",
+          "path": "cmd/musterd/main.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func stopForRestart(httpServer *http.Server, srv *server.Server, st *store.Store, log zerolog.Logger) {",
+            "line": 513
+          },
+          "lines": [
+            "// stopForRestart is the restart branch's teardown: it stops serving and closes the store",
+            "// synchronously, so the WAL is checkpointed and no ingest event is lost before main",
+            "// performs the actual syscall.Exec. Sessions are deliberately left running."
+          ],
+          "reason": "Edited on `main`; still true: `func stopForRestart(httpServer *http.Server, srv *server.Server, st *store.Store, log zerolog.Logger)` shuts down http, server and store."
+        },
+        {
+          "key": "cmd/musterd/onexit.go:62ceb1c17c0bfb3b",
+          "path": "cmd/musterd/onexit.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func shutdownGracefully(f *cliFlags, srv *server.Server, httpServer *http.Server, in *lineInput, stderr io.Writer, log zerolog.Logger) {",
+            "line": 22
+          },
+          "lines": [
+            "// shutdownGracefully resolves the -on-exit policy and then tears the daemon down.",
+            "//",
+            "// The periodic liveness poll is stopped first, before anything else here: every step",
+            "// below (the ShellCount round trip, the on-exit prompt, EndAllSessions/KillAllShells) runs",
+            "// for up to several seconds after the shutdown signal arrives, and until the poll is",
+            "// stopped its own ticker keeps firing on its own schedule regardless. A pane that dies",
+            "// right at this moment must not have this — already dying — process's own next tick",
+            "// mark+persist it ended before the fresh process's own startup Reconcile gets to see (and",
+            "// keep) the row, which would otherwise stamp the row's endedAt before the restart's own",
+            "// Reconcile does (kb:adr/lifecycle-ended-rows-kept-until-remove). Verified closed",
+            "// both with a Manager-level probe (a slow fake PaneChecker held a tick in flight across",
+            "// Stop) and by hand against a real daemon (kill-window then immediate SIGTERM, 15/15",
+            "// clean). Stopping the poll here is a few milliseconds in the common case (it only waits",
+            "// out an in-flight tick), well inside shutdownTimeout's own budget for the rest of",
+            "// teardown. This closes only the periodic-poll path to the symptom, not every path: a",
+            "// live terminal's PTY-EOF liveness nudge (internal/server/terminal.go's pumpPTYToSocket)",
+            "// can mark the same row ended just as fast, entirely independently of this poll.",
+            "//",
+            "// The policy is resolved (and, for \"ask\", possibly prompted) before the shutdown timeout",
+            "// budget starts — the ask prompt has its own 10s timeout (onExitPromptTimeout), separate",
+            "// from shutdownTimeout's budget for the rest of teardown. With zero live sessions and zero",
+            "// shells neither branch prints anything."
+          ],
+          "reason": "Edited on `main`; still true: `func shutdownGracefully(...)` stops the liveness poll first then resolves -on-exit."
+        },
+        {
+          "key": "cmd/musterd/webdist.go:e9682d30a11cdeac",
+          "path": "cmd/musterd/webdist.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func checkWebDist(webDist string, dashboard fs.FS, log zerolog.Logger) error {",
+            "line": 14
+          },
+          "lines": [
+            "// checkWebDist validates the -web-dist / embedded-dashboard serving precedence at startup",
+            "// (kb:adr/connection-dashboard-embedded-in-binary). An on-disk override (-web-dist set) is",
+            "// a permissive dev override: a directory missing index.html only logs a warning and",
+            "// startup proceeds — onexit_test.go's spawnDaemon helper depends on an empty -web-dist",
+            "// dir being accepted for every daemon it spawns, and this is deliberate: serve whatever",
+            "// is there. Falling through to the",
+            "// embedded dashboard (-web-dist unset) with nothing actually embedded — a binary built",
+            "// before any `make web-build` — is fatal: it replaces the old silent 404-everything",
+            "// failure with an actionable error naming both remedies, before the daemon ever starts",
+            "// listening (kb:adr/connection-missing-web-build-fails-fast).",
+            "//",
+            "// dashboard is the embedded dashboard fs.FS: run passes the real webui.FS(), and taking it",
+            "// as a parameter rather than calling webui.FS() directly makes the \"nothing on disk,",
+            "// nothing embedded\" fatal branch deterministically testable with a fake, empty fs.FS",
+            "// instead of depending on this binary's own build having embedded a dashboard."
+          ],
+          "reason": "Edited on `main`; still true: `func checkWebDist(webDist string, dashboard fs.FS, log zerolog.Logger) error` warns for -web-dist and errors with no embedded dashboard."
+        },
+        {
+          "key": "internal/claudecode/interpret.go:b9c826a9823eca91",
+          "path": "internal/claudecode/interpret.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func modelID(raw json.RawMessage) string {",
+            "line": 253
+          },
+          "lines": [
+            "// modelID extracts a model id from SessionStart's optional `model` field. Settled by",
+            "// measurement (interface probe, 2026-08-22, docs/history/spikes/canary-fields.md \"Values worth",
+            "// asserting\" → SessionStart.model): when present it is always a plain model-id string",
+            "// (e.g. \"claude-haiku-4-5-20251001\") — never the {id, display_name} object shape the",
+            "// status line uses (kb:fact/sessionstart-model-optional-string). The object-shape branch",
+            "// this function used to also accept was speculative and is dropped now that the wire",
+            "// shape is known."
+          ],
+          "reason": "Edited on `main`; still true: `func modelID(raw json.RawMessage) string` accepts only the plain string shape."
+        },
+        {
+          "key": "internal/claudecode/modelcheck.go:3afa6dfafaf41ea3",
+          "path": "internal/claudecode/modelcheck.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type modelCheckRun func(ctx context.Context, dir, name string, args ...string) ([]byte, error)",
+            "line": 30
+          },
+          "lines": [
+            "// modelCheckRun is the injectable seam CheckModel calls instead of a real subprocess",
+            "// (docs/conventions.md § Testing, mirroring credentials.go's execFunc) — the production",
+            "// value is runModelCheck. It returns the run's stderr; a nil error covers any process",
+            "// completion, including the catalog run's own always-exit-1",
+            "// (kb:fact/model-catalog-precheck-zero-token). name/args carry the argv the same way",
+            "// every sibling run-func does; dir is prepended because the caller picks which directory",
+            "// the check runs in — the catalog is built into the binary, so the directory never feeds",
+            "// the verdict — the same \"one signature per output need, plus a working-dir input where",
+            "// one is needed\" shape gitutil.Git's run field uses",
+            "// (kb:adr/process-adapter-run-seam-constructor-default)."
+          ],
+          "reason": "Edited on `main`; still true: `type modelCheckRun func(ctx context.Context, dir, name string, args ...string) ([]byte, error)` is the injectable seam."
+        },
+        {
+          "key": "internal/commentpass/collect.go:079d8013cdc56741",
+          "path": "internal/commentpass/collect.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type addedBlock struct {",
+            "line": 89
+          },
+          "lines": [
+            "// addedBlock is a block with at least one line the branch added."
+          ],
+          "reason": "Edited on `main`; still true: `type addedBlock struct {` carries the added line count."
+        },
+        {
+          "key": "internal/commentpass/collect.go:555d292c7f1b0e99",
+          "path": "internal/commentpass/collect.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (p *Pass) collectAdded(ctx context.Context, d *diffInfo) (map[string]*fileScan, map[string][]addedBlock, error) {",
+            "line": 94
+          },
+          "lines": [
+            "// collectAdded returns, per in-scope file, the blocks the branch added or edited."
+          ],
+          "reason": "Edited on `main`; still true: `func (p *Pass) collectAdded(...)` returns blocks with added lines."
+        },
+        {
+          "key": "internal/commentpass/collect.go:e748d6229d86e1d4",
+          "path": "internal/commentpass/collect.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (p *Pass) collectStale(ctx context.Context, d *diffInfo, scans map[string]*fileScan, added map[string][]addedBlock) (map[string][]Candidate, error) {",
+            "line": 133
+          },
+          "lines": [
+            "// collectStale returns pre-existing blocks that name an identifier the branch removed."
+          ],
+          "reason": "Edited on `main`; still true: `func (p *Pass) collectStale(...)` matches blocks naming removed identifiers."
+        },
+        {
+          "key": "internal/commentpass/gitdiff.go:7658b6d80ea023e8",
+          "path": "internal/commentpass/gitdiff.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type diffInfo struct {",
+            "line": 10
+          },
+          "lines": [
+            "// diffInfo is what the pass needs from the branch diff: which lines of which files are",
+            "// new, each hunk's removed lines, and the removed and added lines for identifier bookkeeping."
+          ],
+          "reason": "Edited on `main`; still true: `type diffInfo struct {` holds added, hunks, plus and minus."
+        },
+        {
+          "key": "internal/commentpass/gitdiff.go:44a5c3dc6bee1285",
+          "path": "internal/commentpass/gitdiff.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (d *diffInfo) removedIdents() []string {",
+            "line": 139
+          },
+          "lines": [
+            "// removedIdents are top-level names the branch deleted and did not re-declare anywhere."
+          ],
+          "reason": "Edited on `main`; still true: `func (d *diffInfo) removedIdents() []string` returns names gone and not re-declared."
+        },
+        {
+          "key": "internal/commentpass/gitdiff.go:7228fc90731bf516",
+          "path": "internal/commentpass/gitdiff.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (d *diffInfo) removedComments(path string, start, end int) []string {",
+            "line": 150
+          },
+          "lines": [
+            "// removedComments are the comment-looking lines the branch deleted from path within new",
+            "// lines start..end: only the hunks landing inside that range, so a block's previous text",
+            "// never carries a deletion from elsewhere in the file."
+          ],
+          "reason": "Edited on `main`; still true: `func (d *diffInfo) removedComments(path string, start, end int) []string` filters hunks by range."
+        },
+        {
+          "key": "internal/commentpass/moved.go:93ab745765903401",
+          "path": "internal/commentpass/moved.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (p *Pass) markMoved(ctx context.Context, base string, cands []Candidate) error {",
+            "line": 13
+          },
+          "lines": [
+            "// markMoved relabels each `added` candidate whose every line already stands in one file of",
+            "// base: the comment came with code the branch moved, so the branch did not write it."
+          ],
+          "reason": "Edited on `main`; still true: `func (p *Pass) markMoved(...)` relabels added candidates found on base."
+        },
+        {
+          "key": "internal/commentpass/pass.go:2c0168aff79544be",
+          "path": "internal/commentpass/pass.go",
+          "anchor": {
+            "kind": "above",
+            "text": "package commentpass",
+            "line": 1
+          },
+          "lines": [
+            "// Package commentpass strips every comment a plan branch added to production code,",
+            "// hands them to a judge as text, and reconstructs each file from its snapshot minus the",
+            "// drops. Nothing here holds a model; the judge reads one file and writes one JSON."
+          ],
+          "reason": "Edited on `main`; still true: `package commentpass` strips plan-branch comments and holds no model."
+        },
+        {
+          "key": "internal/commentpass/strip.go:d2b18601c93e9861",
+          "path": "internal/commentpass/strip.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (p *Pass) Strip(ctx context.Context, outDir string, all bool) error {",
+            "line": 25
+          },
+          "lines": [
+            "// Strip collects the branch's candidate comments, removes them from the tree and writes",
+            "// candidates.json and candidates.md under outDir. Nothing is written when a file would",
+            "// stop parsing or when there are no candidates."
+          ],
+          "reason": "Edited on `main`; still true: `func (p *Pass) Strip(ctx context.Context, outDir string, all bool) error` writes candidates.json and candidates.md."
+        },
+        {
+          "key": "internal/commentpass/strip.go:876bf7fdb3d6a6ed",
+          "path": "internal/commentpass/strip.go",
+          "anchor": {
+            "kind": "above",
+            "text": "if a.added*2 \u003c= len(a.Lines) {",
+            "line": 112
+          },
+          "lines": [
+            "// At most half its lines new: still the comment that was on main, judged on truth",
+            "// alone. More than half: the branch wrote it, whatever stood there before."
+          ],
+          "reason": "Edited on `main`; still true: `if a.added*2 \u003c= len(a.Lines) {` marks edited at half or fewer new lines."
+        },
+        {
+          "key": "internal/commentpass/verify.go:d60a311f27316587",
+          "path": "internal/commentpass/verify.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (p *Pass) Verify(ctx context.Context) error {",
+            "line": 10
+          },
+          "lines": [
+            "// Verify fails on any comment block the branch added whose latest ledger verdict is not",
+            "// keep. With no ledger it passes only when the branch added no comment at all."
+          ],
+          "reason": "Edited on `main`; still true: `func (p *Pass) Verify(ctx context.Context) error` fails on added blocks not kept."
+        },
+        {
+          "key": "internal/gitutil/gitutil.go:abd900151b448ad9",
+          "path": "internal/gitutil/gitutil.go",
+          "anchor": {
+            "kind": "above",
+            "text": "package gitutil",
+            "line": 1
+          },
+          "lines": [
+            "// Package gitutil shells out to the `git` CLI (docs/conventions.md: \"Git/GitHub: never",
+            "// go-git\") to answer the small set of questions the daemon needs about a launch",
+            "// directory: is it a git checkout, where is its top level, what branch is it on, is it a",
+            "// linked worktree, and (for the reader) which files does git see there. Nothing here is Claude-Code-format",
+            "// knowledge; it stays out of internal/claudecode by design."
+          ],
+          "reason": "Edited on `main`; still true: `package gitutil` shells out to git for checkout questions."
+        },
+        {
+          "key": "internal/gitutil/gitutil.go:cacc02e13443d564",
+          "path": "internal/gitutil/gitutil.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type Git struct {",
+            "line": 13
+          },
+          "lines": [
+            "// Git holds the one subprocess seam every query in this file crosses (the",
+            "// constructor-default shape docs/conventions.md § Testing names —",
+            "// kb:adr/process-adapter-run-seam-constructor-default): the package-level functions build",
+            "// NewGit(Exec) per call, internal/gitdiff builds one with its own RunFunc, and",
+            "// same-package tests overwrite the field directly. The stdout-only shape",
+            "// (kb:adr/process-adapter-run-seam-constructor-default's \"one signature per output",
+            "// need\") is claudecode.execFunc/tmux's preflighter.run/locate.SpotlightFinder.run's own",
+            "// `func(ctx, name string, args ...string) ([]byte, error)`, with dir and env prepended —",
+            "// every git invocation needs a working directory, and a caller that points git at",
+            "// another index says so in env, where a fake runner sees it; name/args still carry the",
+            "// argv the same way, even though Exec's name is always \"git\" (mirroring tmux.Client.exec's",
+            "// own field, always called with \"tmux\")."
+          ],
+          "reason": "rewrites gitRunner's doc that exists on main, the run seam kb:adr/process-adapter-run-seam-constructor-default names (lesson comment-pass-reads-rewritten-main-comment-as-added; orchestrator override)"
+        },
+        {
+          "key": "internal/gitutil/gitutil.go:983790d8c5485716",
+          "path": "internal/gitutil/gitutil.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func Branch(ctx context.Context, dir string) *string {",
+            "line": 61
+          },
+          "lines": [
+            "// Branch returns the current branch name, or nil when dir isn't a git checkout or is in",
+            "// a detached-HEAD state — the wire's own \"null when not git\" contract",
+            "// (docs/protocol.md's repo.branch)."
+          ],
+          "reason": "Edited on `main`; still true: `func Branch(ctx context.Context, dir string) *string` returns nil when not a checkout or detached."
+        },
+        {
+          "key": "internal/selfupdate/failure.go:b12d39cc332d1bea",
+          "path": "internal/selfupdate/failure.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func DescribeCheckFailure(err error) string {",
+            "line": 52
+          },
+          "lines": [
+            "// DescribeCheckFailure composes the one-sentence, URL-free `check_failed` wire message for",
+            "// a failed release check from LatestTag/CheckNewer's returned error, un-prefixed and",
+            "// unwrapped — checkAvailability returns that error as-is, never adding its own wrapper, so",
+            "// this function's fallback branch (an error that isn't one of the three typed classes)",
+            "// never has to strip a caller-added prefix back off before adding its own. The full error",
+            "// (still carrying its wrapped chain, from wherever the caller itself logs it) is what the",
+            "// daemon log keeps (kb:adr/update-failure-one-sentence-chain-in-log) — this function only",
+            "// ever produces the short wire text."
+          ],
+          "reason": "Edited on `main`; still true: `func DescribeCheckFailure(err error) string` composes the URL-free wire message."
+        },
+        {
+          "key": "internal/selfupdate/release.go:483a4c54049493a3",
+          "path": "internal/selfupdate/release.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func CheckNewer(ctx context.Context, client *http.Client, base, running string) (latest Version, tag string, newer bool, err error) {",
+            "line": 126
+          },
+          "lines": [
+            "// CheckNewer answers \"is a newer release available than running\": resolve the latest",
+            "// release tag, parse it, and compare against running",
+            "// (kb:adr/update-release-knowledge-in-selfupdate-package). tag is LatestTag's own",
+            "// resolved string, returned alongside latest so a caller that applies immediately",
+            "// (cmd/musterd's `-update`) can pass GitHub's own tag straight to Apply instead of",
+            "// reconstructing one with ReleaseTag, which is only exact for a tag already shaped",
+            "// \"v\"+Version.String()`. err is non-nil only when the latest tag could not be resolved",
+            "// or parsed. running failing to parse (a dev build) reports newer=false with no error —",
+            "// every caller only reaches this after establishing its own version is a release build",
+            "// (Install.Kind != KindDev), so that branch is a defensive default, not a distinct error",
+            "// condition either caller needs to surface."
+          ],
+          "reason": "Edited on `main`; still true: `func CheckNewer(...)` resolves, parses and compares the tag."
+        },
+        {
+          "key": "internal/server/launcher.go:a421d8cd74fa55a8",
+          "path": "internal/server/launcher.go",
+          "anchor": {
+            "kind": "above",
+            "text": "ProjectsDir string",
+            "line": 63
+          },
+          "lines": [
+            "// ProjectsDir is Claude Code's transcript store (claudecode.ProjectsDir's default, or",
+            "// -claude-projects-dir): the resume-from-list branch's and GET /api/past-sessions'",
+            "// one read root, read-only."
+          ],
+          "reason": "Edited on `main`; still true: `ProjectsDir string` is the transcript store read root."
+        },
+        {
+          "key": "internal/server/launcher.go:1302a58b41958a97",
+          "path": "internal/server/launcher.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func checkoutState(ctx context.Context, dir string) (branch *string, isWorktree bool) {",
+            "line": 365
+          },
+          "lines": [
+            "// checkoutState is the branch (nil when detached) and worktree flag of dir, a directory the",
+            "// caller already knows is inside a checkout — the one place both are read, for the launch",
+            "// directory (repoContext) and for the directory Claude is working in (deriveLocation)."
+          ],
+          "reason": "Edited on `main`; still true: `func checkoutState(ctx context.Context, dir string) (branch *string, isWorktree bool)` reads both."
+        },
+        {
+          "key": "internal/server/launcherpast.go:65f19bc8161c4dca",
+          "path": "internal/server/launcherpast.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (l *sessionLauncher) launchResume(ctx context.Context, req createSessionRequest) (*session.Session, *launchError) {",
+            "line": 53
+          },
+          "lines": [
+            "// launchResume is Launch's resumeSessionId branch (kb:anchor/sessions.create):",
+            "// creates a new Muster session running `claude --resume \u003cid\u003e --permission-mode \u003cmode\u003e`",
+            "// seeded from the directory's transcripts, in place of the ordinary form's model/title/",
+            "// permissionMode. Check order after validateResumeRequest matches the Protocol Contract:",
+            "// existence (the transcript lookup, 404) before already_open (409)",
+            "// (kb:adr/launch-resume-one-alive-row-per-claude-session)."
+          ],
+          "reason": "Edited on `main`; still true: `func (l *sessionLauncher) launchResume(...)` is the resumeSessionId path."
+        },
+        {
+          "key": "internal/server/locate.go:2ce35feed5c7cb38",
+          "path": "internal/server/locate.go",
+          "anchor": {
+            "kind": "above",
+            "text": "if f.locator == nil {",
+            "line": 84
+          },
+          "lines": [
+            "// A misconfigured server (Config.Locator left nil) answers 500 instead of",
+            "// nil-dereferencing here. Placed after readFilePart succeeds so it guards only the",
+            "// call it exists to protect — every 400/413 body-validation branch above must stay",
+            "// reachable and unaffected regardless of whether a Locator is configured."
+          ],
+          "reason": "Edited on `main`; still true: `if f.locator == nil {` answers 500 after readFilePart succeeds."
+        },
+        {
+          "key": "internal/server/reader.go:e26f35dbaba32f64",
+          "path": "internal/server/reader.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *readerFeature) scanPlan(ctx context.Context, sessionID int64, claudeSessionID, transcriptPath string) {",
+            "line": 134
+          },
+          "lines": [
+            "// scanPlan runs the transcript scan for a locatable plan file and hands its result to",
+            "// Manager.ApplyPlanScan, which is the sole place the sticky-once-named retention rule",
+            "// (kb:adr/reader-plan-sticky-once-named) is decided — the retain-or-find choice, the",
+            "// exists stat and the write all happen inside one Manager.mu critical section there, so",
+            "// this function only ever reports what the scan found, never what the session currently",
+            "// holds. ApplyPlanScan itself enforces the claudeSessionID gate: a hook whose Claude",
+            "// session id the session has already left never moves the transcript or the plan",
+            "// (kb:spec/reader). transcriptPath == \"\" is a no-op (nothing to scan yet); a scan whose",
+            "// transcript is missing or names no plan also passes foundPath == \"\" — LocatePlanFile's",
+            "// ErrNotExist branch returns a zero PlanFile, not an error."
+          ],
+          "reason": "Edited on `main`; still true: `func (f *readerFeature) scanPlan(...)` hands the scan result to ApplyPlanScan."
+        },
+        {
+          "key": "internal/server/renderfix.go:55e618ba7470b8c4",
+          "path": "internal/server/renderfix.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *renderRig) dir(ctx context.Context, name, branch string) (string, error) {",
+            "line": 167
+          },
+          "lines": [
+            "// dir creates \u003croot\u003e/\u003cname\u003e; branch non-empty makes it a git checkout on that branch."
+          ],
+          "reason": "Edited on `main`; still true: `func (r *renderRig) dir(ctx context.Context, name, branch string)` makes a checkout when branch is non-empty."
+        },
+        {
+          "key": "internal/server/renderfix.go:ffc8092a6f58d9e8",
+          "path": "internal/server/renderfix.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *renderRig) worktree(ctx context.Context, dir, name, branch string) (string, error) {",
+            "line": 193
+          },
+          "lines": [
+            "// worktree adds a linked worktree of dir at \u003cdir\u003e/.claude/worktrees/\u003cname\u003e on a new branch."
+          ],
+          "reason": "Edited on `main`; still true: `func (r *renderRig) worktree(...)` adds a linked worktree on a new branch."
+        },
+        {
+          "key": "internal/server/renderfix_scenarios.go:db17fbefee0b6c25",
+          "path": "internal/server/renderfix_scenarios.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type focusHeaderNames struct {",
+            "line": 61
+          },
+          "lines": [
+            "// focusHeaderNames is one name set for the Focus header's fit scenarios: the launch",
+            "// checkout's folder and branch, and the worktree the moved session's Claude works in",
+            "// (branch `worktree-\u003cname\u003e`, as Claude's EnterWorktree makes it)."
+          ],
+          "reason": "Edited on `main`; still true: `type focusHeaderNames struct {` holds folder, branch and worktree."
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_focus.go:a4454dadc1b67f2e",
+          "path": "internal/server/renderfix_scenarios_focus.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type focusCheckout struct{ folder, branch string }",
+            "line": 142
+          },
+          "lines": [
+            "// focusCheckout is one scratch checkout of a rows scenario: its folder name and branch."
+          ],
+          "reason": "Edited on `main`; still true: `type focusCheckout struct{ folder, branch string }` is a folder and branch."
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_focus.go:a550e47e617079f2",
+          "path": "internal/server/renderfix_scenarios_focus.go",
+          "anchor": {
+            "kind": "above",
+            "text": "var focusRowsA = focusRows{",
+            "line": 178
+          },
+          "lines": [
+            "// focusRowsA: the 35-character folder on `main`, the 60-character folder on the",
+            "// 80-character branch and the 6-character folder on `main`. Beside the state-table rows",
+            "// it holds, for each session the INV-6 sweeps stop, a dead twin — the same title, checkout",
+            "// and group, ended — so the header alive is compared with the header dead at every width."
+          ],
+          "reason": "Edited on `main`; still true: `var focusRowsA = focusRows{` lists those checkouts."
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_focus.go:9396e70ac5ad24af",
+          "path": "internal/server/renderfix_scenarios_focus.go",
+          "anchor": {
+            "kind": "above",
+            "text": "var focusRowsB = focusRows{",
+            "line": 200
+          },
+          "lines": [
+            "// focusRowsB: the 35-character folder on the 80-character branch, the 6-character folder",
+            "// on it too, and the 60-character folder on `main` — the other half of the folder × branch",
+            "// pairs, which cannot share a scratch root with A's (one folder name, one checkout)."
+          ],
+          "reason": "Edited on `main`; still true: `var focusRowsB = focusRows{` holds the other folder and branch pairs."
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_misc.go:91ad84a46812e8b3",
+          "path": "internal/server/renderfix_scenarios_misc.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *renderRig) reportAddedDirs(ctx context.Context, s renderSession, claudeID, launchDir string, dirs []string) error {",
+            "line": 143
+          },
+          "lines": [
+            "// reportAddedDirs posts one status line for s whose `workspace.added_dirs` is the launch",
+            "// directory followed by dirs, as a real status line lists them, then runs the repo poll",
+            "// that reads each directory's branch from disk."
+          ],
+          "reason": "Edited on `main`; still true: `func (r *renderRig) reportAddedDirs(...)` posts a status line then runs repoTick."
+        },
+        {
+          "key": "internal/server/reporefresh.go:5ca40536229718ef",
+          "path": "internal/server/reporefresh.go",
+          "anchor": {
+            "kind": "above",
+            "text": "Poll time.Duration",
+            "line": 30
+          },
+          "lines": [
+            "// Poll is the poll interval (-repo-poll). \u003c= 0 runs no timer: the poll then runs once at",
+            "// start and on a nudge only (kb:adr/lifecycle-branch-refreshed-by-repo-poll)."
+          ],
+          "reason": "Edited on `main`; still true: `Poll time.Duration` is the interval and 0 runs no timer."
+        },
+        {
+          "key": "internal/server/reporefresh.go:eefb16d53de3de49",
+          "path": "internal/server/reporefresh.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type repoRefreshFeature struct {",
+            "line": 33
+          },
+          "lines": [
+            "// repoRefreshFeature re-reads each alive session's launch-directory branch and worktree flag,",
+            "// reads each added directory's checkout, and derives where Claude is working when that is",
+            "// another checkout (claudeLocation), on a",
+            "// timer and whenever the session manager reports Claude's directory changed. Hooks never",
+            "// report a checkout made by the shell pane or outside Muster, so a poll is the only source",
+            "// (kb:adr/lifecycle-branch-refreshed-by-repo-poll). It mounts no routes. All git runs",
+            "// happen here, outside the manager's lock; the manager's SetRepoState applies the result."
+          ],
+          "reason": "Edited on `main`; still true: `type repoRefreshFeature struct {` re-reads branch and worktree and mounts no routes."
+        },
+        {
+          "key": "internal/server/reporefresh.go:0598bf531531b65f",
+          "path": "internal/server/reporefresh.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func topLevel(ctx context.Context, dir string) *string {",
+            "line": 188
+          },
+          "lines": [
+            "// topLevel is gitutil.TopLevel with the answer resolved the same way as the directories it",
+            "// is compared against."
+          ],
+          "reason": "Edited on `main`; still true: `func topLevel(ctx context.Context, dir string) *string` resolves the path."
+        },
+        {
+          "key": "internal/server/repos.go:5a11c1b31b5ef52c",
+          "path": "internal/server/repos.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *reposFeature) handleListRepos(w http.ResponseWriter, r *http.Request) {",
+            "line": 41
+          },
+          "lines": [
+            "// handleListRepos is GET /api/repos: the MRU directory picker list",
+            "// (kb:adr/launch-hybrid-mru-directory-memory), ordered `pinned DESC, lastLaunchedAt",
+            "// DESC`, with branch read at request time."
+          ],
+          "reason": "Edited on `main`; still true: `func (f *reposFeature) handleListRepos(...)` reads branch at request time."
+        },
+        {
+          "key": "internal/server/usagewire.go:80d83e517e810c2a",
+          "path": "internal/server/usagewire.go",
+          "anchor": {
+            "kind": "above",
+            "text": "if model.Windows != nil {",
+            "line": 70
+          },
+          "lines": [
+            "// model.Windows is nil until the first successful fetch; a non-nil (possibly",
+            "// empty) slice is a distinct, valid successful result — only assign out.ModelScoped",
+            "// inside this branch so the \"never fetched\" case keeps it nil (renders `null`, no",
+            "// `omitempty` on the field)."
+          ],
+          "reason": "Edited on `main`; still true: `if model.Windows != nil {` assigns ModelScoped only when fetched."
+        },
+        {
+          "key": "internal/session/apply.go:a182ffd021938c88",
+          "path": "internal/session/apply.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessionID string, promptID *string, input claudecode.StateInput, enveloped bool) (*Session, error) {",
+            "line": 11
+          },
+          "lines": [
+            "// Apply feeds one already-routed, already-persisted event into the state machine",
+            "// (kb:anchor/state.transitions) and persists + broadcasts the result. claudeSessionID and promptID",
+            "// are generic identifiers, not Claude Code payload vocabulary; input is the neutral",
+            "// StateInput the claudecode interpreter derived.",
+            "//",
+            "// enveloped is true iff the ingest post carried the kb:anchor/ingest.envelope envelope",
+            "// (i.e. arrived through Muster's own command wrapper, never a raw/legacy post); an",
+            "// enveloped post is the sole binding authority (kb:adr/ingest-envelope-authoritative-binding).",
+            "// For an enveloped event whose Kind is not itself a binder (KindBind/KindClearRebind/",
+            "// KindResumeBind — those already carry their own bind logic via applyInput/applyBind",
+            "// below), this session's *actual* claudeSessionID is compared against the one this event",
+            "// names before applyInput runs:",
+            "//   - never bound (ClaudeSessionID == \"\") → bind it, no state transition (this covers a",
+            "//     lost SessionStart: the pane's later events still bind it).",
+            "//   - bound to a different id, and that id has never been this session's → the same",
+            "//     rebind SessionStart(source:\"clear\") gets (reset context/compactions, → started),",
+            "//     applied first, so the event that follows lands on a freshly-started session — the",
+            "//     shape /clear produces (kb:fact/clear-mints-new-session-id).",
+            "//   - bound to a different id, but `byClaude[claudeSessionID]` already points at *this*",
+            "//     session — meaning this session left that id for its current one already — the",
+            "//     event is a reordered straggler from a conversation this session has moved on",
+            "//     from (typically the `/clear` pair's own `SessionEnd(reason:\"clear\")`, since",
+            "//     delivery is unordered per CLAUDE.md's hard rule). Rebinding is **monotonic**",
+            "//     (kb:adr/ingest-monotonic-rebind): it is routed and applied below,",
+            "//     but it never rebinds *backwards* — the current binding, context gauge and",
+            "//     compaction counter are left untouched.",
+            "//",
+            "// Raw (non-enveloped) events never take this path: they keep routing by the existing",
+            "// byClaude mapping and never bind or rebind. Status-line posts never call Apply at all —",
+            "// they go through ApplyStatus.",
+            "//",
+            "// Either way, this function does exactly one persist and one broadcast, whether or not",
+            "// the rebind branch ran."
+          ],
+          "reason": "Edited on `main`; still true: `func (m *Manager) Apply(...)` rebinds by envelope as described."
+        },
+        {
+          "key": "internal/session/apply.go:90761399f1db0721",
+          "path": "internal/session/apply.go",
+          "anchor": {
+            "kind": "above",
+            "text": "prevOwner, hadPrevOwner := m.byClaude[claudeSessionID]",
+            "line": 21
+          },
+          "lines": [
+            "// claudeSessionID is fixed for the whole call, so byClaude ever gets at most this one",
+            "// key touched below — captured once, before either mutation branch, so a persist",
+            "// failure can put it back exactly as it was (one persist-failure policy for every",
+            "// setter, byClaude included, not just sess's own fields)."
+          ],
+          "reason": "Edited on `main`; still true: `prevOwner, hadPrevOwner := m.byClaude[claudeSessionID]` captures the key once."
+        },
+        {
+          "key": "internal/session/apply.go:19b821ea78d83298",
+          "path": "internal/session/apply.go",
+          "anchor": {
+            "kind": "above",
+            "text": "if owner, known := m.byClaude[claudeSessionID]; !known || owner != musterSessionID {",
+            "line": 29
+          },
+          "lines": [
+            "// Monotonic rebind guard (kb:anchor/ingest.envelope, decided 2026-08-28):",
+            "// byClaude never deletes an old claude id on rebind — only a full session",
+            "// removal does that, via removeFromMemory (DeleteSession, Remove), and Apply would already",
+            "// have failed the m.sessions lookup above in that case, never reaching this branch. So if the",
+            "// incoming id already maps to *this* musterSessionID, this session bound",
+            "// it once before and has since moved on to sess.ClaudeSessionID. That",
+            "// makes the event a reordered straggler, not a forward rebind: route and",
+            "// apply it below (applyInput), but do not reset state/context/compactions",
+            "// and do not move the binding backwards."
+          ],
+          "reason": "Edited on `main`; still true: `if owner, known := m.byClaude[claudeSessionID]; !known || owner != musterSessionID {` is the monotonic guard."
+        },
+        {
+          "key": "internal/session/machine.go:c6a8dfd94c8c590c",
+          "path": "internal/session/machine.go",
+          "anchor": {
+            "kind": "above",
+            "text": "sess.Failure = nil",
+            "line": 87
+          },
+          "lines": [
+            "// kb:anchor/ws.session's failure-iff-failed invariant is unconditional: this",
+            "// branch always transitions to needs_input, so a failure note carried over",
+            "// from an earlier failed turn (e.g. StopFailure, then a subagent-marked",
+            "// PermissionRequest against that same now-closed prompt) must not survive."
+          ],
+          "reason": "Edited on `main`; still true: `sess.Failure = nil` follows needs_input transition."
+        },
+        {
+          "key": "internal/session/machine.go:e4421f3e44fa6571",
+          "path": "internal/session/machine.go",
+          "anchor": {
+            "kind": "above",
+            "text": "if kind == claudecode.KindResumeBind {",
+            "line": 174
+          },
+          "lines": [
+            "// A same-id resume bind lands in idle and leaves compactions/lastActivity/context",
+            "// alone — history exists; it is waiting for input, not new",
+            "// (kb:adr/lifecycle-resume-rebinds-existing-session). This only runs when kind",
+            "// wasn't escalated to KindClearRebind above, which already took the",
+            "// full-reset/started path a different claude id implies.",
+            "//",
+            "// This never touches `alive`: pane existence is the sole authority for liveness",
+            "// (kb:adr/lifecycle-liveness-from-pane-existence), and this branch runs from a hook",
+            "// payload, which may be queued/late relative to the tmux state it describes.",
+            "// RecordResume already sets `alive` on the real resume path, from the tmux spawn",
+            "// that actually happened; a resume-bind hook that outraces or follows a pane's real",
+            "// death must never override that."
+          ],
+          "reason": "Edited on `main`; still true: `if kind == claudecode.KindResumeBind {` lands idle and never touches alive."
+        },
+        {
+          "key": "internal/session/repo.go:bc99f83283d0e5ee",
+          "path": "internal/session/repo.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) SetRepoState(ctx context.Context, id int64, state RepoState) error {",
+            "line": 40
+          },
+          "lines": [
+            "// SetRepoState adopts one repo-poll reading and, only when the wire-visible repo or",
+            "// claudeLocation changed, persists and broadcasts it as one sessionUpsert. A reading that",
+            "// finds nothing new touches nothing.",
+            "//",
+            "// The reading was taken outside the lock, so it is checked against the session as it stands",
+            "// now. A reading taken before the session died is dropped whole, branch included, however",
+            "// soon a resume made it alive again: a checkout made after the card showed ended must not",
+            "// reach the dead card, and the resumed session's first tick reads it afresh. A Location",
+            "// derived from a ClaudeDir that has since been replaced or cleared is dropped alone; the",
+            "// ClaudeDir change that outdated it has already nudged the poll for a fresh reading. An",
+            "// added directory's reading applies only to a directory still listed: the list as it stands",
+            "// now decides which entries exist, and one the reading never saw stays unread until the",
+            "// next tick."
+          ],
+          "reason": "Edited on `main`; still true: `func (m *Manager) SetRepoState(...)` drops readings from a dead epoch."
+        },
+        {
+          "key": "internal/store/migrate.go:0f9559683f14ec5b",
+          "path": "internal/store/migrate.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func applyOneMigration(ctx context.Context, db *sql.DB, m migration) error {",
+            "line": 96
+          },
+          "lines": [
+            "// applyOneMigration runs m's SQL and records it in schema_migrations inside one",
+            "// transaction, using the deferred-Rollback idiom InsertSession/BumpIDWatermark also use",
+            "// rather than an explicit per-error Rollback call at every branch — one transaction idiom",
+            "// for the package. Split out of Migrate's loop so that idiom's defer fires per migration,",
+            "// not only once the whole loop returns."
+          ],
+          "reason": "Edited on `main`; still true: `func applyOneMigration(...)` uses a deferred Rollback in one transaction."
+        },
+        {
+          "key": "internal/store/repo.go:68ab431187ab8d9e",
+          "path": "internal/store/repo.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (s *Store) UpsertRepo(ctx context.Context, p UpsertRepoParams) (Repo, bool, error) {",
+            "line": 37
+          },
+          "lines": [
+            "// UpsertRepo creates the repo row for p.Path if absent (launch_count starts at 1) or",
+            "// updates the launch defaults and increments launch_count if present. The bool return",
+            "// is true iff the row was newly created — the source of the Session's firstLaunchHere",
+            "// field (kb:anchor/ws.session).",
+            "//",
+            "// A single `INSERT ... ON CONFLICT(path) DO UPDATE ... RETURNING` statement, not a",
+            "// SELECT followed by an INSERT/UPDATE: the prior two-step check-then-insert let two",
+            "// concurrent launches into the same never-before-seen directory both see \"not found\"",
+            "// and both attempt an INSERT, so the loser hit `UNIQUE constraint failed: repo.path`",
+            "// and sessionLauncher.Launch surfaced a plain 500 (daemon-tests,",
+            "// TestLauncher_ConcurrentLaunchesForTheSameDirectoryProduceTwoDistinctRows). The store",
+            "// already serializes all writes onto one connection (SetMaxOpenConns(1), this package's",
+            "// CLAUDE.md), so a single statement is atomic with respect to every other caller; two",
+            "// separate round trips through the connection pool were not. \"Was this call's branch",
+            "// the INSERT\" is read off the returned launch_count rather than a follow-up existence",
+            "// check (which would reopen the same race): every pre-existing row already has",
+            "// launch_count \u003e= 1 from its own first insert, so the UPDATE branch's `+ 1` can never",
+            "// produce 1 — a returned launch_count of 1 is only reachable via the INSERT branch."
+          ],
+          "reason": "Edited on `main`; still true: `func (s *Store) UpsertRepo(...)` is a single ON CONFLICT statement."
+        },
+        {
+          "key": "internal/store/repo.go:e242bf3fec788f6b",
+          "path": "internal/store/repo.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (s *Store) TouchRepo(ctx context.Context, p TouchRepoParams) (Repo, bool, error) {",
+            "line": 69
+          },
+          "lines": [
+            "// TouchRepo is UpsertRepo's sibling for a resume-from-list launch: it advances launch_count and",
+            "// last_launched_at exactly like UpsertRepo, but never writes last_model or",
+            "// last_permission_mode — a resume from the list carries no model or Start-in choice of",
+            "// its own, and must not clobber whatever a real launch last remembered there. A never-",
+            "// before-seen directory's row is created with both columns null (the Schema Changes",
+            "// note's \"a query, not a migration\"). Same single-statement-atomic reasoning as UpsertRepo:",
+            "// \"was this call's branch the INSERT\" is read off the returned launch_count, not a",
+            "// follow-up existence check."
+          ],
+          "reason": "Edited on `main`; still true: `func (s *Store) TouchRepo(...)` never writes last_model or last_permission_mode."
+        },
+        {
+          "key": "internal/tmux/tmux.go:a5f949e939325031",
+          "path": "internal/tmux/tmux.go",
+          "anchor": {
+            "kind": "above",
+            "text": "var ErrSessionExists = errors.New(\"tmux session already exists\")",
+            "line": 163
+          },
+          "lines": [
+            "// ErrSessionExists is wrapped into the error NewNamedSession returns when tmux refuses to",
+            "// create a session because the name is already taken.",
+            "// Callers branch on this with errors.Is rather than matching tmux's own stderr text",
+            "// themselves — the \"duplicate session:\" match lives only here, beside",
+            "// shellSessionSuffix, which is the one place this file already spells out a naming/stderr",
+            "// convention (CLAUDE.md's internal/claudecode boundary discipline applies the same way)."
+          ],
+          "reason": "Edited on `main`; still true: `var ErrSessionExists = errors.New(\"tmux session already exists\")` is matched via errors.Is."
+        },
+        {
+          "key": "internal/tmux/tmux.go:64da00bfa8e44ea8",
+          "path": "internal/tmux/tmux.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (c *Client) NewNamedSession(ctx context.Context, name, dir string, env map[string]string, command []string) (target, pane string, err error) {",
+            "line": 169
+          },
+          "lines": [
+            "// NewNamedSession creates a new tmux session named name (one window, running command in",
+            "// dir, with the given extra environment variables set in the pane —",
+            "// kb:anchor/ingest.envelope: `tmux new-session -e`). Returns the window's target (e.g. \"muster-7:@1\", or",
+            "// \"muster-7-shell:@2\" for a shell session) and pane id (e.g. \"%12\"). If this is the first",
+            "// command to reach the socket's server (i.e. no server was running yet), the",
+            "// server/session-wide options are applied right after, since tmux auto-starts the server",
+            "// on first command and there is no server to configure before that.",
+            "//",
+            "// Neither failure branch below leaks the session `new-session`",
+            "// just created — each kills it by name before returning, so a caller that rolls back on",
+            "// error never has to reconcile against an orphaned tmux session."
+          ],
+          "reason": "Edited on `main`; still true: `func (c *Client) NewNamedSession(...)` kills the leaked session on failure."
+        },
+        {
+          "key": "internal/tmux/tmux.go:8d1b69d4b3a6118e",
+          "path": "internal/tmux/tmux.go",
+          "anchor": {
+            "kind": "above",
+            "text": "return string(stdout), fmt.Errorf(\"tmux %s: %w (%s)\", args[0], ctx.Err(), err.Error())",
+            "line": 706
+          },
+          "lines": [
+            "// exec.CommandContext kills the subprocess on an expired context the same",
+            "// way a genuine tmux failure exits — a bare *exec.ExitError(\"signal:",
+            "// killed\") — so a deadline used to read as \"tmux answered and said gone\".",
+            "// Wrapping ctx.Err() here instead means every caller's",
+            "// errors.As(err, \u0026exitErr) now correctly misses (the ExitError is not in",
+            "// this chain), and errors.Is(err, context.DeadlineExceeded) holds instead:",
+            "// PaneExists returns (false, err), never (false, nil), and KillSession's",
+            "// post-kill verify can't report a deadline-killed check as \"gone\"",
+            "// (kb:adr/actions-kill-is-idempotent). err goes in as err.Error(), a string,",
+            "// never %w: it must NOT join the chain, or errors.As(err, \u0026exitErr) below",
+            "// would still match its *exec.ExitError and undo the whole point of this branch."
+          ],
+          "reason": "Edited on `main`; still true: `return string(stdout), fmt.Errorf(\"tmux %s: %w (%s)\", args[0], ctx.Err(), err.Error())` passes err as a string."
+        },
+        {
+          "key": "internal/tmux/tmux.go:d28f8215a0bf303a",
+          "path": "internal/tmux/tmux.go",
+          "anchor": {
+            "kind": "above",
+            "text": "return \"\", fmt.Errorf(\"tmux %s: %w (%s)\", args[0], ctx.Err(), err.Error())",
+            "line": 754
+          },
+          "lines": [
+            "// See run's identical branch: err goes in as a string, never %w."
+          ],
+          "reason": "Edited on `main`; still true: `return \"\", fmt.Errorf(\"tmux %s: %w (%s)\", args[0], ctx.Err(), err.Error())` passes err as a string."
+        },
+        {
+          "key": "internal/webui/webui.go:c5155e550c062a83",
+          "path": "internal/webui/webui.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func HasDashboard(fsys fs.FS) bool {",
+            "line": 36
+          },
+          "lines": [
+            "// HasDashboard reports whether fsys contains a built dashboard (an index.html at its",
+            "// root). Factored to take an fs.FS rather than calling FS() itself so the fail-fast",
+            "// startup check (kb:adr/connection-missing-web-build-fails-fast) is unit-testable against",
+            "// an injected fstest.MapFS — a real post-web-build embed always contains index.html, so",
+            "// that branch is otherwise unreachable from a normally compiled binary."
+          ],
+          "reason": "Edited on `main`; still true: `func HasDashboard(fsys fs.FS) bool` stats index.html."
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:829ca9494fee16cb",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "ticks: Set\u003cstring\u003e;",
+            "line": 50
+          },
+          "lines": [
+            "// diffreviewui.ts, and diffviewer.ts on a read no tick write overlapped"
+          ],
+          "reason": "Without it a reader would let diffviewer.ts assign ticks from every read, overwriting an in-flight tick write; that breaks the optimistic state at `ticks: Set\u003cstring\u003e;`."
+        },
+        {
+          "key": "web/src/features/diffviewerstate.ts:591174feee8880d6",
+          "path": "web/src/features/diffviewerstate.ts",
+          "anchor": {
+            "kind": "on",
+            "text": "tickWrites: number;",
+            "line": 51
+          },
+          "lines": [
+            "// diffreviewui.ts, counts every tick or untick"
+          ],
+          "reason": "docs/conventions.md: shared state names its writers and its guard at its declaration (orchestrator override of the judge's drop)"
+        },
+        {
+          "key": "web/src/features/launch.ts:7f38f2bd224573f7",
+          "path": "web/src/features/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "launchTargetSuffix: HTMLElement;",
+            "line": 98
+          },
+          "lines": [
+            "/** Shared by both tabs' footer readouts — a git-branch clause (New) or \" in \u003cpath\u003e\"",
+            "* (Resume), never both at once. */"
+          ],
+          "reason": "Edited on `main`; still true: `launchTargetSuffix: HTMLElement;` is shared by both footers."
+        },
+        {
+          "key": "web/src/features/launch.ts:e678c7e0d2a61a8b",
+          "path": "web/src/features/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "const branch = path ? (repos.find((repo) =\u003e repo.path === path)?.branch ?? null) : null;",
+            "line": 357
+          },
+          "lines": [
+            "// The browse endpoint never reports the listed directory's own branch — the",
+            "// only honest source is a recent whose served path matches (derived, like `pressed`,",
+            "// not tracked separately as \"how did we get here\")."
+          ],
+          "reason": "Edited on `main`; still true: `const branch = path ? (repos.find(...)?.branch ?? null) : null;` derives from recents."
+        },
+        {
+          "key": "web/src/features/launch.ts:683a152623d8f698",
+          "path": "web/src/features/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function updateFooter(): void {",
+            "line": 361
+          },
+          "lines": [
+            "/** The tab-aware half of the footer: New keeps its existing path/branch readout;",
+            "* Resume shows the selected row's title in the same `\u003cb\u003e`/suffix pair (never both at",
+            "* once — only one tab is ever showing). */"
+          ],
+          "reason": "Edited on `main`; still true: `function updateFooter(): void {` branches on tab."
+        },
+        {
+          "key": "web/src/features/launch.ts:9e6008b723d247ed",
+          "path": "web/src/features/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "elements.bypassWarning.hidden = !(tab === \"new\" \u0026\u0026 face.danger);",
+            "line": 389
+          },
+          "lines": [
+            "// Derived from `face.danger` itself, not a second `=== \"bypassPermissions\"` literal —",
+            "// `launchPrimaryFace`'s New-tab branch already computed `danger` from this same",
+            "// `mode`, so the warning can never disagree with the button it sits beside.",
+            "// `#bypass-warning` is New-tab-only markup (index.html), hence the `tab === \"new\"`",
+            "// gate stays; only the mode comparison moved."
+          ],
+          "reason": "Edited on `main`; still true: `elements.bypassWarning.hidden = !(tab === \"new\" \u0026\u0026 face.danger);` derives from face.danger."
+        },
+        {
+          "key": "web/src/features/launch.ts:921514f9c79c539f",
+          "path": "web/src/features/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "updateModelRowState();",
+            "line": 720
+          },
+          "lines": [
+            "// Edited text has no verdict yet, so re-deriving against the new value clears any mark",
+            "// the previous text carried — no separate \"clear\" branch needed."
+          ],
+          "reason": "Edited on `main`; still true: `updateModelRowState();` re-derives against the new value."
+        },
+        {
+          "key": "web/src/features/surfaces.ts:a86d78ea0aba3e79",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "app.on(\"snapshot\", (snapshot) =\u003e {",
+            "line": 346
+          },
+          "lines": [
+            "/** After the daemon connection is restored, every currently-mounted surface gets a",
+            "* chance to reattach — a no-op unless it's showing the \"disconnected\" overlay for a",
+            "* still-attachable target. A shell surface's \"attachable\" is a terminal being shown,",
+            "* never `session.alive`.",
+            "*",
+            "* Also re-syncs from `snapshot.terminals`: every list is replaced whole, a shown terminal",
+            "* that left falls back as for a live message, every session whose list has a busy terminal",
+            "* is busy right now, immediately, no onset delay; every id this module still shows \"busy\"",
+            "* for but the snapshot omits gets `restoreIdle`'s treatment, never `observeIdle`'s (that",
+            "* one is for a *live* message only) — see `restoreIdle`'s own doc comment",
+            "* for why a snapshot gap always schedules the self-clear regardless of the current",
+            "* surface selection, which is what lets this same branch satisfy both a WS-blip",
+            "* reconnect and a daemon restart mid-command",
+            "* (kb:adr/surfaces-snapshot-restored-tick-always-self-clears). */"
+          ],
+          "reason": "Edited on `main`; still true: `app.on(\"snapshot\", (snapshot) =\u003e {` reattaches, re-syncs and restores idle."
+        },
+        {
+          "key": "web/src/features/tiles.ts:cf4bb77cb3a76655",
+          "path": "web/src/features/tiles.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function renderTileBody(",
+            "line": 229
+          },
+          "lines": [
+            "/** Fills one tile's body slot: the reader, the selected surface, or the dead-pane",
+            "* surface — the same shared `surfaceBodyKind` decision features/focus.ts's main slot",
+            "* uses, so the two views can't drift on the branch order or conditions. Owns the tile's",
+            "* geometry frame either way, so the three paths cannot disagree about what was",
+            "* rendered. */"
+          ],
+          "reason": "Edited on `main`; still true: `function renderTileBody(` uses surfaceBodyKind."
+        },
+        {
+          "key": "web/src/render/focusview.ts:f559a2f645355cd8",
+          "path": "web/src/render/focusview.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function setMainSlotHidden(el: HTMLElement, hidden: boolean): void {",
+            "line": 18
+          },
+          "lines": [
+            "/** The main slot's one `hidden` writer — `features/focus.ts`'s `renderView` calls this",
+            "* instead of assigning `.hidden` on the element itself, from every branch that decides",
+            "* what the slot is currently showing. */"
+          ],
+          "reason": "Edited on `main`; still true: `export function setMainSlotHidden(el: HTMLElement, hidden: boolean): void {` writes hidden."
+        },
+        {
+          "key": "web/src/render/launch.ts:0c7b45ae1f649f5f",
+          "path": "web/src/render/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "button.title = repo.path;",
+            "line": 28
+          },
+          "lines": [
+            "// The full path lives in `title`; the visible entry stays name · branch · age."
+          ],
+          "reason": "Edited on `main`; still true: `button.title = repo.path;` carries the full path."
+        },
+        {
+          "key": "web/src/render/launch.ts:83015770dbe7dedd",
+          "path": "web/src/render/launch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function renderLaunchFooter(",
+            "line": 234
+          },
+          "lines": [
+            "/** The footer's target readout: an em dash and no branch while nothing is listed yet,",
+            "* else the path and — the browse endpoint never reports the listed directory's own",
+            "* branch, so the only honest source is a recent whose served path matches — that",
+            "* recent's branch when there is one. */"
+          ],
+          "reason": "Edited on `main`; still true: `export function renderLaunchFooter(` shows a dash with no path and the branch otherwise."
+        },
+        {
+          "key": "web/src/render/mainhead.ts:0dd4eee3bd135f06",
+          "path": "web/src/render/mainhead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function renderMainhead(",
+            "line": 118
+          },
+          "lines": [
+            "/** `session` is the currently-focused one, or `null` when nothing is focused (no",
+            "* sessions at all) — hidden in that case. `connected`",
+            "* gates every button while the WS is down (States: \"action buttons are disabled while",
+            "* the WS is down\").",
+            "*",
+            "* `surfaceState` is the currently-focused session's",
+            "* surface-switch state (features/surfaces.ts's `surfaceSwitchState`, or the default when there is no",
+            "* focused session) — updated every pass regardless of the `!session` branch below, since",
+            "* `updateSurfaceSegment` only ever writes attributes and is harmless while `root` is",
+            "* hidden. `activity` is that same session's `shell` segment",
+            "* busy/done verdict (`features/surfaces.ts`'s `activityFor`). */"
+          ],
+          "reason": "Edited on `main`; still true: `export function renderMainhead(` hides root when session is null."
+        },
+        {
+          "key": "web/src/render/masthead.ts:af6277ae4b8f03d7",
+          "path": "web/src/render/masthead.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "if (placeholderNeeded \u0026\u0026 i === 0) option.disabled = true;",
+            "line": 191
+          },
+          "lines": [
+            "// A pref naming a model absent from a non-null list used",
+            "// to leave the select at selectedIndex -1 (blank). A synthesized placeholder option",
+            "// — disabled, so it can't be re-chosen — is prepended in that case (see",
+            "// `renderUsageModelWeek`) and shows the pref name instead of a blank control,",
+            "// matching what the null/empty-list branch already does with its single disabled",
+            "// option."
+          ],
+          "reason": "Edited on `main`; still true: `if (placeholderNeeded \u0026\u0026 i === 0) option.disabled = true;` is the disabled placeholder."
+        },
+        {
+          "key": "web/src/render/repolines.ts:e5c91e4190297cc2",
+          "path": "web/src/render/repolines.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function renderRepoLines(host: HTMLElement, parts: RepoParts, addedCount = 0): void {",
+            "line": 28
+          },
+          "lines": [
+            "/** Writes `parts` into `host`, whose template always holds a `.rf` (folder line). The",
+            "* `.rb` (branch line) is created on first need and removed when `parts.branch` is null, so",
+            "* a session with no repo renders one line and no empty second one. Both lines are plain",
+            "* readouts, so no focus or selection state rides on them across a render tick. */"
+          ],
+          "reason": "Edited on `main`; still true: `export function renderRepoLines(...)` removes .rb when branch is null."
+        },
+        {
+          "key": "web/src/render/sessions.ts:25a6be56e1d81d0d",
+          "path": "web/src/render/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function applyRepoBlocks(card: HTMLElement, vm: CardViewModel, session: Session): void {",
+            "line": 83
+          },
+          "lines": [
+            "/** The card's repo block (`.r2`) and, while Claude is in another checkout, the `↳` block",
+            "* (`.r2c`) that follows it. `.r2`'s hover is the one-line `\u003crepo\u003e / \u003cbranch\u003e` the two split",
+            "* lines no longer show together; `.r2c`'s is where Claude is. */"
+          ],
+          "reason": "Edited on `main`; still true: `function applyRepoBlocks(...)` writes .r2 and .r2c."
+        },
+        {
+          "key": "web/src/render/sessions.ts:5651dbe133f5e452",
+          "path": "web/src/render/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "card.addEventListener(\"click\", () =\u003e onClick(session.id, \"pointer\"));",
+            "line": 292
+          },
+          "lines": [
+            "// The pointer path is the only one features/rail.ts's rail",
+            "// callback uses to move keyboard focus into the terminal — the",
+            "// keyboard-activation branch below reports itself as \"keyboard\" so that callback can",
+            "// decline to do so and leave focus on the card."
+          ],
+          "reason": "Edited on `main`; still true: `card.addEventListener(\"click\", () =\u003e onClick(session.id, \"pointer\"));` reports pointer."
+        },
+        {
+          "key": "web/src/render/tiles.ts:3a6d1828722efbae",
+          "path": "web/src/render/tiles.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function mountTileDeadSurface(",
+            "line": 349
+          },
+          "lines": [
+            "/** Mounts (once) or refreshes a dead tile's dead-surface inside its",
+            "* `.tbody-slot`, cloning from `#dead-surface-template` the first time this tile goes dead",
+            "* and requerying the existing instance on every later pass — same convention as",
+            "* `updateTileChrome`'s existing chrome nodes, never a live TerminalSurface for `alive:false`.",
+            "* The cap's Resume button's click listener is attached exactly once, only in",
+            "* the fresh-clone branch — `renderDeadSurface` itself runs every pass and only ever",
+            "* updates text/dataset/disabled, never re-wires a listener (which would otherwise stack a",
+            "* new one on the same button every render tick for as long as the tile stays dead). */"
+          ],
+          "reason": "Edited on `main`; still true: `export function mountTileDeadSurface(` attaches the Resume listener once."
+        },
+        {
+          "key": "web/src/sessions/card.ts:59b8eb0ec3173bf3",
+          "path": "web/src/sessions/card.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface RepoParts {",
+            "line": 147
+          },
+          "lines": [
+            "/** The two lines of a repo readout: the folder (`\u003crepo\u003e /`, trailing slash included) and",
+            "* the branch (with ` (worktree)` for a linked worktree). `branch` is null when there is no",
+            "* repo to name, and `folder` is then the directory's basename with no slash",
+            "* (kb:adr/rail-repo-line-wraps-at-slash). */"
+          ],
+          "reason": "Edited on `main`; still true: `export interface RepoParts {` has folder and branch."
+        },
+        {
+          "key": "web/src/sessions/card.ts:d07e69a01478e57f",
+          "path": "web/src/sessions/card.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function repoLine(session: Session): string {",
+            "line": 185
+          },
+          "lines": [
+            "/** \"repo / branch\" with a worktree marker, or the directory basename when there's no",
+            "* repo at all (design-system §5 card anatomy). The one-line form the tile header,",
+            "* features/actionscopy.ts's dialog copy and the rail's hover share. */"
+          ],
+          "reason": "Edited on `main`; still true: `export function repoLine(session: Session): string {` joins repo parts."
+        },
+        {
+          "key": "web/src/sessions/card.ts:231f8a06c06130f4",
+          "path": "web/src/sessions/card.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function claudeHover(session: Session): string | null {",
+            "line": 195
+          },
+          "lines": [
+            "/** The hover lines for where Claude is — the note, then `on \u003cbranch\u003e` when that checkout",
+            "* has a branch — joined with `\\n`, or null while not moved. The rail's `.r2c` hover. */"
+          ],
+          "reason": "Edited on `main`; still true: `export function claudeHover(session: Session): string | null {` adds on-branch."
+        },
+        {
+          "key": "web/src/terminal/shellactivity.ts:ce9424e00927ea35",
+          "path": "web/src/terminal/shellactivity.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function observeIdle(",
+            "line": 107
+          },
+          "lines": [
+            "/**",
+            "* A live an any-terminal-busy transition to false for `id`. `shellSelected` is whether this session's",
+            "* `shell` surface is the currently selected one on THIS window (features/surfaces.ts",
+            "* reads its own `surfaceSwitchState`): selected schedules the ~3s self-clear (User",
+            "* Flow 5); not selected leaves \"done\" showing indefinitely — User Flow 3's \"the spinner",
+            "* becomes a tick and stays\" — until `clearOnSelect` below runs (User Flow 4) or a page",
+            "* reload rediscovers it, whichever comes first. See `restoreIdle` below for the *other*",
+            "* way a \"busy\" entry goes idle.",
+            "*",
+            "* While the entry is still \"none\" (a busy period shorter than the onset",
+            "* delay — `observeBusy`'s pending-onset branch), this bumps the epoch without touching",
+            "* `indicator`, so the onset timer `observeBusy` scheduled sees a stale epoch when it",
+            "* fires and never promotes to \"busy\" — \"a command that never raised a spinner never",
+            "* raises a tick.\" Fixes a bug the shipped implementation's own doc comment used to claim",
+            "* this did but didn't: the old no-op guard",
+            "* (`current.indicator !== \"busy\"`) left a still-\"none\" entry's epoch untouched, so a late",
+            "* `resolveOnset` promoted it to \"busy\" anyway (fix attempt 1, pinned by",
+            "* shellactivity.test.ts's \"a busy period that ends before the onset delay elapses never",
+            "* shows a spinner\" case). This necessarily changes `observeIdle`'s return for",
+            "* that one case from the prior literal `{state, timer: null}` identity to a new state",
+            "* object with the same `indicator` — the two are observationally different only via",
+            "* reference equality, never via `getShellActivity`, but a reference-equality",
+            "* (`toBe(r.state)`) assertion on that exact case cannot hold for any fix here, because it",
+            "* and that same case exercise the identical `observeIdle(r.state, 1, false)` call and, if that call",
+            "* were a true identity no-op, `resolveOnset(that same object, 1, r.timer!.epoch)` would",
+            "* be indistinguishable from the sibling \"epoch matches, still 'none': promotes to",
+            "* 'busy'\" case that must keep promoting — the two pinned expectations are mutually",
+            "* exclusive under any implementation, not just this one (see this fix's log entry for",
+            "* the full derivation).",
+            "*/"
+          ],
+          "reason": "Edited on `main`; still true: `export function observeIdle(` bumps the epoch for a none entry."
+        },
+        {
+          "key": "web/src/terminal/shellactivity.ts:0219052b66651934",
+          "path": "web/src/terminal/shellactivity.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function restoreIdle(state: ShellActivityState, id: number): ActivityResult {",
+            "line": 131
+          },
+          "lines": [
+            "/**",
+            "* `id` was \"busy\" and is missing from a reconnecting dashboard's `snapshot.terminals`",
+            "* (kb:adr/surfaces-snapshot-restored-tick-always-self-clears), where the daemon's own",
+            "* poller cannot tell \"the command finished while we were offline\" (the shell still",
+            "* exists — the ordinary tick behavior should apply) apart from \"reconcile killed the",
+            "* shell at daemon restart\" (the shell is",
+            "* gone outright, `shellGone` is never called for it because no PTY socket was attached",
+            "* to deliver that signal): `terminalsPoller.reconcile` (`internal/server/shellactivity.go`)",
+            "* documents both as \"no longer in newBusy\", the identical wire shape. Unlike `observeIdle`,",
+            "* this **always** schedules the ~3s self-clear, whatever `shellSelected` is — a bounded",
+            "* grace period is the honest default when the transition's actual cause is unknowable, and",
+            "* it resolves both readings to the same place: still-running work is not what a snapshot",
+            "* gap ever means (that's what the live `terminals` broadcast is for), so nothing here",
+            "* is mistaken for \"still working\". `clearOnSelect` can still fire first if the user gets",
+            "* there before the timer does.",
+            "*",
+            "* Same \"none\" guard as `observeIdle` above, for the same reason: if this",
+            "* were ever called against a pending-onset entry, a late `resolveOnset` must not promote",
+            "* it. `features/surfaces.ts`'s only call site already filters to `getShellActivity(...)",
+            "* === \"busy\"` before calling this, so the branch is currently unreachable in practice —",
+            "* fixed here anyway so the function's own contract doesn't silently depend on that",
+            "* filter, and because the `EMPTY_SHELL_ACTIVITY`-based \"not currently busy\" identity",
+            "* case (shellactivity.test.ts) has no entry to invalidate (`state.has(id)` false), so it",
+            "* stays a true no-op unlike `observeIdle`'s conflicting pair (see this fix's log entry).",
+            "*/"
+          ],
+          "reason": "Edited on `main`; still true: `export function restoreIdle(state: ShellActivityState, id: number): ActivityResult {` always schedules self-clear."
+        },
+        {
+          "key": "web/src/terminal/surfaceswitch.ts:1a71e833b1fcfe40",
+          "path": "web/src/terminal/surfaceswitch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export type SurfaceBodyKind = \"dead\" | \"docs\" | \"surface\";",
+            "line": 91
+          },
+          "lines": [
+            "/** What a session's slot should show right now: the reader (`docs`,",
+            "* regardless of `alive` — the reader replaces the pane either way), the dead-surface",
+            "* cap (`claude` selected on a session that has exited), or the live/attachable surface",
+            "* itself (including a `shell` on a dead session — shell never consults `alive`).",
+            "* `features/focus.ts` and `features/tiles.ts` each re-derived this branch, in a different",
+            "* order and with inverted conditions — this is the one decision both call. */"
+          ],
+          "reason": "Edited on `main`; still true: `export type SurfaceBodyKind = \"dead\" | \"docs\" | \"surface\";` is the shared decision."
+        }
+      ],
+      "drops": null
+    }
+  ]
+}
