@@ -237,6 +237,27 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   a switch takes 4–9 s while the daemon still answers in milliseconds. Expected: switching stays
   instantaneous however many updates arrive. From `plans/temp-blank-session/research/e1.md`.
 
+- [ ] **Storage options** ([#129](https://github.com/Zalaras/muster/issues/129)) — Data for features
+  like notes and the diff viewer is spread across Claude session storage in Muster and browser
+  storage rather than one place. Expected: Muster should consider directory or branch based storage
+  for its SQL database, and investigate whether it is worthwhile for notes and the diff viewer.
+  Filed 2026-11-19 from musterd 0.30.3 / Claude Code 2.1.328, focus view, session working.
+  Labels: enhancement, sessions.
+
+- [ ] **Height change of launch dialog changes it's size** ([#130](https://github.com/Zalaras/muster/issues/130)) — Changing
+  the height of the launch dialog changes its size, which makes the surrounding content jump around.
+  Expected: The launch dialog should stay more static so that nothing jumps around when its height
+  changes.
+  Filed 2026-11-20 from musterd 0.30.3 / Claude Code 2.1.329, focus view, session idle.
+  Labels: enhancement, launch, ux.
+
+- [ ] **Add notifications** ([#131](https://github.com/Zalaras/muster/issues/131)) — Notifications
+  that only appear in the browser can be missed, since the dashboard may not be in view. Expected:
+  The daemon should handle notifications so they are delivered even when the browser is not open or
+  visible.
+  Filed 2026-11-20 from musterd 0.30.3 / Claude Code 2.1.329, focus view, session working.
+  Labels: enhancement, process.
+
 ## Tooling and docs
 
 - [ ] **Revisit plan size** — the 600-word plans finish in one review cycle and under an hour; the
