@@ -110,7 +110,8 @@
   .expander { cursor: pointer; }
   .expander:hover, tr.expander:hover td:first-child { color: var(--fg); }
   .caret { display: inline-block; width: 12px; color: var(--fg-dim); }
-  .tl .lab.part { color: var(--fg-dim); padding-left: 22px; }
+  .tl .lab.part { color: var(--fg-dim); }
+  .tl .lab .sub { margin-left: 10px; }
   .tl .seg.part { background: var(--violet); opacity: .55; }
   table.steps td.amb { color: var(--amber); }
   @media (max-width: 1180px) {
@@ -157,7 +158,7 @@
   .err { font-family: var(--mono); font-size: var(--fs-xs); color: var(--rose-note); background: var(--well); padding: 8px 10px; border-radius: 3px; margin-bottom: 10px; }
 
   /* timeline: one row per step, bars per attempt, lanes show parallel tracks */
-  .tl { display: grid; grid-template-columns: 150px 1fr 260px; row-gap: 3px; column-gap: 12px; font-size: var(--fs-xs); }
+  .tl { display: grid; grid-template-columns: 190px 1fr 260px; row-gap: 3px; column-gap: 12px; font-size: var(--fs-xs); }
   .tl .lab { font-family: var(--mono); color: var(--fg-muted); display: flex; gap: 6px; align-items: center; white-space: nowrap; }
   .tl .lab .lane { font-size: var(--fs-2xs); width: 44px; color: var(--fg-dim); }
   .tl .lab .lane.d { color: var(--teal); }
@@ -174,7 +175,7 @@
   .tl .skip .lab, .tl .skip.info { opacity: .45; }
   .tl .sep { grid-column: 1 / -1; height: 4px; }
   .tl .nowline { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--teal); opacity: .6; }
-  .axis { display: grid; grid-template-columns: 150px 1fr 260px; column-gap: 12px; font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-dim); margin-top: 4px; }
+  .axis { display: grid; grid-template-columns: 190px 1fr 260px; column-gap: 12px; font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-dim); margin-top: 4px; }
   .axis div { display: flex; justify-content: space-between; }
   .legend { display: flex; gap: 14px; margin-top: 12px; font-size: var(--fs-2xs); color: var(--fg-dim); flex-wrap: wrap; }
   .legend i { display: inline-block; width: 14px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
@@ -276,7 +277,7 @@ function reviewerRows(r, pct) {
     const t = r.stepTokens[k];
     const segs = (t.spans || []).map(s => `<div class="seg part" style="left:${pct(ms(s.start))}%;width:${Math.max(pct(ms(s.end)) - pct(ms(s.start)), 0.3)}%" title="${hm(ms(s.start))}–${hm(ms(s.end))}"></div>`).join("");
     const spawns = t.agents > 1 ? ` · ×${t.agents}` : "";
-    return `<div class="lab part">↳ ${esc(k.slice(REVIEW_PREFIX.length))}</div><div class="track">${segs}</div><div class="info" title="${esc(tokTitle(t))}">${dur((t.minutes || 0) * 60000)} · ${usd(t)} · ${tok(t)}${spawns}</div>`;
+    return `<div class="lab part"><span class="lane"></span><span class="sub">↳ ${esc(k.slice(REVIEW_PREFIX.length))}</span></div><div class="track">${segs}</div><div class="info" title="${esc(tokTitle(t))}">${dur((t.minutes || 0) * 60000)} · ${usd(t)} · ${tok(t)}${spawns}</div>`;
   }).join("");
 }
 
@@ -290,15 +291,20 @@ function nowChips(r) {
     if (r.group === "done") return `<span class="chip c-done">${esc(r.outcome)}</span>`;
     const chips = r.batches.filter(b => b.status === "failed" || b.status === "completed" || (b.status === "running" && !b.alive))
       .map(b => `<span class="chip c-fail">batch ${b.n} ${b.status === "running" ? "exited" : b.question ? "question" : "failed"}</span>`);
-    return chips.concat(run.filter(b => b.alive).map(b => `<span class="chip c-run">batch ${b.n}${b.step ? ` · ${esc(b.step)} ${dur(now() - ms(b.stepSince))}` : ""}</span>`)).join("")
+    return chips.concat(run.filter(b => b.alive).map(b => `<span class="chip c-run">batch ${b.n} · ${batchStatus(b)[0]}</span>`)).join("")
       || `<span class="chip c-wait">${r.batches.filter(b => b.status === "pending").length} pending</span>`;
   }
   if (r.group === "done") return `<span class="chip c-done">${esc(r.outcome)}</span>`;
   if (r.status === "blocked") return `<span class="chip c-fail">blocked · ${esc(r.currentStep)}</span>`;
   const cls = r.group === "attn" ? "c-stale" : "c-run";
+  // What the sessions are doing beats what the state file last recorded.
+  if (r.live && r.live.length) return r.live.map(x => `<span class="chip ${cls}">${esc(x)}</span>`).join("");
   const chips = running(r).map(([id, a]) => `<span class="chip ${cls}">${esc(id)} ${dur(now() - ms(last(a).start))}${a.length > 1 ? ` · try ${a.length}` : ""}</span>`);
   return chips.join("") || `<span class="chip c-wait">next ${esc(r.currentStep)}</span>`;
 }
+
+const spans = (r, step) => (((r.stepTokens || {})[step] || {}).spans || []).slice().sort((a, b) => ms(a.start) - ms(b.start));
+const isLive = (r, step) => (r.live || []).some(x => x === step || (step === "review" && x.startsWith(REVIEW_PREFIX)));
 
 function timeline(r) {
   const start = ms(r.startedAt), end = r.group === "done" ? ms(r.updatedAt) : now();
@@ -307,21 +313,33 @@ function timeline(r) {
   let rows = "";
   for (const s of STEPS) {
     if (s.sep) { rows += `<div class="sep"></div>`; continue; }
-    const a = (r.steps || {})[s.id], skip = (r.skipped || []).includes(s.id);
+    const a = ((r.steps || {})[s.id] || []).filter(at => at.start); // finish-only stamps have no bar
+    // A step its agents ran is never skipped, whatever the state file implies.
+    const skip = (r.skipped || []).includes(s.id) && !spans(r, s.id).length;
+    // A finished run's step left open (a /fix batch never closes review) ended with the run.
+    const ended = r.group === "done";
     const lane = s.lane === "d" ? `<span class="lane d">daemon</span>` : s.lane === "w" ? `<span class="lane w">web</span>` : `<span class="lane"></span>`;
     let segs = "", info = skip ? "skipped" : "waiting", infoCls = "";
-    if (a && a.length) {
+    if (a.length) {
       a.forEach((at, i) => {
         const f = at.finish ? ms(at.finish) : end, st = ms(at.start);
-        const cls = !at.finish ? (r.status === "blocked" ? "failed" : "running") : i < a.length - 1 ? "retried" : "";
-        segs += `<div class="seg ${cls}" style="left:${pct(st)}%;width:${pct(f) - pct(st)}%" title="${esc(s.id)} attempt ${i + 1}: ${hm(st)}–${at.finish ? hm(f) : "now"}"></div>`;
+        const cls = !at.finish && !ended ? (r.status === "blocked" ? "failed" : "running") : i < a.length - 1 ? "retried" : "";
+        segs += `<div class="seg ${cls}" style="left:${pct(st)}%;width:${pct(f) - pct(st)}%" title="${esc(s.id)} attempt ${i + 1}: ${hm(st)}–${at.finish || ended ? hm(f) : "now"}"></div>`;
       });
       const cur = last(a), tk = (r.stepTokens || {})[s.id];
       const took = a.reduce((x, at) => x + ((at.finish ? ms(at.finish) : end) - ms(at.start)), 0);
       const cost = spent(tk) ? ` · ${usd(tk)} · ${tok(tk)}` : "";
       const word = s.id === "review" ? "cycles" : "tries";
-      if (isOpen(cur)) { info = `running ${dur(end - ms(cur.start))}${cost}${a.length > 1 ? ` · try ${a.length}` : ""}`; infoCls = "run"; }
+      if (isOpen(cur) && !ended) { info = `running ${dur(end - ms(cur.start))}${cost}${a.length > 1 ? ` · try ${a.length}` : ""}`; infoCls = "run"; }
       else { info = `${dur(took)}${cost}${a.length > 1 ? ` · ${a.length} ${word}` : ""}`; infoCls = a.length > 1 ? "amb" : ""; }
+    } else if (spans(r, s.id).length) {
+      // Not in the state file (a /fix batch records only some steps): draw the step from its
+      // agents' own first-to-last message instead.
+      const tk = r.stepTokens[s.id], live = isLive(r, s.id);
+      segs = spans(r, s.id).map((sp, i, all) => `<div class="seg ${live && i === all.length - 1 ? "running" : i < all.length - 1 ? "retried" : ""}" style="left:${pct(ms(sp.start))}%;width:${Math.max(pct(live && i === all.length - 1 ? end : ms(sp.end)) - pct(ms(sp.start)), 0.3)}%" title="${esc(s.id)} agent ${i + 1}: ${hm(ms(sp.start))}–${hm(ms(sp.end))}"></div>`).join("");
+      const n = tk.agents || 0, word = s.id === "review" ? "cycles" : "tries";
+      info = `${live ? "running · " : ""}${dur((tk.minutes || 0) * 60000)} · ${usd(tk)} · ${tok(tk)}${n > 1 ? ` · ${n} ${word}` : ""}`;
+      infoCls = live ? "run" : n > 1 ? "amb" : "";
     }
     const tip = (r.stepTokens || {})[s.id] ? ` title="${esc(tokTitle(r.stepTokens[s.id]))}"` : "";
     const parts = s.id === "review" && Object.keys(r.stepTokens || {}).some(k => k.startsWith(REVIEW_PREFIX));
@@ -344,7 +362,10 @@ function batchStatus(b) {
   switch (b.status) {
     case "landed": return [`landed ${esc(b.landedSha)}`, "c-done"];
     case "pending": return ["pending", "c-wait"];
-    case "running": return b.alive ? [b.step ? `${esc(b.step)} · ${dur(now() - ms(b.stepSince))}` : "starting", "c-run"] : ["process exited", "c-fail"];
+    case "running":
+      if (!b.alive) return ["process exited", "c-fail"];
+      if (b.live && b.live.length) return [b.live.map(esc).join(" · "), "c-run"];
+      return [b.step ? `${esc(b.step)} · ${dur(now() - ms(b.stepSince))}` : "working", "c-run"];
     case "completed": return ["did not land", "c-fail"];
     default: return [b.question ? "question" : "failed", "c-fail"];
   }
@@ -361,7 +382,7 @@ function batches(r) {
     // once the batch has written its orchestration-state.json (before that it is "starting").
     const steps = b.steps ? `<div class="full btl">${timeline({
       startedAt: b.startedAt, updatedAt: b.finishedAt, group: b.finishedAt ? "done" : "active",
-      status: b.status === "running" && !b.alive ? "blocked" : "", steps: b.steps, skipped: b.skipped,
+      status: b.status === "running" && !b.alive ? "blocked" : "", steps: b.steps, skipped: b.skipped, live: b.live,
       stepTokens: b.stepTokens, tokens: b.tokens })}</div>` : "";
     return `<span class="n">${b.n}</span><span class="s" title="${esc(subj)}">${esc(subj)}</span><span><span class="chip ${cls}">${st}</span></span><span class="m">${esc(b.workType)}</span><span class="m">${took}</span><span class="m" title="${esc(tokTitle(b.tokens))}">${usd(b.tokens)}</span><span class="m" title="${esc(tokTitle(b.tokens))}">${tok(b.tokens)}</span>${extra}${steps}`;
   }).join("")}</div>`;

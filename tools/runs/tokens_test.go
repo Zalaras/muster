@@ -129,3 +129,31 @@ func TestLedgerFindsASessionThatLeftItsWorktree(t *testing.T) {
 	assert.Equal(t, int64(100), by["orchestrator"].Output, "only the messages sent from the run's tree")
 	assert.Equal(t, int64(150), total.Output)
 }
+
+func TestLiveReadsRunningAgentsAndOpenGates(t *testing.T) {
+	l, tree, dir := fixture(t)
+	now := time.Now()
+	use := func(id, cmd string) string {
+		b, _ := json.Marshal(map[string]any{"type": "assistant", "timestamp": now.Format(time.RFC3339Nano), "cwd": tree,
+			"message": map[string]any{"id": "m-" + id, "content": []map[string]any{{"type": "tool_use", "id": id, "name": "Bash", "input": map[string]any{"command": cmd}}}}})
+		return string(b) + "\n"
+	}
+	result := func(id string) string {
+		b, _ := json.Marshal(map[string]any{"type": "user", "timestamp": now.Format(time.RFC3339Nano), "cwd": tree,
+			"message": map[string]any{"content": []map[string]any{{"type": "tool_result", "tool_use_id": id}}}})
+		return string(b) + "\n"
+	}
+	sess := filepath.Join(dir, "sess.jsonl")
+	appendFile(t, sess, use("t1", "GATES_LOG_DIR=x .claude/skills/orchestrate/scripts/gates.sh p"), use("t2", "ls"))
+	agent(t, dir, "a1", "review-browser-c1", asst("x1", now, tree, "claude-opus-5-5", 0, 1, 0, 0, 0))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "sess", "subagents", "agent-a1.meta.json"),
+		[]byte(`{"agentType":"review-browser-c1"}`), 0o644))
+	agent(t, dir, "a2", "web-impl", asst("x2", now, tree, "claude-opus-5-5", 0, 1, 0, 0, 0))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "sess", "subagents", "agent-a2.meta.json"),
+		[]byte(`{"agentType":"web-impl","finished":true}`), 0o644))
+
+	assert.Equal(t, []string{"gates", ReviewPrefix + "browser"}, l.Live(tree, now))
+
+	appendFile(t, sess, result("t1"))
+	assert.Equal(t, []string{ReviewPrefix + "browser"}, l.Live(tree, now), "gates closed by its result")
+}

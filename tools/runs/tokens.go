@@ -117,7 +117,66 @@ type line struct {
 				W1 int64 `json:"ephemeral_1h_input_tokens"`
 			} `json:"cache_creation"`
 		} `json:"usage"`
+		Content json.RawMessage `json:"content"` // a string, or blocks (tool_use / tool_result)
 	} `json:"message"`
+}
+
+type block struct {
+	Type      string `json:"type"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	ToolUseID string `json:"tool_use_id"`
+	Input     struct {
+		Command     string `json:"command"`
+		Description string `json:"description"`
+	} `json:"input"`
+}
+
+// openTool is a tool call with no result yet: what the session is doing right now.
+type openTool struct {
+	Label string
+	Cwd   string
+	At    time.Time
+}
+
+// toolLabel names the long-running calls worth showing as live work; the rest return "".
+func toolLabel(b block) string {
+	if b.Name == "Bash" {
+		switch {
+		case strings.Contains(b.Input.Command, "gates.sh"):
+			return "gates"
+		case strings.Contains(b.Input.Command, "make e2e"):
+			return "e2e sweep"
+		case strings.Contains(b.Input.Command, "make test"), strings.Contains(b.Input.Command, "make check"):
+			return "tests"
+		}
+	}
+	return ""
+}
+
+// tools records tool calls opening and closing in one line's content.
+func (t *transcript) tools(ln line, at time.Time) {
+	c := bytes.TrimSpace(ln.Message.Content)
+	if len(c) == 0 || c[0] != '[' {
+		return
+	}
+	var bs []block
+	if json.Unmarshal(c, &bs) != nil {
+		return
+	}
+	for _, b := range bs {
+		switch b.Type {
+		case "tool_use":
+			if l := toolLabel(b); l != "" {
+				if t.open == nil {
+					t.open = map[string]openTool{}
+				}
+				t.open[b.ID] = openTool{Label: l, Cwd: ln.Cwd, At: at}
+			}
+		case "tool_result":
+			delete(t.open, b.ToolUseID)
+		}
+	}
 }
 
 // transcript is one file read so far; only appended bytes are read on the next pass.
@@ -128,7 +187,8 @@ type transcript struct {
 	last    time.Time // latest assistant message
 	cwd     string    // first line's cwd
 	msgs    map[string]usageRec
-	ordered []string // message ids in first-seen order
+	ordered []string            // message ids in first-seen order
+	open    map[string]openTool // long-running tool calls still waiting for their result
 }
 
 // Ledger caches every transcript it has read, so a poll costs only the bytes appended since.
@@ -204,11 +264,15 @@ func (l *Ledger) read(path string) *transcript {
 	return t
 }
 
-var assistantMark = []byte(`"assistant"`)
+var (
+	assistantMark = []byte(`"assistant"`)
+	resultMark    = []byte(`"tool_result"`)
+)
 
 func (t *transcript) ingest(b []byte) {
 	firstPending := t.first.IsZero()
-	if !firstPending && !bytes.Contains(b, assistantMark) {
+	isResult := len(t.open) > 0 && bytes.Contains(b, resultMark)
+	if !firstPending && !isResult && !bytes.Contains(b, assistantMark) {
 		return
 	}
 	var ln line
@@ -219,6 +283,12 @@ func (t *transcript) ingest(b []byte) {
 	if firstPending && !at.IsZero() {
 		t.first, t.cwd = at, ln.Cwd
 	}
+	t.tools(ln, at)
+	t.usage(ln, at)
+}
+
+// usage records one assistant message's token counts, once per message id.
+func (t *transcript) usage(ln line, at time.Time) {
 	u := ln.Message.Usage
 	if ln.Type != "assistant" || ln.Message.ID == "" || u == nil {
 		return
@@ -258,6 +328,71 @@ func inTree(cwd, tree string) bool {
 type agentMeta struct {
 	AgentType   string `json:"agentType"`
 	Description string `json:"description"`
+	Finished    *bool  `json:"finished"`
+}
+
+// liveFor is how long an unfinished agent or open call counts as live without a new message;
+// past it, it is taken as orphaned (its session died) rather than still working.
+const liveFor = 45 * time.Minute
+
+// Live names what is running in tree right now, read from the sessions themselves rather than a
+// state file: each subagent whose meta.json says it has not finished, and any long tool call
+// (gates, an e2e sweep) still waiting for its result.
+func (l *Ledger) Live(tree string, now time.Time) []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	seen := map[string]bool{}
+	for _, dir := range l.dirsFor(tree) {
+		l.openCalls(dir, tree, now, seen)
+		l.runningAgents(dir, tree, now, seen)
+	}
+	live := make([]string, 0, len(seen))
+	for s := range seen {
+		live = append(live, s)
+	}
+	sort.Strings(live)
+	return live
+}
+
+// callsFor bounds a long call: gates under a busy lock have run past an hour while the session
+// wrote nothing, so the session file's age cannot be the cut-off.
+const callsFor = 3 * time.Hour
+
+func (l *Ledger) openCalls(dir, tree string, now time.Time, seen map[string]bool) {
+	sessions, _ := filepath.Glob(filepath.Join(dir, "*.jsonl"))
+	for _, s := range sessions {
+		if fi, err := os.Stat(s); err != nil || now.Sub(fi.ModTime()) > callsFor {
+			continue
+		}
+		if t := l.read(s); t != nil {
+			for _, o := range t.open {
+				if inTree(o.Cwd, tree) && now.Sub(o.At) < callsFor {
+					seen[o.Label] = true
+				}
+			}
+		}
+	}
+}
+
+func (l *Ledger) runningAgents(dir, tree string, now time.Time, seen map[string]bool) {
+	metas, _ := filepath.Glob(filepath.Join(dir, "*", "subagents", "agent-*.meta.json"))
+	for _, m := range metas {
+		var meta agentMeta
+		if !readJSON(m, &meta) || (meta.Finished != nil && *meta.Finished) { // no flag until it ends
+			continue
+		}
+		f := strings.TrimSuffix(m, ".meta.json") + ".jsonl"
+		if fi, err := os.Stat(f); err != nil || now.Sub(fi.ModTime()) > liveFor {
+			continue
+		}
+		if t := l.read(f); t != nil && inTree(t.cwd, tree) {
+			name := meta.AgentType
+			if strings.HasPrefix(name, "review-") {
+				name = ReviewPrefix + reviewerOf(name)
+			}
+			seen[name] = true
+		}
+	}
 }
 
 // agentUse is one subagent's run inside a window.
