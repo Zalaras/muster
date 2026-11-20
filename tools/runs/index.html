@@ -265,8 +265,9 @@ const tokSplit = t => `output <b>${mtok(t.output)}</b> · input <b>${mtok(t.inpu
 const tokTitle = t => spent(t) ? `${usd(t)} at list price · output ${mtok(t.output)} · input ${mtok(t.input)} · cache read ${mtok(t.cacheRead)} · cache write ${mtok(t.cacheWrite5m + t.cacheWrite1h)}` : "no transcript found";
 const EXTRA = ["orchestrator", "comment pass", "decisions", "other"];
 const REVIEW_PREFIX = "review › ", REVIEWERS = ["correctness", "browser", "maintainability", "critic"];
-let reviewOpen = !!safeGet("runs.reviewOpen");
-const reviewCaret = () => `<span class="caret">${reviewOpen ? "▾" : "▸"}</span>`;
+// Which review steps are open, by key: "stats", a run's name, or "<sweep>#<batch>".
+const reviewOpen = new Set((() => { try { return JSON.parse(safeGet("runs.reviewOpenKeys") || "[]"); } catch { return []; } })());
+const reviewCaret = key => `<span class="caret">${reviewOpen.has(key) ? "▾" : "▸"}</span>`;
 
 /* One reviewer's row under the review step: its agents' spans on the track, then time, cost and spawns. */
 function reviewerRows(r, pct) {
@@ -343,9 +344,9 @@ function timeline(r) {
     }
     const tip = (r.stepTokens || {})[s.id] ? ` title="${esc(tokTitle(r.stepTokens[s.id]))}"` : "";
     const parts = s.id === "review" && Object.keys(r.stepTokens || {}).some(k => k.startsWith(REVIEW_PREFIX));
-    const label = parts ? `<span class="expander" data-expand="review" title="show each reviewer">${reviewCaret()}${s.id}</span>` : (s.label || s.id);
+    const label = parts ? `<span class="expander" data-expand="${esc(r.name)}" title="show each reviewer">${reviewCaret(r.name)}${s.id}</span>` : (s.label || s.id);
     rows += `<div class="lab ${skip ? "skip" : ""}">${lane}${label}</div><div class="track">${segs}</div><div class="info ${infoCls} ${skip ? "skip" : ""}"${tip}>${info}</div>`;
-    if (parts && reviewOpen) rows += reviewerRows(r, pct);
+    if (parts && reviewOpen.has(r.name)) rows += reviewerRows(r, pct);
   }
   const extras = EXTRA.filter(k => spent((r.stepTokens || {})[k]))
     .map(k => `<span title="${esc(tokTitle(r.stepTokens[k]))}">${k} <b>${usd(r.stepTokens[k])}</b> · ${tok(r.stepTokens[k])}</span>`);
@@ -382,7 +383,7 @@ function batches(r) {
     // once the batch has written its orchestration-state.json (before that it is "starting").
     const steps = b.steps ? `<div class="full btl">${timeline({
       startedAt: b.startedAt, updatedAt: b.finishedAt, group: b.finishedAt ? "done" : "active",
-      status: b.status === "running" && !b.alive ? "blocked" : "", steps: b.steps, skipped: b.skipped, live: b.live,
+      name: `${r.name}#${b.n}`, status: b.status === "running" && !b.alive ? "blocked" : "", steps: b.steps, skipped: b.skipped, live: b.live,
       stepTokens: b.stepTokens, tokens: b.tokens })}</div>` : "";
     return `<span class="n">${b.n}</span><span class="s" title="${esc(subj)}">${esc(subj)}</span><span><span class="chip ${cls}">${st}</span></span><span class="m">${esc(b.workType)}</span><span class="m">${took}</span><span class="m" title="${esc(tokTitle(b.tokens))}">${usd(b.tokens)}</span><span class="m" title="${esc(tokTitle(b.tokens))}">${tok(b.tokens)}</span>${extra}${steps}`;
   }).join("")}</div>`;
@@ -451,12 +452,12 @@ function stepTable(rows) {
   if (!rows || !rows.length) return `<p class="basis">Nothing to average yet.</p>`;
   const top = Math.max(...rows.map(r => r.cost));
   return `<table class="steps"><thead><tr><th>Step</th><th>Cost</th><th>Tokens</th><th>Time</th><th>Tries</th></tr></thead><tbody>
-    ${rows.filter(r => !r.parent || reviewOpen).map(r => {
+    ${rows.filter(r => !r.parent || reviewOpen.has("stats")).map(r => {
       const bucket = !r.attempts, part = !!r.parent;
       const hasParts = r.step === "review" && rows.some(x => x.parent === "review");
-      const name = part ? `↳ ${esc(r.step.slice(REVIEW_PREFIX.length))}` : hasParts ? `${reviewCaret()}${esc(r.step)}` : esc(r.step);
+      const name = part ? `↳ ${esc(r.step.slice(REVIEW_PREFIX.length))}` : hasParts ? `${reviewCaret("stats")}${esc(r.step)}` : esc(r.step);
       const tip = part ? `averaged over the ${r.n} run${r.n === 1 ? "" : "s"} it reviewed · Time is its agents' time · Tries is spawns per run` : `averaged over ${r.n} run${r.n === 1 ? "" : "s"}`;
-      return `<tr class="${bucket ? "bucket" : ""} ${part ? "part" : ""} ${hasParts ? "expander" : ""}" title="${tip}"${hasParts ? ` data-expand="review"` : ""}>
+      return `<tr class="${bucket ? "bucket" : ""} ${part ? "part" : ""} ${hasParts ? "expander" : ""}" title="${tip}"${hasParts ? ` data-expand="stats"` : ""}>
         <td>${name}<span class="share" style="width:${top ? (r.cost / top) * 100 : 0}%"></span></td>
         <td>${money(r.cost)}</td><td>${mtok(r.tokens)}</td><td>${bucket ? "" : mins(r.minutes)}</td>
         <td class="${r.attempts >= 2 ? "amb" : ""}">${bucket ? "" : r.attempts.toFixed(1)}</td></tr>`;
@@ -485,12 +486,14 @@ document.addEventListener("click", e => {
   renderStats();
 });
 
-/* The review step opens into its reviewers, in the averages and in every run's timeline alike. */
+/* Each review step opens on its own: the averages table, every run and every sweep batch. */
 document.addEventListener("click", e => {
-  if (!e.target.closest("[data-expand=review]")) return;
+  const x = e.target.closest("[data-expand]");
+  if (!x) return;
   e.stopPropagation();
-  reviewOpen = !reviewOpen;
-  safeSet("runs.reviewOpen", reviewOpen ? "1" : "");
+  const key = x.dataset.expand;
+  reviewOpen.has(key) ? reviewOpen.delete(key) : reviewOpen.add(key);
+  safeSet("runs.reviewOpenKeys", JSON.stringify([...reviewOpen]));
   render();
 }, true);
 
