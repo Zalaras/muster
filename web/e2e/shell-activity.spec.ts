@@ -8,11 +8,17 @@ import {
 } from "./helpers/shell";
 import { shellActivityIndicator } from "./helpers/shellinput";
 import { liveTileById, terminalRegion } from "./helpers/terminal";
+import { awaitTerminalReady, focusHost, tileHost, type TerminalRef } from "./helpers/terminals";
+
+/** Terminal 1 of a session: what its shell surface waits on before keys are typed. */
+function firstShell(sessionId: number): TerminalRef {
+  return { sessionId, n: 1, name: "shell 1" };
+}
 
 // Shell activity indicator journeys.
 // Fixture plan: `daemon` per test — indicator assertions depend on which session is
 // auto-focused, so each test needs a daemon nobody else is sharing sessions on. The
-// indicator's display for a given `shellsBusy` — an idle shell showing nothing, the
+// indicator's display for a given `snapshot.terminals` — an idle shell showing nothing, the
 // busy circle's and done tick's computed geometry, and the spinner under reduced motion (shell-pane-fixes) — is a render test
 // in web/render/surfaces.spec.ts (re-levelled 2026-10-20, plans/_audit/relevel/misc-core.md).
 //
@@ -35,7 +41,7 @@ test("a shell running a silent foreground command shows a spinner in both the ma
     });
     await mainheadSurfaceButton(page, "shell").click();
     const shellRegion = shellSurfaceRegion(page, "shell-activity-basic");
-    await expect(shellRegion).toBeVisible({ timeout: 15_000 });
+    await awaitTerminalReady(focusHost(page), daemon, firstShell(session.id), shellRegion);
 
     await shellRegion.click();
     await page.keyboard.type("sleep 2");
@@ -70,10 +76,13 @@ test("the spinner stays visible on the shell segment while the user is on the Cl
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "shell-activity-away" });
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "shell-activity-away",
+    });
     await mainheadSurfaceButton(page, "shell").click();
     const shellRegion = shellSurfaceRegion(page, "shell-activity-away");
-    await expect(shellRegion).toBeVisible({ timeout: 15_000 });
+    await awaitTerminalReady(focusHost(page), daemon, firstShell(session.id), shellRegion);
 
     await shellRegion.click();
     await page.keyboard.type("sleep 2");
@@ -106,10 +115,13 @@ test("a tick clears itself about 3s later when the shell surface was already sel
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "shell-activity-selfclear" });
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "shell-activity-selfclear",
+    });
     await mainheadSurfaceButton(page, "shell").click();
     const shellRegion = shellSurfaceRegion(page, "shell-activity-selfclear");
-    await expect(shellRegion).toBeVisible({ timeout: 15_000 });
+    await awaitTerminalReady(focusHost(page), daemon, firstShell(session.id), shellRegion);
 
     await shellRegion.click();
     await page.keyboard.type("sleep 2");
@@ -139,7 +151,7 @@ test("a shell that exits while busy leaves no spinner and no tick behind (E7, ed
     });
     await mainheadSurfaceButton(page, "shell").click();
     const shellRegion = shellSurfaceRegion(page, "shell-activity-e7");
-    await expect(shellRegion).toBeVisible({ timeout: 15_000 });
+    await awaitTerminalReady(focusHost(page), daemon, firstShell(session.id), shellRegion);
 
     await shellRegion.click();
     await page.keyboard.type("sleep 30");
@@ -163,10 +175,13 @@ test("a daemon restart mid-command clears the shell activity indicator to nothin
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "shell-activity-e8" });
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "shell-activity-e8",
+    });
     await mainheadSurfaceButton(page, "shell").click();
     const shellRegion = shellSurfaceRegion(page, "shell-activity-e8");
-    await expect(shellRegion).toBeVisible({ timeout: 15_000 });
+    await awaitTerminalReady(focusHost(page), daemon, firstShell(session.id), shellRegion);
 
     await shellRegion.click();
     await page.keyboard.type("sleep 30");
@@ -224,14 +239,14 @@ test("with two sessions' shells busy at once, exactly those two segments show sp
 
     await tileSurfaceButton(page, sessionA.id, "shell").click();
     const shellA = shellSurfaceRegion(page, "shell-activity-e11-a");
-    await expect(shellA).toBeVisible({ timeout: 15_000 });
+    await awaitTerminalReady(tileHost(page, sessionA.id), daemon, firstShell(sessionA.id), shellA);
     await shellA.click();
     await page.keyboard.type("sleep 5");
     await page.keyboard.press("Enter");
 
     await tileSurfaceButton(page, sessionB.id, "shell").click();
     const shellB = shellSurfaceRegion(page, "shell-activity-e11-b");
-    await expect(shellB).toBeVisible({ timeout: 15_000 });
+    await awaitTerminalReady(tileHost(page, sessionB.id), daemon, firstShell(sessionB.id), shellB);
     await shellB.click();
     await page.keyboard.type("sleep 5");
     await page.keyboard.press("Enter");
@@ -260,10 +275,13 @@ test("a shell surface superseded by a second window while busy still tracks the 
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "shell-activity-e12" });
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "shell-activity-e12",
+    });
     await mainheadSurfaceButton(page, "shell").click();
     const shellRegionA = shellSurfaceRegion(page, "shell-activity-e12");
-    await expect(shellRegionA).toBeVisible({ timeout: 15_000 });
+    await awaitTerminalReady(focusHost(page), daemon, firstShell(session.id), shellRegionA);
 
     await shellRegionA.click();
     await page.keyboard.type("sleep 5");

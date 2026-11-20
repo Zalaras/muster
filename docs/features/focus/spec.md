@@ -29,7 +29,7 @@ model reads `unknown`, as any null model does (kb:adr/launch-resume-null-model-r
 brackets read `(…)` until a new session's first status-line report and are absent when the model has no
 effort or a dead session never reported one (the header still reserves the width of ` (…)`); a resumed session shows the level it resumed at. On a dead
 session the ended age sits under the model, without a leading `·`, in a slot the header reserves whether
-or not it shows. A right-aligned cluster holds the `claude | shell | docs` surface switch
+or not it shows. A right-aligned cluster holds the `claude | shell | ▾ | docs` surface switch
 (kb:spec/surfaces) and one Session actions `⋯` that opens the focused card's menu just under the button
 (kb:spec/actions, kb:adr/focus-header-holds-switch-and-session-menu).
 The session name carries hover text (its full title); hovering the repo readout with the mouse opens

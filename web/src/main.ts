@@ -25,6 +25,7 @@ import { initTiles } from "./features/tiles";
 import { initEffort } from "./features/effort";
 import { initFocus } from "./features/focus";
 import { initSurfaces } from "./features/surfaces";
+import { initTerminalsPanel } from "./features/terminalspanel";
 import { initReader } from "./features/reader";
 import { initGroups } from "./features/groups";
 import { initRail } from "./features/rail";
@@ -55,6 +56,7 @@ const railMenu = initRailMenu(app, { actions, groups });
 const tiles = initTiles(app, {
   actions,
   getSurfaces: () => surfaces,
+  getTerminalsPanel: () => terminalsPanel,
   renameHandlers: rename.tileRenameHandlers,
   railMenu,
   getReader: () => reader,
@@ -63,6 +65,7 @@ const effort = initEffort({ actions });
 const focus = initFocus(app, {
   actions,
   getSurfaces: () => surfaces,
+  getTerminalsPanel: () => terminalsPanel,
   promoteTile: tiles.promote,
   getReader: () => reader,
   renameHandlers: rename.mainheadRenameHandlers,
@@ -71,6 +74,7 @@ const focus = initFocus(app, {
   railMenu,
 });
 const surfaces = initSurfaces(app, { tilesLive: tiles.liveIds });
+const terminalsPanel = initTerminalsPanel(app, { surfaces });
 const reader = initReader(app, { tilesLive: tiles.liveIds, surfaces });
 initRail(app, { actions, surfaces, groups, railMenu });
 // Render phase order (behaviour-bearing — see each phase's own controller for why its

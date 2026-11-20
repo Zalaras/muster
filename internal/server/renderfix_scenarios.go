@@ -105,8 +105,7 @@ func driveFocusHeaderFit(names focusHeaderNames) func(context.Context, *renderRi
 		if err = r.hookStamped(ctx, claudecodetest.EnvelopedHookInDirectory(int(moved.id), moved.pane, "Stop", "cs-fit-moved", wt)); err != nil {
 			return err
 		}
-		r.repoTick(ctx)
-		return nil
+		return r.repoTick(ctx)
 	}
 }
 
@@ -218,8 +217,7 @@ func driveMovedToWorktree(ctx context.Context, r *renderRig) error {
 	if err := r.hookStamped(ctx, claudecodetest.EnvelopedHookInDirectory(int(s.id), s.pane, "Stop", "cs-epsilon", wt)); err != nil {
 		return err
 	}
-	r.repoTick(ctx)
-	return nil
+	return r.repoTick(ctx)
 }
 
 func driveGroups(ctx context.Context, r *renderRig) error {

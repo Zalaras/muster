@@ -9,7 +9,7 @@
 // evolution" rule — parsing here only ever reads the fields it knows about, so future
 // additions never need a change here to keep working.
 
-import { asNumber, isRecord, parseListOf } from "./decode";
+import { isRecord, parseListOf } from "./decode";
 import {
   type Group,
   type GroupsMessage,
@@ -26,6 +26,12 @@ import {
   parseClaudeThemeInfo,
   parseClaudeThemeMessage,
 } from "./theme";
+import {
+  type TerminalsBySession,
+  type TerminalsMessage,
+  parseSnapshotTerminals,
+  parseTerminalsMessage,
+} from "./terminals";
 import { type UpdateInfo, type UpdateMessage, parseUpdateInfo, parseUpdateMessage } from "./update";
 import { type Usage, type UsageMessage, parseUsage, parseUsageMessage } from "./usage";
 
@@ -40,7 +46,7 @@ export interface Snapshot {
   // rejecting the snapshot - same additive-evolution tolerance as
   // `claudeTheme` before it.
   update: UpdateInfo | null;
-  shellsBusy?: number[];
+  terminals?: TerminalsBySession;
   // kb:anchor/ws.groups: always present on a current daemon's snapshot; an older daemon's
   // payload (neither key) parses as no groups and Ungrouped in last place, so the rail renders
   // flat — same additive-evolution tolerance as `update` above.
@@ -72,16 +78,6 @@ export interface DocChanged {
   at: string;
 }
 
-// kb:anchor/ws.shell-activity: broadcast on every observed
-// change of a shell's busy flag (the daemon's ~1s tmux poller). Deliberately
-// not a Session field and adds no session state (kb:adr/surfaces-shell-is-attach-target-not-session) —
-// a shell is still not a session.
-export interface ShellActivityMessage {
-  type: "shellActivity";
-  sessionId: number;
-  busy: boolean;
-}
-
 export type Message =
   | Hello
   | Snapshot
@@ -93,7 +89,7 @@ export type Message =
   | ClaudeCodeMessage
   | DocChanged
   | UpdateMessage
-  | ShellActivityMessage
+  | TerminalsMessage
   | GroupsMessage;
 
 function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
@@ -125,15 +121,12 @@ function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
     update,
     ...groupsFields,
   };
-  // Present-only, same pattern as protocol/usage.ts's `model` field — an
-  // absent key stays absent on the parsed object rather than gaining a synthesized `[]`,
-  // so an older daemon's payload (and every existing snapshot fixture that predates this field)
-  // round-trips unchanged. Real callers read `snapshot.shellsBusy ?? []`
-  // (`features/surfaces.ts`), same as every other present-only field's read site.
-  if ("shellsBusy" in rec) {
-    const shellsBusy = parseListOf(rec["shellsBusy"], asNumber);
-    if (!shellsBusy) return null;
-    snapshot.shellsBusy = shellsBusy;
+  // Present-only: an absent key stays absent, so a snapshot fixture that predates the field
+  // round-trips unchanged; real callers read `snapshot.terminals ?? {}`.
+  if ("terminals" in rec) {
+    const terminals = parseSnapshotTerminals(rec["terminals"]);
+    if (!terminals) return null;
+    snapshot.terminals = terminals;
   }
   return snapshot;
 }
@@ -161,14 +154,6 @@ export function parseDocChanged(rec: Record<string, unknown>): DocChanged | null
   return { type: "docChanged", id, path, at };
 }
 
-function parseShellActivityMessage(rec: Record<string, unknown>): ShellActivityMessage | null {
-  const sessionId = rec["sessionId"];
-  const busy = rec["busy"];
-  if (typeof sessionId !== "number") return null;
-  if (typeof busy !== "boolean") return null;
-  return { type: "shellActivity", sessionId, busy };
-}
-
 /** Parses one WS text frame's decoded JSON. Unknown/malformed messages yield `null`. */
 export function parseMessage(data: unknown): Message | null {
   if (!isRecord(data)) return null;
@@ -194,8 +179,8 @@ export function parseMessage(data: unknown): Message | null {
       return parseUpdateMessage(data);
     case "docChanged":
       return parseDocChanged(data);
-    case "shellActivity":
-      return parseShellActivityMessage(data);
+    case "terminals":
+      return parseTerminalsMessage(data);
     case "groups":
       return parseGroupsMessage(data);
     default:

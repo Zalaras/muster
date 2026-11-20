@@ -100,30 +100,30 @@ func (c *canonicalStub) wasQueried(ttyPath string) bool {
 	return slices.Contains(c.calls, ttyPath)
 }
 
-// activityBroadcast is one recorded shellActivityPoller.broadcast call.
-type activityBroadcast struct {
+// terminalsBroadcast is one recorded shellActivityPoller.broadcast call.
+type terminalsBroadcast struct {
 	sessionID int64
-	busy      bool
+	terminals []terminalWire
 }
 
 // recordingActivityBroadcaster is the hub-spy pattern themepoll_test.go's
-// recordingThemeBroadcaster already uses, here for the poller's (int64, bool) shape —
-// asserts exact broadcast counts and payloads without a real wsHub.
+// recordingThemeBroadcaster already uses, here for the poller's (int64, []terminalWire)
+// shape — asserts exact broadcast counts and payloads without a real wsHub.
 type recordingActivityBroadcaster struct {
 	mu    sync.Mutex
-	calls []activityBroadcast
+	calls []terminalsBroadcast
 }
 
-func (b *recordingActivityBroadcaster) broadcast(id int64, busy bool) {
+func (b *recordingActivityBroadcaster) broadcast(id int64, terminals []terminalWire) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.calls = append(b.calls, activityBroadcast{sessionID: id, busy: busy})
+	b.calls = append(b.calls, terminalsBroadcast{sessionID: id, terminals: append([]terminalWire{}, terminals...)})
 }
 
-func (b *recordingActivityBroadcaster) all() []activityBroadcast {
+func (b *recordingActivityBroadcaster) all() []terminalsBroadcast {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	out := make([]activityBroadcast, len(b.calls))
+	out := make([]terminalsBroadcast, len(b.calls))
 	copy(out, b.calls)
 	return out
 }
@@ -137,18 +137,37 @@ func (b *recordingActivityBroadcaster) reset() {
 func alwaysHasShells() bool { return true }
 func neverHasShells() bool  { return false }
 
+func terminalPane(id int64, n int, cmd string, alternateOn bool, ttyPath string) tmux.PaneActivity {
+	return tmux.PaneActivity{SessionName: tmux.TerminalSessionName(id, n), CurrentCommand: cmd, AlternateOn: alternateOn, Tty: ttyPath}
+}
+
 func shellPane(id int64, cmd string, alternateOn bool, ttyPath string) tmux.PaneActivity {
-	return tmux.PaneActivity{SessionName: tmux.ShellSessionName(id), CurrentCommand: cmd, AlternateOn: alternateOn, Tty: ttyPath}
+	return terminalPane(id, 1, cmd, alternateOn, ttyPath)
 }
 
 func claudePane(id int64, cmd string, alternateOn bool, ttyPath string) tmux.PaneActivity {
 	return tmux.PaneActivity{SessionName: tmux.SessionName(id), CurrentCommand: cmd, AlternateOn: alternateOn, Tty: ttyPath}
 }
 
+func newPollerWith(lister paneActivityLister, canonical ttyCanonicalChecker, hasShells func() bool, names *terminalNames, b *recordingActivityBroadcaster) *shellActivityPoller {
+	return newShellActivityPoller(lister, canonical, hasShells, testShellBase, time.Hour, names, b.broadcast, zerolog.Nop())
+}
+
 // newTestPoller builds a shellActivityPoller wired to the given stubs, with hasShells
 // always true (a test that specifically needs the gate off builds its own).
 func newTestPoller(lister *paneActivityStub, canonical *canonicalStub, b *recordingActivityBroadcaster) *shellActivityPoller {
-	return newShellActivityPoller(lister.list, canonical.check, alwaysHasShells, testShellBase, time.Hour, b.broadcast, zerolog.Nop())
+	return newPollerWith(lister.list, canonical.check, alwaysHasShells, newTerminalNames(), b)
+}
+
+func tw(n int, name string, busy bool) terminalWire {
+	return terminalWire{N: n, Name: name, Busy: busy}
+}
+
+func listFor(id int64, list []terminalWire) map[int64][]terminalWire {
+	if list == nil {
+		return map[int64][]terminalWire{}
+	}
+	return map[int64][]terminalWire{id: list}
 }
 
 // TestTick_BusyGating_Table is the exhaustive cross-state coverage
@@ -234,37 +253,34 @@ func TestTick_BusyGating_Table(t *testing.T) {
 			p.tick(context.Background())
 
 			assert.Equal(t, tt.wantIoctlQueried, canonical.wasQueried(tty), "ioctl-queried expectation")
-			gotBusy := slices.Contains(p.Current(), int64(1))
-			assert.Equal(t, tt.wantBusy, gotBusy, "busy verdict")
+			require.Len(t, p.Current()["1"], 1)
+			assert.Equal(t, tt.wantBusy, p.Current()["1"][0].Busy, "busy verdict")
 		})
 	}
 }
 
-// TestTick_IgnoresNonShellPanesOnTheSocket covers that a Claude pane on the same socket
+// TestTick_IgnoresNonTerminalPanesOnTheSocket covers that a Claude pane on the same socket
 // (which would otherwise read as canonical/busy under this gate) is filtered out by
-// IsShellSessionName before the gate is even consulted — the poller must never treat a
-// Claude pane's own foreground process as shell activity.
-func TestTick_IgnoresNonShellPanesOnTheSocket(t *testing.T) {
+// ParseTerminalName before the gate is even consulted.
+func TestTick_IgnoresNonTerminalPanesOnTheSocket(t *testing.T) {
 	lister := newPaneActivityStub(
-		claudePane(1, "claude", false, "/dev/ttys000"), // a Claude pane: canonical, would read busy under the shell gate
+		claudePane(1, "claude", false, "/dev/ttys000"),
 		shellPane(2, "sleep", false, "/dev/ttys002"),
 	)
 	canonical := newCanonicalStub()
 	canonical.setResult("/dev/ttys000", true)
 	canonical.setResult("/dev/ttys002", true)
-	b := &recordingActivityBroadcaster{}
-	p := newTestPoller(lister, canonical, b)
+	p := newTestPoller(lister, canonical, &recordingActivityBroadcaster{})
 
 	p.tick(context.Background())
 
-	assert.False(t, canonical.wasQueried("/dev/ttys000"), "a Claude pane must never reach the tty ioctl through the shell-busy gate")
-	assert.ElementsMatch(t, []int64{2}, p.Current())
+	assert.False(t, canonical.wasQueried("/dev/ttys000"), "a Claude pane must never reach the tty ioctl through the terminal-busy gate")
+	assert.Equal(t, map[string][]terminalWire{"2": {tw(1, "shell 1", true)}}, p.Current())
 }
 
-// TestTick_TtyErrorExcludesOnlyThatSessionFromTheTick covers the "tty vanished between
-// list-panes and the ioctl" comment in shellactivity.go: one session's ioctl failing must
-// not fail the whole tick or affect an unrelated session's busy verdict in the same tick.
-func TestTick_TtyErrorExcludesOnlyThatSessionFromTheTick(t *testing.T) {
+// TestTick_TtyErrorReadsOnlyThatTerminalIdle: one terminal's ioctl failing must not fail
+// the tick or affect another terminal's verdict; the errored terminal stays listed, idle.
+func TestTick_TtyErrorReadsOnlyThatTerminalIdle(t *testing.T) {
 	lister := newPaneActivityStub(
 		shellPane(1, "sleep", false, "/dev/ttys-gone"),
 		shellPane(2, "sleep", false, "/dev/ttys-ok"),
@@ -272,124 +288,187 @@ func TestTick_TtyErrorExcludesOnlyThatSessionFromTheTick(t *testing.T) {
 	canonical := newCanonicalStub()
 	canonical.setErr("/dev/ttys-gone", errors.New("device not configured"))
 	canonical.setResult("/dev/ttys-ok", true)
-	b := &recordingActivityBroadcaster{}
-	p := newTestPoller(lister, canonical, b)
+	p := newTestPoller(lister, canonical, &recordingActivityBroadcaster{})
 
 	p.tick(context.Background())
 
-	assert.ElementsMatch(t, []int64{2}, p.Current(), "the errored session must sit this tick out, never crash it or contaminate the other session's verdict")
+	assert.Equal(t, map[string][]terminalWire{
+		"1": {tw(1, "shell 1", false)},
+		"2": {tw(1, "shell 1", true)},
+	}, p.Current())
 }
 
-// TestTick_SkipsListerEntirelyWhenNoShellsExist covers the Gotchas clause: "must not run
-// a tmux invocation when no shell exists" — hasShells=false must short-circuit before the
-// lister is ever called.
-func TestTick_SkipsListerEntirelyWhenNoShellsExist(t *testing.T) {
-	lister := newPaneActivityStub(shellPane(1, "sleep", false, "/dev/ttys001"))
-	canonical := newCanonicalStub()
-	b := &recordingActivityBroadcaster{}
-	p := newShellActivityPoller(lister.list, canonical.check, neverHasShells, testShellBase, time.Hour, b.broadcast, zerolog.Nop())
+// TestTick_GatesTheListerOnHasShellsUnlessAlreadyListing: hasShells=false with nothing
+// listed must not exec tmux; with terminals already listed it still polls so exits are seen.
+func TestTick_GatesTheListerOnHasShellsUnlessAlreadyListing(t *testing.T) {
+	tests := []struct {
+		name      string
+		hasShells func() bool
+		prime     bool
+		wantCalls int
+	}{
+		{"no shells ever opened and none listed: no exec", neverHasShells, false, 0},
+		{"shells opened: exec", alwaysHasShells, false, 1},
+		{"gate off but terminals already listed: still exec", neverHasShells, true, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lister := newPaneActivityStub(shellPane(1, "sleep", false, "/dev/ttys001"))
+			p := newPollerWith(lister.list, newCanonicalStub().check, alwaysHasShells, newTerminalNames(), &recordingActivityBroadcaster{})
+			if tt.prime {
+				p.tick(context.Background())
+			}
+			p.hasShells = tt.hasShells
+			lister.mu.Lock()
+			lister.calls = 0
+			lister.mu.Unlock()
 
-	p.tick(context.Background())
+			p.tick(context.Background())
 
-	assert.Equal(t, 0, lister.callCount(), "no shell has ever been opened: the poller must not exec tmux at all")
-	assert.Empty(t, p.Current())
+			assert.Equal(t, tt.wantCalls, lister.callCount())
+		})
+	}
 }
 
-// TestTick_CallsListerWhenShellsExist is SkipsListerEntirelyWhenNoShellsExist's positive
-// counterpart, from the other reachable hasShells state.
-func TestTick_CallsListerWhenShellsExist(t *testing.T) {
-	lister := newPaneActivityStub()
-	canonical := newCanonicalStub()
-	b := &recordingActivityBroadcaster{}
-	p := newTestPoller(lister, canonical, b)
-
-	p.tick(context.Background())
-
-	assert.Equal(t, 1, lister.callCount())
-}
-
-// TestTick_ListerErrorLeavesThePreviousBusySetUntouchedAndBroadcastsNothing covers a
-// transient tmux failure mid-poll: the tick must not treat a lister error as "everyone
-// went idle" (which would spuriously broadcast every previously-busy session false).
-func TestTick_ListerErrorLeavesThePreviousBusySetUntouchedAndBroadcastsNothing(t *testing.T) {
+// TestTick_ListerErrorLeavesThePreviousListUntouchedAndBroadcastsNothing: a transient tmux
+// failure must not read as "every terminal closed".
+func TestTick_ListerErrorLeavesThePreviousListUntouchedAndBroadcastsNothing(t *testing.T) {
 	lister := newPaneActivityStub(shellPane(1, "sleep", false, "/dev/ttys001"))
 	canonical := newCanonicalStub()
 	canonical.setResult("/dev/ttys001", true)
 	b := &recordingActivityBroadcaster{}
 	p := newTestPoller(lister, canonical, b)
 	p.tick(context.Background())
-	require.ElementsMatch(t, []int64{1}, p.Current())
+	before := p.Current()
+	require.Len(t, before["1"], 1)
 	b.reset()
 
 	lister.setErr(errors.New("boom: tmux list-panes failed"))
 	p.tick(context.Background())
 
-	assert.ElementsMatch(t, []int64{1}, p.Current(), "a lister failure must leave the last-known busy set intact")
-	assert.Empty(t, b.all(), "a lister failure must never broadcast a spurious idle transition")
-}
-
-// TestReconcile_BroadcastsOnceOnGoingBusy covers the empty->busy transition.
-func TestReconcile_BroadcastsOnceOnGoingBusy(t *testing.T) {
-	b := &recordingActivityBroadcaster{}
-	p := newShellActivityPoller(nil, nil, alwaysHasShells, testShellBase, time.Hour, b.broadcast, zerolog.Nop())
-
-	p.reconcile(map[int64]bool{1: true})
-
-	assert.Equal(t, []activityBroadcast{{1, true}}, b.all())
-	assert.ElementsMatch(t, []int64{1}, p.Current())
-}
-
-// TestReconcile_BroadcastsOnceOnGoingIdle covers the busy->absent transition, the same
-// path both a shell exiting while busy and a daemon restart mid-command take: neither
-// distinguishes itself at this layer, both just mean the session id is missing from
-// newBusy.
-func TestReconcile_BroadcastsOnceOnGoingIdle(t *testing.T) {
-	b := &recordingActivityBroadcaster{}
-	p := newShellActivityPoller(nil, nil, alwaysHasShells, testShellBase, time.Hour, b.broadcast, zerolog.Nop())
-	p.reconcile(map[int64]bool{1: true})
-	b.reset()
-
-	p.reconcile(map[int64]bool{})
-
-	assert.Equal(t, []activityBroadcast{{1, false}}, b.all())
-	assert.Empty(t, p.Current())
-}
-
-// TestReconcile_NoBroadcastWhenUnchanged covers the steady-state busy->busy tick, the
-// common case a 1s poller spends most of its time in.
-func TestReconcile_NoBroadcastWhenUnchanged(t *testing.T) {
-	b := &recordingActivityBroadcaster{}
-	p := newShellActivityPoller(nil, nil, alwaysHasShells, testShellBase, time.Hour, b.broadcast, zerolog.Nop())
-	p.reconcile(map[int64]bool{1: true})
-	b.reset()
-
-	p.reconcile(map[int64]bool{1: true})
-
+	assert.Equal(t, before, p.Current())
 	assert.Empty(t, b.all())
-	assert.ElementsMatch(t, []int64{1}, p.Current())
 }
 
-// TestReconcile_MultipleSessionsIndependentNoCrossTalk: two sessions
-// going busy in the same reconcile broadcast independently, and a later change to one
-// never touches the other's entry in Current().
-func TestReconcile_MultipleSessionsIndependentNoCrossTalk(t *testing.T) {
-	b := &recordingActivityBroadcaster{}
-	p := newShellActivityPoller(nil, nil, alwaysHasShells, testShellBase, time.Hour, b.broadcast, zerolog.Nop())
+// TestTick_ListsEverySessionsTerminalsSortedWithEffectiveNames: terminals arrive from
+// tmux in any order, the list is ascending by n (10 after 3), and a developer name
+// replaces "shell N".
+func TestTick_ListsEverySessionsTerminalsSortedWithEffectiveNames(t *testing.T) {
+	lister := newPaneActivityStub(
+		terminalPane(7, 3, testShellBase, false, "/dev/t3"),
+		terminalPane(9, 1, testShellBase, false, "/dev/t4"),
+		terminalPane(7, 1, testShellBase, false, "/dev/t1"),
+		terminalPane(7, 10, testShellBase, false, "/dev/t10"),
+		terminalPane(7, 2, testShellBase, false, "/dev/t2"),
+	)
+	names := newTerminalNames()
+	names.set(7, 2, "build")
+	p := newPollerWith(lister.list, newCanonicalStub().check, alwaysHasShells, names, &recordingActivityBroadcaster{})
 
-	p.reconcile(map[int64]bool{1: true, 2: true})
-	assert.ElementsMatch(t, []activityBroadcast{{1, true}, {2, true}}, b.all())
-	assert.ElementsMatch(t, []int64{1, 2}, p.Current())
+	p.tick(context.Background())
+
+	assert.Equal(t, map[string][]terminalWire{
+		"7": {tw(1, "shell 1", false), tw(2, "build", false), tw(3, "shell 3", false), tw(10, "shell 10", false)},
+		"9": {tw(1, "shell 1", false)},
+	}, p.Current())
+}
+
+// TestSync_BroadcastsAChangeAtOnceAndOnlyOnce: sync is the on-demand tick the spawn, close
+// and rename handlers call, so the change goes out without waiting for the interval.
+func TestSync_BroadcastsAChangeAtOnceAndOnlyOnce(t *testing.T) {
+	lister := newPaneActivityStub(shellPane(1, testShellBase, false, "/dev/t1"))
+	names := newTerminalNames()
+	b := &recordingActivityBroadcaster{}
+	p := newPollerWith(lister.list, newCanonicalStub().check, alwaysHasShells, names, b)
+
+	p.sync(context.Background())
+	p.sync(context.Background())
+	assert.Equal(t, []terminalsBroadcast{{1, []terminalWire{tw(1, "shell 1", false)}}}, b.all(), "an unchanged list is not re-broadcast")
 	b.reset()
 
-	p.reconcile(map[int64]bool{2: true}) // session 1 went idle; session 2 unchanged
-	assert.Equal(t, []activityBroadcast{{1, false}}, b.all(), "INV-4: session 2 going untouched must produce no broadcast for it")
-	assert.ElementsMatch(t, []int64{2}, p.Current())
+	names.set(1, 1, "api")
+	p.sync(context.Background())
+	assert.Equal(t, []terminalsBroadcast{{1, []terminalWire{tw(1, "api", false)}}}, b.all(), "a rename is a change")
 }
 
-// TestCurrent_AlwaysNonNilEvenWhenEmpty covers the snapshot.shellsBusy Protocol Contract
-// clause "[] when none, always present" at the poller layer buildSnapshot reads from.
+// TestReconcile_Transitions is the list state machine: each row starts from a previous
+// list and applies the next tick's, checking the broadcast and the stored list.
+func TestReconcile_Transitions(t *testing.T) {
+	one := []terminalWire{tw(1, "shell 1", false)}
+	two := []terminalWire{tw(1, "shell 1", false), tw(2, "shell 2", false)}
+	tests := []struct {
+		name      string
+		prev      []terminalWire
+		next      []terminalWire
+		wantBcast [][]terminalWire
+	}{
+		{"first terminal appears", nil, one, [][]terminalWire{one}},
+		{"second terminal appears", one, two, [][]terminalWire{two}},
+		{"terminal goes busy", one, []terminalWire{tw(1, "shell 1", true)}, [][]terminalWire{{tw(1, "shell 1", true)}}},
+		{"terminal renamed", one, []terminalWire{tw(1, "api", false)}, [][]terminalWire{{tw(1, "api", false)}}},
+		{"one of two closes", two, []terminalWire{tw(2, "shell 2", false)}, [][]terminalWire{{tw(2, "shell 2", false)}}},
+		{"last terminal gone broadcasts empty list", one, nil, [][]terminalWire{{}}},
+		{"unchanged is silent", two, two, nil},
+		{"nothing to nothing is silent", nil, nil, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &recordingActivityBroadcaster{}
+			p := newPollerWith(nil, nil, alwaysHasShells, newTerminalNames(), b)
+			p.reconcile(listFor(1, tt.prev))
+			b.reset()
+
+			p.reconcile(listFor(1, tt.next))
+
+			var got [][]terminalWire
+			for _, c := range b.all() {
+				assert.Equal(t, int64(1), c.sessionID)
+				got = append(got, c.terminals)
+			}
+			assert.Equal(t, tt.wantBcast, got)
+			if tt.next == nil {
+				assert.Empty(t, p.Current())
+			} else {
+				assert.Equal(t, tt.next, p.Current()["1"])
+			}
+		})
+	}
+}
+
+// TestReconcile_SessionsAreIndependent: a change to one session's terminals never
+// broadcasts or alters another's (shared poller, several sessions coexisting).
+func TestReconcile_SessionsAreIndependent(t *testing.T) {
+	b := &recordingActivityBroadcaster{}
+	p := newPollerWith(nil, nil, alwaysHasShells, newTerminalNames(), b)
+	p.reconcile(map[int64][]terminalWire{1: {tw(1, "shell 1", true)}, 2: {tw(1, "shell 1", false), tw(2, "shell 2", false)}})
+	b.reset()
+
+	p.reconcile(map[int64][]terminalWire{2: {tw(1, "shell 1", false), tw(2, "shell 2", false)}})
+
+	assert.Equal(t, []terminalsBroadcast{{1, []terminalWire{}}}, b.all(), "only session 1 changed")
+	assert.Equal(t, map[string][]terminalWire{"2": {tw(1, "shell 1", false), tw(2, "shell 2", false)}}, p.Current())
+}
+
+// TestReconcile_ForgetsTheNamesOfTerminalsNoLongerListed: a closed terminal's name must not
+// carry over to a later terminal that reuses the number, while survivors keep theirs.
+func TestReconcile_ForgetsTheNamesOfTerminalsNoLongerListed(t *testing.T) {
+	names := newTerminalNames()
+	names.set(1, 1, "api")
+	names.set(1, 2, "web")
+	names.set(2, 1, "other")
+	p := newPollerWith(nil, nil, alwaysHasShells, names, &recordingActivityBroadcaster{})
+	p.reconcile(map[int64][]terminalWire{1: {tw(1, "api", false), tw(2, "web", false)}, 2: {tw(1, "other", false)}})
+
+	p.reconcile(map[int64][]terminalWire{1: {tw(1, "api", false)}})
+
+	assert.Equal(t, "api", names.effective(1, 1))
+	assert.Equal(t, "shell 2", names.effective(1, 2), "closed terminal's name forgotten")
+	assert.Equal(t, "shell 1", names.effective(2, 1), "an emptied session's names forgotten")
+}
+
+// TestCurrent_AlwaysNonNilEvenWhenEmpty covers snapshot.terminals "{} when none, always present".
 func TestCurrent_AlwaysNonNilEvenWhenEmpty(t *testing.T) {
-	p := newShellActivityPoller(nil, nil, alwaysHasShells, testShellBase, time.Hour, func(int64, bool) {}, zerolog.Nop())
+	p := newPollerWith(nil, nil, alwaysHasShells, newTerminalNames(), &recordingActivityBroadcaster{})
 
 	got := p.Current()
 
@@ -397,28 +476,23 @@ func TestCurrent_AlwaysNonNilEvenWhenEmpty(t *testing.T) {
 	assert.Empty(t, got)
 }
 
-// TestCurrent_ReturnsSortedAscending covers Current's own sort contract — a reconnecting
-// client re-syncing shellsBusy should see a stable, deterministic order, not map
-// iteration order.
-func TestCurrent_ReturnsSortedAscending(t *testing.T) {
-	b := &recordingActivityBroadcaster{}
-	p := newShellActivityPoller(nil, nil, alwaysHasShells, testShellBase, time.Hour, b.broadcast, zerolog.Nop())
+// TestCurrent_ReturnsACopy: mutating the returned lists must not corrupt the poller's own.
+func TestCurrent_ReturnsACopy(t *testing.T) {
+	p := newPollerWith(nil, nil, alwaysHasShells, newTerminalNames(), &recordingActivityBroadcaster{})
+	p.reconcile(map[int64][]terminalWire{1: {tw(1, "shell 1", false)}})
 
-	p.reconcile(map[int64]bool{9: true, 1: true, 5: true})
+	p.Current()["1"][0].Name = "mutated"
 
-	assert.Equal(t, []int64{1, 5, 9}, p.Current())
+	assert.Equal(t, "shell 1", p.Current()["1"][0].Name)
 }
 
 // TestPoller_StartStop_ImmediateFirstTickThenPromptStop mirrors
-// TestThemePoller_StartStop_ImmediateFirstTickThenPromptStop/TestUsagePoller_StartStop_LoopExitsPromptly:
-// Start must tick immediately (never waiting out the first full interval) and Stop must
-// return promptly rather than leaking the poll goroutine.
+// TestThemePoller_StartStop_ImmediateFirstTickThenPromptStop.
 func TestPoller_StartStop_ImmediateFirstTickThenPromptStop(t *testing.T) {
 	lister := newPaneActivityStub(shellPane(1, "sleep", false, "/dev/ttys001"))
 	canonical := newCanonicalStub()
 	canonical.setResult("/dev/ttys001", true)
-	b := &recordingActivityBroadcaster{}
-	p := newShellActivityPoller(lister.list, canonical.check, alwaysHasShells, testShellBase, time.Hour, b.broadcast, zerolog.Nop())
+	p := newTestPoller(lister, canonical, &recordingActivityBroadcaster{})
 
 	p.Start()
 	require.Eventually(t, func() bool { return lister.callCount() >= 1 }, time.Second, 5*time.Millisecond, "Start must tick immediately")
@@ -430,21 +504,20 @@ func TestPoller_StartStop_ImmediateFirstTickThenPromptStop(t *testing.T) {
 	assert.NoError(t, ctx.Err(), "Stop must return well within its deadline for a loop with no in-flight work")
 }
 
-// TestShellActivityFeature_ContributeReflectsCurrentBusySet covers the feature's
-// snapshot-contribution wiring (state.go's Snapshot.ShellsBusy) end to end from
-// newShellActivityFeature's own constructor, without waiting on the real 1s poll
-// interval: reconcile is called directly on the feature's own poller (same package), the
-// way a real tick would, and contribute must read it back faithfully.
-func TestShellActivityFeature_ContributeReflectsCurrentBusySet(t *testing.T) {
+// TestShellActivityFeature_ContributeReflectsCurrentTerminals covers the feature's
+// snapshot-contribution wiring (Snapshot.Terminals) from newShellActivityFeature's own
+// constructor.
+func TestShellActivityFeature_ContributeReflectsCurrentTerminals(t *testing.T) {
 	hub := newWSHub(zerolog.Nop())
 	lister := func(context.Context) ([]tmux.PaneActivity, error) { return nil, nil }
-	f := newShellActivityFeature(alwaysHasShells, lister, hub, zerolog.Nop())
+	f := newShellActivityFeature(alwaysHasShells, lister, newTerminalNames(), hub, zerolog.Nop())
 
 	var snap Snapshot
 	f.contribute(context.Background(), &snap)
-	assert.Equal(t, []int64{}, snap.ShellsBusy, "no busy session yet must still be a non-nil empty slice")
+	assert.NotNil(t, snap.Terminals)
+	assert.Empty(t, snap.Terminals, "no terminals yet must still be a non-nil empty map")
 
-	f.poller.reconcile(map[int64]bool{3: true, 1: true})
+	f.poller.reconcile(map[int64][]terminalWire{3: {tw(1, "shell 1", true)}, 1: {tw(1, "shell 1", false)}})
 	f.contribute(context.Background(), &snap)
-	assert.Equal(t, []int64{1, 3}, snap.ShellsBusy)
+	assert.Equal(t, map[string][]terminalWire{"1": {tw(1, "shell 1", false)}, "3": {tw(1, "shell 1", true)}}, snap.Terminals)
 }

@@ -82,7 +82,15 @@
         "unread": true
       }
     ],
-    "shellsBusy": [],
+    "terminals": {
+      "1": [
+        {
+          "busy": false,
+          "n": 1,
+          "name": "shell 1"
+        }
+      ]
+    },
     "type": "snapshot",
     "ungrouped": {
       "collapsed": false,

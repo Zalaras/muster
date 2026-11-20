@@ -1,4 +1,4 @@
-// The segmented `claude | shell | docs` control's DOM half
+// The segmented `claude | shell | ▾ | docs` control's DOM half
 // (kb:adr/surfaces-shell-is-attach-target-not-session; `docs` added per
 // kb:adr/reader-docs-is-third-surface-segment) — split out of
 // `terminal/surfaceswitch.ts` (`terminal/` holds pure logic only, per
@@ -12,6 +12,7 @@
 // only ever text-updated by updateTileChrome; the tile drag handle follows the same rule).
 // The reducer (which surface is selected, is a shell running) stays in
 // `terminal/surfaceswitch.ts`, the only owner that mutates it.
+import { setText } from "../dom";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import type { SessionSurfaceState, SurfaceKind } from "../terminal/surfaceswitch";
 
@@ -23,6 +24,8 @@ export interface SurfaceSegmentRefs {
    * `<button>` exactly like its siblings — no indicator, no `shellRunning`-style flag of
    * its own. */
   docsBtn: HTMLButtonElement;
+  terminalsBtn: HTMLButtonElement;
+  countEl: HTMLElement;
   /** The activity indicator `<span class="shellact">`, `aria-hidden` so the shell
    * button's accessible name stays exactly "shell" in every indicator state — kept
    * detached from `shellBtn` (via `.remove()`) until `updateSurfaceSegment` re-attaches
@@ -36,7 +39,10 @@ export interface SurfaceSegmentRefs {
  * segment, including the currently-selected one — callers short-circuit a same-surface
  * click themselves (features/surfaces.ts's `select`), same shape as the existing
  * Focus/Tiles view-switch buttons. */
-export function buildSurfaceSegment(onSelect: (kind: SurfaceKind) => void): SurfaceSegmentRefs {
+export function buildSurfaceSegment(
+  onSelect: (kind: SurfaceKind) => void,
+  onOpenTerminals: (opener: HTMLButtonElement) => void,
+): SurfaceSegmentRefs {
   const root = document.createElement("div");
   root.className = "surfseg";
   root.setAttribute("role", "group");
@@ -54,30 +60,70 @@ export function buildSurfaceSegment(onSelect: (kind: SurfaceKind) => void): Surf
   shellActEl.className = "shellact";
   // Never contributes to the button's accessible name in any indicator state.
   shellActEl.setAttribute("aria-hidden", "true");
+  const countEl = document.createElement("span");
+  countEl.className = "shellcount";
+  countEl.setAttribute("aria-hidden", "true");
   shellBtn.append(shellActEl, document.createTextNode("shell"));
   // States: "no data yet ... no indicator" — starts absent; updateSurfaceSegment
   // re-attaches it once the reducer reports "busy" or "done".
   shellActEl.remove();
+
+  const terminalsBtn = document.createElement("button");
+  terminalsBtn.type = "button";
+  terminalsBtn.className = "termsopen";
+  terminalsBtn.setAttribute("aria-label", "Terminals");
+  terminalsBtn.setAttribute("aria-haspopup", "dialog");
+  terminalsBtn.setAttribute("aria-expanded", "false");
+  const caret = document.createElement("span");
+  caret.setAttribute("aria-hidden", "true");
+  caret.textContent = "▾";
+  terminalsBtn.append(caret);
 
   const docsBtn = document.createElement("button");
   docsBtn.type = "button";
   docsBtn.dataset["surf"] = "docs";
   docsBtn.textContent = "docs";
 
-  root.append(claudeBtn, shellBtn, docsBtn);
+  root.append(claudeBtn, shellBtn, terminalsBtn, docsBtn);
 
   claudeBtn.addEventListener("click", () => onSelect("claude"));
   shellBtn.addEventListener("click", () => onSelect("shell"));
+  terminalsBtn.addEventListener("click", () => onOpenTerminals(terminalsBtn));
   docsBtn.addEventListener("click", () => onSelect("docs"));
 
-  return { root, claudeBtn, shellBtn, docsBtn, shellActEl };
+  return { root, claudeBtn, shellBtn, docsBtn, terminalsBtn, countEl, shellActEl };
 }
 
 export function focusIsOnSwitchOrPage(active: Element | null): boolean {
   return active === null || active === document.body || active.closest(".surfseg") !== null;
 }
 
-/** Every render pass: `aria-pressed` on all three segments, the activity indicator's
+export interface SurfaceTerminalsView {
+  count: number;
+  shownName: string | null;
+}
+
+export const NO_TERMINALS_VIEW: SurfaceTerminalsView = { count: 0, shownName: null };
+
+function updateTerminalsView(
+  refs: SurfaceSegmentRefs,
+  selected: SurfaceKind,
+  view: SurfaceTerminalsView,
+): void {
+  const hasCount = refs.shellBtn.contains(refs.countEl);
+  if (view.count < 2) {
+    if (hasCount) refs.countEl.remove();
+  } else {
+    if (!hasCount) refs.shellBtn.append(refs.countEl);
+    setText(refs.countEl, String(view.count));
+  }
+  const title = selected === "shell" ? view.shownName : null;
+  if (title === null) refs.shellBtn.removeAttribute("title");
+  else if (refs.shellBtn.title !== title) refs.shellBtn.title = title;
+}
+
+/** Every render pass: `aria-pressed` on the claude/shell/docs segments, the count and
+ * title, the ▾ opener's `disabled`, the activity indicator's
  * presence and `data-act` value, and `disabled` on all three while the WS is down
  * (States: "the segment buttons are disabled while the WS is down" — the same gate every
  * other action control uses; never gated on `alive`, since `shell` must stay clickable on
@@ -90,6 +136,7 @@ export function updateSurfaceSegment(
   state: SessionSurfaceState,
   connected: boolean,
   activity: ShellActivityIndicator,
+  terminals: SurfaceTerminalsView,
 ): void {
   refs.claudeBtn.setAttribute("aria-pressed", String(state.selected === "claude"));
   refs.shellBtn.setAttribute("aria-pressed", String(state.selected === "shell"));
@@ -97,6 +144,8 @@ export function updateSurfaceSegment(
   refs.claudeBtn.disabled = !connected;
   refs.shellBtn.disabled = !connected;
   refs.docsBtn.disabled = !connected;
+  refs.terminalsBtn.disabled = !connected;
+  updateTerminalsView(refs, state.selected, terminals);
   const hasIndicator = refs.shellBtn.contains(refs.shellActEl);
   if (activity === "none") {
     if (hasIndicator) refs.shellActEl.remove();

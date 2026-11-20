@@ -5,7 +5,9 @@ import { browse, fetchRepos, launchSession } from "./launch";
 import { putPrefs } from "./prefs";
 import { refreshUsage } from "./usage";
 import {
+  closeTerminal,
   createShell,
+  createTerminal,
   endSession,
   endSessions,
   fetchPane,
@@ -14,6 +16,7 @@ import {
   putSessionsGroup,
   removeSession,
   removeSessions,
+  renameTerminal,
   resumeSession,
   setSessionUnread,
 } from "./sessions";
@@ -50,12 +53,20 @@ describe("http — network_error short-circuit on a rejected fetch (REQ-13, plan
     vi.unstubAllGlobals();
   });
 
-  const networkError = { code: "network_error", message: "Could not reach musterd." };
+  const networkError = {
+    code: "network_error",
+    message: "Could not reach musterd.",
+  };
 
   const cases: Array<[string, () => Promise<{ ok: boolean; error?: unknown }>]> = [
     [
       "launchSession",
-      () => launchSession({ directory: "/tmp", model: "sonnet", permissionMode: "default" }),
+      () =>
+        launchSession({
+          directory: "/tmp",
+          model: "sonnet",
+          permissionMode: "default",
+        }),
     ],
     ["fetchRepos", () => fetchRepos()],
     ["browse (no path)", () => browse()],
@@ -66,6 +77,9 @@ describe("http — network_error short-circuit on a rejected fetch (REQ-13, plan
     ["resumeSession", () => resumeSession(1)],
     ["removeSession", () => removeSession(1)],
     ["createShell", () => createShell(1)],
+    ["createTerminal", () => createTerminal(1)],
+    ["renameTerminal", () => renameTerminal(1, 2, "build")],
+    ["closeTerminal", () => closeTerminal(1, 2)],
     ["fetchPane", () => fetchPane(1)],
     ["pinSession", () => pinSession(1, true)],
     ["setSessionUnread", () => setSessionUnread(1, true)],

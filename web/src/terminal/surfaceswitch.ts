@@ -1,5 +1,5 @@
-// The per-session "which surface is selected, is a shell running" reducer for the
-// segmented `claude | shell | docs` control
+// The per-session "which surface is selected, which terminal is shown" reducer for the
+// segmented `claude | shell | ▾ | docs` control
 // (kb:adr/surfaces-shell-is-attach-target-not-session; `docs` added by
 // kb:adr/reader-docs-is-third-surface-segment). A small pure Map held by
 // features/surfaces.ts — this module never reads a Session, touches a socket, or builds
@@ -17,27 +17,20 @@ export type SurfaceKind = "claude" | "shell" | "docs";
 
 export interface SessionSurfaceState {
   selected: SurfaceKind;
-  shellRunning: boolean;
+  shell: number | null;
 }
 
 export type SurfaceSwitchState = ReadonlyMap<number, SessionSurfaceState>;
 
-/** The value every session starts at and returns to once a shell ends: `claude`
- * selected, no shell running. */
 export const DEFAULT_SURFACE_STATE: SessionSurfaceState = {
   selected: "claude",
-  shellRunning: false,
+  shell: null,
 };
 
 export function getSurfaceState(state: SurfaceSwitchState, id: number): SessionSurfaceState {
   return state.get(id) ?? DEFAULT_SURFACE_STATE;
 }
 
-/** Switches which surface is selected for `id`. Never changes
- * `shellRunning` — that only ever changes via `setShellRunning`/`shellEnded` below, which
- * keep it in step with what the daemon actually reports (POST success/failure, PTY EOF).
- * Identity (same map) when `kind` is already selected, so a caller can call this
- * unconditionally without a redundant re-render. */
 export function selectSurface(
   state: SurfaceSwitchState,
   id: number,
@@ -50,37 +43,29 @@ export function selectSurface(
   return next;
 }
 
-/** Records whether `id`'s shell tmux session is known to be running — set
- * `true` on a successful `POST .../shell` (created or not), `false` by `shellEnded` below.
- * Identity when already at `running`. */
-export function setShellRunning(
-  state: SurfaceSwitchState,
-  id: number,
-  running: boolean,
-): SurfaceSwitchState {
+export function showTerminal(state: SurfaceSwitchState, id: number, n: number): SurfaceSwitchState {
   const current = getSurfaceState(state, id);
-  if (current.shellRunning === running) return state;
+  if (current.shell === n) return state;
   const next = new Map(state);
-  next.set(id, { ...current, shellRunning: running });
+  next.set(id, { ...current, shell: n });
   return next;
 }
 
-/** The shell ended (`exit`, an external kill, or any other PTY EOF on the shell
- * socket) — clears `shellRunning` and, in the same step, reverts `selected` to `claude`
- * if `shell` was showing (one atomic state change, never two renders). `shellRunning` is
- * what `features/surfaces.ts`'s `isSurfaceAttachable`/`desiredSurfaceEntries` read to
- * decide whether a shell `TerminalSurface` should be mounted at all — including, while
- * `docs` is selected, mounted invisibly in the background so this same handler still
- * fires when the shell it's tracking ends underneath the reader
- * (kb:adr/reader-docs-is-third-surface-segment): a `docs` selection is left untouched
- * here — only `shellRunning` clears — since `docs` was never the shell surface to begin
- * with. Identity if the session was already at the default state. */
-export function shellEnded(state: SurfaceSwitchState, id: number): SurfaceSwitchState {
+export function terminalsChanged(
+  state: SurfaceSwitchState,
+  id: number,
+  list: readonly { n: number }[],
+): SurfaceSwitchState {
   const current = getSurfaceState(state, id);
-  const selected = current.selected === "shell" ? "claude" : current.selected;
-  if (!current.shellRunning && selected === current.selected) return state;
+  if (current.shell !== null && list.some((t) => t.n === current.shell)) return state;
+  const shell = list.reduce<number | null>(
+    (low, t) => (low === null || t.n < low ? t.n : low),
+    null,
+  );
+  const selected = shell === null && current.selected === "shell" ? "claude" : current.selected;
+  if (shell === current.shell && selected === current.selected) return state;
   const next = new Map(state);
-  next.set(id, { selected, shellRunning: false });
+  next.set(id, { selected, shell });
   return next;
 }
 
@@ -93,10 +78,6 @@ export function forgetSession(state: SurfaceSwitchState, id: number): SurfaceSwi
   return next;
 }
 
-/** Whether the currently-selected surface for `id` should have a live `TerminalSurface`
- * mounted: `claude` follows the session's own `alive`; `shell` follows `shellRunning`
- * (never `alive`, in either direction); `docs` is never attachable — the reader replaces
- * the pane, it never has a `TerminalSurface` (kb:adr/reader-docs-is-third-surface-segment). */
 export function isSurfaceAttachable(
   state: SurfaceSwitchState,
   id: number,
@@ -104,7 +85,7 @@ export function isSurfaceAttachable(
 ): boolean {
   const current = getSurfaceState(state, id);
   if (current.selected === "docs") return false;
-  return current.selected === "shell" ? current.shellRunning : alive;
+  return current.selected === "shell" ? current.shell !== null : alive;
 }
 
 /** What a session's slot should show right now: the reader (`docs`,
@@ -123,12 +104,9 @@ export function surfaceBodyKind(selected: SurfaceKind, alive: boolean): SurfaceB
 
 const SURFACE_KEY_SEPARATOR = ":";
 
-/** The composite key features/surfaces.ts's surface manager keys its `TerminalSurface` map by (id,
- * kind) — a session's Claude pane and its shell are independent attach targets
- * (kb:adr/surfaces-one-live-client-per-attach-target) that may each need their own live
- * surface, so a plain session id is not a unique key. */
-export function surfaceKey(id: number, kind: SurfaceKind): string {
-  return `${id}${SURFACE_KEY_SEPARATOR}${kind}`;
+export function surfaceKey(id: number, kind: SurfaceKind, n?: number | null): string {
+  const base = `${id}${SURFACE_KEY_SEPARATOR}${kind}`;
+  return kind === "shell" && n != null ? `${base}${SURFACE_KEY_SEPARATOR}${n}` : base;
 }
 
 function toSurfaceKind(kindPart: string | undefined): SurfaceKind {
@@ -137,7 +115,11 @@ function toSurfaceKind(kindPart: string | undefined): SurfaceKind {
   return "claude";
 }
 
-export function parseSurfaceKey(key: string): { id: number; kind: SurfaceKind } {
-  const [idPart, kindPart] = key.split(SURFACE_KEY_SEPARATOR);
-  return { id: Number(idPart), kind: toSurfaceKind(kindPart) };
+export function parseSurfaceKey(key: string): { id: number; kind: SurfaceKind; n: number | null } {
+  const [idPart, kindPart, nPart] = key.split(SURFACE_KEY_SEPARATOR);
+  return {
+    id: Number(idPart),
+    kind: toSurfaceKind(kindPart),
+    n: nPart === undefined ? null : Number(nPart),
+  };
 }

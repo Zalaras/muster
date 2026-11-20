@@ -2,7 +2,7 @@
 // shows nothing and the segment's name stays "shell", the busy circle's and the done tick's
 // computed geometry, and the spinner under reduced
 // motion, re-levelled on 2026-10-20 from web/e2e/shell-activity.spec.ts
-// (plans/_audit/relevel/misc-core.md). The indicator is driven by `snapshot.shellsBusy`
+// (plans/_audit/relevel/misc-core.md). The indicator is driven by `snapshot.terminals` (each terminal's `busy` flag)
 // (web/src/features/surfaces.ts): `shell-busy` records the daemon's own poller judging the
 // session's shell busy, `shell-idle` the same shell idle, each under both views. A render
 // test pushes the idle twin's snapshot after the busy one to see the done tick — the
@@ -28,6 +28,7 @@ import {
   shellActivityIndicator,
   tileSurfaceButton,
 } from "./helpers/surfaces";
+import { busySessionIds } from "./helpers/terminals";
 import { liveTileById } from "./helpers/tiles";
 
 /** The indicator's pre-transform box. The geometry spec ("the tick is computed
@@ -47,7 +48,7 @@ function computedBox(indicator: Locator) {
 async function openBusy(dashboard: Dashboard, tiles: boolean): Promise<number> {
   const fixture = await dashboard.open(tiles ? "shell-busy-tiles" : "shell-busy");
   expect(fixture.snapshot.prefs.view).toBe(tiles ? "tiles" : "focus");
-  const busy = fixture.snapshot.shellsBusy ?? [];
+  const busy = busySessionIds(fixture.snapshot);
   expect(busy).toHaveLength(1);
   const [id] = busy;
   if (id === undefined) throw new Error("unreachable: toHaveLength(1) just passed");
@@ -58,7 +59,7 @@ async function openBusy(dashboard: Dashboard, tiles: boolean): Promise<number> {
 /** The snapshot of the idle twin, pushed to end the busy stretch. */
 async function idleSnapshot(tiles: boolean) {
   const idle = await loadFixture(tiles ? "shell-idle-tiles" : "shell-idle");
-  expect(idle.snapshot.shellsBusy).toEqual([]);
+  expect(busySessionIds(idle.snapshot)).toEqual([]);
   return idle.snapshot;
 }
 
@@ -68,7 +69,7 @@ test("createShellViaApi leaves a shell idle with no activity indicator until a c
 }) => {
   // `shell-idle` holds a shell spawned through the real route and never busy.
   const fixture = await dashboard.open("shell-idle");
-  expect(fixture.snapshot.shellsBusy).toEqual([]);
+  expect(busySessionIds(fixture.snapshot)).toEqual([]);
 
   // The shell button's accessible name stays exactly "shell" — the indicator
   // is aria-hidden and never contributes to it — in the one indicator state reachable

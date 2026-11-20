@@ -21,7 +21,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -98,54 +97,6 @@ func encodeRenderFixture(fixture RenderFixture) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
-
-// renderTmux is the paneSpawner for a run with no tmux at all.
-type renderTmux struct {
-	mu    sync.Mutex
-	panes map[string]bool
-	next  int
-}
-
-func newRenderTmux() *renderTmux { return &renderTmux{panes: map[string]bool{}} }
-
-func (f *renderTmux) NewSession(_ context.Context, id int64, _ string, _ map[string]string, _ []string) (target, pane string, err error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.next++
-	target = fmt.Sprintf("muster-%d:@%d", id, f.next)
-	f.panes[target] = true
-	return target, fmt.Sprintf("%%%d", f.next), nil
-}
-
-func (f *renderTmux) NewNamedSession(_ context.Context, name, _ string, _ map[string]string, _ []string) (target, pane string, err error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.next++
-	f.panes[name] = true
-	return name, fmt.Sprintf("%%%d", f.next), nil
-}
-
-func (f *renderTmux) PaneExists(_ context.Context, target string) (bool, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.panes[target], nil
-}
-
-func (f *renderTmux) KillWindow(_ context.Context, target string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	delete(f.panes, target)
-	return nil
-}
-
-func (f *renderTmux) KillSession(_ context.Context, name string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	delete(f.panes, name)
-	return nil
-}
-
-func (f *renderTmux) MaxSessionID(context.Context) (int64, error) { return 0, nil }
 
 // renderRig is one scenario's Server plus the temp root its session directories live in.
 type renderRig struct {
@@ -438,8 +389,33 @@ func (r *renderRig) markDead(ctx context.Context, id int64) error {
 	return r.srv.manager.LoadAll(ctx)
 }
 
-// repoTick runs the repo poll once — the step Start's poller would take after a cwd change.
-func (r *renderRig) repoTick(ctx context.Context) { r.srv.repoRefresh.tick(ctx) }
+// repoTick takes the reading Start's poller would take after a cwd change, once per alive
+// session, and applies it. A reading that did not finish within its deadline is taken
+// again: every scenario runs at once, so git can stall past repoReadTimeout, and the poll's
+// own answer to that (keep the last-known repo until the next tick) would leave the card's
+// claudeLocation or added-directory repos unrecorded in a fixture that expects them.
+func (r *renderRig) repoTick(ctx context.Context) error {
+	for _, t := range r.srv.manager.RepoTargets() {
+		if !t.Alive || !isDir(t.Directory) {
+			continue
+		}
+		for attempt := 0; ; attempt++ {
+			state, ok := readRepoState(ctx, t)
+			if ok {
+				if err := r.srv.manager.SetRepoState(ctx, t.ID, state); err != nil {
+					return err
+				}
+				break
+			}
+			if attempt >= renderRepoReadAttempts || ctx.Err() != nil {
+				return fmt.Errorf("repo reading for session %d did not complete", t.ID)
+			}
+		}
+	}
+	return nil
+}
+
+const renderRepoReadAttempts = 5
 
 // capture records the reader's documents, the first two /ws frames and GET /api/repos,
 // then normalises them. The reader comes first: its listing runs the transcript scan that

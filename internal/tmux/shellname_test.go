@@ -128,3 +128,75 @@ func TestNewNamedSession_DistinctNamesCreateDistinctTmuxSessions(t *testing.T) {
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{claudeName, shellName}, names)
 }
+
+// TestTerminalSessionName_ParseTerminalName_Table is D1: the tmux name <-> (id, n) mapping,
+// both directions, with the names that must not parse as terminals.
+func TestTerminalSessionName_ParseTerminalName_Table(t *testing.T) {
+	valid := []struct {
+		name   string
+		input  string
+		wantID int64
+		wantN  int
+	}{
+		{"terminal 1 has no suffix", "muster-7-shell", 7, 1},
+		{"terminal 2", "muster-7-shell-2", 7, 2},
+		{"two digit n", "muster-7-shell-10", 7, 10},
+		{"large n", "muster-7-shell-123456", 7, 123456},
+		{"id zero", "muster-0-shell-3", 0, 3},
+		{"large id", "muster-123456789-shell-2", 123456789, 2},
+	}
+	for _, tt := range valid {
+		t.Run(tt.name, func(t *testing.T) {
+			id, n, ok := ParseTerminalName(tt.input)
+			require.True(t, ok)
+			assert.Equal(t, tt.wantID, id)
+			assert.Equal(t, tt.wantN, n)
+			assert.Equal(t, tt.input, TerminalSessionName(tt.wantID, tt.wantN), "round-trips")
+			sid, isShell := IsShellSessionName(tt.input)
+			assert.True(t, isShell, "IsShellSessionName accepts every terminal")
+			assert.Equal(t, tt.wantID, sid)
+			_, isClaude := ParseSessionName(tt.input)
+			assert.False(t, isClaude, "a terminal name is never a Claude session name")
+		})
+	}
+
+	invalid := []struct{ name, input string }{
+		{"claude session name", "muster-7"},
+		{"explicit -1 is not a spelling of terminal 1", "muster-7-shell-1"},
+		{"zero", "muster-7-shell-0"},
+		{"negative", "muster-7-shell--2"},
+		{"leading zero", "muster-7-shell-02"},
+		{"plus sign", "muster-7-shell-+2"},
+		{"trailing junk", "muster-7-shell-2x"},
+		{"empty n", "muster-7-shell-"},
+		{"non numeric n", "muster-7-shell-x"},
+		{"double suffix", "muster-7-shell-shell"},
+		{"no dash before n", "muster-7-shell2"},
+		{"non numeric id", "muster-abc-shell-2"},
+		{"empty id", "muster--shell"},
+		{"no prefix", "other-7-shell-2"},
+		{"empty", ""},
+		{"overflowing n", "muster-7-shell-99999999999999999999"},
+	}
+	for _, tt := range invalid {
+		t.Run("rejects "+tt.name, func(t *testing.T) {
+			_, _, ok := ParseTerminalName(tt.input)
+			assert.False(t, ok)
+			_, isShell := IsShellSessionName(tt.input)
+			assert.False(t, isShell)
+		})
+	}
+}
+
+// TestTerminalSessionName_RoundTripAcrossIDsAndNumbers crosses ids against n.
+func TestTerminalSessionName_RoundTripAcrossIDsAndNumbers(t *testing.T) {
+	for _, id := range []int64{0, 1, 42, 999999} {
+		for _, n := range []int{1, 2, 3, 9, 10, 11, 100} {
+			gotID, gotN, ok := ParseTerminalName(TerminalSessionName(id, n))
+			require.True(t, ok, "id %d n %d", id, n)
+			assert.Equal(t, id, gotID)
+			assert.Equal(t, n, gotN)
+		}
+	}
+	assert.Equal(t, ShellSessionName(5), TerminalSessionName(5, 1))
+}

@@ -200,7 +200,7 @@ func newGroupsHarness(t *testing.T) *groupsHarness {
 	require.NoError(t, err)
 	h.repoID = repo.ID
 
-	shells := newShellRegistry(h.spawner, zerolog.Nop())
+	shells := newShellRegistry(h.spawner, newTerminalNames(), zerolog.Nop())
 	terminals := newTerminalRegistry()
 	h.launcher = &sessionLauncher{
 		store: st, manager: h.mgr, tmux: h.spawner, log: zerolog.Nop(), claudeBin: "irrelevant-never-reached",
@@ -227,6 +227,10 @@ func (h *groupsHarness) launch(group *int64) int64 {
 	require.NoError(h.t, err)
 	_, err = h.mgr.RecordLaunch(context.Background(), sess.ID, fmt.Sprintf("muster-%d:@1", sess.ID), "%1")
 	require.NoError(h.t, err)
+	for n := 1; n <= 2; n++ {
+		_, _, err = h.spawner.NewNamedSession(context.Background(), tmux.TerminalSessionName(sess.ID, n), h.dir, nil, nil)
+		require.NoError(h.t, err)
+	}
 	return sess.ID
 }
 
@@ -288,7 +292,14 @@ func decodeBody(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {
 }
 
 // shellName is the shell session name teardownRemoved kills for id.
-func shellName(id int64) string { return tmux.ShellSessionName(id) }
+// terminalNamesOf is the tmux names of every terminal launch opened (1 and 2) for ids.
+func terminalNamesOf(ids ...int64) []string {
+	var out []string
+	for _, id := range ids {
+		out = append(out, tmux.TerminalSessionName(id, 1), tmux.TerminalSessionName(id, 2))
+	}
+	return out
+}
 
 // jsonIDs renders ids as a JSON array literal.
 func jsonIDs(ids ...int64) string {

@@ -110,3 +110,64 @@ func TestReconcile_AFailedShellKillIsNotCountedButStillNeverReportedAsUnknown(t 
 type assertAnError struct{}
 
 func (assertAnError) Error() string { return "kill failed (test double)" }
+
+// TestReconcile_KillsEveryTerminalOfEverySession crosses terminal numbers (1, 2, 10, a
+// session with only a later terminal) against known and unknown sessions: each is killed
+// and counted, none is reported unknown, and a bystander Claude name is untouched.
+func TestReconcile_KillsEveryTerminalOfEverySession(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+
+	seed := newTestManager(t, st, nil, nil)
+	known, err := seed.CreateSession(ctx, params)
+	require.NoError(t, err)
+	knownTarget := "muster-" + strconv.FormatInt(known.ID, 10) + ":@1"
+	_, err = seed.RecordLaunch(ctx, known.ID, knownTarget, "%1")
+	require.NoError(t, err)
+
+	unknownID := known.ID + 999000
+	terminals := []string{
+		tmux.TerminalSessionName(known.ID, 1), tmux.TerminalSessionName(known.ID, 2), tmux.TerminalSessionName(known.ID, 10),
+		tmux.TerminalSessionName(unknownID, 3),
+	}
+	claude := "muster-" + strconv.FormatInt(known.ID, 10)
+	killer := newFakeTmuxSessions(append([]string{claude}, terminals...)...)
+	pc := newFakePaneChecker()
+	pc.setExists(knownTarget, true)
+	mgr := newTestManager(t, st, pc, nil, withTmuxSessions(killer))
+	require.NoError(t, mgr.LoadAll(ctx))
+
+	report := mgr.Reconcile(ctx)
+
+	assert.Equal(t, len(terminals), report.ShellsKilled)
+	assert.ElementsMatch(t, terminals, killer.killedNames(), "every terminal killed, the Claude session never")
+	assert.Empty(t, report.UnknownSessions)
+}
+
+// TestClassifyTmuxNames_TerminalNamesRaiseTheWatermarkAndAreKeptAsNames: a terminal name
+// with n >= 2 is classified as a terminal to kill (by its full name), not unknown, and its
+// session id counts toward the highest id seen.
+func TestClassifyTmuxNames_TerminalNamesRaiseTheWatermarkAndAreKeptAsNames(t *testing.T) {
+	got := classifyTmuxNames([]string{"muster-5", "muster-9-shell-4", "muster-3-shell", "muster-7-shell-x"}, map[int64]bool{5: true})
+
+	assert.Equal(t, []string{"muster-9-shell-4", "muster-3-shell"}, got.shellNames)
+	assert.Equal(t, int64(9), got.maxSeen)
+	assert.Equal(t, map[int64]string{5: "muster-5"}, got.live)
+	assert.Equal(t, []string{"muster-7-shell-x"}, got.unknownNames, "a malformed terminal suffix is an unknown muster name, not a terminal")
+}
+
+// TestKillAllShells_KillsEveryTerminalNumber: the shutdown kill covers terminals beyond the first.
+func TestKillAllShells_KillsEveryTerminalNumber(t *testing.T) {
+	st := openTestStore(t)
+	killer := newFakeTmuxSessions("muster-1", "muster-1-shell", "muster-1-shell-2", "muster-2-shell-3")
+	mgr := newTestManager(t, st, nil, nil, withTmuxSessions(killer))
+
+	killed, err := mgr.KillAllShells(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, 3, killed)
+	assert.ElementsMatch(t, []string{"muster-1-shell", "muster-1-shell-2", "muster-2-shell-3"}, killer.killedNames())
+}

@@ -6,9 +6,11 @@
 // Everything about an open menu is this instance's state (one `createMenu()` per controller);
 // the panel is appended to `document.body` because the rail scrolls and clips. It is built when it
 // opens and discarded when it closes, so the 1s render tick never touches it, and the opener — a
-// control the caller reuses across passes — only has its `aria-expanded` written.
+// control the caller reuses across passes — only has its `aria-expanded` written. Anchoring, the
+// outside-click/Escape/viewport close and focus return are `popover.ts`, shared with the
+// Terminals panel.
 
-import { placeAnchored, placeAtPoint } from "./anchored";
+import { createPopover } from "./popover";
 
 export type MenuEntry =
   | {
@@ -118,25 +120,8 @@ function onPanelKeydown(panel: HTMLElement, event: KeyboardEvent): void {
   items[next]?.focus();
 }
 
-interface OpenMenu {
-  panel: HTMLElement;
-  opener: HTMLElement;
-  atPoint: boolean;
-  dispose: () => void;
-}
-
 export function createMenu(): Menu {
-  let current: OpenMenu | null = null;
-
-  function close(restoreFocus = false): void {
-    const open = current;
-    if (!open) return;
-    current = null;
-    open.dispose();
-    open.panel.remove();
-    if (!open.atPoint) open.opener.setAttribute("aria-expanded", "false");
-    if (restoreFocus && open.opener.isConnected) open.opener.focus();
-  }
+  const popover = createPopover();
 
   function open(
     opener: HTMLElement,
@@ -144,70 +129,26 @@ export function createMenu(): Menu {
     options: MenuOpenOptions = {},
   ): void {
     const { at, label } = options;
-    if (at === undefined && current?.opener === opener) {
-      close(true);
-      return;
-    }
-    close();
     // Close first (focus back on the opener) and only then run the choice, so a choice that
     // moves focus on — Rename's field, a dialog — is not undone by the close.
     const panel = buildPanel(
       entries,
       (choose) => {
-        close(true);
+        popover.close(true);
         choose();
       },
       label,
     );
-    document.body.append(panel);
-    if (at === undefined) {
-      placeAnchored(panel, opener, { alignRight: true });
-      opener.setAttribute("aria-haspopup", "menu");
-      opener.setAttribute("aria-expanded", "true");
-    } else {
-      placeAtPoint(panel, at);
-    }
-
-    const onPointerDown = (event: PointerEvent): void => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (panel.contains(target) || (at === undefined && opener.contains(target))) return;
-      close();
-    };
-    const onKeydown = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        close(true);
-      } else if (event.key === "Tab") {
-        close();
-      } else {
-        onPanelKeydown(panel, event);
-      }
-    };
-    const onViewportChange = (): void => close();
-    document.addEventListener("pointerdown", onPointerDown, true);
-    panel.addEventListener("keydown", onKeydown);
-    window.addEventListener("resize", onViewportChange);
-    document.addEventListener("scroll", onViewportChange, true);
-    current = {
-      panel,
-      opener,
-      atPoint: at !== undefined,
-      dispose: () => {
-        document.removeEventListener("pointerdown", onPointerDown, true);
-        window.removeEventListener("resize", onViewportChange);
-        document.removeEventListener("scroll", onViewportChange, true);
-      },
-    };
-    const first = enabledItems(panel)[0];
-    if (first) {
-      first.focus();
-    } else {
-      panel.tabIndex = -1;
-      panel.focus();
-    }
+    popover.open(opener, panel, {
+      at,
+      alignRight: true,
+      haspopup: "menu",
+      closeOnTab: true,
+      onViewportChange: "close",
+      onKeydown: (event) => onPanelKeydown(panel, event),
+      initialFocus: () => enabledItems(panel)[0] ?? null,
+    });
   }
 
-  return { open, close, isOpen: () => current !== null };
+  return { open, close: popover.close, isOpen: popover.isOpen };
 }

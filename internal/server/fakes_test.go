@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -28,6 +30,11 @@ type fakeTmux struct {
 	mu    sync.Mutex
 	panes map[string]bool // target/session name -> exists
 	next  int
+
+	// panesSurviveBridgeClose makes closing an attached bridge leave its tmux session
+	// standing, as a real attach client's exit does; the default (a closed bridge marks the
+	// pane gone) is what the "exit" tests lean on to simulate a PTY EOF.
+	panesSurviveBridgeClose bool
 
 	newSessionErr      error
 	newNamedSessionErr error
@@ -140,6 +147,19 @@ func (f *fakeTmux) NewNamedSession(_ context.Context, name, _ string, _ map[stri
 	return name, fmt.Sprintf("%%%d", f.next), nil
 }
 
+func (f *fakeTmux) ListSessions(_ context.Context) ([]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []string
+	for name, ok := range f.panes {
+		if ok && !strings.Contains(name, ":") {
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
 func (f *fakeTmux) PaneExists(_ context.Context, target string) (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -177,7 +197,11 @@ func (f *fakeTmux) markGone(target string) {
 // tests), and marks the pane gone when the connection closes — modeling a real bridge
 // close/PTY-EOF's effect on the underlying tmux session.
 func (f *fakeTmux) attach(_ context.Context, target string) (paneConn, error) {
-	conn := newFakePaneConn(func() { f.markGone(target) })
+	conn := newFakePaneConn(func() {
+		if !f.panesSurviveBridgeClose {
+			f.markGone(target)
+		}
+	})
 	f.mu.Lock()
 	f.lastConn = conn
 	f.mu.Unlock()

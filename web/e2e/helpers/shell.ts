@@ -43,10 +43,11 @@ export function deadSurfaceNotice(deadSurfaceRoot: Locator): Locator {
  * The `muster-<id>-shell` tmux session name (Protocol Contract) — the single
  * definition every test in this file uses, mirroring the daemon's own
  * `ShellSessionName(id)` (plan Affected Files: `internal/tmux/tmux.go`). Never re-derive
- * this string ad hoc elsewhere in a test.
+ * this string ad hoc elsewhere in a test. Plan better-terminal: terminal `n` (default 1) is
+ * `muster-<id>-shell` for `n = 1` and `muster-<id>-shell-<n>` for `n >= 2`.
  */
-export function shellTmuxTarget(sessionId: number): string {
-  return `muster-${sessionId}-shell`;
+export function shellTmuxTarget(sessionId: number, n = 1): string {
+  return n === 1 ? `muster-${sessionId}-shell` : `muster-${sessionId}-shell-${n}`;
 }
 
 /**

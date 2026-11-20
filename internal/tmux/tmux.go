@@ -239,10 +239,16 @@ const sessionPrefix = "muster-"
 // spelled out (kb:adr/surfaces-shell-is-attach-target-not-session).
 const shellSessionSuffix = "-shell"
 
-// ShellSessionName returns the tmux session name for session id's plain-shell surface:
-// always "muster-<id>-shell".
+func TerminalSessionName(id int64, n int) string {
+	name := sessionPrefix + strconv.FormatInt(id, 10) + shellSessionSuffix
+	if n <= 1 {
+		return name
+	}
+	return name + "-" + strconv.Itoa(n)
+}
+
 func ShellSessionName(id int64) string {
-	return sessionPrefix + strconv.FormatInt(id, 10) + shellSessionSuffix
+	return TerminalSessionName(id, 1)
 }
 
 // SessionName returns the tmux session name for session id's Claude pane: always
@@ -262,27 +268,42 @@ func HasSessionPrefix(name string) bool {
 	return strings.HasPrefix(name, sessionPrefix)
 }
 
-// IsShellSessionName reports whether name is a shell session name ("muster-<id>-shell")
-// and, if so, the session id it belongs to. Reconcile uses this to kill every orphaned
-// shell on the socket unconditionally (kb:anchor/state.liveness) without duplicating the
-// naming convention.
-func IsShellSessionName(name string) (id int64, ok bool) {
-	if !strings.HasPrefix(name, sessionPrefix) || !strings.HasSuffix(name, shellSessionSuffix) {
-		return 0, false
+func ParseTerminalName(name string) (id int64, n int, ok bool) {
+	if !strings.HasPrefix(name, sessionPrefix) {
+		return 0, 0, false
 	}
-	middle := name[len(sessionPrefix) : len(name)-len(shellSessionSuffix)]
-	n, err := strconv.ParseInt(middle, 10, 64)
+	idPart, tail, found := strings.Cut(name[len(sessionPrefix):], shellSessionSuffix)
+	if !found {
+		return 0, 0, false
+	}
+	id, err := strconv.ParseInt(idPart, 10, 64)
 	if err != nil {
-		return 0, false
+		return 0, 0, false
 	}
-	return n, true
+	if tail == "" {
+		return id, 1, true
+	}
+	digits, hasDash := strings.CutPrefix(tail, "-")
+	if !hasDash {
+		return 0, 0, false
+	}
+	n, err = strconv.Atoi(digits)
+	if err != nil || n < 2 || strconv.Itoa(n) != digits {
+		return 0, 0, false
+	}
+	return id, n, true
+}
+
+func IsShellSessionName(name string) (id int64, ok bool) {
+	id, _, ok = ParseTerminalName(name)
+	return id, ok
 }
 
 // ParseSessionName reports whether name is a bare Claude-pane session name
 // ("muster-<N>") and, if so, its id — the mirror of IsShellSessionName for the
 // non-shell shape. Never matches a shell name.
 func ParseSessionName(name string) (id int64, ok bool) {
-	if !strings.HasPrefix(name, sessionPrefix) || strings.HasSuffix(name, shellSessionSuffix) {
+	if !strings.HasPrefix(name, sessionPrefix) {
 		return 0, false
 	}
 	n, err := strconv.ParseInt(name[len(sessionPrefix):], 10, 64)

@@ -655,6 +655,7 @@ func (b *barrierTmux) PaneExists(_ context.Context, _ string) (bool, error) { re
 func (b *barrierTmux) KillWindow(_ context.Context, _ string) error         { return nil }
 func (b *barrierTmux) KillSession(_ context.Context, _ string) error        { return nil }
 func (b *barrierTmux) MaxSessionID(_ context.Context) (int64, error)        { return 0, nil }
+func (b *barrierTmux) ListSessions(_ context.Context) ([]string, error)     { return nil, nil }
 
 func (b *barrierTmux) newSessionCalls() int {
 	b.mu.Lock()

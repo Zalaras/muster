@@ -75,16 +75,34 @@ export async function putNote(
 /** The `200` body of `POST /api/sessions/{id}/shell` (kb:anchor/sessions.shell). */
 export interface CreateShellResult {
   target: string;
+  n: number;
   created: boolean;
+}
+
+export interface NewTerminalResult {
+  target: string;
+  n: number;
+  name: string;
 }
 
 function parseCreateShellResult(value: unknown): CreateShellResult | null {
   if (!isRecord(value)) return null;
   const target = value["target"];
   const created = value["created"];
+  const n = value["n"];
   if (typeof target !== "string") return null;
   if (typeof created !== "boolean") return null;
-  return { target, created };
+  if (typeof n !== "number") return null;
+  return { target, n, created };
+}
+
+function parseNewTerminalResult(value: unknown): NewTerminalResult | null {
+  if (!isRecord(value)) return null;
+  const target = value["target"];
+  const n = value["n"];
+  const name = value["name"];
+  if (typeof target !== "string" || typeof n !== "number" || typeof name !== "string") return null;
+  return { target, n, name };
 }
 
 /** `POST /api/sessions/{id}/shell` (kb:anchor/sessions.shell). Idempotent — ensures the
@@ -94,6 +112,22 @@ function parseCreateShellResult(value: unknown): CreateShellResult | null {
  * carries the tmux error, shown verbatim in the surface's `role="status"` notice). */
 export async function createShell(id: number): Promise<ApiResult<CreateShellResult>> {
   return requestJson("POST", `/api/sessions/${id}/shell`, parseCreateShellResult);
+}
+
+export async function createTerminal(id: number): Promise<ApiResult<NewTerminalResult>> {
+  return requestJson("POST", `/api/sessions/${id}/shells`, parseNewTerminalResult);
+}
+
+export async function renameTerminal(
+  id: number,
+  n: number,
+  name: string,
+): Promise<ApiResult<null>> {
+  return requestEmpty("PUT", `/api/sessions/${id}/shells/${n}/name`, 200, { name });
+}
+
+export async function closeTerminal(id: number, n: number): Promise<ApiResult<null>> {
+  return requestEmpty("DELETE", `/api/sessions/${id}/shells/${n}`, 204);
 }
 
 /** `PUT /api/sessions/{id}/pin` (kb:anchor/sessions.pin). `204` with no body on success —

@@ -1,4 +1,4 @@
-// The pure reducer over `shellActivity`/`shellsBusy`/surface-selection transitions. No
+// The pure reducer over `terminals` list (any-busy)/surface-selection transitions. No
 // DOM, no real timer — `features/surfaces.ts` owns the actual `setTimeout` calls; this
 // file exercises the epoch-guarded resolve functions directly with the epoch a caller's
 // `ActivityResult.timer` would have carried, which is exactly how `scheduleActivityTimer`
@@ -24,7 +24,7 @@ describe("getShellActivity — default for a session with no entry", () => {
   });
 });
 
-describe("observeBusy — live shellActivity{busy:true}", () => {
+describe("observeBusy — live terminals list gaining a busy terminal", () => {
   it("from 'none': indicator stays 'none' and an onset timer is scheduled (REQ-11's delay, W8's setup)", () => {
     const r = observeBusy(EMPTY_SHELL_ACTIVITY, 1);
     expect(getShellActivity(r.state, 1)).toBe("none");
@@ -98,7 +98,7 @@ describe("resolveOnset — the delayed onset callback", () => {
   });
 });
 
-describe("observeIdle — live shellActivity{busy:false}", () => {
+describe("observeIdle — live terminals list losing its last busy terminal", () => {
   it("never observed busy at all (no entry for the session): true no-op, identity", () => {
     const result = observeIdle(EMPTY_SHELL_ACTIVITY, 1, false);
     expect(result.state).toBe(EMPTY_SHELL_ACTIVITY);
@@ -145,7 +145,7 @@ describe("observeIdle — live shellActivity{busy:false}", () => {
   });
 });
 
-describe("restoreBusy — snapshot.shellsBusy reports a session busy right now (W9)", () => {
+describe("restoreBusy — snapshot.terminals reports a session busy right now (W9)", () => {
   it("from 'none': immediate 'busy', no onset delay (a reconnect has no way to know how long it's been running)", () => {
     const r = restoreBusy(EMPTY_SHELL_ACTIVITY, 1);
     expect(getShellActivity(r.state, 1)).toBe("busy");
@@ -168,7 +168,7 @@ describe("restoreBusy — snapshot.shellsBusy reports a session busy right now (
     expect(r2.timer).toBeNull();
   });
 
-  // Restoring three busy sessions from `shellsBusy` yields three spinners and zero
+  // Restoring three busy sessions from `snapshot.terminals` yields three spinners and zero
   // ticks — no onset delay and no self-clear timer for any of them.
   it("restoring three sessions at once yields three spinners and zero pending timers", () => {
     let state: ShellActivityState = EMPTY_SHELL_ACTIVITY;

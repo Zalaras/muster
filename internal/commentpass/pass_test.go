@@ -44,7 +44,7 @@ func TestStrip_FindsExactlyTheAddedBlocks(t *testing.T) {
 	assert.Equal(t, KindSegment, candidateByID(m, "internal/a/a.go#3").Kind)
 	assert.Equal(t, "func NewFn", candidateByID(m, "internal/a/a.go#4").Doc)
 	assert.Equal(t, "export function newFn", candidateByID(m, "web/src/app.ts#2").Doc)
-	assert.Contains(t, out.String(), "strip: 10 candidates in 4 files (8 added, 1 edited, 1 stale-ref; 0 already kept)")
+	assert.Contains(t, out.String(), "strip: 10 candidates in 4 files (8 added, 1 edited, 0 moved, 1 stale-ref; 0 already kept)")
 }
 
 func TestStrip_DirectivesNeverAppearAndSurvive(t *testing.T) {
@@ -109,6 +109,32 @@ func TestStrip_MajorityNewBlockIsAddedNotEdited(t *testing.T) {
 	assert.Equal(t, 3, grown.Total)
 	assert.Empty(t, grown.Previous)
 	assert.Equal(t, "edited", edited.Origin, "1 of 2 lines new: still the comment that was on main")
+}
+
+func TestStrip_CommentMovedFromMainIsMovedNotAdded(t *testing.T) {
+	p, _, root := newFixture(t)
+	writeFx(t, root, "internal/d/moved.go", "package d\n\n// Helper does x.\nfunc Helper() {}\n\n// Moved holds a comment main never had.\nfunc Moved() {}\n")
+	dir, m := strip(t, p)
+
+	var moved, fresh Candidate
+	for _, f := range m.Files {
+		for _, c := range f.Candidates {
+			switch c.Lines[0] {
+			case "// Helper does x.":
+				moved = c
+			case "// Moved holds a comment main never had.":
+				fresh = c
+			}
+		}
+	}
+	assert.Equal(t, "moved", moved.Origin, "every line stands in main's a.go, which the branch deleted it from")
+	assert.Equal(t, "internal/a/a.go", moved.From)
+	assert.Equal(t, "added", fresh.Origin)
+	assert.Empty(t, fresh.From)
+
+	md, err := os.ReadFile(filepath.Join(dir, "candidates.md"))
+	require.NoError(t, err)
+	assert.Contains(t, string(md), "moved · block · doc of `func Helper` · on `main` in `internal/a/a.go`")
 }
 
 func TestStrip_UntrackedFileEveryCommentAdded(t *testing.T) {

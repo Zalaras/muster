@@ -4,7 +4,9 @@ import (
 	"context"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -18,15 +20,6 @@ import (
 // (kb:anchor/ws.shell-activity).
 const shellActivityPollInterval = time.Second
 
-// shellActivityMessage is the WS `shellActivity` broadcast (kb:anchor/ws.shell-activity). Sent on
-// every observed change of a shell's busy flag, never per tick and never replayed —
-// snapshot.shellsBusy is what a reconnecting client re-syncs from.
-type shellActivityMessage struct {
-	Type      string `json:"type"`
-	SessionID int64  `json:"sessionId"`
-	Busy      bool   `json:"busy"`
-}
-
 // paneActivityLister abstracts tmux.Client.ListPaneActivity for tests, the same
 // function-field seam themePoller uses for its reader (usagepoll.go/themepoll.go
 // pattern) rather than a fake struct.
@@ -35,17 +28,17 @@ type paneActivityLister func(ctx context.Context) ([]tmux.PaneActivity, error)
 // ttyCanonicalChecker abstracts tty.IsCanonical for tests.
 type ttyCanonicalChecker func(ttyPath string) (bool, error)
 
-// shellActivityFeature owns the shell-busy poller and the snapshot's shellsBusy field.
+// shellActivityFeature owns the terminal-list poller and the snapshot's terminals field.
 // It mounts no routes.
 type shellActivityFeature struct {
 	poller *shellActivityPoller
 }
 
-func newShellActivityFeature(hasShells func() bool, lister paneActivityLister, hub *wsHub, log zerolog.Logger) *shellActivityFeature {
+func newShellActivityFeature(hasShells func() bool, lister paneActivityLister, names *terminalNames, hub *wsHub, log zerolog.Logger) *shellActivityFeature {
 	shellBase := filepath.Base(interactiveShellArgv()[0])
 	f := &shellActivityFeature{}
-	f.poller = newShellActivityPoller(lister, tty.IsCanonical, hasShells, shellBase, shellActivityPollInterval, func(sessionID int64, busy bool) {
-		hub.broadcast(shellActivityMessage{Type: "shellActivity", SessionID: sessionID, Busy: busy})
+	f.poller = newShellActivityPoller(lister, tty.IsCanonical, hasShells, shellBase, shellActivityPollInterval, names, func(sessionID int64, terminals []terminalWire) {
+		hub.broadcast(terminalsMessage{Type: "terminals", SessionID: sessionID, Terminals: terminals})
 	}, log)
 	return f
 }
@@ -57,38 +50,39 @@ func (f *shellActivityFeature) Start() { f.poller.Start() }
 func (f *shellActivityFeature) Stop(ctx context.Context) { f.poller.Stop(ctx) }
 
 func (f *shellActivityFeature) contribute(_ context.Context, snap *Snapshot) {
-	snap.ShellsBusy = f.poller.Current()
+	snap.Terminals = f.poller.Current()
 }
 
-// shellActivityPoller polls tmux's own process/tty state on an interval, broadcasting
-// `shellActivity` only on a change (kb:anchor/ws.shell-activity, kb:adr/surfaces-shell-busy-from-tmux-process-state).
-// Embeds bgLoop (bgloop.go) for its Start/Stop/loop shape, same as usagePoller/themePoller;
-// tick below is its own.
 type shellActivityPoller struct {
 	lister    paneActivityLister
 	canonical ttyCanonicalChecker
 	hasShells func() bool
 	shellBase string
 	interval  time.Duration
-	broadcast func(sessionID int64, busy bool)
+	names     *terminalNames
+	broadcast func(sessionID int64, terminals []terminalWire)
 	log       zerolog.Logger
 
-	mu   sync.RWMutex
-	busy map[int64]bool // session ids currently reported busy
+	// tickMu serialises tick and sync, so each diff-and-broadcast sees the previous one's
+	// result and two lists for one session never go out of order. mu guards terms only.
+	tickMu sync.Mutex
+	mu     sync.RWMutex
+	terms  map[int64][]terminalWire
 
 	bg bgLoop
 }
 
-func newShellActivityPoller(lister paneActivityLister, canonical ttyCanonicalChecker, hasShells func() bool, shellBase string, interval time.Duration, broadcast func(int64, bool), log zerolog.Logger) *shellActivityPoller {
+func newShellActivityPoller(lister paneActivityLister, canonical ttyCanonicalChecker, hasShells func() bool, shellBase string, interval time.Duration, names *terminalNames, broadcast func(int64, []terminalWire), log zerolog.Logger) *shellActivityPoller {
 	return &shellActivityPoller{
 		lister:    lister,
 		canonical: canonical,
 		hasShells: hasShells,
 		shellBase: shellBase,
 		interval:  interval,
+		names:     names,
 		broadcast: broadcast,
 		log:       log,
-		busy:      make(map[int64]bool),
+		terms:     make(map[int64][]terminalWire),
 	}
 }
 
@@ -103,25 +97,22 @@ func (p *shellActivityPoller) Stop(ctx context.Context) {
 	p.bg.stop(ctx, p.log, "shell activity poller did not stop before shutdown deadline")
 }
 
-// Current returns every session id currently reported busy, sorted — always non-nil
-// (snapshot.shellsBusy: "[] when none, always present").
-func (p *shellActivityPoller) Current() []int64 {
+func (p *shellActivityPoller) Current() map[string][]terminalWire {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	ids := make([]int64, 0, len(p.busy))
-	for id := range p.busy {
-		ids = append(ids, id)
+	out := make(map[string][]terminalWire, len(p.terms))
+	for id, list := range p.terms {
+		out[strconv.FormatInt(id, 10)] = append([]terminalWire(nil), list...)
 	}
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	return ids
+	return out
 }
 
-// tick reads every shell pane's tmux-reported state and reconciles it against the
-// previous tick's busy set, broadcasting one message per session whose busy flag
-// changed. hasShells gates the tmux exec entirely when this daemon instance has never
-// spawned a shell.
+func (p *shellActivityPoller) sync(ctx context.Context) { p.tick(ctx) }
+
 func (p *shellActivityPoller) tick(ctx context.Context) {
-	if !p.hasShells() {
+	p.tickMu.Lock()
+	defer p.tickMu.Unlock()
+	if !p.hasShells() && !p.listed() {
 		return
 	}
 	panes, err := p.lister(ctx)
@@ -130,51 +121,57 @@ func (p *shellActivityPoller) tick(ctx context.Context) {
 		return
 	}
 
-	newBusy := make(map[int64]bool)
+	next := make(map[int64][]terminalWire)
 	for _, pa := range panes {
-		id, ok := tmux.IsShellSessionName(pa.SessionName)
+		id, n, ok := tmux.ParseTerminalName(pa.SessionName)
 		if !ok {
 			continue // a Claude pane, or something else on the socket
 		}
-		// Alternate-screen or the shell's own idle prompt is never busy, whatever its
-		// tty mode — cheaper to skip the ioctl for those panes
-		// (kb:adr/surfaces-shell-busy-from-tmux-process-state).
-		if pa.AlternateOn || pa.CurrentCommand == p.shellBase {
-			continue
-		}
-		canonical, cerr := p.canonical(pa.Tty)
-		if cerr != nil {
-			// The tty can vanish between list-panes and the ioctl (the shell just
-			// exited) — never fatal, just sit this session out of this tick.
-			p.log.Debug().Err(cerr).Str("tty", pa.Tty).Int64("session_id", id).Msg("shell activity poll: reading tty mode failed")
-			continue
-		}
-		if canonical {
-			newBusy[id] = true
-		}
+		next[id] = append(next[id], terminalWire{N: n, Name: p.names.effective(id, n), Busy: p.busy(pa, id)})
 	}
-	p.reconcile(newBusy)
+	for _, list := range next {
+		sort.Slice(list, func(i, j int) bool { return list[i].N < list[j].N })
+	}
+	p.reconcile(next)
 }
 
-// reconcile swaps in newBusy and broadcasts one message per session whose busy flag
-// changed since the previous tick — covers a shell going idle, going busy, and a shell
-// disappearing from panes entirely (exited while busy, or reconcile-killed at daemon
-// restart — see shellactivity_test.go's E7/E8 cases — both read as "no longer in
-// newBusy", the same path as going idle).
-func (p *shellActivityPoller) reconcile(newBusy map[int64]bool) {
+func (p *shellActivityPoller) listed() bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return len(p.terms) > 0
+}
+
+func (p *shellActivityPoller) busy(pa tmux.PaneActivity, id int64) bool {
+	if pa.AlternateOn || pa.CurrentCommand == p.shellBase {
+		return false
+	}
+	canonical, err := p.canonical(pa.Tty)
+	if err != nil {
+		p.log.Debug().Err(err).Str("tty", pa.Tty).Int64("session_id", id).Msg("shell activity poll: reading tty mode failed")
+		return false
+	}
+	return canonical
+}
+
+func (p *shellActivityPoller) reconcile(next map[int64][]terminalWire) {
 	p.mu.Lock()
-	old := p.busy
-	p.busy = newBusy
+	old := p.terms
+	p.terms = next
 	p.mu.Unlock()
 
-	for id := range newBusy {
-		if !old[id] {
-			p.broadcast(id, true)
+	for id, list := range next {
+		if !slices.Equal(old[id], list) {
+			p.broadcast(id, list)
 		}
 	}
-	for id := range old {
-		if !newBusy[id] {
-			p.broadcast(id, false)
+	for id, oldList := range old {
+		if _, still := next[id]; !still {
+			p.broadcast(id, []terminalWire{})
+		}
+		for _, t := range oldList {
+			if !slices.ContainsFunc(next[id], func(w terminalWire) bool { return w.N == t.N }) {
+				p.names.forget(id, t.N)
+			}
 		}
 	}
 }

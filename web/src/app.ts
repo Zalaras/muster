@@ -16,6 +16,7 @@ import {
 } from "./protocol/prefs";
 import type { Session } from "./protocol/session";
 import type { ClaudeFamily } from "./protocol/theme";
+import type { TerminalInfo } from "./protocol/terminals";
 import type { UpdateInfo } from "./protocol/update";
 import type { Usage } from "./protocol/usage";
 import { SessionStore } from "./sessions/store";
@@ -76,9 +77,7 @@ export interface AppEvents {
   focusChanged: (id: number | null) => void; // before the render that follows app.focus
   cancelRenames: () => void; // any trigger that must not let a blur-commit through
   docChanged: (docChanged: DocChanged) => void; // WS docChanged
-  // WS shellActivity (kb:anchor/ws.shell-activity) — features/surfaces.ts's activity
-  // reducer is the only listener.
-  shellActivity: (sessionId: number, busy: boolean) => void;
+  terminals: (sessionId: number, terminals: readonly TerminalInfo[]) => void;
   // Emitted by features/theme.ts once it has written the `<html>`
   // theme/family attributes — the one signal both features/surfaces.ts's live terminals
   // and features/reader.ts's diagram instances react to, replacing a `deps.surfaces`

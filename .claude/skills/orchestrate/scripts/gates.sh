@@ -351,6 +351,15 @@ lint_src() {
 }
 # Every non-test web/src/features module is named in that directory's CLAUDE.md, as a `file.ts` or a
 # **feature** trailer entry; web-impl twice left a new module out (groups, masthead-indicators retros).
+# The render rig builds only under -tags renderfix; lint always builds with that tag, so an
+# untagged rig file (lost in a file split) compiles into musterd unseen. List the untagged build.
+renderfix_tag() {
+  local hits
+  hits="$(go list -f '{{range .GoFiles}}{{$.Dir}}/{{.}}{{"\n"}}{{end}}' ./... | grep '/renderfix[^/]*\.go$' || true)"
+  [[ -z "$hits" ]] && return 0
+  printf 'built without -tags renderfix (add //go:build renderfix):\n%s\n' "$hits"; return 1
+}
+
 features_inventory() {
   local f b c=web/src/features/CLAUDE.md rc=0
   for f in web/src/features/*.ts; do
@@ -413,7 +422,7 @@ if [[ -n "$WAVE" ]]; then
 
   echo "== wave $WAVE gate (plan $PLAN; daemon=$DAEMON_TOUCHED web=$WEB_TOUCHED)"
   case "$WAVE" in
-    1) (( DAEMON_TOUCHED )) && { run_one build "go build ./..."; run_one lint-src "lint_src"; run_one render-fixtures "make check-render-fixtures"; }
+    1) (( DAEMON_TOUCHED )) && { run_one build "go build ./..."; run_one lint-src "lint_src"; run_one renderfix-tag "renderfix_tag"; run_one render-fixtures "make check-render-fixtures"; }
        (( WEB_TOUCHED ))    && { run_one web-build-src "web_build_src"; run_one features-inventory "features_inventory"; } ;;
     2) (( DAEMON_TOUCHED )) && { go_test_gate; run_one lint "make lint"; run_one render-fixtures "make check-render-fixtures"; }
        (( WEB_TOUCHED ))    && { run_one web-test "make web-test"; run_one web-build "make web-build"; run_one render-test "make render-test"; run_one web-lint "make web-lint"; } ;;   # render-test holds the lock shared, as this wave does; web-lint whether or not the plan authored it
@@ -454,6 +463,7 @@ PASS	make test"
   run_one lint  "make lint"
   run_one web-build "make web-build"
   run_one web-test  "make web-test"
+  run_one renderfix-tag "renderfix_tag"     # the render rig stays out of musterd
   run_one render-fixtures "make check-render-fixtures"   # the daemon's wire as the render tier replays it; stale means a daemon change nobody regenerated (kb:adr/process-render-fixtures-generated-from-daemon)
   run_one render-lint "make render-lint"   # render specs take state only through loadFixture
   run_one render-test "make render-test"   # display properties against the generated fixtures, shared lock

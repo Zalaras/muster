@@ -73,6 +73,7 @@ const (
 type terminalKey struct {
 	sessionID int64
 	surface   terminalSurface
+	n         int
 }
 
 // terminalRegistry enforces the one-live-client law
@@ -185,9 +186,12 @@ func (r *terminalRegistry) takeover(ctx context.Context, key terminalKey, attach
 func (r *terminalRegistry) Watched(sessionID int64) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	_, claude := r.conns[terminalKey{sessionID: sessionID, surface: surfaceClaude}]
-	_, shell := r.conns[terminalKey{sessionID: sessionID, surface: surfaceShell}]
-	return claude || shell
+	for key := range r.conns {
+		if key.sessionID == sessionID {
+			return true
+		}
+	}
+	return false
 }
 
 // release removes conn from the registry iff it is still the registered connection for
@@ -225,12 +229,21 @@ func (r *terminalRegistry) closeSession(sessionID int64) {
 	r.closeSurface(terminalKey{sessionID: sessionID, surface: surfaceClaude})
 }
 
-// closeSessionAndShell closes both sessionID's Claude and shell terminal sockets — the
+// closeSessionAndShell closes sessionID's Claude socket and every one of its terminals' sockets — the
 // Remove path (removing a session kills its shell alongside the Claude one,
 // kb:adr/surfaces-shell-dies-at-kill-shutdown-too).
 func (r *terminalRegistry) closeSessionAndShell(sessionID int64) {
-	r.closeSurface(terminalKey{sessionID: sessionID, surface: surfaceClaude})
-	r.closeSurface(terminalKey{sessionID: sessionID, surface: surfaceShell})
+	r.mu.Lock()
+	var keys []terminalKey
+	for key := range r.conns {
+		if key.sessionID == sessionID {
+			keys = append(keys, key)
+		}
+	}
+	r.mu.Unlock()
+	for _, key := range keys {
+		r.closeSurface(key)
+	}
 }
 
 // closeAll closes every live terminal socket (daemon shutdown — going away 1001,
@@ -325,9 +338,10 @@ func (f *terminalFeature) handleTerminal(w http.ResponseWriter, r *http.Request)
 }
 
 // terminalPump is one surface's half of attachAndPump: the tmux target to attach, its
-// registry slot, whether a clean PTY EOF should nudge the session's liveness poll (nil:
-// never — the shell surface's death is not its session's death, kb:anchor/terminal.shell-ws), and
-// how that surface reads client frames off the socket.
+// registry slot, what a clean PTY EOF nudges (the Claude surface: the session's liveness poll;
+// the shell surface: the terminal-list poll, never its session's liveness, because a terminal's
+// death is not its session's death, kb:anchor/terminal.shell-ws), and how that surface reads
+// client frames off the socket.
 type terminalPump struct {
 	target      string
 	key         terminalKey
@@ -411,11 +425,10 @@ func attachAndPump(w http.ResponseWriter, r *http.Request, log zerolog.Logger, r
 
 // pumpPTYToSocket streams raw PTY output to the client verbatim (kb:anchor/terminal.ws / kb:anchor/terminal.shell-ws) until
 // EOF or the socket dies. A clean EOF (tmux pane gone) always closes with 4001; it calls
-// nudge only when nudgeOnEOF is true (the Claude surface,
-// kb:adr/lifecycle-liveness-from-pane-existence) — a shell surface's EOF
-// (kb:anchor/terminal.shell-ws) must never nudge its session's liveness (a shell's death
-// is not its session's death, kb:adr/surfaces-one-live-client-per-attach-target), so
-// shellFeature passes nudgeOnEOF=false and a nil nudge.
+// nudge only when nudgeOnEOF is true. The Claude surface nudges the session's liveness poll
+// (kb:adr/lifecycle-liveness-from-pane-existence); the shell surface (kb:anchor/terminal.shell-ws)
+// nudges the terminal-list poll instead, never its session's liveness (a terminal's death is
+// not its session's death).
 func pumpPTYToSocket(ctx context.Context, log zerolog.Logger, c *websocket.Conn, bridge paneConn, sessionID int64, nudgeOnEOF bool, nudge func(context.Context, int64)) {
 	buf := make([]byte, terminalReadBufSize)
 	for {

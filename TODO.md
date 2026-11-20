@@ -101,8 +101,8 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   choices rather than guesses — these are examples, not a committed list: a true `kind:
   "shell"` session row (own state, rail card, `⌥⌘1–9` addressability); a global terminal
   untethered from any session, with its own directory picker; VS Code-style shell restore
-  across daemon restarts instead of reconcile killing orphans; more than one shell per
-  session, and a real tab strip rather than a single toggle; a rail-card marker so a shell
+  across daemon restarts instead of reconcile killing orphans; a real tab strip rather than
+  a single toggle; a rail-card marker so a shell
   running in a session you aren't viewing is visible in Focus view. Wants a `/spec` pass.
 
 - [ ] **Rail cards should carry a session summary, not a truncated last reply** ([#17](https://github.com/Zalaras/muster/issues/17))
@@ -159,6 +159,11 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   or unselect all sessions in that group at once.
   Filed 2026-11-11 from musterd 0.29.1 / Claude Code 2.1.293, focus view, session started.
   Labels: bug, rail, ux.
+
+- [ ] **A stale terminals list can switch a window away from a terminal it just created** — a
+  terminals list sent before a spawn, arriving after the spawn's reply, replaces the new terminal with
+  the lowest one. Expected: a terminal the window asked for stays shown until a list that includes it
+  arrives. From `plans/better-terminal/`.
 
 ## Tweaks
 

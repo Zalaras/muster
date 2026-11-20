@@ -43,7 +43,7 @@ function terminalThemeColors(): { background: string; foreground: string } {
 
 /**
  * One live terminal surface — the Claude pane (`/ws/terminal/{id}`, kb:anchor/terminal.ws) or
- * a session's plain shell (`/ws/shell/{id}`, kb:anchor/terminal.shell-ws,
+ * one of a session's plain-shell terminals (`/ws/shell/{id}/{n}`, kb:anchor/terminal.shell-ws,
  * kb:adr/surfaces-shell-is-attach-target-not-session). `kind` picks the WS path and the
  * aria-label prefix; every other behaviour — drop handling, resize, overlays, theming — is
  * shared unchanged. Constructing a `"claude"` surface for an already-dead session
@@ -62,13 +62,10 @@ export class TerminalSurface {
   private readonly noticeEl: HTMLElement;
   private readonly sessionId: number;
   private readonly kind: SurfaceKind;
-  /** Fired only for a `"shell"` surface whose socket closes with `4001
-   * pane_ended` (the shell exited or was killed externally) — features/surfaces.ts's hook to revert
-   * the surface-switch state (`shellEnded`) and re-render, which is what actually swaps
-   * the visible surface back to Claude and disposes this one. Never fired for `"claude"`
-   * (the liveness poll already covers that pane's own 4001) or for `4000 superseded`
-   * (nothing auto-reconnects/reverts on that code — design-system §7 / kb:anchor/terminal.ws). */
-  private readonly onShellEnded: (() => void) | undefined;
+  /** The terminal number of a `"shell"` surface (`/ws/shell/{id}/{n}`); `null` for `claude`.
+   * A terminal ending is learned from the daemon's `terminals` list, not from this socket's
+   * `4001`, so there is one source of truth for the fallback. */
+  private readonly terminalN: number | null;
   private term: Terminal | null = null;
   private fitAddon: FitAddon | null = null;
   private opened = false;
@@ -86,10 +83,10 @@ export class TerminalSurface {
   private wheelAccumDeltaY = 0;
   private wheelFlushScheduled = false;
 
-  constructor(session: Session, kind: SurfaceKind = "claude", onShellEnded?: () => void) {
+  constructor(session: Session, kind: SurfaceKind = "claude", terminalN: number | null = null) {
     this.sessionId = session.id;
     this.kind = kind;
-    this.onShellEnded = onShellEnded;
+    this.terminalN = terminalN;
 
     this.root = document.createElement("div");
     this.root.className = "terminal-surface";
@@ -204,8 +201,11 @@ export class TerminalSurface {
    * session — guarded in the constructor, and `reattachIfDisconnected` re-checks it. */
   private attach(): void {
     if (this.disposed) return;
-    const path = this.kind === "shell" ? "shell" : "terminal";
-    const socket = new WebSocket(wsUrl(`/ws/${path}/${this.sessionId}`));
+    const path =
+      this.kind === "shell"
+        ? `shell/${this.sessionId}/${this.terminalN}`
+        : `terminal/${this.sessionId}`;
+    const socket = new WebSocket(wsUrl(`/ws/${path}`));
     socket.binaryType = "arraybuffer";
     this.socket = socket;
     this.lastSentCols = 0;
@@ -226,11 +226,6 @@ export class TerminalSurface {
       this.socket = null;
       if (this.disposed) return;
       this.setOverlay(overlayForCloseCode(event.code));
-      // PTY EOF on a shell surface (`exit`, or an external kill) — never fired for
-      // `4000 superseded` (kb:adr/surfaces-one-live-client-per-attach-target: a
-      // superseded shell tab stays on `shell`, showing the overlay, since the shell
-      // itself is still running elsewhere).
-      if (this.kind === "shell" && event.code === 4001) this.onShellEnded?.();
     });
     socket.addEventListener("error", () => socket.close());
   }

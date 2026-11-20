@@ -16,15 +16,15 @@ What Muster tracks and how the pieces relate, in the dashboard's words.
 A **Session** is one Claude Code run Muster launched, identified by the Terminal it runs in;
 its Claude session id is an attribute that `/clear` replaces. It is launched into a **Repo**, a
 directory remembered by path with its last launch choices; branch and worktree flag are re-read
-while alive; Claude's own location is display-only, and Muster never creates a worktree. Every session runs in a **Terminal** kept alive by tmux, and may have a
-second, shell one that outlives its end; only the Claude terminal carries liveness and a
+while alive; Claude's own location is display-only, and Muster never creates a worktree. Every session runs in a **Terminal** kept alive by tmux, and may have
+shell Terminals too, which outlive its end; only the Claude terminal carries liveness and a
 snapshot when dead. Claude Code reports back as **Events**, numbered per Claude
 session id; hook events drive state, the status-line event refreshes readings and never touches
 state, and an event whose envelope names no session stays unrouted.
 **Context Usage** is the session's reading of its context window. **Account Usage** is the
 account's rate-limit readings, fed by any session's status events and Muster's poll.
 **Claude's Session Plan** is the document Claude writes in plan mode, at most one. The dashboard looks at a session through three **Tabs**; the Claude and Shell tabs each
-attach to their own Terminal, live in one client at a time. **User Settings** are one set per install. A **Group** is a named, ordered, collapsible rail
+attach to one Terminal at a time, live in one client at a time. **User Settings** are one set per install. A **Group** is a named, ordered, collapsible rail
 section the developer made; a Session belongs to at most one (kb:spec/rail).
 
 Rules the boxes cannot say: state comes only from events and launch actions, never terminal
@@ -112,7 +112,7 @@ classDiagram
     }
     Repo "1" --> "*" Session : is launched into by
     Group "0..1" --> "*" Session : holds
-    Session "1" *-- "1..2" Terminal : runs in
+    Session "1" *-- "1..*" Terminal : runs in
     Session "1" *-- "*" Event : receives, in sequence
     Session "1" *-- "1" ContextUsage : reports
     Session "1" --> "0..1" CacheWarmth : cache

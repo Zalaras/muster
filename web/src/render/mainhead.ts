@@ -5,7 +5,11 @@ import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import type { SessionSurfaceState } from "../terminal/surfaceswitch";
 import { renderEffortStrip } from "./effortstrip";
 import { renderRepoLines } from "./repolines";
-import { updateSurfaceSegment, type SurfaceSegmentRefs } from "./surfaceseg";
+import {
+  updateSurfaceSegment,
+  type SurfaceSegmentRefs,
+  type SurfaceTerminalsView,
+} from "./surfaceseg";
 
 export interface MainheadElements {
   root: HTMLElement;
@@ -129,6 +133,7 @@ export function renderMainhead(
   connected: boolean,
   surfaceState: SessionSurfaceState,
   activity: ShellActivityIndicator,
+  terminals: SurfaceTerminalsView,
   // Asks the rename controller directly (features/focus.ts's caller reads its own
   // attached editor's `isEditing()`), rather than this module reading DOM state off
   // `elements.nameEl` itself. Required, not optional — the one production caller always
@@ -146,7 +151,7 @@ export function renderMainhead(
     // startup, with no later rebuild path. `elements.root` is hidden in this state, so
     // the button (and any stale text on it) is not visible. `metaEl` is the same: its static
     // slots (index.html) stay, and the next focused pass overwrites them.
-    updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected, activity);
+    updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected, activity, terminals);
     return;
   }
   elements.root.hidden = false;
@@ -175,7 +180,7 @@ export function renderMainhead(
   const groupName = requireElement<HTMLElement>(".ig-name", elements.groupBtn);
   if (groupName.textContent !== groupText) groupName.textContent = groupText;
   elements.groupBtn.disabled = !connected;
-  updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected, activity);
+  updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected, activity, terminals);
   // Last, once every slot that shares the header's row (title, chip, meta, cluster) holds this pass's text.
   fitMainheadMeta(elements.metaEl, elements.root);
 }

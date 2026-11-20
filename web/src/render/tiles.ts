@@ -126,6 +126,7 @@ export function buildTile(
   template: HTMLTemplateElement,
   renameHandlers: TileRenameHandlers,
   onSurfaceSelect: (id: number, kind: SurfaceKind) => void,
+  onOpenTerminals: (id: number, opener: HTMLElement) => void,
   noteHover?: NoteMarkerHover,
 ): TileRefs {
   const fragment = template.content.cloneNode(true) as DocumentFragment;
@@ -146,7 +147,10 @@ export function buildTile(
   // `renderTileFooterActions` below never touches it, only the Stop/Resume/Remove/age
   // nodes that follow it, so a locator scoped through `article.tile[data-session-id]`
   // finds each control exactly once.
-  const surfaceSegment = buildSurfaceSegment((kind) => onSurfaceSelect(session.id, kind));
+  const surfaceSegment = buildSurfaceSegment(
+    (kind) => onSurfaceSelect(session.id, kind),
+    (opener) => onOpenTerminals(session.id, opener),
+  );
   actsEl.append(surfaceSegment.root);
 
   // `.nm` wraps the same rename trigger the mainhead uses (kb:adr/rename-muster-owned-title-override-wins)

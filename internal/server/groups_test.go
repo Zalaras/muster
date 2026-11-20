@@ -544,7 +544,7 @@ func TestDeleteGroup_RemoveTearsDownEachRemovedSessionAndNoOther(t *testing.T) {
 	rec := f.h.do(http.MethodDelete, groupPath(f.a), `{"sessions":"remove"}`)
 
 	require.Equal(t, http.StatusOK, rec.Code)
-	assert.ElementsMatch(t, []string{shellName(f.a1), shellName(f.a2), shellName(f.a3)}, f.h.spawner.shellKills())
+	assert.ElementsMatch(t, terminalNamesOf(f.a1, f.a2, f.a3), f.h.spawner.shellKills())
 	assert.ElementsMatch(t, []string{"muster-" + fmt.Sprint(f.a1), "muster-" + fmt.Sprint(f.a2), "muster-" + fmt.Sprint(f.a3)}, f.h.killer.killedNames(),
 		"only the members' Claude tmux sessions are killed")
 }
@@ -567,7 +567,7 @@ func TestDeleteGroup_RemoveWithAFailedKillKeepsTheGroupAndTearsDownOnlyWhatWasRe
 	assert.True(t, f.h.mgr.Exists(f.a2))
 	assert.Equal(t, f.a, f.h.sessionGroup(f.a2), "the failed session stays in the group")
 	assert.Equal(t, 0, f.h.wire.count("groups"), "the group was not deleted")
-	assert.ElementsMatch(t, []string{shellName(f.a1), shellName(f.a3)}, f.h.spawner.shellKills(), "no teardown for the session that was not removed")
+	assert.ElementsMatch(t, terminalNamesOf(f.a1, f.a3), f.h.spawner.shellKills(), "no teardown for the session that was not removed")
 }
 
 func TestDeleteGroup_Refuses(t *testing.T) {

@@ -114,7 +114,7 @@ func TestHandleRemoveSession_FailingEndLeavesTheShellRunningAndTheRowPresent(t *
 	st := openLauncherTestStore(t)
 	killer := &errKiller{killErr: errors.New("boom: tmux unreachable")}
 	manager := newSessionTestManager(t, st, withTmuxSessions(killer))
-	shells := newShellRegistry(client, zerolog.Nop())
+	shells := newShellRegistry(client, newTerminalNames(), zerolog.Nop())
 	terminals := newTerminalRegistry()
 	launcher := &sessionLauncher{store: st, manager: manager, tmux: client, log: zerolog.Nop()}
 	// A captured logger, not zerolog.Nop() — the raw error must reach the log
@@ -136,7 +136,7 @@ func TestHandleRemoveSession_FailingEndLeavesTheShellRunningAndTheRowPresent(t *
 	_, err = manager.RecordLaunch(context.Background(), sess.ID, fmt.Sprintf("muster-%d:@1", sess.ID), "%1")
 	require.NoError(t, err)
 
-	_, _, err = shells.Ensure(context.Background(), sess.ID, dir)
+	_, _, _, err = shells.EnsureAny(context.Background(), sess.ID, dir)
 	require.NoError(t, err)
 	shellName := tmux.ShellSessionName(sess.ID)
 	existsBefore, err := client.PaneExists(context.Background(), shellName)
@@ -184,7 +184,7 @@ func TestHandleEndSession_FailingKillLeavesTheTerminalSocketOpen(t *testing.T) {
 	terminals := newTerminalRegistry()
 	fake := newFakeTmux()
 	terminalFeat := newTerminalFeature(terminals, manager, fake.attach, zerolog.Nop())
-	shells := newShellRegistry(fake, zerolog.Nop())
+	shells := newShellRegistry(fake, newTerminalNames(), zerolog.Nop())
 	launcher := &sessionLauncher{store: st, manager: manager, tmux: fake, log: zerolog.Nop()}
 	// A captured logger, not zerolog.Nop() — the raw error must reach the log
 	// even though the response body below only ever carries the fixed phrase.
@@ -677,7 +677,7 @@ func TestRemoveSessions_RemovesAndTearsDownEachDoneSessionAndNoOther(t *testing.
 	assert.False(t, h.mgr.Exists(b))
 	assert.True(t, h.mgr.Exists(failing), "the row is kept when the kill fails")
 	assert.True(t, h.mgr.Exists(bystander))
-	assert.ElementsMatch(t, []string{shellName(a), shellName(b)}, h.spawner.shellKills(), "the shell is torn down for each removed session, and for no other")
+	assert.ElementsMatch(t, terminalNamesOf(a, b), h.spawner.shellKills(), "every terminal is torn down for each removed session, and for no other")
 	kinds := h.wire.kinds()
 	assert.Contains(t, kinds, fmt.Sprintf("sessionRemoved:%d", a))
 	assert.Contains(t, kinds, fmt.Sprintf("sessionRemoved:%d", b))

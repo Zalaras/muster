@@ -1,6 +1,6 @@
 # web/src/terminal — xterm pane and bridge
 
-**Owns**: the `TerminalSurface` in `pane.ts` (xterm.js instance, `/ws/terminal/{id}` socket, one overlay element) plus pure halves: close-code to overlay mapping, drop classification and path escaping, the shared `role="status"` notice, the `claude | shell | docs` control's reducer (`surfaceswitch.ts`) — its DOM half is `web/src/render/surfaceseg.ts`. Which surfaces exist is `web/src/features/surfaces.ts`'s decision. **Features**: drop, reader, surfaces.
+**Owns**: the `TerminalSurface` in `pane.ts` (xterm.js instance, `/ws/terminal/{id}` socket, one overlay element) plus pure halves: close-code to overlay mapping, drop classification and path escaping, the shared `role="status"` notice, the pure per-session terminal list (`terminals.ts`), the `claude | shell | docs` control's reducer (`surfaceswitch.ts`) — its DOM half is `web/src/render/surfaceseg.ts`. Which surfaces exist is `web/src/features/surfaces.ts`'s decision. **Features**: drop, reader, surfaces.
 
 **Invariants** (violations are review-Critical):
 - Only the surface manager constructs or disposes a `TerminalSurface`; no render path opens a socket, never for an `alive:false` session.
@@ -21,8 +21,8 @@
 - `docs` never has a `TerminalSurface` (kb:adr/reader-docs-is-third-surface-segment) — `isSurfaceAttachable` always answers `false` for it; the reader lives in `web/src/features/reader.ts`/`web/src/render/reader.ts`, not here.
 
 <!-- kb:trailer -->
-<!-- kb:hash bdaf67b804f06dda -->
+<!-- kb:hash eb8cf64b14885d00 -->
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
 - **surfaces** — PTY bridge, xterm pane, the ephemeral shell surface, sizing, one live client per target. → `docs/features/surfaces/INDEX.md`
-- 13 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 14 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

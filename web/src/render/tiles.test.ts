@@ -55,6 +55,8 @@ function fakeSurfaceSegmentRefs(): SurfaceSegmentRefs {
     claudeBtn: fakeElement() as unknown as HTMLButtonElement,
     shellBtn: fakeElement() as unknown as HTMLButtonElement,
     docsBtn: fakeElement() as unknown as HTMLButtonElement,
+    terminalsBtn: fakeElement() as unknown as HTMLButtonElement,
+    countEl: fakeElement(),
     shellActEl: fakeElement(),
   };
 }

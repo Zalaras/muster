@@ -23,7 +23,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "../protocol/session";
 import { DEFAULT_SURFACE_STATE } from "../terminal/surfaceswitch";
 import { renderMainhead, type MainheadElements } from "./mainhead";
-import type { SurfaceSegmentRefs } from "./surfaceseg";
+import { NO_TERMINALS_VIEW, type SurfaceSegmentRefs } from "./surfaceseg";
 import { makeRepo, makeSession as sharedSession } from "../sessions/testfixtures";
 
 function textNode(text: string): FakeNode {
@@ -222,12 +222,15 @@ function fakeSurfaceSegmentRefs(): SurfaceSegmentRefs {
       disabled: false,
       contains: () => false,
       prepend() {},
+      removeAttribute() {},
     }) as unknown as HTMLButtonElement;
   return {
     root: fakeElement(),
     claudeBtn: surfaceBtn(),
     shellBtn: surfaceBtn(),
     docsBtn: surfaceBtn(),
+    terminalsBtn: surfaceBtn(),
+    countEl: { remove() {} } as unknown as HTMLElement,
     shellActEl,
   };
 }
@@ -293,7 +296,17 @@ describe("renderMainhead — no-session branch must not detach the rename button
   it("leaves button.rename attached to nameEl after a render with no focused session", () => {
     const elements = fakeMainheadElements();
 
-    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    renderMainhead(
+      elements,
+      null,
+      NOW,
+      true,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      NO_TERMINALS_VIEW,
+      false,
+      "no group",
+    );
 
     expect(elements.root.hidden).toBe(true);
     expect(elements.attached()).toBe(true);
@@ -303,9 +316,39 @@ describe("renderMainhead — no-session branch must not detach the rename button
   it("survives repeated zero-session render passes (the dashboard's actual startup shape: one or more empty ticks before the first sessionUpsert)", () => {
     const elements = fakeMainheadElements();
 
-    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
-    renderMainhead(elements, null, NOW, false, DEFAULT_SURFACE_STATE, "none", false, "no group");
-    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    renderMainhead(
+      elements,
+      null,
+      NOW,
+      true,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      NO_TERMINALS_VIEW,
+      false,
+      "no group",
+    );
+    renderMainhead(
+      elements,
+      null,
+      NOW,
+      false,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      NO_TERMINALS_VIEW,
+      false,
+      "no group",
+    );
+    renderMainhead(
+      elements,
+      null,
+      NOW,
+      true,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      NO_TERMINALS_VIEW,
+      false,
+      "no group",
+    );
 
     expect(elements.attached()).toBe(true);
   });
@@ -314,8 +357,28 @@ describe("renderMainhead — no-session branch must not detach the rename button
     const elements = fakeMainheadElements();
     const session = makeSession({ id: 1, title: "fix the thing" });
 
-    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group"); // the startup zero-session tick
-    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group"); // the first sessionUpsert
+    renderMainhead(
+      elements,
+      null,
+      NOW,
+      true,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      NO_TERMINALS_VIEW,
+      false,
+      "no group",
+    ); // the startup zero-session tick
+    renderMainhead(
+      elements,
+      session,
+      NOW,
+      true,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      NO_TERMINALS_VIEW,
+      false,
+      "no group",
+    ); // the first sessionUpsert
 
     expect(elements.attached()).toBe(true);
     expect(elements.nameEl.querySelector("button.rename")).toBe(elements.renameBtn);
@@ -336,26 +399,67 @@ describe("renderMainhead — group control", () => {
       true,
       DEFAULT_SURFACE_STATE,
       "none",
+      NO_TERMINALS_VIEW,
       false,
       "PR reviews",
     );
     expect(elements.groupBtn.nameSpan.textContent).toBe("PR reviews");
-    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    renderMainhead(
+      elements,
+      session,
+      NOW,
+      true,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      NO_TERMINALS_VIEW,
+      false,
+      "no group",
+    );
     expect(elements.groupBtn.nameSpan.textContent).toBe("no group");
   });
 
   it("is disabled while the socket is down and enabled again on reconnect", () => {
     const elements = fakeMainheadElements();
     const session = makeSession({ id: 1 });
-    renderMainhead(elements, session, NOW, false, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    renderMainhead(
+      elements,
+      session,
+      NOW,
+      false,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      NO_TERMINALS_VIEW,
+      false,
+      "no group",
+    );
     expect(elements.groupBtn.disabled).toBe(true);
-    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    renderMainhead(
+      elements,
+      session,
+      NOW,
+      true,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      NO_TERMINALS_VIEW,
+      false,
+      "no group",
+    );
     expect(elements.groupBtn.disabled).toBe(false);
   });
 
   it("is untouched by the no-session pass", () => {
     const elements = fakeMainheadElements();
-    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    renderMainhead(
+      elements,
+      null,
+      NOW,
+      true,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      NO_TERMINALS_VIEW,
+      false,
+      "no group",
+    );
     expect(elements.groupBtn.nameSpan.textContent).toBe("");
   });
 });
@@ -392,7 +496,17 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
   const lines = (host: FakeNode) => host.kids.filter((k) => /\b(rf|rb)\b/.test(k.className));
   const render = (session: Session | null) => {
     const elements = fakeMainheadElements();
-    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    renderMainhead(
+      elements,
+      session,
+      NOW,
+      true,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      NO_TERMINALS_VIEW,
+      false,
+      "no group",
+    );
     return { elements, s: slots(elements) };
   };
 
@@ -448,7 +562,17 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
       id: 1,
       repo: makeRepo({ name: "muster", branch: "main", isWorktree: false }),
     });
-    renderMainhead(elements, withRepo, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    renderMainhead(
+      elements,
+      withRepo,
+      NOW,
+      true,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      NO_TERMINALS_VIEW,
+      false,
+      "no group",
+    );
     renderMainhead(
       elements,
       makeSession({ id: 1 }),
@@ -456,6 +580,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
       true,
       DEFAULT_SURFACE_STATE,
       "none",
+      NO_TERMINALS_VIEW,
       false,
       "no group",
     );
@@ -464,9 +589,16 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
 
   // `.rf` holds `.rf-name` + `.plus` while directories are added; plain text at 0.
   describe("the `+N` suffix on the folder line", () => {
-    const mainRepo = makeRepo({ name: "muster", branch: "main", isWorktree: false });
+    const mainRepo = makeRepo({
+      name: "muster",
+      branch: "main",
+      isWorktree: false,
+    });
     const dirs = (n: number) =>
-      Array.from({ length: n }, (_, i) => ({ directory: `/tmp/d${i}`, repo: null }));
+      Array.from({ length: n }, (_, i) => ({
+        directory: `/tmp/d${i}`,
+        repo: null,
+      }));
     const rf = (elements: MainheadElements) => lines(slots(elements).repo)[0] as FakeNode;
     const draw = (elements: MainheadElements, n: number) =>
       renderMainhead(
@@ -476,6 +608,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
         true,
         DEFAULT_SURFACE_STATE,
         "none",
+        NO_TERMINALS_VIEW,
         false,
         "no group",
       );
@@ -541,7 +674,17 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
   it("returning to the launch checkout hides the `↳` block again", () => {
     const elements = fakeMainheadElements();
     const moved = makeSession({ id: 1, claudeLocation: worktreeAt });
-    renderMainhead(elements, moved, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    renderMainhead(
+      elements,
+      moved,
+      NOW,
+      true,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      NO_TERMINALS_VIEW,
+      false,
+      "no group",
+    );
     renderMainhead(
       elements,
       makeSession({ id: 1 }),
@@ -549,6 +692,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
       true,
       DEFAULT_SURFACE_STATE,
       "none",
+      NO_TERMINALS_VIEW,
       false,
       "no group",
     );
@@ -610,7 +754,11 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
       },
       {
         name: "a dead session that never reported reads no brackets but holds the width",
-        session: { effort: null, alive: false, endedAt: "2026-08-22T00:00:00Z" },
+        session: {
+          effort: null,
+          alive: false,
+          endedAt: "2026-08-22T00:00:00Z",
+        },
         text: "Opus 4.5",
         eff: null,
         holds: true,
@@ -619,7 +767,11 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
         name: "a set warning marks the readout `warn`",
         session: {
           effort: { level: "high" },
-          effortWarning: { requested: "max", actual: "high", model: "Opus 4.5" },
+          effortWarning: {
+            requested: "max",
+            actual: "high",
+            model: "Opus 4.5",
+          },
         },
         text: "Opus 4.5 (high)",
         eff: " (high)",
@@ -644,7 +796,17 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
     // touches only the text or class that differs.
     describe("across render passes", () => {
       const pass = (elements: MainheadElements, session: Session) =>
-        renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "g");
+        renderMainhead(
+          elements,
+          session,
+          NOW,
+          true,
+          DEFAULT_SURFACE_STATE,
+          "none",
+          NO_TERMINALS_VIEW,
+          false,
+          "g",
+        );
       const warned = { requested: "max", actual: "high", model: "Opus 4.5" };
       const warnedSession = (extra: Partial<Session> = {}) =>
         makeSession({
@@ -709,7 +871,9 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
         const eff = model.querySelector(".eff");
         pass(
           elements,
-          warnedSession({ model: { id: "claude-sonnet-5", displayName: "Sonnet 5" } }),
+          warnedSession({
+            model: { id: "claude-sonnet-5", displayName: "Sonnet 5" },
+          }),
         );
         expect(model.firstChild).toBe(text);
         expect(model.querySelector(".eff")).toBe(eff);
@@ -720,7 +884,17 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
     it("drops a stale `.eff` node when the brackets go away on the next pass", () => {
       const elements = fakeMainheadElements();
       const pass = (session: Session) =>
-        renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "g");
+        renderMainhead(
+          elements,
+          session,
+          NOW,
+          true,
+          DEFAULT_SURFACE_STATE,
+          "none",
+          NO_TERMINALS_VIEW,
+          false,
+          "g",
+        );
       pass(makeSession({ id: 1, model: opus, effort: { level: "high" } }));
       expect(slots(elements).model.querySelector(".eff")).not.toBeNull();
       pass(makeSession({ id: 1, model: opus, effort: { level: null } }));
@@ -745,7 +919,17 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
       const elements = fakeMainheadElements();
       const strip = elements.effortStrip as unknown as FakeNode;
       const pass = (session: Session | null) =>
-        renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "g");
+        renderMainhead(
+          elements,
+          session,
+          NOW,
+          true,
+          DEFAULT_SURFACE_STATE,
+          "none",
+          NO_TERMINALS_VIEW,
+          false,
+          "g",
+        );
       pass(makeSession({ id: 1, effortWarning: warning }));
       expect(strip.hidden).toBe(false);
       pass(makeSession({ id: 1 }));
@@ -776,7 +960,17 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
 
   it("the no-session pass leaves the meta slots in place for the next focused pass", () => {
     const elements = fakeMainheadElements();
-    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none", false, "no group");
+    renderMainhead(
+      elements,
+      null,
+      NOW,
+      true,
+      DEFAULT_SURFACE_STATE,
+      "none",
+      NO_TERMINALS_VIEW,
+      false,
+      "no group",
+    );
     expect(slots(elements).repo).not.toBeNull();
     renderMainhead(
       elements,
@@ -785,6 +979,7 @@ describe("renderMainhead — structured meta (REQ-13, REQ-14, REQ-17)", () => {
       true,
       DEFAULT_SURFACE_STATE,
       "none",
+      NO_TERMINALS_VIEW,
       false,
       "no group",
     );

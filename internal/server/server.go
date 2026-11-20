@@ -204,7 +204,9 @@ func New(cfg Config) *Server {
 	// registered for GET /api/models and handed into newSessionLauncher below so Launch's
 	// own pre-check reads the same cache rather than a second one.
 	models := register(s, newModelsFeature(defaultClaudeBin(cfg.Launch.ClaudeBin), cfg.Logger))
-	shells := newShellRegistry(spawner, cfg.Logger)
+	terminalNames := newTerminalNames()
+	shells := newShellRegistry(spawner, terminalNames, cfg.Logger)
+	shellActivity := newShellActivityFeature(shells.HasAny, tmuxClient.ListPaneActivity, terminalNames, s.hub, cfg.Logger)
 	launcher := newSessionLauncher(cfg.Store, s.manager, spawner, cfg.Launch, models, cfg.Logger)
 
 	// reader has no dependency on actions (only on manager/hub, already built above), so
@@ -220,7 +222,7 @@ func New(cfg Config) *Server {
 	register(s, newEffortFeature(s.manager, cfg.Logger))
 	register(s, newGroupsFeature(s.manager, actions.teardownRemoved, cfg.Logger))
 	s.terminal = register(s, newTerminalFeature(terminals, s.manager, attach, cfg.Logger))
-	register(s, newShellFeature(shells, terminals, s.manager, attach, shellScroll, cfg.Logger))
+	register(s, newShellFeature(shells, terminals, s.manager, attach, shellScroll, shellActivity.poller.sync, cfg.Logger))
 	s.locate = register(s, newLocateFeature(s.manager, cfg.Locator, cfg.Logger))
 	register(s, newBrowseFeature(cfg.Launch.BrowseRoot, cfg.Logger))
 	register(s, newReposFeature(cfg.Store, cfg.Logger))
@@ -243,7 +245,7 @@ func New(cfg Config) *Server {
 	s.ingest = register(s, newIngestFeature(cfg.Store, cfg.IngestQueueSize, cfg.IngestToken, s.manager, s.reader, usageFeat.aggregator, cfg.Logger))
 	s.usage = register(s, usageFeat)
 	s.theme = register(s, newThemeFeature(cfg.Theme, s.hub, cfg.Logger))
-	s.shellActivity = register(s, newShellActivityFeature(shells.HasAny, tmuxClient.ListPaneActivity, s.hub, cfg.Logger))
+	s.shellActivity = register(s, shellActivity)
 	s.update = register(s, updateFeat)
 	s.repoRefresh = register(s, newRepoRefreshFeature(cfg.RepoRefresh, s.manager, cfg.Logger))
 	register(s, claudeVersion)

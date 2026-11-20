@@ -6,7 +6,7 @@
 // this module only builds `app`, registers the reader/theme/update-restart/connection
 // controllers and the client, and starts the tick.
 //
-// `onSessionRemoved`/`onUsage`/`onShellActivity`/`onProtocolMismatch` are deliberately not
+// `onSessionRemoved`/`onUsage`/`onTerminals`/`onProtocolMismatch` are deliberately not
 // wired — no feature on this page reads any of them — but `onUpdate`/`onHelloArrived` are
 // (`popoutWsHandlers`, wsapp.ts), so an open pop-out reloads after an update restart like the
 // dashboard. It has no banner, so the restart banner and `Updated to` confirmation go unread.

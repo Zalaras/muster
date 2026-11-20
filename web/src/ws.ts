@@ -13,6 +13,7 @@ import { type DocChanged, type Message, type Snapshot, parseMessage } from "./pr
 import type { Prefs } from "./protocol/prefs";
 import type { Session } from "./protocol/session";
 import type { ClaudeFamily } from "./protocol/theme";
+import type { TerminalInfo } from "./protocol/terminals";
 import type { UpdateInfo } from "./protocol/update";
 import type { Usage } from "./protocol/usage";
 
@@ -49,7 +50,7 @@ export interface WsClientHandlers {
   onClaudeCode?: (claudeCode: ClaudeCodeInfo) => void;
   onUpdate?: (update: UpdateInfo) => void;
   onDocChanged?: (docChanged: DocChanged) => void;
-  onShellActivity?: (sessionId: number, busy: boolean) => void;
+  onTerminals?: (sessionId: number, terminals: TerminalInfo[]) => void;
   onGroups?: (groups: Group[], ungrouped: UngroupedLayout) => void;
   onDisconnected?: () => void;
   onProtocolMismatch?: (protocolVersion: number) => void;
@@ -170,8 +171,8 @@ export class WsClient {
       this.handlers.onDocChanged?.(message);
       return;
     }
-    if (message.type === "shellActivity") {
-      this.handlers.onShellActivity?.(message.sessionId, message.busy);
+    if (message.type === "terminals") {
+      this.handlers.onTerminals?.(message.sessionId, message.terminals);
       return;
     }
     if (message.type === "groups") {

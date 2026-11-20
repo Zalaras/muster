@@ -42,7 +42,7 @@ sits on the line before each `##`/`###` heading, and code and docs cite a sectio
 
 - Daemon binds `127.0.0.1` only, one port (default from config; E2E allocates per run).
 - Serves: static dashboard (`/`), UI API (`/api/…`), UI WebSocket (`/ws`), terminal
-  WebSockets (`/ws/terminal/{id}`, `/ws/shell/{id}`), ingest (`/ingest/…`), health (`/healthz`).
+  WebSockets (`/ws/terminal/{id}`, `/ws/shell/{id}/{n}`), ingest (`/ingest/…`), health (`/healthz`).
 - **Two tokens, distinct lifecycles** (both random, generated at first run, stored in kv):
   - **UI token** — carried once in the launcher's URL, exchanged at `GET /auth` for a
     cookie. Cookie: `muster_auth_<port>` (the port of the request's `Host`, so daemons on one
@@ -101,7 +101,10 @@ sits on the line before each `##`/`###` heading, and code and docs cite a sectio
 | `PUT /api/sessions/{id}/title` | Set or clear a session's title override (`kb:anchor/sessions.title`) |
 | `DELETE /api/sessions/{id}/effort-warning` | Dismiss a session's launch-mismatch effort warning (`kb:anchor/sessions.effort-warning-dismiss`) |
 | `PUT /api/sessions/{id}/note` | Set or clear a session's note (`kb:anchor/sessions.note`) |
-| `POST /api/sessions/{id}/shell` | Ensure a plain shell is running for a session, spawning it if absent (`kb:anchor/sessions.shell`) |
+| `POST /api/sessions/{id}/shell` | Ensure a session has at least one terminal, spawning terminal 1 if none runs (`kb:anchor/sessions.shell`) |
+| `POST /api/sessions/{id}/shells` | Spawn a new terminal at the lowest free number (`kb:anchor/sessions.shell`) |
+| `PUT /api/sessions/{id}/shells/{n}/name` | Set or clear a terminal's name (`kb:anchor/sessions.shell`) |
+| `DELETE /api/sessions/{id}/shells/{n}` | End one terminal (`kb:anchor/sessions.shell`) |
 | `GET /api/sessions/{id}/reader` | List a session's readable markdown and its plan slot; runs the plan scan (`kb:anchor/sessions.reader`) |
 | `GET /api/sessions/{id}/reader/file` | Serve one confined markdown file as `text/markdown` (`kb:anchor/sessions.reader-file`) |
 
@@ -460,8 +463,8 @@ No body. If the session is alive, the `kb:anchor/sessions.end` End path runs fir
 then the row is deleted and `sessionRemoved` (`kb:anchor/ws.session-removed`) is broadcast. `event` rows keep their
 `session_id` (audit trail). A removed session can no longer be resumed from Muster.
 
-This also kills the session's shell tmux
-session, `muster-<id>-shell`, if one is running (`kb:anchor/sessions.shell`). `kb:anchor/sessions.end` End deliberately does **not** —
+This also kills every terminal tmux
+session of the session, `muster-<id>-shell` and `muster-<id>-shell-<n>`, that is running (`kb:anchor/sessions.shell`). `kb:anchor/sessions.end` End deliberately does **not** —
 a shell outlives its parent session ending and dies only on Remove (or reconcile).
 
 A not-alive row still gets an idempotent `kill-session` for `muster-<id>` before the delete, so
@@ -895,32 +898,44 @@ title still reaches Claude Code as `--name` and is *not* an override.
   `{ "error": { "code": "unknown_session", "message": "unknown session id" } }`
 
 <!-- kb:anchor sessions.shell -->
-### `POST /api/sessions/{id}/shell`
+### `POST /api/sessions/{id}/shell` and the terminal routes
 
-**Auth**: UI cookie (401 `unauthorized`). No body. Ensures session `{id}` has a plain shell
-running in its own tmux session, `muster-<id>-shell`, spawning it if absent — the lazy-spawn
-step behind the dashboard's `claude | shell` surface switch (#21). Idempotent: a session whose
-shell is already running is a `200` with `created: false`.
+A session may carry any number of plain shells — its **terminals**. A terminal is identified by
+`(sessionId, n)`, `n` a positive integer, and runs in its own tmux session: `muster-<id>-shell` for
+`n = 1`, `muster-<id>-shell-<n>` for `n ≥ 2`. A new terminal takes the lowest positive integer not
+held by a running terminal of that session; its default name is `shell <n>`. There is no cap.
+Every rule below that speaks of "a shell" applies to each terminal.
 
-The shell runs the user's `$SHELL` interactively (fallback `/bin/zsh`) with the session's
+**Auth** (every route here): UI cookie (401 `unauthorized`).
+
+#### `POST /api/sessions/{id}/shell`
+
+No body. Ensures session `{id}` has **at least one** terminal — the lazy-spawn step behind the
+dashboard's `shell` segment (#21). When one runs it returns the lowest-numbered (`created: false`);
+when none runs it spawns terminal 1. Idempotent, so two windows clicking `shell` on a session with
+none running produce one terminal.
+
+Every terminal runs the user's `$SHELL` interactively (fallback `/bin/zsh`) with the session's
 `directory` as cwd, and is spawned with **no `MUSTER_SESSION`** in its environment — so a
 `claude` run inside it produces an envelope with no `musterSession`, falls through
 `kb:anchor/ingest.envelope`'s binding rules to an unbound `session_id`, and persists unrouted with a NULL
 `event.session_id`. That isolation is structural, not incidental: it is what stops a nested
 `claude` driving the parent session's state machine. Muster writes no
-`.claude/settings.local.json` on a shell's behalf.
+`.claude/settings.local.json` on a terminal's behalf.
 
-`alive` is **not** consulted, in either direction: a shell may be started on a dead session
-and survives its parent session ending. A shell has no representation in SQLite and none on
-the state stream — the `kb:anchor/ws.session` Session object is unchanged, and no `sessionUpsert` is broadcast.
+`alive` is **not** consulted, in either direction: a terminal may be started on a dead session
+and survives its parent session ending. A terminal has no representation in SQLite and is not a
+session — the `kb:anchor/ws.session` Session object is unchanged and no `sessionUpsert` is broadcast;
+the state stream carries the terminal list in `kb:anchor/ws.shell-activity`.
 
 **Response 200:**
 
 ```json
-{ "target": "muster-7-shell", "created": true }
+{ "target": "muster-7-shell", "n": 1, "created": true }
 ```
 
-- `target` — string, the shell's tmux session name; always `muster-<id>-shell`.
+- `target` — string, the terminal's tmux session name.
+- `n` — integer ≥ 1, the terminal returned.
 - `created` — boolean, `true` iff this call spawned it.
 
 **Errors** (envelope per `kb:anchor/transport`):
@@ -930,12 +945,71 @@ the state stream — the `kb:anchor/ws.session` Session object is unchanged, and
 - `409 directory_missing` — the session's recorded directory no longer exists or is not a
   directory; checked before the spawn so this is a clean 409, never a tmux error.
   `{ "error": { "code": "directory_missing", "message": "/Users/d/gone no longer exists" } }`
-- `500 shell_spawn_failed` — tmux refused the spawn; `message` carries the tmux error.
-  `{ "error": { "code": "shell_spawn_failed", "message": "tmux new-session: ..." } }`
+- `500 shell_spawn_failed` — tmux refused the spawn; `message` is a fixed phrase, the tmux error
+  goes to the daemon log only.
+  `{ "error": { "code": "shell_spawn_failed", "message": "couldn't open a shell — tmux reported an error; see the daemon log" } }`
 
-Shells are deliberately **not** persistent: they outlive musterd only because tmux sessions
-do, and reconcile (`kb:anchor/state.liveness`) kills every `muster-<n>-shell` on the socket at startup rather than
-adopting it.
+#### `POST /api/sessions/{id}/shells`
+
+No body. Always spawns a new terminal at the lowest free number, exactly as above, and broadcasts
+`terminals` (`kb:anchor/ws.shell-activity`).
+
+**Response 201:**
+
+```json
+{ "target": "muster-7-shell-2", "n": 2, "name": "shell 2" }
+```
+
+**Errors:** as `POST /api/sessions/{id}/shell` — 404 `unknown_session`, 409 `directory_missing`,
+500 `shell_spawn_failed`.
+
+#### `PUT /api/sessions/{id}/shells/{n}/name`
+
+**Request:**
+
+```json
+{ "name": "build" }
+```
+
+`name` is trimmed of surrounding whitespace; empty after trimming clears the developer's name, so
+the effective name returns to `shell <n>`. Held in daemon memory only: dropped when the terminal
+ends or the daemon stops. Broadcasts `terminals` when the effective name changed.
+
+**Response 200:**
+
+```json
+{ "n": 2, "name": "build" }
+```
+
+`name` — the effective name after the change.
+
+**Errors:**
+
+- `400 bad_request` — unparseable body or `name` not a string.
+  `{ "error": { "code": "bad_request", "message": "invalid body" } }`
+- `400 name_too_long` — more than 40 Unicode code points after trimming.
+  `{ "error": { "code": "name_too_long", "message": "a terminal name is at most 40 characters" } }`
+- `404 unknown_session` — `{ "error": { "code": "unknown_session", "message": "unknown session id" } }`
+- `404 no_shell` — terminal `n` is not running.
+  `{ "error": { "code": "no_shell", "message": "no such terminal" } }`
+
+#### `DELETE /api/sessions/{id}/shells/{n}`
+
+No body. Ends terminal `n`: kills its tmux session (a live socket on it then closes `4001
+pane_ended`), forgets its name and broadcasts `terminals`. Never touches another terminal, the
+Claude pane or the session's liveness. No confirmation server-side — asking first is the
+dashboard's.
+
+**Response 204:** no body.
+
+**Errors:**
+
+- `404 unknown_session` — `{ "error": { "code": "unknown_session", "message": "unknown session id" } }`
+- `404 no_shell` — `{ "error": { "code": "no_shell", "message": "no such terminal" } }`
+
+Terminals are deliberately **not** persistent: they outlive musterd only because tmux sessions
+do, and reconcile (`kb:anchor/state.liveness`) kills every `muster-<n>-shell` and
+`muster-<n>-shell-<m>` on the socket at startup rather than adopting it.
 
 <!-- kb:anchor sessions.reader -->
 ### `GET /api/sessions/{id}/reader`
@@ -1087,7 +1161,7 @@ is ignored — the first request's wins. Any failure leaves the old binary untou
 { "shells": [ { "sessionId": 3, "title": "fix auth" } ] }   // [] when none; title null when the owning session is unknown
 ```
 
-One entry per `muster-<n>-shell` tmux session alive on the daemon's socket — the set reconcile
+One entry per terminal tmux session (`muster-<n>-shell` or `muster-<n>-shell-<m>`) alive on the daemon's socket — the set reconcile
 kills on restart (`kb:anchor/sessions.shell` / `kb:anchor/state.liveness`), which is why the dashboard's Update-and-restart confirm names
 them. Computed on request from tmux, never cached (shells have no wire representation
 elsewhere). No errors beyond auth.
@@ -1278,7 +1352,7 @@ across a `musterd` upgrade.
   "usage": { /* Usage object, kb:anchor/ws.usage */ },
   "prefs": { "view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual", "theme": "follow", "updateCheck": true, "railDensity": "comfortable", "railActivity": "turn" },
   "claudeTheme": { "family": "dark" },   // "light" | "dark" | "unknown" — always present
-  "shellsBusy": [ 7, 12 ],               // session ids whose shell is busy (kb:anchor/ws.shell-activity); [] when none, always present
+  "terminals": { "7": [ { "n": 1, "name": "shell 1", "busy": false } ] },  // each session's running terminals (kb:anchor/ws.shell-activity), keyed by session id; only sessions with one or more; {} when none, always present
   "groups": [ /* Group objects, kb:anchor/ws.groups — [] when none; always present; the client sorts by pos */ ],
   "ungrouped": { "pos": 0, "collapsed": false },   // the Ungrouped section's place and collapsed state (kb:anchor/ws.groups); always present
   "update": { /* kb:anchor/ws.update — always present*/ } }
@@ -1639,28 +1713,35 @@ client always re-derives the terminal pair (`<html data-claude-family>`) and, on
 dashboard theme while an override is set.
 
 <!-- kb:anchor ws.shell-activity -->
-### `shellActivity`
+### `terminals`
 
 ```jsonc
-{ "type": "shellActivity", "sessionId": 7, "busy": true }
+{ "type": "terminals", "sessionId": 7,
+  "terminals": [
+    { "n": 1, "name": "shell 1", "busy": false },
+    { "n": 2, "name": "build",   "busy": true }
+  ] }
 ```
 
-Whether session 7's plain shell (`kb:anchor/sessions.shell`) is running work, as opposed to
-sitting at a prompt. Broadcast on every observed change, from a ~1 s poll; never replayed, and
-the current set is carried in `snapshot.shellsBusy` so a reconnecting client re-syncs without
-waiting for a transition.
+Session 7's running terminals (`kb:anchor/sessions.shell`), sorted by `n` ascending; `[]` once its
+last terminal ends, never null. `name` is the effective name — the developer's if set, else
+`shell <n>` — never empty. Broadcast with the session's **whole** list whenever any of it changes:
+a terminal spawned, closed, or observed gone (exit or external kill, found by the ~1 s poll or by
+its attach PTY ending), a rename, or a busy flip; never when nothing changed. Never replayed: the
+current lists are in `snapshot.terminals`, so a reconnecting client re-syncs without waiting for a
+change, and the whole-list shape means a later message corrects a lost one.
 
-`busy` is true when the shell pane's foreground command differs from the shell's own basename,
+`busy` is true when the terminal pane's foreground command differs from the shell's own basename,
 the pane is **not** on the alternate screen, and the pane's tty is in **canonical** mode. The
 last gate is what separates work from waiting: an interactive line editor or TUI — zsh's zle,
 readline, `vim`, Claude Code's trust prompt — holds the tty in raw mode, while a batch command
 leaves it canonical. This is process and terminal-discipline state read through tmux and a
 `TIOCGETA` ioctl; pane **content** is never read (`kb:adr/surfaces-shell-busy-from-tmux-process-state`).
 
-A shell is still not a session (`kb:adr/surfaces-shell-is-attach-target-not-session`): this adds
+A terminal is still not a session (`kb:adr/surfaces-shell-is-attach-target-not-session`): this adds
 no `Session` field and no session state. It travels on `/ws` rather than
-`kb:anchor/terminal.shell-ws` because that socket exists only while the shell surface is
-selected, and the indicator must survive the user being elsewhere. A client that does not know
+`kb:anchor/terminal.shell-ws` because that socket exists only while a terminal is on screen, and
+the list and indicator must survive the user being elsewhere. A client that does not know
 `sessionId` ignores it.
 
 <!-- kb:anchor ws.update -->
@@ -1771,15 +1852,16 @@ broadcast. The registry is also what the `Stop` row consults to decide whether a
 watched: a connection on either surface counts.
 
 <!-- kb:anchor terminal.shell-ws -->
-### WebSocket `/ws/shell/{id}` — the shell PTY bridge
+### WebSocket `/ws/shell/{id}/{n}` — the terminal PTY bridge
 
-One socket per live **shell** surface, bridged to a daemon-owned PTY running `tmux attach`
-against `muster-<id>-shell` (`kb:anchor/sessions.shell`). **Attach only** — this route never spawns; `POST
-/api/sessions/{id}/shell` is the only thing that creates a shell.
+One socket per live **terminal** surface, bridged to a daemon-owned PTY running `tmux attach`
+against terminal `n`'s tmux session (`muster-<id>-shell` for `n = 1`, `muster-<id>-shell-<n>`
+otherwise; `kb:anchor/sessions.shell`). **Attach only** — this route never spawns; the `POST` routes of
+`kb:anchor/sessions.shell` are the only things that create a terminal.
 
 **Auth**: UI cookie on the upgrade + the `kb:anchor/transport` Origin check. Pre-upgrade errors (plain HTTP):
-401 `unauthorized`, 404 `not_found` (unknown session id), 409 `no_shell` (the session exists
-but has no running shell). `alive` is not consulted (`kb:anchor/sessions.shell`). Note that a browser cannot read a
+401 `unauthorized`, 404 `not_found` (unknown session id, or `n` not a positive integer), 409
+`no_shell` (the session exists but terminal `n` is not running). `alive` is not consulted (`kb:anchor/sessions.shell`). Note that a browser cannot read a
 pre-upgrade status — the WebSocket API hides it — which is why the spawn is a separate POST
 whose error body the dashboard can actually render.
 
@@ -1797,7 +1879,7 @@ not:
 
 Sent on a wheel gesture over a shell surface, coalesced to at most one frame per animation
 frame; magnitude clamped to [1, 200]. The daemon translates it into tmux copy-mode against
-`muster-<id>-shell`: when the pane is not already in a mode and its history is non-empty it
+that terminal's tmux session: when the pane is not already in a mode and its history is non-empty it
 issues `copy-mode -e`, then `send-keys -X -N <magnitude> scroll-up` or `scroll-down`. The `-e`
 is what makes tmux leave copy-mode by itself once the pane is scrolled back to the bottom, so
 there is no exit frame. Scrolling past either end clamps and is not an error. The resulting
@@ -1818,9 +1900,9 @@ external kill), going away (1001) on daemon shutdown. Unlike `kb:anchor/terminal
 **not** nudge the liveness poll: a shell's death is not its session's death, and a live session
 must never take a liveness flap because a shell under it exited.
 
-**One-live-client law**: enforced per **attach target**, not per session. `muster-<id>` and
-`muster-<id>-shell` are distinct targets, so a session's Claude socket and its shell socket are
-independent — opening one never supersedes the other. Two clients on the *same* target still
+**One-live-client law**: enforced per **attach target**, not per session. `muster-<id>` and each
+terminal's tmux session are distinct targets, so a session's Claude socket and each of its terminal
+sockets are independent — opening one never supersedes another. Two clients on the *same* target still
 supersede each other exactly as `kb:anchor/terminal.ws` describes. A successful shell attach marks the
 session seen exactly as `kb:anchor/terminal.ws`'s attach does.
 
@@ -1981,7 +2063,7 @@ sweep below for a whole daemon lifetime.
 - A `muster-<n>` tmux session with no row → logged at warn, never adopted and never
   killed (Muster only manages what it started). Its `<n>` does raise the session-id watermark, so
   a leftover pane can never collide with a future launch even though nothing reclaims it.
-- A `muster-<n>-shell` tmux session (`kb:anchor/sessions.shell`) → **killed**, unconditionally, whatever its
+- A terminal tmux session, `muster-<n>-shell` or `muster-<n>-shell-<m>` (`kb:anchor/sessions.shell`) → **killed**, unconditionally, whatever its
   `<n>`, and never reported as an unknown session. Shells are deliberately non-persistent;
   since tmux sessions outlive musterd, "the daemon forgets them" has to mean this sweep
   actively kills them, or a restart leaks a live shell with nothing pointing at it.

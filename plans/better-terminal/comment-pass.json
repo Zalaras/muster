@@ -1,0 +1,2238 @@
+{
+  "plan": "better-terminal",
+  "cycles": [
+    {
+      "cycle": 1,
+      "at": "2026-11-19T22:50:40Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 123,
+        "keep": 31,
+        "drop": 92
+      },
+      "keeps": [
+        {
+          "key": "internal/server/renderfix.go:66e13d4992e54a22",
+          "path": "internal/server/renderfix.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *renderRig) repoTick(ctx context.Context) error {",
+            "line": 452
+          },
+          "lines": [
+            "// repoTick takes the reading Start's poller would take after a cwd change, once per alive",
+            "// session, and applies it. A reading that did not finish within its deadline is taken",
+            "// again: every scenario runs at once, so git can stall past repoReadTimeout, and the poll's",
+            "// own answer to that (keep the last-known repo until the next tick) would leave the card's",
+            "// claudeLocation or added-directory repos unrecorded in a fixture that expects them."
+          ],
+          "reason": "Without it a reader would collapse the retry loop into a single read at `for attempt := 0; ; attempt++ {`; that makes fixtures flake when git stalls past the read timeout."
+        },
+        {
+          "key": "internal/server/shellactivity.go:030e69fe32f33880",
+          "path": "internal/server/shellactivity.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type shellActivityFeature struct {",
+            "line": 43
+          },
+          "lines": [
+            "// shellActivityFeature owns the terminal-list poller and the snapshot's terminals field.",
+            "// It mounts no routes."
+          ],
+          "reason": "Edited on `main`; still true: `func (f *shellActivityFeature) mount(_ *http.ServeMux, _ func(http.Handler) http.Handler) {}` mounts no routes and contribute fills Terminals."
+        },
+        {
+          "key": "internal/server/shellactivity.go:46fcd0046609b150",
+          "path": "internal/server/shellactivity.go",
+          "anchor": {
+            "kind": "above",
+            "text": "tickMu sync.Mutex",
+            "line": 76
+          },
+          "lines": [
+            "// tickMu serialises tick and sync, so each diff-and-broadcast sees the previous one's",
+            "// result and two lists for one session never go out of order. mu guards terms only."
+          ],
+          "reason": "Without it a reader would drop `tickMu` as redundant with `mu` and let tick and sync diff-and-broadcast concurrently; that sends two lists for one session out of order at `p.tickMu.Lock()`."
+        },
+        {
+          "key": "internal/server/shellregistry.go:6cda67f548d405ae",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *shellRegistry) spawn(ctx context.Context, id int64, n int, dir string) (target string, err error) {",
+            "line": 81
+          },
+          "lines": [
+            "// spawn starts terminal n of session id in dir. Deliberately never goes through",
+            "// sessionLauncher: no MUSTER_SESSION in the pane environment (isolation from the ingest",
+            "// path is structural, not incidental) and no .claude/settings.local.json write. Callers",
+            "// hold id's lock."
+          ],
+          "reason": "Without it a reader would route the spawn through sessionLauncher for consistency; that puts MUSTER_SESSION in the pane env and writes settings.local.json, breaking the isolation at `r.tmux.NewNamedSession(spawnCtx, name, dir, nil, interactiveShellArgv())`."
+        },
+        {
+          "key": "internal/server/shells.go:eaeb534782090718",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *shellFeature) spawnInSession(w http.ResponseWriter, r *http.Request, spawn func(ctx context.Context, id int64, dir string) error) {",
+            "line": 99
+          },
+          "lines": [
+            "// spawnInSession is the guard both spawn handlers share. Deliberately not gated on alive",
+            "// (kb:adr/surfaces-shell-is-attach-target-not-session) — a terminal may be started on a",
+            "// dead session and never consults the manager's liveness field.",
+            "//",
+            "// The whole existence-check-then-spawn runs under id's session.Manager lock:",
+            "// session.Manager.Remove holds that same lock for its entire removal, so this check can",
+            "// never observe a session that a concurrent Remove is in the middle of dropping, and any",
+            "// Remove that starts after this check passes must wait for the spawn to finish first —",
+            "// either way, a terminal can never be spawned for an id whose Remove has started or already",
+            "// succeeded. spawn runs with the lock held and the session's directory."
+          ],
+          "reason": "Without it a reader would narrow or move the session lock around the existence check and spawn; that lets a concurrent Remove leave a terminal spawned for a removed id at `unlock := f.manager.LockSession(id)`."
+        },
+        {
+          "key": "internal/server/shells.go:41ef9ff73f233a78",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *shellFeature) handleShellTerminal(w http.ResponseWriter, r *http.Request) {",
+            "line": 219
+          },
+          "lines": [
+            "// handleShellTerminal is GET /ws/shell/{id}/{n} (kb:anchor/terminal.shell-ws): pre-upgrade auth",
+            "// (the requireCookie wrapper) and Origin check, 404/409 validation, then the attach-and-pump",
+            "// lifecycle both surfaces share (attachAndPump). Attach only — the spawn handlers above are",
+            "// the only things that start a terminal; alive is not consulted, in either direction",
+            "// (kb:adr/surfaces-shell-is-attach-target-not-session).",
+            "// The 404 here is its own not_found check",
+            "// (manager.Exists, not sessionOr404's manager.Get) because a dead session with no live shell",
+            "// still answers no_shell, never not_found."
+          ],
+          "reason": "Edited on `main`; still true: `if err != nil || !nOK || !f.manager.Exists(id) {` is the own not_found check it describes."
+        },
+        {
+          "key": "internal/server/terminal.go:1a4dba70afae63de",
+          "path": "internal/server/terminal.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *terminalRegistry) closeSessionAndShell(sessionID int64) {",
+            "line": 232
+          },
+          "lines": [
+            "// closeSessionAndShell closes sessionID's Claude socket and every one of its terminals' sockets — the",
+            "// Remove path (removing a session kills its shell alongside the Claude one,",
+            "// kb:adr/surfaces-shell-dies-at-kill-shutdown-too)."
+          ],
+          "reason": "Edited on `main`; still true: `closeSessionAndShell` closes every socket keyed to the session."
+        },
+        {
+          "key": "internal/session/reconcile.go:e2c2a4a93c19e394",
+          "path": "internal/session/reconcile.go",
+          "anchor": {
+            "kind": "above",
+            "text": "ShellsKilled int",
+            "line": 16
+          },
+          "lines": [
+            "// ShellsKilled counts terminal (\"muster-\u003cn\u003e-shell[-\u003ck\u003e]\") tmux sessions killed unconditionally",
+            "// (kb:anchor/state.liveness) — never adopted, and never listed in UnknownSessions."
+          ],
+          "reason": "Edited on `main`; still true: `report.ShellsKilled++` counts killed terminal sessions, never listed in UnknownSessions."
+        },
+        {
+          "key": "internal/session/reconcile.go:9eff7afd362e2e6e",
+          "path": "internal/session/reconcile.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {",
+            "line": 19
+          },
+          "lines": [
+            "// Reconcile runs once at daemon startup, synchronously, before the first snapshot is",
+            "// served (kb:anchor/state.liveness, kb:adr/lifecycle-reconcile-before-first-snapshot).",
+            "// Call after LoadAll and before Start. Classification runs from **one** ListSessions",
+            "// snapshot, by tmux name ownership, never from the stored alive/target alone",
+            "// (kb:adr/lifecycle-reconcile-converges-with-the-socket):",
+            "//   - \"muster-\u003cid\u003e\" present on the socket → the row owns it: re-derive",
+            "//     tmux_target/tmux_pane from tmux, keep alive:=true, persist+broadcast only on an",
+            "//     actual change (reviveOwnedSession). This is what stops a live pane from ever being",
+            "//     deleted, whatever the stored alive said.",
+            "//   - \"muster-\u003cid\u003e\" absent, row alive=true → marked ended and kept.",
+            "//   - \"muster-\u003cid\u003e\" absent, row alive=false → left exactly as stored, endedAt unchanged:",
+            "//     Reconcile deletes no row, so an ended row stays a resumable card until Remove",
+            "//     (kb:adr/lifecycle-ended-rows-kept-until-remove).",
+            "//   - \"muster-\u003cn\u003e\" with no matching row → reported in UnknownSessions and warn-logged;",
+            "//     never adopted, never killed (kb:adr/lifecycle-reconcile-before-first-snapshot) —",
+            "//     its id still raises the watermark so it can never be handed to a new row.",
+            "//   - \"muster-\u003cn\u003e-shell\" and \"muster-\u003cn\u003e-shell-\u003ck\u003e\" → killed unconditionally, whatever \u003cn\u003e and \u003ck\u003e; never adopted or",
+            "//     reported unknown; its id also raises the watermark.",
+            "//",
+            "// PaneChecker/PaneSnapshotter/TmuxSessions are all required at construction (NewManager",
+            "// panics otherwise), so ownership classification is the only classification path — a",
+            "// ListSessions call that itself fails is a different case and must NOT read as \"every",
+            "// not-alive row's pane is confirmed gone\": Reconcile instead acts on nothing this cycle",
+            "// and leaves every row untouched, and the next successful poll reconciles once the",
+            "// socket is reachable again.",
+            "//",
+            "// A markEnded failure during the act phase is logged and does not stop the rest — in",
+            "// particular the shell kill, which runs before the act phase, always happens regardless."
+          ],
+          "reason": "Edited on `main`; still true: `classifyTmuxNames` and `reportAndSweepUnknown` do what the Reconcile doc lists."
+        },
+        {
+          "key": "internal/session/reconcile.go:ebcdd93132a0983e",
+          "path": "internal/session/reconcile.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type classifiedTmuxNames struct {",
+            "line": 86
+          },
+          "lines": [
+            "// classifiedTmuxNames is classifyTmuxNames' pure result: names split into the live",
+            "// muster-\u003cid\u003e claude-pane names found (known or not — the caller decides), the",
+            "// muster-\u003cid\u003e-shell[-\u003cn\u003e] names to kill unconditionally, the unknown names to report, and the",
+            "// highest id seen across every shape — the floor that raises the id watermark",
+            "// (kb:adr/lifecycle-session-ids-monotonic-never-reused)."
+          ],
+          "reason": "Edited on `main`; still true: `type classifiedTmuxNames struct {` holds live, shellNames, unknownNames, maxSeen as described."
+        },
+        {
+          "key": "web/src/doc.ts:ee74288b3e52ddcd",
+          "path": "web/src/doc.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import { createApp } from \"./app\";",
+            "line": 1
+          },
+          "lines": [
+            "// The pop-out page's composition root (kb:adr/reader-popout-is-a-second-page) — a second",
+            "// Vite entry, not a hash route inside `index.html`'s own composition root. Builds the same",
+            "// `App` + `WsClient` shape `main.ts` does; there is no masthead, rail, banner or any other",
+            "// feature here. `mountStandaloneReader` (features/reader.ts) owns finding `#reader-host`,",
+            "// choosing the unknown-session notice over a real reader, and mounting the reader's root —",
+            "// this module only builds `app`, registers the reader/theme/update-restart/connection",
+            "// controllers and the client, and starts the tick.",
+            "//",
+            "// `onSessionRemoved`/`onUsage`/`onTerminals`/`onProtocolMismatch` are deliberately not",
+            "// wired — no feature on this page reads any of them — but `onUpdate`/`onHelloArrived` are",
+            "// (`popoutWsHandlers`, wsapp.ts), so an open pop-out reloads after an update restart like the",
+            "// dashboard. It has no banner, so the restart banner and `Updated to` confirmation go unread."
+          ],
+          "reason": "Edited on `main`; still true: doc.ts builds app, reader, theme, update-restart and connection controllers and the client as the header says."
+        },
+        {
+          "key": "web/src/features/surfaces.ts:725f48e84755ed94",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { App, RenderFrame } from \"../app\";",
+            "line": 1
+          },
+          "lines": [
+            "// The `TerminalSurface` manager: which sessions are live in the current view (Focus's",
+            "// one pane, or Tiles' grid) and which `terminal/pane.ts` instances exist for them — the",
+            "// only place a `TerminalSurface` is ever constructed or disposed. No render path opens a",
+            "// socket outside this manager, and never for an `alive:false` session. Also owns",
+            "// per-session surface-switch state (`claude`/`shell`/`docs` selection, the terminal shown) and",
+            "// the daemon-reported terminal lists it is derived from.",
+            "//",
+            "// `deps.tilesLive` is `tiles.liveIds` passed straight through — `tiles` is already",
+            "// constructed by the time `surfaces` is (main.ts's init order: `tiles` itself takes a",
+            "// forward-reference `get\u003cNoun\u003e` thunk for `surfaces`, the other half of that pair), so",
+            "// this is a real value, not a thunk, even though the value itself is a getter function."
+          ],
+          "reason": "Edited on `main`; still true: `initSurfaces` is the only place `new TerminalSurface(` is constructed and disposed."
+        },
+        {
+          "key": "web/src/features/surfaces.ts:305682ab45f4ebbb",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "select(id: number, kind: SurfaceKind, findDeadRefs: () =\u003e DeadSurfaceRefs | null): void;",
+            "line": 57
+          },
+          "lines": [
+            "/** The one dispatcher every `claude`/`shell`/`docs` segment (mainhead + every tile) routes",
+            "* through. `findDeadRefs` is consulted only on a shell-creation failure with no live",
+            "* surface to route the notice through. */"
+          ],
+          "reason": "Edited on `main`; still true: `select` dispatches claude/shell/docs and passes findDeadRefs to reportShellSpawnFailure."
+        },
+        {
+          "key": "web/src/features/surfaces.ts:45f8abec22b5ff15",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "const selectRequestId = new Map\u003cnumber, number\u003e();",
+            "line": 74
+          },
+          "lines": [
+            "// Stale-response guard for the terminal-spawn round trips — same shape as",
+            "// `features/launch.ts`'s `browseRequestId` and `features/issue.ts`'s `captureRequestId`,",
+            "// but keyed per session id: `select` runs for independent sessions concurrently, and a",
+            "// newer selection on session A must never drop a still-current spawn on session B."
+          ],
+          "reason": "Edited on `main`; still true: `const selectRequestId = new Map\u003cnumber, number\u003e();` is keyed per session id and guards both spawn round trips."
+        },
+        {
+          "key": "web/src/features/surfaces.ts:27fcff10d8c78535",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "void createShell(id).then((result) =\u003e {",
+            "line": 164
+          },
+          "lines": [
+            "// Always asks the daemon: `POST …/shell` is idempotent and starts terminal 1 when none",
+            "// runs, so a last-shown terminal this window still believes in never outlives a terminal",
+            "// that ended before its `terminals` message arrived."
+          ],
+          "reason": "Without it a reader would skip the createShell call when a shown terminal is already known; that attaches to a terminal that ended before its terminals message arrived at `void createShell(id).then((result) =\u003e {`."
+        },
+        {
+          "key": "web/src/features/surfaces.ts:b84f1c61fda1a134",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function desiredSurfaceEntries(",
+            "line": 192
+          },
+          "lines": [
+            "/** The `(id, kind, n)` triples that should have a mounted surface right now — a visible",
+            "* session that still exists and is attachable, at whichever surface it has selected. */"
+          ],
+          "reason": "Edited on `main`; still true: `desiredSurfaceEntries` returns (id, kind, n) triples for attachable visible sessions."
+        },
+        {
+          "key": "web/src/features/surfaces.ts:a77887af16e4bfd3",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function openMissingSurfaces(",
+            "line": 221
+          },
+          "lines": [
+            "/** Constructs a `TerminalSurface` for every wanted `(id, kind, n)` that has none yet — the",
+            "* only place in the app one is ever constructed, and so the one place its drop wiring",
+            "* (`terminal/dropwire.ts`) is installed — never inside `TerminalSurface`'s own",
+            "* constructor, the same \"attaches from outside\" shape `render/dragreorder.ts`'s and",
+            "* `render/dropguard.ts`'s owners already follow. */"
+          ],
+          "reason": "Edited on `main`; still true: `openMissingSurfaces` constructs surfaces and calls installTerminalDrop outside the constructor."
+        },
+        {
+          "key": "web/src/features/surfaces.ts:a127ecbf08876943",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "app.onRender((frame: RenderFrame) =\u003e {",
+            "line": 236
+          },
+          "lines": [
+            "// Render phase 7 (main.ts's numbered render phase order): open/close diff over",
+            "// `(id, kind, n)` keys against the current view's visible ids."
+          ],
+          "reason": "Edited on `main`; still true: the `app.onRender` handler diffs (id, kind, n) keys against visible ids."
+        },
+        {
+          "key": "web/src/protocol/messages.ts:a4e2281e3e351931",
+          "path": "web/src/protocol/messages.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "if (\"terminals\" in rec) {",
+            "line": 124
+          },
+          "lines": [
+            "// Present-only: an absent key stays absent, so a snapshot fixture that predates the field",
+            "// round-trips unchanged; real callers read `snapshot.terminals ?? {}`."
+          ],
+          "reason": "Without it a reader would default snapshot.terminals to {} when the key is absent; that changes round-tripped older snapshot fixtures at `if (\"terminals\" in rec) {`."
+        },
+        {
+          "key": "web/src/render/menu.ts:29b20ce2498b9fbb",
+          "path": "web/src/render/menu.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import { createPopover } from \"./popover\";",
+            "line": 1
+          },
+          "lines": [
+            "// The one menu builder (kb:adr/web-menu-component-single-builder): a `role=\"menu\"` panel of",
+            "// `role=\"menuitem\"` buttons anchored below its opener, serving the rail ⋯, every header ⋯, Move to",
+            "// and the Focus header's group control. DOM and keys only — the caller hands in the entries (their",
+            "// text and what choosing one does) and this module never decides what a menu offers.",
+            "//",
+            "// Everything about an open menu is this instance's state (one `createMenu()` per controller);",
+            "// the panel is appended to `document.body` because the rail scrolls and clips. It is built when it",
+            "// opens and discarded when it closes, so the 1s render tick never touches it, and the opener — a",
+            "// control the caller reuses across passes — only has its `aria-expanded` written. Anchoring, the",
+            "// outside-click/Escape/viewport close and focus return are `popover.ts`, shared with the",
+            "// Terminals panel."
+          ],
+          "reason": "Edited on `main`; still true: `createMenu` builds the panel on open via createPopover and discards it on close."
+        },
+        {
+          "key": "web/src/render/popover.ts:baf7664f333828d9",
+          "path": "web/src/render/popover.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "if (target instanceof Element \u0026\u0026 target.closest(\"dialog[open]\")) return;",
+            "line": 62
+          },
+          "lines": [
+            "// A click inside a modal dialog opened from the panel (its close confirmation) is not",
+            "// an outside click."
+          ],
+          "reason": "Without it a reader would delete the dialog[open] check as unneeded; that makes a click in the close-confirmation modal read as an outside click and close the panel at `target.closest(\"dialog[open]\")`."
+        },
+        {
+          "key": "web/src/render/surfaceseg.ts:7191b0e7efd47605",
+          "path": "web/src/render/surfaceseg.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import { setText } from \"../dom\";",
+            "line": 1
+          },
+          "lines": [
+            "// The segmented `claude | shell | ▾ | docs` control's DOM half",
+            "// (kb:adr/surfaces-shell-is-attach-target-not-session; `docs` added per",
+            "// kb:adr/reader-docs-is-third-surface-segment) — split out of",
+            "// `terminal/surfaceswitch.ts` (`terminal/` holds pure logic only, per",
+            "// docs/conventions.md § Composition roots; this builder belongs with the other DOM",
+            "// builders in `render/`). One component rendered in two places: the Focus mainhead",
+            "// (`.mainhead .surfseg`) and every tile's footer (`.tfoot .acts .surfseg`). Built once per",
+            "// host (features/focus.ts at startup for the mainhead; render/tiles.ts's buildTile for",
+            "// each tile) and only ever mutated afterward — never rebuilt on a render tick, per",
+            "// docs/conventions.md's \"Focusable controls inside the render tick are reused, never",
+            "// rebuilt\" rule (precedent: render/tiles.ts's rename button, built once in buildTile and",
+            "// only ever text-updated by updateTileChrome; the tile drag handle follows the same rule).",
+            "// The reducer (which surface is selected, is a shell running) stays in",
+            "// `terminal/surfaceswitch.ts`, the only owner that mutates it."
+          ],
+          "reason": "Edited on `main`; still true: `root.append(claudeBtn, shellBtn, terminalsBtn, docsBtn)` builds the claude | shell | ▾ | docs control once."
+        },
+        {
+          "key": "web/src/render/surfaceseg.ts:e42bb049022783fe",
+          "path": "web/src/render/surfaceseg.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function updateSurfaceSegment(",
+            "line": 111
+          },
+          "lines": [
+            "/** Every render pass: `aria-pressed` on the claude/shell/docs segments, the count and",
+            "* title, the ▾ opener's `disabled`, the activity indicator's",
+            "* presence and `data-act` value, and `disabled` on all three while the WS is down",
+            "* (States: \"the segment buttons are disabled while the WS is down\" — the same gate every",
+            "* other action control uses; never gated on `alive`, since `shell` must stay clickable on",
+            "* a dead session). `activity` is `features/surfaces.ts`'s",
+            "* `terminal/shellactivity.ts` verdict for this session — `\"none\"` removes the indicator",
+            "* entirely (States: \"no data yet\" / an idle shell are deliberately indistinguishable),",
+            "* `\"busy\"`/`\"done\"` attach it and set `data-act` accordingly. */"
+          ],
+          "reason": "Edited on `main`; still true: `updateSurfaceSegment` sets aria-pressed, count/title, disabled on all buttons and the indicator as described."
+        },
+        {
+          "key": "web/src/terminal/pane.ts:1fbd5d4a9a82e5fe",
+          "path": "web/src/terminal/pane.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export class TerminalSurface {",
+            "line": 44
+          },
+          "lines": [
+            "/**",
+            "* One live terminal surface — the Claude pane (`/ws/terminal/{id}`, kb:anchor/terminal.ws) or",
+            "* one of a session's plain-shell terminals (`/ws/shell/{id}/{n}`, kb:anchor/terminal.shell-ws,",
+            "* kb:adr/surfaces-shell-is-attach-target-not-session). `kind` picks the WS path and the",
+            "* aria-label prefix; every other behaviour — drop handling, resize, overlays, theming — is",
+            "* shared unchanged. Constructing a `\"claude\"` surface for an already-dead session",
+            "* (`alive: false`) never opens a socket — it renders the \"session ended\" overlay directly",
+            "* and stops there. A `\"shell\"` surface is never constructed for a session with no running",
+            "* shell (features/surfaces.ts only mounts one after `POST .../shell` succeeds), so it has",
+            "* no equivalent dead-on-arrival check — the shell route never consults `alive` either.",
+            "*/"
+          ],
+          "reason": "Edited on `main`; still true: `kind === \"claude\" \u0026\u0026 !session.alive` shows the ended overlay and `attach` picks the WS path by kind."
+        },
+        {
+          "key": "web/src/terminal/pane.ts:7c1f8c0e1c361915",
+          "path": "web/src/terminal/pane.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "private readonly terminalN: number | null;",
+            "line": 54
+          },
+          "lines": [
+            "/** The terminal number of a `\"shell\"` surface (`/ws/shell/{id}/{n}`); `null` for `claude`.",
+            "* A terminal ending is learned from the daemon's `terminals` list, not from this socket's",
+            "* `4001`, so there is one source of truth for the fallback. */"
+          ],
+          "reason": "Without it a reader would add a fallback on the socket's 4001 close for a shell surface; that creates a second source of truth competing with the terminals list at `private readonly terminalN: number | null;`."
+        },
+        {
+          "key": "web/src/terminal/shellactivity.ts:df25100a4012abb5",
+          "path": "web/src/terminal/shellactivity.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export type ShellActivityIndicator = \"none\" | \"busy\" | \"done\";",
+            "line": 1
+          },
+          "lines": [
+            "// The pure per-session reducer over `terminals` messages and `snapshot.terminals` and",
+            "// surface selections that drives the `shell` segment's busy/done indicator",
+            "// (kb:adr/surfaces-shell-busy-from-tmux-process-state; supersedes the pip,",
+            "// kb:adr/theme-shell-pip-retired-for-activity-indicator). No DOM, no socket, no real",
+            "// timer — `features/surfaces.ts` owns the actual `setTimeout` calls and this module's",
+            "// `epoch` field is what makes a stale one harmless (see `ScheduledTimer` below) rather",
+            "// than something the caller must remember to `clearTimeout`.",
+            "//",
+            "// Two \"make busy\" entry points exist (`observeBusy` — a live any-terminal-busy transition,",
+            "// and `restoreBusy` — `snapshot.terminals`) because they carry different timing",
+            "// guarantees: `observeBusy` starting from idle applies a short onset delay (a",
+            "// fresh transition might be a command too short to bother showing); `restoreBusy` never",
+            "// does, because by the time a reconnecting dashboard reads `snapshot.terminals` the work has",
+            "// already been running for an unknown, possibly long, time — the same reasoning applies",
+            "// to a \"done\" segment where a new command starts before the tick clears: that transition",
+            "// is immediate too (`observeBusy` only delays a transition out of \"none\")."
+          ],
+          "reason": "Edited on `main`; still true: `observeBusy` and `restoreBusy` are the two make-busy entry points with the described timing."
+        },
+        {
+          "key": "web/src/terminal/shellactivity.ts:5c59073b72498e7e",
+          "path": "web/src/terminal/shellactivity.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function observeBusy(state: ShellActivityState, id: number): ActivityResult {",
+            "line": 44
+          },
+          "lines": [
+            "/**",
+            "* A live an any-terminal-busy transition to true for `id`. From \"none\": starts (or restarts, if one",
+            "* was already pending) the onset delay — the indicator itself stays \"none\" until",
+            "* `resolveOnset` confirms it. From \"done\": promotes to \"busy\" immediately and cancels any",
+            "* pending self-clear timer via the epoch bump. Already \"busy\": identity.",
+            "*/"
+          ],
+          "reason": "Edited on `main`; still true: `observeBusy` from none starts the onset timer and from done promotes to busy."
+        },
+        {
+          "key": "web/src/terminal/shellactivity.ts:11a076a5ad3f294c",
+          "path": "web/src/terminal/shellactivity.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function restoreBusy(state: ShellActivityState, id: number): ActivityResult {",
+            "line": 57
+          },
+          "lines": [
+            "/**",
+            "* `snapshot.terminals` reports `id` as busy right now. Always immediate, whatever",
+            "* the current indicator — a reconnecting dashboard has no way to know how long the work",
+            "* has already been running, so the onset delay does not apply here.",
+            "*/"
+          ],
+          "reason": "Edited on `main`; still true: `restoreBusy` is always immediate with `timer: null`."
+        },
+        {
+          "key": "web/src/terminal/shellactivity.ts:ce9424e00927ea35",
+          "path": "web/src/terminal/shellactivity.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function observeIdle(",
+            "line": 79
+          },
+          "lines": [
+            "/**",
+            "* A live an any-terminal-busy transition to false for `id`. `shellSelected` is whether this session's",
+            "* `shell` surface is the currently selected one on THIS window (features/surfaces.ts",
+            "* reads its own `surfaceSwitchState`): selected schedules the ~3s self-clear (User",
+            "* Flow 5); not selected leaves \"done\" showing indefinitely — User Flow 3's \"the spinner",
+            "* becomes a tick and stays\" — until `clearOnSelect` below runs (User Flow 4) or a page",
+            "* reload rediscovers it, whichever comes first. See `restoreIdle` below for the *other*",
+            "* way a \"busy\" entry goes idle.",
+            "*",
+            "* While the entry is still \"none\" (a busy period shorter than the onset",
+            "* delay — `observeBusy`'s pending-onset branch), this bumps the epoch without touching",
+            "* `indicator`, so the onset timer `observeBusy` scheduled sees a stale epoch when it",
+            "* fires and never promotes to \"busy\" — \"a command that never raised a spinner never",
+            "* raises a tick.\" Fixes a bug the shipped implementation's own doc comment used to claim",
+            "* this did but didn't: the old no-op guard",
+            "* (`current.indicator !== \"busy\"`) left a still-\"none\" entry's epoch untouched, so a late",
+            "* `resolveOnset` promoted it to \"busy\" anyway (fix attempt 1, pinned by",
+            "* shellactivity.test.ts's \"a busy period that ends before the onset delay elapses never",
+            "* shows a spinner\" case). This necessarily changes `observeIdle`'s return for",
+            "* that one case from the prior literal `{state, timer: null}` identity to a new state",
+            "* object with the same `indicator` — the two are observationally different only via",
+            "* reference equality, never via `getShellActivity`, but a reference-equality",
+            "* (`toBe(r.state)`) assertion on that exact case cannot hold for any fix here, because it",
+            "* and that same case exercise the identical `observeIdle(r.state, 1, false)` call and, if that call",
+            "* were a true identity no-op, `resolveOnset(that same object, 1, r.timer!.epoch)` would",
+            "* be indistinguishable from the sibling \"epoch matches, still 'none': promotes to",
+            "* 'busy'\" case that must keep promoting — the two pinned expectations are mutually",
+            "* exclusive under any implementation, not just this one (see this fix's log entry for",
+            "* the full derivation).",
+            "*/"
+          ],
+          "reason": "Edited on `main`; still true: `observeIdle` schedules selfClear only when shellSelected and bumps the epoch for a none entry."
+        },
+        {
+          "key": "web/src/terminal/shellactivity.ts:0219052b66651934",
+          "path": "web/src/terminal/shellactivity.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function restoreIdle(state: ShellActivityState, id: number): ActivityResult {",
+            "line": 103
+          },
+          "lines": [
+            "/**",
+            "* `id` was \"busy\" and is missing from a reconnecting dashboard's `snapshot.terminals`",
+            "* (kb:adr/surfaces-snapshot-restored-tick-always-self-clears), where the daemon's own",
+            "* poller cannot tell \"the command finished while we were offline\" (the shell still",
+            "* exists — the ordinary tick behavior should apply) apart from \"reconcile killed the",
+            "* shell at daemon restart\" (the shell is",
+            "* gone outright, `shellGone` is never called for it because no PTY socket was attached",
+            "* to deliver that signal): `terminalsPoller.reconcile` (`internal/server/shellactivity.go`)",
+            "* documents both as \"no longer in newBusy\", the identical wire shape. Unlike `observeIdle`,",
+            "* this **always** schedules the ~3s self-clear, whatever `shellSelected` is — a bounded",
+            "* grace period is the honest default when the transition's actual cause is unknowable, and",
+            "* it resolves both readings to the same place: still-running work is not what a snapshot",
+            "* gap ever means (that's what the live `terminals` broadcast is for), so nothing here",
+            "* is mistaken for \"still working\". `clearOnSelect` can still fire first if the user gets",
+            "* there before the timer does.",
+            "*",
+            "* Same \"none\" guard as `observeIdle` above, for the same reason: if this",
+            "* were ever called against a pending-onset entry, a late `resolveOnset` must not promote",
+            "* it. `features/surfaces.ts`'s only call site already filters to `getShellActivity(...)",
+            "* === \"busy\"` before calling this, so the branch is currently unreachable in practice —",
+            "* fixed here anyway so the function's own contract doesn't silently depend on that",
+            "* filter, and because the `EMPTY_SHELL_ACTIVITY`-based \"not currently busy\" identity",
+            "* case (shellactivity.test.ts) has no entry to invalidate (`state.has(id)` false), so it",
+            "* stays a true no-op unlike `observeIdle`'s conflicting pair (see this fix's log entry).",
+            "*/"
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "web/src/terminal/surfaceswitch.ts:cc9b6fa84f014d53",
+          "path": "web/src/terminal/surfaceswitch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "// kb:adr/reader-docs-is-third-surface-segment: `docs` joins the segment as a third kind —",
+            "line": 1
+          },
+          "lines": [
+            "// The per-session \"which surface is selected, which terminal is shown\" reducer for the",
+            "// segmented `claude | shell | ▾ | docs` control",
+            "// (kb:adr/surfaces-shell-is-attach-target-not-session; `docs` added by",
+            "// kb:adr/reader-docs-is-third-surface-segment). A small pure Map held by",
+            "// features/surfaces.ts — this module never reads a Session, touches a socket, or builds",
+            "// DOM (`terminal/` holds pure logic only; the control's DOM half moved to",
+            "// `render/surfaceseg.ts`), so it's Vitest-testable without a DOM. A session's shell has no",
+            "// representation in the Session wire object (kb:anchor/sessions.shell), so this state",
+            "// exists nowhere else; features/surfaces.ts is the only owner and mutates it only via the",
+            "// functions below."
+          ],
+          "reason": "Edited on `main`; still true: `docs` joins `SurfaceKind` and `isSurfaceAttachable` returns false for it."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/server/renderfix_scenarios_misc.go:5fca4998ffe8f6cd",
+          "path": "internal/server/renderfix_scenarios_misc.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func driveShell(busy bool) func(context.Context, *renderRig) error {",
+            "line": 224
+          },
+          "lines": [
+            "// driveShell holds one idle session with one terminal spawned through the real route,",
+            "// busy or idle."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_misc.go:dbc72fc378fc3b27",
+          "path": "internal/server/renderfix_scenarios_misc.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func driveTerminals(count int, names map[int]string, busy map[int]bool) func(context.Context, *renderRig) error {",
+            "line": 228
+          },
+          "lines": [
+            "// driveTerminals holds one idle session with count terminals spawned through the real",
+            "// routes, the names renamed through the real route, and the terminal poller's one tick over",
+            "// a pane listing that reports each busy terminal running a foreground command on a canonical",
+            "// tty (kb:anchor/ws.shell-activity): the listing and the tty read are the poller's own test",
+            "// seams, the listing reading the rig's fake tmux, since the rig runs no tmux."
+          ]
+        },
+        {
+          "key": "internal/server/renderfix_scenarios_misc.go:5e4314e4088103f4",
+          "path": "internal/server/renderfix_scenarios_misc.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func driveTerminalsTiles(ctx context.Context, r *renderRig) error {",
+            "line": 280
+          },
+          "lines": [
+            "// driveTerminalsTiles is terminals-two beside five other live sessions."
+          ]
+        },
+        {
+          "key": "internal/server/shellactivity.go:6ee2bb788a7a47f3",
+          "path": "internal/server/shellactivity.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type terminalWire struct {",
+            "line": 23
+          },
+          "lines": [
+            "// terminalWire is one terminal in the `terminals` message and snapshot.terminals."
+          ]
+        },
+        {
+          "key": "internal/server/shellactivity.go:76b7f74cc3527a5e",
+          "path": "internal/server/shellactivity.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type terminalsMessage struct {",
+            "line": 29
+          },
+          "lines": [
+            "// terminalsMessage is the WS `terminals` broadcast: a session's whole terminal list, sent",
+            "// whenever any of it changes, never per tick and never replayed — snapshot.terminals is",
+            "// what a reconnecting client re-syncs from."
+          ]
+        },
+        {
+          "key": "internal/server/shellactivity.go:b1270e1e114a7f6d",
+          "path": "internal/server/shellactivity.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type shellActivityPoller struct {",
+            "line": 66
+          },
+          "lines": [
+            "// shellActivityPoller polls tmux's own process/tty state on an interval, broadcasting a",
+            "// session's whole terminal list only on a change (kb:anchor/ws.shell-activity,",
+            "// kb:adr/surfaces-shell-busy-from-tmux-process-state). Embeds bgLoop (bgloop.go) for its",
+            "// Start/Stop/loop shape, same as usagePoller/themePoller; tick below is its own. sync runs",
+            "// the same read on demand so a spawn, close or rename is broadcast at once."
+          ]
+        },
+        {
+          "key": "internal/server/shellactivity.go:0a996772fe97abbc",
+          "path": "internal/server/shellactivity.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (p *shellActivityPoller) Current() map[string][]terminalWire {",
+            "line": 108
+          },
+          "lines": [
+            "// Current returns every session's terminal list keyed by decimal session id, only",
+            "// sessions with at least one terminal — always non-nil (snapshot.terminals: \"{} when none,",
+            "// always present\")."
+          ]
+        },
+        {
+          "key": "internal/server/shellactivity.go:6017a95ee805287c",
+          "path": "internal/server/shellactivity.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (p *shellActivityPoller) tick(ctx context.Context) {",
+            "line": 120
+          },
+          "lines": [
+            "// tick reads every terminal pane's tmux-reported state and reconciles it against the",
+            "// previous tick's lists, broadcasting one message per session whose list changed.",
+            "// hasShells gates the tmux exec entirely when this daemon instance has never spawned a",
+            "// terminal and none is listed."
+          ]
+        },
+        {
+          "key": "internal/server/shellactivity.go:ff8fbd9606ed77b9",
+          "path": "internal/server/shellactivity.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (p *shellActivityPoller) busy(pa tmux.PaneActivity, id int64) bool {",
+            "line": 152
+          },
+          "lines": [
+            "// busy reads one terminal pane's three gates (kb:adr/surfaces-shell-busy-from-tmux-process-state)."
+          ]
+        },
+        {
+          "key": "internal/server/shellactivity.go:5d599e9a732bc683",
+          "path": "internal/server/shellactivity.go",
+          "anchor": {
+            "kind": "above",
+            "text": "if pa.AlternateOn || pa.CurrentCommand == p.shellBase {",
+            "line": 153
+          },
+          "lines": [
+            "// Alternate-screen or the shell's own idle prompt is never busy, whatever its tty",
+            "// mode — cheaper to skip the ioctl for those panes."
+          ]
+        },
+        {
+          "key": "internal/server/shellactivity.go:bb63f54975c78077",
+          "path": "internal/server/shellactivity.go",
+          "anchor": {
+            "kind": "above",
+            "text": "p.log.Debug().Err(err).Str(\"tty\", pa.Tty).Int64(\"session_id\", id).Msg(\"shell activity poll: reading tty mode failed\")",
+            "line": 158
+          },
+          "lines": [
+            "// The tty can vanish between list-panes and the ioctl (the shell just exited) —",
+            "// never fatal, just read it idle this tick."
+          ]
+        },
+        {
+          "key": "internal/server/shellactivity.go:4150dd3f12277978",
+          "path": "internal/server/shellactivity.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (p *shellActivityPoller) reconcile(next map[int64][]terminalWire) {",
+            "line": 164
+          },
+          "lines": [
+            "// reconcile swaps in next and broadcasts the whole list of every session whose list",
+            "// differs from the previous tick's — a terminal added, renamed, flipping busy, or",
+            "// disappearing from panes entirely (exited, or reconcile-killed at daemon restart); a",
+            "// session whose last terminal is gone broadcasts []. Names of terminals no longer listed",
+            "// are forgotten."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:a33b6b200a75d976",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "const shellTmuxTimeout = 5 * time.Second",
+            "line": 17
+          },
+          "lines": [
+            "// shellTmuxTimeout bounds every tmux invocation the shell surface makes",
+            "// (kb:adr/actions-serialized-per-session): unlike a Claude pane's tmux calls (which run",
+            "// under the HTTP request's own context), Ensure/Kill run with context.WithoutCancel and",
+            "// would otherwise wait on a wedged tmux forever — hanging End/Remove, which call Kill,",
+            "// right along with it."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:29353080a7cec8cc",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type shellRegistry struct {",
+            "line": 19
+          },
+          "lines": [
+            "// shellRegistry is the plain-shell surface's daemon-lifetime record",
+            "// (kb:anchor/sessions.shell): a shell has no persistent representation anywhere — no SQLite row, no",
+            "// Session-object field, no write-only bookkeeping map either; PaneExists is the sole",
+            "// source of truth. A daemon restart forgets everything, which is safe because reconcile",
+            "// kills every \"muster-\u003cn\u003e-shell\" tmux session on the socket at startup",
+            "// (internal/session.Manager.Reconcile) rather than adopting one."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:289b6841c6b90541",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "locks keyedlock.Locks[int64]",
+            "line": 23
+          },
+          "lines": [
+            "// locks is this registry's own per-session-id lock (kb:adr/actions-serialized-per-session):",
+            "// its one job is making Ensure/Kill safe to call concurrently for the same id, verified",
+            "// directly against the registry by this package's own tests",
+            "// (TestShellRegistry_ConcurrentEnsureOnlySpawnsOnce) without relying on any caller",
+            "// holding a lock of their own — two different sessions' calls never block each other.",
+            "// session.Manager.LockSession (held by handleCreateShell, shells.go) is a second,",
+            "// different guarantee this lock cannot give: it holds off a concurrent Remove while the",
+            "// existence check and Ensure run, because it and this lock are different mutexes on",
+            "// different owners. The same keyedlock.Locks type session.Manager.LockSession uses,",
+            "// rather than each package hand-rolling the same map+mutex."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:3583e5cb6c598abf",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "mu sync.Mutex",
+            "line": 27
+          },
+          "lines": [
+            "// mu guards activeIDs only."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:295fe5b83c0fa35d",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "activeIDs map[int64]struct{}",
+            "line": 28
+          },
+          "lines": [
+            "// activeIDs is the set of session ids this daemon instance believes currently have",
+            "// a shell — Ensure adds, Kill removes. It is deliberately not decremented when a",
+            "// shell exits on its own (`exit`, or an external kill): the shell-activity poller's",
+            "// own tmux read is what notices that (its busy diff drops the session), so",
+            "// overcounting here costs a few extra idle polls, never a stuck indicator. Its only",
+            "// job is HasAny's gate, the poller's own optimisation for the common case of a",
+            "// session with no shell tab ever opened."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:d86a2e21dcaeea5d",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func newShellRegistry(tmuxClient paneSpawner, names *terminalNames, log zerolog.Logger) *shellRegistry {",
+            "line": 31
+          },
+          "lines": [
+            "// newShellRegistry builds a shellRegistry bound to tmuxClient."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:c9944857da09d4a8",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *shellRegistry) lockID(id int64) (unlock func()) {",
+            "line": 35
+          },
+          "lines": [
+            "// lockID acquires id's per-session lock (kb:adr/actions-serialized-per-session), creating",
+            "// it on first use, and returns the func that releases it."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:246d75d6dec3c1ba",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *shellRegistry) PaneExists(ctx context.Context, name string) (bool, error) {",
+            "line": 39
+          },
+          "lines": [
+            "// PaneExists reports whether name's tmux pane is currently live, bounded by",
+            "// shellTmuxTimeout like every other tmux call this registry makes."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:043ed3c9a943946e",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func interactiveShellArgv() []string {",
+            "line": 45
+          },
+          "lines": [
+            "// interactiveShellArgv returns the argv for the user's interactive shell: $SHELL if set",
+            "// in the daemon's own environment, else /bin/zsh, run with -i so it behaves like an",
+            "// interactive login terminal (aliases, prompt, etc.) rather than a bare script runner."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:c9c2f8adf04269c1",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *shellRegistry) running(ctx context.Context, id int64) ([]int, error) {",
+            "line": 53
+          },
+          "lines": [
+            "// running lists session id's running terminal numbers, ascending, from the socket's",
+            "// session names."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:5ec04397f4abb8d3",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func lowestFree(ns []int) int {",
+            "line": 70
+          },
+          "lines": [
+            "// lowestFree returns the smallest positive integer absent from ns (ascending)."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:8da041975165d49f",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *shellRegistry) EnsureAny(ctx context.Context, id int64, dir string) (target string, n int, created bool, err error) {",
+            "line": 93
+          },
+          "lines": [
+            "// EnsureAny makes sure session id has at least one running terminal in dir: the",
+            "// lowest-numbered running one when any runs, else a fresh terminal 1. created reports",
+            "// whether this call did the spawning."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:12484d0cdb5940df",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *shellRegistry) New(ctx context.Context, id int64, dir string) (target string, n int, err error) {",
+            "line": 112
+          },
+          "lines": [
+            "// New spawns a terminal at the lowest number not held by a running terminal of id."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:e1011b702c929ac6",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *shellRegistry) Close(ctx context.Context, id int64, n int) (bool, error) {",
+            "line": 128
+          },
+          "lines": [
+            "// Close ends terminal n of session id, reporting whether it was running."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:d7970c2fcf7152ff",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *shellRegistry) markActive(id int64) {",
+            "line": 146
+          },
+          "lines": [
+            "// markActive records id in activeIDs (HasAny's gate). Called only from inside Ensure's",
+            "// own per-id lock, but takes r.mu itself since activeIDs is read from other ids'",
+            "// goroutines too (HasAny, and Kill for a different id)."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:79592a753fd5d750",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *shellRegistry) HasAny() bool {",
+            "line": 155
+          },
+          "lines": [
+            "// HasAny reports whether this daemon instance currently believes any session has a",
+            "// shell — the shell-activity poller's gate to skip its own tmux exec entirely for the",
+            "// common case of no shell ever opened (kb:anchor/ws.shell-activity)."
+          ]
+        },
+        {
+          "key": "internal/server/shellregistry.go:434125d02cc7cb92",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *shellRegistry) Kill(ctx context.Context, id int64) {",
+            "line": 161
+          },
+          "lines": [
+            "// Kill kills every terminal of session id (Remove's path). A no-op, not an error",
+            "// surfaced to the caller, when none exists — Remove must succeed whether or not a",
+            "// terminal was ever started. The lock entry is reclaimed afterward: handleRemoveSession",
+            "// only calls Kill once session.Manager.Remove has already succeeded, and",
+            "// shellFeature's spawn handlers re-check the session's existence under that same",
+            "// session.Manager.LockSession(id) before ever spawning — so no spawn for this id can",
+            "// start after Remove has completed, and the lock entry can never be contended on again."
+          ]
+        },
+        {
+          "key": "internal/server/shells.go:ff22d85e0ee66f23",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type createShellResponse struct {",
+            "line": 37
+          },
+          "lines": [
+            "// createShellResponse is POST /api/sessions/{id}/shell's response body",
+            "// (kb:anchor/sessions.shell)."
+          ]
+        },
+        {
+          "key": "internal/server/shells.go:84cdd48ad706dfd2",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type newTerminalResponse struct {",
+            "line": 43
+          },
+          "lines": [
+            "// newTerminalResponse is POST /api/sessions/{id}/shells' response body."
+          ]
+        },
+        {
+          "key": "internal/server/shells.go:b92f61797aed7196",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type shellFeature struct {",
+            "line": 58
+          },
+          "lines": [
+            "// shellFeature owns the terminals surface: spawning (POST /api/sessions/{id}/shell and",
+            "// /shells), renaming and closing them, and attaching (GET /ws/shell/{id}/{n}). terminals",
+            "// is the shared takeover registry also used by terminalFeature (Claude surface) and",
+            "// actionsFeature (End/Remove's socket teardown). changed asks the terminal poller to",
+            "// re-read and broadcast the session's list now rather than at its next tick."
+          ]
+        },
+        {
+          "key": "internal/server/shells.go:50b8c80c4fdb9ae3",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func parseTerminalN(r *http.Request) (int, bool) {",
+            "line": 87
+          },
+          "lines": [
+            "// parseTerminalN reads the {n} path value, a positive integer."
+          ]
+        },
+        {
+          "key": "internal/server/shells.go:40b7d7036dbd26ab",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *shellFeature) handleCreateShell(w http.ResponseWriter, r *http.Request) {",
+            "line": 126
+          },
+          "lines": [
+            "// handleCreateShell is POST /api/sessions/{id}/shell (kb:anchor/sessions.shell): at least",
+            "// one terminal runs afterwards, spawned only when none did."
+          ]
+        },
+        {
+          "key": "internal/server/shells.go:199d69f3a0d056a3",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *shellFeature) handleNewTerminal(w http.ResponseWriter, r *http.Request) {",
+            "line": 137
+          },
+          "lines": [
+            "// handleNewTerminal is POST /api/sessions/{id}/shells: always a new terminal."
+          ]
+        },
+        {
+          "key": "internal/server/shells.go:b9dddf742bf25bc3",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *shellFeature) handleRenameTerminal(w http.ResponseWriter, r *http.Request) {",
+            "line": 149
+          },
+          "lines": [
+            "// handleRenameTerminal is PUT /api/sessions/{id}/shells/{n}/name."
+          ]
+        },
+        {
+          "key": "internal/server/shells.go:59dd12d94a2cfad7",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *shellFeature) handleCloseTerminal(w http.ResponseWriter, r *http.Request) {",
+            "line": 189
+          },
+          "lines": [
+            "// handleCloseTerminal is DELETE /api/sessions/{id}/shells/{n}: ends that terminal only."
+          ]
+        },
+        {
+          "key": "internal/server/shells.go:9112173b6f31afeb",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "key: terminalKey{sessionID: id, surface: surfaceShell, n: n},",
+            "line": 242
+          },
+          "lines": [
+            "// The Claude surface's key is untouched",
+            "// (kb:adr/surfaces-one-live-client-per-attach-target), and each terminal has its",
+            "// own, so opening one shell socket never supersedes the Claude socket or another",
+            "// terminal's."
+          ]
+        },
+        {
+          "key": "internal/server/state.go:86c3e8c54ef3f1cc",
+          "path": "internal/server/state.go",
+          "anchor": {
+            "kind": "above",
+            "text": "Terminals map[string][]terminalWire `json:\"terminals\"`",
+            "line": 19
+          },
+          "lines": [
+            "// Terminals (kb:anchor/ws.shell-activity): each session's running terminals keyed by",
+            "// decimal session id, always present as {} when none, so a reconnecting client",
+            "// re-syncs without waiting for a `terminals` message."
+          ]
+        },
+        {
+          "key": "internal/server/terminalnames.go:bb91256f5dae7eb4",
+          "path": "internal/server/terminalnames.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type terminalNames struct {",
+            "line": 15
+          },
+          "lines": [
+            "// terminalNames holds the developer's terminal names in daemon memory only",
+            "// (kb:adr/surfaces-terminals-numbered-attach-targets). Writers: the rename handler (set),",
+            "// the shell registry (forget on spawn, close and session kill) and the terminal poller",
+            "// (forget on a terminal observed gone). mu guards names."
+          ]
+        },
+        {
+          "key": "internal/tmux/tmux.go:ba23c33062a037af",
+          "path": "internal/tmux/tmux.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func TerminalSessionName(id int64, n int) string {",
+            "line": 242
+          },
+          "lines": [
+            "// TerminalSessionName returns the tmux session name of session id's terminal n (n ≥ 1):",
+            "// \"muster-\u003cid\u003e-shell\" for n = 1, \"muster-\u003cid\u003e-shell-\u003cn\u003e\" beyond."
+          ]
+        },
+        {
+          "key": "internal/tmux/tmux.go:668327431a180025",
+          "path": "internal/tmux/tmux.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func ShellSessionName(id int64) string {",
+            "line": 250
+          },
+          "lines": [
+            "// ShellSessionName is terminal 1's tmux session name for session id."
+          ]
+        },
+        {
+          "key": "internal/tmux/tmux.go:4cfb6261cfba7fbc",
+          "path": "internal/tmux/tmux.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func ParseTerminalName(name string) (id int64, n int, ok bool) {",
+            "line": 271
+          },
+          "lines": [
+            "// ParseTerminalName reports whether name is a terminal's tmux session name",
+            "// (\"muster-\u003cid\u003e-shell\" or \"muster-\u003cid\u003e-shell-\u003cn\u003e\", n ≥ 2) and, if so, its session id and",
+            "// terminal number. The inverse of TerminalSessionName."
+          ]
+        },
+        {
+          "key": "internal/tmux/tmux.go:d1d41a8a56d5f6f0",
+          "path": "internal/tmux/tmux.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func IsShellSessionName(name string) (id int64, ok bool) {",
+            "line": 297
+          },
+          "lines": [
+            "// IsShellSessionName reports whether name is any terminal's session name and, if so, the",
+            "// session id it belongs to. Reconcile uses this to kill every orphaned terminal on the",
+            "// socket unconditionally (kb:anchor/state.liveness) without duplicating the naming",
+            "// convention."
+          ]
+        },
+        {
+          "key": "web/src/api/sessions.ts:722de201be1dde0a",
+          "path": "web/src/api/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface NewTerminalResult {",
+            "line": 82
+          },
+          "lines": [
+            "/** The `201` body of `POST /api/sessions/{id}/shells`. */"
+          ]
+        },
+        {
+          "key": "web/src/api/sessions.ts:b7e8b4d257c303d3",
+          "path": "web/src/api/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export async function createTerminal(id: number): Promise\u003cApiResult\u003cNewTerminalResult\u003e\u003e {",
+            "line": 117
+          },
+          "lines": [
+            "/** `POST /api/sessions/{id}/shells` (kb:anchor/sessions.shell): always spawns a terminal at",
+            "* the lowest free number. Errors as `createShell`. */"
+          ]
+        },
+        {
+          "key": "web/src/api/sessions.ts:ba18f4e0a2318b58",
+          "path": "web/src/api/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export async function renameTerminal(",
+            "line": 121
+          },
+          "lines": [
+            "/** `PUT /api/sessions/{id}/shells/{n}/name`: an empty name restores `shell N`. The new name",
+            "* reaches every window through `terminals`; errors `400 name_too_long` / `404 no_shell`. */"
+          ]
+        },
+        {
+          "key": "web/src/api/sessions.ts:a414ec63698704a1",
+          "path": "web/src/api/sessions.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export async function closeTerminal(id: number, n: number): Promise\u003cApiResult\u003cnull\u003e\u003e {",
+            "line": 129
+          },
+          "lines": [
+            "/** `DELETE /api/sessions/{id}/shells/{n}`: `204`; errors `404 no_shell`. */"
+          ]
+        },
+        {
+          "key": "web/src/app.ts:708a8675c19f2069",
+          "path": "web/src/app.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "terminals: (sessionId: number, terminals: readonly TerminalInfo[]) =\u003e void;",
+            "line": 80
+          },
+          "lines": [
+            "// WS terminals (kb:anchor/ws.shell-activity): one session's whole terminal list —",
+            "// features/surfaces.ts is the only listener."
+          ]
+        },
+        {
+          "key": "web/src/features/focus.ts:b63815d7373e56aa",
+          "path": "web/src/features/focus.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "getTerminalsPanel(): {",
+            "line": 59
+          },
+          "lines": [
+            "/** The Terminals panel is constructed after `focus` (main.ts's init order), so this is a",
+            "* thunk like `getSurfaces` above — invoked only from a ▾ click. */"
+          ]
+        },
+        {
+          "key": "web/src/features/surfaces.ts:3723cbfd8c8d24cc",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "activityFor(id: number): ShellActivityIndicator;",
+            "line": 59
+          },
+          "lines": [
+            "/** The `shell` segment's busy/done verdict for `id`, per `terminal/shellactivity.ts`'s",
+            "* reducer, driven by whether any of the session's terminals is busy —",
+            "* `features/focus.ts` and `features/tiles.ts` read this on every render pass to drive",
+            "* `span.shellact`. */"
+          ]
+        },
+        {
+          "key": "web/src/features/surfaces.ts:2965ee5cdd696d12",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "terminalsViewFor(id: number): SurfaceTerminalsView;",
+            "line": 60
+          },
+          "lines": [
+            "/** The count and on-screen name the `shell` segment shows for `id`. */"
+          ]
+        },
+        {
+          "key": "web/src/features/surfaces.ts:c077f7de28afaf33",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "shownTerminal(id: number): number | null;",
+            "line": 62
+          },
+          "lines": [
+            "/** The terminal on screen, or `null` unless `shell` is selected. */"
+          ]
+        },
+        {
+          "key": "web/src/features/surfaces.ts:0b0f4a2e1fe88ab5",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "const surfaces = new Map\u003cstring, TerminalSurface\u003e();",
+            "line": 70
+          },
+          "lines": [
+            "// Keyed by `surfaceKey(id, kind, n)` — a session's Claude pane and each of its terminals are",
+            "// independent attach targets (kb:adr/surfaces-shell-is-attach-target-not-session), and only",
+            "// the currently-selected one ever has a live entry: switching disposes the hidden one."
+          ]
+        },
+        {
+          "key": "web/src/features/surfaces.ts:4579e9ca0d4aa5e7",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function applyTerminalList(id: number, list: readonly TerminalInfo[]): void {",
+            "line": 109
+          },
+          "lines": [
+            "/** One live `terminals` message: replaces the session's list, moves the shown terminal when",
+            "* it left, and feeds the activity reducer the any-busy transition (an emptied list clears it",
+            "* with no tick, `shellactivity.ts`'s `shellGone`). */"
+          ]
+        },
+        {
+          "key": "web/src/features/surfaces.ts:c90b4d0d38f80f1d",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function reportShellSpawnFailure(",
+            "line": 122
+          },
+          "lines": [
+            "/** A terminal-spawn POST failed: surface the message on whichever `claude` surface is live,",
+            "* or through the dead-surface notice when nothing is. */"
+          ]
+        },
+        {
+          "key": "web/src/features/surfaces.ts:b9c9af2df1166f68",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function showAndSelect(id: number, n: number): void {",
+            "line": 137
+          },
+          "lines": [
+            "/** Shows terminal `n` of `id`: records it, selects `shell`, clears a showing tick",
+            "* (kb:adr/surfaces-snapshot-restored-tick-always-self-clears) and re-renders. */"
+          ]
+        },
+        {
+          "key": "web/src/features/surfaces.ts:725166244e984acd",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "for (const [key, surface] of surfaces) {",
+            "line": 258
+          },
+          "lines": [
+            "// Remove kills every terminal tmux session server-side",
+            "// (kb:adr/actions-remove-allowed-on-live-session); the client mirrors that by dropping",
+            "// every surface keyed to the session."
+          ]
+        },
+        {
+          "key": "web/src/features/surfaces.ts:04bb78de3ee1c008",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "app.on(\"terminals\", (sessionId, terminals) =\u003e {",
+            "line": 269
+          },
+          "lines": [
+            "// A live `terminals` message — docs/protocol.md's `/ws` broadcast, independent of whichever",
+            "// terminal socket (if any) is currently attached. A session this window does not know is",
+            "// ignored."
+          ]
+        },
+        {
+          "key": "web/src/features/surfaces.ts:b1785c0694721cf2",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function adoptSnapshotTerminals(snapshot: Snapshot): void {",
+            "line": 274
+          },
+          "lines": [
+            "/** Replaces every list with the snapshot's and lets each known session's shown terminal",
+            "* fall back as for a live message. */"
+          ]
+        },
+        {
+          "key": "web/src/features/surfaces.ts:a86d78ea0aba3e79",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "app.on(\"snapshot\", (snapshot) =\u003e {",
+            "line": 316
+          },
+          "lines": [
+            "/** After the daemon connection is restored, every currently-mounted surface gets a",
+            "* chance to reattach — a no-op unless it's showing the \"disconnected\" overlay for a",
+            "* still-attachable target. A shell surface's \"attachable\" is a terminal being shown,",
+            "* never `session.alive`.",
+            "*",
+            "* Also re-syncs from `snapshot.terminals`: every list is replaced whole, a shown terminal",
+            "* that left falls back as for a live message, every session whose list has a busy terminal",
+            "* is busy right now, immediately, no onset delay; every id this module still shows \"busy\"",
+            "* for but the snapshot omits gets `restoreIdle`'s treatment, never `observeIdle`'s (that",
+            "* one is for a *live* message only) — see `restoreIdle`'s own doc comment",
+            "* for why a snapshot gap always schedules the self-clear regardless of the current",
+            "* surface selection, which is what lets this same branch satisfy both a WS-blip",
+            "* reconnect and a daemon restart mid-command",
+            "* (kb:adr/surfaces-snapshot-restored-tick-always-self-clears). */"
+          ]
+        },
+        {
+          "key": "web/src/features/terminalspanel.ts:7a0eb762849602e3",
+          "path": "web/src/features/terminalspanel.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { App } from \"../app\";",
+            "line": 1
+          },
+          "lines": [
+            "// The Terminals panel's controller: opens it from a ▾ opener (Focus mainhead or a tile footer),",
+            "// keeps it in step with the daemon's terminal list on every render pass, closes it when the",
+            "// daemon goes away, and routes its row actions — switch, rename, close (confirmed when the",
+            "// terminal is busy), New terminal — to `features/surfaces.ts`, which owns the terminal",
+            "// lists and the shown terminal. One panel per window, so one popover."
+          ]
+        },
+        {
+          "key": "web/src/features/terminalspanel.ts:68a5b63ffd824992",
+          "path": "web/src/features/terminalspanel.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "shownTerminal(id: number): number | null;",
+            "line": 12
+          },
+          "lines": [
+            "/** The terminal on screen, or `null` when `shell` is not selected. */"
+          ]
+        },
+        {
+          "key": "web/src/features/tiles.ts:af92ddeb5714f1e2",
+          "path": "web/src/features/tiles.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "getTerminalsPanel(): {",
+            "line": 66
+          },
+          "lines": [
+            "/** The Terminals panel is constructed after `tiles` (main.ts's init order), so this is a",
+            "* thunk like `getSurfaces` above — invoked only from a ▾ click. */"
+          ]
+        },
+        {
+          "key": "web/src/protocol/terminals.ts:077feedbc05e7cf3",
+          "path": "web/src/protocol/terminals.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import { asInteger, isBoolean, isRecord, isString, parseListOf } from \"./decode\";",
+            "line": 1
+          },
+          "lines": [
+            "// Wire types and parsers for a session's terminals: the `terminals` broadcast and",
+            "// `snapshot.terminals` (docs/protocol.md, kb:anchor/ws.shell-activity)."
+          ]
+        },
+        {
+          "key": "web/src/render/confirm.ts:39e9f43ca99da819",
+          "path": "web/src/render/confirm.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "function wireDialog\u003cT\u003e(",
+            "line": 54
+          },
+          "lines": [
+            "/** Wires one dialog's buttons once and returns its `open`. The target lives in this closure, so",
+            "* a confirm acts on exactly what the dialog was last opened for. */"
+          ]
+        },
+        {
+          "key": "web/src/render/confirm.ts:8850a1c3e1e095b4",
+          "path": "web/src/render/confirm.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function initCloseTerminalDialog(",
+            "line": 137
+          },
+          "lines": [
+            "/** The close-terminal confirm (kb:adr/surfaces-shell-is-attach-target-not-session): the same",
+            "* `\u003cdialog\u003e` pattern as Stop/Remove, holding the `(session, terminal)` it was opened for. */"
+          ]
+        },
+        {
+          "key": "web/src/render/popover.ts:f01690c2ef5eb06e",
+          "path": "web/src/render/popover.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import { placeAnchored, placeAtPoint } from \"./anchored\";",
+            "line": 1
+          },
+          "lines": [
+            "// The popover part shared by the menu builder (`menu.ts`) and the Terminals panel",
+            "// (`terminalspanel.ts`): a caller-built panel appended to `document.body`, anchored below its",
+            "// opener (or at a point), closed by an outside pointerdown, Escape, a viewport change or the",
+            "// caller, with focus returned to the opener when asked, and `aria-expanded` kept on the",
+            "// opener. What goes inside the panel — and which extra keys it handles — is the caller's.",
+            "// One `createPopover()` per controller; its state is this instance's alone."
+          ]
+        },
+        {
+          "key": "web/src/render/popover.ts:9ce9bc042ed972a7",
+          "path": "web/src/render/popover.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "haspopup: \"menu\" | \"dialog\";",
+            "line": 6
+          },
+          "lines": [
+            "/** The opener's `aria-haspopup` value. */"
+          ]
+        },
+        {
+          "key": "web/src/render/popover.ts:7a8d1f2593d12159",
+          "path": "web/src/render/popover.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "closeOnTab: boolean;",
+            "line": 7
+          },
+          "lines": [
+            "/** Whether Tab closes the popover (a menu) or moves on inside it (a panel of controls). */"
+          ]
+        },
+        {
+          "key": "web/src/render/popover.ts:89266454cde0c7ab",
+          "path": "web/src/render/popover.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "onViewportChange: \"close\" | \"reposition\";",
+            "line": 8
+          },
+          "lines": [
+            "/** What a resize or a scroll elsewhere does: a menu closes, a panel that live-updates stays",
+            "* and is placed again. */"
+          ]
+        },
+        {
+          "key": "web/src/render/popover.ts:c7760d10209b4fa1",
+          "path": "web/src/render/popover.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "onKeydown?: (event: KeyboardEvent) =\u003e void;",
+            "line": 9
+          },
+          "lines": [
+            "/** Keys other than Escape (and Tab, when `closeOnTab`). */"
+          ]
+        },
+        {
+          "key": "web/src/render/popover.ts:424e9907f837a2d4",
+          "path": "web/src/render/popover.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "initialFocus: () =\u003e HTMLElement | null;",
+            "line": 10
+          },
+          "lines": [
+            "/** The control that takes focus on open; the panel itself when `null`. */"
+          ]
+        },
+        {
+          "key": "web/src/render/popover.ts:e72f4c40bb28fded",
+          "path": "web/src/render/popover.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "onClose?: () =\u003e void;",
+            "line": 11
+          },
+          "lines": [
+            "/** Runs once whenever the popover closes, for any reason. */"
+          ]
+        },
+        {
+          "key": "web/src/render/popover.ts:77beb7030df385f3",
+          "path": "web/src/render/popover.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "open(opener: HTMLElement, panel: HTMLElement, options: PopoverOptions): void;",
+            "line": 15
+          },
+          "lines": [
+            "/** Opens `panel` under `opener`, or closes the popover if `opener` already has it open. */"
+          ]
+        },
+        {
+          "key": "web/src/render/popover.ts:8b2fc2d6735a61c4",
+          "path": "web/src/render/popover.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "close(restoreFocus?: boolean): void;",
+            "line": 16
+          },
+          "lines": [
+            "/** `restoreFocus` returns focus to the opener (Escape, a choice); an outside click or a",
+            "* status change leaves focus where the user put it. */"
+          ]
+        },
+        {
+          "key": "web/src/render/surfaceseg.ts:e8f227b53e28ceab",
+          "path": "web/src/render/surfaceseg.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "terminalsBtn: HTMLButtonElement;",
+            "line": 13
+          },
+          "lines": [
+            "/** The narrow ▾ opener of the Terminals panel: `aria-label=\"Terminals\"`, its glyph",
+            "* `aria-hidden`; `render/popover.ts` writes its `aria-expanded`. */"
+          ]
+        },
+        {
+          "key": "web/src/render/surfaceseg.ts:291aad9c6070006d",
+          "path": "web/src/render/surfaceseg.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "countEl: HTMLElement;",
+            "line": 14
+          },
+          "lines": [
+            "/** `span.shellcount` inside `shellBtn`, `aria-hidden` so the button's name stays `shell`;",
+            "* detached (not hidden) while fewer than two terminals run. */"
+          ]
+        },
+        {
+          "key": "web/src/render/surfaceseg.ts:744c46e1898f9f69",
+          "path": "web/src/render/surfaceseg.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export interface SurfaceTerminalsView {",
+            "line": 87
+          },
+          "lines": [
+            "/** What the `shell` segment shows of a session's terminals: how many run and, while `shell`",
+            "* is selected, the name of the one on screen. */"
+          ]
+        },
+        {
+          "key": "web/src/render/terminalspanel.ts:84d85d6994614c59",
+          "path": "web/src/render/terminalspanel.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import { setText } from \"../dom\";",
+            "line": 1
+          },
+          "lines": [
+            "// The Terminals panel's DOM: a non-modal `role=\"dialog\"` listing a session's running terminals",
+            "// (name, running/idle, ✎ rename, × close) over a **+ New terminal** button. Built once when ▾",
+            "// opens it and then only `update`d in place — rows are reused by terminal number, a row",
+            "// being renamed keeps its field, and a row's nodes are written only when their text or",
+            "// attributes change, so a command flipping busy/idle never steals focus or the caret",
+            "// (kb:lesson/select-rebuilt-every-tick-passed-selectoption). Opening, closing, anchoring and",
+            "// focus return are `popover.ts`; what choosing a row does is the caller's handlers."
+          ]
+        },
+        {
+          "key": "web/src/render/terminalspanel.ts:da589eb461ca24ac",
+          "path": "web/src/render/terminalspanel.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "shown: number | null;",
+            "line": 8
+          },
+          "lines": [
+            "/** The terminal on screen, or `null` when none is. */"
+          ]
+        },
+        {
+          "key": "web/src/render/terminalspanel.ts:68dee5bbb10979c7",
+          "path": "web/src/render/terminalspanel.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "initialFocus: () =\u003e HTMLElement | null;",
+            "line": 21
+          },
+          "lines": [
+            "/** The control that should take focus on open. */"
+          ]
+        },
+        {
+          "key": "web/src/terminal/surfaceswitch.ts:4397da404180efba",
+          "path": "web/src/terminal/surfaceswitch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "shell: number | null;",
+            "line": 9
+          },
+          "lines": [
+            "/** The terminal shown, or last shown, in this window; `null` while the session runs none.",
+            "* Always a number in the session's daemon-reported list (`terminalsChanged` keeps it so). */"
+          ]
+        },
+        {
+          "key": "web/src/terminal/surfaceswitch.ts:b2bdd11f88eb1225",
+          "path": "web/src/terminal/surfaceswitch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export const DEFAULT_SURFACE_STATE: SessionSurfaceState = {",
+            "line": 14
+          },
+          "lines": [
+            "/** The value every session starts at: `claude` selected, no terminal known. */"
+          ]
+        },
+        {
+          "key": "web/src/terminal/surfaceswitch.ts:3db52b4ff9f717fb",
+          "path": "web/src/terminal/surfaceswitch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function selectSurface(",
+            "line": 23
+          },
+          "lines": [
+            "/** Switches which surface is selected for `id`. Never changes `shell`. Identity (same map)",
+            "* when `kind` is already selected, so a caller can call this unconditionally. */"
+          ]
+        },
+        {
+          "key": "web/src/terminal/surfaceswitch.ts:40998bd4c027c052",
+          "path": "web/src/terminal/surfaceswitch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function showTerminal(state: SurfaceSwitchState, id: number, n: number): SurfaceSwitchState {",
+            "line": 35
+          },
+          "lines": [
+            "/** Records terminal `n` as the one `shell` shows for `id` — a successful spawn or a chosen",
+            "* row. Identity when already `n`. */"
+          ]
+        },
+        {
+          "key": "web/src/terminal/surfaceswitch.ts:30ba77864f767cc3",
+          "path": "web/src/terminal/surfaceswitch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function terminalsChanged(",
+            "line": 43
+          },
+          "lines": [
+            "/** The daemon's terminal list for `id` changed. A shown terminal still in the list stays; one",
+            "* that left is replaced by the lowest-numbered running terminal, or — with none left — `shell`",
+            "* clears and a `shell` selection reverts to `claude` in the same step. A `docs` selection is",
+            "* never touched. Identity when nothing changes. */"
+          ]
+        },
+        {
+          "key": "web/src/terminal/surfaceswitch.ts:2e2f5386f9abfb32",
+          "path": "web/src/terminal/surfaceswitch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function isSurfaceAttachable(",
+            "line": 70
+          },
+          "lines": [
+            "/** Whether the currently-selected surface for `id` should have a live `TerminalSurface`",
+            "* mounted: `claude` follows the session's own `alive`; `shell` follows a terminal being",
+            "* shown (never `alive`, in either direction); `docs` is never attachable — the reader replaces",
+            "* the pane (kb:adr/reader-docs-is-third-surface-segment). */"
+          ]
+        },
+        {
+          "key": "web/src/terminal/surfaceswitch.ts:471f18144b6878f3",
+          "path": "web/src/terminal/surfaceswitch.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function surfaceKey(id: number, kind: SurfaceKind, n?: number | null): string {",
+            "line": 96
+          },
+          "lines": [
+            "/** The composite key features/surfaces.ts's surface manager keys its `TerminalSurface` map by:",
+            "* a session's Claude pane and each of its terminals are independent attach targets",
+            "* (kb:adr/surfaces-one-live-client-per-attach-target), so a plain session id is not a unique",
+            "* key. `n` is the terminal number and only means something for `shell`. */"
+          ]
+        },
+        {
+          "key": "web/src/terminal/terminals.ts:4084a406d32cfd5c",
+          "path": "web/src/terminal/terminals.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "import type { TerminalInfo, TerminalsBySession } from \"../protocol/terminals\";",
+            "line": 1
+          },
+          "lines": [
+            "// The per-session terminal lists the daemon reports (`terminals` broadcast,",
+            "// `snapshot.terminals`) as a small pure immutable Map, held by features/surfaces.ts. The",
+            "// daemon's whole-list shape is the truth: every function here replaces a session's list",
+            "// whole, never patches it (kb:adr/surfaces-shell-is-attach-target-not-session)."
+          ]
+        },
+        {
+          "key": "web/src/terminal/terminals.ts:bca2da6551ced5c5",
+          "path": "web/src/terminal/terminals.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function setTerminals(",
+            "line": 24
+          },
+          "lines": [
+            "/** Replaces `id`'s list with `list`; an empty list drops the entry. Identity when nothing",
+            "* changed. */"
+          ]
+        },
+        {
+          "key": "web/src/terminal/terminals.ts:992b04a877a179b8",
+          "path": "web/src/terminal/terminals.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "export function terminalsFromSnapshot(bySession: TerminalsBySession): TerminalsState {",
+            "line": 40
+          },
+          "lines": [
+            "/** The reconnect snapshot replaces every session's list at once. */"
+          ]
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "at": "2026-11-20T00:53:02Z",
+      "by": "judge",
+      "counts": {
+        "candidates": 19,
+        "keep": 18,
+        "drop": 1
+      },
+      "keeps": [
+        {
+          "key": "internal/server/renderfix_tmux.go:3b817455031e3ae9",
+          "path": "internal/server/renderfix_tmux.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type renderTmux struct {",
+            "line": 10
+          },
+          "lines": [
+            "// renderTmux is the paneSpawner for a run with no tmux at all."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "internal/server/shellregistry.go:9eff41eaf860e8e8",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "const shellTmuxTimeout = 5 * time.Second",
+            "line": 17
+          },
+          "lines": [
+            "// shellTmuxTimeout bounds every tmux invocation the shell surface makes",
+            "// (kb:adr/actions-serialized-per-session): unlike a Claude pane's tmux calls (which run",
+            "// under the HTTP request's own context), EnsureAny/New/Close/Kill run with context.WithoutCancel and",
+            "// would otherwise wait on a wedged tmux forever — hanging End/Remove, which call Kill,",
+            "// right along with it."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "internal/server/shellregistry.go:934a523a603a2420",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type shellRegistry struct {",
+            "line": 19
+          },
+          "lines": [
+            "// shellRegistry is the terminal surface's daemon-lifetime record",
+            "// (kb:anchor/sessions.shell): a session's terminals (one or several) have no persistent",
+            "// representation anywhere — no SQLite row, no Session-object field, no write-only",
+            "// bookkeeping map either; tmux (ListSessions/PaneExists) is the sole source of truth. A",
+            "// daemon restart forgets everything, which is safe because reconcile kills every terminal",
+            "// tmux session on the socket at startup (internal/session.Manager.Reconcile) rather than",
+            "// adopting one."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "internal/server/shellregistry.go:d54157c653177bcb",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "locks keyedlock.Locks[int64]",
+            "line": 23
+          },
+          "lines": [
+            "// locks is this registry's own per-session-id lock (kb:adr/actions-serialized-per-session):",
+            "// its one job is making EnsureAny/New/Close/Kill safe to call concurrently for the same id, verified",
+            "// directly against the registry by this package's own tests",
+            "// (TestShellRegistry_ConcurrentEnsureOnlySpawnsOnce) without relying on any caller",
+            "// holding a lock of their own — two different sessions' calls never block each other.",
+            "// session.Manager.LockSession (held by spawnInSession, shells.go) is a second,",
+            "// different guarantee this lock cannot give: it holds off a concurrent Remove while the",
+            "// existence check and the spawn run, because it and this lock are different mutexes on",
+            "// different owners. The same keyedlock.Locks type session.Manager.LockSession uses,",
+            "// rather than each package hand-rolling the same map+mutex."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "internal/server/shellregistry.go:3583e5cb6c598abf",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "mu sync.Mutex",
+            "line": 27
+          },
+          "lines": [
+            "// mu guards activeIDs only."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "internal/server/shellregistry.go:7541d1c7445a2c3b",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "activeIDs map[int64]struct{}",
+            "line": 28
+          },
+          "lines": [
+            "// activeIDs is the set of session ids this daemon instance believes currently have",
+            "// a terminal — spawn and EnsureAny add, Kill removes. It is deliberately not decremented",
+            "// when a terminal exits on its own (`exit`, or an external kill): the terminal-list",
+            "// poller's own tmux read is what notices that (its list diff drops the terminal), so",
+            "// overcounting here costs a few extra idle polls, never a stale list. Its only job is",
+            "// HasAny's gate, the poller's own optimisation for the common case of a session with",
+            "// no terminal ever opened."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "internal/server/shellregistry.go:d86a2e21dcaeea5d",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func newShellRegistry(tmuxClient paneSpawner, names *terminalNames, log zerolog.Logger) *shellRegistry {",
+            "line": 31
+          },
+          "lines": [
+            "// newShellRegistry builds a shellRegistry bound to tmuxClient."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "internal/server/shellregistry.go:c9944857da09d4a8",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *shellRegistry) lockID(id int64) (unlock func()) {",
+            "line": 35
+          },
+          "lines": [
+            "// lockID acquires id's per-session lock (kb:adr/actions-serialized-per-session), creating",
+            "// it on first use, and returns the func that releases it."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "internal/server/shellregistry.go:246d75d6dec3c1ba",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *shellRegistry) PaneExists(ctx context.Context, name string) (bool, error) {",
+            "line": 39
+          },
+          "lines": [
+            "// PaneExists reports whether name's tmux pane is currently live, bounded by",
+            "// shellTmuxTimeout like every other tmux call this registry makes."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "internal/server/shellregistry.go:043ed3c9a943946e",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func interactiveShellArgv() []string {",
+            "line": 45
+          },
+          "lines": [
+            "// interactiveShellArgv returns the argv for the user's interactive shell: $SHELL if set",
+            "// in the daemon's own environment, else /bin/zsh, run with -i so it behaves like an",
+            "// interactive login terminal (aliases, prompt, etc.) rather than a bare script runner."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "internal/server/shellregistry.go:90923bef58e56f87",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *shellRegistry) markActive(id int64) {",
+            "line": 150
+          },
+          "lines": [
+            "// markActive records id in activeIDs (HasAny's gate). Called only from inside the",
+            "// registry's per-id lock, but takes r.mu itself since activeIDs is read from other ids'",
+            "// goroutines too (HasAny, and Kill for a different id)."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "internal/server/shellregistry.go:bbade3f4acf4581c",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *shellRegistry) HasAny() bool {",
+            "line": 159
+          },
+          "lines": [
+            "// HasAny reports whether this daemon instance currently believes any session has a",
+            "// terminal — the terminal-list poller's gate to skip its own tmux exec entirely for the",
+            "// common case of no terminal ever opened (kb:anchor/ws.shell-activity)."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "internal/server/shellregistry.go:434125d02cc7cb92",
+          "path": "internal/server/shellregistry.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (r *shellRegistry) Kill(ctx context.Context, id int64) {",
+            "line": 165
+          },
+          "lines": [
+            "// Kill kills every terminal of session id (Remove's path). A no-op, not an error",
+            "// surfaced to the caller, when none exists — Remove must succeed whether or not a",
+            "// terminal was ever started. The lock entry is reclaimed afterward: handleRemoveSession",
+            "// only calls Kill once session.Manager.Remove has already succeeded, and",
+            "// shellFeature's spawn handlers re-check the session's existence under that same",
+            "// session.Manager.LockSession(id) before ever spawning — so no spawn for this id can",
+            "// start after Remove has completed, and the lock entry can never be contended on again."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "internal/server/shells.go:ff22d85e0ee66f23",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type createShellResponse struct {",
+            "line": 37
+          },
+          "lines": [
+            "// createShellResponse is POST /api/sessions/{id}/shell's response body",
+            "// (kb:anchor/sessions.shell)."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "internal/server/shells.go:29d2b3a0644c194a",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func (f *shellFeature) spawnInSession(w http.ResponseWriter, r *http.Request, spawn func(ctx context.Context, id int64, dir string) error) bool {",
+            "line": 99
+          },
+          "lines": [
+            "// spawnInSession is the guard both spawn handlers share. Deliberately not gated on alive",
+            "// (kb:adr/surfaces-shell-is-attach-target-not-session) — a terminal may be started on a",
+            "// dead session and never consults the manager's liveness field.",
+            "//",
+            "// The whole existence-check-then-spawn runs under id's session.Manager lock:",
+            "// session.Manager.Remove holds that same lock for its entire removal, so this check can",
+            "// never observe a session that a concurrent Remove is in the middle of dropping, and any",
+            "// Remove that starts after this check passes must wait for the spawn to finish first —",
+            "// either way, a terminal can never be spawned for an id whose Remove has started or already",
+            "// succeeded. spawn runs with the lock held and the session's directory. It reports whether",
+            "// spawn succeeded; on false the error response is already written."
+          ],
+          "reason": "Without it a reader would drop the session.Manager lock as redundant with the registry's own per-id lock; that lets a concurrent Remove race the existence check and spawn at `unlock := f.manager.LockSession(id)`."
+        },
+        {
+          "key": "internal/server/terminal.go:1270107d66400237",
+          "path": "internal/server/terminal.go",
+          "anchor": {
+            "kind": "above",
+            "text": "type terminalPump struct {",
+            "line": 340
+          },
+          "lines": [
+            "// terminalPump is one surface's half of attachAndPump: the tmux target to attach, its",
+            "// registry slot, what a clean PTY EOF nudges (the Claude surface: the session's liveness poll;",
+            "// the shell surface: the terminal-list poll, never its session's liveness, because a terminal's",
+            "// death is not its session's death, kb:anchor/terminal.shell-ws), and how that surface reads",
+            "// client frames off the socket."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "internal/server/terminal.go:e180854b2b78d9f5",
+          "path": "internal/server/terminal.go",
+          "anchor": {
+            "kind": "above",
+            "text": "func pumpPTYToSocket(ctx context.Context, log zerolog.Logger, c *websocket.Conn, bridge paneConn, sessionID int64, nudgeOnEOF bool, nudge func(context.Context, int64)) {",
+            "line": 421
+          },
+          "lines": [
+            "// pumpPTYToSocket streams raw PTY output to the client verbatim (kb:anchor/terminal.ws / kb:anchor/terminal.shell-ws) until",
+            "// EOF or the socket dies. A clean EOF (tmux pane gone) always closes with 4001; it calls",
+            "// nudge only when nudgeOnEOF is true. The Claude surface nudges the session's liveness poll",
+            "// (kb:adr/lifecycle-liveness-from-pane-existence); the shell surface (kb:anchor/terminal.shell-ws)",
+            "// nudges the terminal-list poll instead, never its session's liveness (a terminal's death is",
+            "// not its session's death)."
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        },
+        {
+          "key": "web/src/features/surfaces.ts:a86d78ea0aba3e79",
+          "path": "web/src/features/surfaces.ts",
+          "anchor": {
+            "kind": "above",
+            "text": "app.on(\"snapshot\", (snapshot) =\u003e {",
+            "line": 346
+          },
+          "lines": [
+            "/** After the daemon connection is restored, every currently-mounted surface gets a",
+            "* chance to reattach — a no-op unless it's showing the \"disconnected\" overlay for a",
+            "* still-attachable target. A shell surface's \"attachable\" is a terminal being shown,",
+            "* never `session.alive`.",
+            "*",
+            "* Also re-syncs from `snapshot.terminals`: every list is replaced whole, a shown terminal",
+            "* that left falls back as for a live message, every session whose list has a busy terminal",
+            "* is busy right now, immediately, no onset delay; every id this module still shows \"busy\"",
+            "* for but the snapshot omits gets `restoreIdle`'s treatment, never `observeIdle`'s (that",
+            "* one is for a *live* message only) — see `restoreIdle`'s own doc comment",
+            "* for why a snapshot gap always schedules the self-clear regardless of the current",
+            "* surface selection, which is what lets this same branch satisfy both a WS-blip",
+            "* reconnect and a daemon restart mid-command",
+            "* (kb:adr/surfaces-snapshot-restored-tick-always-self-clears). */"
+          ],
+          "reason": "The doc block exists on main (25 lines, 3 edited); dropping it would lose the restoreIdle rationale main documents (kb:lesson/comment-pass-reads-rewritten-main-comment-as-added). Its stale symbol name is a review matter."
+        }
+      ],
+      "drops": [
+        {
+          "key": "internal/server/shells.go:7e1143ebd2d5e4c3",
+          "path": "internal/server/shells.go",
+          "anchor": {
+            "kind": "above",
+            "text": "nudge: func(ctx context.Context, _ int64) { f.changed(ctx) },",
+            "line": 252
+          },
+          "lines": [
+            "// A shell's death is not its session's death (kb:anchor/terminal.shell-ws): the nudge wakes",
+            "// the terminal-list poll, never the session's liveness poll, so a live session takes no",
+            "// liveness flap because a terminal under it exited."
+          ]
+        }
+      ]
+    }
+  ]
+}

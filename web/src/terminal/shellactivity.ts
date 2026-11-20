@@ -1,4 +1,4 @@
-// The pure per-session reducer over `shellActivity`/`snapshot.shellsBusy` messages and
+// The pure per-session reducer over `terminals` messages and `snapshot.terminals` and
 // surface selections that drives the `shell` segment's busy/done indicator
 // (kb:adr/surfaces-shell-busy-from-tmux-process-state; supersedes the pip,
 // kb:adr/theme-shell-pip-retired-for-activity-indicator). No DOM, no socket, no real
@@ -6,11 +6,11 @@
 // `epoch` field is what makes a stale one harmless (see `ScheduledTimer` below) rather
 // than something the caller must remember to `clearTimeout`.
 //
-// Two "make busy" entry points exist (`observeBusy` — a live `shellActivity{busy:true}`,
-// and `restoreBusy` — `snapshot.shellsBusy`) because they carry different timing
+// Two "make busy" entry points exist (`observeBusy` — a live any-terminal-busy transition,
+// and `restoreBusy` — `snapshot.terminals`) because they carry different timing
 // guarantees: `observeBusy` starting from idle applies a short onset delay (a
 // fresh transition might be a command too short to bother showing); `restoreBusy` never
-// does, because by the time a reconnecting dashboard reads `shellsBusy` the work has
+// does, because by the time a reconnecting dashboard reads `snapshot.terminals` the work has
 // already been running for an unknown, possibly long, time — the same reasoning applies
 // to a "done" segment where a new command starts before the tick clears: that transition
 // is immediate too (`observeBusy` only delays a transition out of "none").
@@ -59,7 +59,7 @@ function withEntry(state: ShellActivityState, id: number, entry: SessionEntry): 
 }
 
 /**
- * A live `shellActivity{busy:true}` for `id`. From "none": starts (or restarts, if one
+ * A live an any-terminal-busy transition to true for `id`. From "none": starts (or restarts, if one
  * was already pending) the onset delay — the indicator itself stays "none" until
  * `resolveOnset` confirms it. From "done": promotes to "busy" immediately and cancels any
  * pending self-clear timer via the epoch bump. Already "busy": identity.
@@ -78,7 +78,7 @@ export function observeBusy(state: ShellActivityState, id: number): ActivityResu
 }
 
 /**
- * `snapshot.shellsBusy` reports `id` as busy right now. Always immediate, whatever
+ * `snapshot.terminals` reports `id` as busy right now. Always immediate, whatever
  * the current indicator — a reconnecting dashboard has no way to know how long the work
  * has already been running, so the onset delay does not apply here.
  */
@@ -105,7 +105,7 @@ export function resolveOnset(
 }
 
 /**
- * A live `shellActivity{busy:false}` for `id`. `shellSelected` is whether this session's
+ * A live an any-terminal-busy transition to false for `id`. `shellSelected` is whether this session's
  * `shell` surface is the currently selected one on THIS window (features/surfaces.ts
  * reads its own `surfaceSwitchState`): selected schedules the ~3s self-clear (User
  * Flow 5); not selected leaves "done" showing indefinitely — User Flow 3's "the spinner
@@ -159,18 +159,18 @@ export function observeIdle(
 }
 
 /**
- * `id` was "busy" and is missing from a reconnecting dashboard's `snapshot.shellsBusy`
+ * `id` was "busy" and is missing from a reconnecting dashboard's `snapshot.terminals`
  * (kb:adr/surfaces-snapshot-restored-tick-always-self-clears), where the daemon's own
  * poller cannot tell "the command finished while we were offline" (the shell still
  * exists — the ordinary tick behavior should apply) apart from "reconcile killed the
  * shell at daemon restart" (the shell is
  * gone outright, `shellGone` is never called for it because no PTY socket was attached
- * to deliver that signal): `shellActivityPoller.reconcile` (`internal/server/shellactivity.go`)
+ * to deliver that signal): `terminalsPoller.reconcile` (`internal/server/shellactivity.go`)
  * documents both as "no longer in newBusy", the identical wire shape. Unlike `observeIdle`,
  * this **always** schedules the ~3s self-clear, whatever `shellSelected` is — a bounded
  * grace period is the honest default when the transition's actual cause is unknowable, and
  * it resolves both readings to the same place: still-running work is not what a snapshot
- * gap ever means (that's what the live `shellActivity` broadcast is for), so nothing here
+ * gap ever means (that's what the live `terminals` broadcast is for), so nothing here
  * is mistaken for "still working". `clearOnSelect` can still fire first if the user gets
  * there before the timer does.
  *

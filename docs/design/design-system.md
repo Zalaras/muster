@@ -277,7 +277,7 @@ character cap (kb:adr/focus-header-readout-sized-by-text), the `↳` block while
 — drawn only when the whole header, right cluster included, fits on one row, otherwise removed
 whole — then the model, which never truncates at any width. On a dead session the ended age sits
 under the model, without a `·`, in a slot the header reserves whether or not it shows. The
-right-aligned cluster holds the `claude | shell | docs` surface switch, then one `⋯` icon button
+right-aligned cluster holds the `claude | shell | ▾ | docs` surface switch, then one `⋯` icon button
 named "Session actions" that opens the focused card's menu; the header has no Stop, Resume or
 Remove button, so a longer title or readout never moves the cluster
 (kb:adr/focus-header-holds-switch-and-session-menu).
@@ -360,6 +360,19 @@ header row, a right-aligned mono chord hint. A button opener carries `aria-haspo
 close it and return focus to the opener or card; arrow keys move focus. One builder serves the
 rail `⋯`, the header `⋯`, Move to, the mainhead group control and the card menu
 (kb:adr/rail-card-right-click-menu-holds-session-actions).
+
+**Terminals panel** (`render/terminalspanel.ts`, plan `better-terminal`;
+kb:adr/web-menu-popover-shared-by-terminals-panel) — opened by the surface switch's narrow ▾,
+the second user of the menu builder's popover part: anchored below the opener (above it when
+there is no room), the Menu tokens, the same outside-pointerdown, Esc and choice closing with
+focus back on ▾. A `role="dialog"` named `Terminals`, not a menu, because its rows hold their own
+buttons and a text field: an uppercase mono `--fs-2xs` header, one row per running terminal —
+the name (sans `--fs-sm`, ellipsized), `running` with the shell spinner or `idle` (mono
+`--fg-muted`), ✎ (shown on row hover or focus-within) and × — the row on screen on `--bg-hover`,
+then a separator and **+ New terminal**. The list scrolls past nine rows; New terminal stays
+outside the scroll. ✎ swaps the name for a `--well` text field; × on a busy terminal asks first
+through the confirm dialog. Beside `shell`, a mono `--fs-2xs` count pill on `--bg-hover` shows
+the number of running terminals once two or more run; it is `aria-hidden`.
 
 **Popover** (`render/grouppopover.ts`) — a `role="tooltip"` panel below a section header after
 ~350 ms of hover or on the caret taking focus: `--bg-raised`, 1px `--edge` border,

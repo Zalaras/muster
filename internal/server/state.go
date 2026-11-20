@@ -15,11 +15,8 @@ type Snapshot struct {
 	ClaudeTheme ClaudeThemeInfo `json:"claudeTheme"`
 	// Update (kb:anchor/ws.update): always present, even on a daemon with updates disabled
 	// entirely.
-	Update UpdateInfo `json:"update"`
-	// ShellsBusy (kb:anchor/ws.shell-activity): session ids whose shell is busy right now,
-	// always present as [] when none — never null — so a reconnecting client re-syncs
-	// without waiting for a shellActivity transition.
-	ShellsBusy []int64 `json:"shellsBusy"`
+	Update    UpdateInfo                `json:"update"`
+	Terminals map[string][]terminalWire `json:"terminals"`
 	// Groups and Ungrouped (kb:anchor/ws.groups): the rail's sections, always present — Groups
 	// as [] when there are none.
 	Groups    []groupWire   `json:"groups"`
@@ -41,7 +38,7 @@ func buildSnapshot() Snapshot {
 		Prefs:       defaultPrefs(),
 		ClaudeTheme: defaultClaudeThemeInfo(),
 		Update:      defaultUpdateInfo(),
-		ShellsBusy:  []int64{},
+		Terminals:   map[string][]terminalWire{},
 		Groups:      []groupWire{},
 	}
 }

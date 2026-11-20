@@ -41,7 +41,7 @@ func (p *Pass) Strip(ctx context.Context, outDir string, all bool) error {
 	if err != nil {
 		return err
 	}
-	m, stripped, stats, err := p.collectCandidates(ctx, d, ledger, all)
+	m, stripped, stats, err := p.collectCandidates(ctx, base, d, ledger, all)
 	if err != nil {
 		return err
 	}
@@ -57,15 +57,15 @@ func (p *Pass) Strip(ctx context.Context, outDir string, all bool) error {
 	if err := writeArtifacts(outDir, m, text); err != nil {
 		return err
 	}
-	p.printf("strip: %d candidates in %d files (%d added, %d edited, %d stale-ref; %d already kept) → %s\n",
-		stats.total, len(m.Files), stats.counts["added"], stats.counts["edited"], stats.counts["stale-ref"], stats.alreadyKept, filepath.Join(outDir, "candidates.md"))
+	p.printf("strip: %d candidates in %d files (%d added, %d edited, %d moved, %d stale-ref; %d already kept) → %s\n",
+		stats.total, len(m.Files), stats.counts["added"], stats.counts["edited"], stats.counts["moved"], stats.counts["stale-ref"], stats.alreadyKept, filepath.Join(outDir, "candidates.md"))
 	return nil
 }
 
 // collectCandidates builds the manifest and the stripped text of every file with at
 // least one candidate, formatting Go in memory so a file that stops parsing refuses the
 // whole run before any write.
-func (p *Pass) collectCandidates(ctx context.Context, d *diffInfo, ledger *Ledger, all bool) (*Manifest, map[string][]byte, stripStats, error) {
+func (p *Pass) collectCandidates(ctx context.Context, base string, d *diffInfo, ledger *Ledger, all bool) (*Manifest, map[string][]byte, stripStats, error) {
 	stats := stripStats{counts: map[string]int{}}
 	scans, added, err := p.collectAdded(ctx, d)
 	if err != nil {
@@ -83,6 +83,9 @@ func (p *Pass) collectCandidates(ctx context.Context, d *diffInfo, ledger *Ledge
 		stats.alreadyKept += kept
 		if len(cands) == 0 {
 			continue
+		}
+		if merr := p.markMoved(ctx, base, cands); merr != nil {
+			return nil, nil, stats, merr
 		}
 		var spans []Span
 		for _, c := range cands {

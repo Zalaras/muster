@@ -19,7 +19,7 @@ import (
 	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 )
 
-// gatedPaneExistsTmux wraps a real paneSpawner so PaneExists for one specific target
+// gatedPaneExistsTmux wraps a real paneSpawner so ListSessions (the first thing EnsureAny does under its lock)
 // blocks until release is closed, signalling entered exactly once first — the
 // review.maintainability.b-server.md Major 3 interleaving's fixture: "Give the fake
 // paneSpawner's PaneExists ... a controllable gate". Embedding the paneSpawner interface
@@ -32,37 +32,34 @@ import (
 // PaneChecker/TmuxSessions ports are always the real, unconditionally-constructed tmux
 // client bound to Config.TmuxSocket (fakes_test.go's newFakeTmuxTestServer doc comment) —
 // independent of Config.TmuxClient. Gating only Config.TmuxClient's PaneExists (which
-// shellRegistry.Ensure calls) while Manager's own ports talk to the same real, working
+// shellRegistry.EnsureAny calls) while Manager's own ports talk to the same real, working
 // socket keeps Remove's own tmux calls fast and correct, which is what this interleaving
 // actually needs bounded ("B has not returned yet") rather than accidentally slow for an
 // unrelated reason.
 type gatedPaneExistsTmux struct {
 	paneSpawner
-	gateTarget string
-	entered    chan struct{}
-	release    chan struct{}
-	enterOnce  sync.Once
+	entered   chan struct{}
+	release   chan struct{}
+	enterOnce sync.Once
 }
 
 func newGatedPaneExistsTmux(inner paneSpawner) *gatedPaneExistsTmux {
 	return &gatedPaneExistsTmux{paneSpawner: inner, entered: make(chan struct{}), release: make(chan struct{})}
 }
 
-func (g *gatedPaneExistsTmux) PaneExists(ctx context.Context, target string) (bool, error) {
-	if target == g.gateTarget {
-		g.enterOnce.Do(func() { close(g.entered) })
-		select {
-		case <-g.release:
-		case <-ctx.Done():
-			return false, ctx.Err()
-		}
+func (g *gatedPaneExistsTmux) ListSessions(ctx context.Context) ([]string, error) {
+	g.enterOnce.Do(func() { close(g.entered) })
+	select {
+	case <-g.release:
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
-	return g.paneSpawner.PaneExists(ctx, target)
+	return g.paneSpawner.ListSessions(ctx)
 }
 
 // TestHandleCreateShell_BlocksConcurrentRemoveUntilEnsureCompletes covers
 // review.maintainability.b-server.md Major 3: a POST .../shell in flight (blocked inside
-// shellRegistry.Ensure's PaneExists check) must hold session.Manager's per-id lock for its
+// shellRegistry.EnsureAny's PaneExists check) must hold session.Manager's per-id lock for its
 // whole existence-check-then-spawn, so a concurrent DELETE's session.Manager.Remove (which
 // takes the same lock) cannot even remove the row until the shell POST finishes — and once
 // it does, Remove's own shells.Kill cleans up whatever the shell POST just spawned.
@@ -100,7 +97,6 @@ func TestHandleCreateShell_BlocksConcurrentRemoveUntilEnsureCompletes(t *testing
 	srv := &testServer{Server: srvRaw, dbPath: dbPath, logs: logBuf, store: st, tmuxSocket: socket}
 
 	sess := launchRealSession(t, srv, sleepForeverCommand())
-	gated.gateTarget = tmux.ShellSessionName(sess.ID)
 
 	// The request is built and served here (rather than via postShellRequest, which
 	// itself asserts) so the goroutine below never calls into testify from a non-test
@@ -118,7 +114,7 @@ func TestHandleCreateShell_BlocksConcurrentRemoveUntilEnsureCompletes(t *testing
 	select {
 	case <-gated.entered:
 	case <-time.After(2 * time.Second):
-		t.Fatal("handleCreateShell never reached the gated PaneExists call")
+		t.Fatal("handleCreateShell never reached the gated ListSessions call")
 	}
 
 	removeDone := make(chan *httptest.ResponseRecorder, 1)
@@ -126,7 +122,7 @@ func TestHandleCreateShell_BlocksConcurrentRemoveUntilEnsureCompletes(t *testing
 		removeDone <- sessionActionRequest(t, srv, http.MethodDelete, "/api/sessions/"+strconv.FormatInt(sess.ID, 10))
 	}()
 
-	// While handleCreateShell is stuck inside Ensure's gated PaneExists, the session row
+	// While handleCreateShell is stuck inside Ensure's gated ListSessions, the session row
 	// must survive: manager.Remove cannot even acquire session.Manager's per-id lock (held
 	// by handleCreateShell) to delete it. Polled repeatedly (not a single check after a
 	// fixed sleep) to catch a regression that deletes the row at any point during the
@@ -163,7 +159,7 @@ func TestHandleCreateShell_BlocksConcurrentRemoveUntilEnsureCompletes(t *testing
 	assert.False(t, srv.manager.Exists(sess.ID), "Remove must have completed once Ensure released the lock")
 
 	require.Eventually(t, func() bool {
-		exists, existsErr := gated.paneSpawner.PaneExists(context.Background(), shellTarget)
+		exists, existsErr := gated.PaneExists(context.Background(), shellTarget)
 		return existsErr == nil && !exists
 	}, 3*time.Second, 20*time.Millisecond, "Remove's shells.Kill must have cleaned up the shell handleCreateShell just spawned")
 }

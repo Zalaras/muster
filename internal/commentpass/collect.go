@@ -28,6 +28,7 @@ type Candidate struct {
 	Added    int      `json:"added_lines"`
 	Total    int      `json:"total_lines"`
 	Previous []string `json:"previous,omitempty"`
+	From     string   `json:"from,omitempty"`
 	Names    []string `json:"names,omitempty"`
 	Doc      string   `json:"doc,omitempty"`
 	Note     string   `json:"note,omitempty"`

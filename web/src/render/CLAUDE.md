@@ -1,6 +1,6 @@
 # web/src/render — pure DOM builders, no state
 
-**Owns**: the DOM half of every view: rail cards, tiles and strip, mainhead, masthead, dead surface, confirm dialogs, rename editor, drag wiring, drop guard, the reader, its diagram pass (`diagrams.ts`, `mermaid.ts`, `diagramdialog.ts`) and find bar (`readerfind.ts`), and the rail's group sections, menus, hover popovers, selection bar and dialogs (`railsections.ts`, `menu.ts`, `grouppopover.ts`, `cardtip.ts`, `hovertip.ts`, `selectbar.ts`, `groupdialogs.ts`), the session note (`notes.ts`, `notespanel.ts`), restart (`restartpanel.ts`, `restartdialog.ts`), with `anchored.ts` placing those overlays and `options.ts` a select's options). No cross-call state here (render-state rule below); session/reader derivation lives in `sessions/`/`reader/`, wiring in `features/`. A DOM-free decision only one controller calls lives in `features/`, not here — a builder takes the computed value, never the raw data (docs/conventions.md § Composition roots). **Features**: actions, connection, drop, focus, launch, notes, rail, reader, rename, tiles, update, usage.
+**Owns**: the DOM half of every view: rail cards, tiles and strip, mainhead, masthead, dead surface, confirm dialogs, rename editor, drag wiring, drop guard, the reader, its diagram pass (`diagrams.ts`, `mermaid.ts`, `diagramdialog.ts`) and find bar (`readerfind.ts`), and the rail's group sections, menus, hover popovers, selection bar and dialogs (`railsections.ts`, `menu.ts`, `grouppopover.ts`, `cardtip.ts`, `hovertip.ts`, `selectbar.ts`, `groupdialogs.ts`), the session note (`notes.ts`, `notespanel.ts`), Terminals panel (`terminalspanel.ts`, `popover.ts`), restart (`restartpanel.ts`, `restartdialog.ts`), with `anchored.ts` placing those overlays and `options.ts` a select's options). No cross-call state here (rule below); session/reader derivation lives in `sessions/`/`reader/`, wiring in `features/`. A DOM-free single-controller decision lives in `features/`, not here — a builder takes the computed value, never the raw data (docs/conventions.md § Composition roots). **Features**: actions, connection, drop, focus, launch, notes, rail, reader, rename, tiles, update, usage.
 
 **Render-state rule**: a builder holds only its own instance's state — never state keyed across calls by an external id; that belongs to the caller, which holds refs built once (`masthead.ts`'s model-week `<select>`, not a module-level `Map`).
 
@@ -23,7 +23,7 @@
 - `diagramdialog.ts`'s backdrop-close is `event.target === dialogEl` (a `::backdrop` isn't a node), so its children must fill the box.
 
 <!-- kb:trailer -->
-<!-- kb:hash 71e6736788eba126 -->
+<!-- kb:hash 1bfd0b7f3c4b70cf -->
 - **actions** — Stop, Resume, Remove and Restart a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
@@ -42,5 +42,5 @@
 - **tiles** — Tiles view: slot-stable grid, strip, tile drag, density, snapshot-not-live rule. → `docs/features/tiles/INDEX.md`
 - **update** — Release check, minisign-verified apply, in-place restart with sessions re-adopted. → `docs/features/update/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 53 records name files in this directory: `go tool kb for <path>` lists them for one file.
+- 54 records name files in this directory: `go tool kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

@@ -13,7 +13,7 @@ type ReconcileReport struct {
 	KeptAlive       int
 	MarkedEnded     int
 	UnknownSessions []string // muster-<n> tmux sessions on the socket with no row
-	// ShellsKilled counts "muster-<n>-shell" tmux sessions killed unconditionally
+	// ShellsKilled counts terminal ("muster-<n>-shell[-<k>]") tmux sessions killed unconditionally
 	// (kb:anchor/state.liveness) — never adopted, and never listed in UnknownSessions.
 	ShellsKilled int
 }
@@ -34,7 +34,7 @@ type ReconcileReport struct {
 //   - "muster-<n>" with no matching row → reported in UnknownSessions and warn-logged;
 //     never adopted, never killed (kb:adr/lifecycle-reconcile-before-first-snapshot) —
 //     its id still raises the watermark so it can never be handed to a new row.
-//   - "muster-<n>-shell" → killed unconditionally, whatever its <n>; never adopted or
+//   - "muster-<n>-shell" and "muster-<n>-shell-<k>" → killed unconditionally, whatever <n> and <k>; never adopted or
 //     reported unknown; its id also raises the watermark.
 //
 // PaneChecker/PaneSnapshotter/TmuxSessions are all required at construction (NewManager
@@ -115,12 +115,12 @@ func (m *Manager) classifySessionsByOwnership(ctx context.Context, names []strin
 
 // classifiedTmuxNames is classifyTmuxNames' pure result: names split into the live
 // muster-<id> claude-pane names found (known or not — the caller decides), the
-// muster-<id>-shell ids to kill unconditionally, the unknown names to report, and the
+// muster-<id>-shell[-<n>] names to kill unconditionally, the unknown names to report, and the
 // highest id seen across every shape — the floor that raises the id watermark
 // (kb:adr/lifecycle-session-ids-monotonic-never-reused).
 type classifiedTmuxNames struct {
 	live         map[int64]string
-	shellIDs     []int64
+	shellNames   []string
 	unknownNames []string
 	maxSeen      int64
 }
@@ -134,7 +134,7 @@ func classifyTmuxNames(names []string, knownIDs map[int64]bool) classifiedTmuxNa
 	out := classifiedTmuxNames{live: make(map[int64]string)}
 	for _, name := range names {
 		if shellID, ok := tmux.IsShellSessionName(name); ok {
-			out.shellIDs = append(out.shellIDs, shellID)
+			out.shellNames = append(out.shellNames, name)
 			if shellID > out.maxSeen {
 				out.maxSeen = shellID
 			}
@@ -170,10 +170,9 @@ func (m *Manager) reportAndSweepUnknown(ctx context.Context, classified classifi
 		report.UnknownSessions = append(report.UnknownSessions, name)
 		m.log.Warn().Str("tmux_session", name).Msg("unknown muster tmux session on socket; not adopted")
 	}
-	for _, shellID := range classified.shellIDs {
-		name := tmux.ShellSessionName(shellID)
+	for _, name := range classified.shellNames {
 		if err := m.tmuxSessions.KillSession(ctx, name); err != nil {
-			m.log.Warn().Err(err).Str("tmux_session", name).Int64("session_id", shellID).Msg("reconcile: killing orphaned shell session failed")
+			m.log.Warn().Err(err).Str("tmux_session", name).Msg("reconcile: killing orphaned shell session failed")
 			continue
 		}
 		report.ShellsKilled++

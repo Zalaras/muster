@@ -42,11 +42,17 @@ func postShellRequest(t *testing.T, srv *testServer, id int64) (rec *httptest.Re
 	return rec, target, created
 }
 
-// dialShell opens a WS connection to /ws/shell/{id}, sending the UI cookie — the
+// dialShell opens a WS connection to /ws/shell/{id}/1, sending the UI cookie — the
 // shell-surface counterpart to terminal_test.go's dialTerminal.
 func dialShell(t *testing.T, httpSrv *httptest.Server, id int64) (*websocket.Conn, *http.Response, error) {
 	t.Helper()
-	wsURL := "ws" + httpSrv.URL[len("http"):] + "/ws/shell/" + strconv.FormatInt(id, 10)
+	return dialTerminalN(t, httpSrv, id, 1)
+}
+
+// dialTerminalN opens a WS connection to /ws/shell/{id}/{n}.
+func dialTerminalN(t *testing.T, httpSrv *httptest.Server, id int64, n int) (*websocket.Conn, *http.Response, error) {
+	t.Helper()
+	wsURL := "ws" + httpSrv.URL[len("http"):] + "/ws/shell/" + strconv.FormatInt(id, 10) + "/" + strconv.Itoa(n)
 	header := http.Header{"Cookie": {authCookieHeader(t, httpSrv.URL)}}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

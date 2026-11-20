@@ -34,7 +34,9 @@ test("GET /api/state returns exactly the empty-daemon snapshot object once authe
     // Ungrouped section at the default position, uncollapsed.
     groups: [],
     ungrouped: { pos: 0, collapsed: false },
-    shellsBusy: [],
+    // better-terminal: `snapshot.terminals` (an object keyed by session id, `{}` with none)
+    // replaces `shellsBusy`.
+    terminals: {},
     usage: {
       fiveHour: null,
       sevenDay: null,

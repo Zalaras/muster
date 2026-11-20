@@ -11,7 +11,7 @@ go: [tools/commentpass/**, internal/commentpass/**]
 web: []
 e2e: []
 protocol: []
-refs: [kb:adr/process-comment-pass-owns-code-comments, kb:adr/process-comment-pass-edited-comment-judged-on-truth, kb:adr/process-comment-pass-drop-reaches-tests-and-css, kb:diagram/pipeline-execution-order]
+refs: [kb:adr/process-comment-pass-owns-code-comments, kb:adr/process-comment-pass-edited-comment-judged-on-truth, kb:adr/process-comment-pass-moved-comment-judged-on-requirement, kb:adr/process-comment-pass-drop-reaches-tests-and-css, kb:diagram/pipeline-execution-order]
 ---
 The comment pass is how code comments are policed in the build pipeline: on the diff, by a
 program and one narrow judge, never by the author or the reviewers
@@ -29,7 +29,9 @@ Directives the toolchain parses (`go:build`, `go:embed`, `go:generate`, `nolint`
 block that stood on `main` and whose lines the branch changed at most half of is an `edited`
 candidate: whole, shown with the comment lines the branch removed from its place (only the
 hunks landing inside it, never a deletion from elsewhere in the file). One the branch rewrote
-by more than half is `added`. A block the ledger already keeps is skipped unless `--all`.
+by more than half is `added`, unless every line of it stands in one file of the merge base:
+then it is `moved`, shown with that file, because it came with code the branch moved. A block
+the ledger already keeps is skipped unless `--all`.
 
 `strip` snapshots each touched file's bytes, removes every candidate, formats the result and
 writes it to the tree, then writes `candidates.json` (the manifest) and `candidates.md`: per
@@ -45,7 +47,10 @@ who never saw the plan break the code; the constraint cannot be a test, a type o
 statement is true of the stripped file shown. An `edited` or `stale-ref` candidate is judged
 on truth alone — kept unless the stripped file contradicts it or it names something the
 branch removed — because `main`'s comments are out of the pass's scope and an edit does not
-bring one in (kb:adr/process-comment-pass-edited-comment-judged-on-truth).
+bring one in (kb:adr/process-comment-pass-edited-comment-judged-on-truth). A `moved`
+candidate keeps when it guards, or when a repository rule requires it there — shared state
+naming its guard and writers, a route citing its anchor — and is dropped otherwise
+(kb:adr/process-comment-pass-moved-comment-judged-on-requirement).
 
 `apply <plan> <verdicts.json> --cycle N --message <msg>` refuses a verdict set that misses,
 repeats or invents an id or keeps without a reason, and a tree that changed since `strip`.

@@ -51,33 +51,41 @@ interface DialogParts {
   cancelBtn: HTMLButtonElement;
 }
 
-/** Wires one dialog's buttons once and returns its `open`. The ids live in this closure, so a
- * confirm acts on exactly what the dialog was last opened for. */
-function wireDialog(
+function wireDialog<T>(
+  parts: DialogParts,
+  onConfirm: (target: T) => void,
+): (target: T, copy: Omit<ConfirmRequest, "ids">) => void {
+  let held: { target: T } | null = null;
+  parts.cancelBtn.addEventListener("click", () => parts.dialog.close());
+  parts.confirmBtn.addEventListener("click", () => {
+    const current = held;
+    parts.dialog.close();
+    if (current !== null) onConfirm(current.target);
+  });
+  return (target, copy) => {
+    held = { target };
+    parts.title.textContent = copy.title;
+    parts.body.textContent = copy.body;
+    parts.confirmBtn.textContent = copy.confirmLabel;
+    if (!parts.dialog.open) parts.dialog.showModal();
+  };
+}
+
+function wireIdsDialog(
   parts: DialogParts,
   onConfirm: (ids: readonly number[]) => void,
 ): (request: ConfirmRequest) => void {
-  let targetIds: readonly number[] = [];
-  parts.cancelBtn.addEventListener("click", () => parts.dialog.close());
-  parts.confirmBtn.addEventListener("click", () => {
-    const ids = targetIds;
-    parts.dialog.close();
+  const open = wireDialog<readonly number[]>(parts, (ids) => {
     if (ids.length > 0) onConfirm(ids);
   });
-  return (request) => {
-    targetIds = request.ids;
-    parts.title.textContent = request.title;
-    parts.body.textContent = request.body;
-    parts.confirmBtn.textContent = request.confirmLabel;
-    if (!parts.dialog.open) parts.dialog.showModal();
-  };
+  return (request) => open(request.ids, request);
 }
 
 export function initConfirmDialogs(
   elements: ConfirmDialogElements,
   handlers: ConfirmDialogHandlers,
 ): ConfirmDialogs {
-  const openEnd = wireDialog(
+  const openEnd = wireIdsDialog(
     {
       dialog: elements.endDialog,
       title: elements.endTitle,
@@ -87,7 +95,7 @@ export function initConfirmDialogs(
     },
     handlers.onConfirmEnd,
   );
-  const openRemove = wireDialog(
+  const openRemove = wireIdsDialog(
     {
       dialog: elements.removeDialog,
       title: elements.removeTitle,
@@ -104,6 +112,43 @@ export function initConfirmDialogs(
     closeAll() {
       if (elements.endDialog.open) elements.endDialog.close();
       if (elements.removeDialog.open) elements.removeDialog.close();
+    },
+  };
+}
+
+export interface CloseTerminalDialogElements {
+  dialog: HTMLDialogElement;
+  title: HTMLElement;
+  body: HTMLElement;
+  confirmBtn: HTMLButtonElement;
+  cancelBtn: HTMLButtonElement;
+}
+
+export interface TerminalTarget {
+  id: number;
+  n: number;
+}
+
+export interface CloseTerminalDialog {
+  open: (target: TerminalTarget, name: string) => void;
+  closeIfOpen: () => void;
+}
+
+export function initCloseTerminalDialog(
+  elements: CloseTerminalDialogElements,
+  onConfirm: (target: TerminalTarget) => void,
+): CloseTerminalDialog {
+  const open = wireDialog<TerminalTarget>(elements, onConfirm);
+  return {
+    open(target, name) {
+      open(target, {
+        title: `Close ${name}?`,
+        body: `${name} is running a command. Closing it ends the command.`,
+        confirmLabel: "Close terminal",
+      });
+    },
+    closeIfOpen() {
+      if (elements.dialog.open) elements.dialog.close();
     },
   };
 }

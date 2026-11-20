@@ -28,6 +28,7 @@ type paneSpawner interface {
 	NewSession(ctx context.Context, id int64, dir string, env map[string]string, command []string) (target, pane string, err error)
 	NewNamedSession(ctx context.Context, name, dir string, env map[string]string, command []string) (target, pane string, err error)
 	PaneExists(ctx context.Context, target string) (bool, error)
+	ListSessions(ctx context.Context) ([]string, error)
 	// KillWindow kills one window by target. No production caller — every rollback/kill
 	// path here and in internal/session goes through KillSession instead, for its
 	// already-gone-is-fine idempotence; kept on the interface only so this package's own

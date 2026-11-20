@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/Zalaras/muster/internal/claudecode"
@@ -49,6 +50,9 @@ func init() {
 		renderScenario{"shell-idle", driveShell(false)},
 		renderScenario{"shell-busy-tiles", withPrefs(driveShell(true), tilesView)},
 		renderScenario{"shell-idle-tiles", withPrefs(driveShell(false), tilesView)},
+		renderScenario{"terminals-two", driveTerminals(2, map[int]string{2: "build"}, map[int]bool{2: true})},
+		renderScenario{"terminals-two-tiles", withPrefs(driveTerminalsTiles, map[string]any{"view": "tiles", "density": "3x2"})},
+		renderScenario{"terminals-ten", driveTerminals(10, nil, nil)},
 	)
 }
 
@@ -147,8 +151,7 @@ func (r *renderRig) reportAddedDirs(ctx context.Context, s renderSession, claude
 	if err != nil {
 		return err
 	}
-	r.repoTick(ctx)
-	return nil
+	return r.repoTick(ctx)
 }
 
 // driveAddedDirsTwo holds one bound session launched in a checkout named folder with two
@@ -186,8 +189,7 @@ func driveAddedDirsTwo(moved bool, folder string) func(context.Context, *renderR
 		if err = r.hookStamped(ctx, claudecodetest.EnvelopedHookInDirectory(int(s.id), s.pane, "Stop", "cs-added", first)); err != nil {
 			return err
 		}
-		r.repoTick(ctx)
-		return nil
+		return r.repoTick(ctx)
 	}
 }
 
@@ -219,30 +221,71 @@ func driveAddedDirsPlain(n int) func(context.Context, *renderRig) error {
 	}
 }
 
-// driveShell holds one idle session with a plain shell spawned through the real route, and
-// — when busy — the shell-activity poller's one tick over a pane listing that reports the
-// shell running a foreground command on a canonical tty (kb:anchor/ws.shell-activity):
-// the listing and the tty read are the poller's own test seams, since the rig runs no tmux.
 func driveShell(busy bool) func(context.Context, *renderRig) error {
+	return driveTerminals(1, nil, map[int]bool{1: busy})
+}
+
+func driveTerminals(count int, names map[int]string, busy map[int]bool) func(context.Context, *renderRig) error {
 	return func(ctx context.Context, r *renderRig) error {
 		s, err := r.idleSession(ctx, "shell-host")
 		if err != nil {
 			return err
 		}
-		if _, err = r.api(ctx, http.MethodPost, fmt.Sprintf("/api/sessions/%d/shell", s.id), nil); err != nil {
+		return r.driveTerminalsOn(ctx, s, count, names, busy)
+	}
+}
+
+func (r *renderRig) driveTerminalsOn(ctx context.Context, s renderSession, count int, names map[int]string, busy map[int]bool) error {
+	fake, isFake := r.srv.tmuxClient.(*renderTmux)
+	if !isFake {
+		return fmt.Errorf("render rig has no fake tmux")
+	}
+	shellBase := filepath.Base(interactiveShellArgv()[0])
+	poller := r.srv.shellActivity.poller
+	poller.lister = func(context.Context) ([]tmux.PaneActivity, error) {
+		listed, _ := fake.ListSessions(ctx)
+		panes := make([]tmux.PaneActivity, 0, len(listed))
+		for _, name := range listed {
+			_, n, ok := tmux.ParseTerminalName(name)
+			if !ok {
+				continue
+			}
+			cmd := shellBase
+			if busy[n] {
+				cmd = "sleep"
+			}
+			panes = append(panes, tmux.PaneActivity{SessionName: name, CurrentCommand: cmd, Tty: "/dev/ttys000"})
+		}
+		return panes, nil
+	}
+	poller.canonical = func(string) (bool, error) { return true, nil }
+
+	if _, err := r.api(ctx, http.MethodPost, fmt.Sprintf("/api/sessions/%d/shell", s.id), nil); err != nil {
+		return err
+	}
+	for i := 1; i < count; i++ {
+		if _, err := r.api(ctx, http.MethodPost, fmt.Sprintf("/api/sessions/%d/shells", s.id), nil); err != nil {
 			return err
 		}
-		if !busy {
-			return nil
-		}
-		poller := r.srv.shellActivity.poller
-		poller.lister = func(context.Context) ([]tmux.PaneActivity, error) {
-			return []tmux.PaneActivity{{
-				SessionName: tmux.ShellSessionName(s.id), CurrentCommand: "sleep", AlternateOn: false, Tty: "/dev/ttys000",
-			}}, nil
-		}
-		poller.canonical = func(string) (bool, error) { return true, nil }
-		poller.tick(ctx)
-		return nil
 	}
+	for n, name := range names {
+		if _, err := r.api(ctx, http.MethodPut, fmt.Sprintf("/api/sessions/%d/shells/%d/name", s.id, n), map[string]string{"name": name}); err != nil {
+			return err
+		}
+	}
+	poller.tick(ctx)
+	return nil
+}
+
+func driveTerminalsTiles(ctx context.Context, r *renderRig) error {
+	s, err := r.idleSession(ctx, "shell-host")
+	if err != nil {
+		return err
+	}
+	for _, name := range []string{"tile-a", "tile-b", "tile-c", "tile-d", "tile-e"} {
+		if _, err = r.idleSession(ctx, name); err != nil {
+			return err
+		}
+	}
+	return r.driveTerminalsOn(ctx, s, 2, map[int]string{2: "build"}, map[int]bool{2: true})
 }

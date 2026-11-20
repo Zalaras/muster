@@ -241,7 +241,7 @@ func TestHandleShellTerminal_CopyModeCancelOnNextInput(t *testing.T) {
 
 // TestHandleShellTerminal_ResizeFrameStillDecodesOnTheShellSocket covers the other
 // direction at the shell route: shellTextFrame is a superset of resizeFrame, so an
-// ordinary resize control frame on /ws/shell/{id} must still apply, exactly as it does on
+// ordinary resize control frame on /ws/shell/{id}/{n} must still apply, exactly as it does on
 // the Claude socket.
 func TestHandleShellTerminal_ResizeFrameStillDecodesOnTheShellSocket(t *testing.T) {
 	srv, fake, _ := newFakeTmuxTestServerWithScroll(t)

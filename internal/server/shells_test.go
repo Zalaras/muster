@@ -71,7 +71,7 @@ func newTestShellRegistry(t *testing.T) (reg *shellRegistry, tmuxClient *tmux.Cl
 	t.Setenv("MUSTER_TEST_SHELL_LOG", logFile)
 	t.Setenv("SHELL", newStubShellBin(t))
 
-	reg = newShellRegistry(tmuxClient, zerolog.Nop())
+	reg = newShellRegistry(tmuxClient, newTerminalNames(), zerolog.Nop())
 	return reg, tmuxClient, socket, logFile
 }
 
@@ -81,7 +81,7 @@ func newTestShellRegistry(t *testing.T) (reg *shellRegistry, tmuxClient *tmux.Cl
 // assertions above stay on newTestShellRegistry's real socket).
 func newFakeShellRegistry() (*shellRegistry, *fakeTmux) {
 	fake := newFakeTmux()
-	return newShellRegistry(fake, zerolog.Nop()), fake
+	return newShellRegistry(fake, newTerminalNames(), zerolog.Nop()), fake
 }
 
 // TestShellRegistry_EnsureSpawnsATmuxSessionNamedMusterIDShell: Ensure on an
@@ -92,7 +92,7 @@ func TestShellRegistry_EnsureSpawnsATmuxSessionNamedMusterIDShell(t *testing.T) 
 	id := int64(101)
 	dir := t.TempDir()
 
-	target, created, err := reg.Ensure(context.Background(), id, dir)
+	target, _, created, err := reg.EnsureAny(context.Background(), id, dir)
 	require.NoError(t, err)
 
 	assert.True(t, created)
@@ -113,11 +113,11 @@ func TestShellRegistry_EnsureIsIdempotentNoSecondSpawn(t *testing.T) {
 	id := int64(102)
 	dir := t.TempDir()
 
-	target1, created1, err := reg.Ensure(context.Background(), id, dir)
+	target1, _, created1, err := reg.EnsureAny(context.Background(), id, dir)
 	require.NoError(t, err)
 	require.True(t, created1)
 
-	target2, created2, err := reg.Ensure(context.Background(), id, dir)
+	target2, _, created2, err := reg.EnsureAny(context.Background(), id, dir)
 	require.NoError(t, err)
 
 	assert.False(t, created2, "D2: a repeat call must report created:false")
@@ -135,7 +135,7 @@ func TestShellRegistry_EnsurePaneEnvironmentNeverCarriesMusterSession(t *testing
 	reg, _, _, logFile := newTestShellRegistry(t)
 	dir := t.TempDir()
 
-	_, _, err := reg.Ensure(context.Background(), 103, dir)
+	_, _, _, err := reg.EnsureAny(context.Background(), 103, dir)
 	require.NoError(t, err)
 
 	lines := readLogLines(t, logFile, 1)
@@ -153,7 +153,7 @@ func TestShellRegistry_RespawnsAfterExternalKillWithNoMusterSession(t *testing.T
 	id := int64(104)
 	dir := t.TempDir()
 
-	target1, created1, err := reg.Ensure(context.Background(), id, dir)
+	target1, _, created1, err := reg.EnsureAny(context.Background(), id, dir)
 	require.NoError(t, err)
 	require.True(t, created1)
 	readLogLines(t, logFile, 1)
@@ -164,7 +164,7 @@ func TestShellRegistry_RespawnsAfterExternalKillWithNoMusterSession(t *testing.T
 		return existsErr == nil && !exists
 	}, 3*time.Second, 20*time.Millisecond)
 
-	target2, created2, err := reg.Ensure(context.Background(), id, dir)
+	target2, _, created2, err := reg.EnsureAny(context.Background(), id, dir)
 	require.NoError(t, err)
 	assert.True(t, created2, "D7: the next Ensure after an external kill must spawn a fresh shell")
 	assert.Equal(t, target1, target2, "the tmux session name is stable across respawns")
@@ -191,7 +191,7 @@ func TestShellRegistry_ConcurrentEnsureOnlySpawnsOnce(t *testing.T) {
 	for i := range n {
 		go func(i int) {
 			defer wg.Done()
-			_, created, err := reg.Ensure(context.Background(), id, dir)
+			_, _, created, err := reg.EnsureAny(context.Background(), id, dir)
 			results[i] = created
 			errs[i] = err
 		}(i)
@@ -263,6 +263,9 @@ func (b *blockingNamedSessionTmux) PaneExists(_ context.Context, _ string) (bool
 func (b *blockingNamedSessionTmux) KillWindow(_ context.Context, _ string) error  { return nil }
 func (b *blockingNamedSessionTmux) KillSession(_ context.Context, _ string) error { return nil }
 func (b *blockingNamedSessionTmux) MaxSessionID(_ context.Context) (int64, error) { return 0, nil }
+func (b *blockingNamedSessionTmux) ListSessions(_ context.Context) ([]string, error) {
+	return nil, nil
+}
 
 // TestShellRegistry_ConcurrentEnsureOnDifferentIDsDoesNotSerialize: a
 // paneSpawner whose NewNamedSession for id 1's shell blocks must not delay id 2's Ensure
@@ -273,12 +276,12 @@ func (b *blockingNamedSessionTmux) MaxSessionID(_ context.Context) (int64, error
 func TestShellRegistry_ConcurrentEnsureOnDifferentIDsDoesNotSerialize(t *testing.T) {
 	id1, id2 := int64(201), int64(202)
 	fake := newBlockingNamedSessionTmux(tmux.ShellSessionName(id1))
-	reg := newShellRegistry(fake, zerolog.Nop())
+	reg := newShellRegistry(fake, newTerminalNames(), zerolog.Nop())
 	dir := t.TempDir()
 
 	errCh := make(chan error, 1)
 	go func() {
-		_, _, err := reg.Ensure(context.Background(), id1, dir)
+		_, _, _, err := reg.EnsureAny(context.Background(), id1, dir)
 		errCh <- err
 	}()
 
@@ -290,7 +293,7 @@ func TestShellRegistry_ConcurrentEnsureOnDifferentIDsDoesNotSerialize(t *testing
 
 	id2Done := make(chan struct{})
 	go func() {
-		_, _, err := reg.Ensure(context.Background(), id2, dir)
+		_, _, _, err := reg.EnsureAny(context.Background(), id2, dir)
 		assert.NoError(t, err)
 		close(id2Done)
 	}()
@@ -305,66 +308,33 @@ func TestShellRegistry_ConcurrentEnsureOnDifferentIDsDoesNotSerialize(t *testing
 	require.NoError(t, <-errCh)
 }
 
-// TestShellRegistry_EnsureOnCollisionRechecksAndReportsNotCreated covers the
-// positive clause: when NewNamedSession fails with tmux.ErrSessionExists (a concurrent
-// spawn elsewhere beat this one to it), Ensure re-checks with PaneExists — and when that
-// re-check finds the pane, returns created:false with no error, never surfacing the
-// collision as a failure.
-func TestShellRegistry_EnsureOnCollisionRechecksAndReportsNotCreated(t *testing.T) {
-	fake := &racyCollisionTmux{recheckFindsPane: true}
-	reg := newShellRegistry(fake, zerolog.Nop())
-	id := int64(203)
+// TestShellRegistry_SpawnCollisionSurfacesTheSpawnError: tmux refusing the name as taken
+// (something outside the registry's lock created it between the list and the spawn)
+// surfaces the spawn error, never a false created:true or a silent success.
+func TestShellRegistry_SpawnCollisionSurfacesTheSpawnError(t *testing.T) {
+	reg := newShellRegistry(collidingTmux{}, newTerminalNames(), zerolog.Nop())
 
-	target, created, err := reg.Ensure(context.Background(), id, t.TempDir())
+	_, _, _, err := reg.EnsureAny(context.Background(), 204, t.TempDir())
 
-	require.NoError(t, err, "REQ-5(b)/D4: a re-checked collision must not surface as an error")
-	assert.False(t, created)
-	assert.Equal(t, tmux.ShellSessionName(id), target)
-}
-
-// TestShellRegistry_EnsureOnCollisionWithFailedRecheckReturnsSpawnError covers Edge Case
-// 6 and the negative clause: when the post-collision re-check finds the
-// pane gone (not merely raced), Ensure returns the original spawn error rather than a
-// false created:false.
-func TestShellRegistry_EnsureOnCollisionWithFailedRecheckReturnsSpawnError(t *testing.T) {
-	fake := &racyCollisionTmux{recheckFindsPane: false}
-	reg := newShellRegistry(fake, zerolog.Nop())
-
-	_, _, err := reg.Ensure(context.Background(), 204, t.TempDir())
-
-	require.Error(t, err, "Edge Case 6: a re-check that finds the pane gone must still surface the spawn error")
+	require.Error(t, err)
 	assert.ErrorIs(t, err, tmux.ErrSessionExists)
 }
 
-// racyCollisionTmux is the paneSpawner double: PaneExists returns false on its
-// first call (the pre-spawn check Ensure makes) and, from the second call on, either true
-// (recheckFindsPane) or false — modelling "a concurrent spawn elsewhere beat this one to
-// it" versus "gone before the re-check could confirm it". NewNamedSession always fails
-// with tmux.ErrSessionExists, so Ensure always reaches the re-check path.
-type racyCollisionTmux struct {
-	mu               sync.Mutex
-	calls            int
-	recheckFindsPane bool
-}
+// collidingTmux is the paneSpawner double whose NewNamedSession always fails with
+// tmux.ErrSessionExists and whose socket lists no terminal.
+type collidingTmux struct{}
 
-func (f *racyCollisionTmux) NewSession(_ context.Context, _ int64, _ string, _ map[string]string, _ []string) (string, string, error) {
+func (collidingTmux) NewSession(_ context.Context, _ int64, _ string, _ map[string]string, _ []string) (string, string, error) {
 	return "", "", nil
 }
-func (f *racyCollisionTmux) NewNamedSession(_ context.Context, _, _ string, _ map[string]string, _ []string) (string, string, error) {
+func (collidingTmux) NewNamedSession(_ context.Context, _, _ string, _ map[string]string, _ []string) (string, string, error) {
 	return "", "", tmux.ErrSessionExists
 }
-func (f *racyCollisionTmux) PaneExists(_ context.Context, _ string) (bool, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.calls++
-	if f.calls == 1 {
-		return false, nil
-	}
-	return f.recheckFindsPane, nil
-}
-func (f *racyCollisionTmux) KillWindow(_ context.Context, _ string) error  { return nil }
-func (f *racyCollisionTmux) KillSession(_ context.Context, _ string) error { return nil }
-func (f *racyCollisionTmux) MaxSessionID(_ context.Context) (int64, error) { return 0, nil }
+func (collidingTmux) PaneExists(_ context.Context, _ string) (bool, error) { return false, nil }
+func (collidingTmux) KillWindow(_ context.Context, _ string) error         { return nil }
+func (collidingTmux) KillSession(_ context.Context, _ string) error        { return nil }
+func (collidingTmux) MaxSessionID(_ context.Context) (int64, error)        { return 0, nil }
+func (collidingTmux) ListSessions(_ context.Context) ([]string, error)     { return nil, nil }
 
 // neverRespondingTmux is the paneSpawner double: NewNamedSession blocks until
 // its ctx is done and returns ctx.Err() — a tmux call that simply never returns, the
@@ -382,6 +352,7 @@ func (neverRespondingTmux) PaneExists(_ context.Context, _ string) (bool, error)
 func (neverRespondingTmux) KillWindow(_ context.Context, _ string) error         { return nil }
 func (neverRespondingTmux) KillSession(_ context.Context, _ string) error        { return nil }
 func (neverRespondingTmux) MaxSessionID(_ context.Context) (int64, error)        { return 0, nil }
+func (neverRespondingTmux) ListSessions(_ context.Context) ([]string, error)     { return nil, nil }
 
 // TestShellRegistry_EnsureBoundedByShellTmuxTimeoutWhenTmuxNeverReturns checks:
 // Ensure is called with an unbounded context (context.Background(), no caller-side
@@ -390,10 +361,10 @@ func (neverRespondingTmux) MaxSessionID(_ context.Context) (int64, error)       
 // context.WithTimeout(ctx, shellTmuxTimeout) around the tmux call is what bounds it, not
 // the caller's context.
 func TestShellRegistry_EnsureBoundedByShellTmuxTimeoutWhenTmuxNeverReturns(t *testing.T) {
-	reg := newShellRegistry(neverRespondingTmux{}, zerolog.Nop())
+	reg := newShellRegistry(neverRespondingTmux{}, newTerminalNames(), zerolog.Nop())
 
 	start := time.Now()
-	_, _, err := reg.Ensure(context.Background(), 205, t.TempDir())
+	_, _, _, err := reg.EnsureAny(context.Background(), 205, t.TempDir())
 	elapsed := time.Since(start)
 
 	require.Error(t, err, "REQ-5(c)/D4: Ensure must not hang forever behind a wedged tmux")
@@ -411,9 +382,9 @@ func TestShellRegistry_KillRemovesOnlyItsOwnSession(t *testing.T) {
 	victimID, survivorID := int64(107), int64(108)
 	dir := t.TempDir()
 
-	victimTarget, _, err := reg.Ensure(context.Background(), victimID, dir)
+	victimTarget, _, _, err := reg.EnsureAny(context.Background(), victimID, dir)
 	require.NoError(t, err)
-	survivorTarget, _, err := reg.Ensure(context.Background(), survivorID, dir)
+	survivorTarget, _, _, err := reg.EnsureAny(context.Background(), survivorID, dir)
 	require.NoError(t, err)
 
 	reg.Kill(context.Background(), victimID)

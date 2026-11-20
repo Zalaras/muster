@@ -24,7 +24,11 @@ import {
   type SurfaceKind,
   type SurfaceSwitchState,
 } from "../terminal/surfaceswitch";
-import { buildSurfaceSegment } from "../render/surfaceseg";
+import {
+  buildSurfaceSegment,
+  NO_TERMINALS_VIEW,
+  type SurfaceTerminalsView,
+} from "../render/surfaceseg";
 import type { TerminalSurface } from "../terminal/pane";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import type { Session } from "../protocol/session";
@@ -49,7 +53,11 @@ export interface FocusDeps {
     get(id: number, kind: SurfaceKind): TerminalSurface | undefined;
     select(id: number, kind: SurfaceKind, findDeadRefs: () => DeadSurfaceRefs | null): void;
     activityFor(id: number): ShellActivityIndicator;
+    terminalsViewFor(id: number): SurfaceTerminalsView;
     focusSelected(id: number): void;
+  };
+  getTerminalsPanel(): {
+    open(id: number, opener: HTMLElement, findDeadRefs: () => DeadSurfaceRefs | null): void;
   };
   /** Tiles' promote — Focus's own shortcut-driven `nth`/`neediest` promote instead of
    * focusing when the current view is Tiles (`bringForward`'s shared tail). Tiles is
@@ -104,12 +112,20 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     return app.state.view === "focus" && app.state.focusedId === id ? deadSurfaceRefs : null;
   }
 
-  const mainheadSurfaceSegment = buildSurfaceSegment((kind) => {
-    if (app.state.focusedId !== null) {
-      const id = app.state.focusedId;
-      deps.getSurfaces().select(id, kind, () => deadSurfaceRefsFor(id));
-    }
-  });
+  const mainheadSurfaceSegment = buildSurfaceSegment(
+    (kind) => {
+      if (app.state.focusedId !== null) {
+        const id = app.state.focusedId;
+        deps.getSurfaces().select(id, kind, () => deadSurfaceRefsFor(id));
+      }
+    },
+    (opener) => {
+      if (app.state.focusedId !== null) {
+        const id = app.state.focusedId;
+        deps.getTerminalsPanel().open(id, opener, () => deadSurfaceRefsFor(id));
+      }
+    },
+  );
   requireElement<HTMLElement>("#mainhead .acts").prepend(mainheadSurfaceSegment.root);
 
   const mainheadElements: MainheadElements = {
@@ -264,6 +280,9 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
       ? getSurfaceState(deps.getSurfaces().state(), session.id)
       : DEFAULT_SURFACE_STATE;
     const activity = session ? deps.getSurfaces().activityFor(session.id) : "none";
+    const terminalsView = session
+      ? deps.getSurfaces().terminalsViewFor(session.id)
+      : NO_TERMINALS_VIEW;
     renderMainhead(
       mainheadElements,
       session,
@@ -271,6 +290,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
       connected,
       surfaceState,
       activity,
+      terminalsView,
       mainheadRename.isEditing(),
       session ? groupLabel(session, app.state.groups) : "",
     );

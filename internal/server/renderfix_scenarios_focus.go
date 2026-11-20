@@ -273,8 +273,7 @@ func driveFocusHeaderRows(rows focusRows) func(context.Context, *renderRig) erro
 				return err
 			}
 		}
-		r.repoTick(ctx)
-		return nil
+		return r.repoTick(ctx)
 	}
 }
 

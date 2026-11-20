@@ -43,7 +43,7 @@ import {
   type SurfaceKind,
   type SurfaceSwitchState,
 } from "../terminal/surfaceswitch";
-import { updateSurfaceSegment } from "../render/surfaceseg";
+import { updateSurfaceSegment, type SurfaceTerminalsView } from "../render/surfaceseg";
 import type { TerminalSurface } from "../terminal/pane";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import { collectDeadSurfaceRefs, type DeadSurfaceRefs } from "../render/dead";
@@ -61,7 +61,12 @@ export interface TilesDeps {
     get(id: number, kind: SurfaceKind): TerminalSurface | undefined;
     select(id: number, kind: SurfaceKind, findDeadRefs: () => DeadSurfaceRefs | null): void;
     activityFor(id: number): ShellActivityIndicator;
+    terminalsViewFor(id: number): SurfaceTerminalsView;
   };
+  getTerminalsPanel(): {
+    open(id: number, opener: HTMLElement, findDeadRefs: () => DeadSurfaceRefs | null): void;
+  };
+
   renameHandlers: TileRenameHandlers;
   railMenu: { open(request: CardMenuRequest): void };
   /** `reader` is constructed after `tiles` (main.ts's init
@@ -275,6 +280,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
           tileTemplate,
           deps.renameHandlers,
           (id, kind) => deps.getSurfaces().select(id, kind, () => deadSurfaceRefsFor(id)),
+          (id, opener) => deps.getTerminalsPanel().open(id, opener, () => deadSurfaceRefsFor(id)),
           noteHover,
         );
         tileElements.set(session.id, refs);
@@ -295,6 +301,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
         sessionSurfaceState,
         connected,
         deps.getSurfaces().activityFor(session.id),
+        deps.getSurfaces().terminalsViewFor(session.id),
       );
       refs.rename.setEnabled(connected);
     }
