@@ -160,6 +160,17 @@ var (
 	notifiedRe     = regexp.MustCompile(`<task-notification>[\s\S]*?<tool-use-id>([^<]+)</tool-use-id>`)
 )
 
+// closeNotified ends each backgrounded call a <task-notification> in a plain-text message names.
+func (t *transcript) closeNotified(c json.RawMessage) {
+	var s string
+	if len(t.open) == 0 || json.Unmarshal(c, &s) != nil {
+		return
+	}
+	for _, m := range notifiedRe.FindAllStringSubmatch(s, -1) {
+		delete(t.open, m[1])
+	}
+}
+
 // tools records tool calls opening and closing in one line's content. A call run in the
 // background returns at once ("running in background with ID: …"), so it stays open until the
 // <task-notification> naming its tool-use id says it ended.
@@ -168,13 +179,8 @@ func (t *transcript) tools(ln line, at time.Time) {
 		return // api-request-blob lines replay earlier calls with no time or cwd
 	}
 	c := bytes.TrimSpace(ln.Message.Content)
-	if len(c) > 0 && c[0] == '"' && len(t.open) > 0 {
-		var s string
-		if json.Unmarshal(c, &s) == nil {
-			for _, m := range notifiedRe.FindAllStringSubmatch(s, -1) {
-				delete(t.open, m[1])
-			}
-		}
+	if len(c) > 0 && c[0] == '"' {
+		t.closeNotified(c)
 		return
 	}
 	if len(c) == 0 || c[0] != '[' {
