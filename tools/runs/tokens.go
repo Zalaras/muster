@@ -312,6 +312,7 @@ type transcript struct {
 	ordered []string            // message ids in first-seen order
 	open    map[string]openTool // long-running tool calls still waiting for their result
 	calls   []openTool          // finished gates calls, with their end
+	cwds    map[string]cwdSpan  // each directory the session worked in, and when
 }
 
 // Ledger caches every transcript it has read, so a poll costs only the bytes appended since.
@@ -409,6 +410,25 @@ func (t *transcript) ingest(b []byte) {
 	}
 	t.tools(ln, at)
 	t.usage(ln, at)
+	t.where(ln.Cwd, at)
+}
+
+// where records that the session worked in cwd at at.
+func (t *transcript) where(cwd string, at time.Time) {
+	if cwd == "" || at.IsZero() {
+		return
+	}
+	if t.cwds == nil {
+		t.cwds = map[string]cwdSpan{}
+	}
+	c := t.cwds[cwd]
+	if c.first.IsZero() || at.Before(c.first) {
+		c.first = at
+	}
+	if at.After(c.last) {
+		c.last = at
+	}
+	t.cwds[cwd] = c
 }
 
 // usage records one assistant message's token counts, once per message id.
@@ -432,15 +452,27 @@ func (t *transcript) usage(ln line, at time.Time) {
 	}
 }
 
-// sum totals the messages sent from inside tree between from and to.
-func (t *transcript) sum(tree string, from, to time.Time) Tokens {
+// cwdSpan is when a session worked in one directory: its first and last message there.
+type cwdSpan struct{ first, last time.Time }
+
+// touched reports whether the session worked inside tree at any time between from and to.
+func (t *transcript) touched(tree string, from, to time.Time) bool {
+	for cwd, c := range t.cwds {
+		if cwd != "" && inTree(cwd, tree) && !c.last.Before(from) && !c.first.After(to) {
+			return true
+		}
+	}
+	return false
+}
+
+// sumAll totals every message between from and to, wherever the session was working.
+func (t *transcript) sumAll(from, to time.Time) Tokens {
 	var tot Tokens
 	for _, id := range t.ordered {
 		m := t.msgs[id]
-		if m.At.Before(from) || m.At.After(to) || !inTree(m.Cwd, tree) {
-			continue
+		if !m.At.Before(from) && !m.At.After(to) {
+			tot.add(m.tokens())
 		}
-		tot.add(m.tokens())
 	}
 	return tot
 }
@@ -462,13 +494,32 @@ const liveFor = 45 * time.Minute
 // Live names what is running in tree right now, read from the sessions themselves rather than a
 // state file: each subagent whose meta.json says it has not finished, and any long tool call
 // (gates, an e2e sweep) still waiting for its result.
-func (l *Ledger) Live(tree string, now time.Time) []string {
+func (l *Ledger) Live(tree string, from, now time.Time) []string {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	seen := map[string]bool{}
-	for _, dir := range l.dirsFor(tree) {
-		l.openCalls(dir, tree, now, seen)
-		l.runningAgents(dir, tree, now, seen)
+	sessions, sids := l.runSessions(tree, from, now)
+	for _, t := range sessions {
+		for _, o := range t.open {
+			if now.Sub(o.At) < callsFor {
+				seen[o.Label] = true
+			}
+		}
+	}
+	for _, f := range l.agentFiles(tree, sids, from) {
+		var meta agentMeta
+		m := strings.TrimSuffix(f, ".jsonl") + ".meta.json"
+		if !readJSON(m, &meta) || (meta.Finished != nil && *meta.Finished) { // no flag until it ends
+			continue
+		}
+		if fi, err := os.Stat(f); err != nil || now.Sub(fi.ModTime()) > liveFor {
+			continue
+		}
+		name := meta.AgentType
+		if strings.HasPrefix(name, "review-") {
+			name = ReviewPrefix + reviewerOf(name)
+		}
+		seen[name] = true
 	}
 	live := make([]string, 0, len(seen))
 	for s := range seen {
@@ -482,43 +533,6 @@ func (l *Ledger) Live(tree string, now time.Time) []string {
 // wrote nothing, so the session file's age cannot be the cut-off.
 const callsFor = 3 * time.Hour
 
-func (l *Ledger) openCalls(dir, tree string, now time.Time, seen map[string]bool) {
-	sessions, _ := filepath.Glob(filepath.Join(dir, "*.jsonl"))
-	for _, s := range sessions {
-		if fi, err := os.Stat(s); err != nil || now.Sub(fi.ModTime()) > callsFor {
-			continue
-		}
-		if t := l.read(s); t != nil {
-			for _, o := range t.open {
-				if inTree(o.Cwd, tree) && now.Sub(o.At) < callsFor {
-					seen[o.Label] = true
-				}
-			}
-		}
-	}
-}
-
-func (l *Ledger) runningAgents(dir, tree string, now time.Time, seen map[string]bool) {
-	metas, _ := filepath.Glob(filepath.Join(dir, "*", "subagents", "agent-*.meta.json"))
-	for _, m := range metas {
-		var meta agentMeta
-		if !readJSON(m, &meta) || (meta.Finished != nil && *meta.Finished) { // no flag until it ends
-			continue
-		}
-		f := strings.TrimSuffix(m, ".meta.json") + ".jsonl"
-		if fi, err := os.Stat(f); err != nil || now.Sub(fi.ModTime()) > liveFor {
-			continue
-		}
-		if t := l.read(f); t != nil && inTree(t.cwd, tree) {
-			name := meta.AgentType
-			if strings.HasPrefix(name, "review-") {
-				name = ReviewPrefix + reviewerOf(name)
-			}
-			seen[name] = true
-		}
-	}
-}
-
 // agentUse is one subagent's run inside a window.
 type agentUse struct {
 	Type, Description string
@@ -530,31 +544,18 @@ type agentUse struct {
 func (l *Ledger) window(tree string, from, to time.Time) (main Tokens, agents []agentUse) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	var sessions, files []string
-	for _, dir := range l.dirsFor(tree) {
-		s, _ := filepath.Glob(filepath.Join(dir, "*.jsonl"))
-		f, _ := filepath.Glob(filepath.Join(dir, "*", "subagents", "agent-*.jsonl"))
-		sessions, files = append(sessions, s...), append(files, f...)
+	sessions, sids := l.runSessions(tree, from, to)
+	for _, t := range sessions {
+		main.add(t.sumAll(from, to))
 	}
-	for _, s := range sessions {
-		if fi, err := os.Stat(s); err != nil || fi.ModTime().Before(from) {
-			continue // untouched since before the run: cannot hold its messages
-		}
-		if t := l.read(s); t != nil {
-			main.add(t.sum(tree, from, to))
-		}
-	}
-	for _, f := range files {
-		if fi, err := os.Stat(f); err != nil || fi.ModTime().Before(from) {
-			continue
-		}
+	for _, f := range l.agentFiles(tree, sids, from) {
 		t := l.read(f)
-		if t == nil || t.first.IsZero() || t.first.Before(from.Add(-time.Minute)) || t.first.After(to) || !inTree(t.cwd, tree) {
+		if t == nil || t.first.Before(from.Add(-time.Minute)) || t.first.After(to) {
 			continue
 		}
 		var m agentMeta
 		readJSON(strings.TrimSuffix(f, ".jsonl")+".meta.json", &m)
-		tk := t.sum(tree, time.Time{}, to.Add(time.Hour))
+		tk := t.sumAll(time.Time{}, to.Add(time.Hour))
 		tk.Agents = 1
 		if t.last.After(t.first) {
 			tk.Minutes = t.last.Sub(t.first).Minutes()
@@ -564,6 +565,66 @@ func (l *Ledger) window(tree string, from, to time.Time) (main Tokens, agents []
 	}
 	sort.Slice(agents, func(i, j int) bool { return agents[i].Start.Before(agents[j].Start) })
 	return main, agents
+}
+
+// runSessions finds a run's sessions: every session that worked inside tree between from and
+// to. All of such a session's work in the window is the run's, even after it left the tree —
+// an orchestrator that ran ExitWorktree keeps orchestrating from the primary checkout, and its
+// messages and agents then carry that directory. Call with l.mu held.
+func (l *Ledger) runSessions(tree string, from, to time.Time) (map[string]*transcript, map[string]bool) {
+	sessions, sids := map[string]*transcript{}, map[string]bool{}
+	for _, dir := range l.dirsFor(tree) {
+		paths, _ := filepath.Glob(filepath.Join(dir, "*.jsonl"))
+		for _, p := range paths {
+			if fi, err := os.Stat(p); err != nil || fi.ModTime().Before(from) {
+				continue // untouched since before the run: cannot hold its messages
+			}
+			if t := l.read(p); t != nil && t.touched(tree, from, to) {
+				sessions[p] = t
+				sids[strings.TrimSuffix(filepath.Base(p), ".jsonl")] = true
+			}
+		}
+	}
+	return sessions, sids
+}
+
+// agentFiles are the subagent transcripts of a run: those its sessions spawned, and any that
+// started inside tree. Call with l.mu held.
+func (l *Ledger) agentFiles(tree string, sids map[string]bool, from time.Time) []string {
+	var out []string
+	for _, dir := range l.dirsFor(tree) {
+		files, _ := filepath.Glob(filepath.Join(dir, "*", "subagents", "agent-*.jsonl"))
+		for _, f := range files {
+			if fi, err := os.Stat(f); err != nil || fi.ModTime().Before(from) {
+				continue
+			}
+			sid := filepath.Base(filepath.Dir(filepath.Dir(f)))
+			if t := l.read(f); t != nil && !t.first.IsZero() && (sids[sid] || inTree(t.cwd, tree)) {
+				out = append(out, f)
+			}
+		}
+	}
+	return out
+}
+
+// LastActive is the latest message any of a run's sessions or agents sent — a run whose review
+// agents are working writes nothing to its tree for long stretches, but they keep talking.
+func (l *Ledger) LastActive(tree string, from, now time.Time) time.Time {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	sessions, sids := l.runSessions(tree, from, now)
+	var last time.Time
+	for _, t := range sessions {
+		if t.last.After(last) {
+			last = t.last
+		}
+	}
+	for _, f := range l.agentFiles(tree, sids, from) {
+		if t := l.read(f); t != nil && t.last.After(last) {
+			last = t.last
+		}
+	}
+	return last
 }
 
 // stepCandidates are the pipeline steps an agent type can run. Types have carried suffixes

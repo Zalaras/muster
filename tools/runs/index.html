@@ -434,7 +434,7 @@ function batches(r) {
     const extra = msg ? `<div class="full err">${esc(msg)}</div>` : "";
     // A batch is a small pipeline of its own: the same step timeline as an /orchestrate run,
     // once the batch has written its orchestration-state.json (before that it is "starting").
-    const steps = b.steps ? `<div class="full btl">${timeline({
+    const steps = b.steps || Object.keys(b.stepTokens || {}).length ? `<div class="full btl">${timeline({
       startedAt: b.startedAt, updatedAt: b.finishedAt, group: b.finishedAt ? "done" : "active",
       name: `${r.name}#${b.n}`, status: b.status === "running" && !b.alive ? "blocked" : "", steps: b.steps, skipped: b.skipped, live: b.live, gates: b.gates,
       stepTokens: b.stepTokens, tokens: b.tokens })}</div>` : "";

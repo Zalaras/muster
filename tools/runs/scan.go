@@ -142,7 +142,8 @@ type Env struct {
 // TokenSource reads what sessions in a worktree spent, from Claude Code's transcripts.
 type TokenSource interface {
 	RunTokens(tree string, from, to time.Time, steps map[string][]Attempt) (map[string]Tokens, Tokens)
-	Live(tree string, now time.Time) []string
+	Live(tree string, from, now time.Time) []string
+	LastActive(tree string, from, now time.Time) time.Time
 	Gates(tree string, from, to, now time.Time) []GateRun
 }
 
@@ -371,7 +372,7 @@ func addTokens(runs []Run, trees []Tree, env Env) {
 				b.Tokens, b.StepTokens = &t, by
 				b.Gates = env.Tokens.Gates(b.worktree, parse(b.StartedAt), bEnd, env.Now)
 				if b.Status == "running" {
-					b.Live = env.Tokens.Live(b.worktree, env.Now)
+					b.Live = env.Tokens.Live(b.worktree, parse(b.StartedAt), env.Now)
 				}
 				total.add(t)
 			}
@@ -388,8 +389,21 @@ func addTokens(runs []Run, trees []Tree, env Env) {
 		r.StepTokens, r.Tokens = by, &total
 		r.Gates = env.Tokens.Gates(r.Tree, parse(r.StartedAt), end, env.Now)
 		if r.Group != "done" {
-			r.Live = env.Tokens.Live(r.Tree, env.Now)
+			r.Live = env.Tokens.Live(r.Tree, parse(r.StartedAt), env.Now)
+			freshen(r, env.Tokens.LastActive(r.Tree, parse(r.StartedAt), env.Now), env)
 		}
+	}
+}
+
+// freshen counts the run's sessions talking as activity: reviewers write nothing to the tree for
+// long stretches, so a run idle only by its files is not waiting on anyone while they work.
+func freshen(r *Run, last time.Time, env Env) {
+	if !last.After(parse(r.Activity)) {
+		return
+	}
+	r.Activity = stamp(last)
+	if r.Group == "attn" && r.Status != "blocked" && env.Now.Sub(last) <= env.Stale {
+		r.Group, r.Alert = "active", ""
 	}
 }
 

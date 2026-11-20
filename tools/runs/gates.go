@@ -58,25 +58,16 @@ func (l *Ledger) Gates(tree string, from, to, now time.Time) []GateRun {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	var runs []GateRun
-	for _, dir := range l.dirsFor(tree) {
-		sessions, _ := filepath.Glob(filepath.Join(dir, "*.jsonl"))
-		for _, s := range sessions {
-			if fi, err := os.Stat(s); err != nil || fi.ModTime().Before(from) {
-				continue
+	sessions, _ := l.runSessions(tree, from, to)
+	for _, t := range sessions {
+		for _, c := range t.calls {
+			if !c.At.Before(from) && !c.At.After(to) {
+				runs = append(runs, gateRun(c))
 			}
-			t := l.read(s)
-			if t == nil {
-				continue
-			}
-			for _, c := range t.calls {
-				if inTree(c.Cwd, tree) && !c.At.Before(from) && !c.At.After(to) {
-					runs = append(runs, gateRun(c))
-				}
-			}
-			for _, o := range t.open {
-				if o.Label == "gates" && inTree(o.Cwd, tree) && !o.At.Before(from) && now.Sub(o.At) < callsFor {
-					runs = append(runs, gateRun(o))
-				}
+		}
+		for _, o := range t.open {
+			if o.Label == "gates" && !o.At.Before(from) && now.Sub(o.At) < callsFor {
+				runs = append(runs, gateRun(o))
 			}
 		}
 	}
