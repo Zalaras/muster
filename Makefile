@@ -245,6 +245,10 @@ proto-url: proto-branch ## In a proto/<name> tree only: print the prototype's da
 worktrees: ## List every worktree (branch, ahead, landed, dirty) and which plan branches touch the same files
 	scripts/worktree.sh list
 
+.PHONY: runs
+runs: ## Live page of every /orchestrate run and /fix sweep across the worktrees, read from their state files (ARGS="-stale 45m" etc.)
+	go run ./tools/runs -open $(ARGS)
+
 # /fix sweeps (kb:adr/process-fix-sweep-fresh-process-per-batch): each batch is a fresh
 # `claude -p "/fix-batch <sweep> <n>"` in its own worktree; the loop lands completed batches on
 # local main and ticks their entries. Nothing here pushes — /land --sweep does.

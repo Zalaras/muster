@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en" data-theme="instrument">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Muster runs</title>
+<style>
+:root,
+:root[data-theme="instrument"] {
+  --bg: #12141c;
+  --bg-raised: #171a24;
+  --bg-hover: #1c2029;
+  --well: #0d0f16;
+  --line: #282d3b;
+  --line-control: #343a4a;
+  --edge: #6a7286;
+  --fg: #e8e6e1;
+  --fg-muted: #b2b6c3;
+  --fg-dim: #a6abbc;
+  --amber: #f2a33c;
+  --rose: #e77f7f;
+  --violet: #9e91f1;
+  --teal: #56c5d0;
+  --idle: #989db1;
+  --amber-line: #5c4526;
+  --rose-line: #5c2e2e;
+  --violet-line: #3e3663;
+  --teal-line: #215058;
+  --amber-note: #f5cc93;
+  --rose-note: #f1b0b0;
+  --amber-fg: #12141c;
+  --banner-bg: #3a1e1e;
+  --banner-line: #5a2c2c;
+  --banner-fg: #f3b7b7;
+  --danger: #c24646;
+  --danger-line: #7a3535;
+  --danger-fg: #ffffff;
+  --disabled-fg: #5a6070;
+  --disabled-line: #2c3140;
+  --disabled-bg: #22262f;
+  --term-dark-bg: #0d0f16;
+  --term-dark-fg: #e8e6e1;
+  --term-light-bg: #fbfaf7;
+  --term-light-fg: #1c1e26;
+  --scrim: rgba(8, 9, 13, 0.72);
+  --bg-raised-95: rgba(23, 26, 36, 0.95);
+  --health-ok: #7bc47f;
+  --health-pending: #e3c64a;
+  --health-down: #ee6a32;
+  --warn: #e8cf5a;
+  --warn-bg: #4a4116;
+  --warn-line: #8a7526;
+  --warn-fg: #fbefb8;
+  --find-match: #2b4a6b;
+  --find-current: #3a6694;
+}
+:root {
+  /* system stacks only — nothing vendored, nothing fetched (decided 2026-08-16) */
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --disp: system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* REQ-6 (plan ui-text-and-focus, 2026-09-03): the type ramp, in rem anchored to
+   * --fs-root — theme-independent, so it lives on the bare :root alongside the font
+   * stacks above. Ramp mapping (REQ-7, Implementation Notes): every font-size
+   * declaration below resolves to one of these seven tokens; no numeric literal
+   * remains outside this block and the html rule that consumes --fs-root. */
+  --fs-root: 15px;
+  --fs-2xs: 0.68rem;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.82rem;
+  --fs-md: 0.89rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.07rem;
+  --fs-xl: 1.14rem;
+}
+
+  html { font-size: var(--fs-root); }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); }
+  header { display: flex; align-items: baseline; gap: 16px; padding: 14px 24px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: var(--fs-lg); margin: 0; font-weight: 600; }
+  header .meta { color: var(--fg-dim); font-size: var(--fs-sm); font-family: var(--mono); }
+  header .live { margin-left: auto; font-size: var(--fs-sm); color: var(--teal); font-family: var(--mono); }
+  header .live::before { content: "●"; margin-right: 6px; animation: pulse 2s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  main { padding: 20px 24px 40px; max-width: 1180px; }
+  h2 { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .08em; color: var(--fg-dim); margin: 26px 0 8px; font-weight: 600; }
+  h2 { margin-top: 0; }
+  main > section { margin-bottom: 26px; }
+
+  .list { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .row { display: grid; grid-template-columns: 16px minmax(150px, 1.3fr) 92px minmax(190px, 2fr) 70px 70px 60px 64px 64px; gap: 12px; align-items: center;
+         padding: 9px 14px; background: var(--bg-raised); border-top: 1px solid var(--line); cursor: pointer; font-size: var(--fs-sm); }
+  .list > .item:first-child .row { border-top: 0; }
+  .row:hover { background: var(--bg-hover); }
+  .row .chev { color: var(--fg-dim); transition: transform .15s; font-size: var(--fs-xs); }
+  .item.open .chev { transform: rotate(90deg); }
+  .row .name { font-family: var(--mono); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kind { font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: .06em; color: var(--fg-dim); }
+  .row .num { font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-muted); text-align: right; }
+  .row .num.warn { color: var(--amber); }
+  .now { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-width: 0; }
+  .chip { font-family: var(--mono); font-size: var(--fs-2xs); padding: 2px 7px; border-radius: 10px; white-space: nowrap; }
+  .c-run { color: var(--teal); border: 1px solid var(--teal-line); }
+  .c-run::before { content: "▸ "; }
+  .c-stale { color: var(--amber); border: 1px solid var(--amber-line); }
+  .c-fail { color: var(--rose); border: 1px solid var(--rose-line); }
+  .c-done { color: var(--violet); border: 1px solid var(--violet-line); }
+  .c-wait { color: var(--idle); border: 1px solid var(--line-control); }
+  .stepcell { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-muted); }
+  .bar { height: 4px; flex: 1; background: var(--well); border-radius: 2px; overflow: hidden; width: 100%; }
+  .bar i { display: block; height: 100%; background: var(--violet); }
+  .heads { display: grid; grid-template-columns: 16px minmax(150px, 1.3fr) 92px minmax(190px, 2fr) 70px 70px 60px 64px 64px; gap: 12px;
+           padding: 0 14px 6px; font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: .06em; color: var(--fg-dim); }
+  .heads span.r { text-align: right; }
+  .flash .row { animation: flash 1.2s; }
+  @keyframes flash { 0% { background: var(--teal-line); } 100% { background: var(--bg-raised); } }
+
+  .detail { display: none; background: var(--bg); border-top: 1px solid var(--line); padding: 14px 16px 16px 42px; }
+  .item.open .detail { display: block; }
+  .where { font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); margin-bottom: 12px; }
+  .where b { color: var(--fg-muted); font-weight: 500; }
+  .alert { font-size: var(--fs-xs); color: var(--amber-note); margin-bottom: 10px; }
+  .err { font-family: var(--mono); font-size: var(--fs-xs); color: var(--rose-note); background: var(--well); padding: 8px 10px; border-radius: 3px; margin-bottom: 10px; }
+
+  /* timeline: one row per step, bars per attempt, lanes show parallel tracks */
+  .tl { display: grid; grid-template-columns: 150px 1fr 260px; row-gap: 3px; column-gap: 12px; font-size: var(--fs-xs); }
+  .tl .lab { font-family: var(--mono); color: var(--fg-muted); display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+  .tl .lab .lane { font-size: var(--fs-2xs); width: 44px; color: var(--fg-dim); }
+  .tl .lab .lane.d { color: var(--teal); }
+  .tl .lab .lane.w { color: var(--violet); }
+  .tl .track { position: relative; height: 16px; background: var(--well); border-radius: 2px; }
+  .tl .seg { position: absolute; top: 2px; bottom: 2px; border-radius: 2px; background: var(--violet); min-width: 3px; }
+  .tl .seg.retried { background: var(--amber); opacity: .75; }
+  .tl .seg.running { background: repeating-linear-gradient(-45deg, var(--teal) 0 6px, var(--teal-line) 6px 12px); background-size: 17px 17px; animation: move 1s linear infinite; }
+  @keyframes move { to { background-position: 17px 0; } }
+  .tl .seg.failed { background: var(--rose); }
+  .tl .info { font-family: var(--mono); color: var(--fg-dim); white-space: nowrap; }
+  .tl .info.run { color: var(--teal); }
+  .tl .info.amb { color: var(--amber); }
+  .tl .skip .lab, .tl .skip.info { opacity: .45; }
+  .tl .sep { grid-column: 1 / -1; height: 4px; }
+  .tl .nowline { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--teal); opacity: .6; }
+  .axis { display: grid; grid-template-columns: 150px 1fr 260px; column-gap: 12px; font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-dim); margin-top: 4px; }
+  .axis div { display: flex; justify-content: space-between; }
+  .legend { display: flex; gap: 14px; margin-top: 12px; font-size: var(--fs-2xs); color: var(--fg-dim); flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 14px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+
+  .spend { display: flex; gap: 18px; flex-wrap: wrap; align-items: baseline; font-size: var(--fs-xs); color: var(--fg-muted); margin-bottom: 12px; }
+  .spend b { font-family: var(--mono); color: var(--fg); font-weight: 500; }
+  .spend.split { display: block; margin-top: -6px; color: var(--fg-dim); }
+  .spend .note { color: var(--fg-dim); font-size: var(--fs-2xs); margin-left: auto; }
+  .batches { display: grid; grid-template-columns: 24px 1fr 150px 60px 54px 54px 60px; gap: 4px 12px; font-size: var(--fs-sm); align-items: baseline; }
+  .batches .n { font-family: var(--mono); color: var(--fg-dim); }
+  .batches .s { color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .batches .m { font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); }
+
+  .x-unused { position: fixed; right: 16px; bottom: 16px; display: flex; gap: 8px; align-items: center; background: var(--bg-raised); border: 1px dashed var(--line-control);
+             padding: 8px 10px; border-radius: 6px; font-size: var(--fs-xs); color: var(--fg-dim); }
+  .x-unused button { font: inherit; color: var(--fg); background: var(--bg-hover); border: 1px solid var(--line-control); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+  .x-unused button:hover { border-color: var(--edge); }
+
+  @media (max-width: 820px) {
+    main, header { padding-left: 16px; padding-right: 16px; }
+    .row, .heads { grid-template-columns: 14px 1fr 1fr 56px 56px; }
+    .row .kind, .row .hide, .heads .hide { display: none; }
+    .detail { padding-left: 16px; }
+    .tl, .axis { grid-template-columns: 110px 1fr; }
+    .tl .info, .axis .pad { display: none; }
+  }
+  .live.off { color: var(--amber); }
+  .live.off::before { animation: none; }
+  .empty { color: var(--fg-dim); font-size: var(--fs-sm); }
+  .batches .err { margin: 2px 0 6px; }
+  .row:focus-visible { outline: 1px solid var(--edge); outline-offset: -1px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Muster runs</h1>
+  <span class="meta" id="meta"></span>
+  <span class="live" id="live">connecting…</span>
+</header>
+<main>
+  <div class="heads"><span></span><span>Run</span><span class="hide">Kind</span><span>Running now</span><span class="hide">Steps</span><span class="r hide">Elapsed</span><span class="r">Cost</span><span class="r" title="every token sent or received, cache reads included">Tokens</span><span class="r hide">Updated</span></div>
+  <section id="sec-active"><h2>Active</h2><div class="list" id="active"></div></section>
+  <section id="sec-attn"><h2>Needs attention</h2><div class="list" id="attn"></div></section>
+  <section id="sec-done"><h2>Recently finished</h2><div class="list" id="done"></div></section>
+  <p class="empty" id="empty" hidden>No runs found in any worktree.</p>
+</main>
+<script>
+"use strict";
+const STEPS = [
+  { id: "e2e-specs", lane: "" }, { sep: true },
+  { id: "daemon-impl", lane: "d", label: "impl" }, { id: "daemon-tests", lane: "d", label: "tests" },
+  { id: "web-impl", lane: "w", label: "impl" }, { id: "web-tests", lane: "w", label: "tests" },
+  { id: "render-tests", lane: "w", label: "render" }, { sep: true },
+  { id: "e2e-validate", lane: "" }, { id: "review", lane: "" }, { id: "doc-reconcile", lane: "" },
+];
+
+let snap = null, offset = 0, connected = false;
+const openSet = new Set(JSON.parse(safeGet("runs.open") || "[]"));
+const changed = new Set();
+let prevKeys = new Map();
+
+function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function safeSet(k, v) { try { localStorage.setItem(k, v); } catch {} }
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ms = s => (s ? Date.parse(s) : NaN);
+const now = () => Date.now() + offset;
+const hm = t => isNaN(t) ? "—" : new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+const day = t => isNaN(t) ? "—" : new Date(t).toLocaleDateString([], { day: "numeric", month: "short" });
+const dur = m => { m = Math.max(0, Math.round(m / 60000)); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`; };
+const short = p => p ? p.replace(/^.*\/(?=[^/]+$)/, "../") : "";
+const isOpen = a => a && !a.finish;
+const last = a => a[a.length - 1];
+
+/* Spend comes from the sessions' own transcripts, priced at list rates: an estimate, but it is
+   this run's alone, unlike the account-wide rate-limit percentages. */
+const spent = t => t && (t.cost > 0 || t.output > 0);
+const usd = t => spent(t) ? `$${t.cost < 10 ? t.cost.toFixed(2) : Math.round(t.cost)}` : "—";
+const mtok = n => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : `${n}`;
+const allTok = t => t.input + t.output + t.cacheRead + t.cacheWrite5m + t.cacheWrite1h;
+const tok = t => spent(t) ? mtok(allTok(t)) : "—";
+const tokSplit = t => `output <b>${mtok(t.output)}</b> · input <b>${mtok(t.input)}</b> · cache read <b>${mtok(t.cacheRead)}</b> · cache write <b>${mtok(t.cacheWrite5m + t.cacheWrite1h)}</b>`;
+const tokTitle = t => spent(t) ? `${usd(t)} at list price · output ${mtok(t.output)} · input ${mtok(t.input)} · cache read ${mtok(t.cacheRead)} · cache write ${mtok(t.cacheWrite5m + t.cacheWrite1h)}` : "no transcript found";
+const EXTRA = ["orchestrator", "comment pass", "decisions", "other"];
+
+function running(r) { return Object.entries(r.steps || {}).filter(([, a]) => isOpen(last(a))); }
+function total(r) { return 9 - (r.skipped || []).length; }
+function doneCount(r) { return Object.values(r.steps || {}).filter(a => !isOpen(last(a))).length; }
+
+function nowChips(r) {
+  if (r.kind === "sweep") {
+    const run = r.batches.filter(b => b.status === "running");
+    if (r.group === "done") return `<span class="chip c-done">${esc(r.outcome)}</span>`;
+    const chips = r.batches.filter(b => b.status === "failed" || b.status === "completed" || (b.status === "running" && !b.alive))
+      .map(b => `<span class="chip c-fail">batch ${b.n} ${b.status === "running" ? "exited" : b.question ? "question" : "failed"}</span>`);
+    return chips.concat(run.filter(b => b.alive).map(b => `<span class="chip c-run">batch ${b.n}${b.step ? ` · ${esc(b.step)} ${dur(now() - ms(b.stepSince))}` : ""}</span>`)).join("")
+      || `<span class="chip c-wait">${r.batches.filter(b => b.status === "pending").length} pending</span>`;
+  }
+  if (r.group === "done") return `<span class="chip c-done">${esc(r.outcome)}</span>`;
+  if (r.status === "blocked") return `<span class="chip c-fail">blocked · ${esc(r.currentStep)}</span>`;
+  const cls = r.group === "attn" ? "c-stale" : "c-run";
+  const chips = running(r).map(([id, a]) => `<span class="chip ${cls}">${esc(id)} ${dur(now() - ms(last(a).start))}${a.length > 1 ? ` · try ${a.length}` : ""}</span>`);
+  return chips.join("") || `<span class="chip c-wait">next ${esc(r.currentStep)}</span>`;
+}
+
+function timeline(r) {
+  const start = ms(r.startedAt), end = r.group === "done" ? ms(r.updatedAt) : now();
+  const span = Math.max(end - start, 60000);
+  const pct = t => Math.min(100, Math.max(0, ((t - start) / span) * 100));
+  let rows = "";
+  for (const s of STEPS) {
+    if (s.sep) { rows += `<div class="sep"></div>`; continue; }
+    const a = (r.steps || {})[s.id], skip = (r.skipped || []).includes(s.id);
+    const lane = s.lane === "d" ? `<span class="lane d">daemon</span>` : s.lane === "w" ? `<span class="lane w">web</span>` : `<span class="lane"></span>`;
+    let segs = "", info = skip ? "skipped" : "waiting", infoCls = "";
+    if (a && a.length) {
+      a.forEach((at, i) => {
+        const f = at.finish ? ms(at.finish) : end, st = ms(at.start);
+        const cls = !at.finish ? (r.status === "blocked" ? "failed" : "running") : i < a.length - 1 ? "retried" : "";
+        segs += `<div class="seg ${cls}" style="left:${pct(st)}%;width:${pct(f) - pct(st)}%" title="${esc(s.id)} attempt ${i + 1}: ${hm(st)}–${at.finish ? hm(f) : "now"}"></div>`;
+      });
+      const cur = last(a), tk = (r.stepTokens || {})[s.id];
+      const took = a.reduce((x, at) => x + ((at.finish ? ms(at.finish) : end) - ms(at.start)), 0);
+      const cost = spent(tk) ? ` · ${usd(tk)} · ${tok(tk)}` : "";
+      const word = s.id === "review" ? "cycles" : "tries";
+      if (isOpen(cur)) { info = `running ${dur(end - ms(cur.start))}${cost}${a.length > 1 ? ` · try ${a.length}` : ""}`; infoCls = "run"; }
+      else { info = `${dur(took)}${cost}${a.length > 1 ? ` · ${a.length} ${word}` : ""}`; infoCls = a.length > 1 ? "amb" : ""; }
+    }
+    const tip = (r.stepTokens || {})[s.id] ? ` title="${esc(tokTitle(r.stepTokens[s.id]))}"` : "";
+    rows += `<div class="lab ${skip ? "skip" : ""}">${lane}${s.label || s.id}</div><div class="track">${segs}</div><div class="info ${infoCls} ${skip ? "skip" : ""}"${tip}>${info}</div>`;
+  }
+  const extras = EXTRA.filter(k => spent((r.stepTokens || {})[k]))
+    .map(k => `<span title="${esc(tokTitle(r.stepTokens[k]))}">${k} <b>${usd(r.stepTokens[k])}</b> · ${tok(r.stepTokens[k])}</span>`);
+  const spend = spent(r.tokens)
+    ? `<div class="spend"><span title="${esc(tokTitle(r.tokens))}">total <b>${usd(r.tokens)}</b> · <b>${tok(r.tokens)}</b> tokens</span>${extras.join("")}<span class="note">list-price estimate from this run's transcripts</span></div>
+       <div class="spend split">${tokSplit(r.tokens)}</div>`
+    : "";
+  return `${spend}<div class="tl">${rows}</div>
+    <div class="axis"><span></span><div><span>${hm(start)}</span><span>${r.group === "done" ? hm(end) : `now ${hm(end)}`}</span></div><span class="pad"></span></div>
+    <div class="legend"><span><i style="background:var(--violet)"></i>done</span><span><i style="background:var(--amber);opacity:.75"></i>attempt sent back</span><span><i style="background:var(--teal)"></i>running</span><span><i style="background:var(--rose)"></i>blocked</span><span>daemon and web tracks run side by side</span></div>`;
+}
+
+function batchStatus(b) {
+  switch (b.status) {
+    case "landed": return [`landed ${esc(b.landedSha)}`, "c-done"];
+    case "pending": return ["pending", "c-wait"];
+    case "running": return b.alive ? [b.step ? `${esc(b.step)} · ${dur(now() - ms(b.stepSince))}` : "starting", "c-run"] : ["process exited", "c-fail"];
+    case "completed": return ["did not land", "c-fail"];
+    default: return [b.question ? "question" : "failed", "c-fail"];
+  }
+}
+
+function batches(r) {
+  return `<div class="batches">${r.batches.map(b => {
+    const [st, cls] = batchStatus(b);
+    const took = b.startedAt ? dur((b.finishedAt ? ms(b.finishedAt) : now()) - ms(b.startedAt)) : "—";
+    const subj = b.subject || b.name;
+    const extra = b.question ? `<span></span><span class="err">${esc(b.question)}</span>` : b.error && b.status !== "landed" ? `<span></span><span class="err">${esc(b.error)}</span>` : "";
+    return `<span class="n">${b.n}</span><span class="s" title="${esc(subj)}">${esc(subj)}</span><span><span class="chip ${cls}">${st}</span></span><span class="m">${esc(b.workType)}</span><span class="m">${took}</span><span class="m" title="${esc(tokTitle(b.tokens))}">${usd(b.tokens)}</span><span class="m" title="${esc(tokTitle(b.tokens))}">${tok(b.tokens)}</span>${extra ? extra + "<span></span><span></span><span></span><span></span><span></span>" : ""}`;
+  }).join("")}</div>`;
+}
+
+function row(r) {
+  const isSweep = r.kind === "sweep";
+  const [d, n] = isSweep ? [r.batches.filter(b => b.status === "landed").length, r.batches.length] : [doneCount(r), total(r)];
+  const end = r.group === "done" ? ms(r.updatedAt) : now();
+  const upd = r.group === "done" ? day(ms(r.updatedAt)) : hm(ms(r.activity || r.updatedAt));
+  const where = `<b>${esc(short(r.tree))}</b> · ${esc(r.branch)} · started ${day(ms(r.startedAt))} ${hm(ms(r.startedAt))}${r.group === "done" ? ` · finished ${day(ms(r.updatedAt))} ${hm(ms(r.updatedAt))}` : ""}`;
+  const detail = `<div class="where">${where}</div>
+    ${r.alert ? `<div class="alert">${esc(r.alert)}</div>` : ""}
+    ${r.question && !isSweep ? `<div class="err">${esc(r.question)}</div>` : ""}
+    ${isSweep ? batches(r) : timeline(r)}`;
+  return `<div class="item ${openSet.has(r.name) ? "open" : ""} ${changed.has(r.name) ? "flash" : ""}" data-name="${esc(r.name)}">
+    <div class="row" role="button" tabindex="0" aria-expanded="${openSet.has(r.name)}">
+      <span class="chev">▶</span>
+      <span class="name">${esc(r.name)}</span>
+      <span class="kind">${isSweep ? "fix sweep" : "orchestrate"}</span>
+      <span class="now">${nowChips(r)}</span>
+      <span class="hide stepcell" title="${d} of ${n} ${isSweep ? "batches landed" : "steps done"}"><span>${d}/${n}</span><span class="bar"><i style="width:${n ? (d / n) * 100 : 0}%"></i></span></span>
+      <span class="num hide">${dur(end - ms(r.startedAt))}</span>
+      <span class="num" title="${esc(tokTitle(r.tokens))}">${usd(r.tokens)}</span>
+      <span class="num" title="${esc(tokTitle(r.tokens))}">${tok(r.tokens)}</span>
+      <span class="num hide ${r.group === "attn" ? "warn" : ""}">${upd}</span>
+    </div>
+    <div class="detail">${detail}</div>
+  </div>`;
+}
+
+function render() {
+  if (!snap) return;
+  const lists = { active: "", attn: "", done: "" };
+  for (const r of snap.runs) lists[r.group] += row(r);
+  for (const k in lists) {
+    document.getElementById(k).innerHTML = lists[k];
+    document.getElementById("sec-" + k).hidden = !lists[k];
+  }
+  document.getElementById("empty").hidden = snap.runs.length > 0;
+  const live = snap.runs.filter(r => r.group !== "done").length;
+  document.getElementById("meta").textContent = `${snap.trees} worktree${snap.trees === 1 ? "" : "s"} · ${live} live run${live === 1 ? "" : "s"}${snap.usage ? ` · 5h limit ${Math.round(snap.usage.fiveHour)}%, resets ${hm(ms(snap.usage.fiveHourResets))}` : ""}`;
+  const el = document.getElementById("live");
+  el.textContent = connected ? `live · ${hm(now())}` : "reconnecting…";
+  el.classList.toggle("off", !connected);
+  changed.clear();
+}
+
+function receive(data) {
+  const next = JSON.parse(data);
+  offset = ms(next.now) - Date.now();
+  // A row flashes when its state changes, not when its running cost ticks up.
+  const key = r => JSON.stringify({ ...r, activity: "", tokens: null, stepTokens: null,
+    batches: (r.batches || []).map(b => ({ ...b, tokens: null })) });
+  const keys = new Map(next.runs.map(r => [r.name, key(r)]));
+  if (snap) for (const [k, v] of keys) if (prevKeys.get(k) !== v) changed.add(k);
+  prevKeys = keys;
+  snap = next;
+  render();
+}
+
+function connect() {
+  const es = new EventSource("events");
+  es.onopen = () => { connected = true; render(); };
+  es.onmessage = e => { connected = true; receive(e.data); };
+  es.onerror = () => { connected = false; render(); };
+}
+
+function toggle(item) {
+  const name = item.dataset.name;
+  openSet.has(name) ? openSet.delete(name) : openSet.add(name);
+  item.classList.toggle("open");
+  item.querySelector(".row").setAttribute("aria-expanded", openSet.has(name));
+  safeSet("runs.open", JSON.stringify([...openSet]));
+}
+document.addEventListener("click", e => { const r = e.target.closest(".row"); if (r) toggle(r.parentElement); });
+document.addEventListener("keydown", e => { const r = e.target.closest?.(".row"); if (r && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); toggle(r.parentElement); } });
+
+setInterval(render, 15000); // running durations tick between pushes
+connect();
+</script>
+</body>
+</html>
