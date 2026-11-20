@@ -19,6 +19,8 @@ const todoSeed = `# Muster backlog
 - [ ] **something** ([#1](https://github.com/Zalaras/muster/issues/1))
   — a thing.
 
+## Enhancements
+
 ## Bugs
 
 - [x] **done** ([#2](https://github.com/Zalaras/muster/issues/2))
@@ -389,8 +391,8 @@ func benignIssue(t *testing.T) *stubGH {
 	}
 }
 
-// No decisions file: the entry lands by its kind — a bug under ## Bugs — not in the
-// proposer's hint, and the run never stops to ask. --section moves the whole run;
+// No decisions file: a bug lands under ## Bugs, any other kind under its hinted section, and
+// the run never stops to ask. --section moves the whole run;
 // --no-labels keeps gh out of it.
 func TestApplyFilesByKind(t *testing.T) {
 	root := stubRepo(t)
@@ -406,8 +408,7 @@ func TestApplyFilesByKind(t *testing.T) {
 		t.Errorf("--no-labels still labelled: %v", gh.labels)
 	}
 
-	// Any other kind lands under ## Tweaks: an enhancement label does not say whether the ask
-	// is small, so the program never files into Enhancements or Features.
+	// Any other kind lands under its hinted section.
 	root = stubRepo(t)
 	gh = benignIssue(t)
 	artDir, propDir = fetchOne(t, root, gh)
@@ -418,7 +419,26 @@ func TestApplyFilesByKind(t *testing.T) {
 		t.Fatalf("apply enhancement: %v", err)
 	}
 	todo, _ = os.ReadFile(filepath.Join(root, "TODO.md"))
-	assertSection(t, string(todo), "Tweaks", 56)
+	assertSection(t, string(todo), "Enhancements", 56)
+
+	// A hint that is not a filing place (Bugs on a non-bug, Post v1) falls back to Tweaks, and a
+	// bug stays under Bugs whatever it is hinted.
+	for _, c := range []struct{ kind, hint, want string }{
+		{"enhancement", "Bugs", "Tweaks"}, {"enhancement", "Post v1", "Tweaks"},
+		{"enhancement", "Features", "Features"}, {"bug", "Tweaks", "Bugs"},
+	} {
+		root = stubRepo(t)
+		gh = benignIssue(t)
+		artDir, propDir = fetchOne(t, root, gh)
+		index, _ = readIndex(t, artDir)
+		write(t, filepath.Join(propDir, "56.json"), proposalJSON(t, 56, index[0].Nonce, c.kind, []string{"install"}, nil,
+			"Nothing renders.", "Something should.", "", c.hint))
+		if err := run([]string{"apply", "--artifacts", artDir, "--proposals", propDir, "--no-labels"}, &out, gh.run); err != nil {
+			t.Fatalf("apply %s/%s: %v", c.kind, c.hint, err)
+		}
+		todo, _ = os.ReadFile(filepath.Join(root, "TODO.md"))
+		assertSection(t, string(todo), c.want, 56)
+	}
 
 	root = stubRepo(t)
 	gh = benignIssue(t)

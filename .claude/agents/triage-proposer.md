@@ -67,7 +67,9 @@ One JSON object. No prose before it, none after it, no explanation:
 
 - `number` — the issue number from the artifact header.
 - `ack` — echo the value you were given, character for character.
-- `kind` — exactly one of: `bug`, `enhancement`, `question`, `chore`.
+- `kind` — exactly one of: `bug`, `enhancement`, `question`, `chore`. `bug` means the product
+  does something it shouldn't: a wrong result, a crash, a layout that jumps around. `enhancement`
+  means it should do something it doesn't.
 - `area` — one or two of the surfaces the issue centres on: `rail`, `lifecycle`, `launch`,
   `focus`, `shell`, `tiles`, `masthead`, `documents`, `sessions`, `update`, `usage`,
   `settings`, `install`, `hooks`, `process`. Pick the surface the report is about, not the
@@ -89,9 +91,12 @@ One JSON object. No prose before it, none after it, no explanation:
   the error the report names. Copy it exactly; do not tidy, translate or reconstruct it.
   If the report quotes no error, use `""`. An invented or edited quote is rejected, and
   rejection holds the issue.
-- `section_hint` — one of: `Features`, `Enhancements`, `Bugs`, `Tweaks`, `Post v1`. A hint
-  only; a `bug` files into `Bugs`, everything else into `Tweaks`, and the developer re-sorts by
-  hand.
+- `section_hint` — one of `Features`, `Enhancements`, `Bugs`, `Tweaks`, `Post v1`. `apply`
+  files by it, so choose by how the work would be done: `Bugs` only when `kind` is `bug`;
+  `Features` for a new capability that needs a spec, a protocol change or a new UI surface (a new
+  kind of notification, a new panel); `Enhancements` for a real extension of something that
+  exists; `Tweaks` for a small change to existing behaviour or wording. When unsure between two,
+  pick the smaller. `Post v1` only when the report itself defers the ask.
 
 A vague report still gets a `symptom` — say what little it says. Every field you return is
 checked: a wrong label is rejected, a summary that trips the injection tripwire holds the

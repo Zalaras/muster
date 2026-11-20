@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// Sections the proposer may hint at. A hint only: apply files by kind (SectionForKind) and
-// the developer re-sorts by hand.
+// Sections the proposer may hint at. apply files by SectionFor: a bug under Bugs, any other
+// kind under the hinted Features, Enhancements or Tweaks; the developer re-ranks by hand.
 var Sections = []string{
 	"Features",
 	"Enhancements",

@@ -1,7 +1,7 @@
 ---
 id: triage-section-by-kind
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-22
 summary: A new entry files by its kind — a bug under Bugs, any other kind under Tweaks — unless --section or an override says where; moving it up is a hand edit.
 features: [triage]

@@ -384,7 +384,7 @@ func readDecisions(decFile string) (map[string]string, error) {
 
 // resolveSections pairs every non-held artifact with its validated proposal and a section:
 // the per-issue override when one exists, otherwise the run's `--section`, otherwise the
-// proposal's kind decides (triage.SectionForKind). A bad override key,
+// proposal decides (triage.SectionFor). A bad override key,
 // an unknown artifact, an unknown section or a held issue named in the overrides aborts the
 // whole pass; a proposal that fails the schema (or is missing) only holds its own issue, and
 // is returned in held rather than guessed at.
@@ -412,7 +412,7 @@ func resolveSections(index []triage.Artifact, arts map[int]triage.Artifact, prop
 		}
 		s := section
 		if s == "" {
-			s = triage.SectionForKind(p.Kind)
+			s = triage.SectionFor(p)
 		}
 		if o, ok := overrides[a.Number]; ok {
 			s = o
