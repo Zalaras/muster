@@ -1,0 +1,41 @@
+{
+  "sweep": "terminal-ended-rule",
+  "created_at": "2026-11-20T11:37:47+02:00",
+  "selector": "\"A new terminal can be treated as already ended while it runs\"",
+  "parallel": 1,
+  "entries": [
+    {
+      "id": "e1",
+      "title": "A new terminal can be treated as already ended while it runs",
+      "issue": null,
+      "section": "Bugs",
+      "work_type": "full-stack",
+      "features": [
+        "surfaces"
+      ],
+      "files": [
+        "web/src/terminal/terminalsrev.ts",
+        "web/src/features/surfaces.ts",
+        "internal/server/shellactivity.go",
+        "internal/server/shells.go",
+        "internal/server/server.go",
+        "web/src/features/surfacesrev.test.ts",
+        "web/src/terminal/terminalsrev.test.ts",
+        "internal/server/terminalsrevpoller_test.go",
+        "internal/server/terminalsrev_test.go"
+      ],
+      "route": "fix",
+      "research": "plans/terminal-ended-rule/research/e1.md",
+      "batch": 1
+    }
+  ],
+  "batches": [
+    {
+      "n": 1,
+      "entries": [
+        "e1"
+      ],
+      "work_type": "full-stack"
+    }
+  ]
+}
