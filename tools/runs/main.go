@@ -29,12 +29,13 @@ func main() {
 	openB := flag.Bool("open", false, "open the page in the default browser once listening")
 	flag.Parse()
 
-	if _, err := worktrees(*root); err != nil {
+	start, err := worktrees(*root)
+	if err != nil || len(start) == 0 {
 		fmt.Fprintf(os.Stderr, "runs: %s is not a git checkout: %v\n", *root, err)
 		os.Exit(1)
 	}
 	home, _ := os.UserHomeDir()
-	ledger := newLedger(filepath.Join(home, ".claude", "projects"))
+	ledger := newLedger(filepath.Join(home, ".claude", "projects"), start[0].Path)
 	scan := func() Snapshot {
 		trees, _ := worktrees(*root)
 		return Scan(trees, Env{Now: time.Now(), Stale: *stale, Done: *done,

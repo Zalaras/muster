@@ -227,3 +227,18 @@ func TestParseUsage(t *testing.T) {
 	assert.Nil(t, parseUsage(""), "no sample yet")
 	assert.Nil(t, parseUsage("x|y|z"))
 }
+
+func TestScanGivesABatchItsOwnSteps(t *testing.T) {
+	primary, wt := t.TempDir(), t.TempDir()
+	write(t, primary, "sw", "sweep-state.json", sweepState{Sweep: "sw", StartedAt: ts(0), UpdatedAt: ts(5),
+		Batches: []sweepBatch{{N: 1, Name: "sw-1", Status: "landed"}, {N: 2, Name: "sw-2", Status: "running", PID: 7}}})
+	write(t, wt, "sw-1", "orchestration-state.json", orchState{Status: "completed", StartedAt: ts(1), UpdatedAt: ts(4),
+		StepAttempts: map[string][]Attempt{"web-impl": {{Start: ts(2), Finish: sp(ts(3))}}}})
+	write(t, wt, "sw-1", "plan.md", "**Work Type**: web\n")
+	e := env(10)
+	e.Alive = func(int) bool { return true }
+	bs := byName(Scan([]Tree{{Path: primary, Branch: "main", Primary: true}, {Path: wt, Branch: "plan/sw-1"}}, e))["sw"].Batches
+	assert.Contains(t, bs[0].Steps, "web-impl", "a landed batch keeps its timeline")
+	assert.Equal(t, []string{"daemon-impl", "daemon-tests"}, bs[0].Skipped)
+	assert.Nil(t, bs[1].Steps, "a batch that has not planned yet has no steps")
+}

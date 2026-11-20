@@ -150,7 +150,7 @@
   .spend b { font-family: var(--mono); color: var(--fg); font-weight: 500; }
   .spend.split { display: block; margin-top: -6px; color: var(--fg-dim); }
   .spend .note { color: var(--fg-dim); font-size: var(--fs-2xs); margin-left: auto; }
-  .batches { display: grid; grid-template-columns: 24px 1fr 150px 60px 54px 54px 60px; gap: 4px 12px; font-size: var(--fs-sm); align-items: baseline; }
+  .batches { display: grid; grid-template-columns: 24px 1fr 150px 76px 54px 54px 60px; gap: 4px 12px; font-size: var(--fs-sm); align-items: baseline; }
   .batches .n { font-family: var(--mono); color: var(--fg-dim); }
   .batches .s { color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .batches .m { font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); }
@@ -171,7 +171,9 @@
   .live.off { color: var(--amber); }
   .live.off::before { animation: none; }
   .empty { color: var(--fg-dim); font-size: var(--fs-sm); }
+  .batches .full { grid-column: 1 / -1; }
   .batches .err { margin: 2px 0 6px; }
+  .batches .btl { margin: 6px 0 14px 36px; }
   .row:focus-visible { outline: 1px solid var(--edge); outline-offset: -1px; }
 </style>
 </head>
@@ -298,8 +300,15 @@ function batches(r) {
     const [st, cls] = batchStatus(b);
     const took = b.startedAt ? dur((b.finishedAt ? ms(b.finishedAt) : now()) - ms(b.startedAt)) : "—";
     const subj = b.subject || b.name;
-    const extra = b.question ? `<span></span><span class="err">${esc(b.question)}</span>` : b.error && b.status !== "landed" ? `<span></span><span class="err">${esc(b.error)}</span>` : "";
-    return `<span class="n">${b.n}</span><span class="s" title="${esc(subj)}">${esc(subj)}</span><span><span class="chip ${cls}">${st}</span></span><span class="m">${esc(b.workType)}</span><span class="m">${took}</span><span class="m" title="${esc(tokTitle(b.tokens))}">${usd(b.tokens)}</span><span class="m" title="${esc(tokTitle(b.tokens))}">${tok(b.tokens)}</span>${extra ? extra + "<span></span><span></span><span></span><span></span><span></span>" : ""}`;
+    const msg = b.question || (b.status !== "landed" && b.error);
+    const extra = msg ? `<div class="full err">${esc(msg)}</div>` : "";
+    // A batch is a small pipeline of its own: the same step timeline as an /orchestrate run,
+    // once the batch has written its orchestration-state.json (before that it is "starting").
+    const steps = b.steps ? `<div class="full btl">${timeline({
+      startedAt: b.startedAt, updatedAt: b.finishedAt, group: b.finishedAt ? "done" : "active",
+      status: b.status === "running" && !b.alive ? "blocked" : "", steps: b.steps, skipped: b.skipped,
+      stepTokens: b.stepTokens, tokens: b.tokens })}</div>` : "";
+    return `<span class="n">${b.n}</span><span class="s" title="${esc(subj)}">${esc(subj)}</span><span><span class="chip ${cls}">${st}</span></span><span class="m">${esc(b.workType)}</span><span class="m">${took}</span><span class="m" title="${esc(tokTitle(b.tokens))}">${usd(b.tokens)}</span><span class="m" title="${esc(tokTitle(b.tokens))}">${tok(b.tokens)}</span>${extra}${steps}`;
   }).join("")}</div>`;
 }
 

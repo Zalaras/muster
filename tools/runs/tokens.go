@@ -119,12 +119,15 @@ type transcript struct {
 
 // Ledger caches every transcript it has read, so a poll costs only the bytes appended since.
 type Ledger struct {
-	root string // ~/.claude/projects
+	root string   // ~/.claude/projects
+	also []string // directories whose folders every run also searches (the primary checkout)
 	mu   sync.Mutex
 	tx   map[string]*transcript
 }
 
-func newLedger(root string) *Ledger { return &Ledger{root: root, tx: map[string]*transcript{}} }
+func newLedger(root string, also ...string) *Ledger {
+	return &Ledger{root: root, also: also, tx: map[string]*transcript{}}
+}
 
 var nonWord = regexp.MustCompile(`[^A-Za-z0-9-]`)
 
@@ -135,6 +138,20 @@ func (l *Ledger) projectDir(dir string) string {
 		dir = r
 	}
 	return filepath.Join(l.root, nonWord.ReplaceAllString(dir, "-"))
+}
+
+// dirsFor is where a run's sessions can be filed. A transcript lives under the session's current
+// directory and moves with it, so a session that left its worktree (ExitWorktree) took its whole
+// history to the primary checkout's folder. Messages are filtered by their own cwd, so reading a
+// shared folder never counts another tree's work.
+func (l *Ledger) dirsFor(tree string) []string {
+	dirs := []string{l.projectDir(tree)}
+	for _, a := range l.also {
+		if d := l.projectDir(a); d != dirs[0] {
+			dirs = append(dirs, d)
+		}
+	}
+	return dirs
 }
 
 // read brings one transcript up to date and returns it (nil if unreadable).
@@ -236,8 +253,12 @@ type agentUse struct {
 func (l *Ledger) window(tree string, from, to time.Time) (main Tokens, agents []agentUse) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	dir := l.projectDir(tree)
-	sessions, _ := filepath.Glob(filepath.Join(dir, "*.jsonl"))
+	var sessions, files []string
+	for _, dir := range l.dirsFor(tree) {
+		s, _ := filepath.Glob(filepath.Join(dir, "*.jsonl"))
+		f, _ := filepath.Glob(filepath.Join(dir, "*", "subagents", "agent-*.jsonl"))
+		sessions, files = append(sessions, s...), append(files, f...)
+	}
 	for _, s := range sessions {
 		if fi, err := os.Stat(s); err != nil || fi.ModTime().Before(from) {
 			continue // untouched since before the run: cannot hold its messages
@@ -246,7 +267,6 @@ func (l *Ledger) window(tree string, from, to time.Time) (main Tokens, agents []
 			main.add(t.sum(tree, from, to))
 		}
 	}
-	files, _ := filepath.Glob(filepath.Join(dir, "*", "subagents", "agent-*.jsonl"))
 	for _, f := range files {
 		if fi, err := os.Stat(f); err != nil || fi.ModTime().Before(from) {
 			continue
@@ -338,13 +358,4 @@ func (l *Ledger) RunTokens(tree string, from, to time.Time, steps map[string][]A
 		total.add(a.Tokens)
 	}
 	return by, total
-}
-
-// TreeTokens is everything spent in tree between from and to, sessions and subagents alike.
-func (l *Ledger) TreeTokens(tree string, from, to time.Time) Tokens {
-	main, agents := l.window(tree, from, to)
-	for _, a := range agents {
-		main.add(a.Tokens)
-	}
-	return main
 }

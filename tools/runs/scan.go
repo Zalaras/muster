@@ -107,6 +107,10 @@ type Batch struct {
 	Error      string  `json:"error,omitempty"`
 	Question   string  `json:"question,omitempty"`
 	Tokens     *Tokens `json:"tokens,omitempty"`
+	// The batch's own pipeline, from the orchestration-state.json its fix-batch writes once planned.
+	Steps      map[string][]Attempt `json:"steps,omitempty"`
+	Skipped    []string             `json:"skipped,omitempty"`
+	StepTokens map[string]Tokens    `json:"stepTokens,omitempty"`
 	worktree   string
 }
 
@@ -133,7 +137,6 @@ type Env struct {
 // TokenSource reads what sessions in a worktree spent, from Claude Code's transcripts.
 type TokenSource interface {
 	RunTokens(tree string, from, to time.Time, steps map[string][]Attempt) (map[string]Tokens, Tokens)
-	TreeTokens(tree string, from, to time.Time) Tokens
 }
 
 // Usage is the account's latest rate-limit sample. Account-wide: it is never one run's cost.
@@ -354,8 +357,8 @@ func addTokens(runs []Run, trees []Tree, env Env) {
 				if b.FinishedAt != "" {
 					bEnd = parse(b.FinishedAt)
 				}
-				t := env.Tokens.TreeTokens(b.worktree, parse(b.StartedAt), bEnd)
-				b.Tokens = &t
+				by, t := env.Tokens.RunTokens(b.worktree, parse(b.StartedAt), bEnd, b.Steps)
+				b.Tokens, b.StepTokens = &t, by
 				total.add(t)
 			}
 			r.Tokens = &total
@@ -377,7 +380,12 @@ func toBatch(b sweepBatch, orch map[string]found[orchState]) Batch {
 	x := Batch{N: b.N, Name: b.Name, WorkType: b.WorkType, Status: b.Status, worktree: b.Worktree,
 		StartedAt: deref(b.StartedAt), FinishedAt: deref(b.FinishedAt), Subject: deref(b.Subject),
 		LandedSHA: deref(b.LandedSHA), Error: deref(b.Error), Question: deref(b.Question)}
-	if o, ok := orch[b.Name]; ok && b.Status == "running" {
+	o, ok := orch[b.Name]
+	if !ok {
+		return x // not planned yet: no state file until the batch has written its plan
+	}
+	x.Steps, x.Skipped = o.state.StepAttempts, skipped(o.dir, o.state)
+	if b.Status == "running" {
 		x.Step = o.state.CurrentStep
 		if at := o.state.StepAttempts[x.Step]; len(at) > 0 {
 			x.StepSince = at[len(at)-1].Start

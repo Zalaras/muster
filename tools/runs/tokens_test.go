@@ -112,3 +112,19 @@ func TestProjectDirEncoding(t *testing.T) {
 	l := newLedger("/p")
 	assert.Equal(t, "/p/-Users-bob-code-muster-run-dashboard", l.projectDir("/Users/bob/code/muster-run_dashboard"))
 }
+
+func TestLedgerFindsASessionThatLeftItsWorktree(t *testing.T) {
+	root := t.TempDir()
+	primary := filepath.Join(t.TempDir(), "muster")
+	tree := primary + "-p"
+	l := newLedger(root, primary)
+	// ExitWorktree moved the whole transcript into the primary checkout's folder.
+	appendFile(t, filepath.Join(l.projectDir(primary), "sess.jsonl"),
+		asst("m1", t0.Add(time.Minute), tree, "claude-opus-5-5", 0, 100, 0, 0, 0),
+		asst("m2", t0.Add(2*time.Minute), primary, "claude-opus-5-5", 0, 999, 0, 0, 0))
+	agent(t, l.projectDir(primary), "a1", "daemon-impl", asst("x1", t0.Add(3*time.Minute), tree, "claude-opus-5-5", 0, 50, 0, 0, 0))
+	agent(t, l.projectDir(primary), "a2", "web-impl", asst("x2", t0.Add(3*time.Minute), primary, "claude-opus-5-5", 0, 999, 0, 0, 0))
+	by, total := l.RunTokens(tree, t0, t0.Add(time.Hour), nil)
+	assert.Equal(t, int64(100), by["orchestrator"].Output, "only the messages sent from the run's tree")
+	assert.Equal(t, int64(150), total.Output)
+}
