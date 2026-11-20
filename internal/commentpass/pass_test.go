@@ -77,6 +77,38 @@ func TestStrip_StaleReferenceCandidate(t *testing.T) {
 	assert.Equal(t, []string{"Helper"}, c.Names)
 }
 
+func TestStrip_LowercaseRemovedNameMatchesOnlyAsCode(t *testing.T) {
+	root := initMain(t)
+	gitFx(t, root, "checkout", "-q", "main")
+	writeFx(t, root, "internal/g/g.go", "package g\n\nfunc branch() string { return \"\" }\n\nfunc Run() string { return branch() }\n")
+	writeFx(t, root, "internal/g/h.go", "package g\n\n// Notes creates a repo on branch \"main\".\nfunc Notes() {}\n\n// Name calls `branch` for the label.\nfunc Name() {}\n\n// Label reads g.branch() first.\nfunc Label() {}\n")
+	writeFx(t, root, "web/src/list.ts", "export function render(): void {}\n")
+	writeFx(t, root, "web/src/use.ts", "// render the rows once\nexport const a = 1;\n// calls `render` on load\nexport const b = 2;\n")
+	gitFx(t, root, "add", "-A")
+	gitFx(t, root, "commit", "-q", "-m", "main names")
+	gitFx(t, root, "checkout", "-q", "plan/x")
+	gitFx(t, root, "reset", "-q", "--hard", "main")
+	writeFx(t, root, "internal/g/g.go", "package g\n\nfunc Run() string { return \"\" }\n")
+	writeFx(t, root, "web/src/list.ts", "export const keep = 1;\n")
+	gitFx(t, root, "commit", "-q", "-am", "branch")
+	p, _ := newPass(t, root)
+	_, m := strip(t, p)
+
+	got := map[string][]string{}
+	for _, f := range m.Files {
+		for _, c := range f.Candidates {
+			if c.Origin == "stale-ref" {
+				got[c.Lines[0]] = c.Names
+			}
+		}
+	}
+	assert.Equal(t, map[string][]string{
+		"// Name calls `branch` for the label.": {"branch"},
+		"// Label reads g.branch() first.":      {"branch"},
+		"// calls `render` on load":             {"render"},
+	}, got, "an all-lowercase removed name is a stale reference only where the comment writes it as code")
+}
+
 func TestStrip_EditedBlockIsWholeWithPrevious(t *testing.T) {
 	p, _, _ := newFixture(t)
 	_, m := strip(t, p)

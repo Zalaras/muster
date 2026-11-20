@@ -22,7 +22,8 @@ Once per review cycle, before the gates, the orchestrator runs `go run ./tools/c
 strip <plan> --out <dir>` in the plan's worktree. The tool finds every comment block the branch
 added since its merge base with `main` — committed, uncommitted or in an untracked file — in
 `cmd/`, `internal/` and `web/src/`, test files excluded, plus every pre-existing comment that
-names a top-level identifier the diff removed. Go comments come from `go/scanner`; TypeScript
+names a top-level identifier the diff removed (an all-lowercase name only written as code —
+`` `name` ``, `name(` or `.name` — `kb:adr/process-comment-pass-lowercase-stale-ref-as-code`). Go comments come from `go/scanner`; TypeScript
 comments from a small scanner that steps over strings, template literals and regex literals.
 Directives the toolchain parses (`go:build`, `go:embed`, `go:generate`, `nolint`, `line`,
 `biome-ignore`, `@ts-expect-error`) are never candidates and split any block they sit in. A

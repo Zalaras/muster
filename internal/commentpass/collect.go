@@ -132,6 +132,16 @@ func (p *Pass) collectAdded(ctx context.Context, d *diffInfo) (map[string]*fileS
 	return scans, added, nil
 }
 
+// staleRefRE matches a mention of a removed name. An all-lowercase name is often an ordinary
+// word ("branch"), so it counts only written as code: `name`, name( or .name.
+func staleRefRE(name string) *regexp.Regexp {
+	q := regexp.QuoteMeta(name)
+	if name != strings.ToLower(name) {
+		return regexp.MustCompile(`\b` + q + `\b`)
+	}
+	return regexp.MustCompile("`" + q + "`" + `|\b` + q + `\(|\.` + q + `\b`)
+}
+
 // collectStale returns pre-existing blocks that name an identifier the branch removed.
 func (p *Pass) collectStale(ctx context.Context, d *diffInfo, scans map[string]*fileScan, added map[string][]addedBlock) (map[string][]Candidate, error) {
 	names := d.removedIdents()
@@ -141,7 +151,7 @@ func (p *Pass) collectStale(ctx context.Context, d *diffInfo, scans map[string]*
 	sort.Strings(names)
 	res := make([]*regexp.Regexp, len(names))
 	for i, n := range names {
-		res[i] = regexp.MustCompile(`\b` + regexp.QuoteMeta(n) + `\b`)
+		res[i] = staleRefRE(n)
 	}
 	tracked, err := p.tracked(ctx)
 	if err != nil {
