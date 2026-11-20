@@ -122,10 +122,11 @@ type line struct {
 }
 
 type block struct {
-	Type      string `json:"type"`
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	ToolUseID string `json:"tool_use_id"`
+	Type      string          `json:"type"`
+	ID        string          `json:"id"`
+	Name      string          `json:"name"`
+	ToolUseID string          `json:"tool_use_id"`
+	Content   json.RawMessage `json:"content"` // a tool_result's output
 	Input     struct {
 		Command     string `json:"command"`
 		Description string `json:"description"`
@@ -154,9 +155,28 @@ func toolLabel(b block) string {
 	return ""
 }
 
-// tools records tool calls opening and closing in one line's content.
+var (
+	backgroundMark = []byte("running in background")
+	notifiedRe     = regexp.MustCompile(`<task-notification>[\s\S]*?<tool-use-id>([^<]+)</tool-use-id>`)
+)
+
+// tools records tool calls opening and closing in one line's content. A call run in the
+// background returns at once ("running in background with ID: …"), so it stays open until the
+// <task-notification> naming its tool-use id says it ended.
 func (t *transcript) tools(ln line, at time.Time) {
+	if ln.Type != "assistant" && ln.Type != "user" {
+		return // api-request-blob lines replay earlier calls with no time or cwd
+	}
 	c := bytes.TrimSpace(ln.Message.Content)
+	if len(c) > 0 && c[0] == '"' && len(t.open) > 0 {
+		var s string
+		if json.Unmarshal(c, &s) == nil {
+			for _, m := range notifiedRe.FindAllStringSubmatch(s, -1) {
+				delete(t.open, m[1])
+			}
+		}
+		return
+	}
 	if len(c) == 0 || c[0] != '[' {
 		return
 	}
@@ -174,7 +194,9 @@ func (t *transcript) tools(ln line, at time.Time) {
 				t.open[b.ID] = openTool{Label: l, Cwd: ln.Cwd, At: at}
 			}
 		case "tool_result":
-			delete(t.open, b.ToolUseID)
+			if !bytes.Contains(b.Content, backgroundMark) {
+				delete(t.open, b.ToolUseID)
+			}
 		}
 	}
 }
@@ -267,11 +289,12 @@ func (l *Ledger) read(path string) *transcript {
 var (
 	assistantMark = []byte(`"assistant"`)
 	resultMark    = []byte(`"tool_result"`)
+	notifyMark    = []byte(`task-notification`)
 )
 
 func (t *transcript) ingest(b []byte) {
 	firstPending := t.first.IsZero()
-	isResult := len(t.open) > 0 && bytes.Contains(b, resultMark)
+	isResult := len(t.open) > 0 && (bytes.Contains(b, resultMark) || bytes.Contains(b, notifyMark))
 	if !firstPending && !isResult && !bytes.Contains(b, assistantMark) {
 		return
 	}

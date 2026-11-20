@@ -157,3 +157,35 @@ func TestLiveReadsRunningAgentsAndOpenGates(t *testing.T) {
 	appendFile(t, sess, result("t1"))
 	assert.Equal(t, []string{ReviewPrefix + "browser"}, l.Live(tree, now), "gates closed by its result")
 }
+
+func TestLiveKeepsBackgroundGatesOpenUntilNotified(t *testing.T) {
+	l, tree, dir := fixture(t)
+	now := time.Now()
+	write := func(v map[string]any) string {
+		v["timestamp"], v["cwd"] = now.Format(time.RFC3339Nano), tree
+		b, _ := json.Marshal(v)
+		return string(b) + "\n"
+	}
+	sess := filepath.Join(dir, "sess.jsonl")
+	appendFile(t, sess,
+		write(map[string]any{"type": "assistant", "message": map[string]any{"id": "m1", "content": []map[string]any{
+			{"type": "tool_use", "id": "t3", "name": "Bash", "input": map[string]any{"command": ".claude/skills/orchestrate/scripts/gates.sh p", "run_in_background": true}}}}}),
+		write(map[string]any{"type": "user", "message": map[string]any{"content": []map[string]any{
+			{"type": "tool_result", "tool_use_id": "t3", "content": "Command running in background with ID: bk1. Output is being written to: x"}}}}))
+	assert.Equal(t, []string{"gates"}, l.Live(tree, now), "a backgrounded call is still running after its immediate result")
+
+	appendFile(t, sess, write(map[string]any{"type": "user", "message": map[string]any{
+		"content": "<task-notification>\n<task-id>bk1</task-id>\n<tool-use-id>t3</tool-use-id>\n<status>completed</status>\n</task-notification>"}}))
+	assert.Empty(t, l.Live(tree, now), "its task-notification ends it")
+}
+
+func TestLiveIgnoresReplayedRequestBlobs(t *testing.T) {
+	l, tree, dir := fixture(t)
+	now := time.Now()
+	use := map[string]any{"type": "tool_use", "id": "t9", "name": "Bash", "input": map[string]any{"command": "gates.sh p"}}
+	msg, _ := json.Marshal(map[string]any{"type": "assistant", "timestamp": now.Format(time.RFC3339Nano), "cwd": tree,
+		"message": map[string]any{"id": "m9", "content": []any{use}}})
+	blob, _ := json.Marshal(map[string]any{"type": "api-request-blob", "message": map[string]any{"content": []any{use}}})
+	appendFile(t, filepath.Join(dir, "sess.jsonl"), string(msg)+"\n", string(blob)+"\n")
+	assert.Equal(t, []string{"gates"}, l.Live(tree, now), "the replayed copy must not erase the call's time")
+}
