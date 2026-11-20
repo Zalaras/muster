@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stale terminals list — slowed down</title>
+<style>
+/* Tokens and the surface switch transcribed from web/src/style.css (instrument theme). */
+:root {
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fs-2xs: 0.68rem; --fs-xs: 0.75rem; --fs-sm: 0.82rem; --fs-md: 0.89rem;
+  --bg: #12141c; --bg-raised: #171a24; --bg-hover: #1c2029; --well: #0d0f16;
+  --line: #282d3b; --line-control: #343a4a;
+  --fg: #e8e6e1; --fg-muted: #b2b6c3; --fg-dim: #a6abbc; --disabled-fg: #5a6070;
+  --amber: #f2a33c; --rose: #e77f7f; --teal: #56c5d0;
+  --rose-line: #5c2e2e; --teal-line: #215058; --amber-line: #5c4526;
+}
+html { font-size: 15px; }
+body { margin: 0; padding: 28px 32px 60px; background: var(--bg); color: var(--fg); font-family: var(--sans); }
+h1 { font-size: 1.14rem; margin: 0 0 6px; }
+p.lead { color: var(--fg-muted); max-width: 980px; margin: 0 0 20px; line-height: 1.5; font-size: var(--fs-md); }
+code { font-family: var(--mono); font-size: .92em; color: var(--fg); }
+
+.controls { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; margin-bottom: 22px; font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); }
+.seg { display: inline-flex; border: 1px solid var(--line-control); }
+.seg button, .btn { font-family: var(--mono); font-size: var(--fs-xs); padding: 5px 12px; background: transparent; border: 0; border-right: 1px solid var(--line-control); color: var(--fg-dim); cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--bg-hover); color: var(--fg); }
+.btn { border: 1px solid var(--line-control); }
+.btn:hover, .seg button:hover { color: var(--fg); }
+.btn.primary { border-color: var(--amber-line); color: var(--amber); }
+input[type=range] { width: 110px; accent-color: var(--fg-muted); }
+
+.stage { display: grid; grid-template-columns: 520px 1fr; gap: 28px; align-items: start; }
+@media (max-width: 1100px) { .stage { grid-template-columns: 1fr; } }
+
+/* the mock Focus window */
+.win { border: 1px solid var(--line); background: var(--bg-raised); }
+.mainhead { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.mainhead .title { font-size: var(--fs-md); }
+.mainhead .acts { margin-left: auto; display: flex; gap: 8px; }
+.surfseg { display: inline-flex; border: 1px solid var(--line-control); }
+.surfseg button { font-family: var(--mono); font-size: 10.5px; padding: 4px 11px; background: transparent; border: 0; border-right: 1px solid var(--line-control); color: var(--fg-dim); display: flex; align-items: center; gap: 6px; cursor: default; }
+.surfseg button:last-child { border-right: 0; padding-inline: 6px; }
+.surfseg button[aria-pressed="true"] { background: var(--bg-hover); color: var(--fg); }
+.shellcount { font-family: var(--mono); font-size: var(--fs-2xs); padding: 0 4px; border: 1px solid var(--line-control); border-radius: 8px; background: var(--bg-hover); color: var(--fg-muted); }
+.pane { height: 230px; background: var(--well); font-family: var(--mono); font-size: var(--fs-sm); padding: 12px 14px; position: relative; transition: box-shadow .25s; }
+.pane .tag { position: absolute; right: 10px; top: 8px; font-size: var(--fs-2xs); color: var(--fg-dim); }
+.pane.flash-bad { box-shadow: inset 0 0 0 2px var(--rose); }
+.pane.flash-good { box-shadow: inset 0 0 0 2px var(--teal); }
+.pane .dim { color: var(--fg-dim); }
+.verdict { margin-top: 10px; min-height: 22px; font-family: var(--mono); font-size: var(--fs-xs); }
+.verdict.bad { color: var(--rose); } .verdict.good { color: var(--teal); }
+.known { margin-top: 8px; font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); }
+.known b { color: var(--fg); font-weight: 500; }
+.known .pending { color: var(--amber); }
+
+/* the wire: daemon on the right, browser on the left */
+.wire { border: 1px solid var(--line); background: var(--bg-raised); padding: 14px 16px; }
+.lanes { display: grid; grid-template-columns: 90px 1fr 90px; gap: 0; font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); }
+.end { text-align: center; padding: 8px 0; border: 1px solid var(--line-control); background: var(--bg); color: var(--fg-muted); }
+.lane { position: relative; height: 34px; border-bottom: 1px dashed var(--line); }
+.lane .lbl { position: absolute; left: 6px; top: -1px; font-size: var(--fs-2xs); color: var(--fg-dim); }
+.pkt { position: absolute; top: 9px; padding: 1px 7px; border: 1px solid var(--line-control); background: var(--bg-hover); color: var(--fg); font-size: var(--fs-2xs); white-space: nowrap; transition: left var(--travel, 1.2s) linear, opacity .3s; }
+.pkt.stale { border-color: var(--rose-line); color: var(--rose); }
+.pkt.fresh { border-color: var(--teal-line); color: var(--teal); }
+.pkt.reply { border-color: var(--amber-line); color: var(--amber); }
+
+ol.steps { margin: 16px 0 0; padding-left: 22px; font-size: var(--fs-sm); line-height: 1.55; color: var(--disabled-fg); }
+ol.steps li { padding: 3px 0; }
+ol.steps li.done { color: var(--fg-dim); }
+ol.steps li.now { color: var(--fg); }
+ol.steps li .out { display: block; font-family: var(--mono); font-size: var(--fs-xs); }
+ol.steps li .out.bad { color: var(--rose); } ol.steps li .out.good { color: var(--teal); }
+</style>
+</head>
+<body>
+<h1>A stale terminals list switches the window away from a terminal it just made</h1>
+<p class="lead">Slowed down so you can watch it. Clicking runs one step at a time; Play runs them all.
+The daemon sends terminal lists over the live socket and answers "make a terminal" on a separate HTTP
+request, so a list built <i>before</i> the spawn can arrive <i>after</i> the reply. In real life the
+gap is a few milliseconds. Switch between <b>Today</b> and <b>With the fix</b> to compare.</p>
+
+<div class="controls">
+  <span>scenario</span>
+  <span class="seg" id="scen">
+    <button data-v="new" aria-pressed="true">+ New terminal (have 1)</button>
+    <button data-v="first">shell button (have none)</button>
+  </span>
+  <span>behaviour</span>
+  <span class="seg" id="mode">
+    <button data-v="today" aria-pressed="true">Today</button>
+    <button data-v="fix">With the fix</button>
+  </span>
+  <button class="btn primary" id="play">▶ Play</button>
+  <button class="btn" id="step">Step</button>
+  <button class="btn" id="reset">Reset</button>
+  <label>speed <input type="range" id="speed" min="0.5" max="3" step="0.25" value="1"></label>
+</div>
+
+<div class="stage">
+  <div>
+    <div class="win">
+      <div class="mainhead">
+        <span class="title">fix the login redirect</span>
+        <span class="acts">
+          <span class="surfseg">
+            <button id="seg-claude">claude</button>
+            <button id="seg-shell">shell <span class="shellcount" id="count"></span></button>
+            <button>▾</button>
+          </span>
+        </span>
+      </div>
+      <div class="pane" id="pane"></div>
+    </div>
+    <div class="verdict" id="verdict"></div>
+    <div class="known" id="known"></div>
+  </div>
+
+  <div class="wire">
+    <div class="lanes">
+      <div class="end">browser</div>
+      <div>
+        <div class="lane" id="lane-ws"><span class="lbl">live socket (terminal lists)</span></div>
+        <div class="lane" id="lane-http"><span class="lbl">HTTP request / reply</span></div>
+      </div>
+      <div class="end">daemon</div>
+    </div>
+    <ol class="steps" id="steps"></ol>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let scenario = "new", mode = "today", speed = 1, idx = 0, playing = false, timer = null;
+
+// Window state the dashboard holds for this session.
+let st;
+function initState() {
+  st = scenario === "new"
+    ? { selected: "shell", shell: 1, list: [1], pending: null }
+    : { selected: "claude", shell: null, list: [], pending: null };
+}
+
+// The reducer, as today and with the hold.
+function applyList(list) {
+  st.list = list;
+  if (mode === "fix" && st.pending != null) {
+    if (list.includes(st.pending)) { st.pending = null; return "listed — hold released, stays put"; }
+    return `terminal ${st.pending} not listed yet — held, window stays on it`;
+  }
+  if (st.selected !== "shell") return "window is on claude — nothing to do";
+  if (list.includes(st.shell)) return `terminal ${st.shell} is listed — stays put`;
+  if (list.length) { const was = st.shell; st.shell = Math.min(...list); return `terminal ${was} missing — read as "it ended", jumps to ${st.shell}`; }
+  const was = st.shell; st.selected = "claude"; st.shell = null;
+  return `terminal ${was} missing, list empty — read as "it ended", back to claude`;
+}
+
+function steps() {
+  const n = scenario === "new" ? 2 : 1;
+  const before = scenario === "new" ? [1] : [];
+  const after = scenario === "new" ? [1, 2] : [1];
+  const fmt = (l) => `[${l.join(", ")}]`;
+  return [
+    { text: scenario === "new" ? "You click + New terminal." : "You click the shell button (no terminal yet).",
+      run: () => { send("lane-http", "→ make terminal", "reply", "ltr"); } },
+    { text: `The daemon's regular check was already running: it builds a list ${fmt(before)} and queues it on the socket.`,
+      run: () => { send("lane-ws", `list ${fmt(before)}`, "stale", "rtl", true, "stale"); } },
+    { text: `The daemon makes terminal ${n}, queues a fresh list ${fmt(after)} behind the old one, and replies to the HTTP request.`,
+      run: () => { send("lane-ws", `list ${fmt(after)}`, "fresh", "rtl", true, "fresh"); send("lane-http", `← made ${n}`, "reply", "rtl"); } },
+    { text: `The HTTP reply lands first. The window shows terminal ${n}.`,
+      run: () => { arrive("reply"); st.selected = "shell"; st.shell = n; if (mode === "fix") st.pending = n; return { out: mode === "fix" ? `showing ${n}, marked as waiting to be listed` : `showing ${n}`, good: true }; } },
+    { text: `The old list ${fmt(before)} arrives — built before terminal ${n} existed.`,
+      run: () => { arrive("stale"); const r = applyList(before); const bad = mode === "today"; return { out: r, bad, good: !bad }; } },
+    { text: `The fresh list ${fmt(after)} arrives.`,
+      run: () => { arrive("fresh"); const r = applyList(after); const ok = st.selected === "shell" && st.shell === n; return { out: r, bad: !ok, good: ok, final: ok ? `✓ you are on terminal ${n}, the one you asked for` : `✗ you asked for terminal ${n} but you are on ${st.selected === "claude" ? "claude" : "terminal " + st.shell}` }; } },
+  ];
+}
+
+// Packets in flight on the wire.
+const pkts = {};
+function send(laneId, label, cls, dir, park, key) {
+  const lane = $(laneId), el = document.createElement("span");
+  el.className = "pkt " + cls; el.textContent = label;
+  lane.appendChild(el);
+  const w = lane.clientWidth, ew = el.offsetWidth;
+  const startX = dir === "ltr" ? 4 : w - ew - 4;
+  const endX = dir === "ltr" ? w - ew - 4 : (park ? w * (key === "fresh" ? 0.62 : 0.38) - ew / 2 : 4);
+  el.style.left = startX + "px";
+  el.style.setProperty("--travel", (1.1 / speed) + "s");
+  requestAnimationFrame(() => requestAnimationFrame(() => { el.style.left = endX + "px"; }));
+  if (dir === "ltr") setTimeout(() => { el.style.opacity = 0; }, 1300 / speed);
+  pkts[key || cls] = el;
+}
+function arrive(key) {
+  const el = pkts[key]; if (!el) return;
+  el.style.left = "4px";
+  setTimeout(() => { el.style.opacity = 0; }, 1100 / speed);
+}
+
+function render(flash) {
+  $("seg-claude").setAttribute("aria-pressed", st.selected === "claude");
+  $("seg-shell").setAttribute("aria-pressed", st.selected === "shell");
+  $("count").textContent = st.list.length || "";
+  $("count").style.display = st.list.length ? "" : "none";
+  const pane = $("pane");
+  pane.innerHTML = st.selected === "claude"
+    ? `<span class="tag">claude</span><span class="dim">● Claude Code</span><br><br>&gt; <span class="dim">waiting for input…</span>`
+    : `<span class="tag">terminal ${st.shell}</span><span class="dim">terminal ${st.shell}</span><br><br>~/muster $ <span class="dim">▌</span>`;
+  pane.classList.remove("flash-bad", "flash-good");
+  if (flash) { void pane.offsetWidth; pane.classList.add(flash); }
+  $("known").innerHTML = `dashboard knows: list <b>[${st.list.join(", ")}]</b> · showing <b>${st.selected === "claude" ? "claude" : "terminal " + st.shell}</b>`
+    + (mode === "fix" ? ` · waiting to be listed: <span class="pending">${st.pending ?? "—"}</span>` : "");
+}
+
+function reset() {
+  stop(); idx = 0; initState();
+  ["lane-ws", "lane-http"].forEach((id) => $(id).querySelectorAll(".pkt").forEach((p) => p.remove()));
+  $("verdict").textContent = ""; $("verdict").className = "verdict";
+  $("steps").innerHTML = steps().map((s) => `<li>${s.text}<span class="out"></span></li>`).join("");
+  render();
+}
+
+function step() {
+  const all = steps(); if (idx >= all.length) { stop(); return; }
+  const lis = $("steps").children;
+  [...lis].forEach((li, i) => li.className = i < idx ? "done" : "");
+  lis[idx].className = "now";
+  const r = all[idx].run() || {};
+  const out = lis[idx].querySelector(".out");
+  if (r.out) { out.textContent = "→ " + r.out; out.className = "out " + (r.bad ? "bad" : r.good ? "good" : ""); }
+  render(r.bad ? "flash-bad" : r.out && r.good ? "flash-good" : null);
+  if (r.final) { $("verdict").textContent = r.final; $("verdict").className = "verdict " + (r.bad ? "bad" : "good"); }
+  idx++;
+  if (idx >= all.length) stop();
+}
+
+function play() {
+  if (playing) { stop(); return; }
+  if (idx >= steps().length) reset();
+  playing = true; $("play").textContent = "❚❚ Pause";
+  const tick = () => { step(); if (playing) timer = setTimeout(tick, 1900 / speed); };
+  tick();
+}
+function stop() { playing = false; clearTimeout(timer); $("play").textContent = "▶ Play"; }
+
+function segGroup(id, set) {
+  $(id).addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    [...$(id).children].forEach((x) => x.setAttribute("aria-pressed", x === b));
+    set(b.dataset.v); reset();
+  });
+}
+segGroup("scen", (v) => scenario = v);
+segGroup("mode", (v) => mode = v);
+$("play").onclick = play; $("step").onclick = () => { stop(); step(); }; $("reset").onclick = reset;
+$("speed").oninput = (e) => speed = +e.target.value;
+reset();
+</script>
+</body>
+</html>

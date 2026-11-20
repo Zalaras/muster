@@ -1,0 +1,42 @@
+{
+  "sweep": "stale-terminals-list",
+  "created_at": "2026-11-20T08:51:31+02:00",
+  "selector": "stale-terminals-list @TODO.md",
+  "parallel": 1,
+  "entries": [
+    {
+      "id": "e1",
+      "title": "A stale terminals list can switch a window away from a terminal it just created",
+      "issue": null,
+      "section": "Bugs",
+      "work_type": "full-stack",
+      "features": [
+        "surfaces",
+        "connection"
+      ],
+      "files": [
+        "internal/server/shellactivity.go",
+        "internal/server/shells.go",
+        "internal/server/terminalswire.go",
+        "internal/server/state.go",
+        "web/src/protocol/messages.ts",
+        "web/src/features/surfaces.ts",
+        "web/src/terminal/surfaceswitch.ts",
+        "web/src/features/surfaces.test.ts",
+        "web/src/terminal/surfaceswitch.test.ts"
+      ],
+      "route": "fix",
+      "research": "plans/stale-terminals-list/research/e1.md",
+      "batch": 1
+    }
+  ],
+  "batches": [
+    {
+      "n": 1,
+      "entries": [
+        "e1"
+      ],
+      "work_type": "full-stack"
+    }
+  ]
+}
