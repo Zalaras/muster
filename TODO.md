@@ -160,12 +160,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Filed 2026-11-11 from musterd 0.29.1 / Claude Code 2.1.293, focus view, session started.
   Labels: bug, rail, ux.
 
-- [ ] **A new terminal can be treated as already ended while it runs** — filed by the developer
-  2026-11-20 from `plans/stale-terminals-list-1/proposed-backlog.md`. A terminal just made is not
-  switched to when a rename or close reply for the same session arrives before the list that
-  includes it, or when the daemon's listing right after the spawn fails. Expected: a terminal the
-  daemon reports as made is shown while it runs (`kb:adr/surfaces-terminal-ended-read-from-lists`).
-
 ## Tweaks
 
 - [ ] **Revisit the reader nav's scrolling** — the docs reader's nav scrolls as one column, so with

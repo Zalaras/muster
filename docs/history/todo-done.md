@@ -2737,6 +2737,12 @@ that the dashboard shows.
   the lowest one. Expected: a terminal the window asked for stays shown until a list that includes it
   arrives. From `plans/better-terminal/`.
 
+- [x] **A new terminal can be treated as already ended while it runs** ✅ done 2026-11-20 (plan `terminal-ended-rule-1`, via `/fix`) — filed by the developer
+  2026-11-20 from `plans/stale-terminals-list-1/proposed-backlog.md`. A terminal just made is not
+  switched to when a rename or close reply for the same session arrives before the list that
+  includes it, or when the daemon's listing right after the spawn fails. Expected: a terminal the
+  daemon reports as made is shown while it runs (`kb:adr/surfaces-terminal-ended-read-from-lists`).
+
 ## Tweaks
 
 - [x] **Add mark unread right click option** ([#103](https://github.com/Zalaras/muster/issues/103)) ✅ done 2026-10-26 (plan `remove-unread-right-click-1`, via `/fix`) — There
