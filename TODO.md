@@ -72,6 +72,13 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Filed 2026-11-11 from musterd 0.29.1 / Claude Code 2.1.293, focus view, session working.
   Labels: enhancement, sessions.
 
+- [ ] **Add notifications** ([#131](https://github.com/Zalaras/muster/issues/131)) — Notifications
+  that only appear in the browser can be missed, since the dashboard may not be in view. Expected:
+  The daemon should handle notifications so they are delivered even when the browser is not open or
+  visible.
+  Filed 2026-11-20 from musterd 0.30.3 / Claude Code 2.1.329, focus view, session working.
+  Labels: enhancement, process.
+
 ## Enhancements
 
 - [ ] **Search the directory picker in the launch dialog** — filed by the developer 2026-10-22.
@@ -160,6 +167,13 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Filed 2026-11-11 from musterd 0.29.1 / Claude Code 2.1.293, focus view, session started.
   Labels: bug, rail, ux.
 
+- [ ] **Height change of launch dialog changes it's size** ([#130](https://github.com/Zalaras/muster/issues/130)) — Changing
+  the height of the launch dialog changes its size, which makes the surrounding content jump around.
+  Expected: The launch dialog should stay more static so that nothing jumps around when its height
+  changes.
+  Filed 2026-11-20 from musterd 0.30.3 / Claude Code 2.1.329, focus view, session idle.
+  Labels: bug, launch, ux.
+
 ## Tweaks
 
 - [ ] **Revisit the reader nav's scrolling** — the docs reader's nav scrolls as one column, so with
@@ -243,20 +257,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   for its SQL database, and investigate whether it is worthwhile for notes and the diff viewer.
   Filed 2026-11-19 from musterd 0.30.3 / Claude Code 2.1.328, focus view, session working.
   Labels: enhancement, sessions.
-
-- [ ] **Height change of launch dialog changes it's size** ([#130](https://github.com/Zalaras/muster/issues/130)) — Changing
-  the height of the launch dialog changes its size, which makes the surrounding content jump around.
-  Expected: The launch dialog should stay more static so that nothing jumps around when its height
-  changes.
-  Filed 2026-11-20 from musterd 0.30.3 / Claude Code 2.1.329, focus view, session idle.
-  Labels: enhancement, launch, ux.
-
-- [ ] **Add notifications** ([#131](https://github.com/Zalaras/muster/issues/131)) — Notifications
-  that only appear in the browser can be missed, since the dashboard may not be in view. Expected:
-  The daemon should handle notifications so they are delivered even when the browser is not open or
-  visible.
-  Filed 2026-11-20 from musterd 0.30.3 / Claude Code 2.1.329, focus view, session working.
-  Labels: enhancement, process.
 
 ## Tooling and docs
 
