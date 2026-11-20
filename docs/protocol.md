@@ -1020,9 +1020,16 @@ Every route above answers with `rev`: the `rev` of session `{id}`'s **latest bro
 `terminals` message (`kb:anchor/ws.shell-activity`) once the call's own change has been
 broadcast, or `0` if the session has had none since the daemon started. Its list already
 reflects the call. It is per session, not the daemon-wide counter, so a list for the session
-sent before the reply and not superseded still applies (`kb:adr/surfaces-terminals-list-revision`).
-A reply with a `rev` at or below what the client has already seen for the session, whose terminal
-is missing from the client's current list, means that terminal has already ended.
+sent before the reply and not superseded still applies (`kb:adr/surfaces-terminal-ended-read-from-lists`).
+
+If the call's follow-up listing fails, so its change is not broadcast, `rev` is instead a fresh
+value of the daemon-wide counter, taken without a broadcast — above every list sent so far — and the
+next successful poll broadcasts that session's list even if it is unchanged.
+
+A spawn reply (`POST …/shell`, `POST …/shells`) means its terminal has **already ended** iff its
+`rev` is at or below the `rev` of the last list the client has **applied** for the session (a
+`terminals` message, or `snapshot.terminalsRev`) and that list lacks the reply's `n`. Another
+reply's `rev` never counts toward this: replies raise only the floor below which a list is ignored.
 
 Terminals are deliberately **not** persistent: they outlive musterd only because tmux sessions
 do, and reconcile (`kb:anchor/state.liveness`) kills every `muster-<n>-shell` and
@@ -1750,13 +1757,14 @@ current lists are in `snapshot.terminals`, so a reconnecting client re-syncs wit
 change, and the whole-list shape means a later message corrects a lost one.
 
 `rev` is an integer ≥ 1 from one daemon-wide counter that rises by one per `terminals` broadcast,
-for any session, so messages on `/ws` arrive in increasing `rev`. It restarts with the daemon;
+for any session, and per failed follow-up listing (`kb:anchor/sessions.shell` § Revisions), so
+messages on `/ws` arrive in increasing `rev`, possibly with gaps. It restarts with the daemon;
 `snapshot.terminalsRev` is its value when the snapshot was built. A client keeps, **per session**,
 the highest revision it has seen — from these messages, from the terminal routes' replies
 (`kb:anchor/sessions.shell` § Revisions) and from `snapshot.terminalsRev`, which sets every session
 — and ignores a `terminals` message whose `rev` is below it. Equal is applied. That is what stops a
 list built before a spawn, close or rename, arriving after its reply, from undoing it
-(`kb:adr/surfaces-terminals-list-revision`).
+(`kb:adr/surfaces-terminal-ended-read-from-lists`).
 
 `busy` is true when the terminal pane's foreground command differs from the shell's own basename,
 the pane is **not** on the alternate screen, and the pane's tty is in **canonical** mode. The

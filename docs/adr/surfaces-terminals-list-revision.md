@@ -1,7 +1,7 @@
 ---
 id: surfaces-terminals-list-revision
 type: decision
-status: accepted
+status: superseded
 date: 2026-11-20
 summary: Each terminals list carries a daemon-wide rising rev and each terminal reply the session's latest, so a window drops a list older than it knows.
 features: [surfaces]
