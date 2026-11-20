@@ -2732,6 +2732,11 @@ that the dashboard shows.
   Filed 2026-11-19 from musterd 0.30.3 / Claude Code 2.1.328, focus view, session working.
   Labels: bug, focus, sessions, perf.
 
+- [x] **A stale terminals list can switch a window away from a terminal it just created** ✅ done 2026-11-20 (plan `stale-terminals-list-1`, via `/fix`) — a
+  terminals list sent before a spawn, arriving after the spawn's reply, replaces the new terminal with
+  the lowest one. Expected: a terminal the window asked for stays shown until a list that includes it
+  arrives. From `plans/better-terminal/`.
+
 ## Tweaks
 
 - [x] **Add mark unread right click option** ([#103](https://github.com/Zalaras/muster/issues/103)) ✅ done 2026-10-26 (plan `remove-unread-right-click-1`, via `/fix`) — There

@@ -160,11 +160,6 @@ surface is not a `/fix`; `/fix` stops and says so, and the entry moves up a sect
   Filed 2026-11-11 from musterd 0.29.1 / Claude Code 2.1.293, focus view, session started.
   Labels: bug, rail, ux.
 
-- [ ] **A stale terminals list can switch a window away from a terminal it just created** — a
-  terminals list sent before a spawn, arriving after the spawn's reply, replaces the new terminal with
-  the lowest one. Expected: a terminal the window asked for stays shown until a list that includes it
-  arrives. From `plans/better-terminal/`.
-
 ## Tweaks
 
 - [ ] **Revisit the reader nav's scrolling** — the docs reader's nav scrolls as one column, so with
