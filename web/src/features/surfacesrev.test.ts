@@ -1,5 +1,5 @@
-// The terminals-list revision contract (kb:adr/surfaces-terminals-list-revision,
-// kb:anchor/ws.shell-activity, kb:anchor/ws.snapshot, kb:anchor/sessions.shell § Revisions),
+// The terminals-list revision contract (kb:adr/surfaces-terminal-ended-read-from-lists,
+// kb:adr/surfaces-terminals-list-revision, kb:anchor/ws.shell-activity, kb:anchor/ws.snapshot, kb:anchor/sessions.shell § Revisions),
 // driven the way the dashboard is wired: `terminals` and `snapshot` arrive as raw `/ws` JSON
 // through WsClient and dashboardWsHandlers into an app with initSurfaces, and the four terminal
 // routes' replies arrive as HTTP bodies through a stubbed `fetch` into the real ../api/sessions.
@@ -263,5 +263,61 @@ describe("a spawn reply at or below the seen rev whose terminal is missing from 
       selected: "shell",
       shell: 3,
     });
+  });
+});
+
+describe("a spawn reply judged against the snapshot's terminalsRev alone (no terminals message yet)", () => {
+  it.each([
+    [9, { selected: "claude", shell: 1 }],
+    [10, { selected: "shell", shell: 2 }],
+  ])("reply rev %s with a snapshot list lacking n", async (rev, expected) => {
+    const w = wire();
+    w.snapshot(9, { 1: [info(1)] });
+    const reply = pendingReply();
+    w.handle.newTerminal(1, noDeadRefs);
+    await reply({ target: "muster-1-shell-2", n: 2, name: "shell 2", rev });
+    expect(getSurfaceState(w.handle.state(), 1)).toEqual(expected);
+  });
+});
+
+describe("a rename or close reply arriving before the list carrying a new terminal", () => {
+  const shown = (w: ReturnType<typeof wire>, shell: number) => {
+    expect(getSurfaceState(w.handle.state(), 1)).toEqual({ selected: "shell", shell });
+  };
+
+  it("a rename reply first still shows the spawned terminal", async () => {
+    const w = wire();
+    w.snapshot(5, { 1: [info(1)] });
+    const spawn = pendingReply();
+    w.handle.newTerminal(1, noDeadRefs);
+    const rename = pendingReply();
+    w.handle.renameTerminal(1, 1, "build");
+    await rename({ n: 1, name: "build", rev: 7 });
+    await spawn({ target: "muster-1-shell-2", n: 2, name: "shell 2", rev: 6 });
+    shown(w, 2);
+  });
+
+  it("a close reply first still shows the spawned terminal", async () => {
+    const w = wire();
+    w.snapshot(5, { 1: [info(1)] });
+    const spawn = pendingReply();
+    w.handle.newTerminal(1, noDeadRefs);
+    const close = pendingReply();
+    w.handle.closeTerminal(1, 1);
+    await close({ rev: 7 });
+    await spawn({ target: "muster-1-shell-2", n: 2, name: "shell 2", rev: 6 });
+    shown(w, 2);
+  });
+
+  it("a rename reply first still shows the terminal select('shell') made", async () => {
+    const w = wire();
+    w.snapshot(5, {});
+    const spawn = pendingReply();
+    w.handle.select(1, "shell", noDeadRefs);
+    const rename = pendingReply();
+    w.handle.renameTerminal(1, 1, "build");
+    await rename({ n: 1, name: "build", rev: 7 });
+    await spawn({ target: "muster-1-shell", n: 1, created: true, rev: 6 });
+    shown(w, 1);
   });
 });

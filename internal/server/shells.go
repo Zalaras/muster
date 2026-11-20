@@ -73,7 +73,7 @@ type shellFeature struct {
 	// (kb:anchor/terminal.shell-ws) — independent of registry.tmux (a narrower paneSpawner)
 	// so a test can fake copy-mode behaviour without faking session spawning too.
 	scroll  shellScroller
-	changed func(context.Context)
+	changed func(context.Context, int64)
 	revFor  func(sessionID int64) int64
 	log     zerolog.Logger
 }
@@ -82,7 +82,7 @@ type shellFeature struct {
 // when set, else the daemon's one real tmux client (New defaults every Config override
 // whose fallback is another root-built object in the one place, alongside spawner/attach/
 // httpClient).
-func newShellFeature(registry *shellRegistry, terminals *terminalRegistry, manager *session.Manager, attach attachFunc, scroll shellScroller, changed func(context.Context), revFor func(int64) int64, log zerolog.Logger) *shellFeature {
+func newShellFeature(registry *shellRegistry, terminals *terminalRegistry, manager *session.Manager, attach attachFunc, scroll shellScroller, changed func(context.Context, int64), revFor func(int64) int64, log zerolog.Logger) *shellFeature {
 	return &shellFeature{registry: registry, terminals: terminals, manager: manager, attach: attach, scroll: scroll, changed: changed, revFor: revFor, log: log}
 }
 
@@ -141,7 +141,7 @@ func (f *shellFeature) spawnInSession(w http.ResponseWriter, r *http.Request, sp
 		writeJSONError(w, http.StatusInternalServerError, "shell_spawn_failed", msgShellSpawnFailed)
 		return 0, false
 	}
-	f.changed(ctx)
+	f.changed(ctx, id)
 	return id, true
 }
 
@@ -206,7 +206,7 @@ func (f *shellFeature) handleRenameTerminal(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	f.registry.names.set(id, n, name)
-	f.changed(ctx)
+	f.changed(ctx, id)
 	writeJSON(w, http.StatusOK, terminalNameResponse{N: n, Name: f.registry.names.effective(id, n), Rev: f.revFor(id)})
 }
 
@@ -236,7 +236,7 @@ func (f *shellFeature) handleCloseTerminal(w http.ResponseWriter, r *http.Reques
 		writeNoShell(w)
 		return
 	}
-	f.changed(ctx)
+	f.changed(ctx, id)
 	writeJSON(w, http.StatusOK, terminalClosedResponse{Rev: f.revFor(id)})
 }
 
@@ -272,7 +272,7 @@ func (f *shellFeature) handleShellTerminal(w http.ResponseWriter, r *http.Reques
 	attachAndPump(w, r, f.log, f.terminals, f.manager, id, f.attach, terminalPump{
 		target: shellTarget,
 		key:    terminalKey{sessionID: id, surface: surfaceShell, n: n},
-		nudge:  func(ctx context.Context, _ int64) { f.changed(ctx) },
+		nudge:  func(ctx context.Context, id int64) { f.changed(ctx, id) },
 		socketToPTY: func(ctx context.Context, c *websocket.Conn, bridge paneConn) {
 			// The shell socket's own variant: decodes the `scroll` control frame the Claude
 			// socket does not accept, and cancels copy-mode before writing input

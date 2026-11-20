@@ -72,7 +72,7 @@ func TestHandleCloseTerminal_SocketsAndBroadcastAcrossSessions1And12(t *testing.
 	spawnTerminals(t, srv, s1.ID, 2)
 	spawnTerminals(t, srv, s12.ID, 2)
 	b := wireTerminalList(srv, fake)
-	srv.shellActivity.poller.sync(context.Background())
+	srv.shellActivity.poller.sync(context.Background(), s1.ID)
 	b.reset()
 
 	httpSrv := httptest.NewServer(srv.Handler())
@@ -127,7 +127,7 @@ func TestHandleRemoveSession_KillOfSession1LeavesSession12Untouched(t *testing.T
 	spawnTerminals(t, srv, s12.ID, 2)
 	require.Equal(t, http.StatusOK, terminalsRequest(t, srv, http.MethodPut, shellsPath(s12.ID, "/2/name"), `{"name":"keep"}`).Code)
 	b := wireTerminalList(srv, fake)
-	srv.shellActivity.poller.sync(context.Background())
+	srv.shellActivity.poller.sync(context.Background(), s1.ID)
 	b.reset()
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
@@ -137,7 +137,7 @@ func TestHandleRemoveSession_KillOfSession1LeavesSession12Untouched(t *testing.T
 
 	rec := sessionActionRequest(t, srv, http.MethodDelete, "/api/sessions/"+strconv.FormatInt(s1.ID, 10))
 	require.Equal(t, http.StatusNoContent, rec.Code)
-	srv.shellActivity.poller.sync(context.Background())
+	srv.shellActivity.poller.sync(context.Background(), s1.ID)
 
 	listed, err := fake.ListSessions(context.Background())
 	require.NoError(t, err)
@@ -160,7 +160,7 @@ func TestHandleShellTerminal_PTYEndBroadcastsTheRemainingList(t *testing.T) {
 	spawnTerminals(t, srv, s1.ID, 2)
 	spawnTerminals(t, srv, s12.ID, 1)
 	b := wireTerminalList(srv, fake)
-	srv.shellActivity.poller.sync(context.Background())
+	srv.shellActivity.poller.sync(context.Background(), s1.ID)
 	b.reset()
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)

@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -74,6 +76,7 @@ func TestPollerRev_TransitionsFromEveryStartingList(t *testing.T) {
 func TestPollerRev_SessionKeepsItsRevAfterItsListGoesEmpty(t *testing.T) {
 	var seen []revSeen
 	p := newRevPoller(&seen)
+	p.reconcile(map[int64][]terminalWire{1: {tw(1, "shell 1", false)}})
 	p.reconcile(map[int64][]terminalWire{1: {tw(1, "shell 1", false)}, 2: {tw(1, "shell 1", false)}})
 	seen = nil
 
@@ -128,4 +131,68 @@ func TestPollerRev_SnapshotListsAndRevAgreeAfterReconcile(t *testing.T) {
 	lists["2"][0].Name = "mutated"
 	again, _ := p.snapshot()
 	assert.Equal(t, "b", again["2"][0].Name, "snapshot lists are copies")
+}
+
+// TestPollerRev_FailedFollowUpListingAnswersAFreshRevAndForcesNextBroadcast assumes the
+// seam sync(ctx, sessionID): when the follow-up listing fails, the session's rev becomes a
+// fresh daemon-wide value above every list sent (no broadcast), and the next successful
+// poll broadcasts the session's list even though it is unchanged.
+func TestPollerRev_FailedFollowUpListingAnswersAFreshRevAndForcesNextBroadcast(t *testing.T) {
+	ctx := context.Background()
+	lister := newPaneActivityStub(terminalPane(1, 1, testShellBase, false, ""))
+	b := &recordingActivityBroadcaster{}
+	p := newTestPoller(lister, newCanonicalStub(), b)
+
+	p.tick(ctx)
+	require.Len(t, b.all(), 1)
+	sent := p.revFor(1)
+	assert.Equal(t, int64(1), sent)
+
+	lister.setErr(errors.New("tmux list failed"))
+	p.sync(ctx, 1)
+
+	assert.Greater(t, p.revFor(1), sent, "the route answers a rev above every list sent")
+	_, counter := p.snapshot()
+	assert.Equal(t, counter, p.revFor(1), "the fresh rev is the daemon-wide counter's value")
+	assert.Len(t, b.all(), 1, "the failure itself broadcasts nothing")
+
+	lister.setErr(nil)
+	p.tick(ctx)
+
+	got := b.all()
+	require.Len(t, got, 2, "the next successful poll broadcasts the unchanged list")
+	assert.Equal(t, int64(1), got[1].sessionID)
+	assert.Equal(t, []terminalWire{tw(1, "shell 1", false)}, got[1].terminals)
+
+	p.tick(ctx)
+	assert.Len(t, b.all(), 2, "the force clears after one broadcast")
+}
+
+// A spawn whose follow-up listing fails, and whose terminal is gone by the next poll, is
+// absent from both the old and the next listing: the forced broadcast carries an empty,
+// non-nil list.
+func TestPollerRev_ForcedSessionWithNoTerminalsBroadcastsAnEmptyList(t *testing.T) {
+	ctx := context.Background()
+	lister := newPaneActivityStub(terminalPane(1, 1, testShellBase, false, ""))
+	b := &recordingActivityBroadcaster{}
+	p := newTestPoller(lister, newCanonicalStub(), b)
+
+	p.tick(ctx)
+	require.Len(t, b.all(), 1)
+
+	lister.setErr(errors.New("tmux list failed"))
+	p.sync(ctx, 2)
+	assert.Len(t, b.all(), 1, "the failure itself broadcasts nothing")
+
+	lister.setErr(nil)
+	p.tick(ctx)
+
+	got := b.all()
+	require.Len(t, got, 2, "one broadcast for the forced session; the bystander is unchanged")
+	assert.Equal(t, int64(2), got[1].sessionID)
+	assert.NotNil(t, got[1].terminals)
+	assert.Empty(t, got[1].terminals)
+
+	p.tick(ctx)
+	assert.Len(t, b.all(), 2, "the force clears after one broadcast")
 }

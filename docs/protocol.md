@@ -1752,7 +1752,8 @@ Session 7's running terminals (`kb:anchor/sessions.shell`), sorted by `n` ascend
 last terminal ends, never null. `name` is the effective name — the developer's if set, else
 `shell <n>` — never empty. Broadcast with the session's **whole** list whenever any of it changes:
 a terminal spawned, closed, or observed gone (exit or external kill, found by the ~1 s poll or by
-its attach PTY ending), a rename, or a busy flip; never when nothing changed. Never replayed: the
+its attach PTY ending), a rename, or a busy flip; never when nothing changed, except that a session whose follow-up
+listing failed is re-broadcast, unchanged, on the next successful poll. Never replayed: the
 current lists are in `snapshot.terminals`, so a reconnecting client re-syncs without waiting for a
 change, and the whole-list shape means a later message corrects a lost one.
 

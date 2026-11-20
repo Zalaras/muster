@@ -72,6 +72,7 @@ type shellActivityPoller struct {
 	terms  map[int64][]terminalWire
 	rev    int64
 	revs   map[int64]int64
+	forced map[int64]bool
 
 	bg bgLoop
 }
@@ -88,6 +89,7 @@ func newShellActivityPoller(lister paneActivityLister, canonical ttyCanonicalChe
 		log:       log,
 		terms:     make(map[int64][]terminalWire),
 		revs:      make(map[int64]int64),
+		forced:    make(map[int64]bool),
 	}
 }
 
@@ -123,18 +125,33 @@ func (p *shellActivityPoller) revFor(sessionID int64) int64 {
 	return p.revs[sessionID]
 }
 
-func (p *shellActivityPoller) sync(ctx context.Context) { p.tick(ctx) }
+func (p *shellActivityPoller) sync(ctx context.Context, sessionID int64) {
+	p.tickMu.Lock()
+	defer p.tickMu.Unlock()
+	if p.poll(ctx) {
+		return
+	}
+	p.mu.Lock()
+	p.rev++
+	p.revs[sessionID] = p.rev
+	p.forced[sessionID] = true
+	p.mu.Unlock()
+}
 
 func (p *shellActivityPoller) tick(ctx context.Context) {
 	p.tickMu.Lock()
 	defer p.tickMu.Unlock()
+	p.poll(ctx)
+}
+
+func (p *shellActivityPoller) poll(ctx context.Context) bool {
 	if !p.hasShells() && !p.listed() {
-		return
+		return true
 	}
 	panes, err := p.lister(ctx)
 	if err != nil {
 		p.log.Debug().Err(err).Msg("shell activity poll: listing pane activity failed")
-		return
+		return false
 	}
 
 	next := make(map[int64][]terminalWire)
@@ -149,6 +166,7 @@ func (p *shellActivityPoller) tick(ctx context.Context) {
 		sort.Slice(list, func(i, j int) bool { return list[i].N < list[j].N })
 	}
 	p.reconcile(next)
+	return true
 }
 
 func (p *shellActivityPoller) listed() bool {
@@ -188,6 +206,16 @@ func (p *shellActivityPoller) reconcile(next map[int64][]terminalWire) {
 		if _, still := next[id]; !still {
 			pending = append(pending, pendingBroadcast{id, []terminalWire{}})
 		}
+	}
+	for id := range p.forced {
+		if !slices.ContainsFunc(pending, func(b pendingBroadcast) bool { return b.sessionID == id }) {
+			list := next[id]
+			if list == nil {
+				list = []terminalWire{}
+			}
+			pending = append(pending, pendingBroadcast{id, list})
+		}
+		delete(p.forced, id)
 	}
 	for _, b := range pending {
 		p.rev++

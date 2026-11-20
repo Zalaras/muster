@@ -64,12 +64,13 @@ import {
   type TerminalsState,
 } from "../terminal/terminals";
 import {
+  appliedRev,
+  applyListRev,
   EMPTY_TERMINALS_REV,
   forgetSeenRev,
   isStaleList,
   raiseSeenRev,
   resetSeenRev,
-  seenRev,
   type TerminalsRevState,
 } from "../terminal/terminalsrev";
 
@@ -178,7 +179,7 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
 
   function observeSpawnReply(id: number, n: number, rev: number): boolean {
     const ended =
-      rev <= seenRev(revState, id) &&
+      rev <= appliedRev(revState, id) &&
       !getTerminals(terminalsState, id).some((terminal) => terminal.n === n);
     revState = raiseSeenRev(revState, id, rev);
     return ended;
@@ -334,7 +335,7 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
   app.on("terminals", (sessionId, rev, terminals) => {
     if (!app.store.values().some((session) => session.id === sessionId)) return;
     if (isStaleList(revState, sessionId, rev)) return;
-    revState = raiseSeenRev(revState, sessionId, rev);
+    revState = applyListRev(revState, sessionId, rev);
     applyTerminalList(sessionId, terminals);
   });
 

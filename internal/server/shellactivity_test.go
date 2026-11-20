@@ -381,13 +381,13 @@ func TestSync_BroadcastsAChangeAtOnceAndOnlyOnce(t *testing.T) {
 	b := &recordingActivityBroadcaster{}
 	p := newPollerWith(lister.list, newCanonicalStub().check, alwaysHasShells, names, b)
 
-	p.sync(context.Background())
-	p.sync(context.Background())
+	p.sync(context.Background(), 1)
+	p.sync(context.Background(), 1)
 	assert.Equal(t, []terminalsBroadcast{{1, []terminalWire{tw(1, "shell 1", false)}}}, b.all(), "an unchanged list is not re-broadcast")
 	b.reset()
 
 	names.set(1, 1, "api")
-	p.sync(context.Background())
+	p.sync(context.Background(), 1)
 	assert.Equal(t, []terminalsBroadcast{{1, []terminalWire{tw(1, "api", false)}}}, b.all(), "a rename is a change")
 }
 
