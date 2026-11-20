@@ -90,25 +90,27 @@ type Run struct {
 	Tokens      *Tokens              `json:"tokens,omitempty"`     // the run's whole spend
 	StepTokens  map[string]Tokens    `json:"stepTokens,omitempty"` // by step, plus "orchestrator" and "other"
 	Live        []string             `json:"live,omitempty"`       // running now, read from the sessions
+	Gates       []GateRun            `json:"gates,omitempty"`      // every gates.sh run, read from the sessions
 }
 
 // Batch is one batch of a sweep, with the step its own orchestration state is on.
 type Batch struct {
-	N          int      `json:"n"`
-	Name       string   `json:"name"`
-	WorkType   string   `json:"workType"`
-	Status     string   `json:"status"`
-	Alive      bool     `json:"alive"`
-	Step       string   `json:"step,omitempty"`
-	StepSince  string   `json:"stepSince,omitempty"`
-	StartedAt  string   `json:"startedAt,omitempty"`
-	FinishedAt string   `json:"finishedAt,omitempty"`
-	Subject    string   `json:"subject,omitempty"`
-	LandedSHA  string   `json:"landedSha,omitempty"`
-	Error      string   `json:"error,omitempty"`
-	Question   string   `json:"question,omitempty"`
-	Tokens     *Tokens  `json:"tokens,omitempty"`
-	Live       []string `json:"live,omitempty"` // running now, read from the batch's sessions
+	N          int       `json:"n"`
+	Name       string    `json:"name"`
+	WorkType   string    `json:"workType"`
+	Status     string    `json:"status"`
+	Alive      bool      `json:"alive"`
+	Step       string    `json:"step,omitempty"`
+	StepSince  string    `json:"stepSince,omitempty"`
+	StartedAt  string    `json:"startedAt,omitempty"`
+	FinishedAt string    `json:"finishedAt,omitempty"`
+	Subject    string    `json:"subject,omitempty"`
+	LandedSHA  string    `json:"landedSha,omitempty"`
+	Error      string    `json:"error,omitempty"`
+	Question   string    `json:"question,omitempty"`
+	Tokens     *Tokens   `json:"tokens,omitempty"`
+	Live       []string  `json:"live,omitempty"`  // running now, read from the batch's sessions
+	Gates      []GateRun `json:"gates,omitempty"` // every gates.sh run in the batch
 	// The batch's own pipeline, from the orchestration-state.json its fix-batch writes once planned.
 	Steps      map[string][]Attempt `json:"steps,omitempty"`
 	Skipped    []string             `json:"skipped,omitempty"`
@@ -141,6 +143,7 @@ type Env struct {
 type TokenSource interface {
 	RunTokens(tree string, from, to time.Time, steps map[string][]Attempt) (map[string]Tokens, Tokens)
 	Live(tree string, now time.Time) []string
+	Gates(tree string, from, to, now time.Time) []GateRun
 }
 
 // Usage is the account's latest rate-limit sample. Account-wide: it is never one run's cost.
@@ -366,6 +369,7 @@ func addTokens(runs []Run, trees []Tree, env Env) {
 				}
 				by, t := env.Tokens.RunTokens(b.worktree, parse(b.StartedAt), bEnd, b.Steps)
 				b.Tokens, b.StepTokens = &t, by
+				b.Gates = env.Tokens.Gates(b.worktree, parse(b.StartedAt), bEnd, env.Now)
 				if b.Status == "running" {
 					b.Live = env.Tokens.Live(b.worktree, env.Now)
 				}
@@ -382,6 +386,7 @@ func addTokens(runs []Run, trees []Tree, env Env) {
 		}
 		by, total := env.Tokens.RunTokens(r.Tree, parse(r.StartedAt), end, r.Steps)
 		r.StepTokens, r.Tokens = by, &total
+		r.Gates = env.Tokens.Gates(r.Tree, parse(r.StartedAt), end, env.Now)
 		if r.Group != "done" {
 			r.Live = env.Tokens.Live(r.Tree, env.Now)
 		}

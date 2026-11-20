@@ -135,20 +135,28 @@ type block struct {
 
 // openTool is a tool call with no result yet: what the session is doing right now.
 type openTool struct {
-	Label string
-	Cwd   string
-	At    time.Time
+	Label   string
+	Cwd     string
+	At      time.Time
+	End     time.Time // set once the call has ended
+	OutFile string    // where its output lands: a `> file` redirect, else a backgrounded call's output file
+	LogDir  string    // gates.sh's GATES_LOG_DIR, one NN-<id>.log per gate as it starts
+	Output  string    // a foreground call's result text
 }
 
 // toolLabel names the long-running calls worth showing as live work; the rest return "".
 func toolLabel(b block) string {
-	if b.Name == "Bash" {
+	if b.Name != "Bash" {
+		return ""
+	}
+	for _, seg := range cmdSplit.Split(b.Input.Command, -1) {
+		cmd := envPrefix.ReplaceAllString(strings.TrimSpace(seg), "")
 		switch {
-		case strings.Contains(b.Input.Command, "gates.sh"):
+		case gatesCmd.MatchString(cmd) && !strings.Contains(cmd, "--e2e-scope") && !strings.Contains(cmd, "--code-fingerprint"):
 			return "gates"
-		case strings.Contains(b.Input.Command, "make e2e"):
+		case strings.HasPrefix(cmd, "make e2e"):
 			return "e2e sweep"
-		case strings.Contains(b.Input.Command, "make test"), strings.Contains(b.Input.Command, "make check"):
+		case strings.HasPrefix(cmd, "make test"), strings.HasPrefix(cmd, "make check"):
 			return "tests"
 		}
 	}
@@ -156,19 +164,83 @@ func toolLabel(b block) string {
 }
 
 var (
+	redirectRe = regexp.MustCompile(`gates\.sh[^>;&|]*>\s*(\S+)`)
+	logDirRe   = regexp.MustCompile(`GATES_LOG_DIR=(\S+)`)
+)
+
+// gatesPaths reads a gates command's stdout redirect and log folder, expanding $TMPDIR and the
+// like with this process's environment — the same user's, so the same temp dir.
+func gatesPaths(cmd string) (out, logDir string) {
+	expand := func(p string) string { return os.ExpandEnv(strings.Trim(p, `"'`)) }
+	if m := redirectRe.FindStringSubmatch(cmd); m != nil {
+		out = expand(m[1])
+	}
+	if m := logDirRe.FindStringSubmatch(cmd); m != nil {
+		logDir = expand(m[1])
+	}
+	return out, logDir
+}
+
+// A command runs gates only when gates.sh is the command itself — after `;`, `&&`, `|` or a
+// newline and any VAR=value prefixes — not when grep, sed or cat merely name the file.
+var (
+	cmdSplit  = regexp.MustCompile(`[;&|\n]+`)
+	envPrefix = regexp.MustCompile(`^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)+`)
+	gatesCmd  = regexp.MustCompile(`^(?:bash\s+)?\S*gates\.sh(?:\s|$)`)
+)
+
+var (
 	backgroundMark = []byte("running in background")
 	notifiedRe     = regexp.MustCompile(`<task-notification>[\s\S]*?<tool-use-id>([^<]+)</tool-use-id>`)
 )
 
 // closeNotified ends each backgrounded call a <task-notification> in a plain-text message names.
-func (t *transcript) closeNotified(c json.RawMessage) {
+func (t *transcript) closeNotified(c json.RawMessage, at time.Time) {
 	var s string
 	if len(t.open) == 0 || json.Unmarshal(c, &s) != nil {
 		return
 	}
 	for _, m := range notifiedRe.FindAllStringSubmatch(s, -1) {
-		delete(t.open, m[1])
+		t.end(m[1], at)
 	}
+}
+
+// end moves a call from open to the finished list, which the gates row draws from.
+func (t *transcript) end(id string, at time.Time) {
+	o, ok := t.open[id]
+	if !ok {
+		return
+	}
+	delete(t.open, id)
+	if o.Label == "gates" {
+		if len(o.Output) > 64<<10 {
+			o.Output = o.Output[len(o.Output)-64<<10:] // the summary is at the end
+		}
+		o.End = at
+		t.calls = append(t.calls, o)
+	}
+}
+
+var outFileRe = regexp.MustCompile(`Output is being written to: (\S+\.output)`)
+
+// resultText is a tool_result's content as text: a string, or its text blocks joined.
+func resultText(c json.RawMessage) string {
+	var s string
+	if json.Unmarshal(c, &s) == nil {
+		return s
+	}
+	var parts []struct {
+		Text string `json:"text"`
+	}
+	if json.Unmarshal(c, &parts) != nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, p := range parts {
+		b.WriteString(p.Text)
+		b.WriteByte('\n')
+	}
+	return b.String()
 }
 
 // tools records tool calls opening and closing in one line's content. A call run in the
@@ -180,7 +252,7 @@ func (t *transcript) tools(ln line, at time.Time) {
 	}
 	c := bytes.TrimSpace(ln.Message.Content)
 	if len(c) > 0 && c[0] == '"' {
-		t.closeNotified(c)
+		t.closeNotified(c, at)
 		return
 	}
 	if len(c) == 0 || c[0] != '[' {
@@ -197,14 +269,36 @@ func (t *transcript) tools(ln line, at time.Time) {
 				if t.open == nil {
 					t.open = map[string]openTool{}
 				}
-				t.open[b.ID] = openTool{Label: l, Cwd: ln.Cwd, At: at}
+				o := openTool{Label: l, Cwd: ln.Cwd, At: at}
+				if l == "gates" {
+					o.OutFile, o.LogDir = gatesPaths(b.Input.Command)
+				}
+				t.open[b.ID] = o
 			}
 		case "tool_result":
-			if !bytes.Contains(b.Content, backgroundMark) {
-				delete(t.open, b.ToolUseID)
-			}
+			t.result(b, at)
 		}
 	}
+}
+
+// result settles an open call: a background launch only learns its output file and stays open;
+// any other result carries the output and ends the call.
+func (t *transcript) result(b block, at time.Time) {
+	o, ok := t.open[b.ToolUseID]
+	if !ok {
+		return
+	}
+	text := resultText(b.Content)
+	if strings.Contains(text, string(backgroundMark)) {
+		if m := outFileRe.FindStringSubmatch(text); m != nil && o.OutFile == "" {
+			o.OutFile = m[1] // a redirect named in the command wins: this file then stays empty
+		}
+		t.open[b.ToolUseID] = o
+		return
+	}
+	o.Output = text
+	t.open[b.ToolUseID] = o
+	t.end(b.ToolUseID, at)
 }
 
 // transcript is one file read so far; only appended bytes are read on the next pass.
@@ -217,6 +311,7 @@ type transcript struct {
 	msgs    map[string]usageRec
 	ordered []string            // message ids in first-seen order
 	open    map[string]openTool // long-running tool calls still waiting for their result
+	calls   []openTool          // finished gates calls, with their end
 }
 
 // Ledger caches every transcript it has read, so a poll costs only the bytes appended since.

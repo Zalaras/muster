@@ -134,7 +134,8 @@
   .row .num { font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-muted); text-align: right; }
   .row .num.warn { color: var(--amber); }
   .now { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-width: 0; }
-  .chip { font-family: var(--mono); font-size: var(--fs-2xs); padding: 2px 7px; border-radius: 10px; white-space: nowrap; }
+  .chip { font-family: var(--mono); font-size: var(--fs-2xs); padding: 2px 7px; border-radius: 10px; white-space: nowrap;
+          max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle; }
   .c-run { color: var(--teal); border: 1px solid var(--teal-line); }
   .c-run::before { content: "▸ "; }
   .c-stale { color: var(--amber); border: 1px solid var(--amber-line); }
@@ -234,7 +235,7 @@ const STEPS = [
   { id: "daemon-impl", lane: "d", label: "impl" }, { id: "daemon-tests", lane: "d", label: "tests" },
   { id: "web-impl", lane: "w", label: "impl" }, { id: "web-tests", lane: "w", label: "tests" },
   { id: "render-tests", lane: "w", label: "render" }, { sep: true },
-  { id: "e2e-validate", lane: "" }, { id: "review", lane: "" }, { id: "doc-reconcile", lane: "" },
+  { id: "gates", lane: "", gates: true }, { id: "e2e-validate", lane: "" }, { id: "review", lane: "" }, { id: "doc-reconcile", lane: "" },
 ];
 
 let snap = null, offset = 0, connected = false;
@@ -299,9 +300,59 @@ function nowChips(r) {
   if (r.status === "blocked") return `<span class="chip c-fail">blocked · ${esc(r.currentStep)}</span>`;
   const cls = r.group === "attn" ? "c-stale" : "c-run";
   // What the sessions are doing beats what the state file last recorded.
-  if (r.live && r.live.length) return r.live.map(x => `<span class="chip ${cls}">${esc(x)}</span>`).join("");
+  if (r.live && r.live.length) return liveItems(r).map(i => `<span class="chip ${cls}" title="${esc(i.tip)}">${esc(i.text)}</span>`).join("");
   const chips = running(r).map(([id, a]) => `<span class="chip ${cls}">${esc(id)} ${dur(now() - ms(last(a).start))}${a.length > 1 ? ` · try ${a.length}` : ""}</span>`);
   return chips.join("") || `<span class="chip c-wait">next ${esc(r.currentStep)}</span>`;
+}
+
+/* gates.sh runs are no pipeline step, but a run can sit in them for most of an hour: one bar per
+   run, read from the session's own output as each gate finishes. */
+// No gate line yet: still starting (or waiting on the machine-wide gate lock) while it runs, and
+// output no longer on disk once it has ended.
+const gateCounts = (g, running) => g.pass + g.fail + g.warn === 0
+  ? (running ? "starting" : "no output kept")
+  : `${g.pass} passed${g.fail ? ` · ${g.fail} failed` : ""}`;
+const runningGates = r => (r.gates || []).filter(g => !g.end && !g.done).pop();
+
+function gatesRow(r, pct, end) {
+  const gs = r.gates || [];
+  if (!gs.length) return "";
+  const segs = gs.map((g, i) => {
+    const running = !g.end && !g.done && r.group !== "done";
+    const st = ms(g.start), f = g.end ? ms(g.end) : end;
+    const cls = running ? "running" : g.fail ? "retried" : "";
+    const tip = `gates ${i + 1}: ${hm(st)}–${running ? "now" : hm(f)} · ${gateCounts(g, running)}${g.failed ? ` · failed: ${g.failed.join(", ")}` : ""}`;
+    return `<div class="seg ${cls}" style="left:${pct(st)}%;width:${Math.max(pct(f) - pct(st), 0.3)}%" title="${esc(tip)}"></div>`;
+  }).join("");
+  const cur = runningGates(r), lastRun = gs[gs.length - 1];
+  let info, cls;
+  if (cur && r.group !== "done") {
+    info = `running ${dur(end - ms(cur.start))} · ${gateCounts(cur, true)}${cur.now ? ` · now ${esc(cur.now)}` : ""}`;
+    cls = "run";
+  } else {
+    const took = (lastRun.end ? ms(lastRun.end) : end) - ms(lastRun.start);
+    info = `${gs.length > 1 ? `${gs.length} runs · last ` : ""}${dur(took)} · ${gateCounts(lastRun, false)}`;
+    cls = lastRun.fail ? "amb" : "";
+  }
+  const failedTip = lastRun.failed ? ` title="${esc(`last run failed: ${lastRun.failed.join(", ")}`)}"` : "";
+  return `<div class="lab"><span class="lane"></span>gates</div><div class="track">${segs}</div><div class="info ${cls}"${failedTip}>${info}</div>`;
+}
+
+// A live "gates" names its progress: how long, and how many gates have passed and failed so far.
+function liveLabel(r, x) {
+  const g = x === "gates" && runningGates(r);
+  return g ? `gates ${dur(now() - ms(g.start))} · ${gateCounts(g, true)}${g.now ? ` · now ${g.now}` : ""}` : x;
+}
+
+// The live work as short labels: reviewers running together collapse into one "review ×N".
+function liveItems(r) {
+  const live = r.live || [], reviewers = live.filter(x => x.startsWith(REVIEW_PREFIX));
+  const items = live.filter(x => !x.startsWith(REVIEW_PREFIX)).map(x => ({ text: liveLabel(r, x), tip: x }));
+  if (reviewers.length) {
+    const names = reviewers.map(x => x.slice(REVIEW_PREFIX.length));
+    items.push({ text: reviewers.length > 1 ? `review ×${reviewers.length}` : `review › ${names[0]}`, tip: `reviewing: ${names.join(", ")}` });
+  }
+  return items;
 }
 
 const spans = (r, step) => (((r.stepTokens || {})[step] || {}).spans || []).slice().sort((a, b) => ms(a.start) - ms(b.start));
@@ -314,6 +365,7 @@ function timeline(r) {
   let rows = "";
   for (const s of STEPS) {
     if (s.sep) { rows += `<div class="sep"></div>`; continue; }
+    if (s.gates) { rows += gatesRow(r, pct, end); continue; }
     const a = ((r.steps || {})[s.id] || []).filter(at => at.start); // finish-only stamps have no bar
     // A step its agents ran is never skipped, whatever the state file implies.
     const skip = (r.skipped || []).includes(s.id) && !spans(r, s.id).length;
@@ -339,7 +391,8 @@ function timeline(r) {
       const tk = r.stepTokens[s.id], live = isLive(r, s.id);
       segs = spans(r, s.id).map((sp, i, all) => `<div class="seg ${live && i === all.length - 1 ? "running" : i < all.length - 1 ? "retried" : ""}" style="left:${pct(ms(sp.start))}%;width:${Math.max(pct(live && i === all.length - 1 ? end : ms(sp.end)) - pct(ms(sp.start)), 0.3)}%" title="${esc(s.id)} agent ${i + 1}: ${hm(ms(sp.start))}–${hm(ms(sp.end))}"></div>`).join("");
       const n = tk.agents || 0, word = s.id === "review" ? "cycles" : "tries";
-      info = `${live ? "running · " : ""}${dur((tk.minutes || 0) * 60000)} · ${usd(tk)} · ${tok(tk)}${n > 1 ? ` · ${n} ${word}` : ""}`;
+      const since = Math.max(...spans(r, s.id).map(sp => ms(sp.start)));
+      info = `${live ? `running ${dur(end - since)}` : dur((tk.minutes || 0) * 60000)} · ${usd(tk)} · ${tok(tk)}${n > 1 ? ` · ${n} ${word}` : ""}`;
       infoCls = live ? "run" : n > 1 ? "amb" : "";
     }
     const tip = (r.stepTokens || {})[s.id] ? ` title="${esc(tokTitle(r.stepTokens[s.id]))}"` : "";
@@ -365,7 +418,7 @@ function batchStatus(b) {
     case "pending": return ["pending", "c-wait"];
     case "running":
       if (!b.alive) return ["process exited", "c-fail"];
-      if (b.live && b.live.length) return [b.live.map(esc).join(" · "), "c-run"];
+      if (b.live && b.live.length) return [liveItems(b).map(i => esc(i.text)).join(" · "), "c-run"];
       return [b.step ? `${esc(b.step)} · ${dur(now() - ms(b.stepSince))}` : "working", "c-run"];
     case "completed": return ["did not land", "c-fail"];
     default: return [b.question ? "question" : "failed", "c-fail"];
@@ -383,7 +436,7 @@ function batches(r) {
     // once the batch has written its orchestration-state.json (before that it is "starting").
     const steps = b.steps ? `<div class="full btl">${timeline({
       startedAt: b.startedAt, updatedAt: b.finishedAt, group: b.finishedAt ? "done" : "active",
-      name: `${r.name}#${b.n}`, status: b.status === "running" && !b.alive ? "blocked" : "", steps: b.steps, skipped: b.skipped, live: b.live,
+      name: `${r.name}#${b.n}`, status: b.status === "running" && !b.alive ? "blocked" : "", steps: b.steps, skipped: b.skipped, live: b.live, gates: b.gates,
       stepTokens: b.stepTokens, tokens: b.tokens })}</div>` : "";
     return `<span class="n">${b.n}</span><span class="s" title="${esc(subj)}">${esc(subj)}</span><span><span class="chip ${cls}">${st}</span></span><span class="m">${esc(b.workType)}</span><span class="m">${took}</span><span class="m" title="${esc(tokTitle(b.tokens))}">${usd(b.tokens)}</span><span class="m" title="${esc(tokTitle(b.tokens))}">${tok(b.tokens)}</span>${extra}${steps}`;
   }).join("")}</div>`;
