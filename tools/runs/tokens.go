@@ -28,6 +28,16 @@ type Tokens struct {
 	CacheWrite5m int64   `json:"cacheWrite5m"`
 	CacheWrite1h int64   `json:"cacheWrite1h"`
 	Cost         float64 `json:"cost"`
+	// Subagent-only: how many agents ran, their summed first-to-last-message time, and when.
+	Agents  int     `json:"agents,omitempty"`
+	Minutes float64 `json:"minutes,omitempty"`
+	Spans   []Span  `json:"spans,omitempty"`
+}
+
+// Span is one agent's first to last message.
+type Span struct {
+	Start string `json:"start"`
+	End   string `json:"end"`
 }
 
 func (t *Tokens) add(o Tokens) {
@@ -37,6 +47,9 @@ func (t *Tokens) add(o Tokens) {
 	t.CacheWrite5m += o.CacheWrite5m
 	t.CacheWrite1h += o.CacheWrite1h
 	t.Cost += o.Cost
+	t.Agents += o.Agents
+	t.Minutes += o.Minutes
+	t.Spans = append(t.Spans, o.Spans...)
 }
 
 // price is USD per million tokens. Cache writes are 1.25× input (5 m) and 2× input (1 h).
@@ -112,6 +125,7 @@ type transcript struct {
 	offset  int64
 	size    int64
 	first   time.Time // first timestamped line
+	last    time.Time // latest assistant message
 	cwd     string    // first line's cwd
 	msgs    map[string]usageRec
 	ordered []string // message ids in first-seen order
@@ -219,6 +233,9 @@ func (t *transcript) ingest(b []byte) {
 		rec.At = prev.At // the message's time is its first appearance
 	}
 	t.msgs[ln.Message.ID] = rec
+	if at.After(t.last) {
+		t.last = at
+	}
 }
 
 // sum totals the messages sent from inside tree between from and to.
@@ -278,8 +295,13 @@ func (l *Ledger) window(tree string, from, to time.Time) (main Tokens, agents []
 		}
 		var m agentMeta
 		readJSON(strings.TrimSuffix(f, ".jsonl")+".meta.json", &m)
-		agents = append(agents, agentUse{Type: m.AgentType, Description: m.Description, Start: t.first,
-			Tokens: t.sum(tree, time.Time{}, to.Add(time.Hour))})
+		tk := t.sum(tree, time.Time{}, to.Add(time.Hour))
+		tk.Agents = 1
+		if t.last.After(t.first) {
+			tk.Minutes = t.last.Sub(t.first).Minutes()
+			tk.Spans = []Span{{Start: stamp(t.first), End: stamp(t.last)}}
+		}
+		agents = append(agents, agentUse{Type: m.AgentType, Description: m.Description, Start: t.first, Tokens: tk})
 	}
 	sort.Slice(agents, func(i, j int) bool { return agents[i].Start.Before(agents[j].Start) })
 	return main, agents
@@ -380,10 +402,39 @@ func (l *Ledger) runTokens(tree string, from, to time.Time, steps map[string][]A
 	}
 	for _, a := range agents {
 		k := stepFor(a, steps, to)
-		t := by[k]
-		t.add(a.Tokens)
-		by[k] = t
+		keys := []string{k}
+		if k == "review" {
+			keys = append(keys, ReviewPrefix+reviewerOf(a.Type)) // the review total, then its part
+		}
+		for _, key := range keys {
+			t := by[key]
+			t.add(a.Tokens)
+			by[key] = t
+		}
 		total.add(a.Tokens)
 	}
+	total.Spans = nil // the timeline draws spans per step; the run total needs none
 	return by, total
+}
+
+// ReviewPrefix keys one reviewer's share of the review step in a run's StepTokens.
+const ReviewPrefix = "review › "
+
+// Reviewers is the order the review step's parts are shown in.
+var Reviewers = []string{"correctness", "browser", "maintainability", "critic"}
+
+// reviewerOf names the review part an agent type ran; types have carried suffixes (review-work-c2).
+func reviewerOf(agentType string) string {
+	rest := strings.TrimPrefix(agentType, "review-")
+	switch {
+	case strings.HasPrefix(rest, "work"):
+		return "correctness"
+	case strings.HasPrefix(rest, "browser"):
+		return "browser"
+	case strings.HasPrefix(rest, "maint"):
+		return "maintainability"
+	case strings.HasPrefix(rest, "critic"):
+		return "critic"
+	}
+	return rest
 }

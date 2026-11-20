@@ -57,3 +57,35 @@ func TestComputeStats(t *testing.T) {
 	assert.InDelta(t, 0, fixSteps["web-impl"].Minutes, 1e-9, "a finish-only attempt has no duration")
 	assert.InDelta(t, 10, fixSteps["review"].Minutes, 1e-9)
 }
+
+func TestReviewerAverages(t *testing.T) {
+	part := func(cost float64, agents int, minutes float64) Tokens {
+		return Tokens{Cost: cost, Output: 10, Agents: agents, Minutes: minutes}
+	}
+	us := []unit{
+		{by: map[string]Tokens{ReviewPrefix + "correctness": part(4, 2, 20), ReviewPrefix + "critic": part(1, 1, 5)}},
+		{by: map[string]Tokens{ReviewPrefix + "correctness": part(2, 1, 10), ReviewPrefix + "maint-x": part(3, 1, 9)}},
+	}
+	got := map[string]StepAvg{}
+	var order []string
+	for _, s := range reviewerAverages(us) {
+		got[s.Step], order = s, append(order, s.Step)
+	}
+	assert.Equal(t, []string{ReviewPrefix + "correctness", ReviewPrefix + "critic", ReviewPrefix + "maint-x"}, order,
+		"known reviewers in order, then any other part")
+	c := got[ReviewPrefix+"correctness"]
+	assert.Equal(t, 2, c.N)
+	assert.InDelta(t, 3, c.Cost, 1e-9)
+	assert.InDelta(t, 1.5, c.Attempts, 1e-9, "spawns per run")
+	assert.InDelta(t, 15, c.Minutes, 1e-9)
+	assert.Equal(t, "review", c.Parent)
+	assert.Equal(t, 1, got[ReviewPrefix+"critic"].N, "averaged over the runs it reviewed")
+}
+
+func TestReviewerOf(t *testing.T) {
+	for typ, want := range map[string]string{"review-work": "correctness", "review-work-c2": "correctness",
+		"review-browser-c1": "browser", "review-maint-c1": "maintainability", "review-maintainability": "maintainability",
+		"review-critic": "critic"} {
+		assert.Equal(t, want, reviewerOf(typ), typ)
+	}
+}

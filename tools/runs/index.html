@@ -105,6 +105,13 @@
   table.steps td:first-child { text-align: left; padding-left: 0; font-family: var(--sans); color: var(--fg); width: 100%; }
   table.steps td .share { display: block; height: 3px; margin-top: 3px; background: var(--violet); border-radius: 2px; opacity: .7; }
   table.steps tr.bucket td:first-child { color: var(--fg-muted); font-style: italic; }
+  table.steps tr.part td { border-top-style: dashed; }
+  table.steps tr.part td:first-child { padding-left: 12px; color: var(--fg-muted); }
+  .expander { cursor: pointer; }
+  .expander:hover, tr.expander:hover td:first-child { color: var(--fg); }
+  .caret { display: inline-block; width: 12px; color: var(--fg-dim); }
+  .tl .lab.part { color: var(--fg-dim); padding-left: 22px; }
+  .tl .seg.part { background: var(--violet); opacity: .55; }
   table.steps td.amb { color: var(--amber); }
   @media (max-width: 1180px) {
     .layout { grid-template-columns: minmax(0, 1fr); }
@@ -256,6 +263,22 @@ const tok = t => spent(t) ? mtok(allTok(t)) : "—";
 const tokSplit = t => `output <b>${mtok(t.output)}</b> · input <b>${mtok(t.input)}</b> · cache read <b>${mtok(t.cacheRead)}</b> · cache write <b>${mtok(t.cacheWrite5m + t.cacheWrite1h)}</b>`;
 const tokTitle = t => spent(t) ? `${usd(t)} at list price · output ${mtok(t.output)} · input ${mtok(t.input)} · cache read ${mtok(t.cacheRead)} · cache write ${mtok(t.cacheWrite5m + t.cacheWrite1h)}` : "no transcript found";
 const EXTRA = ["orchestrator", "comment pass", "decisions", "other"];
+const REVIEW_PREFIX = "review › ", REVIEWERS = ["correctness", "browser", "maintainability", "critic"];
+let reviewOpen = !!safeGet("runs.reviewOpen");
+const reviewCaret = () => `<span class="caret">${reviewOpen ? "▾" : "▸"}</span>`;
+
+/* One reviewer's row under the review step: its agents' spans on the track, then time, cost and spawns. */
+function reviewerRows(r, pct) {
+  const keys = Object.keys(r.stepTokens || {}).filter(k => k.startsWith(REVIEW_PREFIX));
+  const order = n => { const i = REVIEWERS.indexOf(n); return i < 0 ? 99 : i; };
+  keys.sort((a, b) => order(a.slice(REVIEW_PREFIX.length)) - order(b.slice(REVIEW_PREFIX.length)));
+  return keys.map(k => {
+    const t = r.stepTokens[k];
+    const segs = (t.spans || []).map(s => `<div class="seg part" style="left:${pct(ms(s.start))}%;width:${Math.max(pct(ms(s.end)) - pct(ms(s.start)), 0.3)}%" title="${hm(ms(s.start))}–${hm(ms(s.end))}"></div>`).join("");
+    const spawns = t.agents > 1 ? ` · ×${t.agents}` : "";
+    return `<div class="lab part">↳ ${esc(k.slice(REVIEW_PREFIX.length))}</div><div class="track">${segs}</div><div class="info" title="${esc(tokTitle(t))}">${dur((t.minutes || 0) * 60000)} · ${usd(t)} · ${tok(t)}${spawns}</div>`;
+  }).join("");
+}
 
 function running(r) { return Object.entries(r.steps || {}).filter(([, a]) => isOpen(last(a))); }
 function total(r) { return 9 - (r.skipped || []).length; }
@@ -301,7 +324,10 @@ function timeline(r) {
       else { info = `${dur(took)}${cost}${a.length > 1 ? ` · ${a.length} ${word}` : ""}`; infoCls = a.length > 1 ? "amb" : ""; }
     }
     const tip = (r.stepTokens || {})[s.id] ? ` title="${esc(tokTitle(r.stepTokens[s.id]))}"` : "";
-    rows += `<div class="lab ${skip ? "skip" : ""}">${lane}${s.label || s.id}</div><div class="track">${segs}</div><div class="info ${infoCls} ${skip ? "skip" : ""}"${tip}>${info}</div>`;
+    const parts = s.id === "review" && Object.keys(r.stepTokens || {}).some(k => k.startsWith(REVIEW_PREFIX));
+    const label = parts ? `<span class="expander" data-expand="review" title="show each reviewer">${reviewCaret()}${s.id}</span>` : (s.label || s.id);
+    rows += `<div class="lab ${skip ? "skip" : ""}">${lane}${label}</div><div class="track">${segs}</div><div class="info ${infoCls} ${skip ? "skip" : ""}"${tip}>${info}</div>`;
+    if (parts && reviewOpen) rows += reviewerRows(r, pct);
   }
   const extras = EXTRA.filter(k => spent((r.stepTokens || {})[k]))
     .map(k => `<span title="${esc(tokTitle(r.stepTokens[k]))}">${k} <b>${usd(r.stepTokens[k])}</b> · ${tok(r.stepTokens[k])}</span>`);
@@ -404,10 +430,13 @@ function stepTable(rows) {
   if (!rows || !rows.length) return `<p class="basis">Nothing to average yet.</p>`;
   const top = Math.max(...rows.map(r => r.cost));
   return `<table class="steps"><thead><tr><th>Step</th><th>Cost</th><th>Tokens</th><th>Time</th><th>Tries</th></tr></thead><tbody>
-    ${rows.map(r => {
-      const bucket = !r.attempts;
-      return `<tr class="${bucket ? "bucket" : ""}" title="averaged over ${r.n} run${r.n === 1 ? "" : "s"}">
-        <td>${esc(r.step)}<span class="share" style="width:${top ? (r.cost / top) * 100 : 0}%"></span></td>
+    ${rows.filter(r => !r.parent || reviewOpen).map(r => {
+      const bucket = !r.attempts, part = !!r.parent;
+      const hasParts = r.step === "review" && rows.some(x => x.parent === "review");
+      const name = part ? `↳ ${esc(r.step.slice(REVIEW_PREFIX.length))}` : hasParts ? `${reviewCaret()}${esc(r.step)}` : esc(r.step);
+      const tip = part ? `averaged over the ${r.n} run${r.n === 1 ? "" : "s"} it reviewed · Time is its agents' time · Tries is spawns per run` : `averaged over ${r.n} run${r.n === 1 ? "" : "s"}`;
+      return `<tr class="${bucket ? "bucket" : ""} ${part ? "part" : ""} ${hasParts ? "expander" : ""}" title="${tip}"${hasParts ? ` data-expand="review"` : ""}>
+        <td>${name}<span class="share" style="width:${top ? (r.cost / top) * 100 : 0}%"></span></td>
         <td>${money(r.cost)}</td><td>${mtok(r.tokens)}</td><td>${bucket ? "" : mins(r.minutes)}</td>
         <td class="${r.attempts >= 2 ? "amb" : ""}">${bucket ? "" : r.attempts.toFixed(1)}</td></tr>`;
     }).join("")}</tbody></table>`;
@@ -434,6 +463,15 @@ document.addEventListener("click", e => {
   safeSet("runs.statsTab", statsTab);
   renderStats();
 });
+
+/* The review step opens into its reviewers, in the averages and in every run's timeline alike. */
+document.addEventListener("click", e => {
+  if (!e.target.closest("[data-expand=review]")) return;
+  e.stopPropagation();
+  reviewOpen = !reviewOpen;
+  safeSet("runs.reviewOpen", reviewOpen ? "1" : "");
+  render();
+}, true);
 
 function receive(data) {
   const next = JSON.parse(data);

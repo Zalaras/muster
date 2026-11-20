@@ -97,7 +97,8 @@ func TestRunTokensAttributesAgentsToSteps(t *testing.T) {
 		out[k] = v.Output
 	}
 	assert.Equal(t, map[string]int64{"e2e-specs": 100, "daemon-impl": 200, "e2e-validate": 300,
-		"review": 400, "comment pass": 500, "other": 600}, out)
+		"review": 400, "review › correctness": 400, "comment pass": 500, "other": 600}, out)
+	assert.Equal(t, 1, by["review › correctness"].Agents, "a reviewer's share counts its spawns")
 	assert.Equal(t, int64(2100), total.Output)
 }
 
