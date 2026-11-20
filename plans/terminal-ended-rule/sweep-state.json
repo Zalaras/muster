@@ -1,0 +1,28 @@
+{
+  "sweep": "terminal-ended-rule",
+  "parallel": 1,
+  "started_at": "2026-11-20T09:37:48Z",
+  "updated_at": "2026-11-20T10:54:49Z",
+  "batches": [
+    {
+      "n": 1,
+      "name": "terminal-ended-rule-1",
+      "entries": [
+        "e1"
+      ],
+      "work_type": "full-stack",
+      "status": "landed",
+      "worktree": "/Users/damian/Documents/code/Projects/muster-terminal-ended-rule-1",
+      "branch": "plan/terminal-ended-rule-1",
+      "pid": 37277,
+      "log": "plans/terminal-ended-rule/batch-1.log",
+      "started_at": "2026-11-20T09:38:04Z",
+      "finished_at": "2026-11-20T10:54:35Z",
+      "subject": "fix(surfaces): keep a new terminal shown when a reply or failed listing beats its list",
+      "closes": [],
+      "landed_sha": "99b8742f",
+      "error": null,
+      "question": null
+    }
+  ]
+}
