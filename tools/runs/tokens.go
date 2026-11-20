@@ -123,10 +123,11 @@ type Ledger struct {
 	also []string // directories whose folders every run also searches (the primary checkout)
 	mu   sync.Mutex
 	tx   map[string]*transcript
+	done map[string]memoRun // finished windows' answers
 }
 
 func newLedger(root string, also ...string) *Ledger {
-	return &Ledger{root: root, also: also, tx: map[string]*transcript{}}
+	return &Ledger{root: root, also: also, tx: map[string]*transcript{}, done: map[string]memoRun{}}
 }
 
 var nonWord = regexp.MustCompile(`[^A-Za-z0-9-]`)
@@ -343,6 +344,33 @@ func stepFor(a agentUse, steps map[string][]Attempt, end time.Time) string {
 // RunTokens is a run's spend split by pipeline step, plus the orchestrating session itself
 // ("orchestrator") and agents no step names ("comment pass", "decisions", "other").
 func (l *Ledger) RunTokens(tree string, from, to time.Time, steps map[string][]Attempt) (map[string]Tokens, Tokens) {
+	// A window that closed a while ago cannot change, so its answer is kept for later polls.
+	key := tree + "|" + from.String() + "|" + to.String()
+	if hit, ok := l.memo(key); ok {
+		return hit.by, hit.total
+	}
+	by, total := l.runTokens(tree, from, to, steps)
+	if time.Since(to) > 10*time.Minute {
+		l.mu.Lock()
+		l.done[key] = memoRun{by, total}
+		l.mu.Unlock()
+	}
+	return by, total
+}
+
+type memoRun struct {
+	by    map[string]Tokens
+	total Tokens
+}
+
+func (l *Ledger) memo(key string) (memoRun, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	m, ok := l.done[key]
+	return m, ok
+}
+
+func (l *Ledger) runTokens(tree string, from, to time.Time, steps map[string][]Attempt) (map[string]Tokens, Tokens) {
 	main, agents := l.window(tree, from, to)
 	by := map[string]Tokens{}
 	var total Tokens

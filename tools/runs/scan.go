@@ -121,6 +121,7 @@ type Snapshot struct {
 	Usage      *Usage `json:"usage,omitempty"`
 	Trees      int    `json:"trees"`
 	Runs       []Run  `json:"runs"`
+	Stats      *Stats `json:"stats,omitempty"`
 }
 
 // Env is the scanner's view of the outside world, injectable for tests.
@@ -162,10 +163,13 @@ func Scan(trees []Tree, env Env) Snapshot {
 		}
 	}
 	runs := buildRuns(orch, sweeps, branches, env)
-	runs = trimDone(runs, env.Done)
+	var stats *Stats
 	if env.Tokens != nil {
-		addTokens(runs, trees, env)
+		addTokens(runs, trees, env) // every run, so the averages see all finished work
+		s := computeStats(runs)
+		stats = &s
 	}
+	runs = trimDone(runs, env.Done)
 	sort.SliceStable(runs, func(i, j int) bool {
 		gi, gj := groupRank(runs[i].Group), groupRank(runs[j].Group)
 		if gi != gj {
@@ -180,7 +184,7 @@ func Scan(trees []Tree, env Env) Snapshot {
 	if env.Usage != nil {
 		usage = env.Usage()
 	}
-	return Snapshot{Now: stamp(env.Now), StaleAfter: int(env.Stale.Minutes()), Usage: usage, Trees: len(trees), Runs: runs}
+	return Snapshot{Now: stamp(env.Now), StaleAfter: int(env.Stale.Minutes()), Usage: usage, Trees: len(trees), Runs: runs, Stats: stats}
 }
 
 // buildRuns turns each sweep and each plan that is not one of a sweep's batches into a row.
