@@ -1,0 +1,28 @@
+{
+  "sweep": "stale-terminals-list",
+  "parallel": 1,
+  "started_at": "2026-11-20T06:52:01Z",
+  "updated_at": "2026-11-20T09:25:21Z",
+  "batches": [
+    {
+      "n": 1,
+      "name": "stale-terminals-list-1",
+      "entries": [
+        "e1"
+      ],
+      "work_type": "full-stack",
+      "status": "landed",
+      "worktree": "/Users/damian/Documents/code/Projects/muster-stale-terminals-list-1",
+      "branch": "plan/stale-terminals-list-1",
+      "pid": 12572,
+      "log": "plans/stale-terminals-list/batch-1.log",
+      "started_at": "2026-11-20T06:52:36Z",
+      "finished_at": "2026-11-20T09:25:08Z",
+      "subject": "fix(surfaces): keep a new terminal on screen when an older terminals list arrives late",
+      "closes": [],
+      "landed_sha": "61b24e09",
+      "error": null,
+      "question": null
+    }
+  ]
+}

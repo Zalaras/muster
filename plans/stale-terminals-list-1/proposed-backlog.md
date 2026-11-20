@@ -42,3 +42,13 @@ whatever the machine's load.
 - **Change requested**: no.
 - **Suggested section**: Bugs.
 - **Pre-existing**: yes — the branch touches none of these tests or the code they drive.
+
+## Decisions (the developer, 2026-11-20)
+
+1. A new terminal is not shown when the listing after its spawn fails — already done: 99b8742f
+   fix(surfaces), filed and fixed as "A new terminal can be treated as already ended while it
+   runs" (sweep terminal-ended-rule). Not filed.
+2. A running terminal can be read as ended when two terminal calls to one session overlap —
+   already done: 99b8742f, same entry. Not filed.
+3. Timing tests fail under machine load — not doing ("Ignore the flakey test as we have multiple
+   things running on this machine").
