@@ -26,6 +26,7 @@ current state.
 - `make help` lists everything: `build`, `check` (lint + unit + `check-kb`, which covers `refs`, +
   `check-render-fixtures`), `web-test`, `render-test`, `e2e`, `canary`, `web`.
 - Frontend: `nvm use` in the repo root first (Node pinned 24.22.3); then work in `web/`.
+- Dependency updates: `/deps` (developer-run only) — report, upgrade within each major, re-verify pins, try to drop overrides.
 
 ## Workflow — the build pipeline
 
