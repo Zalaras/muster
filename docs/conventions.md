@@ -230,8 +230,8 @@ from the commits since the last tag on every push to `main`.
 | `fix`, `perf`, `refactor` | patch |
 | everything else | none — the workflow exits green without releasing |
 
-svu itself hardwires only `feat`→minor and `fix`→patch (measured 2026-09-01 against the
-pinned v3.4.1; its config has no type→bump mapping), so `release.yml` carries a small
+svu itself hardwires only `feat`→minor and `fix`→patch (measured 2026-09-01 against
+v3.4.1, unchanged on the pinned v3.4.4; its config has no type→bump mapping), so `release.yml` carries a small
 shim: when `svu next --v0` reports no bump but a `perf`/`refactor` commit exists since
 the last tag, it forces `svu patch`.
 
@@ -272,7 +272,7 @@ this limit exists. Do not copy them. Other types are not capped — a `docs(pipe
 subject may run long to carry a retro finding, since the include filter keeps it out of
 the notes — but the one-sentence, no-body rule still binds every type.
 
-**Breaking changes** (all measured 2026-09-01, svu v3.4.1, scratch repo):
+**Breaking changes** (all measured 2026-09-01, svu v3.4.1, re-measured unchanged 2026-11-20 on v3.4.4, scratch repo):
 
 - **`!` before the colon is the only sanctioned marker**, and it requires a deliberate
   human decision: the commit-msg hook rejects it unless `MUSTER_BREAKING=1` is set.

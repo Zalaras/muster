@@ -1920,6 +1920,15 @@ Filed 2026-10-12 by the developer from `plans/reader-expanded-persists/proposed-
   Cite: `plans/issue-capture/review.md`. **Folded into plan `new-ui-design-colors`
   (spec 2026-09-02, #3 above)** — do not plan separately.
 
+- [x] **Drop the `lodash-es` override once mermaid stops needing it** — `web/package.json`
+  carries `"overrides": { "lodash-es": "4.18.1" }`, added 2026-09-21 to clear Dependabot alerts 21
+  (prototype pollution) and 22 (code injection). It exists because `mermaid@12.0.0` pins
+  `chevrotain` at `~11.1.2` and every chevrotain 11.x pins `lodash-es` at exactly `4.17.23`,
+  so neither `npm update` nor `npm audit fix` can move it — chevrotain only drops the
+  dependency in 13.x, outside mermaid's range. After any mermaid bump, check
+  `npm ls lodash-es`: once nothing pins it below the patched line, delete the block. Left in
+  place it silently holds `lodash-es` back and nothing will warn. Done 2026-10-06 (93bc6ec9 dropped the block); confirmed 2026-11-20 that `npm ls lodash-es` resolves 4.18.1 with no override.
+
 ## Open questions carried forward
 <!-- kb: adr/usage-no-source-interface, adr/launch-settings-local-json-not-settings-json, fact/resume-keeps-session-identity, fact/stopfailure-replaces-stop, fact/refresh-interval-seconds, fact/command-hooks-inherit-pane-env, fact/clear-mints-new-session-id, fact/local-settings-honoured, fact/hook-await-per-event, fact/subagent-hooks-during-permission-wait, fact/stopfailure-error-by-status, fact/interrupt-emits-no-turn-end, fact/tool-failure-hook-events, fact/status-line-around-failed-turns -->
 

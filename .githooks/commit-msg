@@ -3,7 +3,7 @@
 # `make hooks` (git config core.hooksPath .githooks); it binds humans and pipeline
 # agents alike, on every branch.
 #
-# Measured 2026-09-01 against svu v3.4.1 (the release.yml pin): a breaking footer
+# Measured 2026-09-01 against svu v3.4.1, unchanged on v3.4.4 (the release.yml pin): a breaking footer
 # forces a major bump on ANY type and matches the phrase anywhere in the message —
 # mid-sentence, hyphenated, in a body or trailer — and `!` forces major on every
 # type, known or not. release.yml passes --v0 so 0.x clamps those to minor, but a
